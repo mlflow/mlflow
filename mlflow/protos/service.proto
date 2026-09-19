@@ -217,6 +217,26 @@ service MlflowService {
     };
   }
 
+  // Atomically update a run only if its current status matches the expected status.
+  //
+  rpc claimRun(ClaimRun) returns (ClaimRun.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/claim"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+
+      visibility: PUBLIC
+      rpc_doc_title: "Claim Run"
+    };
+  }
+
   // Mark a run for deletion.
   rpc deleteRun(DeleteRun) returns (DeleteRun.Response) {
     option (rpc) = {
@@ -3475,16 +3495,25 @@ message UpdateRun {
   // Updated name of the run.
   optional string run_name = 5;
 
-  // If set, update the run only when its current status matches this value.
-  // The response's `updated` field indicates whether the conditional update succeeded.
-  optional RunStatus expected_status = 6;
-
   message Response {
     // Updated metadata of the run.
     optional RunInfo run_info = 1;
+  }
+}
 
-    // Whether a conditional status update succeeded.
-    optional bool updated = 2;
+message ClaimRun {
+  // ID of the run to update. Must be provided.
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Update the run only when its current status matches this value.
+  optional RunStatus expected_status = 2 [(validate_required) = true];
+
+  // New status for the run.
+  optional RunStatus status = 3 [(validate_required) = true];
+
+  message Response {
+    // Whether the conditional status update succeeded.
+    optional bool updated = 1;
   }
 }
 

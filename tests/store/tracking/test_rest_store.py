@@ -79,6 +79,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
+    ClaimRun,
     CreateAssessment,
     CreateDataset,
     CreateGatewayEndpoint,
@@ -143,7 +144,6 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
-    UpdateRun,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import (
@@ -321,19 +321,18 @@ def _verify_requests(
 def test_claim_run_sends_expected_status():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
-    response = UpdateRun.Response(updated=True)
+    response = ClaimRun.Response(updated=True)
 
     with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
         assert store.claim_run("run-id", RunStatus.SCHEDULED, RunStatus.RUNNING)
 
     mock_call.assert_called_once_with(
-        UpdateRun,
+        ClaimRun,
         message_to_json(
-            UpdateRun(
+            ClaimRun(
                 run_id="run-id",
-                run_uuid="run-id",
-                status=RunStatus.RUNNING,
                 expected_status=RunStatus.SCHEDULED,
+                status=RunStatus.RUNNING,
             )
         ),
     )

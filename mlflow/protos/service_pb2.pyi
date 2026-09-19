@@ -453,27 +453,38 @@ class CreateRun(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., run_name: _Optional[str] = ..., start_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[RunTag, _Mapping]]] = ...) -> None: ...
 
 class UpdateRun(_message.Message):
-    __slots__ = ("run_id", "run_uuid", "status", "end_time", "run_name", "expected_status")
+    __slots__ = ("run_id", "run_uuid", "status", "end_time", "run_name")
     class Response(_message.Message):
-        __slots__ = ("run_info", "updated")
+        __slots__ = ("run_info",)
         RUN_INFO_FIELD_NUMBER: _ClassVar[int]
-        UPDATED_FIELD_NUMBER: _ClassVar[int]
         run_info: RunInfo
-        updated: bool
-        def __init__(self, run_info: _Optional[_Union[RunInfo, _Mapping]] = ..., updated: bool = ...) -> None: ...
+        def __init__(self, run_info: _Optional[_Union[RunInfo, _Mapping]] = ...) -> None: ...
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_UUID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     RUN_NAME_FIELD_NUMBER: _ClassVar[int]
-    EXPECTED_STATUS_FIELD_NUMBER: _ClassVar[int]
     run_id: str
     run_uuid: str
     status: RunStatus
     end_time: int
     run_name: str
+    def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., end_time: _Optional[int] = ..., run_name: _Optional[str] = ...) -> None: ...
+
+class ClaimRun(_message.Message):
+    __slots__ = ("run_id", "expected_status", "status")
+    class Response(_message.Message):
+        __slots__ = ("updated",)
+        UPDATED_FIELD_NUMBER: _ClassVar[int]
+        updated: bool
+        def __init__(self, updated: bool = ...) -> None: ...
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_STATUS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
     expected_status: RunStatus
-    def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., end_time: _Optional[int] = ..., run_name: _Optional[str] = ..., expected_status: _Optional[_Union[RunStatus, str]] = ...) -> None: ...
+    status: RunStatus
+    def __init__(self, run_id: _Optional[str] = ..., expected_status: _Optional[_Union[RunStatus, str]] = ..., status: _Optional[_Union[RunStatus, str]] = ...) -> None: ...
 
 class DeleteRun(_message.Message):
     __slots__ = ("run_id",)
