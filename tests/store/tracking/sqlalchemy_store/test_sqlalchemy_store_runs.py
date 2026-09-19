@@ -4121,6 +4121,36 @@ def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
         ]
 
 
+@pytest.mark.parametrize(
+    "attribute",
+    ["creation_time", "creation_timestamp", "creation_timestamp_ms"],
+)
+@pytest.mark.parametrize("template", ["{a} > 0", "attributes.{a} > 0", "`{a}` > 0"])
+def test_search_logged_models_attribute_aliases(
+    store: SqlAlchemyStore, attribute: str, template: str
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string=template.format(a=attribute)
+    )
+    assert [m.model_id for m in models] == [model.model_id]
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    ["bogus = 'x'", "attributes.bogus = 'x'", "`bogus` = 'x'"],
+)
+def test_search_logged_models_unknown_attribute_is_invalid_parameter_value(
+    store: SqlAlchemyStore, filter_string: str
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid attribute name: 'bogus'") as exc:
+        store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 
