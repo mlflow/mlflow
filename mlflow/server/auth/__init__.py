@@ -2840,6 +2840,75 @@ def validate_can_read_traces_by_experiment_ids():
     )
 
 
+# Trace-search filter identifiers that reference assessment data (``feedback`` and
+# ``expectation`` are assessment kinds). A correlation/metric filter referencing any of
+# these produces an assessment-derived result, so it must be gated on the assessment tier.
+_ASSESSMENT_FILTER_IDENTIFIERS = ("assessment", "feedback", "expectation")
+
+
+def _filter_references_assessments(*filter_strings: str) -> bool:
+    """Best-effort, fail-safe check for whether a trace filter references assessment data.
+
+    Matches an identifier used as a filter field prefix (e.g. ``feedback.correctness``).
+    Deliberately conservative: a false positive only over-restricts (requires assessment
+    READ on a filter that merely looks assessment-related), never under-protects.
+    """
+    for filter_string in filter_strings:
+        if not filter_string:
+            continue
+        for identifier in _ASSESSMENT_FILTER_IDENTIFIERS:
+            if re.search(rf"(?<![\w.]){identifier}\.", filter_string, re.IGNORECASE):
+                return True
+    return False
+
+
+def validate_can_query_trace_metrics():
+    """Gate QueryTraceMetrics on the tiers of the data it returns.
+
+    Always require trace READ for every requested experiment. When ``view_type`` is
+    ``ASSESSMENTS`` the response is assessment-derived aggregates (values/counts/dimensions)
+    that never emit an assessment object -- so redaction cannot apply -- and must therefore
+    additionally require assessment READ. Otherwise a ``(trace READ)`` + ``(assessment,
+    *, DENY)`` caller would read assessment-derived data through this route.
+    """
+    from mlflow.protos.service_pb2 import MetricViewType
+
+    msg = _get_request_message(QueryTraceMetrics())
+    experiment_ids = list(msg.experiment_ids)
+    if not experiment_ids:
+        return False
+    if not all(_get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids):
+        return False
+    if msg.view_type == MetricViewType.ASSESSMENTS:
+        return all(
+            _experiment_child_permission("assessment", "*", eid).can_read for eid in experiment_ids
+        )
+    return True
+
+
+def validate_can_calculate_trace_filter_correlation():
+    """Gate CalculateTraceFilterCorrelation on the tiers of the data it summarizes.
+
+    It returns an NPMI statistic over two trace-filter conditions. Always require trace READ
+    for every requested experiment; additionally require assessment READ when any of the
+    filter strings references assessment data (feedback/expectation), since the statistic is
+    then assessment-derived. Same expose-the-child-so-gate-the-child rule as
+    QueryTraceMetrics; the reference check is conservative (fail-safe toward requiring
+    assessment READ).
+    """
+    msg = _get_request_message(CalculateTraceFilterCorrelation())
+    experiment_ids = list(msg.experiment_ids)
+    if not experiment_ids:
+        return False
+    if not all(_get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids):
+        return False
+    if _filter_references_assessments(msg.filter_string1, msg.filter_string2, msg.base_filter):
+        return all(
+            _experiment_child_permission("assessment", "*", eid).can_read for eid in experiment_ids
+        )
+    return True
+
+
 def validate_can_start_trace():
     return _get_trace_permission_for_experiment(_get_request_param("experiment_id")).can_update
 
@@ -3249,19 +3318,17 @@ def filter_list_review_queues(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
-def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable_cache) -> None:
+def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable) -> None:
     """Clear a ``TraceInfoV3``'s assessments when the caller can't read them.
 
     Assessments are wildcard-grain children of the trace's experiment, so a single
-    per-experiment check gates every assessment on the trace. ``assessment_readable_cache``
-    memoizes that decision per experiment for a batch response.
+    per-experiment check gates every assessment on the trace. ``assessment_readable`` is a
+    ``p(experiment_id) -> bool`` predicate built once per response (see
+    ``_redact_trace_assessments_response``), so a multi-experiment batch stays O(1)
+    authorization queries rather than one workspace + grants round trip per experiment.
     """
     exp_id = trace_info_v3.trace_location.mlflow_experiment.experiment_id
-    if exp_id not in assessment_readable_cache:
-        assessment_readable_cache[exp_id] = _experiment_child_permission(
-            "assessment", "*", exp_id
-        ).can_read
-    if not assessment_readable_cache[exp_id]:
+    if not assessment_readable(exp_id):
         del trace_info_v3.assessments[:]
 
 
@@ -3272,15 +3339,19 @@ def _redact_trace_assessments_response(
 
     ``trace_info_v3_selector`` yields each ``TraceInfoV3`` in the parsed response; the
     row itself is already gated by the trace read validator, so this only drops embedded
-    assessment content a ``assessment`` DENY should hide.
+    assessment content a ``assessment`` DENY should hide. The assessment-read predicate is
+    built once from the caller's grants (one query, evaluated in memory) so redacting a
+    response spanning many experiments does not add a per-experiment query.
     """
     if sender_is_admin():
         return
     response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
-    cache: dict[str, bool] = {}
+    assessment_readable = _role_based_read_predicate(
+        authenticate_request().username, "assessment", parent_type="experiment"
+    )
     for trace_info_v3 in trace_info_v3_selector(response_message):
-        _redact_trace_info_v3_assessments(trace_info_v3, cache)
+        _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable)
     resp.data = message_to_json(response_message)
 
 
@@ -3436,8 +3507,8 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
-    CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
-    QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
+    CalculateTraceFilterCorrelation: validate_can_calculate_trace_filter_correlation,
+    QueryTraceMetrics: validate_can_query_trace_metrics,
     CreateAssessment: validate_can_update_assessment,
     GetAssessmentRequest: validate_can_read_assessment,
     UpdateAssessment: validate_can_update_assessment,

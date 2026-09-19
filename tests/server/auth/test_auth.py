@@ -7393,6 +7393,116 @@ def test_invoke_scorer_honors_child_deny(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_trace_metrics_and_correlation_honor_assessment_deny(client):
+    # QueryTraceMetrics(view_type=ASSESSMENTS) and CalculateTraceFilterCorrelation with an
+    # assessment-referencing filter return assessment-*derived* data (never emitting an
+    # assessment object, so redaction can't apply), so they must gate on the assessment tier
+    # in addition to trace READ. A caller with trace READ (via experiment READ) but
+    # (assessment, *, DENY) must be blocked from the assessment-derived variants and allowed
+    # the trace-only variants.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    user, pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "trace-metrics-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    # experiment READ grants trace READ and assessment READ via fallback ...
+    grant_role_permission(base, user, "experiment", exp_id, "READ")
+    # ... then an explicit assessment DENY overrides only the assessment tier.
+    grant_role_permission(base, user, "assessment", "*", "DENY")
+
+    metrics_url = f"{base}/api/3.0/mlflow/traces/metrics"
+    corr_url = f"{base}/api/3.0/mlflow/traces/calculate-filter-correlation"
+
+    # QueryTraceMetrics: the ASSESSMENTS view is assessment-derived -> denied.
+    assert (
+        requests.post(
+            metrics_url,
+            json={"experiment_ids": [exp_id], "view_type": "ASSESSMENTS", "metric_name": "count"},
+            auth=(user, pw),
+        ).status_code
+        == 403
+    )
+    # A non-assessment (TRACES) view needs only trace READ -> not blocked by assessment DENY.
+    assert (
+        requests.post(
+            metrics_url,
+            json={"experiment_ids": [exp_id], "view_type": "TRACES", "metric_name": "count"},
+            auth=(user, pw),
+        ).status_code
+        != 403
+    )
+
+    # CalculateTraceFilterCorrelation: an assessment-referencing filter is assessment-derived.
+    assert (
+        requests.post(
+            corr_url,
+            json={
+                "experiment_ids": [exp_id],
+                "filter_string1": "feedback.correctness > 0.5",
+                "filter_string2": 'trace.status = "OK"',
+            },
+            auth=(user, pw),
+        ).status_code
+        == 403
+    )
+    # A trace-only correlation touches no assessment data -> allowed.
+    assert (
+        requests.post(
+            corr_url,
+            json={
+                "experiment_ids": [exp_id],
+                "filter_string1": 'trace.status = "OK"',
+                "filter_string2": 'trace.status = "ERROR"',
+            },
+            auth=(user, pw),
+        ).status_code
+        != 403
+    )
+
+
+def test_trace_assessment_redactor_is_query_bounded(monkeypatch):
+    # The trace-assessment redactor must build the assessment read predicate ONCE per
+    # response, not once per experiment, so redacting a batch spanning many experiments stays
+    # O(1) authorization queries. Guards against a caching-only regression (which would still
+    # build/query per distinct experiment).
+    from mlflow.protos.service_pb2 import SearchTracesV3
+    from mlflow.server import auth
+    from mlflow.utils.proto_json_utils import message_to_json
+
+    builds = {"count": 0}
+
+    def fake_predicate(username, resource_type, parent_type=None):
+        builds["count"] += 1
+        return lambda _exp_id: False  # deny -> clears assessments, exercises the path
+
+    monkeypatch.setattr(auth, "_role_based_read_predicate", fake_predicate)
+    monkeypatch.setattr(auth, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth, "authenticate_request", lambda: type("U", (), {"username": "u"})())
+
+    response_message = SearchTracesV3.Response()
+    for i in range(10):  # 10 DISTINCT experiments
+        trace_info = response_message.traces.add()
+        trace_info.trace_location.mlflow_experiment.experiment_id = f"exp-{i}"
+
+    class _FakeResp:
+        def __init__(self, msg):
+            self.json = json.loads(message_to_json(msg))
+            self.data = None
+
+    resp = _FakeResp(response_message)
+    auth._redact_trace_assessments_response(resp, SearchTracesV3, lambda m: list(m.traces))
+
+    assert builds["count"] == 1  # built once for the whole response, not once per experiment
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     # issues/invoke decrypts the referenced gateway secret into the job environment, so
     # UPDATE on the caller's own experiment must not be enough to consume someone else's
@@ -8453,7 +8563,7 @@ def test_redact_get_trace_info_v3_assessments_hides_denied(monkeypatch):
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
-        auth_module, "_experiment_child_permission", lambda *a, **k: SimpleNamespace(can_read=False)
+        auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _eid: False
     )
     resp = _fake_resp(resp_msg)
     auth_module.redact_get_trace_info_v3_assessments(resp)
@@ -8475,7 +8585,7 @@ def test_redact_trace_assessments_kept_when_readable(monkeypatch):
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
-        auth_module, "_experiment_child_permission", lambda *a, **k: SimpleNamespace(can_read=True)
+        auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _eid: True
     )
     resp = _fake_resp(resp_msg)
     auth_module.redact_search_traces_v3_assessments(resp)
