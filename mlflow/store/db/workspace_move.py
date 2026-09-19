@@ -51,6 +51,8 @@ class _ResourceSpec:
     # For experiments the tag table joins via experiment_id, not workspace+name.
     tag_join_column: str | None = None
     child_tables: tuple[str | tuple[str, str], ...] = ()
+    # Child table and shared parent/child key for resources not linked by name.
+    keyed_child_tables: tuple[tuple[str, str], ...] = ()
     child_name_column: str = "name"
     has_unique_name: bool = True
 
@@ -389,6 +391,24 @@ def move_resources(
                     .where(table.c.experiment_id == sa.bindparam("pk"))
                     .values(artifact_location=sa.bindparam("new_root")),
                     retarget_params,
+                )
+
+            for child_table_name, key_column_name in spec.keyed_child_tables:
+                child = get_workspace_table(conn, child_table_name)
+                parent_keys = _filtered(
+                    sa.select(table.c[key_column_name]).where(
+                        table.c.workspace == source_workspace
+                    ),
+                    name_col,
+                )
+                conn.execute(
+                    child
+                    .update()
+                    .where(
+                        child.c.workspace == source_workspace,
+                        child.c[key_column_name].in_(parent_keys),
+                    )
+                    .values(workspace=target_workspace)
                 )
 
             conn.execute(
