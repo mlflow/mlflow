@@ -238,6 +238,15 @@ class _TrackingStore:
             )
         return SimpleNamespace(workspace=self._experiment_workspaces[experiment_id])
 
+    def get_scorer(self, experiment_id: str, name: str):
+        # Concrete-existence probe used by the permission dispatch: any scorer name under a
+        # known experiment "exists" for these workspace-routing tests.
+        if experiment_id not in self._experiment_workspaces:
+            raise MlflowException(
+                f"Experiment {experiment_id!r} not found", RESOURCE_DOES_NOT_EXIST
+            )
+        return SimpleNamespace(experiment_id=experiment_id, scorer_name=name)
+
     def get_experiment_by_name(self, experiment_name: str):
         experiment_id = self._experiment_names.get(experiment_name)
         if experiment_id is None:
@@ -773,9 +782,14 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
     _set_workspace_permission(store, username, USE.name)
 
     with workspace_context.WorkspaceContext("team-a"):
-        assert auth_module.validate_can_create_experiment()
-        assert auth_module.validate_can_create_registered_model()
-        assert auth_module.validate_can_create_mcp_server(username)
+        # Create validators read the request body (prompt-vs-model classification) and
+        # check self-type wildcard DENY vetoes.
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/create", method="POST", json={"name": "m"}
+        ):
+            assert auth_module.validate_can_create_experiment()
+            assert auth_module.validate_can_create_registered_model()
+            assert auth_module.validate_can_create_mcp_server(username)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
@@ -849,9 +863,14 @@ def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monk
     store.assign_role_to_user(user_id, role.id)
 
     with workspace_context.WorkspaceContext("team-a"):
-        assert auth_module.validate_can_create_experiment()
-        assert auth_module.validate_can_create_registered_model()
-        assert auth_module.validate_can_create_gateway_secret()
+        # Create validators read the request body (prompt-vs-model classification,
+        # gateway proto parsing) and check self-type wildcard DENY vetoes.
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/create", method="POST", json={"name": "m"}
+        ):
+            assert auth_module.validate_can_create_experiment()
+            assert auth_module.validate_can_create_registered_model()
+            assert auth_module.validate_can_create_gateway_secret()
 
 
 def test_role_grant_resource_type_use_does_not_allow_create(
@@ -1228,7 +1247,10 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
         user = store.get_user(auth_module.authenticate_request().username)
         assert store.is_workspace_admin(user.id, "team-a")
         assert workspace_context.get_request_workspace() == "team-a"
-        assert auth_module.validate_can_create_registered_model()
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/create", method="POST", json={"name": "m"}
+        ):
+            assert auth_module.validate_can_create_registered_model()
 
         _set_workspace_permission(store, username, USE.name)
         with auth_module.app.test_request_context(
@@ -1241,7 +1263,10 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
             assert not auth_module.validate_can_delete_registered_model()
             assert not auth_module.validate_can_manage_registered_model()
         # USE still confers create rights via creator-as-owner.
-        assert auth_module.validate_can_create_registered_model()
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/create", method="POST", json={"name": "m"}
+        ):
+            assert auth_module.validate_can_create_registered_model()
 
 
 def test_prompt_validators_require_manage_for_writes(workspace_permission_setup, monkeypatch):

@@ -7119,20 +7119,24 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
             can_delete=False,
         )
     )
+    create_deny = mock.Mock(return_value=False)
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
     monkeypatch.setattr(auth_module, "_get_mcp_server_version_permission", permission_helper)
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+    monkeypatch.setattr(auth_module, "_top_level_create_denied", create_deny)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is True
     assert request.state.mcp_server_parent_auto_created is True
-    # The version tier IS consulted on the auto-create path now, to honor a version DENY
-    # (create gate allows + version tier is not DENY -> allowed).
-    assert permission_helper.call_count == 1
+    # On the auto-create path the version DENY is resolved as a workspace wildcard via
+    # _top_level_create_denied (the parent doesn't exist, so the per-server permission
+    # helper can't resolve its workspace and is NOT consulted).
+    create_deny.assert_called_once_with("mcp_server_version", "alice")
+    assert permission_helper.call_count == 0
 
     store.exists = True
     assert request.state.mcp_server_can_update_existing_recheck() is True
-    assert permission_helper.call_count == 2
+    assert permission_helper.call_count == 1
     permission_helper.assert_called_with("com.test/race-server", "alice")
 
 
@@ -7140,6 +7144,8 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
 def test_version_create_denied_when_parent_missing_and_version_denied(monkeypatch, prefix):
     # Auto-creating the server on first version write must still honor a
     # (mcp_server_version, *, DENY): the workspace create gate alone must not bypass it.
+    # The parent doesn't exist yet, so the veto resolves the workspace wildcard via
+    # _top_level_create_denied rather than the per-server permission helper.
     validator = _find_fastapi_validator(f"{prefix}/com.test/deny-server/versions", "POST")
     assert validator is not None
 
@@ -7149,16 +7155,14 @@ def test_version_create_denied_when_parent_missing_and_version_denied(monkeypatc
     monkeypatch.setattr(
         auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_mcp_server=_get_mcp_server)
     )
-    monkeypatch.setattr(
-        auth_module,
-        "_get_mcp_server_version_permission",
-        lambda name, username: SimpleNamespace(name="DENY", can_update=False),
-    )
+    create_deny = mock.Mock(side_effect=lambda rt, username: rt == "mcp_server_version")
+    monkeypatch.setattr(auth_module, "_top_level_create_denied", create_deny)
     # Workspace create gate would otherwise allow the implicit parent.
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is False
+    create_deny.assert_called_once_with("mcp_server_version", "alice")
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -8545,17 +8549,21 @@ def test_start_trace_v3_outcomes(monkeypatch, _case, permission, expected):
 
 
 @pytest.mark.parametrize(
-    ("_case", "permission", "expected"),
+    ("_case", "exp_can_update", "version_denied", "expected"),
     [
-        ("parent_inherited", "EDIT", True),
-        ("no_parent_or_child", "NO_PERMISSIONS", False),
-        ("child_override", "EDIT", True),
-        ("child_deny", "DENY", False),
+        ("experiment_edit_suffices", True, False, True),
+        ("no_experiment_update", False, False, False),
+        ("version_wildcard_deny", True, True, False),
     ],
 )
-def test_register_existing_scorer_version_outcomes(monkeypatch, _case, permission, expected):
-    from mlflow.server.auth.permissions import get_permission
-
+def test_register_existing_scorer_version_outcomes(
+    monkeypatch, _case, exp_can_update, version_denied, expected
+):
+    # Version-adds on an EXISTING scorer follow the OSS contract: experiment.can_update is
+    # the positive requirement and (scorer_version, *, DENY) the only veto. The resolved
+    # scorer/scorer_version fold is NOT consulted (a scorer-parent DENY does not block
+    # version-adds), the create-veto is NOT consulted, and the parent-created flag is NOT
+    # set (no MANAGE upsert for version-adders).
     monkeypatch.setattr(
         auth_module,
         "_get_request_param",
@@ -8566,13 +8574,23 @@ def test_register_existing_scorer_version_outcomes(monkeypatch, _case, permissio
         "_get_tracking_store",
         lambda: SimpleNamespace(get_scorer=lambda _experiment_id, _name: SimpleNamespace()),
     )
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
         auth_module,
-        "_get_scorer_version_permission",
-        lambda _experiment_id, _name: get_permission(permission),
+        "_get_experiment_permission",
+        lambda _e, _u: SimpleNamespace(can_update=exp_can_update),
     )
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: version_denied)
+    fold = mock.Mock()
+    monkeypatch.setattr(auth_module, "_get_scorer_version_permission", fold)
+    create_deny = mock.Mock()
+    monkeypatch.setattr(auth_module, "_top_level_create_denied", create_deny)
 
-    assert auth_module.validate_can_register_scorer() is expected
+    with auth_module.app.test_request_context("/scorers", method="POST"):
+        assert auth_module.validate_can_register_scorer() is expected
+        assert getattr(auth_module.g, "mlflow_creates_scorer_parent", False) is False
+    fold.assert_not_called()
+    create_deny.assert_not_called()
 
 
 def test_deny_veto_rejects_iff_any_permission_is_deny():
@@ -9053,11 +9071,18 @@ def test_prompt_version_child_permission_outcomes(client: MlflowClient, monkeypa
     indirect=True,
 )
 def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    # RegisterScorer's positive requirement is experiment EDIT in BOTH branches (the OSS
+    # contract); scorer-tier grants overlay only DENY vetoes. Version-adds on an existing
+    # scorer are vetoed solely by (scorer_version, *, DENY) -- a (scorer, *, DENY) blocks
+    # only CREATING a scorer -- and scorer-tier positive grants do NOT authorize
+    # registration (documented asymmetry).
     owner, owner_password = create_user(client.tracking_uri)
     no_grant, no_grant_password = create_user(client.tracking_uri)
-    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    scorer_only_writer, scorer_only_writer_password = create_user(client.tracking_uri)
     child_writer, child_writer_password = create_user(client.tracking_uri)
-    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+    exp_writer, exp_writer_password = create_user(client.tracking_uri)
+    version_denied_writer, version_denied_writer_password = create_user(client.tracking_uri)
+    parent_denied_writer, parent_denied_writer_password = create_user(client.tracking_uri)
 
     with User(owner, owner_password, monkeypatch):
         experiment_id = client.create_experiment("scorer-version-child-permission-outcomes")
@@ -9073,18 +9098,28 @@ def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypa
         response.raise_for_status()
 
     scorer_pattern = f"{experiment_id}/scorer_child_permission"
-    for username in (parent_writer, denied_writer):
-        grant_role_permission(client.tracking_uri, username, "scorer", scorer_pattern, "EDIT")
+    # Scorer-tier positives only (no experiment grant): must NOT authorize registration.
+    grant_role_permission(client.tracking_uri, scorer_only_writer, "scorer", scorer_pattern, "EDIT")
     grant_role_permission(client.tracking_uri, child_writer, "scorer", scorer_pattern, "READ")
     grant_role_permission(client.tracking_uri, child_writer, "scorer_version", "*", "EDIT")
-    grant_role_permission(client.tracking_uri, denied_writer, "scorer_version", "*", "DENY")
+    # Experiment EDIT holders, with DENY overlays for two of them.
+    for username in (exp_writer, version_denied_writer, parent_denied_writer):
+        grant_role_permission(client.tracking_uri, username, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, version_denied_writer, "scorer_version", "*", "DENY")
+    grant_role_permission(client.tracking_uri, parent_denied_writer, "scorer", "*", "DENY")
 
     payload = {
         "experiment_id": experiment_id,
         "name": "scorer_child_permission",
         "serialized_scorer": json.dumps({"v": 2}),
     }
-    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+    # Denied: no experiment EDIT (scorer-tier positives don't substitute), or a version DENY.
+    for auth in (
+        (no_grant, no_grant_password),
+        (scorer_only_writer, scorer_only_writer_password),
+        (child_writer, child_writer_password),
+        (version_denied_writer, version_denied_writer_password),
+    ):
         response = requests.post(
             client.tracking_uri + "/api/3.0/mlflow/scorers/register",
             json=payload,
@@ -9092,9 +9127,11 @@ def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypa
         )
         assert response.status_code == 403
 
+    # Allowed: experiment EDIT suffices for a version-add -- even with no scorer grant at
+    # all, and even under (scorer, *, DENY), which vetoes only creating a NEW scorer.
     for auth in (
-        (parent_writer, parent_writer_password),
-        (child_writer, child_writer_password),
+        (exp_writer, exp_writer_password),
+        (parent_denied_writer, parent_denied_writer_password),
     ):
         response = requests.post(
             client.tracking_uri + "/api/3.0/mlflow/scorers/register",
@@ -9105,11 +9142,12 @@ def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypa
 
     from mlflow.server.auth.client import AuthServiceClient
 
+    # A successful version-add must NOT upsert creator MANAGE on the existing scorer.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         permission = AuthServiceClient(client.tracking_uri).get_user_permission(
-            child_writer, "scorer", scorer_pattern
+            exp_writer, "scorer", scorer_pattern
         )
-    assert permission.permission == "READ"
+    assert permission.permission == "NO_PERMISSIONS"
     assert permission.allowed is False
 
 
@@ -9615,7 +9653,9 @@ def test_assessment_lookup_keys_requires_trace_id():
 
 def test_resource_dispatch_assessment_resolves_experiment_via_trace(monkeypatch):
     # The convenience API must resolve the assessment's experiment through its trace,
-    # not by passing the assessment id to get_trace_info.
+    # not by passing the assessment id to get_trace_info -- and must verify the CONCRETE
+    # assessment exists (a nonexistent id resolves NO_PERMISSIONS via the caller's
+    # not-found catch rather than reporting a permission for a child that isn't there).
     trace = SimpleNamespace(experiment_id="9")
     calls = {}
 
@@ -9623,13 +9663,22 @@ def test_resource_dispatch_assessment_resolves_experiment_via_trace(monkeypatch)
         calls["trace_id"] = trace_id
         return trace
 
+    def fake_get_assessment(trace_id, assessment_id):
+        calls["assessment"] = (trace_id, assessment_id)
+        return SimpleNamespace()
+
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
-        lambda: SimpleNamespace(get_trace_info=fake_get_trace_info, get_experiment=lambda _e: None),
+        lambda: SimpleNamespace(
+            get_trace_info=fake_get_trace_info,
+            get_assessment=fake_get_assessment,
+            get_experiment=lambda _e: None,
+        ),
     )
     dispatch = auth_module._resource_dispatch_keys("assessment", "tr-1/a-1")
     assert calls["trace_id"] == "tr-1"
+    assert calls["assessment"] == ("tr-1", "a-1")
     assert dispatch.resource_key == "a-1"
     assert dispatch.workspace_lookup_id == "9"
     assert dispatch.parent_type == "experiment"
@@ -9801,6 +9850,9 @@ def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
         ]
     }).encode()
     monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(
+        auth_module, "get_routed_asgi_path", lambda _r: "/api/3.0/mlflow/mcp-servers/endpoints"
+    )
 
     def fake_predicate(_username, resource_type, parent_type=None):
         # endpoint row-read (mcp_server) allowed; version tier denied -> fields redacted.
@@ -9814,6 +9866,43 @@ def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
     ep = out["mcp_access_endpoints"][0]
     assert ep["resolved_version"] is None
     assert ep["server_version"] is None
+
+
+@pytest.mark.parametrize(
+    ("routed_path", "expected_server_name"),
+    [
+        ("/api/3.0/mlflow/mcp-servers/endpoints", None),
+        ("/api/3.0/mlflow/mcp-servers/com.test/srv/endpoints", "com.test/srv"),
+    ],
+)
+def test_filter_search_mcp_endpoints_backfill_scoped_to_routed_server(
+    monkeypatch, routed_path, expected_server_name
+):
+    # The redaction filter serves both the global /endpoints search and the per-server
+    # /{name}/endpoints route. On the per-server route the readable-row backfill must stay
+    # scoped to that server (a bare search would pull other servers' endpoints and advance
+    # a token in a different result set).
+    from mlflow.store.entities.paged_list import PagedList
+
+    token = base64.b64encode(json.dumps({"offset": 1}).encode()).decode()
+    body = json.dumps({"mcp_access_endpoints": [], "next_page_token": token}).encode()
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(auth_module, "get_routed_asgi_path", lambda _r: routed_path)
+    monkeypatch.setattr(
+        auth_module, "_role_based_read_predicate", lambda *_a, **_k: lambda _n: True
+    )
+    search = mock.Mock(return_value=PagedList([], None))
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(search_mcp_access_endpoints=search),
+    )
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    auth_module._filter_search_mcp_endpoints("u", body, request)
+    assert search.call_count == 1
+    assert search.call_args.kwargs["server_name"] == expected_server_name
 
 
 def test_redact_registered_model_clears_aliases_on_version_deny(monkeypatch):
