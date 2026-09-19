@@ -30,6 +30,7 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -8703,6 +8704,38 @@ def test_gateway_create_honors_self_type_deny(
     # path that isolates the self-type veto.
     with auth_module.app.test_request_context("/gateway", method="POST", json={}):
         assert validators[gateway_type]() is expected
+
+
+@pytest.mark.parametrize(
+    ("is_prompt_body", "denied_type", "expected"),
+    [
+        # Creating a registered model: only (registered_model, *, DENY) blocks it.
+        (False, "registered_model", False),
+        (False, "prompt", True),  # a prompt DENY must NOT block a plain model create
+        # Creating a prompt: only (prompt, *, DENY) blocks it.
+        (True, "prompt", False),
+        (True, "registered_model", True),  # a model DENY must NOT block a prompt create
+    ],
+)
+def test_create_registered_model_vetoes_only_created_type(
+    monkeypatch, is_prompt_body, denied_type, expected
+):
+    # Copilot r4052491505: (prompt, *, DENY) must not block creating an ordinary registered
+    # model, and (registered_model, *, DENY) must not block creating a prompt. The request's
+    # is_prompt tag classifies which type is being created; only that type's DENY vetoes.
+    monkeypatch.setattr(auth_module, "_user_can_create_in_workspace", lambda: True)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_top_level_create_denied", lambda rt, _u: rt == denied_type)
+
+    tags = (
+        [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]
+        if is_prompt_body
+        else [{"key": "some.other.tag", "value": "x"}]
+    )
+    with auth_module.app.test_request_context(
+        "/registered-models/create", method="POST", json={"name": "m", "tags": tags}
+    ):
+        assert auth_module.validate_can_create_registered_model() is expected
 
 
 @pytest.mark.parametrize(

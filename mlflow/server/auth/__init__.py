@@ -1844,19 +1844,33 @@ def validate_can_create_experiment() -> bool:
     return not _top_level_create_denied("experiment", authenticate_request().username)
 
 
+def _create_request_targets_prompt() -> bool:
+    """Classify a ``CreateRegisteredModel`` request as creating a prompt vs. a registered model
+    from its **request-body** ``mlflow.prompt.is_prompt`` tag.
+
+    Unlike ``_request_targets_prompt`` (which reads the *persisted* entity and so returns
+    ``False`` at create time, before the entity exists), a create has only the body to go on.
+    Mirrors the handler's ``_is_prompt_request``: tags collapse by key, last value wins, and
+    only a truthy value selects the prompt path.
+    """
+    tags = _request_params().get("tags") or []
+    value = "false"
+    for tag in tags:
+        if isinstance(tag, dict) and tag.get("key") == IS_PROMPT_TAG_KEY:
+            value = str(tag.get("value", "false"))
+    return value.lower() == "true"
+
+
 def validate_can_create_registered_model() -> bool:
-    # CreateRegisteredModel creates a registered_model or a prompt (distinguished by a
-    # request tag). Workspace USE/EDIT allows it, but a (registered_model, *, DENY) or
-    # (prompt, *, DENY) prevents creation. Vetoing on either type is fail-safe: creation has
-    # no persisted entity to classify yet, and a DENY on the sibling type only over-blocks,
-    # never under-protects.
+    # CreateRegisteredModel creates a registered_model OR a prompt (distinguished by the
+    # request's is_prompt tag). Workspace USE/EDIT allows it, but a (type, *, DENY) on the
+    # type ACTUALLY being created prevents it. Veto only the matching type -- a
+    # (prompt, *, DENY) must not block creating an ordinary registered model, nor vice versa
+    # (Copilot r4052491505).
     if not _user_can_create_in_workspace():
         return False
-    username = authenticate_request().username
-    return not (
-        _top_level_create_denied("registered_model", username)
-        or _top_level_create_denied("prompt", username)
-    )
+    created_type = "prompt" if _create_request_targets_prompt() else "registered_model"
+    return not _top_level_create_denied(created_type, authenticate_request().username)
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
