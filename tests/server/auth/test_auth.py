@@ -8631,9 +8631,78 @@ def test_register_new_scorer_honors_scorer_version_deny(
     monkeypatch.setattr(
         auth_module, "_scorer_version_deny_active", lambda _e: scorer_version_denied
     )
+    # The new-scorer branch also checks the scorer PARENT create-veto; not under test here.
+    monkeypatch.setattr(auth_module, "_top_level_create_denied", lambda _rt, _u: False)
 
     with auth_module.app.test_request_context("/scorers", method="POST"):
         assert auth_module.validate_can_register_scorer() is expected
+
+
+@pytest.mark.parametrize(("scorer_parent_denied", "expected"), [(False, True), (True, False)])
+def test_register_new_scorer_honors_scorer_parent_deny(monkeypatch, scorer_parent_denied, expected):
+    # Creating a brand-new scorer creates the scorer PARENT, so (scorer, *, DENY) must veto it
+    # -- a surface distinct from the scorer_version veto (Copilot r4052491497). Experiment
+    # EDIT + no scorer_version DENY, so only the parent veto decides.
+    from mlflow.server.auth.permissions import MANAGE
+
+    def _raise_not_found(_experiment_id, _name):
+        raise MlflowException("no scorer", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "e1", "name": "s"}[name],
+    )
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_scorer=_raise_not_found)
+    )
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
+    monkeypatch.setattr(
+        auth_module,
+        "_top_level_create_denied",
+        lambda rt, _u: rt == "scorer" and scorer_parent_denied,
+    )
+
+    with auth_module.app.test_request_context("/scorers", method="POST"):
+        assert auth_module.validate_can_register_scorer() is expected
+
+
+@pytest.mark.parametrize(
+    "gateway_type",
+    ["gateway_secret", "gateway_endpoint", "gateway_model_definition"],
+)
+@pytest.mark.parametrize(("self_type_denied", "expected"), [(False, True), (True, False)])
+def test_gateway_create_honors_self_type_deny(
+    monkeypatch, gateway_type, self_type_denied, expected
+):
+    # Workspace USE allows creating a gateway resource, but (gateway_<t>, *, DENY) vetoes it
+    # (parent mirror of the sub-resource rule; §0.3 decision). The positive gate is stubbed
+    # to allow, so the self-type veto is what decides.
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    # Positive gates: workspace-create (secret) and the referenced-resource USE checks
+    # (endpoint/model-definition) all allow, isolating the veto.
+    monkeypatch.setattr(auth_module, "_can_create_in_workspace", lambda _u: True)
+    monkeypatch.setattr(auth_module, "_user_can_create_in_workspace", lambda: True)
+    monkeypatch.setattr(
+        auth_module, "_validate_can_use_model_definitions_for_create", lambda _c: True
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_top_level_create_denied",
+        lambda rt, _u: rt == gateway_type and self_type_denied,
+    )
+
+    validators = {
+        "gateway_secret": auth_module.validate_can_create_gateway_secret,
+        "gateway_endpoint": auth_module.validate_can_create_gateway_endpoint,
+        "gateway_model_definition": auth_module.validate_can_create_gateway_model_definition,
+    }
+    # model_definition with no secret_id short-circuits to True after the veto, which is the
+    # path that isolates the self-type veto.
+    with auth_module.app.test_request_context("/gateway", method="POST", json={}):
+        assert validators[gateway_type]() is expected
 
 
 @pytest.mark.parametrize(
