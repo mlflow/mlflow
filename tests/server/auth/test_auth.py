@@ -7395,9 +7395,11 @@ def test_invoke_scorer_honors_child_deny(client):
 )
 def test_invoke_genai_evaluate_and_issue_detection_honor_trace_assessment_deny(client):
     # INVOKE_GENAI_EVALUATE reads the supplied traces AND writes assessments back onto them
-    # (the eval job's _log_assessments), so it must honor both (trace, *, DENY) and
-    # (assessment, *, DENY). INVOKE_ISSUE_DETECTION reads the supplied traces, so it must
-    # honor (trace, *, DENY). An experiment-EDIT caller must not bypass those child DENYs.
+    # (the eval job's _log_assessments); INVOKE_ISSUE_DETECTION reads the supplied traces AND
+    # writes Issue assessments back onto them (_annotate_issue_traces). Both must honor
+    # (trace, *, DENY) and (assessment, *, DENY) -- an experiment-EDIT caller must not bypass
+    # those child DENYs. (Trace/assessment are gated experiment-scoped; whether the traces
+    # belong to the experiment is business logic, out of the auth model's scope.)
     base = client.tracking_uri
     owner, owner_pw = create_user(base)
     exp_id = requests.post(
@@ -7432,12 +7434,13 @@ def test_invoke_genai_evaluate_and_issue_detection_honor_trace_assessment_deny(c
     assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
     assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code == 403
 
-    # (assessment, *, DENY): genai-evaluate always logs assessments -> denied; issue
-    # detection does not write assessments, so it still passes.
+    # (assessment, *, DENY): both routes write assessments back onto the traces
+    # (genai-evaluate via the eval harness, issue detection via _annotate_issue_traces),
+    # so both are denied.
     user, pw = fresh_editor()
     grant_role_permission(base, user, "assessment", "*", "DENY")
     assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
-    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code != 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code == 403
 
 
 def test_delete_prompt_optimization_job_honors_run_deny(monkeypatch):
@@ -7463,6 +7466,23 @@ def test_delete_prompt_optimization_job_honors_run_deny(monkeypatch):
     # No associated run -> the experiment/job-tier gate alone governs (allowed).
     monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: None)
     assert auth.validate_can_delete_prompt_optimization_job() is True
+
+
+def test_filter_references_assessments_matches_backtick_quoted_identifiers():
+    # Trace filters may backtick-quote the entity identifier (SearchUtils._valid_entity_type
+    # strips the backticks), so `feedback`.correctness must be detected as an assessment
+    # reference just like the bare form -- otherwise it bypasses the assessment-read gate on
+    # QueryTraceMetrics / CalculateTraceFilterCorrelation.
+    from mlflow.server import auth
+
+    assert auth._filter_references_assessments("feedback.correctness > 0.5")
+    assert auth._filter_references_assessments("`feedback`.correctness > 0.5")
+    assert auth._filter_references_assessments("`assessment`.foo = 'x'")
+    assert auth._filter_references_assessments("`expectation`.bar < 1")
+    # Non-assessment fields and mere substring hits are not flagged (fail-safe, not
+    # over-eager): a leading word char before the identifier must not match.
+    assert not auth._filter_references_assessments("attributes.status = 'OK'")
+    assert not auth._filter_references_assessments("myfeedback.value = 1")
 
 
 @pytest.mark.parametrize(
