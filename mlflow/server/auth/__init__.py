@@ -1387,9 +1387,12 @@ def validate_can_register_scorer():
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
         g.mlflow_creates_scorer_parent = True
-        if not _get_experiment_permission(
-            experiment_id, authenticate_request().username
-        ).can_update:
+        username = authenticate_request().username
+        if not _get_experiment_permission(experiment_id, username).can_update:
+            return False
+        # Creating a new scorer creates the scorer PARENT: honor (scorer, *, DENY) -- a
+        # distinct surface from the scorer_version veto below (Copilot r4052491497).
+        if _top_level_create_denied("scorer", username):
             return False
         return not _scorer_version_deny_active(experiment_id)
     return _get_scorer_version_permission(experiment_id, name).can_update
@@ -2709,7 +2712,10 @@ def validate_can_manage_gateway_secret():
 def validate_can_create_gateway_secret():
     # Persisting a provider credential is a workspace-scoped create, like experiments and
     # registered models. The after-request MANAGE grant only records ownership.
-    return _user_can_create_in_workspace()
+    username = authenticate_request().username
+    if _top_level_create_denied("gateway_secret", username):
+        return False
+    return _can_create_in_workspace(username)
 
 
 def validate_can_read_gateway_endpoint():
@@ -2741,13 +2747,15 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
+    username = authenticate_request().username
+    if _top_level_create_denied("gateway_model_definition", username):
+        return False
     body = request.json or {}
     secret_id = body.get("secret_id")
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
         return True
 
-    username = authenticate_request().username
     permission = _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -2957,6 +2965,8 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
+    if _top_level_create_denied("gateway_endpoint", authenticate_request().username):
+        return False
     body = request.json or {}
     model_configs = body.get("model_configs", [])
     return _validate_can_use_model_definitions_for_create(model_configs)
