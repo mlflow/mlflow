@@ -1367,28 +1367,16 @@ def monkeypatch_module():
 @pytest.fixture(autouse=True)
 def clear_engine_map():
     """
-    Clear the SQLAlchemy engine cache in all stores between tests.
+    Clear the shared SQLAlchemy engine cache between tests.
 
-    Each SQLAlchemy store caches engines by database URI to prevent connection pool leaks.
-    This fixture clears the cache between tests to ensure test isolation and prevent
-    engines from one test affecting another.
+    Stores cache engines by database URI so that a single database is backed by a single
+    connection pool. This fixture clears the cache between tests to ensure test isolation and
+    prevent engines from one test affecting another.
     """
     try:
-        from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
-        from mlflow.store.model_registry.sqlalchemy_store import (
-            SqlAlchemyStore as ModelRegistrySqlAlchemyStore,
-        )
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.store.db.utils import dispose_all_engines
 
-        for store_class in [
-            SqlAlchemyStore,
-            ModelRegistrySqlAlchemyStore,
-            SqlAlchemyJobStore,
-        ]:
-            with store_class._engine_map_lock:
-                while store_class._engine_map:
-                    _, engine = store_class._engine_map.popitem()
-                    engine.dispose()
+        dispose_all_engines()
     except ImportError:
         pass
 

@@ -14,12 +14,19 @@ from mlflow.store.db.utils import (
     _get_latest_schema_revision,
     _get_schema_version,
 )
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.store.model_registry.sqlalchemy_store import (
+    SqlAlchemyStore as ModelRegistrySqlAlchemyStore,
+)
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
     _get_orderby_clauses,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.store.workspace.sqlalchemy_store import (
+    SqlAlchemyStore as WorkspaceSqlAlchemyStore,
+)
 from mlflow.utils.uri import extract_db_type_from_uri
 
 from tests.integration.utils import invoke_cli_runner
@@ -199,6 +206,29 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(
     assert param.key in fetched_run.data.params
     store._dispose_engine()
     _clear_in_memory_engine()
+
+
+def test_stores_for_same_database_share_one_engine(tmp_path, db_uri):
+    """
+    A single backend store URI must produce a single connection pool, no matter how many stores
+    are built on top of it.
+
+    See: https://github.com/mlflow/mlflow/issues/12982
+    """
+    artifact_root = tmp_path / "artifacts"
+
+    tracking_store = SqlAlchemyStore(db_uri, str(artifact_root))
+    registry_store = ModelRegistrySqlAlchemyStore(db_uri)
+    job_store = SqlAlchemyJobStore(db_uri)
+    workspace_store = WorkspaceSqlAlchemyStore(db_uri)
+
+    assert registry_store.engine is tracking_store.engine
+    assert job_store.engine is tracking_store.engine
+    assert workspace_store._engine is tracking_store.engine
+
+    # Disposing evicts the shared engine, so the next store gets a live one.
+    tracking_store._dispose_engine()
+    assert SqlAlchemyStore(db_uri, str(artifact_root)).engine is not tracking_store.engine
 
 
 def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(
