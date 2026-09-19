@@ -47,11 +47,11 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri } = this.props;
 
     this.props
       .getArtifact?.(
-        { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri },
         getArtifactBytesContent,
       )
       .then((artifactPdfData: any) => {

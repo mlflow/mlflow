@@ -9,6 +9,7 @@ import type { Dispatch, Action } from 'redux';
 import type { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
+import { fetchArtifactProxyList, isEligibleArtifactProxyUri } from '../common/utils/artifactProxy';
 import { ErrorCodes } from '../common/constants';
 import { isArray, isObject } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
@@ -391,6 +392,7 @@ export const listArtifactsApi = (
   id = getUUID(),
   experimentId?: string,
   entityTags?: Partial<KeyValueEntity>[],
+  artifactUri?: string,
 ) => {
   const getRunArtifactDataFromMLflowAPI = () =>
     MlflowService.listArtifacts({
@@ -400,6 +402,11 @@ export const listArtifactsApi = (
     });
 
   const getRunArtifactData = () => {
+    // When the run's artifacts are served by a reachable MLflow artifact proxy,
+    // list them there directly instead of routing through the tracking server.
+    if (isEligibleArtifactProxyUri(artifactUri)) {
+      return fetchArtifactProxyList(artifactUri, path);
+    }
     return getRunArtifactDataFromMLflowAPI();
   };
 
@@ -421,6 +428,7 @@ export const listArtifactsLoggedModelApi = (
   experimentId?: string,
   id = getUUID(),
   entityTags?: Partial<KeyValueEntity>[],
+  artifactUri?: string,
 ) => {
   const getLoggedModelDataFromMLflowAPI = () =>
     MlflowService.listArtifactsLoggedModel({
@@ -428,6 +436,9 @@ export const listArtifactsLoggedModelApi = (
       path,
     });
   const getLoggedModelDataFn = () => {
+    if (isEligibleArtifactProxyUri(artifactUri)) {
+      return fetchArtifactProxyList(artifactUri, path);
+    }
     return getLoggedModelDataFromMLflowAPI();
   };
   return {
