@@ -6731,6 +6731,55 @@ def test_version_grant_read_write_agree(monkeypatch, tmp_path):
         assert read
 
 
+@pytest.mark.parametrize("resource_type", ["registered_model", "prompt", "scorer", "mcp_server"])
+def test_top_level_deny_blocks_rfc_parent_types(monkeypatch, tmp_path, resource_type):
+    # DENY is grantable on the RFC's top-level parent types (the sub-resource parents), not
+    # only the child tiers. A (parent_type, *, DENY) must block read/update/delete/manage and
+    # empty search for that type -- verified via the store fold (all .can_* False) and the
+    # read predicate that backs the list/search filters. Workspace-admin still bypasses.
+    from mlflow.server.auth.permissions import DENY, MANAGE
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / f'top-deny-{resource_type}.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"  # DEFAULT_WORKSPACE_NAME when workspaces are disabled
+    user = store.create_user("denied-user", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="deny-role", workspace=ws)
+    store.add_role_permission(role.id, resource_type, "*", DENY.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    # Single-tier fold resolves to DENY -> every capability is False, so read/update/delete/
+    # manage validators (which call .can_read/.can_update/.can_delete/.can_manage) all block.
+    perm = store.get_role_permission_for_resource(user.id, resource_type, "res-1", ws)
+    assert perm is not None
+    assert perm.name == DENY.name
+    assert not perm.can_read
+    assert not perm.can_update
+    assert not perm.can_delete
+    assert not perm.can_manage
+
+    # The read predicate backing the list/search filters drops the DENY'd row (wildcard DENY
+    # empties the list of that type).
+    assert auth_module._role_based_read_predicate("denied-user", resource_type)("res-1") is False
+
+    # Workspace-admin bypass beats a top-level DENY (matches child semantics).
+    admin = store.create_user("ws-admin", "supersecurepassword", is_admin=False)
+    admin_role = store.create_role(name="ws-admin-role", workspace=ws)
+    store.add_role_permission(admin_role.id, "workspace", "*", MANAGE.name)
+    store.add_role_permission(admin_role.id, resource_type, "*", DENY.name)
+    store.assign_role_to_user(admin.id, admin_role.id)
+    admin_perm = store.get_role_permission_for_resource(admin.id, resource_type, "res-1", ws)
+    assert admin_perm is not None
+    assert admin_perm.can_manage  # admin bypass wins over DENY
+
+
 @pytest.mark.parametrize(
     "endpoint_fn",
     [search_mcp_servers, search_all_access_endpoints],
