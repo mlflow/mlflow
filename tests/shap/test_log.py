@@ -300,7 +300,10 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         model_info = mlflow.shap.log_explainer(shap_model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             model_info.model_uri,
@@ -309,7 +312,10 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
         )
 
     # List of requirements
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         model_info = mlflow.shap.log_explainer(
             shap_model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
@@ -320,7 +326,10 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
         )
 
     # Constraints file
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         model_info = mlflow.shap.log_explainer(
             shap_model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
@@ -340,7 +349,10 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         log_info = mlflow.shap.log_explainer(
             shap_model, "model", extra_pip_requirements=str(req_file)
         )
@@ -350,7 +362,10 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
         )
 
     # List of requirements
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         log_info = mlflow.shap.log_explainer(
             shap_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
@@ -360,7 +375,10 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
         )
 
     # Constraints file
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         log_info = mlflow.shap.log_explainer(
             shap_model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
@@ -382,7 +400,10 @@ def test_log_model_serializes_underlying_model_with_skops(shap_model):
     # default. The serialization artifact is the only discriminating signal: both skops and
     # cloudpickle appear in the auto-inferred pip requirements regardless of format, so the
     # requirements can't guard this default.
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+    ):
         model_info = mlflow.shap.log_explainer(shap_model, "model")
 
     underlying_model_path = Path(

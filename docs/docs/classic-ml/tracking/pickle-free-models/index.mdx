@@ -13,9 +13,8 @@ This feature is experimental and may change in future releases.
 
 Saving models with Python's `pickle` or `cloudpickle` relies on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
 
-:::warning[Upcoming Default Behavior Change]
-Pickle-free saving formats will become the **default** in an upcoming MLflow release. **Most users (scikit-learn, LightGBM, LangChain, custom Python) will see no breaking change.** PyTorch users should review the [requirements](#pickle-free-format-for-pytorch-model) — `input_example` will be required and `torch.jit.ScriptModule` is not supported.
-To avoid getting affected by the change, pin the MLflow version or specify `serialization_format="pickle"` in the model logging code.
+:::note[Default serialization formats]
+Outside Databricks Runtime, the `save_model` and `log_model` APIs default to pickle-free serialization for scikit-learn, PyTorch, and sklearn-style LightGBM models. In Databricks Runtime, these APIs retain the backward-compatible defaults: `cloudpickle` for scikit-learn and sklearn-style LightGBM models, and `pickle` for PyTorch models. Set `serialization_format` explicitly to override the environment-specific default.
 :::
 
 ## Pickle-free format for Scikit-learn model
@@ -162,11 +161,11 @@ In Databricks Runtime, loading models serialized with `pickle` or `cloudpickle` 
 
 ## Summary
 
-| Flavor              | Pickle-free option             | Notes                                                                                                                            | Impact when becoming default                                                                       |
-| ------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                                                                                           | No impact — transparent upgrade for most models.                                                   |
-| PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4 (>= 2.10 to load with `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`); not for ScriptModule. | **Breaking change** — `input_example` will be required; `torch.jit.ScriptModule` is not supported. |
-| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                                                                                           | Requires upgrading to dspy > 3.1.0.                                                                |
-| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                                                                                        | No impact — transparent upgrade for sklearn-type LightGBM models.                                  |
-| LangChain           | Models From Code               | Pickle saving emits warnings.                                                                                                    | No impact.                                                                                         |
-| Custom Python model | Models From Code               | Pickle saving emits warnings.                                                                                                    | No impact.                                                                                         |
+| Flavor              | Pickle-free option             | Notes                                                                                                                            |
+| ------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                                                                                           |
+| PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4 (>= 2.10 to load with `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`); not for ScriptModule. |
+| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                                                                                           |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                                                                                        |
+| LangChain           | Models From Code               | Pickle saving emits warnings.                                                                                                    |
+| Custom Python model | Models From Code               | Pickle saving emits warnings.                                                                                                    |

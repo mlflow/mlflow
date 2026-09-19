@@ -400,6 +400,59 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_info.model_uri, mlflow.lightgbm.get_default_pip_requirements())
 
 
+@pytest.mark.parametrize(
+    ("is_databricks_runtime", "expected_serialization_format", "expected_model_file"),
+    [
+        pytest.param(False, "skops", "model.skops", id="outside-databricks"),
+        pytest.param(True, "cloudpickle", "model.pkl", id="databricks-runtime"),
+    ],
+)
+def test_sklearn_model_save_uses_environment_specific_serialization_format_by_default(
+    lgb_sklearn_model,
+    model_path,
+    is_databricks_runtime,
+    expected_serialization_format,
+    expected_model_file,
+):
+    with mock.patch("mlflow.lightgbm.is_in_databricks_runtime", return_value=is_databricks_runtime):
+        mlflow.lightgbm.save_model(lgb_model=lgb_sklearn_model.model, path=model_path)
+
+    flavor_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.lightgbm.FLAVOR_NAME
+    )
+    assert flavor_conf["serialization_format"] == expected_serialization_format
+    assert Path(model_path, expected_model_file).exists()
+    _assert_pip_requirements(
+        model_path,
+        mlflow.lightgbm.get_default_pip_requirements(
+            include_cloudpickle=expected_serialization_format == "cloudpickle",
+            include_skops=expected_serialization_format == "skops",
+        ),
+    )
+    if is_databricks_runtime:
+        requirements = Path(model_path, "requirements.txt").read_text().splitlines()
+        assert not any(req.startswith("skops==") for req in requirements)
+
+
+@pytest.mark.parametrize(
+    ("is_databricks_runtime", "expected_serialization_format"),
+    [
+        pytest.param(False, "skops", id="outside-databricks"),
+        pytest.param(True, "cloudpickle", id="databricks-runtime"),
+    ],
+)
+def test_sklearn_model_log_resolves_environment_specific_serialization_format(
+    lgb_sklearn_model, is_databricks_runtime, expected_serialization_format
+):
+    with (
+        mock.patch("mlflow.lightgbm.is_in_databricks_runtime", return_value=is_databricks_runtime),
+        mock.patch("mlflow.lightgbm.Model.log") as model_log_mock,
+    ):
+        mlflow.lightgbm.log_model(lgb_sklearn_model.model, name="model")
+
+    assert model_log_mock.call_args.kwargs["serialization_format"] == expected_serialization_format
+
+
 def test_pyfunc_serve_and_score(lgb_model):
     model, inference_dataframe = lgb_model
     artifact_path = "model"

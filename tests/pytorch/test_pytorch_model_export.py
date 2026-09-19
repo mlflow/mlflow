@@ -574,6 +574,86 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_info.model_uri, mlflow.pytorch.get_default_pip_requirements())
 
 
+@pytest.mark.parametrize(
+    ("is_databricks_runtime", "expected_model_file", "requires_input_example"),
+    [
+        pytest.param(
+            False,
+            "model.pt2",
+            True,
+            marks=pytest.mark.skipif(
+                Version(torch.__version__) < Version("2.4"),
+                reason="This test requires torch>=2.4",
+            ),
+            id="outside-databricks",
+        ),
+        pytest.param(True, "model.pth", False, id="databricks-runtime"),
+    ],
+)
+def test_save_model_uses_environment_specific_serialization_format_by_default(
+    tmp_path, is_databricks_runtime, expected_model_file, requires_input_example
+):
+    model = get_sequential_model()
+    model.eval()
+    input_example = torch.randn(2, 4).numpy() if requires_input_example else None
+
+    with mock.patch("mlflow.pytorch.is_in_databricks_runtime", return_value=is_databricks_runtime):
+        mlflow.pytorch.save_model(
+            model,
+            tmp_path / "model",
+            input_example=input_example,
+            pip_requirements=[],
+        )
+
+    assert (tmp_path / "model" / "data" / expected_model_file).exists()
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+def test_export_model_overrides_databricks_serialization_default(tmp_path):
+    model = get_sequential_model()
+    model.eval()
+
+    with (
+        mock.patch("mlflow.pytorch.is_in_databricks_runtime", return_value=True),
+        pytest.warns(FutureWarning, match="`export_model` argument is deprecated"),
+    ):
+        mlflow.pytorch.save_model(
+            model,
+            tmp_path / "model",
+            input_example=torch.randn(2, 4).numpy(),
+            export_model=True,
+            pip_requirements=[],
+        )
+
+    assert (tmp_path / "model" / "data" / "model.pt2").exists()
+
+
+@pytest.mark.parametrize(
+    ("is_databricks_runtime", "export_model", "expected_serialization_format"),
+    [
+        pytest.param(False, False, "pt2", id="outside-databricks"),
+        pytest.param(True, False, "pickle", id="databricks-runtime"),
+        pytest.param(True, True, "pt2", id="databricks-runtime-export-model"),
+    ],
+)
+def test_log_model_resolves_environment_specific_serialization_format(
+    is_databricks_runtime, export_model, expected_serialization_format
+):
+    with (
+        mock.patch("mlflow.pytorch.is_in_databricks_runtime", return_value=is_databricks_runtime),
+        mock.patch("mlflow.pytorch.Model.log") as model_log_mock,
+    ):
+        mlflow.pytorch.log_model(
+            get_sequential_model(),
+            name="model",
+            export_model=export_model,
+        )
+
+    assert model_log_mock.call_args.kwargs["serialization_format"] == expected_serialization_format
+
+
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
     mlflow.pytorch.save_model(
@@ -1682,7 +1762,8 @@ def test_exported_model_with_small_batch_size_input_example(tmp_path, batch_size
 
     model_path = tmp_path / "model"
     # Default serialization ("pt2") must succeed for any batch size, including 1.
-    mlflow.pytorch.save_model(model, model_path, input_example=input_example)
+    with mock.patch("mlflow.pytorch.is_in_databricks_runtime", return_value=False):
+        mlflow.pytorch.save_model(model, model_path, input_example=input_example)
     assert (model_path / "data" / "model.pt2").exists()
 
     loaded_model = mlflow.pytorch.load_model(model_path)
