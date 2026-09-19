@@ -516,11 +516,13 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"group={group}\n")
           PY_SHARD
-      - name: Run the full shard, stopping on the first failure
+      - name: Run the shard through the flaky test, stopping on the first failure
         env:
           GROUP: ${{ steps.shard.outputs.group }}
+          STOP_AFTER: tests/pyfunc/test_spark.py::test_spark_udf_embedded_model_server_killed_when_job_canceled[virtualenv]
         run: |
           uv run --no-sync pytest -x --splits=4 --group="$GROUP" --durations=30 \
+            --stop-after="$STOP_AFTER" \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
       - name: Preserve startup diagnostics
         if: always()

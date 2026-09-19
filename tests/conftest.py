@@ -161,6 +161,11 @@ def pytest_addoption(parser):
         help="The group of tests to run.",
     )
     parser.addoption(
+        "--stop-after",
+        default=None,
+        help="Run the selected tests only through this exact test node ID, inclusive.",
+    )
+    parser.addoption(
         "--serve-wheel",
         action="store_true",
         default=os.environ.get("CI", "false").lower() == "true",
@@ -562,6 +567,8 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
     )
+    if item.nodeid == item.config.getoption("--stop-after"):
+        pytest.exit(f"Finished {item.nodeid}", returncode=1 if item.session.testsfailed else 0)
     return True  # Indicate that we handled this protocol
 
 
