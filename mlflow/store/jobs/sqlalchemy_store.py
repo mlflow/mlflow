@@ -1,5 +1,4 @@
 import json
-import threading
 import uuid
 from typing import Any, Iterator
 
@@ -12,7 +11,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.db.utils import (
     _get_managed_session_maker,
     _safe_initialize_tables,
-    create_sqlalchemy_engine_with_retry,
+    get_or_create_engine,
 )
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
@@ -32,20 +31,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
     for MLflow Job entities.
     """
 
-    # Class-level cache for SQLAlchemy engines to prevent connection pool leaks
-    # when multiple store instances are created with the same database URI.
-    _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
-    _engine_map_lock = threading.Lock()
-
-    @classmethod
-    def _get_or_create_engine(cls, db_uri: str) -> sqlalchemy.engine.Engine:
-        """Get a cached engine or create a new one for the given database URI."""
-        if db_uri not in cls._engine_map:
-            with cls._engine_map_lock:
-                if db_uri not in cls._engine_map:
-                    cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
-        return cls._engine_map[db_uri]
-
     def __init__(self, db_uri):
         """
         Create a database backed store.
@@ -56,7 +41,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = self._get_or_create_engine(db_uri)
+        self.engine = get_or_create_engine(db_uri)
         _safe_initialize_tables(self.engine)
 
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)

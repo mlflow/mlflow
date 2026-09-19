@@ -17,6 +17,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.store.db.utils import dispose_engine
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
@@ -238,9 +239,7 @@ def _run_factory(store: SqlAlchemyStore, config=None):
 
 
 def _clear_in_memory_engine():
-    engine = SqlAlchemyStore._engine_map.pop("sqlite:///:memory:", None)
-    if engine is not None:
-        engine.dispose()
+    dispose_engine("sqlite:///:memory:")
 
 
 def _search_runs(

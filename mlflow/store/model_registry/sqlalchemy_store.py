@@ -1,5 +1,4 @@
 import logging
-import threading
 import urllib
 import uuid
 from typing import Any
@@ -31,7 +30,8 @@ from mlflow.store.db.utils import (
     _get_managed_session_maker,
     _get_routing_session_maker,
     _initialize_tables,
-    create_sqlalchemy_engine_with_retry,
+    dispose_engine,
+    get_or_create_engine,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
@@ -110,20 +110,6 @@ class SqlAlchemyStore(AbstractStore):
 
     CREATE_MODEL_VERSION_RETRIES = 3
 
-    # Class-level cache for SQLAlchemy engines to prevent connection pool leaks
-    # when multiple store instances are created with the same database URI.
-    _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
-    _engine_map_lock = threading.Lock()
-
-    @classmethod
-    def _get_or_create_engine(cls, db_uri: str) -> sqlalchemy.engine.Engine:
-        """Get a cached engine or create a new one for the given database URI."""
-        if db_uri not in cls._engine_map:
-            with cls._engine_map_lock:
-                if db_uri not in cls._engine_map:
-                    cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
-        return cls._engine_map[db_uri]
-
     def __init__(self, db_uri, read_db_uri=None):
         """
         Create a database backed store.
@@ -141,7 +127,7 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = self._get_or_create_engine(db_uri)
+        self.engine = get_or_create_engine(db_uri)
         if not _all_tables_exist(self.engine):
             _initialize_tables(self.engine)
         # Verify that all model registry tables exist.
@@ -149,7 +135,7 @@ class SqlAlchemyStore(AbstractStore):
 
         # Set up read replica engine if provided
         if read_db_uri and read_db_uri != db_uri:
-            self.read_engine = self._get_or_create_engine(read_db_uri)
+            self.read_engine = get_or_create_engine(read_db_uri)
             WriteSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
             ReadSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.read_engine)
             self.ManagedSessionMaker = _get_routing_session_maker(
@@ -259,7 +245,8 @@ class SqlAlchemyStore(AbstractStore):
         return self.engine.dialect.name
 
     def _dispose_engine(self):
-        self.engine.dispose()
+        # Evict from the shared cache too, so a later store for this URI gets a live engine.
+        dispose_engine(self.db_uri)
 
     @staticmethod
     def _verify_registry_tables_exist(engine):

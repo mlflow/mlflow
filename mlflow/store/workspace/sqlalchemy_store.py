@@ -75,7 +75,7 @@ class SqlAlchemyStore(AbstractStore):
 
         self._workspace_uri = db_uri
         self._db_type = extract_db_type_from_uri(db_uri)
-        self._engine = db_utils.create_sqlalchemy_engine_with_retry(db_uri)
+        self._engine = db_utils.get_or_create_engine(db_uri)
         db_utils._safe_initialize_tables(self._engine)
         session_factory = sessionmaker(bind=self._engine)
         self.ManagedSessionMaker = db_utils._get_managed_session_maker(
