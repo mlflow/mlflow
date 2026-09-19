@@ -7714,6 +7714,83 @@ def test_invoke_scorer_honors_child_deny(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_invoke_genai_evaluate_and_issue_detection_honor_trace_assessment_deny(client):
+    # INVOKE_GENAI_EVALUATE reads the supplied traces AND writes assessments back onto them
+    # (the eval job's _log_assessments), so it must honor both (trace, *, DENY) and
+    # (assessment, *, DENY). INVOKE_ISSUE_DETECTION reads the supplied traces, so it must
+    # honor (trace, *, DENY). An experiment-EDIT caller must not bypass those child DENYs.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-eval-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    evaluate_url = f"{base}/ajax-api/3.0/mlflow/genai/evaluate/invoke"
+    issues_url = f"{base}/ajax-api/3.0/mlflow/issues/invoke"
+    evaluate_payload = {"experiment_id": exp_id, "trace_ids": ["tr-1"], "serialized_scorers": ["s"]}
+    issues_payload = {
+        "experiment_id": exp_id,
+        "trace_ids": ["tr-1"],
+        "categories": ["x"],
+        "provider": "p",
+    }
+
+    def fresh_editor():
+        user, pw = create_user(base)
+        grant_role_permission(base, user, "experiment", exp_id, "EDIT")
+        return user, pw
+
+    # Baseline: experiment EDIT clears every tier via fallback (handler may error for
+    # unrelated reasons, so assert only that the auth gate is not a 403).
+    user, pw = fresh_editor()
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code != 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code != 403
+
+    # (trace, *, DENY): the traces being read are unreadable -> both routes denied.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "trace", "*", "DENY")
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code == 403
+
+    # (assessment, *, DENY): genai-evaluate always logs assessments -> denied; issue
+    # detection does not write assessments, so it still passes.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "assessment", "*", "DENY")
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code != 403
+
+
+def test_delete_prompt_optimization_job_honors_run_deny(monkeypatch):
+    # DeletePromptOptimizationJob deletes the job's associated MLflow run, so it must honor a
+    # (run, *, DENY) grant an experiment-MANAGE caller would otherwise bypass. Keep the
+    # experiment/job-tier gate; add run-tier DELETE on the job's run.
+    from mlflow.server import auth
+    from mlflow.server.auth.permissions import DENY, MANAGE
+
+    # Experiment/job-tier gate passes (caller has MANAGE on the experiment).
+    monkeypatch.setattr(auth, "_get_permission_from_prompt_optimization_job_id", lambda: MANAGE)
+    # The job created a run.
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: "run-1")
+
+    # (run, *, DENY) on that run -> delete denied despite experiment MANAGE.
+    monkeypatch.setattr(auth, "_get_run_permission", lambda _rid: DENY)
+    assert auth.validate_can_delete_prompt_optimization_job() is False
+
+    # Run deletable -> allowed.
+    monkeypatch.setattr(auth, "_get_run_permission", lambda _rid: MANAGE)
+    assert auth.validate_can_delete_prompt_optimization_job() is True
+
+    # No associated run -> the experiment/job-tier gate alone governs (allowed).
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: None)
+    assert auth.validate_can_delete_prompt_optimization_job() is True
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_trace_metrics_and_correlation_honor_assessment_deny(client):
     # QueryTraceMetrics(view_type=ASSESSMENTS) and CalculateTraceFilterCorrelation with an
     # assessment-referencing filter return assessment-*derived* data (never emitting an

@@ -1559,8 +1559,28 @@ def validate_can_update_prompt_optimization_job():
     return _get_permission_from_prompt_optimization_job_id().can_update
 
 
+def _prompt_optimization_job_run_id() -> "str | None":
+    """The MLflow run the optimization job created, stored in the job's ``params`` (the
+    same record ``_delete_prompt_optimization_job`` reads to delete the run). ``None`` when
+    the job never created a run.
+    """
+    job_id = _get_request_param("job_id")
+    return json.loads(get_job(job_id).params).get("run_id")
+
+
 def validate_can_delete_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_delete
+    """DeletePromptOptimizationJob deletes the job AND its associated MLflow run
+    (``_delete_prompt_optimization_job`` -> ``delete_run(run_id)``). Keep the existing
+    job/experiment-tier delete gate, and additionally require run-tier DELETE on the job's
+    run so a ``(run, *, DENY)`` grant an experiment-``MANAGE`` caller would otherwise bypass
+    through this route is honored (experiment fallback keeps it backwards-compatible).
+    """
+    if not _get_permission_from_prompt_optimization_job_id().can_delete:
+        return False
+    run_id = _prompt_optimization_job_run_id()
+    if not run_id:
+        return True
+    return _get_run_permission(run_id).can_delete
 
 
 # Logged models
@@ -2659,14 +2679,40 @@ def validate_can_update_gateway_model_definition():
     return permission.can_use
 
 
-def validate_can_invoke_issue_detection():
-    """
-    Issue detection creates a run in the request's experiment and, when ``secret_id`` is
-    given, decrypts that gateway secret into the job environment. Require run-tier UPDATE
-    on the target experiment (experiment fallback, like ``CreateRun`` -- so a ``(run, *,
-    DENY)`` grant is honored) and USE on the secret, mirroring model-definition creation.
+def validate_can_invoke_genai_evaluate():
+    """INVOKE_GENAI_EVALUATE creates a run in the request experiment, reads the supplied
+    ``trace_ids``, and the submitted evaluation job writes assessments back onto those
+    traces (``genai/evaluation/harness.py`` ``_log_assessments``). Enforce the three
+    experiment children it touches, each with experiment fallback so an experiment-``EDIT``
+    caller cannot bypass a ``(child, *, DENY)`` grant through this route:
+
+    * run UPDATE -- creates the evaluation run (same gate as ``CreateRun``);
+    * trace READ -- the traces being evaluated (``trace_ids`` all belong to the request
+      experiment, so the wildcard-grain trace tier covers them); and
+    * assessment UPDATE -- the evaluation always logs assessments back onto the traces
+      (unconditional here, unlike ``INVOKE_SCORER``'s ``log_assessments`` flag).
     """
     if not validate_can_create_run():
+        return False
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    return _experiment_child_permission("assessment", "*", experiment_id).can_update
+
+
+def validate_can_invoke_issue_detection():
+    """
+    Issue detection creates a run in the request's experiment, reads the supplied
+    ``trace_ids``, and, when ``secret_id`` is given, decrypts that gateway secret into the
+    job environment. Require run-tier UPDATE on the target experiment (experiment fallback,
+    like ``CreateRun`` -- so a ``(run, *, DENY)`` grant is honored), trace-tier READ on the
+    traces being analyzed (honoring ``(trace, *, DENY)``), and USE on the secret, mirroring
+    model-definition creation.
+    """
+    if not validate_can_create_run():
+        return False
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -3783,7 +3829,7 @@ BEFORE_REQUEST_VALIDATORS.update({
     # scorer_version (a child of scorer, a different parent) is not enforced -- applying a
     # scorer is not a scorer-resource operation.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
-    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_create_run,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
     (DEMO_DELETE, "POST"): sender_is_admin,
