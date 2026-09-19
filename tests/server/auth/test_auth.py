@@ -6536,6 +6536,7 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
     store = _Store()
     permission_helper = mock.Mock(
         side_effect=lambda name, username: SimpleNamespace(
+            name="EDIT",
             can_read=False,
             can_update=store.exists,
             can_delete=False,
@@ -6548,11 +6549,39 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is True
     assert request.state.mcp_server_parent_auto_created is True
-    assert permission_helper.call_count == 0
+    # The version tier IS consulted on the auto-create path now, to honor a version DENY
+    # (create gate allows + version tier is not DENY -> allowed).
+    assert permission_helper.call_count == 1
 
     store.exists = True
     assert request.state.mcp_server_can_update_existing_recheck() is True
-    permission_helper.assert_called_once_with("com.test/race-server", "alice")
+    assert permission_helper.call_count == 2
+    permission_helper.assert_called_with("com.test/race-server", "alice")
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_version_create_denied_when_parent_missing_and_version_denied(monkeypatch, prefix):
+    # Auto-creating the server on first version write must still honor a
+    # (mcp_server_version, *, DENY): the workspace create gate alone must not bypass it.
+    validator = _find_fastapi_validator(f"{prefix}/com.test/deny-server/versions", "POST")
+    assert validator is not None
+
+    def _get_mcp_server(_name):
+        raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_mcp_server=_get_mcp_server)
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda name, username: SimpleNamespace(name="DENY", can_update=False),
+    )
+    # Workspace create gate would otherwise allow the implicit parent.
+    monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+
+    request = SimpleNamespace(method="POST", state=SimpleNamespace())
+    assert asyncio.run(validator("alice", request)) is False
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -7899,6 +7928,68 @@ def test_register_existing_scorer_version_outcomes(monkeypatch, _case, permissio
     )
 
     assert auth_module.validate_can_register_scorer() is expected
+
+
+def test_deny_veto_rejects_iff_any_permission_is_deny():
+    from mlflow.server.auth.permissions import DENY, MANAGE, NO_PERMISSIONS, READ
+
+    assert auth_module._deny_veto(DENY) is True
+    assert auth_module._deny_veto(READ, DENY) is True  # any DENY vetoes
+    assert auth_module._deny_veto(READ, MANAGE, NO_PERMISSIONS) is False
+    assert auth_module._deny_veto(None) is False  # unresolved is not a veto
+    assert auth_module._deny_veto() is False
+
+
+@pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
+def test_composite_routes_honor_scorer_version_deny(monkeypatch, scorer_version_denied, expected):
+    # A (scorer_version, *, DENY) vetoes INVOKE_SCORER / INVOKE_GENAI_EVALUATE /
+    # CreatePromptOptimizationJob even though no positive scorer_version grant is required
+    # (Copilot #32 split verdict). All positive checks are stubbed to pass so the veto is
+    # the only deciding factor.
+    from mlflow.server.auth.permissions import MANAGE
+
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "e1")
+    monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: MANAGE)
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: MANAGE)
+    monkeypatch.setattr(
+        auth_module, "_scorer_version_deny_active", lambda _e: scorer_version_denied
+    )
+
+    with auth_module.app.test_request_context("/x", method="POST", json={}):
+        assert auth_module.validate_can_invoke_scorer() is expected
+        assert auth_module.validate_can_invoke_genai_evaluate() is expected
+        assert auth_module.validate_can_create_prompt_optimization_job() is expected
+
+
+@pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
+def test_register_new_scorer_honors_scorer_version_deny(
+    monkeypatch, scorer_version_denied, expected
+):
+    # Creating a brand-new scorer is gated on experiment.can_update (its pre-RFC contract),
+    # but a (scorer_version, *, DENY) still vetoes writing version 1.
+    from mlflow.server.auth.permissions import MANAGE
+
+    def _raise_not_found(_experiment_id, _name):
+        raise MlflowException("no scorer", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "e1", "name": "s"}[name],
+    )
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_scorer=_raise_not_found)
+    )
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_scorer_version_deny_active", lambda _e: scorer_version_denied
+    )
+
+    with auth_module.app.test_request_context("/scorers", method="POST"):
+        assert auth_module.validate_can_register_scorer() is expected
 
 
 @pytest.mark.parametrize(
