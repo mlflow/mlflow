@@ -41,6 +41,7 @@
     "build:bundle": "node esbuild.config.mjs",
     "prepublishOnly": "npm run build",
     "test": "jest --config jest.config.cjs",
+    "sync:pricing": "node scripts/sync-openai-pricing.mjs && prettier --write src/openaiPricing.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write .",
