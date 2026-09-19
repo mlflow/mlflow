@@ -72,9 +72,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.protos.databricks_pb2 import (
-    PERMISSION_DENIED as PERMISSION_DENIED,
-)
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
     GetIssue,
