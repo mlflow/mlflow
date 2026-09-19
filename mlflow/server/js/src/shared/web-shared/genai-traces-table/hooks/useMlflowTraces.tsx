@@ -285,6 +285,7 @@ export const useMlflowTracesTableMetadata = ({
     sqlWarehouseId,
     enabled: !disabled,
     orderBy,
+    enablePagination: false,
   });
   const filteredTraces = useMemo(
     () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(traces, runUuid) : traces),
@@ -303,6 +304,7 @@ export const useMlflowTracesTableMetadata = ({
     loggedModelId,
     sqlWarehouseId,
     orderBy,
+    enablePagination: false,
   });
 
   const filteredOtherTraces = useMemo(

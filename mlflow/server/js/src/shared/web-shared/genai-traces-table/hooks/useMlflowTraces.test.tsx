@@ -251,6 +251,60 @@ describe('useMlflowTracesTableMetadata', () => {
     expect(result.current.tableFilterOptions.prompt).toHaveLength(1);
     expect(result.current.tableFilterOptions.prompt?.[0].value).toBe('valid-prompt/1');
   });
+
+  test('discovers assessments beyond the first paginated trace page', async () => {
+    jest.mocked(useGenAiTraceEvaluationArtifacts).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+    jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+
+    const makeTrace = (index: number, assessmentName: string): ModelTraceInfoV3 =>
+      ({
+        trace_id: `trace-${index}`,
+        assessments: [
+          {
+            assessment_id: `${assessmentName}-${index}`,
+            assessment_name: assessmentName,
+            trace_id: `trace-${index}`,
+            feedback: { value: 'pass' },
+          } as FeedbackAssessment,
+        ],
+      }) as ModelTraceInfoV3;
+    const traces = [
+      ...Array.from({ length: 110 }, (_, index) => makeTrace(index, 'judge_a')),
+      ...Array.from({ length: 110 }, (_, index) => makeTrace(index + 110, 'judge_b')),
+    ];
+
+    jest.mocked(fetchAPI).mockImplementation(async (_url, options) => {
+      if (!options) {
+        throw new Error('Expected trace search request options');
+      }
+      const isPaginatedRequest = options.body.max_results === 100;
+      return {
+        traces: isPaginatedRequest ? traces.slice(0, 100) : traces,
+        next_page_token: isPaginatedRequest ? 'next-page' : undefined,
+      };
+    });
+
+    const { result } = renderHook(
+      () =>
+        useMlflowTracesTableMetadata({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-assessment-pagination' },
+            },
+          ],
+          runUuid: 'run-assessment-pagination',
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.assessmentInfos.map((assessment) => assessment.name)).toEqual(['judge_a', 'judge_b']);
+  });
 });
 
 describe('getSearchMlflowTracesQueryCacheConfig', () => {
