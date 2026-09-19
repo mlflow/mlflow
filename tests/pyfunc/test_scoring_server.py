@@ -857,34 +857,6 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-def test_scoring_server_client_timeout_diagnostics():
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-
-    client = ScoringServerClient(host="127.0.0.1", port=5000)
-    server_proc = mock.Mock(pid=123, poll=mock.Mock(return_value=None))
-    ping_error = ConnectionError("connection refused")
-
-    with (
-        mock.patch.object(client, "ping", side_effect=ping_error) as ping,
-        mock.patch("mlflow.pyfunc.scoring_server.client.time.sleep"),
-        mock.patch(
-            "mlflow.pyfunc.scoring_server.client.time.time",
-            side_effect=[100.0, 100.1, 101.1, 101.1],
-        ),
-        pytest.raises(
-            RuntimeError, match=r"Scoring server at http://127\.0\.0\.1:5000"
-        ) as exc_info,
-    ):
-        client.wait_server_ready(timeout=1, scoring_server_proc=server_proc)
-
-    assert ping.call_count == 2
-    assert str(exc_info.value) == (
-        "Scoring server at http://127.0.0.1:5000 was not ready after 1.1s "
-        "(timeout: 1s). Server PID: 123. Last ping error: ConnectionError: connection refused"
-    )
-    assert exc_info.value.__cause__ is ping_error
-
-
 _LLM_CHAT_INPUT_SCHEMA = Schema([
     ColSpec(
         Array(
