@@ -13,7 +13,6 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
@@ -131,8 +130,7 @@ def test_log_artifact(
             http_artifact_repo.log_artifact(file_path, artifact_path)
 
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
-    # assert mpu is triggered when file size is larger than minimum file size
-    file_path.write_text("0" * MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get())
+    # Multipart mode applies to every artifact, including files below the former threshold.
     with mock.patch.object(
         http_artifact_repo, "_try_multipart_upload", return_value=200
     ) as mock_mpu:
@@ -203,6 +201,33 @@ def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_rep
         http_artifact_repo.log_artifact(file_path)
 
     mock_put.assert_called_once()
+
+
+def test_empty_file_uses_one_multipart_upload_part(http_artifact_repo, tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    file_path = tmp_path / "empty.bin"
+    file_path.write_bytes(b"")
+    credential = MultipartUploadCredential(url="url", part_number=1, headers={})
+
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            return_value=CreateMultipartUploadResponse(
+                upload_id="upload_id", credentials=[credential]
+            ),
+        ) as mock_create,
+        mock.patch.object(
+            http_artifact_repo,
+            "_upload_part",
+            return_value=MultipartUploadPart(part_number=1, etag="etag"),
+        ),
+        mock.patch.object(http_artifact_repo, "complete_multipart_upload") as mock_complete,
+    ):
+        http_artifact_repo.log_artifact(file_path)
+
+    mock_create.assert_called_once_with(file_path, 1, None)
+    mock_complete.assert_called_once()
 
 
 @pytest.mark.parametrize(

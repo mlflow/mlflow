@@ -19,7 +19,6 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import (
@@ -73,9 +72,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
 
     def _should_multipart_upload(self, local_file):
-        return self._is_multipart_upload_enabled() and (
-            os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-        )
+        return self._is_multipart_upload_enabled()
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
@@ -85,7 +82,11 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 self._try_multipart_upload(local_file, artifact_path)
                 return
             except _UnsupportedMultipartUploadException:
-                pass
+                # Preserve the legacy fallback only when multipart was explicitly requested by
+                # the client. If the server advertised multipart support, a 501 response is a
+                # server-side inconsistency and falling back would violate presigned-only mode.
+                if not MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.is_set():
+                    raise
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
@@ -348,7 +349,9 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         Raises UnsupportedMultipartUploadException if multipart upload is unsupported.
         """
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        num_parts = _compute_num_chunks(local_file, chunk_size)
+        # Empty artifacts still need one upload part so that presigned-only servers can accept
+        # them without using the legacy byte-stream endpoint.
+        num_parts = max(1, _compute_num_chunks(local_file, chunk_size))
 
         try:
             create = self.create_multipart_upload(local_file, num_parts, artifact_path)
