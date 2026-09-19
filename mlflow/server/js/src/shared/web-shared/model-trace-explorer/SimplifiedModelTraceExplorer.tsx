@@ -13,6 +13,7 @@ import {
 import { ModelTraceExplorerPreferencesProvider } from './ModelTraceExplorerPreferencesContext';
 import { SimplifiedAssessmentView, SIMPLIFIED_ASSESSMENT_VIEW_MIN_WIDTH } from './right-pane/SimplifiedAssessmentView';
 import { ModelTraceExplorerSummarySpans, SUMMARY_SPANS_MIN_WIDTH } from './summary-view/ModelTraceExplorerSummarySpans';
+import { TraceArtifactLocationContextProvider } from './contexts/TraceArtifactLocationContext';
 
 const SimplifiedModelTraceExplorerContent = ({ assessments }: { assessments: Assessment[] }) => {
   const [paneWidth, setPaneWidth] = useState(500);
@@ -67,9 +68,11 @@ export const SimplifiedModelTraceExplorerImpl = ({
   return (
     <ContextProviders traceId={traceId}>
       <ModelTraceExplorerPreferencesProvider>
-        <ModelTraceExplorerViewStateProvider modelTrace={initialModelTrace} assessmentsPaneEnabled>
-          <SimplifiedModelTraceExplorerContent assessments={assessments} />
-        </ModelTraceExplorerViewStateProvider>
+        <TraceArtifactLocationContextProvider modelTrace={initialModelTrace}>
+          <ModelTraceExplorerViewStateProvider modelTrace={initialModelTrace} assessmentsPaneEnabled>
+            <SimplifiedModelTraceExplorerContent assessments={assessments} />
+          </ModelTraceExplorerViewStateProvider>
+        </TraceArtifactLocationContextProvider>
       </ModelTraceExplorerPreferencesProvider>
     </ContextProviders>
   );
