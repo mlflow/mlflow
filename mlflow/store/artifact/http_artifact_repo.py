@@ -215,6 +215,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                         headers=headers,
                         download_path=local_path,
                         http_uri=http_uri,
+                        verify=not MLFLOW_S3_IGNORE_TLS.get(),
                     ): chunk
                     for chunk in chunks_to_download
                 }
