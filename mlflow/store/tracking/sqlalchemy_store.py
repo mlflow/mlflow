@@ -2933,18 +2933,23 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
             resolved = self.resolve_endpoint_in_scorer(entity)
-            # Signal to the caller (server handler) whether THIS transaction created the
-            # scorer parent, so the after-request MANAGE grant fires only on a real create.
-            # Set on the FINAL object (resolve_endpoint_in_scorer may return a rebuilt entity)
-            # so the attribute is never dropped. Keyed on parent_created, not the version
-            # number (an empty parent would otherwise be misread as a create).
-            resolved._parent_created = parent_created
+            # Part of the transactional-scorer-authorization contract (see
+            # supports_transactional_scorer_authorization): report whether THIS transaction
+            # created the scorer parent, so the server's after-request MANAGE grant fires
+            # only on a real create. Set on the FINAL object (resolve_endpoint_in_scorer may
+            # return a rebuilt entity) so the attribute is never dropped. Keyed on
+            # parent_created, not the version number (an empty parent -- all versions
+            # deleted -- would otherwise be misread as a create).
+            resolved.scorer_parent_created = parent_created
             return resolved
 
     def supports_transactional_scorer_authorization(self) -> bool:
         # register_scorer invokes authorize_version_add inside the ManagedSessionMaker
-        # transaction on the version-add path (new_version != 1), before the version row is
-        # added, so a raise rolls the write back. The guarantee server-side auth requires.
+        # transaction whenever the scorer parent already existed (keyed on parent existence,
+        # NOT the version number -- an empty parent with all versions deleted would compute
+        # version 1 yet is still a version-add), before the version row is added, so a raise
+        # rolls the write back. It also sets scorer_parent_created on the returned entity.
+        # Together these are the guarantees the transactional-authorization contract requires.
         return True
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:

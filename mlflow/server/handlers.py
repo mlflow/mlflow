@@ -6024,10 +6024,23 @@ def _register_scorer():
             ),
         )
         # The store is authoritative on whether THIS transaction created the parent (a parent
-        # can exist with zero versions, so the version number is not a reliable signal).
+        # can exist with zero versions, so the version number is not a reliable signal). A
+        # store that declares supports_transactional_scorer_authorization() MUST set the
+        # scorer_parent_created attribute on the returned ScorerVersion (documented on the
+        # capability). Treat a missing signal as a contract violation and fail CLOSED, rather
+        # than default it to False and silently deny a genuine creator parent MANAGE.
+        parent_created = getattr(scorer_version, "scorer_parent_created", None)
+        if parent_created is None:
+            raise MlflowException(
+                f"The configured tracking store ({type(store).__name__}) declares "
+                "transactional scorer authorization support but did not report whether the "
+                "scorer parent was created (missing 'scorer_parent_created' on the registered "
+                "version). This is a store contract violation.",
+                error_code=INTERNAL_ERROR,
+            )
         # Relay it to the auth layer so the after-request MANAGE grant fires only on a real
         # parent create.
-        auth_mod._record_scorer_parent_created(getattr(scorer_version, "_parent_created", False))
+        auth_mod._record_scorer_parent_created(parent_created)
     else:
         # Auth disabled (or not initialized): no callback to thread. Call the pre-existing
         # three-argument contract so custom tracking stores that predate the

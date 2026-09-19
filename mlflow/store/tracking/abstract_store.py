@@ -1693,13 +1693,22 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     def supports_transactional_scorer_authorization(self) -> bool:
-        """Whether ``register_scorer`` invokes ``authorize_version_add`` inside the write
-        transaction (raising to roll back before a version row is inserted).
+        """Whether ``register_scorer`` upholds the transactional scorer-authorization
+        contract. A store that returns ``True`` MUST guarantee BOTH:
 
-        Defaults to ``False``: a store must opt in only after guaranteeing the callback runs
-        transactionally on the version-add path. Server-side auth relies on this to fail
-        closed rather than silently skip authorization when the backing store cannot make the
-        guarantee (e.g. a delegating store that accepts-and-ignores the callback).
+        1. It invokes the ``authorize_version_add`` callback inside the write transaction
+           whenever the scorer parent already existed (i.e. this call adds a version to an
+           existing scorer, INCLUDING an empty parent whose versions were all deleted --
+           keyed on parent existence, not the version number), before inserting the version
+           row, so that a raise rolls the write back.
+        2. It sets ``scorer_parent_created`` (a bool) on the returned ``ScorerVersion`` to
+           report whether THIS transaction created the scorer parent, so the server can grant
+           parent ``MANAGE`` only on a real create.
+
+        Defaults to ``False``: a store must opt in only after guaranteeing both. Server-side
+        auth relies on this to fail closed rather than silently skip authorization (or
+        silently misgrant ownership) when the backing store cannot make the guarantee (e.g. a
+        delegating store that accepts-and-ignores the callback).
         """
         return False
 
