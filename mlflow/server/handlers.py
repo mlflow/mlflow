@@ -122,6 +122,7 @@ from mlflow.protos.issues_pb2 import (
     CreateIssue,
     GetIssue,
     SearchIssues,
+    SubmitIssueDetection,
     UpdateIssue,
 )
 from mlflow.protos.jobs_pb2 import JobStatus
@@ -5395,7 +5396,7 @@ def _invoke_issue_detection_handler():
             "experiment_id": [_assert_required, _assert_string],
             "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
-            "provider": [_assert_required, _assert_string],
+            "provider": [_assert_string],
             "model": [_assert_string],
             "secret_id": [_assert_string],
             "endpoint_name": [_assert_string],
@@ -5485,7 +5486,8 @@ def _invoke_issue_detection_handler():
     mlflow.set_tag(MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
 
-    return jsonify({"job_id": job.job_id, "run_id": run_id})
+    response_message = SubmitIssueDetection.Response(job_id=job.job_id, run_id=run_id)
+    return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
@@ -7607,13 +7609,7 @@ def get_gateway_endpoints():
 
 
 def get_issues_detection_endpoints():
-    return [
-        (
-            _get_ajax_path("/mlflow/issues/invoke", version=3),
-            _invoke_issue_detection_handler,
-            ["POST"],
-        ),
-    ]
+    return []
 
 
 def get_genai_evaluate_endpoints():
@@ -8532,6 +8528,7 @@ HANDLERS = {
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
     SearchIssues: _search_issues,
+    SubmitIssueDetection: _invoke_issue_detection_handler,
     # Label Schema APIs
     CreateLabelSchema: _create_label_schema,
     GetLabelSchema: _get_label_schema,

@@ -16,6 +16,7 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     Issue,
+    IssueDetectionJob,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -56,6 +57,7 @@ from mlflow.protos.issues_pb2 import (
     CreateIssue,
     GetIssue,
     SearchIssues,
+    SubmitIssueDetection,
     UpdateIssue,
 )
 from mlflow.protos.label_schemas_pb2 import (
@@ -1031,6 +1033,38 @@ class RestStore(
         )
         issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
         return PagedList(issues, response_proto.next_page_token or None)
+
+    def submit_issue_detection(
+        self,
+        experiment_id: str,
+        trace_ids: list[str],
+        categories: list[str],
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        secret_id: str | None = None,
+        endpoint_name: str | None = None,
+    ) -> IssueDetectionJob:
+        req_body = message_to_json(
+            SubmitIssueDetection(
+                experiment_id=str(experiment_id),
+                trace_ids=trace_ids,
+                categories=categories,
+                provider=provider,
+                model=model,
+                secret_id=secret_id,
+                endpoint_name=endpoint_name,
+            )
+        )
+        response_proto = self._call_endpoint(
+            SubmitIssueDetection,
+            req_body,
+            endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/invoke",
+        )
+        return IssueDetectionJob(
+            job_id=response_proto.job_id,
+            run_id=response_proto.run_id,
+        )
 
     # ----- Label schemas (tracking-store CRUD) -----
 

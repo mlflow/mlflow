@@ -185,3 +185,31 @@ class Issue(_MlflowObject):
             created_by=proto.created_by or None,
             trace_count=proto.trace_count if proto.HasField("trace_count") else None,
         )
+
+
+@dataclass
+class IssueDetectionJob(_MlflowObject):
+    """
+    Handle for an asynchronous issue detection job submitted on traces.
+    """
+
+    job_id: str
+    """Unique identifier for the asynchronous background job."""
+
+    run_id: str
+    """MLflow run ID associated with this issue detection job."""
+
+    def to_dictionary(self) -> dict[str, Any]:
+        """Convert IssueDetectionJob to dictionary representation."""
+        return {
+            "job_id": self.job_id,
+            "run_id": self.run_id,
+        }
+
+    @classmethod
+    def from_dictionary(cls, d: dict[str, Any]) -> IssueDetectionJob:
+        """Create IssueDetectionJob from dictionary representation."""
+        return cls(
+            job_id=d["job_id"],
+            run_id=d["run_id"],
+        )

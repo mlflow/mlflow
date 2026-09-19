@@ -145,3 +145,36 @@ message SearchIssues {
     optional string next_page_token = 2;
   }
 }
+
+// Request to submit an issue detection job on traces.
+message SubmitIssueDetection {
+  // Experiment ID.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // List of trace IDs to analyze.
+  repeated string trace_ids = 2;
+
+  // Categories of issues to detect.
+  repeated string categories = 3;
+
+  // Provider name (e.g. openai, anthropic, bedrock).
+  optional string provider = 4;
+
+  // Model name.
+  optional string model = 5;
+
+  // Secret ID for credentials saved in AI Gateway.
+  optional string secret_id = 6;
+
+  // AI Gateway endpoint name.
+  optional string endpoint_name = 7;
+
+  message Response {
+    // Unique identifier for the asynchronous background job.
+    optional string job_id = 1;
+
+    // MLflow run ID associated with this issue detection job.
+    optional string run_id = 2;
+  }
+}
+

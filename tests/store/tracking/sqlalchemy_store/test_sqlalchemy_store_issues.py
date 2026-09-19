@@ -1050,3 +1050,15 @@ def test_search_issues_sorted_by_trace_count_within_severity(store):
     assert result[2].trace_count == 2
     assert result[3].issue_id == issue_medium_0_traces.issue_id
     assert result[3].trace_count == 0
+
+
+def test_submit_issue_detection_unsupported(store):
+    with pytest.raises(
+        MlflowException,
+        match="Submitting issue detection is only supported",
+    ):
+        store.submit_issue_detection(
+            experiment_id="0",
+            trace_ids=["t1"],
+            categories=["cat1"],
+        )

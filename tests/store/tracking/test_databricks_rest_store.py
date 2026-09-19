@@ -2220,6 +2220,20 @@ def test_search_issues_not_implemented():
         store.search_issues(experiment_id="exp-123")
 
 
+def test_submit_issue_detection_not_implemented():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(
+        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
+    ):
+        store.submit_issue_detection(
+            experiment_id="exp-123",
+            trace_ids=["t1"],
+            categories=["cat1"],
+        )
+
+
 # ---------------------------------------------------------------------------
 # Auto-start SQL warehouse before /api/4.0 and /api/5.0 MLflow tracing calls
 # ---------------------------------------------------------------------------

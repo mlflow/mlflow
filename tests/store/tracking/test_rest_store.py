@@ -21,6 +21,7 @@ from mlflow.entities import (
     GatewayResourceType,
     InputTag,
     Issue,
+    IssueDetectionJob,
     IssueSeverity,
     IssueStatus,
     LifecycleStage,
@@ -4136,3 +4137,40 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+def test_submit_issue_detection():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "job_id": "job-123",
+        "run_id": "run-456",
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        job = store.submit_issue_detection(
+            experiment_id="exp-123",
+            trace_ids=["trace-1", "trace-2"],
+            categories=["hallucination"],
+            provider="openai",
+            model="gpt-4o",
+            secret_id="sec-1",
+            endpoint_name="ep-1",
+        )
+
+    expected_request_json = json.dumps({
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1", "trace-2"],
+        "categories": ["hallucination"],
+        "provider": "openai",
+        "model": "gpt-4o",
+        "secret_id": "sec-1",
+        "endpoint_name": "ep-1",
+    })
+    _verify_requests(mock_http, creds, "issues/invoke", "POST", expected_request_json, use_v3=True)
+
+    assert isinstance(job, IssueDetectionJob)
+    assert job.job_id == "job-123"
+    assert job.run_id == "run-456"

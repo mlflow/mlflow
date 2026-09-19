@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.issue import Issue, IssueDetectionJob, IssueSeverity, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
 
 
@@ -485,3 +485,35 @@ def test_issue_proto_roundtrip_all_fields():
     assert recovered.source_run_id == original.source_run_id
     assert recovered.categories == original.categories
     assert recovered.created_by == original.created_by
+
+
+def test_issue_detection_job_creation_and_properties():
+    job = IssueDetectionJob(job_id="job-123", run_id="run-456")
+    assert job.job_id == "job-123"
+    assert job.run_id == "run-456"
+
+
+def test_issue_detection_job_to_dictionary():
+    job = IssueDetectionJob(job_id="job-123", run_id="run-456")
+    assert job.to_dictionary() == {
+        "job_id": "job-123",
+        "run_id": "run-456",
+    }
+
+
+def test_issue_detection_job_from_dictionary():
+    data = {
+        "job_id": "job-abc",
+        "run_id": "run-xyz",
+    }
+    job = IssueDetectionJob.from_dictionary(data)
+    assert job.job_id == "job-abc"
+    assert job.run_id == "run-xyz"
+
+
+def test_issue_detection_job_equality():
+    job1 = IssueDetectionJob(job_id="job-1", run_id="run-1")
+    job2 = IssueDetectionJob(job_id="job-1", run_id="run-1")
+    job3 = IssueDetectionJob(job_id="job-2", run_id="run-1")
+    assert job1 == job2
+    assert job1 != job3

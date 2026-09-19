@@ -76,6 +76,7 @@ from mlflow.protos.issues_pb2 import (
     CreateIssue,
     GetIssue,
     SearchIssues,
+    SubmitIssueDetection,
     UpdateIssue,
 )
 from mlflow.protos.label_schemas_pb2 import (
@@ -3377,6 +3378,7 @@ ISSUE_BEFORE_REQUEST_VALIDATORS = {
 ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
     CreateIssue: validate_can_create_issue,
     SearchIssues: validate_can_search_issues,
+    SubmitIssueDetection: validate_can_update_experiment,
 }
 
 
