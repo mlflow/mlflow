@@ -1410,21 +1410,25 @@ def validate_can_register_scorer():
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
+        # get_scorer reports RESOURCE_DOES_NOT_EXIST both for a truly new scorer AND for an
+        # EXISTING but empty parent (all versions deleted via delete_scorer(version=N), which
+        # keeps the SqlScorer). These two cases have different positive requirements -- create
+        # needs experiment UPDATE; a version-add on the empty parent needs scorer_version
+        # UPDATE -- and a pre-request probe cannot tell them apart. Rather than force one
+        # interpretation (which either over-denies a legitimate version-adder lacking
+        # experiment UPDATE, or over-permits), ADMIT when EITHER positive requirement holds
+        # and defer the authoritative, mutually-exclusive decision to the write transaction:
+        # register_scorer runs _authorize_scorer_version_add (scorer_version UPDATE) whenever
+        # the parent already existed, and the create path is gated here by experiment UPDATE.
         username = authenticate_request().username
-        if not _get_experiment_permission(experiment_id, username).can_update:
-            return False
-        # Creating a new scorer creates the scorer PARENT: honor (scorer, *, DENY) -- a
-        # distinct surface from the scorer_version veto below (Copilot r4052491497).
+        # (scorer/scorer_version, *, DENY) is a universal veto on either interpretation.
         if _top_level_create_denied("scorer", username):
             return False
-        # (scorer_version, *, DENY) vetoes writing the first version. The
-        # create-vs-concurrent-version-add TOCTOU (a version added to a scorer another
-        # request created between this probe and the handler) is NOT closed here -- no
-        # pre-handler probe can. It is closed inside the write transaction via
-        # _authorize_scorer_version_add, passed as register_scorer's authorize_version_add
-        # callback (see the handler); the after-request MANAGE grant is independently guarded
-        # to fire only when the response reports version 1.
-        return not _scorer_version_deny_active(experiment_id)
+        if _scorer_version_deny_active(experiment_id):
+            return False
+        can_create = _get_experiment_permission(experiment_id, username).can_update
+        can_version_add = _get_scorer_version_permission(experiment_id, name).can_update
+        return can_create or can_version_add
     return _get_scorer_version_permission(experiment_id, name).can_update
 
 

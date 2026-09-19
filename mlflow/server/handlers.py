@@ -6030,12 +6030,12 @@ def _register_scorer():
         # capability). Treat a missing signal as a contract violation and fail CLOSED, rather
         # than default it to False and silently deny a genuine creator parent MANAGE.
         parent_created = getattr(scorer_version, "scorer_parent_created", None)
-        if parent_created is None:
+        if not isinstance(parent_created, bool):
             raise MlflowException(
                 f"The configured tracking store ({type(store).__name__}) declares "
-                "transactional scorer authorization support but did not report whether the "
-                "scorer parent was created (missing 'scorer_parent_created' on the registered "
-                "version). This is a store contract violation.",
+                "transactional scorer authorization support but did not report a valid "
+                "boolean 'scorer_parent_created' on the registered version (got "
+                f"{type(parent_created).__name__}). This is a store contract violation.",
                 error_code=INTERNAL_ERROR,
             )
         # Relay it to the auth layer so the after-request MANAGE grant fires only on a real
