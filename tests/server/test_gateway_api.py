@@ -1657,10 +1657,13 @@ def test_list_models_endpoint(store: SqlAlchemyStore, endpoint_names, expected_i
 
     with (
         patch("mlflow.server.gateway_api._get_store", return_value=store),
-        patch.object(store, "list_gateway_endpoints", return_value=endpoints),
+        patch.object(
+            store, "list_gateway_endpoints", return_value=endpoints
+        ) as mock_list_gateway_endpoints,
     ):
         response = TestClient(app).get("/gateway/mlflow/v1/models")
 
+    mock_list_gateway_endpoints.assert_called_once_with()
     assert response.status_code == 200
     assert response.json() == {
         "object": "list",
