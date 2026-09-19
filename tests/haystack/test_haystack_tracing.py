@@ -13,6 +13,7 @@ from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.exceptions import MlflowException
 from mlflow.haystack.autolog import _get_opentelemetry_tracer_class
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -148,6 +149,18 @@ def test_autolog_disable():
     pipe2.add_component("adder", Add())
     pipe2.run({"adder": {"a": 2, "b": 3}})
     assert len(get_traces()) == 1
+
+
+def test_autolog_records_integration_config():
+    # `mlflow.autolog()` checks AUTOLOGGING_INTEGRATIONS before re-enabling a flavor,
+    # so the config has to be recorded or an explicit opt-out is overridden.
+    mlflow.haystack.autolog(disable=True)
+
+    config = AUTOLOGGING_INTEGRATIONS["haystack"]
+    assert config["disable"] is True
+
+    mlflow.haystack.autolog()
+    assert AUTOLOGGING_INTEGRATIONS["haystack"]["disable"] is False
 
 
 def test_in_memory_retriever_component_traced():
