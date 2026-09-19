@@ -329,6 +329,21 @@ def test_create_workspace_rejects_invalid_trace_archival_location(
     mock_workspace_store.create_workspace.assert_not_called()
 
 
+def test_create_workspace_rejects_host_addressed_default_artifact_root(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-ftp", "default_artifact_root": "ftp://internal-host:21/pub"},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert "'default_artifact_root' cannot use the 'ftp' scheme" in payload["message"]
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
 def test_create_workspace_rejects_proxy_only_trace_archival_location(
     app, mock_workspace_store, mock_tracking_store
 ):

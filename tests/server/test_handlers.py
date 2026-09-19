@@ -55,7 +55,10 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import (
+    MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
+    MLFLOW_ENABLE_WORKSPACES,
+)
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
@@ -157,6 +160,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
+    ARTIFACT_ROOT_ENV_VAR,
     ARTIFACTS_DESTINATION_ENV_VAR,
     ARTIFACTS_ONLY_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
@@ -2565,6 +2569,197 @@ def test_create_presigned_download_url_rejects_out_of_range_default_expiration(m
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert "expiration must be between 1 and 604800 seconds" in json_response["message"]
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "ftp://internal-host:21/pub",
+        "sftp://user:pass@10.0.0.5:22/data",
+        "hdfs://namenode:8020/mlflow",
+        "viewfs://cluster/mlflow",
+        "FTP://internal-host/pub",
+        "http://internal-host:5000/api/2.0/mlflow-artifacts/artifacts",
+        "https://169.254.169.254/latest/meta-data",
+        "mlflow-artifacts://internal-host:5000/experiments",
+        "r2://bucket@evil.example/experiments",
+        "b2://bucket@evil.example/experiments",
+        "abfss://fs@acct.evil.example/experiments",
+    ],
+)
+def test_create_experiment_rejects_host_addressed_artifact_location(
+    mock_get_request_message, mock_tracking_store, artifact_location
+):
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    response = _create_experiment()
+    assert response.status_code == 400
+    message = json.loads(response.get_data())["message"]
+    assert "'artifact_location' cannot use the" in message
+    assert MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name in message
+    mock_tracking_store.create_experiment.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "s3://bucket/prefix",
+        "mlflow-artifacts:/experiments",
+        "file:///tmp/mlruns",
+        "/tmp/mlruns",
+    ],
+)
+def test_create_experiment_accepts_non_host_addressed_artifact_location(
+    mock_get_request_message, mock_tracking_store, artifact_location
+):
+    mock_tracking_store.create_experiment.return_value = "1"
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    response = _create_experiment()
+    assert response.status_code == 200
+    mock_tracking_store.create_experiment.assert_called_once_with("exp", artifact_location, [])
+
+
+def test_create_experiment_allows_host_addressed_artifact_location_when_opted_in(
+    mock_get_request_message, mock_tracking_store, monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name, "hdfs, SFTP")
+    mock_tracking_store.create_experiment.return_value = "1"
+
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="hdfs://namenode:8020/mlflow"
+    )
+    assert _create_experiment().status_code == 200
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="sftp://user@sftp-host/data"
+    )
+    assert _create_experiment().status_code == 200
+    assert mock_tracking_store.create_experiment.call_count == 2
+
+    # Schemes left out of the opt-in list stay blocked.
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="ftp://internal-host/pub"
+    )
+    assert _create_experiment().status_code == 400
+    assert mock_tracking_store.create_experiment.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("default_artifact_root", "artifact_location"),
+    [
+        ("hdfs://namenode:8020/mlflow", "hdfs://namenode:8020/mlflow/team-a"),
+        ("hdfs://namenode:8020/mlflow", "viewfs://NAMENODE:8020/other"),
+        ("sftp://svc@sftp-host/data", "sftp://other-user:pw@sftp-host/data/team-a"),
+        ("ftp://ftp-host:2121/pub", "ftp://ftp-host:2121/pub/team-a"),
+        (
+            "mlflow-artifacts://artifacts-server:5000",
+            "http://artifacts-server:5000/api/2.0/mlflow-artifacts/artifacts/team-a",
+        ),
+        ("http://artifacts-server/root", "http://artifacts-server:80/root/team-a"),
+        ("https://artifacts-server/root", "mlflow-artifacts://artifacts-server/root/team-a"),
+        ("hdfs:///mlflow", "hdfs:///mlflow/team-a"),
+    ],
+)
+def test_create_experiment_accepts_artifact_location_on_default_artifact_root_host(
+    mock_get_request_message,
+    mock_tracking_store,
+    monkeypatch,
+    default_artifact_root,
+    artifact_location,
+):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
+    mock_tracking_store.create_experiment.return_value = "1"
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    assert _create_experiment().status_code == 200
+    mock_tracking_store.create_experiment.assert_called_once_with("exp", artifact_location, [])
+
+
+@pytest.mark.parametrize(
+    ("default_artifact_root", "artifact_location"),
+    [
+        ("hdfs://namenode:8020/mlflow", "hdfs://other-namenode:8020/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "hdfs://namenode:9000/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "hdfs://namenode/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "ftp://namenode:8020/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "ftp:///pub"),
+        ("https://artifacts-server/root", "http://artifacts-server/root/team-a"),
+        ("http://artifacts-server:5000/root", "http://evil.example\\@artifacts-server:5000/x"),
+    ],
+)
+def test_create_experiment_rejects_artifact_location_near_default_artifact_root_host(
+    mock_get_request_message,
+    mock_tracking_store,
+    monkeypatch,
+    default_artifact_root,
+    artifact_location,
+):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    assert _create_experiment().status_code == 400
+    mock_tracking_store.create_experiment.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "ftp://internal-host:21/models/m1",
+        "sftp://10.0.0.5/models/m1",
+        "hdfs://namenode:8020/models/m1",
+        "viewfs://cluster/models/m1",
+        "http://internal-host:5000/api/2.0/mlflow-artifacts/artifacts/models/m1",
+        "mlflow-artifacts://internal-host:5000/models/m1",
+    ],
+)
+def test_create_model_version_rejects_host_addressed_source(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1", source=source, run_id=uuid.uuid4().hex
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "'source' cannot use the" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+def test_create_model_version_accepts_source_on_default_artifact_root_host(
+    mock_get_request_message, mock_model_registry_store, monkeypatch
+):
+    # `mlflow.register_model("runs:/...")` resolves the run's artifact URI client-side, so a
+    # deployment whose default artifact root is HDFS registers `hdfs://...` sources.
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "hdfs://namenode:8020/mlflow")
+    run_id = uuid.uuid4().hex
+    source = f"hdfs://namenode:8020/mlflow/1/{run_id}/artifacts/model"
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1", source=source, run_id=run_id
+    )
+    mock_model_registry_store.create_model_version.return_value = ModelVersion(
+        name="model_1", version="1", creation_timestamp=123
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 200
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args["source"] == source
+
+
+def test_create_model_version_rejects_host_addressed_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="prompt_1",
+        source="ftp://internal-host/prompts/p1",
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "'source' cannot use the 'ftp' scheme" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -7228,6 +7423,170 @@ def test_get_workspace_scoped_repo_path_if_enabled_requires_active_workspace(mon
 
     with pytest.raises(MlflowException, match="Active workspace is required"):
         _get_workspace_scoped_repo_path_if_enabled("some/path")
+
+
+def test_get_artifact_handler_refuses_run_artifact_root_on_foreign_host(monkeypatch):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "hdfs://namenode:8020/mlflow")
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "ftp://internal-host:21/pub/run1/artifacts"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        with app.test_request_context(
+            method="GET", query_string={"run_id": "run1", "path": "secret.txt"}
+        ):
+            response = get_artifact_handler()
+
+    assert response.status_code == 400
+    assert (
+        "does not connect to artifact location 'ftp://internal-host:21/pub/run1/artifacts'"
+        in (json.loads(response.get_data())["message"])
+    )
+    mock_get_repo.assert_not_called()
+    mock_send.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "artifact_uri",
+    [
+        "hdfs://namenode:8020/mlflow/1/run1/artifacts",
+        "s3://bucket/1/run1/artifacts",
+    ],
+)
+def test_get_artifact_handler_serves_run_artifact_root_on_trusted_host(monkeypatch, artifact_uri):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "hdfs://namenode:8020/mlflow")
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = artifact_uri
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        with app.test_request_context(
+            method="GET", query_string={"run_id": "run1", "path": "model.pkl"}
+        ):
+            get_artifact_handler()
+
+    mock_get_repo.assert_called_once_with(artifact_uri)
+    mock_send.assert_called_once_with(mock_get_repo.return_value, "model.pkl")
+
+
+def test_get_artifact_handler_serves_foreign_host_when_scheme_allowed(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name, "ftp")
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "ftp://internal-host:21/pub/run1/artifacts"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact"),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        with app.test_request_context(
+            method="GET", query_string={"run_id": "run1", "path": "model.pkl"}
+        ):
+            get_artifact_handler()
+
+    mock_get_repo.assert_called_once_with("ftp://internal-host:21/pub/run1/artifacts")
+
+
+def test_get_artifact_handler_http_root_under_no_serve_artifacts_is_refused(monkeypatch):
+    monkeypatch.delenv(SERVE_ARTIFACTS_ENV_VAR, raising=False)
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "http://internal-host:5000/api/2.0/mlflow-artifacts/artifacts/1/r"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        with app.test_request_context(method="GET", query_string={"run_id": "r", "path": "f"}):
+            response = get_artifact_handler()
+
+    assert response.status_code == 400
+    mock_get_repo.assert_not_called()
+
+
+def test_get_artifact_handler_http_root_under_serve_artifacts_stays_proxied(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "http://internal-host:5000/api/2.0/mlflow-artifacts/artifacts/1/r"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_proxy,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        with app.test_request_context(method="GET", query_string={"run_id": "r", "path": "f"}):
+            get_artifact_handler()
+
+    mock_proxy.assert_called_once()
+    mock_get_repo.assert_not_called()
+    mock_send.assert_called_once()
+
+
+def test_upload_artifact_handler_refuses_run_artifact_root_on_foreign_host():
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "sftp://user@internal-host/data/run1/artifacts"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        with app.test_request_context(
+            method="POST", query_string={"run_uuid": "run1", "path": "out.txt"}, data=b"payload"
+        ):
+            response = upload_artifact_handler()
+
+    assert response.status_code == 400
+    mock_get_repo.assert_not_called()
+
+
+def test_get_model_version_artifact_handler_refuses_source_on_foreign_host():
+    with (
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_model_version_download_uri.return_value = (
+            "hdfs://internal-namenode:8020/models/m1"
+        )
+        with app.test_request_context(
+            method="GET", query_string={"name": "MyModel", "version": "1", "path": "model.pkl"}
+        ):
+            response = get_model_version_artifact_handler()
+
+    assert response.status_code == 400
+    mock_get_repo.assert_not_called()
+    mock_send.assert_not_called()
+
+
+def test_get_logged_model_artifact_handler_refuses_location_on_foreign_host():
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = "ftp://internal-host/models/m-1/artifacts"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        with app.test_request_context(method="GET", query_string={"artifact_file_path": "MLmodel"}):
+            response = get_logged_model_artifact_handler("m-1")
+
+    assert response.status_code == 400
+    mock_get_repo.assert_not_called()
+    mock_send.assert_not_called()
 
 
 def test_get_artifact_handler_applies_workspace_scoping(monkeypatch):
