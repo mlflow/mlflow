@@ -7394,12 +7394,13 @@ def test_invoke_scorer_honors_child_deny(client):
     indirect=True,
 )
 def test_invoke_genai_evaluate_and_issue_detection_honor_trace_assessment_deny(client):
-    # INVOKE_GENAI_EVALUATE reads the supplied traces AND writes assessments back onto them
-    # (the eval job's _log_assessments); INVOKE_ISSUE_DETECTION reads the supplied traces AND
-    # writes Issue assessments back onto them (_annotate_issue_traces). Both must honor
-    # (trace, *, DENY) and (assessment, *, DENY) -- an experiment-EDIT caller must not bypass
-    # those child DENYs. (Trace/assessment are gated experiment-scoped; whether the traces
-    # belong to the experiment is business logic, out of the auth model's scope.)
+    # INVOKE_GENAI_EVALUATE reads, tags (set_trace_tag), and writes assessments onto the
+    # supplied traces, so it needs trace UPDATE + assessment UPDATE. INVOKE_ISSUE_DETECTION
+    # reads the traces and writes Issue assessments (_annotate_issue_traces), so it needs
+    # trace READ + assessment UPDATE. Both must honor (trace, *, DENY) and (assessment, *,
+    # DENY) -- an experiment-EDIT caller must not bypass those child DENYs. (Trace/assessment
+    # are gated experiment-scoped; whether the traces belong to the experiment is business
+    # logic, out of the auth model's scope.)
     base = client.tracking_uri
     owner, owner_pw = create_user(base)
     exp_id = requests.post(
@@ -7441,6 +7442,14 @@ def test_invoke_genai_evaluate_and_issue_detection_honor_trace_assessment_deny(c
     grant_role_permission(base, user, "assessment", "*", "DENY")
     assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
     assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code == 403
+
+    # (trace, *, READ) caps traces at read: genai-evaluate tags the evaluated traces
+    # (set_trace_tag), so it requires trace UPDATE -> denied; issue detection only reads the
+    # traces, so trace READ is enough -> still allowed. This distinguishes the two tiers.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "trace", "*", "READ")
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code != 403
 
 
 def test_delete_prompt_optimization_job_honors_run_deny(monkeypatch):

@@ -2679,15 +2679,16 @@ def validate_can_update_gateway_model_definition():
 
 def validate_can_invoke_genai_evaluate():
     """INVOKE_GENAI_EVALUATE creates a run in the request experiment, reads the supplied
-    ``trace_ids``, and the submitted evaluation job writes assessments back onto those
-    traces (``genai/evaluation/harness.py`` ``_log_assessments``). Enforce the three
+    ``trace_ids``, and the submitted evaluation job tags (``set_trace_tag``) and writes
+    assessments back onto those traces (``genai/evaluation/harness.py``). Enforce the three
     experiment children it touches, each with experiment fallback so an experiment-``EDIT``
     caller cannot bypass a ``(child, *, DENY)`` grant through this route:
 
     * run UPDATE -- creates the evaluation run (same gate as ``CreateRun``);
-    * trace READ -- the traces being evaluated, gated experiment-scoped (the wildcard-grain
-      trace tier honors a workspace ``(trace, *, DENY)`` regardless of the anchor
-      experiment); and
+    * trace UPDATE -- the harness reads AND tags the evaluated traces
+      (``mlflow.set_trace_tag``, ``harness.py:894``), so require UPDATE, not just READ; gated
+      experiment-scoped (the wildcard-grain trace tier honors a workspace ``(trace, *,
+      DENY)`` regardless of the anchor experiment); and
     * assessment UPDATE -- the evaluation always logs assessments back onto the traces
       (unconditional here, unlike ``INVOKE_SCORER``'s ``log_assessments`` flag).
 
@@ -2698,7 +2699,7 @@ def validate_can_invoke_genai_evaluate():
     if not validate_can_create_run():
         return False
     experiment_id = _get_request_param("experiment_id")
-    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+    if not _get_trace_permission_for_experiment(experiment_id).can_update:
         return False
     return _experiment_child_permission("assessment", "*", experiment_id).can_update
 
