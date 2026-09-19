@@ -1426,7 +1426,8 @@ async def anthropic_passthrough_messages(request: Request):
             message_format="anthropic",
         )
         return StreamingResponse(
-            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+            safe_stream(traced_stream(body), as_bytes=True, message_format="anthropic"),
+            media_type="text/event-stream",
         )
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
