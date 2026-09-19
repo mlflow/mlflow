@@ -1094,6 +1094,20 @@ def _get_trace_permission_for_experiment(experiment_id: str) -> Permission:
     return _experiment_child_permission("trace", "*", experiment_id)
 
 
+def _trace_read_predicate() -> Callable[[str], bool]:
+    """Bulk ``experiment_id -> bool`` trace-read predicate.
+
+    Loads the caller's grants once and evaluates every experiment locally, so a
+    multi-experiment trace request stays O(1) authorization queries instead of one
+    workspace + grants round trip per experiment. Equivalent per-experiment to
+    ``_get_trace_permission_for_experiment(eid).can_read`` (trace tier, experiment
+    fallback).
+    """
+    return _role_based_read_predicate(
+        authenticate_request().username, "trace", parent_type="experiment"
+    )
+
+
 def _get_assessment_permission_from_trace_id(trace_id: str) -> Permission:
     """Resolve an assessment permission after locating its trace's experiment.
 
@@ -2786,9 +2800,10 @@ def validate_can_read_trace_by_trace_id():
 
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
-    return bool(experiment_ids) and all(
-        _get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(eid) for eid in experiment_ids)
 
 
 def validate_can_search_traces_v3():
@@ -2804,9 +2819,10 @@ def validate_can_search_traces_v3():
         if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
         if (eid := ml_exp.get("experiment_id"))
     ]
-    return bool(experiment_ids) and all(
-        _get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(eid) for eid in experiment_ids)
 
 
 def validate_can_batch_get_traces():
@@ -2829,10 +2845,10 @@ def validate_can_batch_get_traces():
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(experiment_ids) and all(
-        _get_trace_permission_for_experiment(experiment_id).can_read
-        for experiment_id in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(experiment_id) for experiment_id in experiment_ids)
 
 
 def validate_can_delete_traces():
@@ -2857,9 +2873,10 @@ def validate_can_update_assessment():
 
 def validate_can_read_traces_by_experiment_ids():
     experiment_ids = (request.json or {}).get("experiment_ids", [])
-    return bool(experiment_ids) and all(
-        _get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(eid) for eid in experiment_ids)
 
 
 # Trace-search filter identifiers that reference assessment data (``feedback`` and
@@ -2899,12 +2916,15 @@ def validate_can_query_trace_metrics():
     experiment_ids = list(msg.experiment_ids)
     if not experiment_ids:
         return False
-    if not all(_get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids):
+    username = authenticate_request().username
+    trace_readable = _role_based_read_predicate(username, "trace", parent_type="experiment")
+    if not all(trace_readable(eid) for eid in experiment_ids):
         return False
     if msg.view_type == MetricViewType.ASSESSMENTS:
-        return all(
-            _experiment_child_permission("assessment", "*", eid).can_read for eid in experiment_ids
+        assessment_readable = _role_based_read_predicate(
+            username, "assessment", parent_type="experiment"
         )
+        return all(assessment_readable(eid) for eid in experiment_ids)
     return True
 
 
@@ -2922,12 +2942,15 @@ def validate_can_calculate_trace_filter_correlation():
     experiment_ids = list(msg.experiment_ids)
     if not experiment_ids:
         return False
-    if not all(_get_trace_permission_for_experiment(eid).can_read for eid in experiment_ids):
+    username = authenticate_request().username
+    trace_readable = _role_based_read_predicate(username, "trace", parent_type="experiment")
+    if not all(trace_readable(eid) for eid in experiment_ids):
         return False
     if _filter_references_assessments(msg.filter_string1, msg.filter_string2, msg.base_filter):
-        return all(
-            _experiment_child_permission("assessment", "*", eid).can_read for eid in experiment_ids
+        assessment_readable = _role_based_read_predicate(
+            username, "assessment", parent_type="experiment"
         )
+        return all(assessment_readable(eid) for eid in experiment_ids)
     return True
 
 
@@ -2967,10 +2990,10 @@ def validate_can_link_traces_to_run():
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(experiment_ids) and all(
-        _get_trace_permission_for_experiment(experiment_id).can_read
-        for experiment_id in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(experiment_id) for experiment_id in experiment_ids)
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
