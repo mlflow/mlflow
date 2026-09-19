@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import * as mlflow from '../../src';
 import { MlflowClient, type SearchTracesOptions } from '../../src/clients/client';
 import type { ArtifactsClient } from '../../src/clients/artifacts';
-import { Feedback } from '../../src/core/entities/assessment';
+import { Expectation, Feedback } from '../../src/core/entities/assessment';
 import { Trace } from '../../src/core/entities/trace';
 import { TraceData } from '../../src/core/entities/trace_data';
 import { TraceInfo } from '../../src/core/entities/trace_info';
@@ -184,6 +184,51 @@ describe('MlflowClient', () => {
           source: { sourceType: 'ROBOT' as 'HUMAN', sourceId: 'bot' },
         }),
       ).rejects.toThrow(/Invalid assessment source type/);
+    });
+  });
+
+  describe('logExpectation', () => {
+    it('logs an expectation and preserves it on getTraceInfo', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId },
+          },
+          state: TraceState.OK,
+          requestTime: 1000,
+        }),
+      );
+
+      const created = await client.logExpectation({
+        traceId,
+        name: 'expected_answer',
+        value: { answer: 'Paris', sources: ['encyclopedia'] },
+        metadata: { suite: 'typescript' },
+      });
+
+      expect(created).toBeInstanceOf(Expectation);
+      expect(created.value).toEqual({ answer: 'Paris', sources: ['encyclopedia'] });
+      expect(created.source.sourceType).toBe('HUMAN');
+      expect(created.assessmentId).toBeDefined();
+
+      const retrieved = await client.getTraceInfo(traceId);
+      const expectation = retrieved.assessments.find(
+        (assessment) => assessment instanceof Expectation && assessment.name === 'expected_answer',
+      ) as Expectation | undefined;
+      expect(expectation?.value).toEqual({ answer: 'Paris', sources: ['encyclopedia'] });
+    });
+
+    it('rejects missing values', async () => {
+      await expect(
+        client.logExpectation({
+          traceId: randomUUID(),
+          name: 'expected_answer',
+          value: null as never,
+        }),
+      ).rejects.toThrow(/logExpectation requires/);
     });
   });
 
