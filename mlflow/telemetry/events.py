@@ -244,6 +244,55 @@ class CreateModelVersionEvent(Event):
         return {"is_prompt": _is_prompt(tags)}
 
 
+class LogModelEvent(Event):
+    # End-to-end log_model; CreateLoggedModelEvent covers only the create-record sub-step.
+    name: str = "log_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        flavor = arguments.get("flavor")
+        kwargs = arguments.get("kwargs") or {}
+        flavor_name = kwargs.get("flavor_name")
+        if not flavor_name and flavor is not None:
+            flavor_name = getattr(flavor, "__name__", "custom").removeprefix("mlflow.")
+        return {
+            "flavor": flavor_name,
+            "registered": arguments.get("registered_model_name") is not None,
+        }
+
+
+class RegisterModelEvent(Event):
+    # End-to-end register_model (create model + optional env_pack + create version + await).
+    name: str = "register_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        env_pack = arguments.get("env_pack")
+        if isinstance(env_pack, str):
+            env_pack_kind = env_pack
+        elif env_pack is not None:
+            env_pack_kind = getattr(env_pack, "name", "config")
+        else:
+            env_pack_kind = None
+
+        model_uri = arguments.get("model_uri") or ""
+        if model_uri.startswith("runs:/"):
+            source_scheme = "runs"
+        elif model_uri.startswith("models:/"):
+            source_scheme = "models"
+        elif "://" in model_uri:
+            source_scheme = model_uri.split("://", 1)[0]
+        else:
+            source_scheme = "local"
+
+        return {"env_pack": env_pack_kind, "source_scheme": source_scheme}
+
+
+class EnvPackEvent(Event):
+    # Recorded manually from env packing; status/duration cover packing only, not the caller.
+    name: str = "env_pack"
+
+
 class CreateDatasetEvent(Event):
     name: str = "create_dataset"
 

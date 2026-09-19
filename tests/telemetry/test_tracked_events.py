@@ -357,6 +357,28 @@ def test_create_model_version(mock_requests, mlflow_client, mock_telemetry_clien
     )
 
 
+def test_log_model(mock_requests, mock_telemetry_client: TelemetryClient):
+    # End-to-end Model.log event, distinct from the create_logged_model sub-step.
+    mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        "log_model",
+        {"flavor": "pyfunc.CustomPythonModel", "registered": False},
+    )
+
+
+def test_register_model(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+    mlflow.register_model(model_info.model_uri, "test_model")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        "register_model",
+        {"env_pack": None, "source_scheme": "models"},
+    )
+
+
 def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
     event_name = StartTraceEvent.name
     with mlflow.start_span(name="test_span"):
