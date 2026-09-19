@@ -5999,13 +5999,16 @@ def _register_scorer():
     store = _get_tracking_store()
     auth_mod = sys.modules.get("mlflow.server.auth")
     if auth_mod is not None and auth_mod.is_auth_enabled():
-        # Auth is on, so the create-vs-version-add TOCTOU MUST be closed transactionally:
-        # register_scorer invokes this callback when the scorer already exists (version > 1)
-        # and the auth layer raises PERMISSION_DENIED unless the caller holds scorer-version
-        # update permission. Rolling back before the insert is the only race-safe point.
-        # Fail CLOSED if the backing store cannot make that transactional guarantee, rather
-        # than silently skip enforcement (a store that accepted-and-ignored the callback --
-        # e.g. a delegating/REST store -- would leave the race open).
+        # Auth is on, so the create-vs-version-add decision MUST be made transactionally:
+        # register_scorer invokes exactly one of the two callbacks below -- chosen by whether
+        # the scorer parent already existed (an existing empty parent is a version-add too,
+        # so this is keyed on parent existence, not the version number) -- before inserting
+        # the parent or the version, and the auth layer raises PERMISSION_DENIED unless the
+        # caller holds the right permission (experiment update to create, scorer-version
+        # update to add a version). Rolling back inside the transaction is the only race-safe
+        # point. Fail CLOSED if the backing store cannot make that transactional guarantee,
+        # rather than silently skip enforcement (a store that accepted-and-ignored the
+        # callbacks -- e.g. a delegating/REST store -- would leave the decision unenforced).
         if not getattr(store, "supports_transactional_scorer_authorization", lambda: False)():
             raise MlflowException(
                 f"The configured tracking store ({type(store).__name__}) does not support "
@@ -6020,6 +6023,9 @@ def _register_scorer():
             request_message.name,
             request_message.serialized_scorer,
             authorize_version_add=lambda: auth_mod._authorize_scorer_version_add(
+                _experiment_id, _name
+            ),
+            authorize_parent_create=lambda: auth_mod._authorize_scorer_parent_create(
                 _experiment_id, _name
             ),
         )

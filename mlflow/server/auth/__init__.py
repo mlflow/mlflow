@@ -1308,12 +1308,13 @@ def _authorize_scorer_version_add(experiment_id: str, name: str) -> None:
     existing scorer.
 
     Passed as the ``authorize_version_add`` callback to ``register_scorer`` so the check runs
-    INSIDE the write transaction, at the point the store determines the scorer already exists
-    (version > 1). This closes the create-vs-version-add TOCTOU: a caller authorized only to
-    CREATE a new scorer (experiment ``can_update``) must not add a version to a scorer a
-    concurrent request created first -- adding a version requires the ``scorer_version`` tier
-    (``can_update``), and ``scorer`` does not fall back to ``experiment``. Admins bypass, as
-    everywhere else.
+    INSIDE the write transaction, invoked when the store determines the scorer parent already
+    existed (any version-add, INCLUDING the first version added to an empty parent whose
+    versions were all deleted -- keyed on parent existence, not the version number). This
+    closes the create-vs-version-add TOCTOU: a caller authorized only to CREATE a new scorer
+    (experiment ``can_update``) must not add a version to a scorer that already exists --
+    adding a version requires the ``scorer_version`` tier (``can_update``), and ``scorer``
+    does not fall back to ``experiment``. Admins bypass, as everywhere else.
     """
     if sender_is_admin():
         return
@@ -1321,6 +1322,29 @@ def _authorize_scorer_version_add(experiment_id: str, name: str) -> None:
         raise MlflowException(
             "Permission denied: adding a version to an existing scorer requires update "
             "permission on the scorer.",
+            error_code=PERMISSION_DENIED,
+        )
+
+
+def _authorize_scorer_parent_create(experiment_id: str, name: str) -> None:
+    """Raise ``PERMISSION_DENIED`` if the request's caller may not CREATE a new scorer parent.
+
+    Passed as the ``authorize_parent_create`` callback to ``register_scorer`` so the check
+    runs INSIDE the write transaction, invoked only when the store determines this call
+    actually creates the scorer parent. Together with ``_authorize_scorer_version_add`` this
+    makes the create-vs-version-add decision authoritative in-transaction: the pre-request
+    gate cannot distinguish a truly-absent parent from an existing empty parent, so it admits
+    when EITHER positive requirement holds and the store invokes exactly one of these based
+    on actual parent existence. Creating a scorer parent requires experiment ``can_update``
+    (its pre-RFC contract). Admins bypass.
+    """
+    if sender_is_admin():
+        return
+    username = authenticate_request().username
+    if not _get_experiment_permission(experiment_id, username).can_update:
+        raise MlflowException(
+            "Permission denied: creating a new scorer requires update permission on the "
+            "experiment.",
             error_code=PERMISSION_DENIED,
         )
 

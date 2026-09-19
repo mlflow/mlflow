@@ -1769,6 +1769,7 @@ class RestStore(
         name: str,
         serialized_scorer: str,
         authorize_version_add: Callable[[], None] | None = None,
+        authorize_parent_create: Callable[[], None] | None = None,
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -1779,6 +1780,7 @@ class RestStore(
             serialized_scorer: String containing the serialized scorer data.
             authorize_version_add: Accepted for interface parity with the abstract store and
                 ignored -- authorization is enforced server-side, not by this REST client.
+            authorize_parent_create: Accepted for interface parity and ignored, as above.
 
         Returns:
             ScorerVersion: The newly registered scorer version object.

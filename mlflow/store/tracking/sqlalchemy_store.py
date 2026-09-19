@@ -2792,6 +2792,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         name: str,
         serialized_scorer: str,
         authorize_version_add: Callable[[], None] | None = None,
+        authorize_parent_create: Callable[[], None] | None = None,
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -2860,6 +2861,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             parent_created = scorer is None
 
             if parent_created:
+                # Authorize the CREATE case inside the transaction, before inserting the
+                # parent, so a raise rolls back. Exactly one of authorize_parent_create /
+                # authorize_version_add runs per call (chosen by parent existence), making
+                # the mutually exclusive create-vs-version-add decision authoritative here --
+                # the pre-request gate cannot distinguish a truly-absent parent from an
+                # existing empty parent, so it admits either and defers to this point.
+                if authorize_parent_create is not None:
+                    authorize_parent_create()
                 # Create the scorer record with a new UUID
                 scorer_id = str(uuid.uuid4())
                 scorer = SqlScorer(

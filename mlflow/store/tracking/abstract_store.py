@@ -1670,6 +1670,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         name: str,
         serialized_scorer: str,
         authorize_version_add: Callable[[], None] | None = None,
+        authorize_parent_create: Callable[[], None] | None = None,
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -1678,14 +1679,18 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             experiment_id: The experiment ID.
             name: The scorer name.
             serialized_scorer: The serialized scorer string (JSON).
-            authorize_version_add: Optional callback invoked inside the write transaction
-                when the target scorer already exists and this call is adding a new version
-                (version > 1) rather than creating the scorer's first version. It receives no
+            authorize_version_add: Optional callback invoked inside the write transaction when
+                the target scorer PARENT already existed and this call adds a version to it
+                (including the first version added to an empty parent whose versions were all
+                deleted -- keyed on parent existence, not the version number). It receives no
                 arguments and must raise to abort the write (rolling back the transaction).
-                Server-side auth uses it to close the create-vs-version-add TOCTOU: a caller
-                authorized only to CREATE the scorer must not add a version to a scorer a
-                concurrent request created first. Ignored by stores/clients that do not
-                enforce authorization.
+            authorize_parent_create: Optional callback invoked inside the write transaction
+                when this call actually CREATES the scorer parent. Same raise-to-abort
+                contract. Exactly one of the two callbacks fires per call, chosen by whether
+                the parent already existed -- so the server can authorize the mutually
+                exclusive create vs. version-add cases authoritatively (a pre-request probe
+                cannot distinguish a truly-absent parent from an existing empty one).
+                Ignored by stores/clients that do not enforce authorization.
 
         Returns:
             mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
