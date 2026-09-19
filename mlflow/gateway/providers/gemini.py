@@ -198,19 +198,26 @@ class GeminiAdapter(ProviderAdapter):
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
                 call_id = message["tool_call_id"]
-                contents.append({
-                    "role": "user",
-                    "parts": [
-                        {
-                            "functionResponse": {
-                                "id": call_id,
-                                # the function name field is required by Gemini request format
-                                "name": call_id_to_function_name_map[call_id],
-                                "response": _tool_result_to_response(message["content"]),
-                            }
-                        }
-                    ],
-                })
+                function_response = {
+                    "functionResponse": {
+                        "id": call_id,
+                        # the function name field is required by Gemini request format
+                        "name": call_id_to_function_name_map[call_id],
+                        "response": _tool_result_to_response(message["content"]),
+                    }
+                }
+                # OpenAI sends one tool message per parallel call, but Gemini requires the
+                # responses to all of a model turn's calls in a single user turn.
+                previous = contents[-1] if contents else None
+                if (
+                    previous is not None
+                    and previous["role"] == "user"
+                    and previous["parts"]
+                    and all("functionResponse" in part for part in previous["parts"])
+                ):
+                    previous["parts"].append(function_response)
+                else:
+                    contents.append({"role": "user", "parts": [function_response]})
 
         gemini_payload = {"contents": contents}
 

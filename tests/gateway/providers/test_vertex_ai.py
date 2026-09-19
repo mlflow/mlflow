@@ -381,12 +381,8 @@ async def test_chat_parallel_tool_calls_omit_all_function_call_ids():
         for part in c.get("parts", [])
         if "functionCall" in part
     ]
-    function_responses = [
-        part["functionResponse"]
-        for c in contents
-        for part in c.get("parts", [])
-        if "functionResponse" in part
-    ]
+    # Both responses go back in the final user turn, one part per parallel call.
+    function_responses = [part["functionResponse"] for part in contents[-1]["parts"]]
     assert len(function_calls) == 2
     assert len(function_responses) == 2
     assert all("id" not in fc for fc in function_calls)
