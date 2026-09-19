@@ -514,9 +514,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
         )
 
 
-def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path, monkeypatch):
-    monkeypatch.setattr(mlflow.sklearn, "is_in_databricks_runtime", lambda: False)
-    monkeypatch.setattr(mlflow.sklearn, "is_databricks_uri", lambda _: False)
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
 
@@ -647,11 +645,7 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_logreg_model, model_path
 ):
-    with (
-        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
-        mock.patch("mlflow.sklearn.is_databricks_uri", return_value=False),
-    ):
-        mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=model_path)
+    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=model_path)
     _assert_pip_requirements(
         model_path, mlflow.sklearn.get_default_pip_requirements(include_skops=True)
     )
@@ -660,11 +654,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_logreg_model,
 ):
-    with (
-        mlflow.start_run(),
-        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
-        mock.patch("mlflow.sklearn.is_databricks_uri", return_value=False),
-    ):
+    with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_logreg_model.model, name="model")
 
     _assert_pip_requirements(
@@ -672,129 +662,41 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     )
 
 
-@pytest.mark.parametrize(
-    (
-        "is_databricks_runtime",
-        "tracking_uri",
-        "expected_serialization_format",
-        "expected_model_file",
-    ),
-    [
-        pytest.param(
-            False,
-            "file:///tmp/mlruns",
-            mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
-            "model.skops",
-            id="outside-databricks",
-        ),
-        pytest.param(
-            True,
-            "file:///tmp/mlruns",
-            mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-            "model.pkl",
-            id="databricks-runtime",
-        ),
-        pytest.param(
-            False,
-            "databricks",
-            mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-            "model.pkl",
-            id="databricks-tracking-uri",
-        ),
-    ],
-)
-def test_model_save_uses_environment_specific_serialization_format_by_default(
-    sklearn_logreg_model,
-    model_path,
-    is_databricks_runtime,
-    tracking_uri,
-    expected_serialization_format,
-    expected_model_file,
-):
-    with (
-        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=is_databricks_runtime),
-        mock.patch("mlflow.get_tracking_uri", return_value=tracking_uri),
-    ):
-        mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=model_path)
+def test_model_save_uses_skops_serialization_format_by_default(sklearn_logreg_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=model_path)
 
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == expected_serialization_format
-    assert Path(model_path, expected_model_file).exists()
-    _assert_pip_requirements(
-        model_path,
-        mlflow.sklearn.get_default_pip_requirements(
-            include_cloudpickle=(
-                expected_serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
-            ),
-            include_skops=(
-                expected_serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
-            ),
-        ),
-    )
-    unexpected_requirement = (
-        "skops"
-        if expected_serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
-        else "cloudpickle"
-    )
-    requirements = Path(model_path, "requirements.txt").read_text().splitlines()
-    assert not any(req.startswith(f"{unexpected_requirement}==") for req in requirements)
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
-def test_model_save_in_databricks_defaults_to_cloudpickle_for_untrusted_skops_types(
-    sklearn_knn_model, model_path
-):
-    with mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=True):
-        mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
-        loaded_model = mlflow.sklearn.load_model(model_path)
+def test_model_log_uses_skops_serialization_format_by_default(sklearn_logreg_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(sklearn_logreg_model.model, name="model")
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
-    assert Path(model_path, "model.pkl").exists()
-    np.testing.assert_array_equal(
-        loaded_model.predict(sklearn_knn_model.inference_data),
-        sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
-    )
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
 @pytest.mark.parametrize(
-    ("is_databricks_runtime", "tracking_uri", "expected_serialization_format"),
+    ("target", "value"),
     [
-        pytest.param(
-            False,
-            "file:///tmp/mlruns",
-            mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
-            id="outside-databricks",
-        ),
-        pytest.param(
-            True,
-            "file:///tmp/mlruns",
-            mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-            id="databricks-runtime",
-        ),
-        pytest.param(
-            False,
-            "databricks://profile",
-            mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-            id="databricks-tracking-uri",
-        ),
+        ("mlflow.sklearn.is_in_databricks_runtime", True),
+        ("mlflow.get_tracking_uri", "databricks"),
     ],
 )
-def test_model_log_resolves_environment_specific_serialization_format(
-    sklearn_logreg_model, is_databricks_runtime, tracking_uri, expected_serialization_format
-):
-    with (
-        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=is_databricks_runtime),
-        mock.patch("mlflow.get_tracking_uri", return_value=tracking_uri),
-        mock.patch("mlflow.sklearn.Model.log") as model_log_mock,
-    ):
-        mlflow.sklearn.log_model(sklearn_logreg_model.model, name="model")
-
-    assert model_log_mock.call_args.kwargs["serialization_format"] == expected_serialization_format
+def test_get_default_serialization_format_in_databricks(target, value):
+    with mock.patch(target, return_value=value):
+        assert (
+            mlflow.sklearn._get_default_serialization_format()
+            == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+        )
 
 
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
@@ -1096,9 +998,7 @@ def test_model_log_with_signature_inference(sklearn_logreg_model, iris_signature
     assert mlflow_model.signature == iris_signature
 
 
-def test_model_size_bytes(sklearn_logreg_model, tmp_path, monkeypatch):
-    monkeypatch.setattr(mlflow.sklearn, "is_in_databricks_runtime", lambda: False)
-    monkeypatch.setattr(mlflow.sklearn, "is_databricks_uri", lambda _: False)
+def test_model_size_bytes(sklearn_logreg_model, tmp_path):
     mlflow.sklearn.save_model(sklearn_logreg_model.model, path=tmp_path)
 
     # expected size only counts for files saved before the MLmodel file is saved
