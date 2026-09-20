@@ -4227,15 +4227,48 @@ def redact_get_trace_assessments(resp: Response):
     _redact_trace_assessments_response(resp, GetTrace, lambda m: [m.trace.trace_info])
 
 
+# Chunk size for bulk model_id IN (...) lookups: bounds each search page well under the
+# store's max_results caps while keeping the query count at ceil(distinct_ids / chunk).
+_LOGGED_MODEL_LOOKUP_CHUNK = 200
+
+
+def _bulk_logged_model_experiment_index(
+    model_ids: set[str], experiment_ids: set[str]
+) -> dict[str, str]:
+    """Resolve ``model_id -> experiment_id`` in BOUNDED queries via ``search_logged_models``
+    with a ``model_id IN (...)`` filter (one query per chunk of distinct ids), scoped to the
+    candidate experiments. Ids that don't resolve (deleted models, ids outside the candidate
+    experiments, or malformed ids that can't be safely quoted) are simply absent -- callers
+    treat absence as unreadable (fail closed).
+    """
+    index: dict[str, str] = {}
+    ids = sorted(mid for mid in model_ids if mid and "'" not in mid)
+    if not ids or not experiment_ids:
+        return index
+    tracking_store = _get_tracking_store()
+    for i in range(0, len(ids), _LOGGED_MODEL_LOOKUP_CHUNK):
+        chunk = ids[i : i + _LOGGED_MODEL_LOOKUP_CHUNK]
+        quoted = ",".join(f"'{mid}'" for mid in chunk)
+        page = tracking_store.search_logged_models(
+            experiment_ids=sorted(experiment_ids),
+            filter_string=f"model_id IN ({quoted})",
+            max_results=len(chunk),
+        )
+        for model in page:
+            index[model.model_id] = model.experiment_id
+    return index
+
+
 def _logged_model_read_resolver(username: str) -> Callable[[str], bool]:
     """``p(model_id) -> readable``, judging each linked model by its ACTUAL experiment.
 
     ``log_inputs``/``log_outputs`` persist arbitrary model ids without constraining them
     to the run's experiment, so a run's model links may cross experiments -- keying on the
     run's experiment would keep a cross-experiment link the caller can't read (review
-    finding). The grants predicate is built once; each DISTINCT model id costs one
-    ``get_logged_model`` lookup (memoized -- no bulk id->experiment API exists), and a
-    missing/unresolvable id is hidden fail-closed.
+    finding). GraphQL-only: fields resolve lazily one list at a time, which precludes
+    response-wide batching; the per-model ``get_logged_model`` lookup is memoized per
+    request and bounded by the fields the query actually selects. The REST redactor uses
+    the bulk index instead. A missing/unresolvable id is hidden fail-closed.
     """
     bulk = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
     cache: dict[str, bool] = {}
@@ -4259,23 +4292,42 @@ def _redact_runs_model_io_response(resp: Response, response_cls, runs_selector) 
     """Shared after-request redactor dropping the logged-model input/output links the
     caller can't read from run responses (review finding: run read plus
     ``(logged_model, *, DENY)`` could enumerate denied model ids and lineage). Each link
-    is judged by its own model's experiment via ``_logged_model_read_resolver`` --
-    matching the GraphQL nested-field filter exactly.
+    is judged by its own model's ACTUAL experiment, resolved in BOUNDED bulk queries
+    (``model_id IN`` chunks scoped to the response's experiments) -- a 50k-row SearchRuns
+    page costs the grants query plus ceil(distinct_models/chunk) searches, never one
+    lookup per model (review finding F7). Fail-closed compatibility tradeoff: a link to a
+    model living OUTSIDE every experiment in the response is hidden even when the caller
+    could read it elsewhere (it stays fetchable via GetLoggedModel directly).
     """
     if sender_is_admin():
         return
     response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
-    can_read = _logged_model_read_resolver(authenticate_request().username)
-    for run in runs_selector(response_message):
-        kept_inputs = [m for m in run.inputs.model_inputs if can_read(m.model_id)]
-        if len(kept_inputs) != len(run.inputs.model_inputs):
-            del run.inputs.model_inputs[:]
-            run.inputs.model_inputs.extend(kept_inputs)
-        kept_outputs = [m for m in run.outputs.model_outputs if can_read(m.model_id)]
-        if len(kept_outputs) != len(run.outputs.model_outputs):
-            del run.outputs.model_outputs[:]
-            run.outputs.model_outputs.extend(kept_outputs)
+    runs = list(runs_selector(response_message))
+    model_ids = {
+        m.model_id for run in runs for m in (*run.inputs.model_inputs, *run.outputs.model_outputs)
+    }
+    if model_ids:
+        readable = _role_based_read_predicate(
+            authenticate_request().username, "logged_model", parent_type="experiment"
+        )
+        index = _bulk_logged_model_experiment_index(
+            model_ids, {run.info.experiment_id for run in runs}
+        )
+
+        def can_read(model_id) -> bool:
+            experiment_id = index.get(model_id)
+            return experiment_id is not None and readable(experiment_id)
+
+        for run in runs:
+            kept_inputs = [m for m in run.inputs.model_inputs if can_read(m.model_id)]
+            if len(kept_inputs) != len(run.inputs.model_inputs):
+                del run.inputs.model_inputs[:]
+                run.inputs.model_inputs.extend(kept_inputs)
+            kept_outputs = [m for m in run.outputs.model_outputs if can_read(m.model_id)]
+            if len(kept_outputs) != len(run.outputs.model_outputs):
+                del run.outputs.model_outputs[:]
+                run.outputs.model_outputs.extend(kept_outputs)
     resp.data = message_to_json(response_message)
 
 

@@ -9101,31 +9101,39 @@ def test_delete_traces_requires_assessment_and_queue_tiers(
 def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
     # GetRun/SearchRuns serialize inputs.model_inputs / outputs.model_outputs; a run
     # reader with a logged_model DENY must not enumerate denied model ids through them.
-    # Each link is judged by its OWN model's experiment (log_inputs/log_outputs persist
-    # arbitrary model ids, so links may cross experiments); a missing model is hidden
-    # fail-closed (review finding).
+    # Each link is judged by its OWN model's experiment, resolved through BOUNDED bulk
+    # model_id IN (...) searches scoped to the response's experiments -- never a per-model
+    # lookup (review findings F6 + F7). Unresolvable links (missing models, or models
+    # outside every response experiment) are hidden fail-closed.
     from mlflow.protos.service_pb2 import GetRun
+    from mlflow.store.entities.paged_list import PagedList
 
     msg = GetRun.Response()
     msg.run.info.experiment_id = "9"
     msg.run.inputs.model_inputs.add().model_id = "m-local"  # experiment 9: readable
-    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # experiment 13: denied
+    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # exp 13: outside scope
     msg.run.outputs.model_outputs.add().model_id = "m-foreign"
     msg.run.outputs.model_outputs.add().model_id = "m-missing"  # unresolvable: hidden
 
-    model_experiments = {"m-local": "9", "m-foreign": "13"}
+    search_calls = []
 
-    def fake_get_logged_model(model_id):
-        if model_id not in model_experiments:
-            raise MlflowException("no model", error_code=RESOURCE_DOES_NOT_EXIST)
-        return SimpleNamespace(experiment_id=model_experiments[model_id])
+    def fake_search_logged_models(experiment_ids, filter_string, max_results):
+        search_calls.append(filter_string)
+        assert experiment_ids == ["9"]  # scoped to the response's experiments
+        # Only m-local lives in the scoped experiments.
+        return PagedList(
+            [SimpleNamespace(model_id="m-local", experiment_id="9")]
+            if "m-local" in filter_string
+            else [],
+            None,
+        )
 
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
-        lambda: SimpleNamespace(get_logged_model=fake_get_logged_model),
+        lambda: SimpleNamespace(search_logged_models=fake_search_logged_models),
     )
     monkeypatch.setattr(
         auth_module,
@@ -9138,6 +9146,8 @@ def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
     auth_module.parse_dict(json.loads(resp.data), out)
     assert [m.model_id for m in out.run.inputs.model_inputs] == ["m-local"]
     assert len(out.run.outputs.model_outputs) == 0
+    # Query-count bound: 3 distinct ids resolve in ONE chunked bulk search.
+    assert len(search_calls) == 1
 
 
 def test_redact_prompt_optimization_jobs_response(monkeypatch):
