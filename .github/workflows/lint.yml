@@ -19,7 +19,6 @@ defaults:
     shell: bash
 
 env:
-  UV_MANAGED_PYTHON: "1"
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
