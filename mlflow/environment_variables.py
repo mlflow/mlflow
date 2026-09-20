@@ -1758,6 +1758,23 @@ _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
 
+# Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
+# tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see
+# mlflow.server.assistant.delegation), not a raw secret, so a leaked value only impersonates that
+# one user and only until it expires. Set by the server on the subprocess; never set by users.
+_MLFLOW_ASSISTANT_DELEGATION_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_ASSISTANT_DELEGATION_TOKEN", str, None
+)
+
+# The key the server uses to sign and verify Assistant delegation credentials (see
+# mlflow.server.assistant.delegation). The server generates it at startup and shares it only among
+# its own worker processes: unlike the internal gateway token it is deliberately withheld from job
+# runner subprocesses and from tool subprocesses, so a credential can only be minted by the server,
+# never forged by code running in one of those subprocesses. (default: ``None``)
+_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY = _EnvironmentVariable(
+    "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", str, None
+)
+
 
 #: Base URI to fetch the latest model catalog from. Each provider file is fetched
 #: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
