@@ -1919,15 +1919,11 @@ def validate_can_update_registered_model():
 
 
 def validate_can_delete_registered_model():
-    # Deleting the model/prompt cascades EVERY version, so it is a composite lifecycle
-    # operation: require the corresponding version child tier's can_delete (parent
-    # fallback when no child grant exists) atop the parent delete -- a child DENY or
-    # lower child grant that blocks deleting one version must not be bypassed by
-    # deleting the parent (review finding). The helper classifies prompt-vs-model, so
-    # the right version namespace is consulted for either registry shape.
-    if not _get_permission_from_registered_model_name().can_delete:
-        return False
-    return _get_model_version_permission_from_registered_model_or_prompt_name().can_delete
+    # The route map uses the shared model-or-prompt form; delegate so the composite
+    # whole-parent rule (parent delete AND version-tier delete) cannot drift between the
+    # two spellings (review finding: the composite check was first added here, where no
+    # route consults it).
+    return _validate_can_delete_registered_model_or_prompt()
 
 
 def validate_can_manage_registered_model():
@@ -1982,7 +1978,16 @@ def _validate_can_update_registered_model_or_prompt():
 
 
 def _validate_can_delete_registered_model_or_prompt():
-    return _get_permission_from_registered_model_or_prompt_name().can_delete
+    # Deleting the model/prompt cascades EVERY version, so it is a composite lifecycle
+    # operation: require the corresponding version child tier's can_delete (parent
+    # fallback when no child grant exists) atop the parent delete -- a child DENY or
+    # lower child grant that blocks deleting one version must not be bypassed by
+    # deleting the parent (review finding). Both helpers classify prompt-vs-model, so
+    # the persisted namespace (registered_model[_version] or prompt[_version]) is
+    # consulted for either registry shape.
+    if not _get_permission_from_registered_model_or_prompt_name().can_delete:
+        return False
+    return _get_model_version_permission_from_registered_model_or_prompt_name().can_delete
 
 
 def _validate_can_manage_registered_model_or_prompt():

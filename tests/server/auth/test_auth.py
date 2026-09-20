@@ -7145,15 +7145,25 @@ def test_whole_parent_delete_requires_version_tier(
     with auth_module.app.test_request_context("/x", method="POST", json={}):
         assert auth_module.validate_can_delete_scorer_version() is expected
 
-    # Registered model / prompt form.
+    # Registered model / prompt form: exercise the LIVE shared validator that
+    # BEFORE_REQUEST_HANDLERS actually maps for DeleteRegisteredModel (review finding:
+    # the composite check was first added to an unmapped helper, so no route ran it).
+    from mlflow.protos.model_registry_pb2 import DeleteRegisteredModel
+
+    assert (
+        auth_module.BEFORE_REQUEST_HANDLERS[DeleteRegisteredModel]
+        is auth_module._validate_can_delete_registered_model_or_prompt
+    )
     monkeypatch.setattr(
-        auth_module, "_get_permission_from_registered_model_name", lambda: parent_perm
+        auth_module, "_get_permission_from_registered_model_or_prompt_name", lambda: parent_perm
     )
     monkeypatch.setattr(
         auth_module,
         "_get_model_version_permission_from_registered_model_or_prompt_name",
         lambda: version_perm,
     )
+    assert auth_module._validate_can_delete_registered_model_or_prompt() is expected
+    # The type-specific spelling delegates to the same live validator (no drift).
     assert auth_module.validate_can_delete_registered_model() is expected
 
 
