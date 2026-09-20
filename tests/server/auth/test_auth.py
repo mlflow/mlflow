@@ -8793,6 +8793,8 @@ def test_search_traces_prompt_filter_gate(monkeypatch):
         return readable
 
     monkeypatch.setattr(auth_module, "_prompt_version_read_predicate", fake_predicate)
+    manager = {"value": False}
+    monkeypatch.setattr(auth_module, "_request_workspace_manager", lambda _u: manager["value"])
 
     # Equality resolves the exact target name through the per-prompt fold.
     assert auth_module._search_traces_prompt_filter_allowed("prompt = 'ok-prompt/3'") is True
@@ -8802,15 +8804,27 @@ def test_search_traces_prompt_filter_gate(monkeypatch):
         auth_module._search_traces_prompt_filter_allowed("name = 'x' AND prompt = 'ok-prompt/1'")
         is True
     )
-    # Broad operators cannot be bounded to specific parents: fail closed.
+    # Broad operators cannot be bounded to specific parents without an authoritative
+    # wildcard child grant: fail closed.
     assert auth_module._search_traces_prompt_filter_allowed("prompt != 'ok-prompt/3'") is False
+    # A positive wildcard child grant is AUTHORITATIVE for every prompt: broad allowed.
+    grant["value"] = READ
+    assert auth_module._search_traces_prompt_filter_allowed("prompt != 'ok-prompt/3'") is True
+    # The workspace-manager bypass wins over everything, including per-name denials.
+    grant["value"] = None
+    manager["value"] = True
+    assert auth_module._search_traces_prompt_filter_allowed("prompt = 'denied-prompt/1'") is True
+    assert auth_module._search_traces_prompt_filter_allowed("prompt != 'x/1'") is True
+    manager["value"] = False
     # A workspace-wide version DENY vetoes even a readable target.
     grant["value"] = DENY
     assert auth_module._search_traces_prompt_filter_allowed("prompt = 'ok-prompt/3'") is False
     grant["value"] = READ
     assert auth_module._search_traces_prompt_filter_allowed("prompt = 'ok-prompt/3'") is True
-    # An unparsable prompt-mentioning filter fails closed; unrelated grammars other
-    # layers own (assessment filters have their own gate) stay un-gated here.
+    # An unparsable prompt-mentioning filter is unboundable: fail closed without an
+    # authoritative wildcard grant; unrelated grammars other layers own (assessment
+    # filters have their own gate) stay un-gated here.
+    grant["value"] = None
     assert auth_module._search_traces_prompt_filter_allowed("prompt ~~~ garbage") is False
     assert auth_module._search_traces_prompt_filter_allowed("assessment.foo = 'x'") is True
     # Non-prompt filters never consult the grants.

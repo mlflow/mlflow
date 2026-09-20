@@ -3540,34 +3540,55 @@ def _search_traces_assessment_filter_allowed(experiment_ids, *filter_strings) ->
     return all(assessment_readable(eid) for eid in experiment_ids)
 
 
+def _request_workspace_manager(username: str) -> bool:
+    """Whether the caller manages the request workspace (the manager bypass that wins
+    over every DENY in the fold)."""
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return False
+    return _is_workspace_admin(store.get_user(username).id, workspace_name)
+
+
 def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
     """A linked-prompts-backed trace filter (the bare ``prompt`` identifier) resolves
     against the reserved tag, so which rows match (and page counts) leak denied
     prompt-version references even after response redaction (review finding).
 
-    Policy: a workspace-wide ``(prompt_version, *, DENY)`` vetoes any prompt filter; an
-    equality comparison names its target (``'<name>/<version>'``), so the exact prompt is
-    resolved through the prompt_version fold WITH prompt-parent fallback -- a
-    ``(prompt, <name>, DENY)`` blocks probing that prompt. Broad operators (``!=``,
-    ``LIKE``, ...) cannot be bounded to specific parents and fail closed (the UI emits
-    only the equality grammar).
+    Policy, following the fold's precedence: the workspace-manager bypass allows any
+    prompt filter; a wildcard ``(prompt_version, *)`` child grant is authoritative --
+    DENY vetoes everything, a positive (floored) readable grant covers every prompt and
+    so allows even BROAD operators (``!=``, ``LIKE``, ...). Without an authoritative
+    child grant, an equality comparison names its target (``'<name>/<version>'``) and
+    the exact prompt resolves through the prompt_version fold WITH prompt-parent
+    fallback (a ``(prompt, <name>, DENY)`` blocks probing that prompt), while broad
+    operators cannot be bounded to specific parents and fail closed (the UI emits only
+    the equality grammar).
     """
-    username = None
-    prompt_version_readable = None
+    context = None
     for filter_string in filter_strings:
         for comparison in _linked_prompts_filter_comparisons(filter_string):
-            if username is None:
+            if context is None:
                 username = authenticate_request().username
+                if _request_workspace_manager(username):
+                    return True
                 grant = _wildcard_grant_in_request_workspace("prompt_version", username)
                 if grant is not None and grant.name == DENY.name:
                     return False
-                prompt_version_readable = _prompt_version_read_predicate(username)
+                broad_allowed = grant is not None and _floor_positive_permission(grant).can_read
+                context = (broad_allowed, _prompt_version_read_predicate(username))
+            broad_allowed, per_name_readable = context
             if comparison.get("comparator") != "=":
-                return False  # unboundable under parent-specific grants: fail closed
+                if not broad_allowed:
+                    return False
+                continue
             value = comparison.get("value") or ""
             # The tag entry value is '<name>/<version>'; prompt names cannot contain '/'.
             name = value.rsplit("/", 1)[0] if "/" in value else value
-            if not name or not prompt_version_readable(name):
+            if not name or not per_name_readable(name):
                 return False
     return True
 
