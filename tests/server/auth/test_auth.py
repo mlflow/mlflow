@@ -8425,6 +8425,7 @@ def test_register_scorer_requires_gateway_endpoint_use(monkeypatch):
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    monkeypatch.setattr(auth_module, "_register_scorer_version_permission", lambda _e, _n: MANAGE)
     monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
     monkeypatch.setattr(
         auth_module,
@@ -9497,21 +9498,26 @@ def test_start_trace_v3_outcomes(monkeypatch, _case, permission, expected):
 
 
 @pytest.mark.parametrize(
-    ("_case", "exp_can_update", "version_denied", "expected"),
+    ("_case", "scorer_tier", "version_denied", "expected"),
     [
-        ("experiment_edit_suffices", True, False, True),
-        ("no_experiment_update", False, False, False),
-        ("version_wildcard_deny", True, True, False),
+        ("scorer_tier_edit", "EDIT", False, True),
+        ("scorer_tier_manage", "MANAGE", False, True),
+        ("scorer_tier_read_blocks", "READ", False, False),
+        ("scorer_tier_deny_blocks", "DENY", False, False),
+        ("version_wildcard_deny", "MANAGE", True, False),
     ],
 )
 def test_register_existing_scorer_version_outcomes(
-    monkeypatch, _case, exp_can_update, version_denied, expected
+    monkeypatch, _case, scorer_tier, version_denied, expected
 ):
-    # Version-adds on an EXISTING scorer follow the OSS contract: experiment.can_update is
-    # the positive requirement and (scorer_version, *, DENY) the only veto. The resolved
-    # scorer/scorer_version fold is NOT consulted (a scorer-parent DENY does not block
-    # version-adds), the create-veto is NOT consulted, and the parent-created flag is NOT
-    # set (no MANAGE upsert for version-adders).
+    # OWNER RULING: a version-add on an EXISTING scorer is a scorer-version create and
+    # requires the SCORER tier's can_update (EDIT+), resolved through the normal fold --
+    # a per-name scorer grant is authoritative (DENY or a below-EDIT grant blocks), and
+    # with no scorer grant the tier falls back to the experiment. (scorer_version, *,
+    # DENY) still vetoes. The create-veto is NOT consulted and the parent-created flag
+    # is NOT set (no MANAGE upsert for version-adders).
+    from mlflow.server.auth.permissions import get_permission
+
     monkeypatch.setattr(
         auth_module,
         "_get_request_param",
@@ -9525,19 +9531,21 @@ def test_register_existing_scorer_version_outcomes(
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
         auth_module,
-        "_get_experiment_permission",
-        lambda _e, _u: SimpleNamespace(can_update=exp_can_update),
+        "_register_scorer_version_permission",
+        lambda _e, _n: get_permission(scorer_tier),
     )
     monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: version_denied)
-    fold = mock.Mock()
-    monkeypatch.setattr(auth_module, "_get_scorer_version_permission", fold)
+    exp_perm = mock.Mock()
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", exp_perm)
     create_deny = mock.Mock()
     monkeypatch.setattr(auth_module, "_top_level_create_denied", create_deny)
 
     with auth_module.app.test_request_context("/scorers", method="POST"):
         assert auth_module.validate_can_register_scorer() is expected
         assert getattr(auth_module.g, "mlflow_creates_scorer_parent", False) is False
-    fold.assert_not_called()
+    # The existing branch decides on the scorer fold (experiment fallback lives INSIDE
+    # it); the direct experiment check and the create veto belong to the create branch.
+    exp_perm.assert_not_called()
     create_deny.assert_not_called()
 
 
@@ -10468,11 +10476,10 @@ def test_prompt_version_child_permission_outcomes(client: MlflowClient, monkeypa
     indirect=True,
 )
 def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypatch):
-    # RegisterScorer's positive requirement is experiment EDIT in BOTH branches (the OSS
-    # contract); scorer-tier grants overlay only DENY vetoes. Version-adds on an existing
-    # scorer are vetoed solely by (scorer_version, *, DENY) -- a (scorer, *, DENY) blocks
-    # only CREATING a scorer -- and scorer-tier positive grants do NOT authorize
-    # registration (documented asymmetry).
+    # OWNER RULING: version-adds on an existing scorer require the SCORER tier's EDIT --
+    # a per-name scorer grant is authoritative (EDIT+ authorizes even WITHOUT an
+    # experiment grant; READ or DENY blocks), and with no scorer grant the tier falls
+    # back to experiment EDIT. (scorer_version, *, DENY) and (scorer, *, DENY) both veto.
     owner, owner_password = create_user(client.tracking_uri)
     no_grant, no_grant_password = create_user(client.tracking_uri)
     scorer_only_writer, scorer_only_writer_password = create_user(client.tracking_uri)
@@ -10495,8 +10502,10 @@ def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypa
         response.raise_for_status()
 
     scorer_pattern = f"{experiment_id}/scorer_child_permission"
-    # Scorer-tier positives only (no experiment grant): must NOT authorize registration.
+    # A per-name scorer EDIT with NO experiment grant: the scorer tier authorizes.
     grant_role_permission(client.tracking_uri, scorer_only_writer, "scorer", scorer_pattern, "EDIT")
+    # A per-name scorer READ is authoritative and below EDIT: blocks, even with a
+    # positive version-tier grant alongside.
     grant_role_permission(client.tracking_uri, child_writer, "scorer", scorer_pattern, "READ")
     grant_role_permission(client.tracking_uri, child_writer, "scorer_version", "*", "EDIT")
     # Experiment EDIT holders, with DENY overlays for two of them.
@@ -10510,12 +10519,13 @@ def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypa
         "name": "scorer_child_permission",
         "serialized_scorer": json.dumps({"v": 2}),
     }
-    # Denied: no experiment EDIT (scorer-tier positives don't substitute), or a version DENY.
+    # Denied: no grant anywhere; a below-EDIT authoritative scorer grant; a version DENY;
+    # a wildcard scorer DENY (authoritative over the experiment fallback).
     for auth in (
         (no_grant, no_grant_password),
-        (scorer_only_writer, scorer_only_writer_password),
         (child_writer, child_writer_password),
         (version_denied_writer, version_denied_writer_password),
+        (parent_denied_writer, parent_denied_writer_password),
     ):
         response = requests.post(
             client.tracking_uri + "/api/3.0/mlflow/scorers/register",
@@ -10524,11 +10534,11 @@ def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypa
         )
         assert response.status_code == 403
 
-    # Allowed: experiment EDIT suffices for a version-add -- even with no scorer grant at
-    # all, and even under (scorer, *, DENY), which vetoes only creating a NEW scorer.
+    # Allowed: experiment EDIT via the fallback (no scorer grant), and per-name scorer
+    # EDIT even without any experiment grant (the child-escalation the RFC advertises).
     for auth in (
         (exp_writer, exp_writer_password),
-        (parent_denied_writer, parent_denied_writer_password),
+        (scorer_only_writer, scorer_only_writer_password),
     ):
         response = requests.post(
             client.tracking_uri + "/api/3.0/mlflow/scorers/register",

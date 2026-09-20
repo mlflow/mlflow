@@ -1444,32 +1444,52 @@ def _scorer_payload_gateway_ref(serialized_scorer: str) -> tuple[bool, str | Non
     return True, None
 
 
+def _register_scorer_version_permission(experiment_id: str, name: str) -> Permission:
+    """The RegisterScorer version-add fold (owner ruling): the SCORER tier is
+    authoritative -- a grant on the scorer (per-name or wildcard) decides (``DENY``
+    blocks; positives must reach EDIT after the floor) -- and with no scorer grant the
+    fold falls back to the EXPERIMENT tier, so a plain experiment editor keeps OSS
+    behavior. This experiment fallback is specific to registration (a container-anchored
+    write); every other scorer operation resolves the scorer/scorer_version tiers alone.
+    """
+    username = authenticate_request().username
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="scorer",
+            resource_key=store._scorer_pattern(experiment_id, name),
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type="experiment",
+            parent_id=experiment_id,
+        ),
+    )
+
+
 def validate_can_register_scorer():
     """Register a scorer (creates the scorer parent and/or a new version).
 
-    OSS parity (owner decision): the positive requirement is ``experiment.can_update``,
-    branch-INDEPENDENT -- master's RegisterScorer consults no scorer tier at all, and this
-    branch keeps that contract for both creating a scorer and adding a version. DENY is the
-    only scorer-tier overlay:
+    OWNER RULING (supersedes the earlier OSS-parity exception): registering a version on
+    an EXISTING scorer is a scorer-version create and requires the SCORER tier's
+    ``can_update`` (EDIT+), resolved through the normal fold -- a per-name
+    ``(scorer, <experiment>/<name>)`` grant is authoritative (``DENY`` blocks; a grant
+    below EDIT blocks), and with no scorer grant the tier falls back to the experiment,
+    so a plain experiment editor keeps OSS behavior. A ``(scorer_version, *, DENY)``
+    still vetoes both branches (both write a version).
 
-    * ``(scorer_version, *, DENY)`` vetoes either branch (both write a version) -- branch-free
-      and existence-independent;
-    * ``(scorer, *, DENY)`` additionally vetoes CREATING a scorer parent, applied when the
-      pre-request probe reports the scorer absent. A scorer-parent DENY does NOT block
-      registering versions on an existing scorer.
-
-    The probe also flags parent creation for the after-request MANAGE grant. KNOWN LIMIT
-    (deferred to a follow-up PR): the probe is a pre-request check, so a concurrent
-    create/delete between probe and handler can misclassify the branch -- affecting only
-    which DENY veto applied and the MANAGE-grant flag, not the positive requirement. Note
-    the flag-gated grant is already strictly safer than master, which grants MANAGE
-    unconditionally on every registration; the race-free fix (a transactional store
-    callback + created-signal) is intentionally out of scope here.
+    CREATING the scorer parent (probe reports the scorer absent) keeps the create
+    policy: ``experiment.can_update`` plus the ``(scorer, *, DENY)`` create veto, and
+    flags parent creation for the after-request MANAGE grant. KNOWN LIMIT (deferred to a
+    follow-up PR): the probe is a pre-request check, so a concurrent create/delete
+    between probe and handler can misclassify the branch -- affecting which policy
+    applied and the MANAGE-grant flag. The flag-gated grant is already strictly safer
+    than master, which grants MANAGE unconditionally on every registration; the
+    race-free fix (a transactional store callback + created-signal) is intentionally
+    out of scope here.
     """
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
-    if not _get_experiment_permission(experiment_id, username).can_update:
-        return False
     if _scorer_version_deny_active(experiment_id):
         return False
     # Registration RESOLVES and BINDS any gateway endpoint referenced by the scorer's
@@ -1491,9 +1511,11 @@ def validate_can_register_scorer():
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
+        if not _get_experiment_permission(experiment_id, username).can_update:
+            return False
         g.mlflow_creates_scorer_parent = True
         return not _top_level_create_denied("scorer", username)
-    return True
+    return _register_scorer_version_permission(experiment_id, name).can_update
 
 
 def validate_can_read_scorer_version():

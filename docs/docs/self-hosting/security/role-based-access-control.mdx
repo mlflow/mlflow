@@ -162,16 +162,16 @@ model, but `scorer` is a **top-level permission type** (per-scorer grants, no
 experiment inheritance) with `scorer_version` as its child. Operations on an
 existing scorer or its versions (`GetScorer`, `UpdateScorerVersion`,
 `DeleteScorer`, `ListScorerVersions`) resolve the scorer/scorer-version tiers
-alone. **Registering** a scorer (`RegisterScorer`) is instead anchored on the
-container: it always requires `experiment` `EDIT` — for creating a new scorer
-_and_ for adding a version to an existing one — with the scorer tiers acting
-only as `DENY` vetoes (`(scorer_version, *, DENY)` blocks either form;
-`(scorer, *, DENY)` additionally blocks creating a new scorer). One asymmetry
-follows deliberately from this split: a caller holding `(scorer_version, *,
-EDIT)` but lacking experiment `EDIT` can update or delete existing scorer
-versions but cannot register new ones. Listing (`ListScorers`) requires
-`experiment` `READ` plus read on each row's scorer/version tier, in both the
-single-experiment and cross-experiment forms.
+alone. **Registering** a scorer (`RegisterScorer`) splits by branch: adding a
+version to an **existing** scorer is a scorer-version create and requires the
+**scorer tier's `EDIT`** — a grant on that scorer is authoritative (a
+per-scorer `EDIT`+ authorizes even without any experiment grant; `READ` or
+`DENY` blocks), and with no scorer grant the tier falls back to `experiment`
+`EDIT`, so plain experiment editors keep working. **Creating** a new scorer
+requires `experiment` `EDIT`, with `(scorer, *, DENY)` blocking creation. A
+`(scorer_version, *, DENY)` blocks either form (both write a version). Listing
+(`ListScorers`) requires `experiment` `READ` plus read on each row's
+scorer/version tier, in both the single-experiment and cross-experiment forms.
 
 `DENY` restricts operations once there is a resource to resolve against. Because
 a wildcard **child** grant matches regardless of a specific id, a child `DENY`
