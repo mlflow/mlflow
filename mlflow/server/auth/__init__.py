@@ -4259,75 +4259,60 @@ def _bulk_logged_model_experiment_index(
     return index
 
 
-def _logged_model_read_resolver(username: str) -> Callable[[str], bool]:
-    """``p(model_id) -> readable``, judging each linked model by its ACTUAL experiment.
+def _filter_runs_model_io(runs, username: str) -> None:
+    """Drop the logged-model input/output links the caller can't read from proto ``Run``
+    messages, judging each link by its own model's ACTUAL experiment (``log_inputs``/
+    ``log_outputs`` persist arbitrary model ids, so links may cross experiments).
 
-    ``log_inputs``/``log_outputs`` persist arbitrary model ids without constraining them
-    to the run's experiment, so a run's model links may cross experiments -- keying on the
-    run's experiment would keep a cross-experiment link the caller can't read (review
-    finding). GraphQL-only: fields resolve lazily one list at a time, which precludes
-    response-wide batching; the per-model ``get_logged_model`` lookup is memoized per
-    request and bounded by the fields the query actually selects. The REST redactor uses
-    the bulk index instead. A missing/unresolvable id is hidden fail-closed.
+    Bounded resolution (review findings F7/F8): distinct ids resolve through chunked
+    ``model_id IN (...)`` searches scoped to the runs' experiments -- the common
+    same-experiment case -- plus a CAPPED per-id fallback (at most one chunk's worth) for
+    cross-experiment links, so an authorized cross-experiment link is preserved
+    (point-equivalent with GetLoggedModel) without an unbounded N+1. Links still
+    unresolved past the cap, and missing/unreadable models, are hidden fail-closed.
+    Shared verbatim by the REST redactor and the GraphQL result filter so the two
+    surfaces cannot disagree.
     """
-    bulk = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
-    cache: dict[str, bool] = {}
+    runs = list(runs)
+    model_ids = {
+        m.model_id for run in runs for m in (*run.inputs.model_inputs, *run.outputs.model_outputs)
+    }
+    if not model_ids:
+        return
+    readable = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
+    index = _bulk_logged_model_experiment_index(model_ids, {run.info.experiment_id for run in runs})
+    unresolved = [mid for mid in sorted(model_ids) if mid and mid not in index]
+    for mid in unresolved[:_LOGGED_MODEL_LOOKUP_CHUNK]:
+        try:
+            index[mid] = _get_tracking_store().get_logged_model(mid).experiment_id
+        except MlflowException:
+            pass  # absent from the index: hidden fail-closed
 
     def can_read(model_id) -> bool:
-        if not model_id:
-            return False
-        if model_id not in cache:
-            try:
-                model = _get_tracking_store().get_logged_model(model_id)
-            except MlflowException:
-                cache[model_id] = False
-            else:
-                cache[model_id] = bulk(model.experiment_id)
-        return cache[model_id]
+        experiment_id = index.get(model_id)
+        return experiment_id is not None and readable(experiment_id)
 
-    return can_read
+    for run in runs:
+        kept_inputs = [m for m in run.inputs.model_inputs if can_read(m.model_id)]
+        if len(kept_inputs) != len(run.inputs.model_inputs):
+            del run.inputs.model_inputs[:]
+            run.inputs.model_inputs.extend(kept_inputs)
+        kept_outputs = [m for m in run.outputs.model_outputs if can_read(m.model_id)]
+        if len(kept_outputs) != len(run.outputs.model_outputs):
+            del run.outputs.model_outputs[:]
+            run.outputs.model_outputs.extend(kept_outputs)
 
 
 def _redact_runs_model_io_response(resp: Response, response_cls, runs_selector) -> None:
-    """Shared after-request redactor dropping the logged-model input/output links the
-    caller can't read from run responses (review finding: run read plus
-    ``(logged_model, *, DENY)`` could enumerate denied model ids and lineage). Each link
-    is judged by its own model's ACTUAL experiment, resolved in BOUNDED bulk queries
-    (``model_id IN`` chunks scoped to the response's experiments) -- a 50k-row SearchRuns
-    page costs the grants query plus ceil(distinct_models/chunk) searches, never one
-    lookup per model (review finding F7). Fail-closed compatibility tradeoff: a link to a
-    model living OUTSIDE every experiment in the response is hidden even when the caller
-    could read it elsewhere (it stays fetchable via GetLoggedModel directly).
+    """After-request redactor for run responses embedding logged-model lineage (review
+    finding: run read plus ``(logged_model, *, DENY)`` could enumerate denied model ids).
+    Delegates to the shared bounded filter (``_filter_runs_model_io``).
     """
     if sender_is_admin():
         return
     response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
-    runs = list(runs_selector(response_message))
-    model_ids = {
-        m.model_id for run in runs for m in (*run.inputs.model_inputs, *run.outputs.model_outputs)
-    }
-    if model_ids:
-        readable = _role_based_read_predicate(
-            authenticate_request().username, "logged_model", parent_type="experiment"
-        )
-        index = _bulk_logged_model_experiment_index(
-            model_ids, {run.info.experiment_id for run in runs}
-        )
-
-        def can_read(model_id) -> bool:
-            experiment_id = index.get(model_id)
-            return experiment_id is not None and readable(experiment_id)
-
-        for run in runs:
-            kept_inputs = [m for m in run.inputs.model_inputs if can_read(m.model_id)]
-            if len(kept_inputs) != len(run.inputs.model_inputs):
-                del run.inputs.model_inputs[:]
-                run.inputs.model_inputs.extend(kept_inputs)
-            kept_outputs = [m for m in run.outputs.model_outputs if can_read(m.model_id)]
-            if len(kept_outputs) != len(run.outputs.model_outputs):
-                del run.outputs.model_outputs[:]
-                run.outputs.model_outputs.extend(kept_outputs)
+    _filter_runs_model_io(runs_selector(response_message), authenticate_request().username)
     resp.data = message_to_json(response_message)
 
 
@@ -6766,14 +6751,7 @@ class GraphQLAuthorizationMiddleware:
     # implementation, so it needs the same per-model filter as the top-level search. Keying
     # on the parent type keeps the same-named, already-filtered sub-field of
     # ``MlflowSearchModelVersionsResponse`` out of the middleware.
-    PROTECTED_NESTED_FIELDS = {
-        ("MlflowRunExtension", "modelVersions"),
-        # Run model input/output links (reachable via mlflowGetRun / mlflowSearchRuns)
-        # expose logged-model ids; filter them by logged-model readability like the REST
-        # run redactor (review finding).
-        ("MlflowRunInputs", "modelInputs"),
-        ("MlflowRunOutputs", "modelOutputs"),
-    }
+    PROTECTED_NESTED_FIELDS = {("MlflowRunExtension", "modelVersions")}
 
     def resolve(self, next, root, info, **args):
         """
@@ -6880,18 +6858,16 @@ class GraphQLAuthorizationMiddleware:
         if field_name == "modelVersions":
             can_read = self._model_version_read_predicate(username)
             return [mv for mv in result if can_read(mv)]
-        if field_name in ("modelInputs", "modelOutputs"):
-            can_read = self._logged_model_read_predicate(username)
-            return [m for m in result if can_read(getattr(m, "model_id", None))]
+        if field_name in ("mlflowGetRun", "mlflowSearchRuns"):
+            # Run responses embed logged-model input/output links; filter them at the
+            # RESULT boundary (the resolvers return the whole proto response) with the
+            # same shared bounded batch filter as the REST redactor -- one chunked
+            # model_id IN (...) resolution per response, never a per-model lookup as
+            # nested fields resolve (review findings F6/F7/F8).
+            runs = [result.run] if field_name == "mlflowGetRun" else list(result.runs)
+            _filter_runs_model_io(runs, username)
+            return result
         return result
-
-    def _logged_model_read_predicate(self, username: str) -> Callable[[str], bool]:
-        # Shared with the REST run redactor: judge each model link by its own model's
-        # experiment, memoized per request.
-        predicates = g.setdefault("_graphql_logged_model_read_predicates", {})
-        if username not in predicates:
-            predicates[username] = _logged_model_read_resolver(username)
-        return predicates[username]
 
     def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
         # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate

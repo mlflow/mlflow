@@ -9101,26 +9101,27 @@ def test_delete_traces_requires_assessment_and_queue_tiers(
 def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
     # GetRun/SearchRuns serialize inputs.model_inputs / outputs.model_outputs; a run
     # reader with a logged_model DENY must not enumerate denied model ids through them.
-    # Each link is judged by its OWN model's experiment, resolved through BOUNDED bulk
-    # model_id IN (...) searches scoped to the response's experiments -- never a per-model
-    # lookup (review findings F6 + F7). Unresolvable links (missing models, or models
-    # outside every response experiment) are hidden fail-closed.
+    # Each link is judged by its OWN model's experiment: one chunked bulk
+    # model_id IN (...) search scoped to the response's experiments, plus a CAPPED
+    # per-id fallback that preserves AUTHORIZED cross-experiment links
+    # (point-equivalent with GetLoggedModel); unresolvable links are hidden fail-closed
+    # (review findings F6/F7/F8).
     from mlflow.protos.service_pb2 import GetRun
     from mlflow.store.entities.paged_list import PagedList
 
     msg = GetRun.Response()
     msg.run.info.experiment_id = "9"
-    msg.run.inputs.model_inputs.add().model_id = "m-local"  # experiment 9: readable
-    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # exp 13: outside scope
-    msg.run.outputs.model_outputs.add().model_id = "m-foreign"
+    msg.run.inputs.model_inputs.add().model_id = "m-local"  # exp 9: readable
+    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # exp 13: readable cross-exp
+    msg.run.outputs.model_outputs.add().model_id = "m-denied"  # exp 40: not readable
     msg.run.outputs.model_outputs.add().model_id = "m-missing"  # unresolvable: hidden
 
     search_calls = []
+    point_lookups = []
 
     def fake_search_logged_models(experiment_ids, filter_string, max_results):
         search_calls.append(filter_string)
         assert experiment_ids == ["9"]  # scoped to the response's experiments
-        # Only m-local lives in the scoped experiments.
         return PagedList(
             [SimpleNamespace(model_id="m-local", experiment_id="9")]
             if "m-local" in filter_string
@@ -9128,26 +9129,40 @@ def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
             None,
         )
 
+    def fake_get_logged_model(model_id):
+        point_lookups.append(model_id)
+        experiments = {"m-foreign": "13", "m-denied": "40"}
+        if model_id not in experiments:
+            raise MlflowException("no model", error_code=RESOURCE_DOES_NOT_EXIST)
+        return SimpleNamespace(experiment_id=experiments[model_id])
+
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
-        lambda: SimpleNamespace(search_logged_models=fake_search_logged_models),
+        lambda: SimpleNamespace(
+            search_logged_models=fake_search_logged_models,
+            get_logged_model=fake_get_logged_model,
+        ),
     )
     monkeypatch.setattr(
         auth_module,
         "_role_based_read_predicate",
-        lambda _u, rt, parent_type=None: lambda exp_id: exp_id == "9",
+        lambda _u, rt, parent_type=None: lambda exp_id: exp_id in ("9", "13"),
     )
     resp = _fake_resp(msg)
     auth_module.redact_get_run_model_io(resp)
     out = GetRun.Response()
     auth_module.parse_dict(json.loads(resp.data), out)
-    assert [m.model_id for m in out.run.inputs.model_inputs] == ["m-local"]
+    # Same-experiment and AUTHORIZED cross-experiment links survive; the unreadable and
+    # the unresolvable links are dropped.
+    assert [m.model_id for m in out.run.inputs.model_inputs] == ["m-local", "m-foreign"]
     assert len(out.run.outputs.model_outputs) == 0
-    # Query-count bound: 3 distinct ids resolve in ONE chunked bulk search.
+    # Query-count bound: one bulk search; point fallback only for the ids the bulk scope
+    # missed (never the resolved ones).
     assert len(search_calls) == 1
+    assert sorted(point_lookups) == ["m-denied", "m-foreign", "m-missing"]
 
 
 def test_redact_prompt_optimization_jobs_response(monkeypatch):
