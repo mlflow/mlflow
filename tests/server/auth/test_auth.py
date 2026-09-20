@@ -8218,10 +8218,51 @@ def test_filter_references_assessments_matches_backtick_quoted_identifiers():
     assert auth._filter_references_assessments("`feedback`.correctness > 0.5")
     assert auth._filter_references_assessments("`assessment`.foo = 'x'")
     assert auth._filter_references_assessments("`expectation`.bar < 1")
+    # issue.id resolves from assessment rows (assessment_type == "issue"), so it is
+    # assessment-derived too (review finding).
+    assert auth._filter_references_assessments("issue.id = 'i-1'")
+    assert auth._filter_references_assessments("`ISSUE`.id = 'i-1'")
     # Non-assessment fields and mere substring hits are not flagged (fail-safe, not
     # over-eager): a leading word char before the identifier must not match.
     assert not auth._filter_references_assessments("attributes.status = 'OK'")
     assert not auth._filter_references_assessments("myfeedback.value = 1")
+    assert not auth._filter_references_assessments("myissue.id = 'x'")
+
+
+@pytest.mark.parametrize(
+    ("_case", "source_run_id", "run_permission", "expected"),
+    [
+        ("no_source_run", "", None, True),
+        ("readable_source_run", "run-1", "READ", True),
+        ("denied_source_run", "run-1", "DENY", False),
+        ("missing_source_run", "run-1", "missing", False),
+    ],
+)
+def test_create_logged_model_honors_source_run_deny(
+    monkeypatch, _case, source_run_id, run_permission, expected
+):
+    # CreateLoggedModel persists source_run_id as lineage, so a caller with logged_model
+    # EDIT and (run, *, DENY) must not record provenance from a denied run; a nonexistent
+    # run fails closed rather than acting as an existence oracle (review finding).
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_logged_model_permission_for_experiment",
+        lambda _e: SimpleNamespace(can_update=True),
+    )
+
+    def fake_run_permission(_run_id):
+        if run_permission == "missing":
+            raise MlflowException("no run", error_code=RESOURCE_DOES_NOT_EXIST)
+        return get_permission(run_permission)
+
+    monkeypatch.setattr(auth_module, "_get_run_permission", fake_run_permission)
+    body = {"experiment_id": "e1", "name": "m"}
+    if source_run_id:
+        body["source_run_id"] = source_run_id
+    with auth_module.app.test_request_context("/x", method="POST", json=body):
+        assert auth_module.validate_can_create_logged_model() is expected
 
 
 @pytest.mark.parametrize(
@@ -8533,11 +8574,8 @@ _CHILD_VALIDATOR_OUTCOMES = [
     ("validate_can_update_logged_model", "_get_permission_from_model_id", "can_update"),
     ("validate_can_delete_logged_model", "_get_permission_from_model_id", "can_delete"),
     (
-        "validate_can_add_items_to_review_queue",
-        "_get_permission_from_review_queue_id",
-        "can_update",
-    ),
-    (
+        # validate_can_add_items_to_review_queue left this harness: it now gates on
+        # queue EDIT AND trace READ (dedicated test below).
         "validate_can_remove_items_from_review_queue",
         "_get_permission_from_review_queue_id",
         "can_update",
@@ -8918,14 +8956,86 @@ def test_mcp_server_version_create_outcomes(monkeypatch, _case, permission, expe
 def test_create_logged_model_outcomes(monkeypatch, _case, permission, expected):
     from mlflow.server.auth.permissions import get_permission
 
-    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "experiment-id")
     monkeypatch.setattr(
         auth_module,
         "_get_logged_model_permission_for_experiment",
         lambda _experiment_id: get_permission(permission),
     )
 
-    assert auth_module.validate_can_create_logged_model() is expected
+    # No source_run_id: only the logged_model tier decides (the source-run rule has its
+    # own dedicated test).
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"experiment_id": "experiment-id", "name": "m"}
+    ):
+        assert auth_module.validate_can_create_logged_model() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "queue_permission", "trace_permission", "expected"),
+    [
+        ("queue_edit_trace_readable", "EDIT", "READ", True),
+        ("queue_edit_trace_denied", "EDIT", "DENY", False),
+        ("no_queue_grant", "NO_PERMISSIONS", "READ", False),
+        ("queue_denied", "DENY", "READ", False),
+    ],
+)
+def test_add_items_to_review_queue_requires_trace_read(
+    monkeypatch, _case, queue_permission, trace_permission, expected
+):
+    # Attaching items resolves and persists trace references, so queue EDIT alone is not
+    # enough: a (trace, *, DENY) on the queue's experiment vetoes the add (review finding).
+    from mlflow.server.auth.permissions import get_permission
+
+    queue = SimpleNamespace(experiment_id=9)
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "q-1")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_review_queue=lambda _q: queue),
+    )
+    monkeypatch.setattr(
+        auth_module, "_get_review_queue_permission", lambda _q: get_permission(queue_permission)
+    )
+    captured = {}
+
+    def fake_trace_permission(experiment_id):
+        captured["experiment_id"] = experiment_id
+        return get_permission(trace_permission)
+
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", fake_trace_permission)
+    assert auth_module.validate_can_add_items_to_review_queue() is expected
+    if expected or trace_permission == "DENY":
+        assert captured["experiment_id"] == "9"
+
+
+@pytest.mark.parametrize(
+    ("_case", "view_allowed", "trace_permission", "expected"),
+    [
+        ("visible_and_trace_readable", True, "READ", True),
+        ("visible_but_trace_denied", True, "DENY", False),
+        ("not_visible", False, "READ", False),
+    ],
+)
+def test_list_review_queue_items_requires_trace_read(
+    monkeypatch, _case, view_allowed, trace_permission, expected
+):
+    # Listing items returns the queue's trace references, so queue visibility alone is not
+    # enough: a (trace, *, DENY) on the queue's experiment vetoes the list (review finding).
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(auth_module, "validate_can_view_review_queue", lambda: view_allowed)
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "q-1")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_review_queue=lambda _q: SimpleNamespace(experiment_id=9)),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_trace_permission_for_experiment",
+        lambda _e: get_permission(trace_permission),
+    )
+    assert auth_module.validate_can_list_review_queue_items() is expected
 
 
 @pytest.mark.parametrize("grant_topology", ["parent_and_child", "child_only", "parent_only"])
@@ -9383,6 +9493,37 @@ def test_review_queue_child_permission_outcomes(client: MlflowClient, monkeypatc
         queue_id = response.json()["review_queue"]["queue_id"]
         assert add_item(auth, queue_id).status_code == 200
         assert remove_item(auth, queue_id).status_code == 200
+
+    # Items are TRACE references: attaching resolves them and listing returns them, so a
+    # (trace, *, DENY) vetoes both even with full queue rights -- while removing (which
+    # touches no trace data) stays queue-EDIT-only (review finding).
+    trace_denied, trace_denied_password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, trace_denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, trace_denied, "trace", "*", "DENY")
+    t_auth = (trace_denied, trace_denied_password)
+    response = create_queue(t_auth, "trace_denied_queue")
+    assert response.status_code == 200
+    trace_denied_queue_id = response.json()["review_queue"]["queue_id"]
+    assert add_item(t_auth, trace_denied_queue_id).status_code == 403
+    assert (
+        requests.get(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/items/list",
+            params={"queue_id": trace_denied_queue_id},
+            auth=t_auth,
+        ).status_code
+        == 403
+    )
+    assert remove_item(t_auth, trace_denied_queue_id).status_code == 200
+    # Without the DENY the same operations succeed (trace tier falls back to experiment).
+    assert add_item((owner, owner_password), owner_queue_id).status_code == 200
+    assert (
+        requests.get(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/items/list",
+            params={"queue_id": owner_queue_id},
+            auth=(owner, owner_password),
+        ).status_code
+        == 200
+    )
 
 
 def test_read_predicate_scopes_parent_deny_to_matching_resource(monkeypatch, tmp_path):

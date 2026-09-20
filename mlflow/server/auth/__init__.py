@@ -1802,9 +1802,24 @@ def validate_can_delete_prompt_optimization_job():
 
 # Logged models
 def validate_can_create_logged_model():
-    return _get_logged_model_permission_for_experiment(
-        _get_request_param("experiment_id")
-    ).can_update
+    """CreateLoggedModel persists ``source_run_id`` as the model's lineage, so when one is
+    supplied require run-tier READ on that run atop the logged_model create gate -- a caller
+    with ``(logged_model, *, EDIT)`` and ``(run, *, DENY)`` must not record provenance from a
+    denied run (review finding; the same source-resource rule as CreateModelVersion /
+    LogInputs / LogOutputs). Fail closed on a nonexistent run so the response is not an
+    existence oracle.
+    """
+    msg = _get_request_message(CreateLoggedModel())
+    if not _get_logged_model_permission_for_experiment(msg.experiment_id).can_update:
+        return False
+    if not msg.source_run_id:
+        return True
+    try:
+        return _get_run_permission(msg.source_run_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
 
 
 def validate_can_read_logged_model():
@@ -3396,10 +3411,13 @@ def validate_can_read_traces_by_experiment_ids():
     return all(trace_readable(eid) for eid in experiment_ids)
 
 
-# Trace-search filter identifiers that reference assessment data (``feedback`` and
-# ``expectation`` are assessment kinds). A correlation/metric filter referencing any of
-# these produces an assessment-derived result, so it must be gated on the assessment tier.
-_ASSESSMENT_FILTER_IDENTIFIERS = ("assessment", "feedback", "expectation")
+# Trace-search filter identifiers that reference assessment data (``feedback``,
+# ``expectation``, and ``issue`` are assessment kinds -- the SQL store resolves
+# ``issue.id`` from assessment rows with ``assessment_type == "issue"``). A
+# correlation/metric filter referencing any of these produces an assessment-derived
+# result, so it must be gated on the assessment tier. Mirrors the identifier set of
+# ``SearchTraceUtils`` (review finding: ``issue`` was missing).
+_ASSESSMENT_FILTER_IDENTIFIERS = ("assessment", "feedback", "expectation", "issue")
 
 
 def _filter_references_assessments(*filter_strings: str) -> bool:
@@ -3798,8 +3816,18 @@ def validate_can_delete_review_queue():
 
 
 def validate_can_add_items_to_review_queue():
-    # Adding and removing items (flag-for-review / un-assign) are both review_queue EDIT.
-    return _get_permission_from_review_queue_id().can_update
+    """AddItemsToReviewQueue resolves every supplied trace id (``batch_get_trace_infos``)
+    and persists trace references, so require trace-tier READ on the queue's experiment
+    atop queue EDIT -- a caller holding ``(review_queue, *, EDIT)`` with ``(trace, *,
+    DENY)`` must not probe trace existence or attach denied traces (review finding). Trace
+    grants are wildcard-only, so one experiment-scoped resolution covers every supplied id,
+    and the deny fires before the handler's existence check leaks anything. Removing items
+    stays queue EDIT only: it resolves no trace and returns no trace data.
+    """
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    if not _get_review_queue_permission(queue).can_update:
+        return False
+    return _get_trace_permission_for_experiment(str(queue.experiment_id)).can_read
 
 
 def validate_can_get_or_create_user_queue():
@@ -3817,6 +3845,18 @@ def validate_can_view_review_queue():
     if perm.can_manage or _review_queue_has_member(queue, username):
         return True
     return perm.can_update and _is_review_queue_owner(queue, username)
+
+
+def validate_can_list_review_queue_items():
+    """ListReviewQueueItems returns the queue's trace references, so require trace-tier READ
+    on the queue's experiment atop queue visibility -- a queue reader holding ``(trace, *,
+    DENY)`` must not receive trace ids through this route (review finding). GetReviewQueue
+    keeps the plain visibility gate: its response carries queue metadata only.
+    """
+    if not validate_can_view_review_queue():
+        return False
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    return _get_trace_permission_for_experiment(str(queue.experiment_id)).can_read
 
 
 def validate_can_view_review_queue_by_name():
@@ -4087,7 +4127,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteReviewQueue: validate_can_delete_review_queue,
     AddItemsToReviewQueue: validate_can_add_items_to_review_queue,
     RemoveItemsFromReviewQueue: validate_can_remove_items_from_review_queue,
-    ListReviewQueueItems: validate_can_view_review_queue,
+    ListReviewQueueItems: validate_can_list_review_queue_items,
     SetReviewQueueItemStatus: validate_can_review_queue_item,
     # Routes for label schemas (review questions)
     CreateLabelSchema: validate_can_create_label_schema,
