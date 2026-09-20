@@ -66,7 +66,7 @@ jobs:
               }')
 
           # Keep the newest run per workflow/event, then the latest attempt of each job.
-          # Only rerun workflows whose failed jobs all finished within 60 seconds.
+          # Only rerun workflows whose non-skipped jobs all finished within 60 seconds.
           rows=$(jq -r '
             def failed:
               .conclusion == "FAILURE" or .conclusion == "TIMED_OUT"
@@ -89,7 +89,7 @@ jobs:
             | select($run.workflow.resourcePath |
                 endswith("/rerun-workflow-run.yml") or endswith("/retry.yml") | not)
             | ($run.workflow.resourcePath | endswith("/protect.yml")) as $protect
-            | select($protect or all(.[] | select(failed);
+            | select($protect or all(.[] | select(.conclusion != "SKIPPED");
                 (try (((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601))
                       | . >= 0 and . <= 60) catch false)))
             | "\($run.databaseId) \($protect)"
