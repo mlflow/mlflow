@@ -2284,14 +2284,24 @@ def validate_can_read_online_scoring_configs():
         return True
     username = authenticate_request().username
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+    # Configs carry scorer_id, but the scorer_version tier parents to the SCORER
+    # (<experiment_id>/<name>) -- resolve each id to its scorer identity through the
+    # experiment's scorer listing (one listing per distinct experiment, memoized) so a
+    # per-scorer parent DENY applies; an id that doesn't resolve fails closed (review
+    # finding: substituting the experiment as parent silently changed the fold).
+    scorer_names_by_experiment: dict[str, dict[str, str]] = {}
     for config in configs:
         if not _get_experiment_permission(config.experiment_id, username).can_read:
             return False
-        # Configs describe how a scorer runs; honor the scorer_version tier within the
-        # config's experiment (the config carries scorer_id, not name, so the wildcard
-        # child tier applies -- a per-scorer-name parent DENY is out of reach without a
-        # by-id lookup; review finding).
-        if not _experiment_child_permission("scorer_version", "*", config.experiment_id).can_read:
+        if config.experiment_id not in scorer_names_by_experiment:
+            scorer_names_by_experiment[config.experiment_id] = {
+                sv.scorer_id: sv.scorer_name
+                for sv in _get_tracking_store().list_scorers(config.experiment_id)
+            }
+        scorer_name = scorer_names_by_experiment[config.experiment_id].get(config.scorer_id)
+        if scorer_name is None:
+            return False
+        if not _get_scorer_version_permission(config.experiment_id, scorer_name).can_read:
             return False
     return True
 
@@ -3527,15 +3537,48 @@ def _search_traces_assessment_filter_allowed(experiment_ids, *filter_strings) ->
     return all(assessment_readable(eid) for eid in experiment_ids)
 
 
-def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
-    """The ``prompt.`` trace-filter identifier resolves against the linked-prompts tag,
-    so which rows match (and page counts) leak denied prompt-version references even
-    after response redaction. Honor a workspace-wide ``(prompt_version, *, DENY)`` before
-    querying (review finding). A per-prompt-NAME parent DENY cannot be resolved at the
-    gate (the filter names prompts only inside comparison values); it stays enforced by
-    the response redaction of the tag itself.
+def _filter_references_linked_prompts(*filter_strings: str) -> bool:
+    """Whether a trace filter resolves against the linked-prompts tag, decided by the
+    SAME parser the store uses (``SearchTraceUtils`` maps the bare ``prompt`` key to
+    ``mlflow.linkedPrompts``) rather than a regex over an invented spelling (review
+    finding: the UI emits ``prompt = '<name>/<version>'``, which a ``prompt.`` regex
+    never matched). An unparsable filter fails closed -- the handler would reject the
+    same string anyway, so nothing legitimate is lost.
     """
-    if not any(re.search(r"(?<![\w.])`?prompt`?\.", f, re.IGNORECASE) for f in filter_strings if f):
+    from mlflow.tracing.constant import TraceTagKey
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    for filter_string in filter_strings:
+        if not filter_string:
+            continue
+        try:
+            parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+        except Exception:
+            # This parser rejects grammars other layers own (e.g. ``assessment.`` filters,
+            # which have their own gate) as well as garbage the handler will 400. Fail
+            # closed only for strings that MENTION prompt -- an unparsable prompt-ish
+            # filter never reaches data, while unrelated grammars stay un-gated here.
+            if "prompt" in filter_string.lower():
+                return True
+            continue
+        for comparison in parsed:
+            if (
+                comparison.get("type") == "tag"
+                and comparison.get("key") == TraceTagKey.LINKED_PROMPTS
+            ):
+                return True
+    return False
+
+
+def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
+    """A linked-prompts-backed trace filter (the bare ``prompt`` identifier) resolves
+    against the reserved tag, so which rows match (and page counts) leak denied
+    prompt-version references even after response redaction. Honor a workspace-wide
+    ``(prompt_version, *, DENY)`` before querying (review finding). A per-prompt-NAME
+    parent DENY cannot be resolved at the gate (the filter names prompts only inside
+    comparison values); it stays enforced by the response redaction of the tag itself.
+    """
+    if not _filter_references_linked_prompts(*filter_strings):
         return True
     grant = _wildcard_grant_in_request_workspace("prompt_version", authenticate_request().username)
     return grant is None or grant.name != DENY.name
@@ -4429,6 +4472,30 @@ def _redact_trace_assessments_response(
 
 def redact_get_trace_assessments(resp: Response):
     _redact_trace_assessments_response(resp, GetTrace, lambda m: [m.trace.trace_info])
+
+
+def _redact_legacy_trace_infos_response(resp: Response, response_cls, infos_selector) -> None:
+    """Legacy (V2) trace responses return ``TraceInfo`` with repeated tags that can carry
+    the reserved linked-prompts tag -- filter it by the prompt_version tier like the V3
+    spelling (review finding: the supported legacy point/search trace APIs otherwise keep
+    denied prompt names/versions visible).
+    """
+    if sender_is_admin():
+        return
+    response_message = response_cls.Response()
+    parse_dict(resp.json, response_message)
+    prompt_version_readable = _prompt_version_read_predicate(authenticate_request().username)
+    for trace_info in infos_selector(response_message):
+        _filter_linked_prompts_repeated_tags(trace_info.tags, prompt_version_readable)
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_trace_info_linked_prompts(resp: Response):
+    _redact_legacy_trace_infos_response(resp, GetTraceInfo, lambda m: [m.trace_info])
+
+
+def redact_search_traces_linked_prompts(resp: Response):
+    _redact_legacy_trace_infos_response(resp, SearchTraces, lambda m: list(m.traces))
 
 
 # Chunk size for bulk model_id IN (...) lookups: bounds each search page well under the
@@ -6327,6 +6394,8 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
     GetTrace: redact_get_trace_assessments,
+    GetTraceInfo: redact_get_trace_info_linked_prompts,
+    SearchTraces: redact_search_traces_linked_prompts,
     GetLoggedModel: redact_get_logged_model_linked_prompts,
     GetRun: redact_get_run_model_io,
     SearchRuns: redact_search_runs_model_io,
@@ -7466,6 +7535,26 @@ def _get_mcp_server_validator(
         async def root_validator(username: str, request: StarletteRequest) -> bool:
             if request.method == "POST":
                 return validate_can_create_mcp_server(username)
+            if parts == ["endpoints"] and request.method == "GET":
+                # Global endpoint search spans servers, so per-server version resolution
+                # is out of reach here -- but version-bearing selection
+                # (server_version/server_alias params, version-bearing filter/order)
+                # still probes denied version metadata through result presence/count/
+                # order. Apply the wildcard (mcp_server_version, *, DENY) as a global
+                # veto before the handler (review finding: the per-server gate never
+                # reached this route).
+                qp = request.query_params
+                version_tokens = ("server_version", "server_alias")
+                version_bearing = (
+                    qp.get("server_version")
+                    or qp.get("server_alias")
+                    or any(t in (qp.get("filter_string") or "") for t in version_tokens)
+                    or any(t in ob for ob in qp.getlist("order_by") for t in version_tokens)
+                )
+                if version_bearing:
+                    grant = _wildcard_grant_in_request_workspace("mcp_server_version", username)
+                    if grant is not None and grant.name == DENY.name:
+                        return False
             return True
 
         return root_validator

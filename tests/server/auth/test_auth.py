@@ -8515,24 +8515,38 @@ def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
 
 
 def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
-    # Configs describe how a scorer runs; an experiment reader with a
-    # (scorer_version, *, DENY) must not read them (review finding).
+    # Configs carry scorer_id; the scorer_version tier parents to the SCORER
+    # (<experiment_id>/<name>), so the read gate resolves each id to its scorer identity
+    # through the experiment's scorer listing -- a per-scorer parent DENY applies, and an
+    # unresolved id fails closed (review finding: substituting the experiment as parent
+    # silently changed the fold).
     from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
-    configs = [SimpleNamespace(experiment_id="e1")]
+    configs = [SimpleNamespace(experiment_id="e1", scorer_id="sc-1")]
+    list_calls = []
+
+    def fake_list_scorers(experiment_id):
+        list_calls.append(experiment_id)
+        return [SimpleNamespace(scorer_id="sc-1", scorer_name="my-scorer")]
+
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
-        lambda: SimpleNamespace(get_online_scoring_configs=lambda _ids: configs),
+        lambda: SimpleNamespace(
+            get_online_scoring_configs=lambda _ids: configs,
+            list_scorers=fake_list_scorers,
+        ),
     )
-    version_granted = {"value": True}
-    monkeypatch.setattr(
-        auth_module,
-        "_experiment_child_permission",
-        lambda _t, _k, _e: MANAGE if version_granted["value"] else NO_PERMISSIONS,
-    )
+    version_perm = {"value": MANAGE}
+    resolved = []
+
+    def fake_version_perm(experiment_id, name):
+        resolved.append((experiment_id, name))
+        return version_perm["value"]
+
+    monkeypatch.setattr(auth_module, "_get_scorer_version_permission", fake_version_perm)
 
     def result():
         with auth_module.app.test_request_context(
@@ -8541,8 +8555,75 @@ def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
             return auth_module.validate_can_read_online_scoring_configs()
 
     assert result() is True
-    version_granted["value"] = False
+    assert resolved == [("e1", "my-scorer")]  # resolved to the scorer identity
+    version_perm["value"] = NO_PERMISSIONS
     assert result() is False
+    # An id absent from the experiment's scorer listing fails closed.
+    configs[:] = [SimpleNamespace(experiment_id="e1", scorer_id="sc-unknown")]
+    version_perm["value"] = MANAGE
+    assert result() is False
+
+
+def test_global_mcp_endpoint_search_honors_wildcard_version_deny(monkeypatch):
+    # The global /mcp-servers/endpoints route never reaches the per-server gate; a
+    # version-bearing selection there must honor the wildcard (mcp_server_version, *,
+    # DENY) as a global veto (review finding).
+    from starlette.datastructures import QueryParams
+
+    from mlflow.server.auth.permissions import DENY, READ
+
+    grant = {"value": None}
+    monkeypatch.setattr(
+        auth_module, "_wildcard_grant_in_request_workspace", lambda _t, _u: grant["value"]
+    )
+    validator = auth_module._get_mcp_server_validator("/api/3.0/mlflow/mcp-servers/endpoints")
+
+    def run(query):
+        req = SimpleNamespace(method="GET", query_params=QueryParams(query))
+        return asyncio.run(validator("u", req))
+
+    assert run("server_version=3") is True  # no grant: default posture
+    grant["value"] = DENY
+    assert run("server_version=3") is False
+    assert run("server_alias=prod") is False
+    assert run("filter_string=server_version%3D'3'") is False
+    assert run("max_results=5") is True  # non-version-bearing search unaffected
+    grant["value"] = READ
+    assert run("server_version=3") is True
+
+
+def test_legacy_trace_responses_filter_linked_prompts_tag(monkeypatch):
+    # Legacy (V2) GetTraceInfo / SearchTraces return TraceInfo with repeated tags that
+    # carry the reserved linked-prompts tag; both are filtered like the V3 spelling
+    # (review finding).
+    from mlflow.protos.service_pb2 import GetTraceInfo, SearchTraces
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", _linked_prompts_predicate_fake)
+    value = json.dumps([{"name": "p-ok", "version": "1"}, {"name": "p-denied", "version": "2"}])
+
+    get_msg = GetTraceInfo.Response()
+    tag = get_msg.trace_info.tags.add()
+    tag.key = auth_module._LINKED_PROMPTS_TAG_KEY
+    tag.value = value
+    resp = _fake_resp(get_msg)
+    auth_module.redact_get_trace_info_linked_prompts(resp)
+    out = GetTraceInfo.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    (out_tag,) = out.trace_info.tags
+    assert json.loads(out_tag.value) == [{"name": "p-ok", "version": "1"}]
+
+    search_msg = SearchTraces.Response()
+    ti = search_msg.traces.add()
+    tag = ti.tags.add()
+    tag.key = auth_module._LINKED_PROMPTS_TAG_KEY
+    tag.value = json.dumps([{"name": "p-denied", "version": "2"}])
+    resp = _fake_resp(search_msg)
+    auth_module.redact_search_traces_linked_prompts(resp)
+    out = SearchTraces.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert not [t for t in out.traces[0].tags if t.key == auth_module._LINKED_PROMPTS_TAG_KEY]
 
 
 def test_mcp_access_endpoints_honor_server_version_tier(monkeypatch):
@@ -8681,9 +8762,11 @@ def test_get_logged_model_filters_linked_prompts_tag(monkeypatch):
 
 
 def test_search_traces_prompt_filter_gate(monkeypatch):
-    # A prompt.-backed trace filter resolves against the linked-prompts tag, so match
-    # presence/counts leak denied prompt-version references -- a workspace-wide
-    # (prompt_version, *, DENY) blocks it before querying (review finding).
+    # The bare `prompt` trace-filter key maps (via SearchTraceUtils, the store's own
+    # parser) to the linked-prompts tag, so match presence/counts leak denied
+    # prompt-version references -- a workspace-wide (prompt_version, *, DENY) blocks it
+    # before querying (review finding: the UI emits `prompt = '<name>/<version>'`, so
+    # detection must use the parser, not a `prompt.` regex).
     from mlflow.server.auth.permissions import DENY, READ
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
@@ -8691,12 +8774,20 @@ def test_search_traces_prompt_filter_gate(monkeypatch):
     monkeypatch.setattr(
         auth_module, "_wildcard_grant_in_request_workspace", lambda _t, _u: grant["value"]
     )
-    assert auth_module._search_traces_prompt_filter_allowed("prompt.name = 'x'") is True
+    real_filter = "prompt = 'my-prompt/3'"
+    assert auth_module._search_traces_prompt_filter_allowed(real_filter) is True
     grant["value"] = READ
-    assert auth_module._search_traces_prompt_filter_allowed("prompt.name = 'x'") is True
+    assert auth_module._search_traces_prompt_filter_allowed(real_filter) is True
     grant["value"] = DENY
-    assert auth_module._search_traces_prompt_filter_allowed("prompt.name = 'x'") is False
-    assert auth_module._search_traces_prompt_filter_allowed("`prompt`.version = 1") is False
+    assert auth_module._search_traces_prompt_filter_allowed(real_filter) is False
+    assert auth_module._search_traces_prompt_filter_allowed("`prompt` != 'a/1'") is False
+    assert (
+        auth_module._search_traces_prompt_filter_allowed("name = 'x' AND prompt = 'p/1'") is False
+    )
+    # An unparsable prompt-mentioning filter fails closed; unrelated grammars other
+    # layers own (assessment filters have their own gate) stay un-gated here.
+    assert auth_module._search_traces_prompt_filter_allowed("prompt ~~~ garbage") is False
+    assert auth_module._search_traces_prompt_filter_allowed("assessment.foo = 'x'") is True
     # Non-prompt filters never consult the grant.
     assert auth_module._search_traces_prompt_filter_allowed("tags.foo = 'bar'") is True
     assert auth_module._search_traces_prompt_filter_allowed("") is True
