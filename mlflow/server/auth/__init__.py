@@ -2669,6 +2669,18 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
             if resource_type == RESOURCE_TYPE_REGISTERED_MODEL_VERSION
             else RESOURCE_TYPE_PROMPT
         )
+        # Verify the persisted entity's LOGICAL type matches the requested namespace
+        # (prompts and registered models share the registry table): reporting a
+        # permission for the wrong namespace would let get_user_permission disagree with
+        # the runtime routes, which classify by the persisted entity (review finding).
+        # A mismatch follows the caller's RESOURCE_DOES_NOT_EXIST -> NO_PERMISSIONS path.
+        rm = _get_model_registry_store().get_registered_model(resource_id)
+        if rm._is_prompt() != (resource_type == RESOURCE_TYPE_PROMPT_VERSION):
+            kind = "Prompt" if resource_type == RESOURCE_TYPE_PROMPT_VERSION else "Registered model"
+            raise MlflowException(
+                f"{kind} with name={resource_id!r} not found",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         return _ResourceDispatch(
             resource_key=resource_id,
             workspace_lookup_id=resource_id,
@@ -2681,6 +2693,12 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
         )
     if resource_type == RESOURCE_TYPE_SCORER_VERSION:
         experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
+        # Verify the named scorer parent exists, like the adjacent scorer branch (the API
+        # reports permission on an instance; a nonexistent parent must resolve
+        # NO_PERMISSIONS via the caller's not-found catch -- review finding).
+        from urllib.parse import unquote
+
+        _get_tracking_store().get_scorer(experiment_id, unquote(resource_id.partition("/")[2]))
         return _ResourceDispatch(
             resource_key=resource_id,
             workspace_lookup_id=experiment_id,
@@ -3647,6 +3665,44 @@ def _linked_prompts_filter_comparisons(filter_string: str) -> list[dict]:
     ]
 
 
+def _search_traces_resource_filter_allowed(experiment_ids, *filter_strings) -> bool:
+    """A trace filter backed by protected sibling metadata (the ``run_id`` alias and the
+    ``metadata.`mlflow.sourceRun``/``metadata.`mlflow.modelId`` spellings, all resolved
+    through the store's OWN parser) executes against run/logged-model references, so
+    which rows match (and page counts) leak denied associations even after response
+    redaction. Require the corresponding tier's READ on every requested experiment
+    (review finding) -- the same gate shape as the assessment filter.
+    """
+    from mlflow.tracing.constant import TraceMetadataKey
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    metadata_tiers = {
+        TraceMetadataKey.SOURCE_RUN: "run",
+        TraceMetadataKey.MODEL_ID: "logged_model",
+    }
+    needed: set[str] = set()
+    for filter_string in filter_strings:
+        if not filter_string:
+            continue
+        try:
+            parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+        except Exception:
+            continue  # the prompt gate handles prompt-ish garbage; the handler 400s the rest
+        for comparison in parsed:
+            if comparison.get("type") == "request_metadata" and (
+                tier := metadata_tiers.get(comparison.get("key"))
+            ):
+                needed.add(tier)
+    if not needed:
+        return True
+    username = authenticate_request().username
+    for resource_type in sorted(needed):
+        readable = _role_based_read_predicate(username, resource_type, parent_type="experiment")
+        if not all(readable(eid) for eid in experiment_ids):
+            return False
+    return True
+
+
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
     if not experiment_ids:
@@ -3656,6 +3712,8 @@ def validate_can_search_traces():
         return False
     filter_string = request.args.get("filter", "")
     if not _search_traces_prompt_filter_allowed(filter_string):
+        return False
+    if not _search_traces_resource_filter_allowed(experiment_ids, filter_string):
         return False
     return _search_traces_assessment_filter_allowed(experiment_ids, filter_string)
 
@@ -3680,6 +3738,8 @@ def validate_can_search_traces_v3():
         return False
     v3_filter = (request.json or {}).get("filter", "")
     if not _search_traces_prompt_filter_allowed(v3_filter):
+        return False
+    if not _search_traces_resource_filter_allowed(experiment_ids, v3_filter):
         return False
     return _search_traces_assessment_filter_allowed(experiment_ids, v3_filter)
 
@@ -4505,18 +4565,103 @@ def _prompt_version_read_predicate(username: str):
     return _role_based_read_predicate(username, "prompt_version", parent_type="prompt")
 
 
+def _bulk_run_experiment_index(run_ids: set[str], experiment_ids: set[str]) -> dict[str, str]:
+    """Resolve ``run_id -> experiment_id`` in BOUNDED queries via ``search_runs`` with an
+    ``attributes.run_id IN (...)`` filter (one query per chunk of distinct ids), scoped to
+    the candidate experiments -- the run twin of ``_bulk_logged_model_experiment_index``.
+    Ids that don't resolve are absent; callers treat absence as unreadable (fail closed).
+    """
+    from mlflow.entities import ViewType
+
+    index: dict[str, str] = {}
+    ids = sorted(rid for rid in run_ids if rid and "'" not in rid)
+    if not ids or not experiment_ids:
+        return index
+    tracking_store = _get_tracking_store()
+    scoped_experiments = sorted(experiment_ids)
+    for start in range(0, len(ids), _LOGGED_MODEL_LOOKUP_CHUNK):
+        chunk = ids[start : start + _LOGGED_MODEL_LOOKUP_CHUNK]
+        quoted = ", ".join(f"'{rid}'" for rid in chunk)
+        runs = tracking_store.search_runs(
+            experiment_ids=scoped_experiments,
+            filter_string=f"attributes.run_id IN ({quoted})",
+            run_view_type=ViewType.ALL,
+            max_results=len(chunk),
+        )
+        for run in runs:
+            index[run.info.run_id] = run.info.experiment_id
+    return index
+
+
+def _filter_trace_metadata_sibling_ids(metadata_entries, username: str) -> None:
+    """Strip denied sibling identifiers from trace metadata (review finding: trace READ
+    plus ``(run, *, DENY)`` / ``(logged_model, *, DENY)`` could still learn
+    ``mlflow.sourceRun`` / ``mlflow.modelId`` through trace responses).
+
+    ``metadata_entries`` is a list of ``(experiment_id, metadata_map_or_repeated)`` pairs
+    covering every trace info in the response. Each referenced id is judged by its OWN
+    resource's experiment, resolved through BOUNDED chunked bulk queries scoped to the
+    response's experiments (same explicit policy as run lineage: a reference outside
+    every response experiment, or an unresolvable one, is hidden fail-closed; the
+    resource stays fully readable through its point routes).
+    """
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    def get_value(entries, key):
+        if hasattr(entries, "keys"):  # map<string,string> (V3)
+            return entries[key] if key in entries else None
+        for entry in entries:  # repeated key/value (legacy V2)
+            if entry.key == key:
+                return entry.value
+        return None
+
+    def drop(entries, key):
+        if hasattr(entries, "keys"):
+            del entries[key]
+        else:
+            for index, entry in enumerate(entries):
+                if entry.key == key:
+                    del entries[index]
+                    return
+
+    run_ids, model_ids = set(), set()
+    experiment_ids = set()
+    for experiment_id, entries in metadata_entries:
+        experiment_ids.add(experiment_id)
+        if rid := get_value(entries, TraceMetadataKey.SOURCE_RUN):
+            run_ids.add(rid)
+        if mid := get_value(entries, TraceMetadataKey.MODEL_ID):
+            model_ids.add(mid)
+    if not run_ids and not model_ids:
+        return
+    run_index = _bulk_run_experiment_index(run_ids, experiment_ids) if run_ids else {}
+    model_index = (
+        _bulk_logged_model_experiment_index(model_ids, experiment_ids) if model_ids else {}
+    )
+    run_readable = _role_based_read_predicate(username, "run", parent_type="experiment")
+    model_readable = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
+    for _experiment_id, entries in metadata_entries:
+        if rid := get_value(entries, TraceMetadataKey.SOURCE_RUN):
+            run_experiment = run_index.get(rid)
+            if run_experiment is None or not run_readable(run_experiment):
+                drop(entries, TraceMetadataKey.SOURCE_RUN)
+        if mid := get_value(entries, TraceMetadataKey.MODEL_ID):
+            model_experiment = model_index.get(mid)
+            if model_experiment is None or not model_readable(model_experiment):
+                drop(entries, TraceMetadataKey.MODEL_ID)
+
+
 def _redact_trace_assessments_response(
     resp: Response, response_cls, trace_info_v3_selector
 ) -> None:
-    """Shared after-request redactor for V3 trace responses embedding assessments and the
-    linked-prompts tag.
+    """Shared after-request redactor for V3 trace responses embedding assessments, the
+    linked-prompts tag, and sibling run/model metadata.
 
     ``trace_info_v3_selector`` yields each ``TraceInfoV3`` in the parsed response; the
     row itself is already gated by the trace read validator, so this only drops embedded
-    assessment content an ``assessment`` DENY should hide and prompt-version references
-    a ``prompt_version``/prompt DENY should hide. Both predicates are built once from
-    the caller's grants (one query each, evaluated in memory) so redacting a response
-    spanning many experiments/prompts does not add per-row queries.
+    content the corresponding child tiers should hide. Grant predicates are built once
+    from the caller's grants (one query each, evaluated in memory); sibling id
+    resolution uses bounded chunked bulk queries.
     """
     if sender_is_admin():
         return
@@ -4527,9 +4672,17 @@ def _redact_trace_assessments_response(
         username, "assessment", parent_type="experiment"
     )
     prompt_version_readable = _prompt_version_read_predicate(username)
-    for trace_info_v3 in trace_info_v3_selector(response_message):
+    trace_infos = list(trace_info_v3_selector(response_message))
+    for trace_info_v3 in trace_infos:
         _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable)
         _filter_linked_prompts_map_tags(trace_info_v3.tags, prompt_version_readable)
+    _filter_trace_metadata_sibling_ids(
+        [
+            (ti.trace_location.mlflow_experiment.experiment_id, ti.trace_metadata)
+            for ti in trace_infos
+        ],
+        username,
+    )
     resp.data = message_to_json(response_message)
 
 
@@ -4539,17 +4692,22 @@ def redact_get_trace_assessments(resp: Response):
 
 def _redact_legacy_trace_infos_response(resp: Response, response_cls, infos_selector) -> None:
     """Legacy (V2) trace responses return ``TraceInfo`` with repeated tags that can carry
-    the reserved linked-prompts tag -- filter it by the prompt_version tier like the V3
-    spelling (review finding: the supported legacy point/search trace APIs otherwise keep
-    denied prompt names/versions visible).
+    the reserved linked-prompts tag, and ``request_metadata`` carrying sibling run/model
+    ids -- filter both by their corresponding tiers like the V3 spelling (review
+    findings).
     """
     if sender_is_admin():
         return
     response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
-    prompt_version_readable = _prompt_version_read_predicate(authenticate_request().username)
-    for trace_info in infos_selector(response_message):
+    username = authenticate_request().username
+    prompt_version_readable = _prompt_version_read_predicate(username)
+    trace_infos = list(infos_selector(response_message))
+    for trace_info in trace_infos:
         _filter_linked_prompts_repeated_tags(trace_info.tags, prompt_version_readable)
+    _filter_trace_metadata_sibling_ids(
+        [(ti.experiment_id, ti.request_metadata) for ti in trace_infos], username
+    )
     resp.data = message_to_json(response_message)
 
 

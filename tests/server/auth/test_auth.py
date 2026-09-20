@@ -8635,6 +8635,151 @@ def test_legacy_trace_responses_filter_linked_prompts_tag(monkeypatch):
     assert not [t for t in out.traces[0].tags if t.key == auth_module._LINKED_PROMPTS_TAG_KEY]
 
 
+def test_trace_responses_filter_sibling_run_and_model_ids(monkeypatch):
+    # Trace READ plus (run, *, DENY) / (logged_model, *, DENY) must not learn
+    # mlflow.sourceRun / mlflow.modelId through trace responses. Each reference is judged
+    # by its OWN resource's experiment via bounded bulk resolution; unresolvable
+    # references are hidden fail-closed (review finding). Covers the V3 map and the
+    # legacy repeated metadata shapes through the shared filter.
+    from mlflow.protos import service_pb2 as pb
+    from mlflow.store.entities.paged_list import PagedList
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    def fake_search_runs(experiment_ids, filter_string, run_view_type, max_results):
+        assert experiment_ids == ["9"]
+        return PagedList(
+            [SimpleNamespace(info=SimpleNamespace(run_id="run-ok", experiment_id="9"))]
+            if "run-ok" in filter_string
+            else [],
+            None,
+        )
+
+    def fake_search_logged_models(experiment_ids, filter_string, max_results):
+        return PagedList(
+            [SimpleNamespace(model_id="m-denied", experiment_id="13")]
+            if "m-denied" in filter_string
+            else [],
+            None,
+        )
+
+    def fake_predicate(_u, resource_type, parent_type=None):
+        if resource_type == "run":
+            return lambda eid: eid == "9"
+        if resource_type == "logged_model":
+            return lambda eid: eid == "9"  # m-denied resolves to 13: unreadable
+        return lambda *_a: True
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(
+            search_runs=fake_search_runs, search_logged_models=fake_search_logged_models
+        ),
+    )
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+
+    # V3 spelling (map metadata).
+    v3 = pb.GetTraceInfoV3.Response()
+    ti = v3.trace.trace_info
+    ti.trace_location.mlflow_experiment.experiment_id = "9"
+    ti.trace_metadata[TraceMetadataKey.SOURCE_RUN] = "run-ok"
+    ti.trace_metadata[TraceMetadataKey.MODEL_ID] = "m-denied"
+    resp = _fake_resp(v3)
+    auth_module.redact_get_trace_info_v3_assessments(resp)
+    out = pb.GetTraceInfoV3.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    md = out.trace.trace_info.trace_metadata
+    assert md[TraceMetadataKey.SOURCE_RUN] == "run-ok"  # resolves to exp 9: readable
+    assert TraceMetadataKey.MODEL_ID not in md  # resolves to exp 13: hidden
+
+    # Legacy spelling (repeated request_metadata); an unresolvable run is hidden.
+    v2 = pb.GetTraceInfo.Response()
+    v2.trace_info.experiment_id = "9"
+    entry = v2.trace_info.request_metadata.add()
+    entry.key = TraceMetadataKey.SOURCE_RUN
+    entry.value = "run-missing"
+    resp = _fake_resp(v2)
+    auth_module.redact_get_trace_info_linked_prompts(resp)
+    out = pb.GetTraceInfo.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert not [e for e in out.trace_info.request_metadata if e.key == TraceMetadataKey.SOURCE_RUN]
+
+
+def test_search_traces_resource_filter_gate(monkeypatch):
+    # run_id / metadata.`mlflow.sourceRun` / metadata.`mlflow.modelId` trace filters
+    # execute against protected sibling references, so they require the corresponding
+    # tier's READ on every requested experiment (review finding).
+    denied = {"run": False, "logged_model": False}
+
+    def fake_predicate(_u, resource_type, parent_type=None):
+        return lambda _eid: not denied[resource_type]
+
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+
+    allowed = auth_module._search_traces_resource_filter_allowed
+    assert allowed(["e1"], "run_id = 'r1'") is True
+    denied["run"] = True
+    assert allowed(["e1"], "run_id = 'r1'") is False
+    assert allowed(["e1"], "metadata.`mlflow.sourceRun` = 'r1'") is False
+    assert allowed(["e1"], "metadata.`mlflow.modelId` = 'm1'") is True  # model tier ok
+    denied["logged_model"] = True
+    assert allowed(["e1"], "request_metadata.`mlflow.modelId` = 'm1'") is False
+    # Non-resource filters and other metadata keys never consult the tiers.
+    assert allowed(["e1"], "tags.foo = 'bar'") is True
+    assert allowed(["e1"], "metadata.`custom.key` = 'x'") is True
+    assert allowed(["e1"], "") is True
+
+
+def test_permission_introspection_validates_namespace_and_scorer(monkeypatch):
+    # get_user_permission must not report a permission for the WRONG registry namespace
+    # (prompts and registered models share the table) or a nonexistent scorer parent --
+    # both follow the RESOURCE_DOES_NOT_EXIST -> NO_PERMISSIONS path (review finding).
+    registry = {
+        "real-model": SimpleNamespace(_is_prompt=lambda: False),
+        "real-prompt": SimpleNamespace(_is_prompt=lambda: True),
+    }
+
+    def fake_get_rm(name):
+        if name not in registry:
+            raise MlflowException("no rm", error_code=RESOURCE_DOES_NOT_EXIST)
+        return registry[name]
+
+    def fake_get_scorer(_experiment_id, name):
+        if name != "real-scorer":
+            raise MlflowException("no scorer", error_code=RESOURCE_DOES_NOT_EXIST)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: SimpleNamespace(get_registered_model=fake_get_rm),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(
+            get_scorer=fake_get_scorer, get_experiment=lambda _e: SimpleNamespace()
+        ),
+    )
+
+    def expect_not_found(resource_type, resource_id):
+        with pytest.raises(MlflowException, match="not found|no scorer|no rm") as exc:
+            auth_module._resource_dispatch_keys(resource_type, resource_id)
+        assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    # Correct namespaces dispatch.
+    assert auth_module._resource_dispatch_keys("registered_model_version", "real-model")
+    assert auth_module._resource_dispatch_keys("prompt_version", "real-prompt")
+    assert auth_module._resource_dispatch_keys("scorer_version", "e1/real-scorer")
+    # Namespace inversions and a missing scorer parent fail closed.
+    expect_not_found("prompt_version", "real-model")
+    expect_not_found("registered_model_version", "real-prompt")
+    expect_not_found("scorer_version", "e1/ghost-scorer")
+
+
 def test_mcp_access_endpoints_honor_server_version_tier(monkeypatch):
     # Endpoint create/update BINDS to a server version and search accepts version-bearing
     # selection; both must consult the version tier before the handler, not rely on
