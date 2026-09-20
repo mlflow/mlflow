@@ -23,8 +23,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: write # to rerun workflows
-      checks: read # to read check runs
-      contents: read # to resolve the triggering commit
     steps:
       - name: Rerun failed checks
         env:
