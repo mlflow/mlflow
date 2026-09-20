@@ -1613,21 +1613,22 @@ def validate_can_create_prompt_optimization_job():
     vetoes it, a DENY on each concrete REGISTERED scorer the job would resolve from
     ``config.scorers`` vetoes as well, and a DENY on the ``source_prompt_uri`` prompt's
     version tier vetoes the read the job performs via ``load_prompt``.
+
+    The body is parsed through the SAME proto message the handler uses (``parse_dict``
+    accepts both ``source_prompt_uri`` and its JSON alias ``sourcePromptUri``), so the
+    vetoes cannot be bypassed with an alias spelling the raw-dict lookup would miss
+    (review finding).
     """
     if not validate_can_create_run():
         return False
-    experiment_id = _get_request_param("experiment_id")
+    msg = _get_request_message(CreatePromptOptimizationJob())
+    experiment_id = msg.experiment_id
     if _scorer_version_deny_active(experiment_id):
         return False
-    body = request.get_json(silent=True)
-    config = body.get("config") if isinstance(body, dict) else None
-    scorer_names = config.get("scorers") if isinstance(config, dict) else None
-    if scorer_names:
+    if msg.config.scorers:
         from mlflow.genai.scorers import builtin_scorers
 
-        for name in scorer_names:
-            if not isinstance(name, str):
-                continue  # handler rejects malformed entries
+        for name in msg.config.scorers:
             scorer_cls = getattr(builtin_scorers, name, None)
             if scorer_cls is not None:
                 try:
@@ -1645,12 +1646,11 @@ def validate_can_create_prompt_optimization_job():
     # tier resolves to DENY (with concrete prompt-parent fallback). Parse with the same
     # function the job's load path uses (``_parse_model_uri(scheme="prompts")``) so
     # classification cannot diverge; a URI it rejects cannot be loaded by the job either.
-    prompt_uri = body.get("source_prompt_uri") if isinstance(body, dict) else None
-    if isinstance(prompt_uri, str) and prompt_uri:
+    if msg.source_prompt_uri:
         from mlflow.store.artifact.utils.models import _parse_model_uri
 
         try:
-            prompt_name = _parse_model_uri(prompt_uri, scheme="prompts").name
+            prompt_name = _parse_model_uri(msg.source_prompt_uri, scheme="prompts").name
         except MlflowException:
             prompt_name = None
         if prompt_name and _prompt_version_deny_active(prompt_name):
@@ -1728,7 +1728,24 @@ def validate_can_manage_run():
 
 # Prompt optimization jobs
 def validate_can_read_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_read
+    """GetPromptOptimizationJob copies the associated run's metric values (initial/final
+    eval scores, progress) into the response, so require run-tier READ on that run atop the
+    job/experiment-tier read gate -- an experiment reader holding ``(run, *, DENY)`` is
+    denied by GetRun and must not read the same values through this composite route (review
+    finding). A missing run is allowed, as the handler tolerates it and returns the bare
+    job. Matches the Cancel/Delete treatment of the job's run.
+    """
+    if not _get_permission_from_prompt_optimization_job_id().can_read:
+        return False
+    run_id = _prompt_optimization_job_run_id()
+    if not run_id:
+        return True
+    try:
+        return _get_run_permission(run_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return True
+        raise
 
 
 def validate_can_update_prompt_optimization_job():
