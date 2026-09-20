@@ -3665,13 +3665,27 @@ def _linked_prompts_filter_comparisons(filter_string: str) -> list[dict]:
     ]
 
 
-def _search_traces_resource_filter_allowed(experiment_ids, *filter_strings) -> bool:
+# Point lookups a single search request's resource-backed filter may spend resolving
+# exact references to their actual experiments; beyond it the filter fails closed.
+_RESOURCE_FILTER_POINT_LOOKUP_BUDGET = 20
+
+
+def _search_traces_resource_filter_allowed(*filter_strings) -> bool:
     """A trace filter backed by protected sibling metadata (the ``run_id`` alias and the
     ``metadata.`mlflow.sourceRun``/``metadata.`mlflow.modelId`` spellings, all resolved
     through the store's OWN parser) executes against run/logged-model references, so
     which rows match (and page counts) leak denied associations even after response
-    redaction. Require the corresponding tier's READ on every requested experiment
-    (review finding) -- the same gate shape as the assessment filter.
+    redaction (review finding).
+
+    Policy, following the fold's precedence (the prompt-filter gate's shape): the
+    workspace-manager bypass allows anything; a wildcard child grant on the referenced
+    tier is authoritative -- DENY vetoes, a positive (floored) readable grant covers
+    every reference and so allows even broad operators. Without an authoritative grant,
+    an EXACT comparison names its target id, which is resolved to its ACTUAL experiment
+    (references may cross experiments -- ``link_traces_to_run`` binds arbitrary runs;
+    review finding) and judged point-equivalently there, bounded by a small per-request
+    lookup budget and fail-closed for missing references; broad operators (``!=``,
+    ``LIKE``, ...) cannot be bounded to specific parents and fail closed.
     """
     from mlflow.tracing.constant import TraceMetadataKey
     from mlflow.utils.search_utils import SearchTraceUtils
@@ -3680,7 +3694,7 @@ def _search_traces_resource_filter_allowed(experiment_ids, *filter_strings) -> b
         TraceMetadataKey.SOURCE_RUN: "run",
         TraceMetadataKey.MODEL_ID: "logged_model",
     }
-    needed: set[str] = set()
+    comparisons: list[tuple[str, dict]] = []
     for filter_string in filter_strings:
         if not filter_string:
             continue
@@ -3688,18 +3702,63 @@ def _search_traces_resource_filter_allowed(experiment_ids, *filter_strings) -> b
             parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
         except Exception:
             continue  # the prompt gate handles prompt-ish garbage; the handler 400s the rest
-        for comparison in parsed:
-            if comparison.get("type") == "request_metadata" and (
-                tier := metadata_tiers.get(comparison.get("key"))
-            ):
-                needed.add(tier)
-    if not needed:
+        comparisons.extend(
+            (metadata_tiers[c["key"]], c)
+            for c in parsed
+            if c.get("type") == "request_metadata" and c.get("key") in metadata_tiers
+        )
+    if not comparisons:
         return True
     username = authenticate_request().username
-    for resource_type in sorted(needed):
-        readable = _role_based_read_predicate(username, resource_type, parent_type="experiment")
-        if not all(readable(eid) for eid in experiment_ids):
+    if _request_workspace_manager(username):
+        return True
+
+    tier_context: dict[str, tuple[bool, Callable] | None] = {}
+
+    def context_for(tier):
+        if tier not in tier_context:
+            grant = _wildcard_grant_in_request_workspace(tier, username)
+            if grant is not None and grant.name == DENY.name:
+                tier_context[tier] = None  # authoritative DENY: nothing passes
+            else:
+                broad_allowed = grant is not None and _floor_positive_permission(grant).can_read
+                tier_context[tier] = (
+                    broad_allowed,
+                    _role_based_read_predicate(username, tier, parent_type="experiment"),
+                )
+        return tier_context[tier]
+
+    def resolve_experiment(tier, reference_id):
+        try:
+            if tier == "run":
+                return _get_tracking_store().get_run(reference_id).info.experiment_id
+            return _get_tracking_store().get_logged_model(reference_id).experiment_id
+        except MlflowException:
+            return None
+
+    budget = _RESOURCE_FILTER_POINT_LOOKUP_BUDGET
+    for tier, comparison in comparisons:
+        context = context_for(tier)
+        if context is None:
             return False
+        broad_allowed, readable = context
+        if broad_allowed:
+            continue
+        comparator = comparison.get("comparator")
+        value = comparison.get("value")
+        if comparator == "=":
+            values = [value]
+        elif comparator == "IN" and isinstance(value, (list, tuple)):
+            values = list(value)
+        else:
+            return False  # unboundable under parent-specific grants: fail closed
+        for reference_id in values:
+            if budget <= 0 or not reference_id:
+                return False
+            budget -= 1
+            experiment_id = resolve_experiment(tier, reference_id)
+            if experiment_id is None or not readable(experiment_id):
+                return False
     return True
 
 
@@ -3713,7 +3772,7 @@ def validate_can_search_traces():
     filter_string = request.args.get("filter", "")
     if not _search_traces_prompt_filter_allowed(filter_string):
         return False
-    if not _search_traces_resource_filter_allowed(experiment_ids, filter_string):
+    if not _search_traces_resource_filter_allowed(filter_string):
         return False
     return _search_traces_assessment_filter_allowed(experiment_ids, filter_string)
 
@@ -3739,7 +3798,7 @@ def validate_can_search_traces_v3():
     v3_filter = (request.json or {}).get("filter", "")
     if not _search_traces_prompt_filter_allowed(v3_filter):
         return False
-    if not _search_traces_resource_filter_allowed(experiment_ids, v3_filter):
+    if not _search_traces_resource_filter_allowed(v3_filter):
         return False
     return _search_traces_assessment_filter_allowed(experiment_ids, v3_filter)
 

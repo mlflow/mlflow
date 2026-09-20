@@ -8709,28 +8709,69 @@ def test_trace_responses_filter_sibling_run_and_model_ids(monkeypatch):
 
 def test_search_traces_resource_filter_gate(monkeypatch):
     # run_id / metadata.`mlflow.sourceRun` / metadata.`mlflow.modelId` trace filters
-    # execute against protected sibling references, so they require the corresponding
-    # tier's READ on every requested experiment (review finding).
-    denied = {"run": False, "logged_model": False}
-
-    def fake_predicate(_u, resource_type, parent_type=None):
-        return lambda _eid: not denied[resource_type]
+    # execute against protected sibling references, which may CROSS experiments -- an
+    # exact comparison resolves its target id to the referenced resource's ACTUAL
+    # experiment (fail-closed for missing refs), broad operators need an authoritative
+    # wildcard child grant or the workspace-manager bypass (review findings).
+    from mlflow.server.auth.permissions import DENY, READ
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
-    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    manager = {"value": False}
+    monkeypatch.setattr(auth_module, "_request_workspace_manager", lambda _u: manager["value"])
+    grants = {"run": None, "logged_model": None}
+    monkeypatch.setattr(
+        auth_module, "_wildcard_grant_in_request_workspace", lambda t, _u: grants[t]
+    )
+    # run-ok lives in exp 9 (readable); run-foreign in exp 13 (not readable).
+    runs = {"run-ok": "9", "run-foreign": "13"}
+    models = {"m-ok": "9"}
+
+    def fake_store():
+        def get_run(run_id):
+            if run_id not in runs:
+                raise MlflowException("no run", error_code=RESOURCE_DOES_NOT_EXIST)
+            return SimpleNamespace(info=SimpleNamespace(experiment_id=runs[run_id]))
+
+        def get_logged_model(model_id):
+            if model_id not in models:
+                raise MlflowException("no model", error_code=RESOURCE_DOES_NOT_EXIST)
+            return SimpleNamespace(experiment_id=models[model_id])
+
+        return SimpleNamespace(get_run=get_run, get_logged_model=get_logged_model)
+
+    monkeypatch.setattr(auth_module, "_get_tracking_store", fake_store)
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda _u, _t, parent_type=None: lambda eid: eid == "9",
+    )
 
     allowed = auth_module._search_traces_resource_filter_allowed
-    assert allowed(["e1"], "run_id = 'r1'") is True
-    denied["run"] = True
-    assert allowed(["e1"], "run_id = 'r1'") is False
-    assert allowed(["e1"], "metadata.`mlflow.sourceRun` = 'r1'") is False
-    assert allowed(["e1"], "metadata.`mlflow.modelId` = 'm1'") is True  # model tier ok
-    denied["logged_model"] = True
-    assert allowed(["e1"], "request_metadata.`mlflow.modelId` = 'm1'") is False
+    # Exact references judged at the referenced resource's ACTUAL experiment.
+    assert allowed("run_id = 'run-ok'") is True
+    assert allowed("run_id = 'run-foreign'") is False  # cross-experiment denial applies
+    assert allowed("run_id = 'run-missing'") is False  # unresolvable: fail closed
+    assert allowed("metadata.`mlflow.modelId` = 'm-ok'") is True
+    assert allowed("metadata.`mlflow.modelId` = 'm-missing'") is False
+    # Broad operators without an authoritative grant fail closed under parent fallback.
+    assert allowed("run_id != 'run-ok'") is False
+    # An authoritative positive wildcard grant covers every reference, broad included.
+    grants["run"] = READ
+    assert allowed("run_id != 'run-ok'") is True
+    assert allowed("run_id = 'run-foreign'") is True
+    # An authoritative DENY vetoes even readable exact references.
+    grants["run"] = DENY
+    assert allowed("run_id = 'run-ok'") is False
+    grants["run"] = None
+    # The workspace-manager bypass wins over everything.
+    manager["value"] = True
+    assert allowed("run_id != 'x'") is True
+    assert allowed("run_id = 'run-foreign'") is True
+    manager["value"] = False
     # Non-resource filters and other metadata keys never consult the tiers.
-    assert allowed(["e1"], "tags.foo = 'bar'") is True
-    assert allowed(["e1"], "metadata.`custom.key` = 'x'") is True
-    assert allowed(["e1"], "") is True
+    assert allowed("tags.foo = 'bar'") is True
+    assert allowed("metadata.`custom.key` = 'x'") is True
+    assert allowed("") is True
 
 
 def test_permission_introspection_validates_namespace_and_scorer(monkeypatch):
@@ -9387,7 +9428,16 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            # The issues/invoke case uses the provider/model path: an endpoint_name would
+            # be denied at the VALIDATOR (gateway USE, fail-closed for a nonexistent
+            # endpoint, which has its own test), and the handler's credential fail-fast
+            # needs an API key on the SERVER process to reach the trace binding under test.
+            "OPENAI_API_KEY": "sk-test-not-used",
+        }
+    ],
     indirect=True,
 )
 @pytest.mark.parametrize(
@@ -9398,9 +9448,6 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
             "issues/invoke",
             {
                 "categories": ["correctness"],
-                # provider+model path: an endpoint_name would now be denied at the
-                # VALIDATOR (gateway USE, fail-closed for a nonexistent endpoint), which
-                # has its own test -- this test targets the HANDLER's trace binding.
                 "provider": "openai",
                 "model": "gpt-4o",
             },
