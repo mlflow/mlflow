@@ -1476,7 +1476,11 @@ def validate_can_register_scorer():
     ``(scorer, <experiment>/<name>)`` grant is authoritative (``DENY`` blocks; a grant
     below EDIT blocks), and with no scorer grant the tier falls back to the experiment,
     so a plain experiment editor keeps OSS behavior. A ``(scorer_version, *, DENY)``
-    still vetoes both branches (both write a version).
+    still vetoes both branches (both write a version). DELIBERATE product contract, part
+    of the same ruling: POSITIVE ``scorer_version`` grants do NOT authorize creation --
+    version-creation authority lives on the scorer tier (or the experiment fallback);
+    a ``(scorer_version, *, EDIT)`` holder can update/delete existing versions but needs
+    scorer EDIT (or experiment EDIT) to register new ones.
 
     CREATING the scorer parent (probe reports the scorer absent) keeps the create
     policy: ``experiment.can_update`` plus the ``(scorer, *, DENY)`` create veto, and

@@ -169,8 +169,13 @@ per-scorer `EDIT`+ authorizes even without any experiment grant; `READ` or
 `DENY` blocks), and with no scorer grant the tier falls back to `experiment`
 `EDIT`, so plain experiment editors keep working. **Creating** a new scorer
 requires `experiment` `EDIT`, with `(scorer, *, DENY)` blocking creation. A
-`(scorer_version, *, DENY)` blocks either form (both write a version). Listing
-(`ListScorers`) requires `experiment` `READ` plus read on each row's
+`(scorer_version, *, DENY)` blocks either form (both write a version), and —
+deliberately —
+**positive `scorer_version` grants do not authorize creation**: version
+creation authority lives on the scorer tier (or the experiment fallback), so a
+`(scorer_version, *, EDIT)` holder can read, update, and delete existing
+versions but needs scorer `EDIT` (or experiment `EDIT`) to register new ones.
+Listing (`ListScorers`) requires `experiment` `READ` plus read on each row's
 scorer/version tier, in both the single-experiment and cross-experiment forms.
 
 `DENY` restricts operations once there is a resource to resolve against. Because
