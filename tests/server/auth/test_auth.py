@@ -9101,23 +9101,21 @@ def test_delete_traces_requires_assessment_and_queue_tiers(
 def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
     # GetRun/SearchRuns serialize inputs.model_inputs / outputs.model_outputs; a run
     # reader with a logged_model DENY must not enumerate denied model ids through them.
-    # Each link is judged by its OWN model's experiment: one chunked bulk
-    # model_id IN (...) search scoped to the response's experiments, plus a CAPPED
-    # per-id fallback that preserves AUTHORIZED cross-experiment links
-    # (point-equivalent with GetLoggedModel); unresolvable links are hidden fail-closed
-    # (review findings F6/F7/F8).
+    # EXPLICIT AUTH POLICY (findings F7/F8, flagged gap U2): strictly batched resolution
+    # scoped to the response's experiments, NO per-id fallback -- links that don't resolve
+    # (cross-experiment or missing) are omitted from the embedded view fail-closed, while
+    # the models stay reachable via point routes.
     from mlflow.protos.service_pb2 import GetRun
     from mlflow.store.entities.paged_list import PagedList
 
     msg = GetRun.Response()
     msg.run.info.experiment_id = "9"
-    msg.run.inputs.model_inputs.add().model_id = "m-local"  # exp 9: readable
-    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # exp 13: readable cross-exp
-    msg.run.outputs.model_outputs.add().model_id = "m-denied"  # exp 40: not readable
-    msg.run.outputs.model_outputs.add().model_id = "m-missing"  # unresolvable: hidden
+    msg.run.inputs.model_inputs.add().model_id = "m-local"  # exp 9: readable, kept
+    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # exp 13: outside scope
+    msg.run.outputs.model_outputs.add().model_id = "m-denied"  # unresolved: hidden
+    msg.run.outputs.model_outputs.add().model_id = "m-missing"  # unresolved: hidden
 
     search_calls = []
-    point_lookups = []
 
     def fake_search_logged_models(experiment_ids, filter_string, max_results):
         search_calls.append(filter_string)
@@ -9129,12 +9127,8 @@ def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
             None,
         )
 
-    def fake_get_logged_model(model_id):
-        point_lookups.append(model_id)
-        experiments = {"m-foreign": "13", "m-denied": "40"}
-        if model_id not in experiments:
-            raise MlflowException("no model", error_code=RESOURCE_DOES_NOT_EXIST)
-        return SimpleNamespace(experiment_id=experiments[model_id])
+    def fail_point_lookup(_model_id):
+        pytest.fail("no per-id fallback: the policy is strictly batched")
 
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
@@ -9143,7 +9137,7 @@ def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
         "_get_tracking_store",
         lambda: SimpleNamespace(
             search_logged_models=fake_search_logged_models,
-            get_logged_model=fake_get_logged_model,
+            get_logged_model=fail_point_lookup,
         ),
     )
     monkeypatch.setattr(
@@ -9155,14 +9149,54 @@ def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
     auth_module.redact_get_run_model_io(resp)
     out = GetRun.Response()
     auth_module.parse_dict(json.loads(resp.data), out)
-    # Same-experiment and AUTHORIZED cross-experiment links survive; the unreadable and
-    # the unresolvable links are dropped.
-    assert [m.model_id for m in out.run.inputs.model_inputs] == ["m-local", "m-foreign"]
+    assert [m.model_id for m in out.run.inputs.model_inputs] == ["m-local"]
     assert len(out.run.outputs.model_outputs) == 0
-    # Query-count bound: one bulk search; point fallback only for the ids the bulk scope
-    # missed (never the resolved ones).
     assert len(search_calls) == 1
-    assert sorted(point_lookups) == ["m-denied", "m-foreign", "m-missing"]
+
+
+def test_run_model_io_filter_query_count_bounded_at_scale(monkeypatch):
+    # 450 distinct model ids across a response resolve in exactly
+    # ceil(450 / _LOGGED_MODEL_LOOKUP_CHUNK) bulk searches -- no per-id lookups at any
+    # size (the chosen policy's 200-id call-count bound, review finding F7).
+    import math
+
+    from mlflow.protos.service_pb2 import SearchRuns
+    from mlflow.store.entities.paged_list import PagedList
+
+    n = 450
+    msg = SearchRuns.Response()
+    run = msg.runs.add()
+    run.info.experiment_id = "9"
+    for i in range(n):
+        run.inputs.model_inputs.add().model_id = f"m-{i:04d}"
+
+    search_calls = []
+
+    def fake_search_logged_models(experiment_ids, filter_string, max_results):
+        search_calls.append(filter_string)
+        return PagedList([], None)  # nothing resolves: everything is hidden fail-closed
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(
+            search_logged_models=fake_search_logged_models,
+            get_logged_model=lambda _mid: pytest.fail("no per-id fallback"),
+        ),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda _u, rt, parent_type=None: lambda _e: True,
+    )
+    resp = _fake_resp(msg)
+    auth_module.redact_search_runs_model_io(resp)
+    out = SearchRuns.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert len(out.runs[0].inputs.model_inputs) == 0
+    assert len(search_calls) == math.ceil(n / auth_module._LOGGED_MODEL_LOOKUP_CHUNK)
 
 
 def test_redact_prompt_optimization_jobs_response(monkeypatch):

@@ -4264,14 +4264,18 @@ def _filter_runs_model_io(runs, username: str) -> None:
     messages, judging each link by its own model's ACTUAL experiment (``log_inputs``/
     ``log_outputs`` persist arbitrary model ids, so links may cross experiments).
 
-    Bounded resolution (review findings F7/F8): distinct ids resolve through chunked
-    ``model_id IN (...)`` searches scoped to the runs' experiments -- the common
-    same-experiment case -- plus a CAPPED per-id fallback (at most one chunk's worth) for
-    cross-experiment links, so an authorized cross-experiment link is preserved
-    (point-equivalent with GetLoggedModel) without an unbounded N+1. Links still
-    unresolved past the cap, and missing/unreadable models, are hidden fail-closed.
-    Shared verbatim by the REST redactor and the GraphQL result filter so the two
-    surfaces cannot disagree.
+    EXPLICIT AUTH POLICY (review findings F7/F8, upstream gap U2): resolution is
+    STRICTLY BATCHED -- chunked ``model_id IN (...)`` searches scoped to the runs' own
+    experiments, ceil(distinct/chunk) queries per response and no per-id fallback. A
+    link whose model lives outside every experiment in the response therefore does not
+    resolve and is omitted from the EMBEDDED view, fail-closed, even when the caller
+    could read that model -- the model itself stays fully accessible through
+    GetLoggedModel / logged-model search, which authorize point-wise. Embedded
+    cross-experiment lineage cannot be both point-equivalent and bounded without a
+    batched cross-workspace id->experiment store primitive (flagged as U2 for separate
+    ownership); this policy chooses bounded + fail-closed and says so rather than
+    approximating equivalence with an N+1. Shared verbatim by the REST redactor and the
+    GraphQL result filter so the two surfaces cannot disagree.
     """
     runs = list(runs)
     model_ids = {
@@ -4281,12 +4285,6 @@ def _filter_runs_model_io(runs, username: str) -> None:
         return
     readable = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
     index = _bulk_logged_model_experiment_index(model_ids, {run.info.experiment_id for run in runs})
-    unresolved = [mid for mid in sorted(model_ids) if mid and mid not in index]
-    for mid in unresolved[:_LOGGED_MODEL_LOOKUP_CHUNK]:
-        try:
-            index[mid] = _get_tracking_store().get_logged_model(mid).experiment_id
-        except MlflowException:
-            pass  # absent from the index: hidden fail-closed
 
     def can_read(model_id) -> bool:
         experiment_id = index.get(model_id)
