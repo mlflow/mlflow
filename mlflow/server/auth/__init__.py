@@ -974,8 +974,15 @@ def _artifact_proxy_child_from_path(artifact_path: str | None) -> tuple[str, str
         # missing id resolves on the wildcard key ``*`` — the folder listing is still gated
         # by the child tier (honoring DENY) with experiment fallback.
         return child_type, (third if third is not None else "*")
-    # Any other second segment is a run id: ``<experiment_id>/<run_id>/artifacts/...``.
-    return "run", second
+    # A run's artifacts always live under the fixed ``artifacts`` directory:
+    # ``<experiment_id>/<run_id>/artifacts/...``. Classify as a run only when that directory
+    # is present. Any other layout (``<exp>/file.txt``, ``<exp>/dir/file.txt``) is
+    # experiment-level content and must keep experiment authorization -- otherwise a
+    # run-only grant could read experiment data, and a ``(run, *, DENY)`` would wrongly
+    # block it (Copilot).
+    if third == "artifacts":
+        return "run", second
+    return None
 
 
 def _artifact_proxy_path_from_view_args() -> str | None:
@@ -1601,11 +1608,11 @@ def validate_can_create_run():
 
 def validate_can_create_prompt_optimization_job():
     """CreatePromptOptimizationJob creates a run (positive: run tier) and its optimize job
-    uses scorers. A positive ``scorer_version`` grant is not required (cross-parent to the
-    experiment anchor), but a ``(scorer_version, *, DENY)`` vetoes it, and a DENY on each
-    concrete REGISTERED scorer referenced in ``config.scorers`` vetoes as well (built-in
-    scorer names are not stored resources and carry no permissions -- the same
-    built-in-first distinction the job's own resolution uses).
+    uses scorers and loads the source prompt. A positive ``scorer_version`` grant is not
+    required (cross-parent to the experiment anchor), but a ``(scorer_version, *, DENY)``
+    vetoes it, a DENY on each concrete REGISTERED scorer the job would resolve from
+    ``config.scorers`` vetoes as well, and a DENY on the ``source_prompt_uri`` prompt's
+    version tier vetoes the read the job performs via ``load_prompt``.
     """
     if not validate_can_create_run():
         return False
@@ -1621,10 +1628,33 @@ def validate_can_create_prompt_optimization_job():
         for name in scorer_names:
             if not isinstance(name, str):
                 continue  # handler rejects malformed entries
-            if getattr(builtin_scorers, name, None) is not None:
-                continue  # built-in: not a stored resource
+            scorer_cls = getattr(builtin_scorers, name, None)
+            if scorer_cls is not None:
+                try:
+                    scorer_cls()
+                    continue  # resolves as a built-in: not a stored resource
+                except Exception:
+                    # Mirror the job's own resolution: a non-instantiable module attribute
+                    # (e.g. an import like ``json``) makes the job fall back to the
+                    # REGISTERED scorer of that name, so its DENY must still be checked
+                    # (Copilot).
+                    pass
             if _registered_scorer_deny_active(experiment_id, name):
                 return False
+    # The job loads ``source_prompt_uri`` when it runs: veto when that prompt's version
+    # tier resolves to DENY (with concrete prompt-parent fallback). Parse with the same
+    # function the job's load path uses (``_parse_model_uri(scheme="prompts")``) so
+    # classification cannot diverge; a URI it rejects cannot be loaded by the job either.
+    prompt_uri = body.get("source_prompt_uri") if isinstance(body, dict) else None
+    if isinstance(prompt_uri, str) and prompt_uri:
+        from mlflow.store.artifact.utils.models import _parse_model_uri
+
+        try:
+            prompt_name = _parse_model_uri(prompt_uri, scheme="prompts").name
+        except MlflowException:
+            prompt_name = None
+        if prompt_name and _prompt_version_deny_active(prompt_name):
+            return False
     return True
 
 
@@ -1702,7 +1732,23 @@ def validate_can_read_prompt_optimization_job():
 
 
 def validate_can_update_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_update
+    """CancelPromptOptimizationJob (the only route on this validator) also terminates the
+    job's MLflow run (``update_run_info`` -> KILLED), so require run-tier UPDATE on that run
+    in addition to the job/experiment-tier update gate -- honoring a ``(run, *, DENY)`` an
+    experiment editor would otherwise bypass through this route (Copilot). A missing run is
+    allowed, as the cancel handler tolerates it.
+    """
+    if not _get_permission_from_prompt_optimization_job_id().can_update:
+        return False
+    run_id = _prompt_optimization_job_run_id()
+    if not run_id:
+        return True
+    try:
+        return _get_run_permission(run_id).can_update
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return True
+        raise
 
 
 def _prompt_optimization_job_run_id() -> "str | None":

@@ -8087,6 +8087,96 @@ def test_delete_prompt_optimization_job_honors_run_deny(monkeypatch):
     assert auth.validate_can_delete_prompt_optimization_job() is True
 
 
+def test_cancel_prompt_optimization_job_honors_run_deny(monkeypatch):
+    # CancelPromptOptimizationJob terminates the job's associated MLflow run
+    # (update_run_info -> KILLED), so it must honor a (run, *, DENY) grant an experiment
+    # editor would otherwise bypass. Keep the experiment/job-tier gate; add run-tier UPDATE
+    # on the job's run (Copilot).
+    from mlflow.server import auth
+    from mlflow.server.auth.permissions import DENY, MANAGE
+
+    monkeypatch.setattr(auth, "_get_permission_from_prompt_optimization_job_id", lambda: MANAGE)
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: "run-1")
+
+    monkeypatch.setattr(auth, "_get_run_permission", lambda _rid: DENY)
+    assert auth.validate_can_update_prompt_optimization_job() is False
+
+    monkeypatch.setattr(auth, "_get_run_permission", lambda _rid: MANAGE)
+    assert auth.validate_can_update_prompt_optimization_job() is True
+
+    # No associated run -> the experiment/job-tier gate alone governs (allowed).
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: None)
+    assert auth.validate_can_update_prompt_optimization_job() is True
+
+    # A run the store no longer knows resolves like the tolerant cancel handler: allowed.
+    def _gone(_rid):
+        raise MlflowException("gone", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: "run-1")
+    monkeypatch.setattr(auth, "_get_run_permission", _gone)
+    assert auth.validate_can_update_prompt_optimization_job() is True
+
+
+@pytest.mark.parametrize(
+    ("prompt_denied", "expected"),
+    [(False, True), (True, False)],
+)
+def test_create_prompt_optimization_job_honors_source_prompt_deny(
+    monkeypatch, prompt_denied, expected
+):
+    # The optimize job reads source_prompt_uri via load_prompt when it runs, so a DENY on
+    # that prompt's version tier must veto job creation (Copilot). All other checks are
+    # stubbed to pass.
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "e1")
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
+    captured = {}
+
+    def fake_prompt_deny(name):
+        captured["name"] = name
+        return prompt_denied
+
+    monkeypatch.setattr(auth_module, "_prompt_version_deny_active", fake_prompt_deny)
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"source_prompt_uri": "prompts:/my-prompt/3"}
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is expected
+    assert captured["name"] == "my-prompt"
+
+
+def test_create_prompt_optimization_job_builtin_fallback_checks_registered_deny(monkeypatch):
+    # The job treats getattr(builtin_scorers, name) as a built-in only if it instantiates;
+    # otherwise it falls back to the REGISTERED scorer of that name. A module attribute like
+    # "json" (an import, not a scorer) must therefore still be checked against the
+    # registered-scorer DENY (Copilot).
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "e1")
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
+    checked = []
+
+    def fake_registered_deny(_experiment_id, name):
+        checked.append(name)
+        return name == "json"
+
+    monkeypatch.setattr(auth_module, "_registered_scorer_deny_active", fake_registered_deny)
+    from mlflow.genai.scorers import builtin_scorers
+
+    assert getattr(builtin_scorers, "json", None) is not None  # the hazard under test
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"config": {"scorers": ["json"]}}
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is False
+    assert checked == ["json"]
+
+    # A real built-in (instantiable) is not a stored resource: no registered check, allowed.
+    checked.clear()
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"config": {"scorers": ["Safety"]}}
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is True
+    assert checked == []
+
+
 def test_filter_references_assessments_matches_backtick_quoted_identifiers():
     # Trace filters may backtick-quote the entity identifier (SearchUtils._valid_entity_type
     # strips the backticks), so `feedback`.correctness must be detected as an assessment
@@ -9486,6 +9576,14 @@ def test_artifact_proxy_child_from_path_dispatches_by_layout():
     )
     # Experiment-level path has no child.
     assert auth_module._artifact_proxy_child_from_path("42/artifacts/plot.png") is None
+    # Experiment-ROOT objects (no fixed ``artifacts`` directory after the second segment)
+    # are experiment-level too: a run-only grant must not read them, and a (run, *, DENY)
+    # must not block them (Copilot).
+    assert auth_module._artifact_proxy_child_from_path("42/test.txt") is None
+    assert auth_module._artifact_proxy_child_from_path("42/dir/file.txt") is None
+    # A bare two-segment path can't be distinguished from an experiment-root file, so it
+    # resolves on the experiment tier; run CONTENT (under <run>/artifacts/) stays run-gated.
+    assert auth_module._artifact_proxy_child_from_path("42/run-abc") is None
     # A child folder root (no concrete id) resolves on the wildcard child key so a
     # child DENY is still honored when listing the folder.
     assert auth_module._artifact_proxy_child_from_path("42/traces") == ("trace", "*")
