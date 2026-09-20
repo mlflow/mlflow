@@ -50,10 +50,9 @@ jobs:
                               conclusion
                               startedAt
                               completedAt
-                              detailsUrl
                               checkSuite {
                                 app { slug }
-                                workflowRun { event workflow { name } }
+                                workflowRun { databaseId event workflow { name } }
                               }
                             }
                           }
@@ -81,7 +80,7 @@ jobs:
                 (.name | ascii_downcase) == "protect"
                 or ((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601)) <= 60
               )
-            | "\(.detailsUrl | capture("/actions/runs/(?<id>[0-9]+)").id) \(.name | ascii_downcase)"
+            | "\(.checkSuite.workflowRun.databaseId) \(.name | ascii_downcase)"
           ' <<< "$pages" | sort -u -k1,1)
 
           rerun() {
