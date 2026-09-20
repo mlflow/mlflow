@@ -1081,9 +1081,9 @@ def test_is_available_true_in_sandbox_mode(monkeypatch):
         assert ClaudeCodeProvider().is_available() is True
 
 
-def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
-    # The CLI provider serves remote clients only when sandboxed (isolated in a container);
-    # in local mode it runs on the host and must stay localhost-only.
+def test_never_allows_remote_access(monkeypatch):
+    # The CLI provider is local-only: it authenticates with host-side operator credentials, so it
+    # must never serve remote clients, even when sandboxed. Only the Gateway provider serves remote.
     provider = ClaudeCodeProvider()
     monkeypatch.setattr(
         "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: False
@@ -1092,7 +1092,7 @@ def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
     monkeypatch.setattr(
         "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
     )
-    assert provider.allows_remote_access is True
+    assert provider.allows_remote_access is False
 
 
 @pytest.mark.asyncio

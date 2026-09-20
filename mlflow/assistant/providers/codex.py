@@ -90,9 +90,11 @@ class CodexProvider(AssistantProvider):
 
     @property
     def allows_remote_access(self) -> bool:
-        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
-        # it runs isolated in a container, so it can safely serve remote clients.
-        return assistant_sandbox_enabled()
+        # Local-only. The Codex CLI authenticates with host-side credentials (an interactive login
+        # or an API key on the server) that belong to the operator, not the remote caller. Even
+        # when sandboxed there is no per-user credential to run it as, so it must never serve
+        # remote clients; only the Gateway provider does.
+        return False
 
     def is_available(self) -> bool:
         # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
