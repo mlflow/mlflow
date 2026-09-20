@@ -19,6 +19,7 @@ defaults:
     shell: bash
 
 env:
+  UV_MANAGED_PYTHON: "1"
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
@@ -50,9 +51,7 @@ jobs:
           fetch-depth: 2
       - uses: ./.github/actions/untracked
       - parallel:
-          - uses: ./.github/actions/setup-python
-            with:
-              pin-micro-version: false
+          - uses: ./.github/actions/setup-uv
           - uses: ./.github/actions/setup-node
           - name: Cache action pins
             uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

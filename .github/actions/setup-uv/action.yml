@@ -1,0 +1,22 @@
+name: "setup-uv"
+description: "Set up uv and its environment defaults"
+runs:
+  using: "composite"
+  steps:
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      with:
+        version-file: ${{ github.action_path }}/../../../pyproject.toml
+        resolution-strategy: lowest
+        # Caching disabled to avoid cache-poisoning exposure across CI workflows.
+        enable-cache: false
+    - run: |
+        # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
+        # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
+        echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
+        # Disable progress bars and spinners to reduce CI log clutter
+        # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
+        echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
+        # Exclude packages newer than 7 days to guard against supply chain attacks
+        # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
+        echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
+      shell: bash

@@ -8,6 +8,10 @@ inputs:
     description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
     required: false
     default: "true"
+  subdirectory-checkout:
+    description: "Whether the repository is checked out to the mlflow subdirectory."
+    required: false
+    default: "false"
 outputs:
   python-version:
     description: "The installed python version"
@@ -60,12 +64,10 @@ runs:
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-      with:
-        version-file: ${{ github.action_path }}/../../../pyproject.toml
-        resolution-strategy: lowest
-        # Caching disabled to avoid cache-poisoning exposure across CI workflows.
-        enable-cache: false
+    - if: inputs.subdirectory-checkout != 'true'
+      uses: ./.github/actions/setup-uv
+    - if: inputs.subdirectory-checkout == 'true'
+      uses: ./mlflow/.github/actions/setup-uv
     - name: Check uv Python support
       shell: bash
       env:
@@ -78,15 +80,6 @@ runs:
         fi
         echo "$downloads"
     - run: |
-        # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
-        # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
-        echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
-        # Disable progress bars and spinners to reduce CI log clutter
-        # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
-        echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
-        # Exclude packages newer than 7 days to guard against supply chain attacks
-        # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
-        echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
         # Disable Hugging Face download progress bars to reduce CI log clutter
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV
