@@ -4142,7 +4142,9 @@ def filter_list_review_queues(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
-def _redact_prompt_optimization_jobs_response(resp: Response, response_cls, jobs_selector):
+def _redact_prompt_optimization_jobs_response(
+    resp: Response, response_cls, jobs_selector, *, dataset_point_check: bool
+):
     """Shared after-request redactor for prompt-optimization job responses (review
     finding): jobs expose cross-resource identifiers, so drop each field the caller's
     corresponding tier can't read -- ``run_id`` (run tier, keyed by the job's experiment
@@ -4186,12 +4188,19 @@ def _redact_prompt_optimization_jobs_response(resp: Response, response_cls, jobs
         return scorer_version_readable(store._scorer_pattern(experiment_id, name))
 
     # Dataset ids in job configs leak evaluation-dataset identifiers to callers the
-    # direct dataset routes would deny -- apply the same all-associated-experiments READ
-    # check, memoized so a response resolves each DISTINCT dataset id once (review
-    # finding).
+    # direct dataset routes would deny. EXPLICIT BOUNDED POLICY (review finding F4):
+    # only the point spelling (Get: exactly one job) resolves the dataset's
+    # all-associated-experiments READ check; the Search collection clears
+    # ``config.dataset_id`` outright for non-admins -- unpaginated job history makes any
+    # per-distinct-id resolution O(datasets x associations), and no bounded association
+    # batch exists in the auth-visible store interface. The id stays readable through
+    # the point routes (GetPromptOptimizationJob / the dataset APIs), which authorize
+    # point-wise.
     dataset_readable_cache: dict[str, bool] = {}
 
     def dataset_readable(dataset_id: str) -> bool:
+        if not dataset_point_check:
+            return False
         if dataset_id not in dataset_readable_cache:
             dataset_readable_cache[dataset_id] = _dataset_read_allowed(dataset_id, username)
         return dataset_readable_cache[dataset_id]
@@ -4213,12 +4222,14 @@ def _redact_prompt_optimization_jobs_response(resp: Response, response_cls, jobs
 
 
 def redact_get_prompt_optimization_job(resp: Response):
-    _redact_prompt_optimization_jobs_response(resp, GetPromptOptimizationJob, lambda m: [m.job])
+    _redact_prompt_optimization_jobs_response(
+        resp, GetPromptOptimizationJob, lambda m: [m.job], dataset_point_check=True
+    )
 
 
 def redact_search_prompt_optimization_jobs(resp: Response):
     _redact_prompt_optimization_jobs_response(
-        resp, SearchPromptOptimizationJobs, lambda m: list(m.jobs)
+        resp, SearchPromptOptimizationJobs, lambda m: list(m.jobs), dataset_point_check=False
     )
 
 

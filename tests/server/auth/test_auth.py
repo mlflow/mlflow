@@ -9290,8 +9290,10 @@ def test_run_model_io_filter_query_count_bounded_at_scale(monkeypatch):
 def test_redact_prompt_optimization_jobs_response(monkeypatch):
     # Job responses expose run/prompt/scorer/dataset identifiers; each is dropped when the
     # caller's corresponding tier can't read it, while instantiable built-in scorers are
-    # retained (review finding). Dataset ids apply the direct dataset routes'
-    # all-associated-experiments READ check, memoized per DISTINCT id (review finding).
+    # retained (review finding). BOUNDED DATASET POLICY (review finding F4): the Search
+    # collection is unpaginated, so config.dataset_id is cleared OUTRIGHT for non-admins
+    # with ZERO per-dataset authorization queries at any scale; the point check lives on
+    # the Get spelling.
     from mlflow.protos.service_pb2 import SearchPromptOptimizationJobs
 
     msg = SearchPromptOptimizationJobs.Response()
@@ -9301,25 +9303,21 @@ def test_redact_prompt_optimization_jobs_response(monkeypatch):
     job.source_prompt_uri = "prompts:/p-src/1"
     job.optimized_prompt_uri = "prompts:/p-opt/2"
     job.config.scorers.extend(["Safety", "custom-scorer"])
-    job.config.dataset_id = "ds-hidden"
-    job2 = msg.jobs.add()
-    job2.experiment_id = "9"
-    job2.config.dataset_id = "ds-vis"
-    job3 = msg.jobs.add()
-    job3.experiment_id = "9"
-    job3.config.dataset_id = "ds-hidden"  # repeated id: memoized, resolved once
+    job.config.dataset_id = "ds-1"
+    # Many DISTINCT dataset ids: the scale case F4 requires to stay query-free.
+    for i in range(300):
+        extra = msg.jobs.add()
+        extra.experiment_id = "9"
+        extra.config.dataset_id = f"ds-{i + 2:04d}"
 
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
-    dataset_calls = []
-
-    def fake_dataset_read_allowed(dataset_id, username):
-        dataset_calls.append(dataset_id)
-        assert username == "u"
-        return dataset_id == "ds-vis"
-
-    monkeypatch.setattr(auth_module, "_dataset_read_allowed", fake_dataset_read_allowed)
+    monkeypatch.setattr(
+        auth_module,
+        "_dataset_read_allowed",
+        lambda _d, _u: pytest.fail("Search must not issue per-dataset authorization queries"),
+    )
 
     def fake_predicate(_u, resource_type, parent_type=None):
         # run tier denied; prompt_version readable only for p-opt; scorer_version denied.
@@ -9341,34 +9339,32 @@ def test_redact_prompt_optimization_jobs_response(monkeypatch):
     assert redacted.optimized_prompt_uri == "prompts:/p-opt/2"
     # The built-in survives; the unreadable registered scorer is dropped.
     assert list(redacted.config.scorers) == ["Safety"]
-    # The unreadable dataset id is cleared everywhere it appears; the readable one stays.
-    assert redacted.config.dataset_id == ""
-    assert out.jobs[1].config.dataset_id == "ds-vis"
-    assert out.jobs[2].config.dataset_id == ""
-    assert sorted(dataset_calls) == ["ds-hidden", "ds-vis"]
+    # Every dataset id is cleared, with zero authorization queries (the pytest.fail stub).
+    assert all(j.config.dataset_id == "" for j in out.jobs)
 
 
 def test_redact_get_prompt_optimization_job_dataset_id(monkeypatch):
-    # The same dataset redaction applies on the Get spelling of the shared redactor
-    # (review finding: an experiment reader could otherwise enumerate an evaluation
-    # dataset id the direct dataset routes deny).
+    # The Get spelling (exactly one job) keeps the POINT dataset check: cleared when the
+    # all-associated-experiments READ check fails, retained when it passes (review
+    # findings F3/F4).
     from mlflow.protos.service_pb2 import GetPromptOptimizationJob
-
-    msg = GetPromptOptimizationJob.Response()
-    msg.job.experiment_id = "9"
-    msg.job.config.dataset_id = "ds-hidden"
 
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
-    monkeypatch.setattr(auth_module, "_dataset_read_allowed", lambda _d, _u: False)
     monkeypatch.setattr(
         auth_module, "_role_based_read_predicate", lambda *_a, **_k: lambda *_x: True
     )
-    resp = _fake_resp(msg)
-    auth_module.redact_get_prompt_optimization_job(resp)
-    out = GetPromptOptimizationJob.Response()
-    auth_module.parse_dict(json.loads(resp.data), out)
-    assert out.job.config.dataset_id == ""
+
+    for readable, expected in ((False, ""), (True, "ds-1")):
+        msg = GetPromptOptimizationJob.Response()
+        msg.job.experiment_id = "9"
+        msg.job.config.dataset_id = "ds-1"
+        monkeypatch.setattr(auth_module, "_dataset_read_allowed", lambda _d, _u, r=readable: r)
+        resp = _fake_resp(msg)
+        auth_module.redact_get_prompt_optimization_job(resp)
+        out = GetPromptOptimizationJob.Response()
+        auth_module.parse_dict(json.loads(resp.data), out)
+        assert out.job.config.dataset_id == expected
 
 
 @pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
