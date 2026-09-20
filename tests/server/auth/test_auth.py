@@ -7119,19 +7119,19 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
             can_delete=False,
         )
     )
-    create_deny = mock.Mock(return_value=False)
+    child_grant = mock.Mock(return_value=None)
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
     monkeypatch.setattr(auth_module, "_get_mcp_server_version_permission", permission_helper)
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
-    monkeypatch.setattr(auth_module, "_top_level_create_denied", create_deny)
+    monkeypatch.setattr(auth_module, "_wildcard_grant_in_request_workspace", child_grant)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is True
     assert request.state.mcp_server_parent_auto_created is True
-    # On the auto-create path the version DENY is resolved as a workspace wildcard via
-    # _top_level_create_denied (the parent doesn't exist, so the per-server permission
-    # helper can't resolve its workspace and is NOT consulted).
-    create_deny.assert_called_once_with("mcp_server_version", "alice")
+    # On the auto-create path the version child tier resolves via the workspace wildcard
+    # grant (the parent doesn't exist, so the per-server permission helper can't resolve
+    # its workspace and is NOT consulted); with no child grant the create gate governs.
+    child_grant.assert_called_once_with("mcp_server_version", "alice")
     assert permission_helper.call_count == 0
 
     store.exists = True
@@ -7141,11 +7141,26 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_version_create_denied_when_parent_missing_and_version_denied(monkeypatch, prefix):
-    # Auto-creating the server on first version write must still honor a
-    # (mcp_server_version, *, DENY): the workspace create gate alone must not bypass it.
-    # The parent doesn't exist yet, so the veto resolves the workspace wildcard via
-    # _top_level_create_denied rather than the per-server permission helper.
+@pytest.mark.parametrize(
+    ("_case", "child_grant", "expected"),
+    [
+        ("no_child_grant", None, True),
+        ("child_deny", "DENY", False),
+        ("child_read", "READ", False),
+        ("child_use", "USE", False),
+        ("child_edit", "EDIT", True),
+    ],
+)
+def test_version_create_parent_missing_child_grant_outcomes(
+    monkeypatch, prefix, _case, child_grant, expected
+):
+    # Auto-creating the server on first version write must resolve the version child tier
+    # exactly like the existing-parent path (review finding): a matching wildcard
+    # (mcp_server_version, *) grant is AUTHORITATIVE -- DENY vetoes, a lower positive grant
+    # (READ/USE, floored by default READ) lacks can_update and vetoes, EDIT allows -- and
+    # only with NO child grant does the workspace create gate alone govern.
+    from mlflow.server.auth.permissions import get_permission
+
     validator = _find_fastapi_validator(f"{prefix}/com.test/deny-server/versions", "POST")
     assert validator is not None
 
@@ -7155,14 +7170,19 @@ def test_version_create_denied_when_parent_missing_and_version_denied(monkeypatc
     monkeypatch.setattr(
         auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_mcp_server=_get_mcp_server)
     )
-    create_deny = mock.Mock(side_effect=lambda rt, username: rt == "mcp_server_version")
-    monkeypatch.setattr(auth_module, "_top_level_create_denied", create_deny)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission="READ"),
+    )
+    grant = mock.Mock(return_value=None if child_grant is None else get_permission(child_grant))
+    monkeypatch.setattr(auth_module, "_wildcard_grant_in_request_workspace", grant)
     # Workspace create gate would otherwise allow the implicit parent.
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
-    assert asyncio.run(validator("alice", request)) is False
-    create_deny.assert_called_once_with("mcp_server_version", "alice")
+    assert asyncio.run(validator("alice", request)) is expected
+    grant.assert_called_once_with("mcp_server_version", "alice")
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -9960,6 +9980,40 @@ def test_assessment_lookup_keys_requires_trace_id():
     assert auth_module._assessment_lookup_keys("tr-1/a-1") == ("tr-1", "a-1")
     with pytest.raises(MlflowException, match="Expected '<trace_id>/<assessment_id>'"):
         auth_module._assessment_lookup_keys("a-1")
+
+
+def test_resource_dispatch_prompt_resolves_registry_workspace(monkeypatch):
+    # "prompt" is grantable and advertised by the permission APIs, so the unified
+    # per-user permission API must dispatch it -- namespaced under "prompt" with the
+    # registry's get_registered_model workspace lookup, exactly like the runtime path
+    # (review finding: it previously hit the unsupported-type 400, breaking
+    # prompt-MANAGE delegation for non-admins).
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: SimpleNamespace(get_registered_model=lambda name: SimpleNamespace(name=name)),
+    )
+    dispatch = auth_module._resource_dispatch_keys("prompt", "my-prompt")
+    assert dispatch is not None
+    assert dispatch.resource_key == "my-prompt"
+    assert dispatch.workspace_lookup_id == "my-prompt"
+    assert dispatch.workspace_label == "prompt"
+
+
+def test_every_valid_resource_type_has_permission_api_dispatch():
+    # Every advertised grantable type (except the workspace pseudo-type, which the API
+    # rejects explicitly) must be resolvable by the unified permission API: via the
+    # child dispatch, the top-level workspace-fetcher map, or the compound
+    # experiment_id/name scorer branch (review finding: prompt was advertised but had
+    # no dispatch).
+    from mlflow.server.auth.permissions import VALID_RESOURCE_TYPES
+
+    covered = (
+        set(auth_module._CHILD_RESOURCE_TYPES)
+        | set(auth_module._RESOURCE_WORKSPACE_FETCHER)
+        | {"scorer"}  # compound "<experiment_id>/<name>" dispatch branch
+    )
+    assert set(VALID_RESOURCE_TYPES) - {"workspace"} <= covered
 
 
 def test_resource_dispatch_assessment_resolves_experiment_via_trace(monkeypatch):

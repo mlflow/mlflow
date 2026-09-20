@@ -721,6 +721,24 @@ def _can_create_in_workspace(username: str) -> bool:
     return False
 
 
+def _wildcard_grant_in_request_workspace(resource_type: str, username: str) -> Permission | None:
+    """Resolve the caller's wildcard ``(resource_type, *)`` grant in the request workspace
+    (the default workspace when workspaces are disabled, where grants live), or ``None``
+    when no grant matches. Creation-time helper: usable before a concrete resource (or its
+    parent) exists to resolve a workspace from.
+    """
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return None
+    return store.get_role_permission_for_resource(
+        store.get_user(username).id, resource_type, "*", workspace_name
+    )
+
+
 def _top_level_create_denied(resource_type: str, username: str) -> bool:
     """``True`` iff a workspace-wide ``(resource_type, *, DENY)`` blocks CREATING a top-level
     resource of that type.
@@ -729,20 +747,10 @@ def _top_level_create_denied(resource_type: str, username: str) -> bool:
     creating a top-level resource, but a ``(type, *, DENY)`` prevents it — exactly as a
     ``(child, *, DENY)`` prevents child creation even under parent ``USE``. Creation has no
     resource id yet, so this resolves the wildcard ``(type, *)`` grant in the request
-    workspace (the default workspace when workspaces are disabled, where grants live). A
-    ``DENY`` is opt-in, so this only ever blocks a caller who explicitly set it —
-    backwards-compatible with the pre-existing workspace-only create gate.
+    workspace. A ``DENY`` is opt-in, so this only ever blocks a caller who explicitly set
+    it — backwards-compatible with the pre-existing workspace-only create gate.
     """
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
-    )
-    if workspace_name is None:
-        return False
-    perm = store.get_role_permission_for_resource(
-        store.get_user(username).id, resource_type, "*", workspace_name
-    )
+    perm = _wildcard_grant_in_request_workspace(resource_type, username)
     return perm is not None and perm.name == DENY.name
 
 
@@ -2304,6 +2312,15 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
     RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
     RESOURCE_TYPE_REGISTERED_MODEL: (
         "registered model",
+        lambda: _get_model_registry_store().get_registered_model,
+    ),
+    # Grant lookup stays namespaced under "prompt" (the dispatch's resource_type);
+    # workspace resolution reuses the registry's get_registered_model exactly like the
+    # runtime path (_get_permission_from_prompt_name), so get_user_permission cannot
+    # drift from real authorization decisions (review finding: prompt was advertised in
+    # VALID_RESOURCE_TYPES but unsupported here, breaking prompt-MANAGE delegation).
+    RESOURCE_TYPE_PROMPT: (
+        "prompt",
         lambda: _get_model_registry_store().get_registered_model,
     ),
     RESOURCE_TYPE_GATEWAY_SECRET: (
@@ -6847,13 +6864,20 @@ def _get_mcp_server_validator(
             if parent_missing:
                 if not validate_can_create_mcp_server(username):
                     return False
-                # Cross-parent DENY veto: honor (mcp_server_version, *, DENY) even when the
-                # server is auto-created on first version write. The parent server does not
-                # exist yet, so _get_mcp_server_version_permission can't resolve its workspace
-                # (returns NO_PERMISSIONS and would silently skip the veto); resolve the
-                # wildcard (mcp_server_version, *) grant directly in the active workspace
-                # instead (same create-time pattern as _top_level_create_denied).
-                return not _top_level_create_denied("mcp_server_version", username)
+                # The parent server does not exist yet, so _get_mcp_server_version_permission
+                # can't resolve its workspace; resolve the wildcard (mcp_server_version, *)
+                # grant directly in the request workspace instead. A matching child grant is
+                # AUTHORITATIVE for the version write exactly as on the existing-parent path:
+                # DENY vetoes, and a positive grant (with the default floor) must allow
+                # can_update -- a version READ/USE holder must not sidestep the child tier by
+                # auto-creating the parent (review finding). Only when no child grant exists
+                # does the create gate alone govern.
+                child_grant = _wildcard_grant_in_request_workspace("mcp_server_version", username)
+                if child_grant is None:
+                    return True
+                if child_grant.name == DENY.name:
+                    return False
+                return _floor_positive_permission(child_grant).can_update
         perm = (
             _get_mcp_server_version_permission(name, username)
             if _is_mcp_server_version_path(parts)
