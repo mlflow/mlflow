@@ -9100,28 +9100,44 @@ def test_delete_traces_requires_assessment_and_queue_tiers(
 
 def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
     # GetRun/SearchRuns serialize inputs.model_inputs / outputs.model_outputs; a run
-    # reader with (logged_model, *, DENY) must not enumerate denied model ids through
-    # them (review finding).
+    # reader with a logged_model DENY must not enumerate denied model ids through them.
+    # Each link is judged by its OWN model's experiment (log_inputs/log_outputs persist
+    # arbitrary model ids, so links may cross experiments); a missing model is hidden
+    # fail-closed (review finding).
     from mlflow.protos.service_pb2 import GetRun
 
     msg = GetRun.Response()
     msg.run.info.experiment_id = "9"
-    msg.run.inputs.model_inputs.add().model_id = "m-1"
-    msg.run.outputs.model_outputs.add().model_id = "m-2"
+    msg.run.inputs.model_inputs.add().model_id = "m-local"  # experiment 9: readable
+    msg.run.inputs.model_inputs.add().model_id = "m-foreign"  # experiment 13: denied
+    msg.run.outputs.model_outputs.add().model_id = "m-foreign"
+    msg.run.outputs.model_outputs.add().model_id = "m-missing"  # unresolvable: hidden
+
+    model_experiments = {"m-local": "9", "m-foreign": "13"}
+
+    def fake_get_logged_model(model_id):
+        if model_id not in model_experiments:
+            raise MlflowException("no model", error_code=RESOURCE_DOES_NOT_EXIST)
+        return SimpleNamespace(experiment_id=model_experiments[model_id])
+
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
-    for readable, kept in ((False, 0), (True, 1)):
-        monkeypatch.setattr(
-            auth_module,
-            "_role_based_read_predicate",
-            lambda _u, rt, parent_type=None, r=readable: lambda _e: r,
-        )
-        resp = _fake_resp(msg)
-        auth_module.redact_get_run_model_io(resp)
-        out = GetRun.Response()
-        auth_module.parse_dict(json.loads(resp.data), out)
-        assert len(out.run.inputs.model_inputs) == kept
-        assert len(out.run.outputs.model_outputs) == kept
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_logged_model=fake_get_logged_model),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda _u, rt, parent_type=None: lambda exp_id: exp_id == "9",
+    )
+    resp = _fake_resp(msg)
+    auth_module.redact_get_run_model_io(resp)
+    out = GetRun.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [m.model_id for m in out.run.inputs.model_inputs] == ["m-local"]
+    assert len(out.run.outputs.model_outputs) == 0
 
 
 def test_redact_prompt_optimization_jobs_response(monkeypatch):

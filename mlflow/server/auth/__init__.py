@@ -1630,7 +1630,8 @@ def validate_can_delete_experiment_lifecycle():
     capability atop experiment delete (review finding). Both child tiers are
     wildcard-grain, so one experiment-scoped resolution each covers every affected row --
     which rows the store selects cannot change the outcome. The cross-experiment
-    source-run assessment residual matches validate_can_delete_run's documented limit.
+    source-run assessment residual matches validate_can_delete_run's documented TODO
+    (owner ruling: probable store bug, call deferred upstream).
     """
     experiment_id = _get_request_param("experiment_id")
     if not _get_permission_from_experiment_id().can_delete:
@@ -1810,10 +1811,17 @@ def validate_can_delete_run():
     (``_mark_run_deleted``), so require the assessment child tier's mutation capability --
     the same one gating direct assessment deletion -- atop run delete (review finding).
     Assessments are wildcard-grain children, so one experiment-scoped resolution covers
-    them. KNOWN LIMIT (documented): an assessment sourced from this run but attached to a
-    trace in ANOTHER experiment resolves under that experiment's fold, which a pre-request
-    check cannot enumerate; closing it fully needs a transactional authorization callback
-    (deferred with the rest of the transactional-store work).
+    them, and an explicit assessment grant (including DENY) is workspace-scoped and
+    therefore enforced regardless of which experiment hosts the assessment.
+
+    TODO(sub-resource-permissions follow-up): the store's deletion predicate matches
+    assessments by ``sourceRunId`` metadata WITHOUT constraining them to this run's
+    experiment, so for a caller with NO assessment grant (per-experiment fallback) a
+    cross-experiment sourced assessment is deleted under the run's experiment authority --
+    identical to master's behavior. Owner ruling: this cross-experiment cascade looks like
+    a store bug, not a contract the auth engine should model; take the call upstream
+    (constrain the predicate vs. transactional per-experiment authorization) with the
+    other transactional-store work.
     """
     run_id = _get_request_param("run_id")
     experiment_id = _get_tracking_store().get_run(run_id).info.experiment_id
@@ -4219,26 +4227,55 @@ def redact_get_trace_assessments(resp: Response):
     _redact_trace_assessments_response(resp, GetTrace, lambda m: [m.trace.trace_info])
 
 
+def _logged_model_read_resolver(username: str) -> Callable[[str], bool]:
+    """``p(model_id) -> readable``, judging each linked model by its ACTUAL experiment.
+
+    ``log_inputs``/``log_outputs`` persist arbitrary model ids without constraining them
+    to the run's experiment, so a run's model links may cross experiments -- keying on the
+    run's experiment would keep a cross-experiment link the caller can't read (review
+    finding). The grants predicate is built once; each DISTINCT model id costs one
+    ``get_logged_model`` lookup (memoized -- no bulk id->experiment API exists), and a
+    missing/unresolvable id is hidden fail-closed.
+    """
+    bulk = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
+    cache: dict[str, bool] = {}
+
+    def can_read(model_id) -> bool:
+        if not model_id:
+            return False
+        if model_id not in cache:
+            try:
+                model = _get_tracking_store().get_logged_model(model_id)
+            except MlflowException:
+                cache[model_id] = False
+            else:
+                cache[model_id] = bulk(model.experiment_id)
+        return cache[model_id]
+
+    return can_read
+
+
 def _redact_runs_model_io_response(resp: Response, response_cls, runs_selector) -> None:
-    """Shared after-request redactor dropping a run's logged-model input/output links when
-    the caller can't read logged models in the run's experiment (review finding: run read
-    plus ``(logged_model, *, DENY)`` could enumerate denied model ids and lineage from run
-    responses). Logged models are wildcard-grain children, so one per-experiment check
-    (the same keying as ``filter_search_logged_models``) covers every reference; the
-    read predicate is built once per response.
+    """Shared after-request redactor dropping the logged-model input/output links the
+    caller can't read from run responses (review finding: run read plus
+    ``(logged_model, *, DENY)`` could enumerate denied model ids and lineage). Each link
+    is judged by its own model's experiment via ``_logged_model_read_resolver`` --
+    matching the GraphQL nested-field filter exactly.
     """
     if sender_is_admin():
         return
     response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
-    model_readable = _role_based_read_predicate(
-        authenticate_request().username, "logged_model", parent_type="experiment"
-    )
+    can_read = _logged_model_read_resolver(authenticate_request().username)
     for run in runs_selector(response_message):
-        if run.inputs.model_inputs or run.outputs.model_outputs:
-            if not model_readable(run.info.experiment_id):
-                del run.inputs.model_inputs[:]
-                del run.outputs.model_outputs[:]
+        kept_inputs = [m for m in run.inputs.model_inputs if can_read(m.model_id)]
+        if len(kept_inputs) != len(run.inputs.model_inputs):
+            del run.inputs.model_inputs[:]
+            run.inputs.model_inputs.extend(kept_inputs)
+        kept_outputs = [m for m in run.outputs.model_outputs if can_read(m.model_id)]
+        if len(kept_outputs) != len(run.outputs.model_outputs):
+            del run.outputs.model_outputs[:]
+            run.outputs.model_outputs.extend(kept_outputs)
     resp.data = message_to_json(response_message)
 
 
@@ -6797,28 +6834,11 @@ class GraphQLAuthorizationMiddleware:
         return result
 
     def _logged_model_read_predicate(self, username: str) -> Callable[[str], bool]:
-        # Model input/output entries carry only a model_id; resolve each model's
-        # experiment once (memoized per request) and judge it on the logged_model child
-        # tier with experiment fallback -- the same keying as the REST run redactor. A
-        # missing or unresolvable model is hidden (fail closed).
+        # Shared with the REST run redactor: judge each model link by its own model's
+        # experiment, memoized per request.
         predicates = g.setdefault("_graphql_logged_model_read_predicates", {})
         if username not in predicates:
-            bulk = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
-            cache: dict[str, bool] = {}
-
-            def can_read(model_id) -> bool:
-                if not model_id:
-                    return False
-                if model_id not in cache:
-                    try:
-                        model = _get_tracking_store().get_logged_model(model_id)
-                    except MlflowException:
-                        cache[model_id] = False
-                    else:
-                        cache[model_id] = bulk(model.experiment_id)
-                return cache[model_id]
-
-            predicates[username] = can_read
+            predicates[username] = _logged_model_read_resolver(username)
         return predicates[username]
 
     def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
