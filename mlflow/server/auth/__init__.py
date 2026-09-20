@@ -1422,6 +1422,28 @@ def _scorer_version_deny_active(experiment_id: str) -> bool:
     )
 
 
+def _scorer_payload_gateway_ref(serialized_scorer: str) -> tuple[bool, str | None]:
+    """``(parsed_ok, gateway_ref)`` for a serialized scorer payload, using the SAME
+    extraction helpers as the store's registration path. ``gateway_ref`` is the value
+    after ``gateway:/`` -- the endpoint NAME in an incoming registration payload, the
+    resolved endpoint ID in a stored payload. A malformed payload returns
+    ``(False, None)`` so callers fail closed (review finding).
+    """
+    from mlflow.genai.scorers.scorer_utils import (
+        extract_endpoint_ref,
+        extract_model_from_serialized_scorer,
+        is_gateway_model,
+    )
+
+    try:
+        model = extract_model_from_serialized_scorer(json.loads(serialized_scorer))
+    except Exception:
+        return False, None
+    if is_gateway_model(model):
+        return True, extract_endpoint_ref(model)
+    return True, None
+
+
 def validate_can_register_scorer():
     """Register a scorer (creates the scorer parent and/or a new version).
 
@@ -1450,6 +1472,19 @@ def validate_can_register_scorer():
         return False
     if _scorer_version_deny_active(experiment_id):
         return False
+    # Registration RESOLVES and BINDS any gateway endpoint referenced by the scorer's
+    # serialized model (the store rewrites the name to an endpoint id and creates or
+    # replaces a SqlGatewayEndpointBinding), so require the same gateway-endpoint USE as
+    # direct invocation; a malformed payload fails closed (review finding: an experiment
+    # editor could otherwise probe and mutate endpoint bindings without USE).
+    body = request.get_json(silent=True)
+    serialized_scorer = body.get("serialized_scorer") if isinstance(body, dict) else None
+    if serialized_scorer is not None:
+        parsed_ok, gateway_ref = _scorer_payload_gateway_ref(serialized_scorer)
+        if not parsed_ok:
+            return False
+        if gateway_ref is not None and not _validate_gateway_use_permission(gateway_ref, username):
+            return False
     name = _get_request_param("name")
     try:
         _get_tracking_store().get_scorer(experiment_id, name)
@@ -2190,12 +2225,50 @@ def validate_can_manage_scorer_permission():
 
 
 def validate_can_update_online_scoring_config():
+    """A POSITIVE sample rate enables background jobs that load the stored scorer
+    version, read the experiment's traces/sessions, execute the scorer (including any
+    gateway endpoint it references), and write assessments -- so enabling requires the
+    same effective tiers as that work: trace READ, assessment UPDATE, scorer-version
+    READ (authoritative child tier + scorer-parent fallback, honoring DENY), and USE on
+    the stored scorer's gateway endpoint (review finding). Disabling (sample_rate <= 0)
+    schedules no work and needs only experiment UPDATE.
+    """
     body = request.get_json(silent=True) or {}
     experiment_id = body.get("experiment_id")
-    if not experiment_id:
+    name = body.get("name")
+    if not experiment_id or not name:
         return False
     username = authenticate_request().username
-    return _get_experiment_permission(experiment_id, username).can_update
+    if not _get_experiment_permission(experiment_id, username).can_update:
+        return False
+    try:
+        sample_rate = float(body.get("sample_rate"))
+    except (TypeError, ValueError):
+        return False  # the handler requires sample_rate; fail closed at the gate
+    if sample_rate <= 0:
+        return True
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
+        return False
+    if not _get_scorer_version_permission(experiment_id, name).can_read:
+        return False
+    # The scheduler executes the STORED scorer; its payload carries the resolved gateway
+    # endpoint id when one is bound. A missing scorer or malformed payload fails closed.
+    try:
+        scorer = _get_tracking_store().get_scorer(experiment_id, name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    parsed_ok, gateway_ref = _scorer_payload_gateway_ref(scorer.serialized_scorer)
+    if not parsed_ok:
+        return False
+    if gateway_ref is not None and not _gateway_endpoint_use_permission_by_id(
+        gateway_ref, username
+    ):
+        return False
+    return True
 
 
 def validate_can_read_online_scoring_configs():
@@ -2213,6 +2286,12 @@ def validate_can_read_online_scoring_configs():
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
     for config in configs:
         if not _get_experiment_permission(config.experiment_id, username).can_read:
+            return False
+        # Configs describe how a scorer runs; honor the scorer_version tier within the
+        # config's experiment (the config carries scorer_id, not name, so the wildcard
+        # child tier applies -- a per-scorer-name parent DENY is out of reach without a
+        # by-id lookup; review finding).
+        if not _experiment_child_permission("scorer_version", "*", config.experiment_id).can_read:
             return False
     return True
 
@@ -3448,6 +3527,20 @@ def _search_traces_assessment_filter_allowed(experiment_ids, *filter_strings) ->
     return all(assessment_readable(eid) for eid in experiment_ids)
 
 
+def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
+    """The ``prompt.`` trace-filter identifier resolves against the linked-prompts tag,
+    so which rows match (and page counts) leak denied prompt-version references even
+    after response redaction. Honor a workspace-wide ``(prompt_version, *, DENY)`` before
+    querying (review finding). A per-prompt-NAME parent DENY cannot be resolved at the
+    gate (the filter names prompts only inside comparison values); it stays enforced by
+    the response redaction of the tag itself.
+    """
+    if not any(re.search(r"(?<![\w.])`?prompt`?\.", f, re.IGNORECASE) for f in filter_strings if f):
+        return True
+    grant = _wildcard_grant_in_request_workspace("prompt_version", authenticate_request().username)
+    return grant is None or grant.name != DENY.name
+
+
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
     if not experiment_ids:
@@ -3455,7 +3548,10 @@ def validate_can_search_traces():
     trace_readable = _trace_read_predicate()
     if not all(trace_readable(eid) for eid in experiment_ids):
         return False
-    return _search_traces_assessment_filter_allowed(experiment_ids, request.args.get("filter", ""))
+    filter_string = request.args.get("filter", "")
+    if not _search_traces_prompt_filter_allowed(filter_string):
+        return False
+    return _search_traces_assessment_filter_allowed(experiment_ids, filter_string)
 
 
 def validate_can_search_traces_v3():
@@ -3476,9 +3572,10 @@ def validate_can_search_traces_v3():
     trace_readable = _trace_read_predicate()
     if not all(trace_readable(eid) for eid in experiment_ids):
         return False
-    return _search_traces_assessment_filter_allowed(
-        experiment_ids, (request.json or {}).get("filter", "")
-    )
+    v3_filter = (request.json or {}).get("filter", "")
+    if not _search_traces_prompt_filter_allowed(v3_filter):
+        return False
+    return _search_traces_assessment_filter_allowed(experiment_ids, v3_filter)
 
 
 def validate_can_batch_get_traces():
@@ -4247,26 +4344,86 @@ def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable) -> Non
         del trace_info_v3.assessments[:]
 
 
+_LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
+
+
+def _visible_linked_prompts_value(value: str, prompt_version_readable) -> str | None:
+    """Filter the reserved linked-prompts tag value (a JSON list of
+    ``{"name", "version"}`` entries) down to the prompts the caller's prompt_version
+    tier can read. Returns the filtered JSON, or ``None`` when nothing remains (drop
+    the tag) -- an unparsable value is dropped fail-closed (review finding: traces,
+    runs, and logged models serialize prompt names AND version numbers into this tag,
+    leaking denied prompt-version references through parent resources).
+    """
+    try:
+        entries = json.loads(value)
+        visible = [e for e in entries if prompt_version_readable(e.get("name"))]
+    except Exception:
+        return None
+    if len(visible) == len(entries):
+        return value
+    return json.dumps(visible) if visible else None
+
+
+def _filter_linked_prompts_repeated_tags(tags, prompt_version_readable) -> None:
+    """Apply the linked-prompts filter to a repeated proto tag field (runs, logged
+    models).
+    """
+    for index, tag in enumerate(tags):
+        if tag.key != _LINKED_PROMPTS_TAG_KEY:
+            continue
+        new_value = _visible_linked_prompts_value(tag.value, prompt_version_readable)
+        if new_value is None:
+            del tags[index]
+        else:
+            tags[index].value = new_value
+        return
+
+
+def _filter_linked_prompts_map_tags(tags, prompt_version_readable) -> None:
+    """Apply the linked-prompts filter to a map<string,string> proto tag field (V3 trace
+    infos).
+    """
+    if _LINKED_PROMPTS_TAG_KEY not in tags:
+        return
+    new_value = _visible_linked_prompts_value(
+        tags[_LINKED_PROMPTS_TAG_KEY], prompt_version_readable
+    )
+    if new_value is None:
+        del tags[_LINKED_PROMPTS_TAG_KEY]
+    else:
+        tags[_LINKED_PROMPTS_TAG_KEY] = new_value
+
+
+def _prompt_version_read_predicate(username: str):
+    return _role_based_read_predicate(username, "prompt_version", parent_type="prompt")
+
+
 def _redact_trace_assessments_response(
     resp: Response, response_cls, trace_info_v3_selector
 ) -> None:
-    """Shared after-request redactor for V3 trace responses embedding assessments.
+    """Shared after-request redactor for V3 trace responses embedding assessments and the
+    linked-prompts tag.
 
     ``trace_info_v3_selector`` yields each ``TraceInfoV3`` in the parsed response; the
     row itself is already gated by the trace read validator, so this only drops embedded
-    assessment content a ``assessment`` DENY should hide. The assessment-read predicate is
-    built once from the caller's grants (one query, evaluated in memory) so redacting a
-    response spanning many experiments does not add a per-experiment query.
+    assessment content an ``assessment`` DENY should hide and prompt-version references
+    a ``prompt_version``/prompt DENY should hide. Both predicates are built once from
+    the caller's grants (one query each, evaluated in memory) so redacting a response
+    spanning many experiments/prompts does not add per-row queries.
     """
     if sender_is_admin():
         return
     response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
+    username = authenticate_request().username
     assessment_readable = _role_based_read_predicate(
-        authenticate_request().username, "assessment", parent_type="experiment"
+        username, "assessment", parent_type="experiment"
     )
+    prompt_version_readable = _prompt_version_read_predicate(username)
     for trace_info_v3 in trace_info_v3_selector(response_message):
         _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable)
+        _filter_linked_prompts_map_tags(trace_info_v3.tags, prompt_version_readable)
     resp.data = message_to_json(response_message)
 
 
@@ -4325,6 +4482,13 @@ def _filter_runs_model_io(runs, username: str) -> None:
     GraphQL result filter so the two surfaces cannot disagree.
     """
     runs = list(runs)
+    prompt_version_readable = _prompt_version_read_predicate(username)
+    for run in runs:
+        # The reserved linked-prompts tag serializes prompt names and version numbers
+        # onto runs; filter it by the prompt_version tier like the trace and
+        # logged-model spellings (review finding). Grant-predicate only: no store
+        # queries, bounded at any response size.
+        _filter_linked_prompts_repeated_tags(run.data.tags, prompt_version_readable)
     model_ids = {
         m.model_id for run in runs for m in (*run.inputs.model_inputs, *run.outputs.model_outputs)
     }
@@ -5759,7 +5923,26 @@ def filter_search_logged_models(resp: Response) -> None:
 
     if next_page_token:
         response_proto.next_page_token = next_page_token
+    # Logged models also carry the reserved linked-prompts tag; filter each kept row by
+    # the prompt_version tier (grant predicate only -- no store queries; review finding).
+    prompt_version_readable = _prompt_version_read_predicate(username)
+    for m in response_proto.models:
+        _filter_linked_prompts_repeated_tags(m.info.tags, prompt_version_readable)
     resp.data = message_to_json(response_proto)
+
+
+def redact_get_logged_model_linked_prompts(resp: Response) -> None:
+    """GetLoggedModel is gated on the model's experiment, but its tags can embed the
+    reserved linked-prompts tag (prompt names + versions) -- filter it by the
+    prompt_version tier like the run/trace/search spellings (review finding).
+    """
+    if sender_is_admin():
+        return
+    response_message = GetLoggedModel.Response()
+    parse_dict(resp.json, response_message)
+    prompt_version_readable = _prompt_version_read_predicate(authenticate_request().username)
+    _filter_linked_prompts_repeated_tags(response_message.model.info.tags, prompt_version_readable)
+    resp.data = message_to_json(response_message)
 
 
 def _redact_latest_versions(registered_model, can_read_version) -> None:
@@ -5889,6 +6072,48 @@ def filter_search_model_versions(resp: Response):
     for mv in list(response_message.model_versions):
         if not can_read(mv):
             response_message.model_versions.remove(mv)
+
+    # Backfill: like the experiment/logged-model/registered-model filters, fetch forward
+    # to refill max_results and advance the continuation token by the store rows actually
+    # consumed -- otherwise mixed prompt/model grants produce empty or short pages while
+    # authorized versions exist right after, and clients treating an empty page as
+    # completion miss them (review finding). The registry token is offset-based.
+    from mlflow.utils.search_utils import SearchUtils
+
+    request_message = _get_request_message(SearchModelVersions())
+    max_results = request_message.max_results or 100
+    filter_string = request_message.filter or None
+    order_by = list(request_message.order_by) or None
+    next_page_token = response_message.next_page_token or None
+    registry_store = _get_model_registry_store()
+    while len(response_message.model_versions) < max_results and next_page_token:
+        offset = SearchUtils.parse_start_offset_from_page_token(next_page_token)
+        batch = registry_store.search_model_versions(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+        is_last_page = batch.token is None
+        last_index = len(batch) - 1
+        for index, mv in enumerate(batch):
+            mv_proto = mv.to_proto()
+            if not can_read(mv_proto):
+                continue
+            response_message.model_versions.append(mv_proto)
+            if len(response_message.model_versions) >= max_results:
+                if is_last_page and index == last_index:
+                    next_page_token = None
+                else:
+                    token = SearchUtils.create_page_token(offset + index + 1)
+                    next_page_token = token.decode() if isinstance(token, bytes) else token
+                break
+        else:
+            next_page_token = batch.token or None
+            if isinstance(next_page_token, bytes):
+                next_page_token = next_page_token.decode()
+
+    response_message.next_page_token = next_page_token or ""
 
     resp.data = message_to_json(response_message)
 
@@ -6102,6 +6327,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
     GetTrace: redact_get_trace_assessments,
+    GetLoggedModel: redact_get_logged_model_linked_prompts,
     GetRun: redact_get_run_model_io,
     SearchRuns: redact_search_runs_model_io,
     GetPromptOptimizationJob: redact_get_prompt_optimization_job,
@@ -6175,6 +6401,17 @@ WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
     if "<" in path and "/workspaces/" in path
 }
 
+# EVERY parameterized after-request route needs the regex fallback, not just workspaces:
+# GetTraceInfoV3 (``/traces/<trace_id>``) and GetLoggedModel (``/logged-models/<model_id>``)
+# redactors were registered on template paths the exact-match lookup can never hit at
+# request time, silently skipping their response redaction (review-round catch -- the
+# after-request twin of the route-map lesson).
+PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
+    (_re_compile_path(path), method): handler
+    for (path, method), handler in AFTER_REQUEST_HANDLERS.items()
+    if "<" in path
+}
+
 # GATEWAY_SECRETS_CONFIG is excluded from the auto-built handlers above (it is an ajax gateway
 # path); register its non-admin redaction filter explicitly.
 AFTER_REQUEST_HANDLERS[(GATEWAY_SECRETS_CONFIG, "GET")] = redact_secrets_config_for_non_admins
@@ -6186,9 +6423,10 @@ def _after_request(resp: Response):
         return resp
 
     handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
-    if handler is None and "/workspaces/" in request.path:
-        # Fallback to regex matching for workspace paths.
-        for (path, method), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
+    if handler is None:
+        # Fallback to regex matching for parameterized paths (traces/<id>,
+        # logged-models/<id>, workspaces/<name>, ...).
+        for (path, method), candidate in PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
             if method != request.method:
                 continue
             if path.fullmatch(request.path):
@@ -7129,15 +7367,12 @@ def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> st
     return None
 
 
-def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
-    """Check if the user has USE permission on the gateway endpoint."""
-    # TODO: we need to query endpoint ID by name from the database.
-    # Revisit the mutability of the endpoint name if it causes latency issues.
+def _gateway_endpoint_use_permission_by_id(endpoint_id: str, username: str) -> bool:
+    """USE on a gateway endpoint addressed by its resolved id (stored scorer payloads
+    carry the id after registration rewrites the name). Fails closed on any resolution
+    error.
+    """
     try:
-        tracking_store = _get_tracking_store()
-        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
-        endpoint_id = endpoint.endpoint_id
-
         permission = _get_role_permission_or_default(
             _role_permission_for(
                 username=username,
@@ -7148,11 +7383,23 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
                     endpoint_id=eid
                 ),
                 workspace_label="gateway endpoint",
-            ),
+            )
         )
         return permission.can_use
     except MlflowException:
         return False
+
+
+def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
+    """Check if the user has USE permission on the gateway endpoint."""
+    # TODO: we need to query endpoint ID by name from the database.
+    # Revisit the mutability of the endpoint name if it causes latency issues.
+    try:
+        tracking_store = _get_tracking_store()
+        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
+    except MlflowException:
+        return False
+    return _gateway_endpoint_use_permission_by_id(endpoint.endpoint_id, username)
 
 
 def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
@@ -7259,6 +7506,40 @@ def _get_mcp_server_validator(
                 if child_grant.name == DENY.name:
                     return False
                 return _floor_positive_permission(child_grant).can_update
+        if len(parts) >= 3 and parts[2] == "endpoints":
+            # Access endpoints BIND to a server version: create/update handlers resolve
+            # ``server_version``/``server_alias``, persist the binding, and return the
+            # resolved version -- so a body naming a version requires version-tier UPDATE
+            # (consistent with the version-write family), and the after-response filter
+            # alone must not be relied on to stop the write (review finding). Search
+            # accepts version-bearing selection (``server_version``/``server_alias``
+            # params, filter/order fields), whose result presence/count/order probes
+            # denied version metadata -- pre-gate those on version-tier READ. A malformed
+            # body fails closed.
+            if request.method in ("POST", "PATCH"):
+                try:
+                    body = await request.json()
+                except Exception:
+                    return False
+                if not isinstance(body, dict):
+                    return False
+                if (body.get("server_version") or body.get("server_alias")) and (
+                    not _get_mcp_server_version_permission(name, username).can_update
+                ):
+                    return False
+            elif request.method == "GET" and len(parts) == 3:
+                qp = request.query_params
+                version_tokens = ("server_version", "server_alias")
+                version_bearing = (
+                    qp.get("server_version")
+                    or qp.get("server_alias")
+                    or any(t in (qp.get("filter_string") or "") for t in version_tokens)
+                    or any(t in ob for ob in qp.getlist("order_by") for t in version_tokens)
+                )
+                if version_bearing and (
+                    not _get_mcp_server_version_permission(name, username).can_read
+                ):
+                    return False
         perm = (
             _get_mcp_server_version_permission(name, username)
             if _is_mcp_server_version_path(parts)
@@ -7530,14 +7811,43 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
     return tail
 
 
+# The built-in job functions submittable by static name. Every product path submits
+# these IN-PROCESS from an already-validated higher-level route (handlers.py, the online
+# scorer scheduler); the generic ``POST /ajax-api/3.0/jobs/`` surface would otherwise let
+# an authenticated caller run them with arbitrary params, bypassing every run/trace/
+# assessment/prompt/scorer/gateway validator (review finding, Critical). Direct HTTP
+# submission of these names is therefore DENIED for non-admins, fail closed. Names added
+# through ``_MLFLOW_ALLOWED_JOB_NAME_LIST`` are a deployment operator's explicit opt-in
+# and keep the authenticated-only contract.
+_PROTECTED_BUILTIN_JOB_NAMES = frozenset({
+    "invoke_scorer",
+    "run_online_trace_scorer",
+    "run_online_session_scorer",
+    "optimize_prompts",
+    "invoke_issue_detection",
+    "invoke_genai_evaluate",
+})
+
+
 def _get_job_route_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
-    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
+    # get/cancel by id are ownership-gated (admins bypass upstream); search needs only auth
+    # here (/jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``).
+    # Submit is DENIED for the protected built-in job names (see
+    # ``_PROTECTED_BUILTIN_JOB_NAMES``); a malformed body fails closed.
+    tail = path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
     job_id = _job_id_from_path(path)
+    is_submit = job_id is None and tail != "search"
 
     async def validator(username: str, request: StarletteRequest) -> bool:
+        if is_submit:
+            try:
+                body = await request.json()
+                job_name = body.get("job_name")
+            except Exception:
+                return False
+            return job_name not in _PROTECTED_BUILTIN_JOB_NAMES
         if job_id is None:
             return True
         from mlflow.server.jobs import get_job

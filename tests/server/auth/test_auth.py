@@ -8375,6 +8375,413 @@ def test_invoke_issue_detection_requires_endpoint_use(monkeypatch):
     assert checked == [("ep-denied", "u"), ("ep-allowed", "u")]
 
 
+def test_direct_job_submission_denies_protected_builtin_jobs():
+    # POST /ajax-api/3.0/jobs/ runs allowlisted job functions with caller-controlled
+    # params; every product path submits these jobs IN-PROCESS from already-validated
+    # higher-level routes, so direct HTTP submission of the built-in names would bypass
+    # every run/trace/assessment/prompt/scorer/gateway validator. It is denied outright,
+    # fail closed on a malformed body (review finding, Critical). Operator-extended names
+    # keep the authenticated-only contract.
+    validator = auth_module._get_job_route_validator("/ajax-api/3.0/jobs")
+
+    class FakeRequest:
+        def __init__(self, body=None, raises=False):
+            self._body, self._raises = body, raises
+
+        async def json(self):
+            if self._raises:
+                raise ValueError("bad json")
+            return self._body
+
+    def run(req):
+        return asyncio.run(validator("u", req))
+
+    for name in sorted(auth_module._PROTECTED_BUILTIN_JOB_NAMES):
+        assert run(FakeRequest({"job_name": name, "params": {}})) is False, name
+    assert run(FakeRequest({"job_name": "operator_custom_job", "params": {}})) is True
+    assert run(FakeRequest(raises=True)) is False
+    # /jobs/search stays authentication-only (results are creator-filtered downstream).
+    search_validator = auth_module._get_job_route_validator("/ajax-api/3.0/jobs/search")
+    assert asyncio.run(search_validator("u", FakeRequest({}))) is True
+
+
+def test_scorer_payload_gateway_ref():
+    # Same extraction helpers as the store's registration path; malformed payloads
+    # report parse failure so callers fail closed (review finding).
+    payload = json.dumps({"instructions_judge_pydantic_data": {"model": "gateway:/ep-1"}})
+    assert auth_module._scorer_payload_gateway_ref(payload) == (True, "ep-1")
+    non_gateway = json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4o"}})
+    assert auth_module._scorer_payload_gateway_ref(non_gateway) == (True, None)
+    assert auth_module._scorer_payload_gateway_ref(json.dumps({"other": 1})) == (True, None)
+    assert auth_module._scorer_payload_gateway_ref("not json") == (False, None)
+
+
+def test_register_scorer_requires_gateway_endpoint_use(monkeypatch):
+    # Registration resolves and BINDS the scorer's gateway endpoint (the store rewrites
+    # the name to an id and creates/replaces a SqlGatewayEndpointBinding), so an
+    # experiment editor without endpoint USE must be denied before the handler; malformed
+    # payloads fail closed (review finding).
+    from mlflow.server.auth.permissions import MANAGE
+
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_scorer=lambda _e, _n: SimpleNamespace()),
+    )
+    gateway_allowed = {"value": False}
+    checked = []
+
+    def fake_gateway_use(endpoint_name, username):
+        checked.append(endpoint_name)
+        return gateway_allowed["value"]
+
+    monkeypatch.setattr(auth_module, "_validate_gateway_use_permission", fake_gateway_use)
+
+    def result(serialized_scorer):
+        body = {"experiment_id": "e1", "name": "s1", "serialized_scorer": serialized_scorer}
+        with auth_module.app.test_request_context("/x", method="POST", json=body):
+            return auth_module.validate_can_register_scorer()
+
+    gateway_payload = json.dumps({"builtin_scorer_pydantic_data": {"model": "gateway:/ep-1"}})
+    assert result(gateway_payload) is False  # no endpoint USE
+    gateway_allowed["value"] = True
+    assert result(gateway_payload) is True
+    assert checked == ["ep-1", "ep-1"]
+    assert result("not json") is False  # malformed payload fails closed
+    non_gateway = json.dumps({"builtin_scorer_pydantic_data": {"model": "openai:/gpt-4o"}})
+    checked.clear()
+    assert result(non_gateway) is True
+    assert checked == []  # no gateway check for non-gateway scorers
+
+
+def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
+    # A positive sample rate enables background jobs that read traces, execute the stored
+    # scorer (with its gateway endpoint), and write assessments -- each denied tier must
+    # block enabling; disabling needs only experiment UPDATE (review finding).
+    from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
+
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    granted = {"trace": True, "assessment": True, "scorer_version": True, "gateway": True}
+    monkeypatch.setattr(
+        auth_module,
+        "_get_trace_permission_for_experiment",
+        lambda _e: MANAGE if granted["trace"] else NO_PERMISSIONS,
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_experiment_child_permission",
+        lambda _t, _k, _e: MANAGE if granted["assessment"] else NO_PERMISSIONS,
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_scorer_version_permission",
+        lambda _e, _n: MANAGE if granted["scorer_version"] else NO_PERMISSIONS,
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_gateway_endpoint_use_permission_by_id",
+        lambda _i, _u: granted["gateway"],
+    )
+    stored = {"scorer": SimpleNamespace(serialized_scorer="stored-payload")}
+
+    def fake_get_scorer(_experiment_id, _name):
+        if stored["scorer"] is None:
+            raise MlflowException("no scorer", error_code=RESOURCE_DOES_NOT_EXIST)
+        return stored["scorer"]
+
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_scorer=fake_get_scorer)
+    )
+    monkeypatch.setattr(auth_module, "_scorer_payload_gateway_ref", lambda _p: (True, "ep-id-1"))
+
+    def result(body):
+        with auth_module.app.test_request_context("/x", method="POST", json=body):
+            return auth_module.validate_can_update_online_scoring_config()
+
+    base = {"experiment_id": "e1", "name": "s1", "sample_rate": 0.5}
+    assert result({**base, "sample_rate": 0}) is True  # disable: experiment UPDATE only
+    assert result(base) is True  # enable with every tier granted
+    for tier in ("trace", "assessment", "scorer_version", "gateway"):
+        granted[tier] = False
+        assert result(base) is False, tier
+        granted[tier] = True
+    assert result({"experiment_id": "e1", "name": "s1"}) is False  # missing sample_rate
+    stored["scorer"] = None
+    assert result(base) is False  # missing scorer fails closed
+
+
+def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
+    # Configs describe how a scorer runs; an experiment reader with a
+    # (scorer_version, *, DENY) must not read them (review finding).
+    from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
+
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    configs = [SimpleNamespace(experiment_id="e1")]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_online_scoring_configs=lambda _ids: configs),
+    )
+    version_granted = {"value": True}
+    monkeypatch.setattr(
+        auth_module,
+        "_experiment_child_permission",
+        lambda _t, _k, _e: MANAGE if version_granted["value"] else NO_PERMISSIONS,
+    )
+
+    def result():
+        with auth_module.app.test_request_context(
+            "/x", method="POST", json={"scorer_ids": ["sc-1"]}
+        ):
+            return auth_module.validate_can_read_online_scoring_configs()
+
+    assert result() is True
+    version_granted["value"] = False
+    assert result() is False
+
+
+def test_mcp_access_endpoints_honor_server_version_tier(monkeypatch):
+    # Endpoint create/update BINDS to a server version and search accepts version-bearing
+    # selection; both must consult the version tier before the handler, not rely on
+    # response redaction (review finding).
+    from starlette.datastructures import QueryParams
+
+    from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
+
+    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda _n, _u: MANAGE)
+    version = {"perm": NO_PERMISSIONS}
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_version_permission", lambda _n, _u: version["perm"]
+    )
+    create_validator = auth_module._get_mcp_server_validator(
+        "/api/3.0/mlflow/mcp-servers/ns/srv/endpoints"
+    )
+
+    class FakeRequest:
+        def __init__(self, method, body=None, query=""):
+            self.method = method
+            self._body = body
+            self.query_params = QueryParams(query)
+            self.state = SimpleNamespace()
+
+        async def json(self):
+            if self._body is None:
+                raise ValueError("no body")
+            return self._body
+
+    # A version-binding create is denied without version-tier UPDATE, allowed with it.
+    bind_body = {"url": "http://x", "server_version": "3"}
+    assert asyncio.run(create_validator("u", FakeRequest("POST", bind_body))) is False
+    version["perm"] = MANAGE
+    assert asyncio.run(create_validator("u", FakeRequest("POST", bind_body))) is True
+    version["perm"] = NO_PERMISSIONS
+    # An alias binding is gated the same way; a bindingless create needs only the parent.
+    alias_body = {"url": "http://x", "server_alias": "prod"}
+    assert asyncio.run(create_validator("u", FakeRequest("POST", alias_body))) is False
+    assert asyncio.run(create_validator("u", FakeRequest("POST", {"url": "http://x"}))) is True
+    # A malformed body fails closed.
+    assert asyncio.run(create_validator("u", FakeRequest("POST"))) is False
+    # Version-bearing search selection requires version-tier READ; plain search does not.
+    assert asyncio.run(create_validator("u", FakeRequest("GET", query="server_version=3"))) is False
+    assert (
+        asyncio.run(
+            create_validator("u", FakeRequest("GET", query="filter_string=server_alias%3D'x'"))
+        )
+        is False
+    )
+    assert asyncio.run(create_validator("u", FakeRequest("GET", query="max_results=5"))) is True
+
+
+def test_visible_linked_prompts_value():
+    readable = lambda name: name == "p-ok"  # noqa: E731
+    value = json.dumps([{"name": "p-ok", "version": "1"}, {"name": "p-denied", "version": "2"}])
+    assert json.loads(auth_module._visible_linked_prompts_value(value, readable)) == [
+        {"name": "p-ok", "version": "1"}
+    ]
+    all_denied = json.dumps([{"name": "p-denied", "version": "2"}])
+    assert auth_module._visible_linked_prompts_value(all_denied, readable) is None
+    all_ok = json.dumps([{"name": "p-ok", "version": "1"}])
+    assert auth_module._visible_linked_prompts_value(all_ok, readable) == all_ok
+    assert auth_module._visible_linked_prompts_value("not json", readable) is None
+
+
+def _linked_prompts_predicate_fake(_u, resource_type, parent_type=None):
+    if resource_type == "prompt_version":
+        return lambda name: name == "p-ok"
+    return lambda _key: True
+
+
+def test_run_response_filters_linked_prompts_tag(monkeypatch):
+    # Runs serialize prompt names AND version numbers into the reserved linked-prompts
+    # tag; filter it by the prompt_version tier like the trace and logged-model
+    # spellings (review finding).
+    from mlflow.protos.service_pb2 import GetRun
+
+    msg = GetRun.Response()
+    msg.run.info.experiment_id = "9"
+    tag = msg.run.data.tags.add()
+    tag.key = auth_module._LINKED_PROMPTS_TAG_KEY
+    tag.value = json.dumps([{"name": "p-ok", "version": "1"}, {"name": "p-denied", "version": "2"}])
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", _linked_prompts_predicate_fake)
+    resp = _fake_resp(msg)
+    auth_module.redact_get_run_model_io(resp)
+    out = GetRun.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    (out_tag,) = out.run.data.tags
+    assert json.loads(out_tag.value) == [{"name": "p-ok", "version": "1"}]
+
+
+def test_trace_response_filters_linked_prompts_tag(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.GetTraceInfoV3.Response()
+    ti = resp_msg.trace.trace_info
+    ti.trace_id = "tr-1"
+    ti.trace_location.mlflow_experiment.experiment_id = "9"
+    ti.tags[auth_module._LINKED_PROMPTS_TAG_KEY] = json.dumps([
+        {"name": "p-denied", "version": "2"}
+    ])
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", _linked_prompts_predicate_fake)
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_trace_info_v3_assessments(resp)
+    out = pb.GetTraceInfoV3.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    # Every reference was denied: the tag is dropped entirely.
+    assert auth_module._LINKED_PROMPTS_TAG_KEY not in out.trace.trace_info.tags
+
+
+def test_get_logged_model_filters_linked_prompts_tag(monkeypatch):
+    from mlflow.protos.service_pb2 import GetLoggedModel
+
+    msg = GetLoggedModel.Response()
+    msg.model.info.experiment_id = "9"
+    tag = msg.model.info.tags.add()
+    tag.key = auth_module._LINKED_PROMPTS_TAG_KEY
+    tag.value = json.dumps([{"name": "p-denied", "version": "2"}])
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", _linked_prompts_predicate_fake)
+    resp = _fake_resp(msg)
+    auth_module.redact_get_logged_model_linked_prompts(resp)
+    out = GetLoggedModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert not [t for t in out.model.info.tags if t.key == auth_module._LINKED_PROMPTS_TAG_KEY]
+
+
+def test_search_traces_prompt_filter_gate(monkeypatch):
+    # A prompt.-backed trace filter resolves against the linked-prompts tag, so match
+    # presence/counts leak denied prompt-version references -- a workspace-wide
+    # (prompt_version, *, DENY) blocks it before querying (review finding).
+    from mlflow.server.auth.permissions import DENY, READ
+
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    grant = {"value": None}
+    monkeypatch.setattr(
+        auth_module, "_wildcard_grant_in_request_workspace", lambda _t, _u: grant["value"]
+    )
+    assert auth_module._search_traces_prompt_filter_allowed("prompt.name = 'x'") is True
+    grant["value"] = READ
+    assert auth_module._search_traces_prompt_filter_allowed("prompt.name = 'x'") is True
+    grant["value"] = DENY
+    assert auth_module._search_traces_prompt_filter_allowed("prompt.name = 'x'") is False
+    assert auth_module._search_traces_prompt_filter_allowed("`prompt`.version = 1") is False
+    # Non-prompt filters never consult the grant.
+    assert auth_module._search_traces_prompt_filter_allowed("tags.foo = 'bar'") is True
+    assert auth_module._search_traces_prompt_filter_allowed("") is True
+
+
+def test_search_model_versions_backfills_after_filtering(monkeypatch):
+    # The shared model/prompt-version search filter must fetch forward to refill
+    # max_results after dropping unauthorized rows, advancing the token by consumed store
+    # rows -- otherwise mixed grants produce empty/short pages while authorized versions
+    # exist immediately afterward (review finding).
+    from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
+    from mlflow.protos.model_registry_pb2 import SearchModelVersions
+    from mlflow.store.entities.paged_list import PagedList
+    from mlflow.utils.search_utils import SearchUtils
+
+    def mv_proto(name, version):
+        p = ProtoModelVersion()
+        p.name = name
+        p.version = version
+        return p
+
+    msg = SearchModelVersions.Response()
+    msg.model_versions.extend([mv_proto("denied-m", "1"), mv_proto("denied-m", "2")])
+    first_token = SearchUtils.create_page_token(2).decode()
+    msg.next_page_token = first_token
+
+    search_calls = []
+
+    def fake_search(filter_string, max_results, order_by, page_token):
+        search_calls.append(page_token)
+        entities = [
+            SimpleNamespace(to_proto=lambda v=v: mv_proto("ok-m", v)) for v in ("3", "4", "5")
+        ]
+        return PagedList(entities, None)  # last page
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module,
+        "_rm_or_prompt_version_read_predicate",
+        lambda _u: lambda mv: mv.name == "ok-m",
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: SimpleNamespace(search_model_versions=fake_search),
+    )
+    with auth_module.app.test_request_context(
+        "/x", method="GET", query_string={"max_results": "2"}
+    ):
+        resp = _fake_resp(msg)
+        auth_module.filter_search_model_versions(resp)
+    out = SearchModelVersions.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    # Both denied rows were replaced by the next authorized rows, up to max_results.
+    assert [(mv.name, mv.version) for mv in out.model_versions] == [("ok-m", "3"), ("ok-m", "4")]
+    assert search_calls == [first_token]
+    # The token advances past the two consumed store rows (offset 2 + 2), not to the
+    # store's own next page, so iteration resumes at the first unconsumed row.
+    assert SearchUtils.parse_start_offset_from_page_token(out.next_page_token) == 4
+
+
+def test_parameterized_after_request_routes_have_fallback():
+    # Redactors registered on parameterized template paths (traces/<trace_id>,
+    # logged-models/<model_id>) can never exact-match a real request path; the
+    # generalized regex fallback must resolve them (review-round catch: the
+    # GetTraceInfoV3 redactor was registered but never fired).
+    def resolve(path, method):
+        handler = auth_module.AFTER_REQUEST_HANDLERS.get((path, method))
+        if handler is None:
+            for (pattern, m), candidate in auth_module.PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
+                if m == method and pattern.fullmatch(path):
+                    return candidate
+        return handler
+
+    assert (
+        resolve("/api/3.0/mlflow/traces/tr-abc123", "GET")
+        is auth_module.redact_get_trace_info_v3_assessments
+    )
+    assert (
+        resolve("/api/2.0/mlflow/logged-models/m-abc123", "GET")
+        is auth_module.redact_get_logged_model_linked_prompts
+    )
+
+
 def test_create_prompt_optimization_job_builtin_fallback_checks_registered_deny(monkeypatch):
     # The job treats getattr(builtin_scorers, name) as a built-in only if it instantiates;
     # otherwise it falls back to the REGISTERED scorer of that name. A module attribute like
@@ -8601,7 +9008,9 @@ def test_trace_assessment_redactor_is_query_bounded(monkeypatch):
     resp = _FakeResp(response_message)
     auth._redact_trace_assessments_response(resp, SearchTracesV3, lambda m: list(m.traces))
 
-    assert builds["count"] == 1  # built once for the whole response, not once per experiment
+    # Built once per resource type for the whole response (assessment + prompt_version),
+    # never once per experiment/row.
+    assert builds["count"] == 2
 
 
 @pytest.mark.parametrize(
