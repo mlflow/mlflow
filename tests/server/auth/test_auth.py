@@ -9728,6 +9728,41 @@ def test_review_queue_item_uses_review_queue_child_tier(monkeypatch):
     assert auth_module.validate_can_review_queue_item() is True
 
 
+def test_canonicalize_artifact_proxy_path_collapses_dot_and_empty_segments():
+    # The handler's validate_path_is_safe accepts '.' and empty (and percent-encoded '.')
+    # segments that filesystem joining then collapses, so authorization must classify the
+    # collapsed form (review finding).
+    canon = auth_module._canonicalize_artifact_proxy_path
+    assert canon("7/run-1/./artifacts/secret.bin") == "7/run-1/artifacts/secret.bin"
+    assert canon("7//models/m-1/artifacts/model.pkl") == "7/models/m-1/artifacts/model.pkl"
+    assert canon("./7/run-1/artifacts/x") == "7/run-1/artifacts/x"
+    assert canon("7/%2E/run-1/artifacts/x") == "7/run-1/artifacts/x"
+    assert canon("7/run-1/artifacts/x") == "7/run-1/artifacts/x"
+    assert canon(None) is None
+    # A path the handler's safety check rejects is passed through unchanged: the handler
+    # rejects the request outright, so no data is served under any classification.
+    assert auth_module._canonicalize_artifact_proxy_path("7/../8/artifacts/x") == (
+        "7/../8/artifacts/x"
+    )
+
+
+def test_artifact_proxy_path_from_view_args_canonicalizes():
+    # The Flask chokepoint (path param / ?path= query param) must hand authorization the
+    # canonical path, for both the layout classifier and the experiment-id extraction.
+    from flask import request as flask_request
+
+    with auth_module.app.test_request_context("/x?path=7/run-1/./artifacts/secret.bin"):
+        flask_request.view_args = {}
+        assert auth_module._artifact_proxy_path_from_view_args() == ("7/run-1/artifacts/secret.bin")
+        assert auth_module._get_experiment_id_from_view_args() == "7"
+    with auth_module.app.test_request_context("/x"):
+        flask_request.view_args = {"artifact_path": "./7/models/m-1/artifacts/MLmodel"}
+        assert auth_module._artifact_proxy_path_from_view_args() == (
+            "7/models/m-1/artifacts/MLmodel"
+        )
+        assert auth_module._get_experiment_id_from_view_args() == "7"
+
+
 def test_artifact_proxy_child_from_path_dispatches_by_layout():
     assert auth_module._artifact_proxy_child_from_path("42/run-abc/artifacts/model.pkl") == (
         "run",
@@ -9767,6 +9802,13 @@ def test_artifact_proxy_child_from_path_dispatches_by_layout():
         ("42/run-abc/artifacts/model.pkl", "run", "run-abc"),
         ("42/traces/tr-1/artifacts/data", "trace", "tr-1"),
         ("42/models/m-1/artifacts/MLmodel", "logged_model", "m-1"),
+        # Non-canonical forms ('.' / empty / encoded '.' segments) must classify to the
+        # SAME child the filesystem join resolves to (review finding: they previously
+        # fell to the experiment tier and bypassed a child DENY).
+        ("42/run-abc/./artifacts/model.pkl", "run", "run-abc"),
+        ("42/./traces/tr-1/artifacts/data", "trace", "tr-1"),
+        ("42//models/m-1/artifacts/MLmodel", "logged_model", "m-1"),
+        ("42/%2E/run-abc/artifacts/model.pkl", "run", "run-abc"),
     ],
 )
 def test_proxy_artifact_permission_uses_child_tier_for_layout(
@@ -10046,17 +10088,22 @@ def test_filter_search_mcp_servers_redacts_version_on_deny(monkeypatch):
     assert "tools" not in server["access_endpoints"][0]
 
 
-def test_role_based_permission_resolver_matches_store_fold(monkeypatch, tmp_path):
+@pytest.mark.parametrize("default_permission", ["NO_PERMISSIONS", "EDIT"])
+def test_role_based_permission_resolver_matches_store_fold(
+    monkeypatch, tmp_path, default_permission
+):
     # The bulk full-Permission resolver must resolve each id to the SAME Permission as the
-    # authoritative per-resource store fold (get_role_permission_for_resource), so allowed-
-    # action stamping via the bulk path is identical to the single-resource path.
-    from mlflow.server.auth.permissions import DENY, EDIT, USE, get_permission
+    # authoritative point path (_get_role_permission_or_default over the store fold), so
+    # allowed-action stamping via the bulk path is identical to the single-resource path --
+    # including the positive default_permission floor: under default EDIT an explicit USE
+    # grant must still stamp EDIT actions (review finding).
+    from mlflow.server.auth.permissions import DENY, EDIT, USE
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     monkeypatch.setattr(
         auth_module,
         "auth_config",
-        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+        auth_module.auth_config._replace(default_permission=default_permission),
     )
     store = SqlAlchemyStore()
     store.init_db(f"sqlite:///{tmp_path / 'perm-resolver.db'}")
@@ -10072,13 +10119,15 @@ def test_role_based_permission_resolver_matches_store_fold(monkeypatch, tmp_path
 
     resolver = auth_module._role_based_permission_resolver("resolver-user", "mcp_server")
 
-    def store_perm(name):
-        folded = store.get_role_permission_for_resource(user.id, "mcp_server", name, ws)
-        return folded if folded is not None else get_permission(NO_PERMISSIONS.name)
+    def point_perm(name):
+        # The exact point-path composition: store fold, then the default floor.
+        return auth_module._get_role_permission_or_default(
+            lambda: store.get_role_permission_for_resource(user.id, "mcp_server", name, ws)
+        )
 
-    # positive (EDIT/USE), DENY, and no-grant (default) all match the store fold.
+    # positive (EDIT/USE), DENY, and no-grant (default) all match the floored point path.
     for name in ("srv-edit", "srv-deny", "srv-use", "srv-none"):
-        assert resolver(name).name == store_perm(name).name, name
+        assert resolver(name).name == point_perm(name).name, (default_permission, name)
 
 
 def test_filter_search_mcp_servers_is_query_bounded(monkeypatch):

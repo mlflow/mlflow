@@ -207,9 +207,13 @@ permission as follows:
    grants resolve the same way as the child tier — a matching parent `DENY`
    denies; otherwise the maximum positive parent level wins
    (`MANAGE` > `EDIT` > `USE` > `READ`).
-5. **Server `default_permission`** (defaults to `READ`): a floor used when no
-   applicable role grant resolves. The floor does not lift `NO_PERMISSIONS`
-   (workspace-boundary deny) or `DENY` (explicit restriction).
+5. **Server `default_permission`** (defaults to `READ`): a floor. When no
+   applicable role grant resolves, it is the result outright; when a positive
+   grant resolves at the child or parent tier, the effective level is the
+   maximum of that grant and the floor — an explicit positive grant never
+   narrows access below the configured default (use a `DENY` grant to restrict
+   below it). The floor does not lift `NO_PERMISSIONS` (workspace-boundary
+   deny) or `DENY` (explicit restriction).
 
 `(workspace, *, USE)` does not fold into per-resource checks; it confers
 workspace membership and create rights only (see

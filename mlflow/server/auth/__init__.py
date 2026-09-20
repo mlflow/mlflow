@@ -450,6 +450,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.uri import validate_path_is_safe
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -985,10 +986,36 @@ def _artifact_proxy_child_from_path(artifact_path: str | None) -> tuple[str, str
     return None
 
 
+def _canonicalize_artifact_proxy_path(artifact_path: str | None) -> str | None:
+    """Canonicalize a proxied artifact path with the handler's own decode/safety rules
+    before authorization classifies it.
+
+    ``validate_path_is_safe`` (applied by every artifact handler before joining the path)
+    percent-decodes and rejects ``..``, alternate separators, and absolute forms -- but
+    ACCEPTS ``.`` and empty segments, which filesystem joining then collapses. Without the
+    same collapse here, ``7/run-1/./artifacts/x`` or ``7//models/m-1/artifacts/y`` would
+    shift the layout segments, classify as experiment-level (or miss the experiment id
+    entirely), and bypass the run/trace/logged_model child tier while the store still
+    resolves the canonical child location (review finding). A path the safety check
+    rejects is returned as-is: the handler rejects that request outright, so no data is
+    served under whatever tier it classifies to.
+    """
+    if not artifact_path:
+        return artifact_path
+    try:
+        decoded = validate_path_is_safe(artifact_path)
+    except MlflowException:
+        return artifact_path
+    return "/".join(seg for seg in decoded.split("/") if seg not in ("", "."))
+
+
 def _artifact_proxy_path_from_view_args() -> str | None:
     # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
     # For the list-artifacts endpoint, the path is a query parameter named "path".
-    return request.view_args.get("artifact_path") or request.args.get("path")
+    # Canonicalized so authorization classifies the same location the handler resolves.
+    return _canonicalize_artifact_proxy_path(
+        request.view_args.get("artifact_path") or request.args.get("path")
+    )
 
 
 def _get_experiment_id_from_view_args():
@@ -2694,6 +2721,19 @@ def _load_role_grants(
     return workspace_admin, child, parent, workspace_name
 
 
+def _floor_positive_permission(perm: Permission) -> Permission:
+    """Apply the point path's positive floor (``_get_role_permission_or_default``) to a
+    grant-resolved permission: a matching POSITIVE grant never resolves below the
+    configured ``default_permission``; ``DENY`` and ``NO_PERMISSIONS`` are preserved.
+    Bulk resolvers must fold this too, or a row with e.g. an explicit ``READ`` grant
+    under ``default_permission=EDIT`` would advertise/enforce less than the point route
+    allows (review finding).
+    """
+    if perm.name in (NO_PERMISSIONS.name, DENY.name):
+        return perm
+    return get_permission(max_permission(perm.name, auth_config.default_permission))
+
+
 def _role_based_read_predicate(
     username: str, resource_type: str, parent_type: str | None = None
 ) -> Callable[[str], bool]:
@@ -2741,10 +2781,13 @@ def _role_based_read_predicate(
     def predicate(resource_id: str) -> bool:
         if workspace_admin:
             return True
+        # Grant-resolved rows fold the same positive default_permission floor as the
+        # point path, so bulk visibility can't disagree with a point GET (e.g. a USE
+        # grant under default READ is still readable).
         if child.has_grant(resource_id):
-            return child.can_read(resource_id)
+            return _floor_positive_permission(child.permission(resource_id)).can_read
         if parent is not None and parent.has_grant(resource_id):
-            return parent.can_read(resource_id)
+            return _floor_positive_permission(parent.permission(resource_id)).can_read
         return default_read_fallback
 
     return predicate
@@ -2780,10 +2823,13 @@ def _role_based_permission_resolver(
     def resolver(resource_id: str) -> Permission:
         if workspace_admin:
             return MANAGE
+        # Grant-resolved rows fold the same positive default_permission floor as the
+        # point path (_get_role_permission_or_default), so bulk allowed-action stamping
+        # can't advertise less than the point routes enforce (review finding).
         if child.has_grant(resource_id):
-            return child.permission(resource_id)
+            return _floor_positive_permission(child.permission(resource_id))
         if parent is not None and parent.has_grant(resource_id):
-            return parent.permission(resource_id)
+            return _floor_positive_permission(parent.permission(resource_id))
         return default_permission
 
     return resolver
@@ -7138,13 +7184,15 @@ def _artifact_proxy_relative_path(path: str, query_path: str | None = None) -> s
     """Return the storage-relative artifact path for a FastAPI proxy request, or ``None``.
 
     Handles both the simple ``/artifacts/`` and MPU control-plane (create/complete/abort)
-    routes, plus the list-artifacts ``?path=`` query form (Flask parity).
+    routes, plus the list-artifacts ``?path=`` query form (Flask parity). Canonicalized so
+    authorization classifies the same location the handler resolves (see
+    ``_canonicalize_artifact_proxy_path``).
     """
     prefix = next((prefix for prefix in _ARTIFACT_PROXY_PREFIXES if path.startswith(prefix)), None)
     if prefix is not None:
-        return path.removeprefix(prefix)
+        return _canonicalize_artifact_proxy_path(path.removeprefix(prefix))
     if query_path:
-        return query_path
+        return _canonicalize_artifact_proxy_path(query_path)
     return None
 
 
