@@ -187,8 +187,6 @@ jobs:
       # PR head code. Safe only because the job gate limits this workflow to
       # maintainer-authored PRs.
       - uses: ./mlflow/.github/actions/setup-python
-        with:
-          subdirectory-checkout: true
 
       - name: Install ripgrep
         run: |
