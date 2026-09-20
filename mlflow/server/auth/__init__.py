@@ -1698,6 +1698,15 @@ def validate_can_create_prompt_optimization_job():
         return False
     msg = _get_request_message(CreatePromptOptimizationJob())
     experiment_id = msg.experiment_id
+    # The handler immediately loads config.dataset_id (get_genai_dataset), links it to
+    # the new run, and the worker reads its records -- so the composite route must apply
+    # the SAME check as the direct dataset APIs: READ on every associated experiment,
+    # fail-closed on a missing dataset (review finding: run/prompt permissions could
+    # otherwise read a dataset the direct routes deny).
+    if msg.config.dataset_id and not _dataset_read_allowed(
+        msg.config.dataset_id, authenticate_request().username
+    ):
+        return False
     if _scorer_version_deny_active(experiment_id):
         return False
     if msg.config.scorers:
@@ -3177,7 +3186,9 @@ def validate_can_invoke_issue_detection():
     Issue detection creates a run in the request's experiment, reads the supplied
     ``trace_ids``, writes ``Issue`` assessments back onto them (``_annotate_issue_traces``,
     ``genai/discovery/pipeline.py``), and, when ``secret_id`` is given, decrypts that gateway
-    secret into the job environment. Require run-tier UPDATE on the target experiment
+    secret into the job environment. When ``endpoint_name`` is given, the handler routes the
+    judge through ``gateway:/<endpoint_name>``, requiring gateway-endpoint USE. Require
+    run-tier UPDATE on the target experiment
     (experiment fallback, like ``CreateRun`` -- so a ``(run, *, DENY)`` grant is honored),
     trace-tier READ and assessment-tier UPDATE on the experiment (honoring ``(trace, *,
     DENY)`` / ``(assessment, *, DENY)``), and USE on the secret, mirroring model-definition
@@ -3195,7 +3206,18 @@ def validate_can_invoke_issue_detection():
     if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
         return False
     body = request.get_json(silent=True)
-    secret_id = body.get("secret_id") if isinstance(body, dict) else None
+    if not isinstance(body, dict):
+        body = {}
+    # Mirror the handler's judge-model selection: a non-empty ``endpoint_name`` submits
+    # discovery through ``gateway:/<name>``, so require the SAME ``USE`` check as direct
+    # gateway invocation -- the worker doesn't propagate the caller identity, so the
+    # downstream gateway check cannot be relied on (review finding).
+    endpoint_name = body.get("endpoint_name")
+    if endpoint_name and not _validate_gateway_use_permission(
+        endpoint_name, authenticate_request().username
+    ):
+        return False
+    secret_id = body.get("secret_id")
     # An absent or empty secret_id is also a no-op in the handler (no credentials fetched).
     if not secret_id:
         return True
@@ -4125,7 +4147,8 @@ def _redact_prompt_optimization_jobs_response(resp: Response, response_cls, jobs
     finding): jobs expose cross-resource identifiers, so drop each field the caller's
     corresponding tier can't read -- ``run_id`` (run tier, keyed by the job's experiment
     like every wildcard-grain child), source/optimized prompt URIs (prompt_version tier by
-    prompt name), and registered scorer names in the config (scorer_version tier by
+    prompt name), ``config.dataset_id`` (dataset READ: every associated experiment), and
+    registered scorer names in the config (scorer_version tier by
     ``<experiment_id>/<name>``; instantiable built-ins are not stored resources and are
     retained). Predicates are built once per response.
     """
@@ -4162,12 +4185,25 @@ def _redact_prompt_optimization_jobs_response(resp: Response, response_cls, jobs
                 pass
         return scorer_version_readable(store._scorer_pattern(experiment_id, name))
 
+    # Dataset ids in job configs leak evaluation-dataset identifiers to callers the
+    # direct dataset routes would deny -- apply the same all-associated-experiments READ
+    # check, memoized so a response resolves each DISTINCT dataset id once (review
+    # finding).
+    dataset_readable_cache: dict[str, bool] = {}
+
+    def dataset_readable(dataset_id: str) -> bool:
+        if dataset_id not in dataset_readable_cache:
+            dataset_readable_cache[dataset_id] = _dataset_read_allowed(dataset_id, username)
+        return dataset_readable_cache[dataset_id]
+
     for job in jobs_selector(response_message):
         if job.run_id and not run_readable(job.experiment_id):
             job.ClearField("run_id")
         for uri_field in ("source_prompt_uri", "optimized_prompt_uri"):
             if getattr(job, uri_field) and not prompt_uri_readable(getattr(job, uri_field)):
                 job.ClearField(uri_field)
+        if job.config.dataset_id and not dataset_readable(job.config.dataset_id):
+            job.config.ClearField("dataset_id")
         if job.config.scorers:
             kept = [s for s in job.config.scorers if scorer_name_readable(job.experiment_id, s)]
             if len(kept) != len(job.config.scorers):
@@ -4745,9 +4781,26 @@ def _dataset_experiment_permissions():
     return experiment_ids, [_get_experiment_permission(eid, username) for eid in experiment_ids]
 
 
+def _dataset_read_allowed(dataset_id: str, username: str) -> bool:
+    """READ on EVERY experiment associated with the dataset, failing closed on a missing
+    dataset or an empty association -- the same contract as the direct dataset read
+    routes. Reused by composite validators and response redactors that touch a
+    ``dataset_id`` outside the direct dataset APIs (review finding: prompt-optimization
+    jobs read the dataset without this check, a same-workspace cross-experiment bypass).
+    """
+    try:
+        experiment_ids = _get_tracking_store().get_dataset_experiment_ids(dataset_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
 def validate_can_read_dataset():
-    experiment_ids, permissions = _dataset_experiment_permissions()
-    return bool(experiment_ids) and all(p.can_read for p in permissions)
+    return _dataset_read_allowed(_get_request_param("dataset_id"), authenticate_request().username)
 
 
 def validate_can_update_dataset():

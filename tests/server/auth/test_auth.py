@@ -4894,7 +4894,6 @@ def test_prompt_optimization_job_create_permissions(client, monkeypatch):
         "source_prompt_uri": "prompts:/test/1",
         "config": {
             "optimizer_type": 1,  # GEPA
-            "dataset_id": "test-dataset",
             "scorers": ["Correctness"],
         },
     }
@@ -4920,8 +4919,8 @@ def test_prompt_optimization_job_create_permissions(client, monkeypatch):
     assert response.status_code == 403
 
     # With prompt EDIT (version tier resolves through the prompt-parent fallback), the
-    # permission gate passes. The request may still fail for other reasons (missing
-    # dataset etc.), but not with 403.
+    # permission gate passes. The request may still fail for other reasons, but not
+    # with 403.
     grant_role_permission(client.tracking_uri, user2, "prompt", "test", "EDIT")
     response = requests.post(
         url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
@@ -4930,6 +4929,16 @@ def test_prompt_optimization_job_create_permissions(client, monkeypatch):
     )
     # Should not be 403 (permission denied)
     assert response.status_code != 403
+
+    # A dataset_id the caller can't read -- here a NONEXISTENT one, which fails closed --
+    # is denied at the auth gate before the handler loads it (review finding: the job
+    # reads the dataset, so the direct dataset routes' READ check applies).
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json={**job_payload, "config": {**job_payload["config"], "dataset_id": "no-such-ds"}},
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
 
 
 def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, monkeypatch):
@@ -8287,6 +8296,85 @@ def test_create_prompt_optimization_job_fails_closed_on_unresolvable_prompt(monk
         assert auth_module.validate_can_create_prompt_optimization_job() is False
 
 
+@pytest.mark.parametrize("dataset_field", ["dataset_id", "datasetId"])
+def test_create_prompt_optimization_job_requires_dataset_read(monkeypatch, dataset_field):
+    # The handler immediately loads config.dataset_id, links it to the new run, and the
+    # worker reads its records -- so the composite route must apply the direct dataset
+    # APIs' check: READ on EVERY associated experiment, fail-closed on a missing dataset
+    # or empty association (review finding: run/prompt permissions could otherwise read a
+    # dataset the direct routes deny). Parsed through the handler's proto message, so the
+    # JSON alias spelling hits the same check.
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    experiment_perms = {"e1": "READ", "e2": "NO_PERMISSIONS"}
+    monkeypatch.setattr(
+        auth_module,
+        "_get_experiment_permission",
+        lambda eid, _u: get_permission(experiment_perms[eid]),
+    )
+    associations = {"ds-ok": ["e1"], "ds-blocked": ["e1", "e2"], "ds-orphan": []}
+
+    def fake_get_dataset_experiment_ids(dataset_id):
+        if dataset_id not in associations:
+            raise MlflowException("no dataset", error_code=RESOURCE_DOES_NOT_EXIST)
+        return associations[dataset_id]
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_dataset_experiment_ids=fake_get_dataset_experiment_ids),
+    )
+
+    def result(body):
+        with auth_module.app.test_request_context("/x", method="POST", json=body):
+            return auth_module.validate_can_create_prompt_optimization_job()
+
+    assert result({"experiment_id": "e1", "config": {dataset_field: "ds-ok"}}) is True
+    # READ missing on ANY associated experiment blocks the composite route.
+    assert result({"experiment_id": "e1", "config": {dataset_field: "ds-blocked"}}) is False
+    # A nonexistent dataset and an empty association both fail closed.
+    assert result({"experiment_id": "e1", "config": {dataset_field: "ds-missing"}}) is False
+    assert result({"experiment_id": "e1", "config": {dataset_field: "ds-orphan"}}) is False
+    # No dataset supplied: no dataset check.
+    assert result({"experiment_id": "e1"}) is True
+
+
+def test_invoke_issue_detection_requires_endpoint_use(monkeypatch):
+    # A non-empty endpoint_name makes the handler submit discovery through
+    # gateway:/<name>, so the validator must require the SAME gateway-endpoint USE as
+    # direct invocation -- the worker doesn't propagate the caller identity, so denial
+    # must happen BEFORE the handler (review finding). The handler reads the raw JSON
+    # body for this route, so the validator's raw-body read matches it exactly.
+    from mlflow.server.auth.permissions import MANAGE
+
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "e1")
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: MANAGE)
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: MANAGE)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    checked = []
+
+    def fake_gateway_use(endpoint_name, username):
+        checked.append((endpoint_name, username))
+        return endpoint_name == "ep-allowed"
+
+    monkeypatch.setattr(auth_module, "_validate_gateway_use_permission", fake_gateway_use)
+
+    def result(body):
+        with auth_module.app.test_request_context("/x", method="POST", json=body):
+            return auth_module.validate_can_invoke_issue_detection()
+
+    base = {"experiment_id": "e1", "trace_ids": ["tr-1"]}
+    assert result({**base, "endpoint_name": "ep-denied"}) is False
+    assert result({**base, "endpoint_name": "ep-allowed"}) is True
+    # The provider/model + secret path is unaffected when endpoint_name is absent.
+    assert result(base) is True
+    assert checked == [("ep-denied", "u"), ("ep-allowed", "u")]
+
+
 def test_create_prompt_optimization_job_builtin_fallback_checks_registered_deny(monkeypatch):
     # The job treats getattr(builtin_scorers, name) as a built-in only if it instantiates;
     # otherwise it falls back to the REGISTERED scorer of that name. A module attribute like
@@ -9200,9 +9288,10 @@ def test_run_model_io_filter_query_count_bounded_at_scale(monkeypatch):
 
 
 def test_redact_prompt_optimization_jobs_response(monkeypatch):
-    # Job responses expose run/prompt/scorer identifiers; each is dropped when the
+    # Job responses expose run/prompt/scorer/dataset identifiers; each is dropped when the
     # caller's corresponding tier can't read it, while instantiable built-in scorers are
-    # retained (review finding).
+    # retained (review finding). Dataset ids apply the direct dataset routes'
+    # all-associated-experiments READ check, memoized per DISTINCT id (review finding).
     from mlflow.protos.service_pb2 import SearchPromptOptimizationJobs
 
     msg = SearchPromptOptimizationJobs.Response()
@@ -9212,10 +9301,25 @@ def test_redact_prompt_optimization_jobs_response(monkeypatch):
     job.source_prompt_uri = "prompts:/p-src/1"
     job.optimized_prompt_uri = "prompts:/p-opt/2"
     job.config.scorers.extend(["Safety", "custom-scorer"])
+    job.config.dataset_id = "ds-hidden"
+    job2 = msg.jobs.add()
+    job2.experiment_id = "9"
+    job2.config.dataset_id = "ds-vis"
+    job3 = msg.jobs.add()
+    job3.experiment_id = "9"
+    job3.config.dataset_id = "ds-hidden"  # repeated id: memoized, resolved once
 
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+    dataset_calls = []
+
+    def fake_dataset_read_allowed(dataset_id, username):
+        dataset_calls.append(dataset_id)
+        assert username == "u"
+        return dataset_id == "ds-vis"
+
+    monkeypatch.setattr(auth_module, "_dataset_read_allowed", fake_dataset_read_allowed)
 
     def fake_predicate(_u, resource_type, parent_type=None):
         # run tier denied; prompt_version readable only for p-opt; scorer_version denied.
@@ -9237,6 +9341,34 @@ def test_redact_prompt_optimization_jobs_response(monkeypatch):
     assert redacted.optimized_prompt_uri == "prompts:/p-opt/2"
     # The built-in survives; the unreadable registered scorer is dropped.
     assert list(redacted.config.scorers) == ["Safety"]
+    # The unreadable dataset id is cleared everywhere it appears; the readable one stays.
+    assert redacted.config.dataset_id == ""
+    assert out.jobs[1].config.dataset_id == "ds-vis"
+    assert out.jobs[2].config.dataset_id == ""
+    assert sorted(dataset_calls) == ["ds-hidden", "ds-vis"]
+
+
+def test_redact_get_prompt_optimization_job_dataset_id(monkeypatch):
+    # The same dataset redaction applies on the Get spelling of the shared redactor
+    # (review finding: an experiment reader could otherwise enumerate an evaluation
+    # dataset id the direct dataset routes deny).
+    from mlflow.protos.service_pb2 import GetPromptOptimizationJob
+
+    msg = GetPromptOptimizationJob.Response()
+    msg.job.experiment_id = "9"
+    msg.job.config.dataset_id = "ds-hidden"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_dataset_read_allowed", lambda _d, _u: False)
+    monkeypatch.setattr(
+        auth_module, "_role_based_read_predicate", lambda *_a, **_k: lambda *_x: True
+    )
+    resp = _fake_resp(msg)
+    auth_module.redact_get_prompt_optimization_job(resp)
+    out = GetPromptOptimizationJob.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert out.job.config.dataset_id == ""
 
 
 @pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
