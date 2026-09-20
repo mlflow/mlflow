@@ -3542,7 +3542,8 @@ def _search_traces_assessment_filter_allowed(experiment_ids, *filter_strings) ->
 
 def _request_workspace_manager(username: str) -> bool:
     """Whether the caller manages the request workspace (the manager bypass that wins
-    over every DENY in the fold)."""
+    over every DENY in the fold).
+    """
     workspace_name = (
         workspace_context.get_request_workspace()
         if MLFLOW_ENABLE_WORKSPACES.get()
