@@ -273,7 +273,10 @@ export const AssistantSettingsForm = ({
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_read_docs"
                   isChecked={readDocs}
-                  onChange={(checked) => setReadDocs(checked)}
+                  onChange={(checked) => {
+                    setReadDocs(checked);
+                    if (error) setError(null);
+                  }}
                 >
                   <Typography.Text>Read MLflow doc</Typography.Text>
                 </Checkbox>
@@ -292,7 +295,10 @@ export const AssistantSettingsForm = ({
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_edit_files"
                   isChecked={editFiles}
-                  onChange={(checked) => setEditFiles(checked)}
+                  onChange={(checked) => {
+                    setEditFiles(checked);
+                    if (error) setError(null);
+                  }}
                 >
                   <Typography.Text>Edit project code</Typography.Text>
                 </Checkbox>
@@ -312,7 +318,10 @@ export const AssistantSettingsForm = ({
                   componentId="mlflow.assistant.setup.project.perm_full"
                   isChecked={isLocalServer && fullPermission}
                   disabled={!isLocalServer}
-                  onChange={(checked) => setFullPermission(checked)}
+                  onChange={(checked) => {
+                    setFullPermission(checked);
+                    if (error) setError(null);
+                  }}
                 >
                   <Typography.Text color={!isLocalServer ? 'secondary' : undefined}>Full access</Typography.Text>
                 </Checkbox>
@@ -391,7 +400,10 @@ export const AssistantSettingsForm = ({
                   componentId="mlflow.assistant.setup.project.skills_location"
                   name="skills-location"
                   value={skillsLocation}
-                  onChange={(e) => setSkillsLocation(e.target.value as SkillsLocation)}
+                  onChange={(e) => {
+                    setSkillsLocation(e.target.value as SkillsLocation);
+                    if (error) setError(null);
+                  }}
                 >
                   <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                     <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">

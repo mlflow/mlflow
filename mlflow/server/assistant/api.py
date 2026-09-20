@@ -841,6 +841,11 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     # Update providers
     if request.providers:
         for name, provider_data in request.providers.items():
+            # `providers` values are typed `Any`; a malformed payload (e.g. a bare string) would
+            # make the `.get` calls below raise an unhandled 500. A remote caller was already
+            # rejected above, but a localhost caller reaches here unchecked.
+            if not isinstance(provider_data, dict):
+                raise HTTPException(status_code=400, detail="Invalid provider configuration.")
             existing = config.providers.get(name)
             model = provider_data.get("model") or (existing.model if existing else "default")
             base_url = provider_data.get("base_url")
@@ -849,6 +854,10 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
+                if not isinstance(perm_data, dict):
+                    raise HTTPException(
+                        status_code=400, detail="Provider 'permissions' must be an object."
+                    )
                 permissions = PermissionsConfig(
                     allow_edit_files=perm_data.get("allow_edit_files", True),
                     allow_read_docs=perm_data.get("allow_read_docs", True),

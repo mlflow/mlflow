@@ -114,4 +114,22 @@ describe('AssistantSettingsForm', () => {
     expect(payload.projects?.['123']).toEqual({ type: 'local', location: '/srv/project' });
     expect(mockInstallSkills).toHaveBeenCalledTimes(1);
   });
+
+  test('re-enables Finish after a save error once a permission is changed', async () => {
+    const user = userEvent.setup();
+    mockUpdateConfig.mockRejectedValueOnce(new Error('Full access can only be enabled from the MLflow server host.'));
+    renderForm();
+
+    await user.click(screen.getByRole('button', { name: 'Finish' }));
+
+    // The save failed: the error is shown and Finish is disabled.
+    await waitFor(() => expect(screen.getByText(/Full access can only be enabled/)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeDisabled();
+
+    // Changing a permission checkbox (not only a path input) clears the error and re-enables
+    // Finish, so the user is not stuck after a 403.
+    await user.click(screen.getByRole('checkbox', { name: /Read MLflow doc/ }));
+    expect(screen.queryByText(/Full access can only be enabled/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finish' })).not.toBeDisabled();
+  });
 });
