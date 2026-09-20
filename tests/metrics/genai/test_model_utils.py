@@ -693,6 +693,12 @@ def test_score_model_caches_unsupported_output_config(monkeypatch):
             "or-key",
             "https://openrouter.ai/api/v1/chat/completions",
         ),
+        (
+            "atlascloud",
+            "ATLASCLOUD_API_KEY",
+            "ac-key",
+            "https://api.atlascloud.ai/v1/chat/completions",
+        ),
     ],
 )
 def test_score_model_openai_compatible_providers(
