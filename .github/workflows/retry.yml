@@ -2,8 +2,9 @@ name: Retry
 
 on:
   schedule:
-    # Weekdays, 09:17–17:47 JST.
-    - cron: "17,47 0-8 * * 1-5"
+    # Weekdays, 09:00–17:30 JST.
+    - cron: "0,30 9-17 * * 1-5"
+      timezone: Asia/Tokyo
   workflow_dispatch:
     inputs:
       dry_run:
@@ -32,53 +33,40 @@ jobs:
       actions: write # to rerun workflows
     steps:
       - name: Fetch rerun script
-        env:
-          GH_REPO: ${{ github.repository }}
-          WORKFLOW_SHA: ${{ github.sha }}
         run: |
-          curl --fail --silent --show-error --location --retry 3 \
-            "https://raw.githubusercontent.com/$GH_REPO/$WORKFLOW_SHA/.github/workflows/retry.sh" \
-            --output "$RUNNER_TEMP/retry.sh"
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: %{time_total}s\n' \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.github/workflows/retry.sh" \
+            -o "$RUNNER_TEMP/retry.sh"
 
       - name: rerun
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          MAX_ATTEMPTS: "5"
+          MAX_RETRIES: "3"
           DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
+          cutoff=$(jq -nr 'now - 3 * 24 * 60 * 60 | strftime("%Y-%m-%dT%H:%M:%SZ")')
           # TODO: Extend eligibility to other bot and human PRs.
           candidates=$(gh api graphql --paginate \
-            -f search="repo:$GH_REPO is:pr is:open author:app/copilot-swe-agent" \
+            -f search="repo:$GH_REPO is:pr is:open draft:false author:app/copilot-swe-agent created:>=$cutoff" \
             -f query='
               query($search: String!, $endCursor: String) {
                 search(query: $search, type: ISSUE, first: 100, after: $endCursor) {
                   nodes {
                     ... on PullRequest {
                       number
-                      isDraft
                       mergeable
                       headRefOid
                       autoMergeRequest { enabledAt }
-                      latestOpinionatedReviews(first: 100) {
-                        nodes { state authorAssociation }
-                      }
-                      commits(last: 1) {
-                        nodes { commit { committedDate } }
-                      }
                     }
                   }
                   pageInfo { hasNextPage endCursor }
                 }
               }' \
             --jq '.data.search.nodes[] |
-              select(.isDraft == false and .autoMergeRequest != null) |
+              select(.autoMergeRequest != null) |
               select(.mergeable != "CONFLICTING") |
-              select(any(.latestOpinionatedReviews.nodes[];
-                .state == "APPROVED" and
-                (.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR")
-              )) |
-              select((.commits.nodes[0].commit.committedDate | fromdateiso8601) >= (now - 3 * 24 * 60 * 60)) |
               [.number, .headRefOid] | @tsv')
 
           args=()
