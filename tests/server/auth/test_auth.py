@@ -8516,27 +8516,33 @@ def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
 
 def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
     # Configs carry scorer_id; the scorer_version tier parents to the SCORER
-    # (<experiment_id>/<name>), so the read gate resolves each id to its scorer identity
-    # through the experiment's scorer listing -- a per-scorer parent DENY applies, and an
-    # unresolved id fails closed (review finding: substituting the experiment as parent
-    # silently changed the fold).
+    # (<experiment_id>/<name>), so the read gate resolves ids to scorer identities in ONE
+    # bulk listing across the distinct experiments (query-count bound: many experiments,
+    # one listing call) -- a per-scorer parent DENY applies, and an unresolved id fails
+    # closed (review findings).
     from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
-    configs = [SimpleNamespace(experiment_id="e1", scorer_id="sc-1")]
+    n_experiments = 40
+    configs = [
+        SimpleNamespace(experiment_id=f"e{i}", scorer_id=f"sc-{i}") for i in range(n_experiments)
+    ]
     list_calls = []
 
-    def fake_list_scorers(experiment_id):
-        list_calls.append(experiment_id)
-        return [SimpleNamespace(scorer_id="sc-1", scorer_name="my-scorer")]
+    def fake_list_across(experiment_ids):
+        list_calls.append(list(experiment_ids))
+        return [
+            SimpleNamespace(experiment_id=f"e{i}", scorer_id=f"sc-{i}", scorer_name=f"scorer-{i}")
+            for i in range(n_experiments)
+        ]
 
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
         lambda: SimpleNamespace(
             get_online_scoring_configs=lambda _ids: configs,
-            list_scorers=fake_list_scorers,
+            list_scorers_across_experiments=fake_list_across,
         ),
     )
     version_perm = {"value": MANAGE}
@@ -8550,16 +8556,18 @@ def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
 
     def result():
         with auth_module.app.test_request_context(
-            "/x", method="POST", json={"scorer_ids": ["sc-1"]}
+            "/x", method="POST", json={"scorer_ids": [c.scorer_id for c in configs]}
         ):
             return auth_module.validate_can_read_online_scoring_configs()
 
     assert result() is True
-    assert resolved == [("e1", "my-scorer")]  # resolved to the scorer identity
+    assert len(list_calls) == 1  # one bulk listing for 40 experiments, never per-experiment
+    assert sorted(list_calls[0]) == sorted(f"e{i}" for i in range(n_experiments))
+    assert ("e0", "scorer-0") in resolved  # resolved to the scorer identity
     version_perm["value"] = NO_PERMISSIONS
     assert result() is False
-    # An id absent from the experiment's scorer listing fails closed.
-    configs[:] = [SimpleNamespace(experiment_id="e1", scorer_id="sc-unknown")]
+    # An id absent from the bulk listing fails closed.
+    configs[:] = [SimpleNamespace(experiment_id="e0", scorer_id="sc-unknown")]
     version_perm["value"] = MANAGE
     assert result() is False
 
@@ -8764,9 +8772,10 @@ def test_get_logged_model_filters_linked_prompts_tag(monkeypatch):
 def test_search_traces_prompt_filter_gate(monkeypatch):
     # The bare `prompt` trace-filter key maps (via SearchTraceUtils, the store's own
     # parser) to the linked-prompts tag, so match presence/counts leak denied
-    # prompt-version references -- a workspace-wide (prompt_version, *, DENY) blocks it
-    # before querying (review finding: the UI emits `prompt = '<name>/<version>'`, so
-    # detection must use the parser, not a `prompt.` regex).
+    # prompt-version references. An equality comparison names its target
+    # ('<name>/<version>'), so the exact prompt resolves through the prompt_version fold
+    # WITH prompt-parent fallback; broad operators fail closed; a workspace-wide
+    # (prompt_version, *, DENY) vetoes everything (review finding).
     from mlflow.server.auth.permissions import DENY, READ
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
@@ -8774,23 +8783,61 @@ def test_search_traces_prompt_filter_gate(monkeypatch):
     monkeypatch.setattr(
         auth_module, "_wildcard_grant_in_request_workspace", lambda _t, _u: grant["value"]
     )
-    real_filter = "prompt = 'my-prompt/3'"
-    assert auth_module._search_traces_prompt_filter_allowed(real_filter) is True
-    grant["value"] = READ
-    assert auth_module._search_traces_prompt_filter_allowed(real_filter) is True
-    grant["value"] = DENY
-    assert auth_module._search_traces_prompt_filter_allowed(real_filter) is False
-    assert auth_module._search_traces_prompt_filter_allowed("`prompt` != 'a/1'") is False
+    resolved = []
+
+    def fake_predicate(_username):
+        def readable(name):
+            resolved.append(name)
+            return name == "ok-prompt"
+
+        return readable
+
+    monkeypatch.setattr(auth_module, "_prompt_version_read_predicate", fake_predicate)
+
+    # Equality resolves the exact target name through the per-prompt fold.
+    assert auth_module._search_traces_prompt_filter_allowed("prompt = 'ok-prompt/3'") is True
+    assert auth_module._search_traces_prompt_filter_allowed("prompt = 'denied-prompt/1'") is False
+    assert resolved == ["ok-prompt", "denied-prompt"]
     assert (
-        auth_module._search_traces_prompt_filter_allowed("name = 'x' AND prompt = 'p/1'") is False
+        auth_module._search_traces_prompt_filter_allowed("name = 'x' AND prompt = 'ok-prompt/1'")
+        is True
     )
+    # Broad operators cannot be bounded to specific parents: fail closed.
+    assert auth_module._search_traces_prompt_filter_allowed("prompt != 'ok-prompt/3'") is False
+    # A workspace-wide version DENY vetoes even a readable target.
+    grant["value"] = DENY
+    assert auth_module._search_traces_prompt_filter_allowed("prompt = 'ok-prompt/3'") is False
+    grant["value"] = READ
+    assert auth_module._search_traces_prompt_filter_allowed("prompt = 'ok-prompt/3'") is True
     # An unparsable prompt-mentioning filter fails closed; unrelated grammars other
     # layers own (assessment filters have their own gate) stay un-gated here.
     assert auth_module._search_traces_prompt_filter_allowed("prompt ~~~ garbage") is False
     assert auth_module._search_traces_prompt_filter_allowed("assessment.foo = 'x'") is True
-    # Non-prompt filters never consult the grant.
+    # Non-prompt filters never consult the grants.
+    grant["value"] = None
+    resolved.clear()
     assert auth_module._search_traces_prompt_filter_allowed("tags.foo = 'bar'") is True
     assert auth_module._search_traces_prompt_filter_allowed("") is True
+    assert resolved == []
+
+
+def test_end_trace_response_filters_linked_prompts_tag(monkeypatch):
+    # EndTrace echoes the COMPLETE updated TraceInfo, including pre-existing
+    # linked-prompt tags the caller didn't write (review finding).
+    from mlflow.protos.service_pb2 import EndTrace
+
+    msg = EndTrace.Response()
+    tag = msg.trace_info.tags.add()
+    tag.key = auth_module._LINKED_PROMPTS_TAG_KEY
+    tag.value = json.dumps([{"name": "p-denied", "version": "2"}])
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", _linked_prompts_predicate_fake)
+    resp = _fake_resp(msg)
+    auth_module.redact_end_trace_linked_prompts(resp)
+    out = EndTrace.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert not [t for t in out.trace_info.tags if t.key == auth_module._LINKED_PROMPTS_TAG_KEY]
 
 
 def test_search_model_versions_backfills_after_filtering(monkeypatch):

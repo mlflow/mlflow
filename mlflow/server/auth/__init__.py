@@ -2284,21 +2284,24 @@ def validate_can_read_online_scoring_configs():
         return True
     username = authenticate_request().username
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
-    # Configs carry scorer_id, but the scorer_version tier parents to the SCORER
-    # (<experiment_id>/<name>) -- resolve each id to its scorer identity through the
-    # experiment's scorer listing (one listing per distinct experiment, memoized) so a
-    # per-scorer parent DENY applies; an id that doesn't resolve fails closed (review
-    # finding: substituting the experiment as parent silently changed the fold).
-    scorer_names_by_experiment: dict[str, dict[str, str]] = {}
+    if not configs:
+        return True
     for config in configs:
         if not _get_experiment_permission(config.experiment_id, username).can_read:
             return False
-        if config.experiment_id not in scorer_names_by_experiment:
-            scorer_names_by_experiment[config.experiment_id] = {
-                sv.scorer_id: sv.scorer_name
-                for sv in _get_tracking_store().list_scorers(config.experiment_id)
-            }
-        scorer_name = scorer_names_by_experiment[config.experiment_id].get(config.scorer_id)
+    # Configs carry scorer_id, but the scorer_version tier parents to the SCORER
+    # (<experiment_id>/<name>) -- resolve ids to scorer identities in ONE bulk listing
+    # across the distinct experiments (review finding: per-experiment list_scorers calls
+    # were O(experiments) on a caller-controlled request) so a per-scorer parent DENY
+    # applies; an id that doesn't resolve fails closed (review finding: substituting the
+    # experiment as parent silently changed the fold).
+    experiment_ids = sorted({config.experiment_id for config in configs})
+    scorer_names_by_id = {
+        (sv.experiment_id, sv.scorer_id): sv.scorer_name
+        for sv in _get_tracking_store().list_scorers_across_experiments(experiment_ids)
+    }
+    for config in configs:
+        scorer_name = scorer_names_by_id.get((config.experiment_id, config.scorer_id))
         if scorer_name is None:
             return False
         if not _get_scorer_version_permission(config.experiment_id, scorer_name).can_read:
@@ -3537,51 +3540,63 @@ def _search_traces_assessment_filter_allowed(experiment_ids, *filter_strings) ->
     return all(assessment_readable(eid) for eid in experiment_ids)
 
 
-def _filter_references_linked_prompts(*filter_strings: str) -> bool:
-    """Whether a trace filter resolves against the linked-prompts tag, decided by the
-    SAME parser the store uses (``SearchTraceUtils`` maps the bare ``prompt`` key to
-    ``mlflow.linkedPrompts``) rather than a regex over an invented spelling (review
-    finding: the UI emits ``prompt = '<name>/<version>'``, which a ``prompt.`` regex
-    never matched). An unparsable filter fails closed -- the handler would reject the
-    same string anyway, so nothing legitimate is lost.
+def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
+    """A linked-prompts-backed trace filter (the bare ``prompt`` identifier) resolves
+    against the reserved tag, so which rows match (and page counts) leak denied
+    prompt-version references even after response redaction (review finding).
+
+    Policy: a workspace-wide ``(prompt_version, *, DENY)`` vetoes any prompt filter; an
+    equality comparison names its target (``'<name>/<version>'``), so the exact prompt is
+    resolved through the prompt_version fold WITH prompt-parent fallback -- a
+    ``(prompt, <name>, DENY)`` blocks probing that prompt. Broad operators (``!=``,
+    ``LIKE``, ...) cannot be bounded to specific parents and fail closed (the UI emits
+    only the equality grammar).
+    """
+    username = None
+    prompt_version_readable = None
+    for filter_string in filter_strings:
+        for comparison in _linked_prompts_filter_comparisons(filter_string):
+            if username is None:
+                username = authenticate_request().username
+                grant = _wildcard_grant_in_request_workspace("prompt_version", username)
+                if grant is not None and grant.name == DENY.name:
+                    return False
+                prompt_version_readable = _prompt_version_read_predicate(username)
+            if comparison.get("comparator") != "=":
+                return False  # unboundable under parent-specific grants: fail closed
+            value = comparison.get("value") or ""
+            # The tag entry value is '<name>/<version>'; prompt names cannot contain '/'.
+            name = value.rsplit("/", 1)[0] if "/" in value else value
+            if not name or not prompt_version_readable(name):
+                return False
+    return True
+
+
+def _linked_prompts_filter_comparisons(filter_string: str) -> list[dict]:
+    """The parsed comparisons of a trace filter that resolve to the linked-prompts tag,
+    decided by the SAME parser the store uses (``SearchTraceUtils`` maps the bare
+    ``prompt`` key to ``mlflow.linkedPrompts``) rather than a regex over an invented
+    spelling (review finding: the UI emits ``prompt = '<name>/<version>'``, which a
+    ``prompt.`` regex never matched). An unparsable prompt-mentioning filter yields an
+    unboundable sentinel so callers fail closed; grammars other layers own (e.g.
+    ``assessment.`` filters, which have their own gate) yield nothing.
     """
     from mlflow.tracing.constant import TraceTagKey
     from mlflow.utils.search_utils import SearchTraceUtils
 
-    for filter_string in filter_strings:
-        if not filter_string:
-            continue
-        try:
-            parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
-        except Exception:
-            # This parser rejects grammars other layers own (e.g. ``assessment.`` filters,
-            # which have their own gate) as well as garbage the handler will 400. Fail
-            # closed only for strings that MENTION prompt -- an unparsable prompt-ish
-            # filter never reaches data, while unrelated grammars stay un-gated here.
-            if "prompt" in filter_string.lower():
-                return True
-            continue
-        for comparison in parsed:
-            if (
-                comparison.get("type") == "tag"
-                and comparison.get("key") == TraceTagKey.LINKED_PROMPTS
-            ):
-                return True
-    return False
-
-
-def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
-    """A linked-prompts-backed trace filter (the bare ``prompt`` identifier) resolves
-    against the reserved tag, so which rows match (and page counts) leak denied
-    prompt-version references even after response redaction. Honor a workspace-wide
-    ``(prompt_version, *, DENY)`` before querying (review finding). A per-prompt-NAME
-    parent DENY cannot be resolved at the gate (the filter names prompts only inside
-    comparison values); it stays enforced by the response redaction of the tag itself.
-    """
-    if not _filter_references_linked_prompts(*filter_strings):
-        return True
-    grant = _wildcard_grant_in_request_workspace("prompt_version", authenticate_request().username)
-    return grant is None or grant.name != DENY.name
+    if not filter_string:
+        return []
+    try:
+        parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    except Exception:
+        if "prompt" in filter_string.lower():
+            return [{"comparator": None}]  # unboundable: the caller fails closed
+        return []
+    return [
+        comparison
+        for comparison in parsed
+        if comparison.get("type") == "tag" and comparison.get("key") == TraceTagKey.LINKED_PROMPTS
+    ]
 
 
 def validate_can_search_traces():
@@ -4496,6 +4511,12 @@ def redact_get_trace_info_linked_prompts(resp: Response):
 
 def redact_search_traces_linked_prompts(resp: Response):
     _redact_legacy_trace_infos_response(resp, SearchTraces, lambda m: list(m.traces))
+
+
+def redact_end_trace_linked_prompts(resp: Response):
+    # EndTrace echoes the COMPLETE updated TraceInfo, including pre-existing
+    # linked-prompt tags the caller didn't write (review finding).
+    _redact_legacy_trace_infos_response(resp, EndTrace, lambda m: [m.trace_info])
 
 
 # Chunk size for bulk model_id IN (...) lookups: bounds each search page well under the
@@ -6396,6 +6417,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     GetTrace: redact_get_trace_assessments,
     GetTraceInfo: redact_get_trace_info_linked_prompts,
     SearchTraces: redact_search_traces_linked_prompts,
+    EndTrace: redact_end_trace_linked_prompts,
     GetLoggedModel: redact_get_logged_model_linked_prompts,
     GetRun: redact_get_run_model_io,
     SearchRuns: redact_search_runs_model_io,
