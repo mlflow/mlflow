@@ -1472,7 +1472,16 @@ def validate_can_delete_scorer_version():
     body = request.get_json(silent=True)
     version = body.get("version") if isinstance(body, dict) else None
     if version is None:
-        return _get_permission_from_scorer_name().can_delete
+        # Whole-parent delete removes EVERY version, so it is a composite lifecycle
+        # operation: require the version child tier's can_delete (parent fallback when no
+        # child grant exists) atop the parent delete -- a child DENY or lower child grant
+        # that blocks deleting one version must not be bypassed by deleting the scorer
+        # (review finding).
+        if not _get_permission_from_scorer_name().can_delete:
+            return False
+        return _get_scorer_version_permission(
+            _get_request_param("experiment_id"), _get_request_param("name")
+        ).can_delete
     return _get_permission_from_scorer_version_name().can_delete
 
 
@@ -1642,16 +1651,17 @@ def validate_can_create_run():
 
 
 def validate_can_create_prompt_optimization_job():
-    """CreatePromptOptimizationJob creates a run (positive: run tier) and its optimize job
-    uses scorers and loads the source prompt. A positive ``scorer_version`` grant is not
-    required (cross-parent to the experiment anchor), but a ``(scorer_version, *, DENY)``
-    vetoes it, a DENY on each concrete REGISTERED scorer the job would resolve from
-    ``config.scorers`` vetoes as well, and a DENY on the ``source_prompt_uri`` prompt's
-    version tier vetoes the read the job performs via ``load_prompt``.
+    """CreatePromptOptimizationJob creates a run (positive: run tier), uses scorers, and on
+    completion REGISTERS a new version of the ``source_prompt_uri`` prompt. A positive
+    ``scorer_version`` grant is not required (cross-parent to the experiment anchor), but a
+    ``(scorer_version, *, DENY)`` vetoes it and a DENY on each concrete REGISTERED scorer
+    the job would resolve from ``config.scorers`` vetoes as well. The source prompt's
+    version tier (prompt-parent fallback) must positively allow ``can_update``, since the
+    job writes to that prompt's version chain.
 
     The body is parsed through the SAME proto message the handler uses (``parse_dict``
     accepts both ``source_prompt_uri`` and its JSON alias ``sourcePromptUri``), so the
-    vetoes cannot be bypassed with an alias spelling the raw-dict lookup would miss
+    checks cannot be bypassed with an alias spelling the raw-dict lookup would miss
     (review finding).
     """
     if not validate_can_create_run():
@@ -1677,19 +1687,26 @@ def validate_can_create_prompt_optimization_job():
                     pass
             if _registered_scorer_deny_active(experiment_id, name):
                 return False
-    # The job loads ``source_prompt_uri`` when it runs: veto when that prompt's version
-    # tier resolves to DENY (with concrete prompt-parent fallback). Parse with the same
-    # function the job's load path uses (``_parse_model_uri(scheme="prompts")``) so
-    # classification cannot diverge; a URI it rejects cannot be loaded by the job either.
+    # The job doesn't just READ ``source_prompt_uri`` -- on completion it calls
+    # ``register_prompt`` under the same name, WRITING a new version to that prompt's
+    # version chain. Require the effective ``prompt_version`` tier (prompt-parent
+    # fallback) to allow ``can_update``, not merely the absence of a DENY (review
+    # finding: a run-writer with no prompt grant could otherwise mutate the prompt
+    # through this composite route). Parsed with the same function the job's load path
+    # uses; an unresolvable URI or absent prompt fails CLOSED.
     if msg.source_prompt_uri:
         from mlflow.store.artifact.utils.models import _parse_model_uri
 
         try:
             prompt_name = _parse_model_uri(msg.source_prompt_uri, scheme="prompts").name
         except MlflowException:
-            prompt_name = None
-        if prompt_name and _prompt_version_deny_active(prompt_name):
             return False
+        try:
+            return _prompt_version_permission(prompt_name).can_update
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
     return True
 
 
@@ -1902,7 +1919,15 @@ def validate_can_update_registered_model():
 
 
 def validate_can_delete_registered_model():
-    return _get_permission_from_registered_model_name().can_delete
+    # Deleting the model/prompt cascades EVERY version, so it is a composite lifecycle
+    # operation: require the corresponding version child tier's can_delete (parent
+    # fallback when no child grant exists) atop the parent delete -- a child DENY or
+    # lower child grant that blocks deleting one version must not be bypassed by
+    # deleting the parent (review finding). The helper classifies prompt-vs-model, so
+    # the right version namespace is consulted for either registry shape.
+    if not _get_permission_from_registered_model_name().can_delete:
+        return False
+    return _get_model_version_permission_from_registered_model_or_prompt_name().can_delete
 
 
 def validate_can_manage_registered_model():
@@ -3386,29 +3411,34 @@ def validate_can_update_trace_by_trace_id():
     return _get_trace_permission(_get_request_param("trace_id")).can_update
 
 
+def _prompt_version_permission(prompt_name: str) -> Permission:
+    """Effective permission on prompt ``prompt_name``'s version tier: the wildcard
+    ``prompt_version`` child key with ``prompt``-parent fallback. The prompt name is both
+    the grant key and the workspace-lookup id (matching ``_get_permission_from_prompt_name``).
+    """
+    username = authenticate_request().username
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="prompt_version",
+            resource_key="*",
+            workspace_lookup_id=prompt_name,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label="prompt",
+            parent_type="prompt",
+            parent_id=prompt_name,
+        )
+    )
+
+
 def _prompt_version_deny_active(prompt_name: str) -> bool:
     """``True`` iff linking versions of prompt ``prompt_name`` is blocked by a ``DENY``.
 
     Resolves the ``prompt_version`` tier for the named prompt WITH ``parent_type="prompt"``
     fallback, so either ``(prompt_version, *, DENY)`` or a ``DENY`` on the concrete prompt
-    parent blocks the link (Copilot finding 3). The prompt name is both the grant key and the
-    workspace-lookup id (matching ``_get_permission_from_prompt_name``).
+    parent blocks the link (Copilot finding 3).
     """
-    username = authenticate_request().username
-    return _deny_veto(
-        _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="prompt_version",
-                resource_key="*",
-                workspace_lookup_id=prompt_name,
-                workspace_fetcher=_get_model_registry_store().get_registered_model,
-                workspace_label="prompt",
-                parent_type="prompt",
-                parent_id=prompt_name,
-            )
-        )
-    )
+    return _deny_veto(_prompt_version_permission(prompt_name))
 
 
 def validate_can_link_prompts_to_trace():
@@ -6889,7 +6919,16 @@ def _get_mcp_server_validator(
             case "POST" | "PATCH":
                 return perm.can_update
             case "DELETE":
-                return perm.can_delete
+                if not perm.can_delete:
+                    return False
+                if _is_mcp_server_version_path(parts):
+                    return True
+                # Whole-server delete cascades every remaining version row
+                # (delete-orphan), so the version child tier must also allow delete
+                # (parent fallback when no child grant exists) -- a child DENY or lower
+                # child grant that blocks deleting one version must not be bypassed by
+                # deleting the server (review finding).
+                return _get_mcp_server_version_permission(name, username).can_delete
             case _:
                 return False
 

@@ -4889,20 +4889,43 @@ def test_prompt_optimization_job_create_permissions(client, monkeypatch):
         "EDIT",
     )
 
-    # user2 can now create jobs (EDIT grants can_update)
-    # The request will fail for other reasons (missing prompt, dataset, etc.)
-    # but should pass the permission check
+    job_payload = {
+        "experiment_id": experiment_id,
+        "source_prompt_uri": "prompts:/test/1",
+        "config": {
+            "optimizer_type": 1,  # GEPA
+            "dataset_id": "test-dataset",
+            "scorers": ["Correctness"],
+        },
+    }
+
+    # Experiment EDIT alone is still not enough: the job WRITES a new version of the
+    # source prompt, and that prompt does not even exist yet -- fail closed.
     response = requests.post(
         url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
-        json={
-            "experiment_id": experiment_id,
-            "source_prompt_uri": "prompts:/test/1",
-            "config": {
-                "optimizer_type": 1,  # GEPA
-                "dataset_id": "test-dataset",
-                "scorers": ["Correctness"],
-            },
-        },
+        json=job_payload,
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # Register the source prompt; without a prompt grant the version tier still resolves
+    # below can_update for user2 (default floor is READ), so the job stays denied.
+    with User(user1, password1, monkeypatch):
+        client.register_prompt(name="test", template="Say hello to {{name}}")
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json=job_payload,
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # With prompt EDIT (version tier resolves through the prompt-parent fallback), the
+    # permission gate passes. The request may still fail for other reasons (missing
+    # dataset etc.), but not with 403.
+    grant_role_permission(client.tracking_uri, user2, "prompt", "test", "EDIT")
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json=job_payload,
         auth=(user2, password2),
     )
     # Should not be 403 (permission denied)
@@ -7097,6 +7120,64 @@ def test_implicit_parent_create_grants_manage_despite_wildcard(fastapi_client, m
     assert resp.json()["permission"] == "MANAGE"
 
 
+@pytest.mark.parametrize(
+    ("parent_can_delete", "version_can_delete", "expected"),
+    [(True, True, True), (True, False, False), (False, True, False)],
+)
+def test_whole_parent_delete_requires_version_tier(
+    monkeypatch, parent_can_delete, version_can_delete, expected
+):
+    # Deleting a scorer (no version in the body) or a registered model/prompt cascades
+    # every version, so the version child tier's can_delete is required atop the parent
+    # delete -- a child DENY or lower child grant that blocks deleting one version must
+    # not be bypassed by deleting the parent (review finding).
+    parent_perm = SimpleNamespace(can_delete=parent_can_delete)
+    version_perm = SimpleNamespace(can_delete=version_can_delete)
+
+    # Scorer whole-parent form (no "version" in the body).
+    monkeypatch.setattr(auth_module, "_get_permission_from_scorer_name", lambda: parent_perm)
+    monkeypatch.setattr(auth_module, "_get_scorer_version_permission", lambda _e, _n: version_perm)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "e1", "name": "s"}[name],
+    )
+    with auth_module.app.test_request_context("/x", method="POST", json={}):
+        assert auth_module.validate_can_delete_scorer_version() is expected
+
+    # Registered model / prompt form.
+    monkeypatch.setattr(
+        auth_module, "_get_permission_from_registered_model_name", lambda: parent_perm
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        lambda: version_perm,
+    )
+    assert auth_module.validate_can_delete_registered_model() is expected
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_parent_delete_requires_version_tier(monkeypatch, prefix):
+    # DELETE on the parent server cascades remaining version rows (delete-orphan), so the
+    # version child tier must also allow delete (review finding).
+    validator = _find_fastapi_validator(f"{prefix}/com.test/cascade-server", "DELETE")
+    assert validator is not None
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_permission",
+        lambda _n, _u: SimpleNamespace(can_delete=True),
+    )
+    version_perm = SimpleNamespace(can_delete=False)
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_version_permission", lambda _n, _u: version_perm
+    )
+    request = SimpleNamespace(method="DELETE", state=SimpleNamespace())
+    assert asyncio.run(validator("alice", request)) is False
+    version_perm.can_delete = True
+    assert asyncio.run(validator("alice", request)) is True
+
+
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix):
     validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions", "POST")
@@ -8139,31 +8220,61 @@ def test_cancel_prompt_optimization_job_honors_run_deny(monkeypatch):
 
 @pytest.mark.parametrize("uri_field", ["source_prompt_uri", "sourcePromptUri"])
 @pytest.mark.parametrize(
-    ("prompt_denied", "expected"),
-    [(False, True), (True, False)],
+    ("prompt_version_permission", "expected"),
+    [
+        ("NO_PERMISSIONS", False),
+        ("READ", False),
+        ("USE", False),
+        ("DENY", False),
+        ("EDIT", True),
+        ("MANAGE", True),
+    ],
 )
-def test_create_prompt_optimization_job_honors_source_prompt_deny(
-    monkeypatch, uri_field, prompt_denied, expected
+def test_create_prompt_optimization_job_requires_prompt_version_update(
+    monkeypatch, uri_field, prompt_version_permission, expected
 ):
-    # The optimize job reads source_prompt_uri via load_prompt when it runs, so a DENY on
-    # that prompt's version tier must veto job creation (Copilot). The body is parsed
-    # through the handler's proto message, so the JSON alias spelling (sourcePromptUri)
-    # must hit the same veto as the snake_case field (review finding). All other checks
-    # are stubbed to pass.
+    # The optimize job WRITES a new version of the source prompt (register_prompt on
+    # completion), so the prompt's version tier must positively allow can_update -- the
+    # absence of a DENY is not enough (review finding). The body is parsed through the
+    # handler's proto message, so the JSON alias spelling must hit the same check. All
+    # other checks are stubbed to pass.
+    from mlflow.server.auth.permissions import get_permission
+
     monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
     monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
     captured = {}
 
-    def fake_prompt_deny(name):
+    def fake_prompt_version_permission(name):
         captured["name"] = name
-        return prompt_denied
+        return get_permission(prompt_version_permission)
 
-    monkeypatch.setattr(auth_module, "_prompt_version_deny_active", fake_prompt_deny)
+    monkeypatch.setattr(auth_module, "_prompt_version_permission", fake_prompt_version_permission)
     with auth_module.app.test_request_context(
         "/x", method="POST", json={"experiment_id": "e1", uri_field: "prompts:/my-prompt/3"}
     ):
         assert auth_module.validate_can_create_prompt_optimization_job() is expected
     assert captured["name"] == "my-prompt"
+
+
+def test_create_prompt_optimization_job_fails_closed_on_unresolvable_prompt(monkeypatch):
+    # An unparsable URI or a prompt the registry does not know fails CLOSED (review
+    # finding): the job would otherwise load/write an unresolvable prompt at runtime.
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_scorer_version_deny_active", lambda _e: False)
+
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"experiment_id": "e1", "source_prompt_uri": "not-a-uri"}
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is False
+
+    def _missing(_name):
+        raise MlflowException("no prompt", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(auth_module, "_prompt_version_permission", _missing)
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"experiment_id": "e1", "source_prompt_uri": "prompts:/p/1"}
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is False
 
 
 def test_create_prompt_optimization_job_builtin_fallback_checks_registered_deny(monkeypatch):
@@ -9592,6 +9703,9 @@ def test_delete_scorer_version_uses_child_permission(monkeypatch, permission, ex
 
 @pytest.mark.parametrize(("permission", "expected"), [("MANAGE", True), ("DENY", False)])
 def test_delete_scorer_without_version_uses_parent_permission(monkeypatch, permission, expected):
+    # Whole-scorer delete: the parent scorer tier decides first, and the version child
+    # tier (wildcard, parent fallback) must also allow -- but the CONCRETE version helper
+    # must not resolve (no version in the body).
     from mlflow.server.auth.permissions import get_permission
 
     monkeypatch.setattr(
@@ -9601,8 +9715,18 @@ def test_delete_scorer_without_version_uses_parent_permission(monkeypatch, permi
     )
     monkeypatch.setattr(
         auth_module,
+        "_get_scorer_version_permission",
+        lambda _e, _n: get_permission(permission),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "1", "name": "scorer"}[name],
+    )
+    monkeypatch.setattr(
+        auth_module,
         "_get_permission_from_scorer_version_name",
-        lambda: pytest.fail("version permission must not resolve for whole-scorer delete"),
+        lambda: pytest.fail("concrete version permission must not resolve for whole-scorer delete"),
     )
 
     with auth_module.app.test_request_context(
@@ -9615,11 +9739,17 @@ def test_delete_scorer_without_version_uses_parent_permission(monkeypatch, permi
 
 def test_delete_scorer_version_tolerates_non_object_json(monkeypatch):
     # A non-object JSON body (e.g. a list) must not 500 the validator: it carries no
-    # "version", so it resolves the whole-scorer tier instead of raising AttributeError on
+    # "version", so it resolves the whole-scorer form instead of raising AttributeError on
     # `.get`. Guards against the `(get_json() or {}).get(...)` non-dict crash.
     from mlflow.server.auth.permissions import MANAGE
 
     monkeypatch.setattr(auth_module, "_get_permission_from_scorer_name", lambda: MANAGE)
+    monkeypatch.setattr(auth_module, "_get_scorer_version_permission", lambda _e, _n: MANAGE)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "1", "name": "scorer"}[name],
+    )
     monkeypatch.setattr(
         auth_module,
         "_get_permission_from_scorer_version_name",
