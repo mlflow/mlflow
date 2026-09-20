@@ -218,6 +218,7 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
+    SearchRuns,
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
@@ -1622,6 +1623,34 @@ def validate_can_delete_experiment():
     return _get_permission_from_experiment_id().can_delete
 
 
+def validate_can_delete_experiment_lifecycle():
+    """DeleteExperiment marks every run deleted and permanently deletes their source-run
+    assessments (``_mark_run_deleted`` per run), so it is a composite lifecycle operation:
+    require the authoritative run tier's delete and the assessment tier's mutation
+    capability atop experiment delete (review finding). Both child tiers are
+    wildcard-grain, so one experiment-scoped resolution each covers every affected row --
+    which rows the store selects cannot change the outcome. The cross-experiment
+    source-run assessment residual matches validate_can_delete_run's documented limit.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_permission_from_experiment_id().can_delete:
+        return False
+    if not _experiment_child_permission("run", "*", experiment_id).can_delete:
+        return False
+    return _experiment_child_permission("assessment", "*", experiment_id).can_update
+
+
+def validate_can_restore_experiment_lifecycle():
+    """RestoreExperiment restores every run (a run-lifecycle change gated on run delete,
+    matching RestoreRun), but deletes no assessments -- so no assessment requirement
+    (review finding).
+    """
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_permission_from_experiment_id().can_delete:
+        return False
+    return _experiment_child_permission("run", "*", experiment_id).can_delete
+
+
 def validate_can_manage_experiment():
     return _get_permission_from_experiment_id().can_manage
 
@@ -1714,6 +1743,12 @@ def validate_can_update_run():
     return _get_permission_from_run_id().can_update
 
 
+def validate_can_restore_run():
+    # Restoring a run deletes no assessments -- the plain run-tier lifecycle check
+    # (the assessment requirement on validate_can_delete_run must not gate restores).
+    return _get_permission_from_run_id().can_delete
+
+
 def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
     # Require UPDATE on the run AND on any model_id the metrics target, so a user with
     # UPDATE on their own run cannot inject metrics onto another user's logged models.
@@ -1771,7 +1806,20 @@ def validate_can_log_outputs():
 
 
 def validate_can_delete_run():
-    return _get_permission_from_run_id().can_delete
+    """DeleteRun also permanently deletes every assessment whose source run is this run
+    (``_mark_run_deleted``), so require the assessment child tier's mutation capability --
+    the same one gating direct assessment deletion -- atop run delete (review finding).
+    Assessments are wildcard-grain children, so one experiment-scoped resolution covers
+    them. KNOWN LIMIT (documented): an assessment sourced from this run but attached to a
+    trace in ANOTHER experiment resolves under that experiment's fold, which a pre-request
+    check cannot enumerate; closing it fully needs a transactional authorization callback
+    (deferred with the rest of the transactional-store work).
+    """
+    run_id = _get_request_param("run_id")
+    experiment_id = _get_tracking_store().get_run(run_id).info.experiment_id
+    if not _experiment_child_permission("run", run_id, experiment_id).can_delete:
+        return False
+    return _experiment_child_permission("assessment", "*", experiment_id).can_update
 
 
 def validate_can_manage_run():
@@ -3355,12 +3403,29 @@ def validate_can_read_trace_by_trace_id():
     return _get_trace_permission(_get_request_param("trace_id")).can_read
 
 
+def _search_traces_assessment_filter_allowed(experiment_ids, *filter_strings) -> bool:
+    """An assessment-backed trace filter (``assessment``/``feedback``/``expectation``/
+    ``issue`` identifiers) executes against assessment data, so which rows match (and page
+    counts) leak denied assessment values even after response redaction. Require
+    assessment READ on every requested experiment when the filter references assessments
+    (review finding) -- the same gate the metrics/correlation routes apply.
+    """
+    if not _filter_references_assessments(*filter_strings):
+        return True
+    assessment_readable = _role_based_read_predicate(
+        authenticate_request().username, "assessment", parent_type="experiment"
+    )
+    return all(assessment_readable(eid) for eid in experiment_ids)
+
+
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
     if not experiment_ids:
         return False
     trace_readable = _trace_read_predicate()
-    return all(trace_readable(eid) for eid in experiment_ids)
+    if not all(trace_readable(eid) for eid in experiment_ids):
+        return False
+    return _search_traces_assessment_filter_allowed(experiment_ids, request.args.get("filter", ""))
 
 
 def validate_can_search_traces_v3():
@@ -3379,7 +3444,11 @@ def validate_can_search_traces_v3():
     if not experiment_ids:
         return False
     trace_readable = _trace_read_predicate()
-    return all(trace_readable(eid) for eid in experiment_ids)
+    if not all(trace_readable(eid) for eid in experiment_ids):
+        return False
+    return _search_traces_assessment_filter_allowed(
+        experiment_ids, (request.json or {}).get("filter", "")
+    )
 
 
 def validate_can_batch_get_traces():
@@ -3409,7 +3478,20 @@ def validate_can_batch_get_traces():
 
 
 def validate_can_delete_traces():
-    return _get_trace_permission_for_experiment(_get_request_param("experiment_id")).can_delete
+    """DeleteTraces / DeleteTracesV3 cascade every assessment on the deleted traces and
+    explicitly delete their review-queue items, so require the assessment and review_queue
+    child tiers' mutation capability atop trace delete (review finding). Both child tiers
+    are wildcard-grain and every affected row lives in the request's experiment, so one
+    experiment-scoped resolution each governs every selected row identically -- the store's
+    dynamic (id- or timestamp-based) row selection cannot change the outcome, which is what
+    makes this pre-request check race-free without transactional binding.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_delete:
+        return False
+    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
+        return False
+    return _experiment_child_permission("review_queue", "*", experiment_id).can_update
 
 
 def validate_can_update_trace_by_trace_id():
@@ -3601,7 +3683,17 @@ def validate_can_start_trace_v3():
                 "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
             }
         } if eid:
-            return _get_trace_permission_for_experiment(eid).can_update
+            if not _get_trace_permission_for_experiment(eid).can_update:
+                return False
+            # StartTraceV3 accepts embedded TraceInfoV3.assessments and start_trace()
+            # persists every one of them (including on the existing-trace merge path), so
+            # writing them requires the assessment child tier -- a trace writer holding
+            # (assessment, *, DENY) must not create assessments by embedding them here
+            # (review finding). Assessments are wildcard-grain children, so one
+            # experiment-scoped resolution covers every supplied assessment.
+            if body["trace"]["trace_info"].get("assessments"):
+                return _experiment_child_permission("assessment", "*", eid).can_update
+            return True
         case _:
             return False
 
@@ -4020,6 +4112,72 @@ def filter_list_review_queues(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+def _redact_prompt_optimization_jobs_response(resp: Response, response_cls, jobs_selector):
+    """Shared after-request redactor for prompt-optimization job responses (review
+    finding): jobs expose cross-resource identifiers, so drop each field the caller's
+    corresponding tier can't read -- ``run_id`` (run tier, keyed by the job's experiment
+    like every wildcard-grain child), source/optimized prompt URIs (prompt_version tier by
+    prompt name), and registered scorer names in the config (scorer_version tier by
+    ``<experiment_id>/<name>``; instantiable built-ins are not stored resources and are
+    retained). Predicates are built once per response.
+    """
+    if sender_is_admin():
+        return
+    from mlflow.genai.scorers import builtin_scorers
+    from mlflow.store.artifact.utils.models import _parse_model_uri
+
+    response_message = response_cls.Response()
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    run_readable = _role_based_read_predicate(username, "run", parent_type="experiment")
+    prompt_version_readable = _role_based_read_predicate(
+        username, "prompt_version", parent_type="prompt"
+    )
+    scorer_version_readable = _role_based_read_predicate(
+        username, "scorer_version", parent_type="scorer"
+    )
+
+    def prompt_uri_readable(uri: str) -> bool:
+        try:
+            name = _parse_model_uri(uri, scheme="prompts").name
+        except MlflowException:
+            return False
+        return prompt_version_readable(name)
+
+    def scorer_name_readable(experiment_id: str, name: str) -> bool:
+        scorer_cls = getattr(builtin_scorers, name, None)
+        if scorer_cls is not None:
+            try:
+                scorer_cls()
+                return True  # built-in: not a stored resource
+            except Exception:
+                pass
+        return scorer_version_readable(store._scorer_pattern(experiment_id, name))
+
+    for job in jobs_selector(response_message):
+        if job.run_id and not run_readable(job.experiment_id):
+            job.ClearField("run_id")
+        for uri_field in ("source_prompt_uri", "optimized_prompt_uri"):
+            if getattr(job, uri_field) and not prompt_uri_readable(getattr(job, uri_field)):
+                job.ClearField(uri_field)
+        if job.config.scorers:
+            kept = [s for s in job.config.scorers if scorer_name_readable(job.experiment_id, s)]
+            if len(kept) != len(job.config.scorers):
+                del job.config.scorers[:]
+                job.config.scorers.extend(kept)
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_prompt_optimization_job(resp: Response):
+    _redact_prompt_optimization_jobs_response(resp, GetPromptOptimizationJob, lambda m: [m.job])
+
+
+def redact_search_prompt_optimization_jobs(resp: Response):
+    _redact_prompt_optimization_jobs_response(
+        resp, SearchPromptOptimizationJobs, lambda m: list(m.jobs)
+    )
+
+
 def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable) -> None:
     """Clear a ``TraceInfoV3``'s assessments when the caller can't read them.
 
@@ -4061,8 +4219,46 @@ def redact_get_trace_assessments(resp: Response):
     _redact_trace_assessments_response(resp, GetTrace, lambda m: [m.trace.trace_info])
 
 
+def _redact_runs_model_io_response(resp: Response, response_cls, runs_selector) -> None:
+    """Shared after-request redactor dropping a run's logged-model input/output links when
+    the caller can't read logged models in the run's experiment (review finding: run read
+    plus ``(logged_model, *, DENY)`` could enumerate denied model ids and lineage from run
+    responses). Logged models are wildcard-grain children, so one per-experiment check
+    (the same keying as ``filter_search_logged_models``) covers every reference; the
+    read predicate is built once per response.
+    """
+    if sender_is_admin():
+        return
+    response_message = response_cls.Response()
+    parse_dict(resp.json, response_message)
+    model_readable = _role_based_read_predicate(
+        authenticate_request().username, "logged_model", parent_type="experiment"
+    )
+    for run in runs_selector(response_message):
+        if run.inputs.model_inputs or run.outputs.model_outputs:
+            if not model_readable(run.info.experiment_id):
+                del run.inputs.model_inputs[:]
+                del run.outputs.model_outputs[:]
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_run_model_io(resp: Response):
+    _redact_runs_model_io_response(resp, GetRun, lambda m: [m.run])
+
+
+def redact_search_runs_model_io(resp: Response):
+    _redact_runs_model_io_response(resp, SearchRuns, lambda m: list(m.runs))
+
+
 def redact_get_trace_info_v3_assessments(resp: Response):
     _redact_trace_assessments_response(resp, GetTraceInfoV3, lambda m: [m.trace.trace_info])
+
+
+def redact_start_trace_v3_assessments(resp: Response):
+    # StartTraceV3 echoes the trace (including merged pre-existing assessments on the
+    # existing-trace path), so it needs the same embedded-assessment redaction as the V3
+    # read routes (review finding).
+    _redact_trace_assessments_response(resp, StartTraceV3, lambda m: [m.trace.trace_info])
 
 
 def redact_search_traces_v3_assessments(resp: Response):
@@ -4084,8 +4280,8 @@ BEFORE_REQUEST_HANDLERS = {
     CreateExperiment: validate_can_create_experiment,
     GetExperiment: validate_can_read_experiment,
     GetExperimentByName: validate_can_read_experiment_by_name,
-    DeleteExperiment: validate_can_delete_experiment,
-    RestoreExperiment: validate_can_delete_experiment,
+    DeleteExperiment: validate_can_delete_experiment_lifecycle,
+    RestoreExperiment: validate_can_restore_experiment_lifecycle,
     UpdateExperiment: validate_can_update_experiment,
     SetExperimentTag: validate_can_update_experiment,
     DeleteExperimentTag: validate_can_update_experiment,
@@ -4093,7 +4289,7 @@ BEFORE_REQUEST_HANDLERS = {
     CreateRun: validate_can_create_run,
     GetRun: validate_can_read_run,
     DeleteRun: validate_can_delete_run,
-    RestoreRun: validate_can_delete_run,
+    RestoreRun: validate_can_restore_run,
     UpdateRun: validate_can_update_run,
     LogMetric: validate_can_log_metric,
     LogBatch: validate_can_log_batch,
@@ -5770,7 +5966,12 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
     GetTrace: redact_get_trace_assessments,
+    GetRun: redact_get_run_model_io,
+    SearchRuns: redact_search_runs_model_io,
+    GetPromptOptimizationJob: redact_get_prompt_optimization_job,
+    SearchPromptOptimizationJobs: redact_search_prompt_optimization_jobs,
     GetTraceInfoV3: redact_get_trace_info_v3_assessments,
+    StartTraceV3: redact_start_trace_v3_assessments,
     SearchTracesV3: redact_search_traces_v3_assessments,
     BatchGetTraces: redact_batch_get_traces_assessments,
     BatchGetTraceInfos: redact_batch_get_trace_infos_assessments,
@@ -6476,7 +6677,14 @@ class GraphQLAuthorizationMiddleware:
     # implementation, so it needs the same per-model filter as the top-level search. Keying
     # on the parent type keeps the same-named, already-filtered sub-field of
     # ``MlflowSearchModelVersionsResponse`` out of the middleware.
-    PROTECTED_NESTED_FIELDS = {("MlflowRunExtension", "modelVersions")}
+    PROTECTED_NESTED_FIELDS = {
+        ("MlflowRunExtension", "modelVersions"),
+        # Run model input/output links (reachable via mlflowGetRun / mlflowSearchRuns)
+        # expose logged-model ids; filter them by logged-model readability like the REST
+        # run redactor (review finding).
+        ("MlflowRunInputs", "modelInputs"),
+        ("MlflowRunOutputs", "modelOutputs"),
+    }
 
     def resolve(self, next, root, info, **args):
         """
@@ -6583,7 +6791,35 @@ class GraphQLAuthorizationMiddleware:
         if field_name == "modelVersions":
             can_read = self._model_version_read_predicate(username)
             return [mv for mv in result if can_read(mv)]
+        if field_name in ("modelInputs", "modelOutputs"):
+            can_read = self._logged_model_read_predicate(username)
+            return [m for m in result if can_read(getattr(m, "model_id", None))]
         return result
+
+    def _logged_model_read_predicate(self, username: str) -> Callable[[str], bool]:
+        # Model input/output entries carry only a model_id; resolve each model's
+        # experiment once (memoized per request) and judge it on the logged_model child
+        # tier with experiment fallback -- the same keying as the REST run redactor. A
+        # missing or unresolvable model is hidden (fail closed).
+        predicates = g.setdefault("_graphql_logged_model_read_predicates", {})
+        if username not in predicates:
+            bulk = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
+            cache: dict[str, bool] = {}
+
+            def can_read(model_id) -> bool:
+                if not model_id:
+                    return False
+                if model_id not in cache:
+                    try:
+                        model = _get_tracking_store().get_logged_model(model_id)
+                    except MlflowException:
+                        cache[model_id] = False
+                    else:
+                        cache[model_id] = bulk(model.experiment_id)
+                return cache[model_id]
+
+            predicates[username] = can_read
+        return predicates[username]
 
     def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
         # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate

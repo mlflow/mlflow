@@ -8902,6 +8902,268 @@ def test_deny_veto_rejects_iff_any_permission_is_deny():
     assert auth_module._deny_veto() is False
 
 
+@pytest.mark.parametrize(
+    ("has_assessments", "assessment_can_update", "expected"),
+    [(False, None, True), (True, True, True), (True, False, False)],
+)
+def test_start_trace_v3_embedded_assessments_require_assessment_update(
+    monkeypatch, has_assessments, assessment_can_update, expected
+):
+    # StartTraceV3 persists embedded TraceInfoV3.assessments (including on the
+    # existing-trace merge path), so writing them requires the assessment child tier --
+    # trace EDIT alone must not create assessments (review finding).
+    monkeypatch.setattr(
+        auth_module,
+        "_get_trace_permission_for_experiment",
+        lambda _e: SimpleNamespace(can_update=True),
+    )
+    calls = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        calls["args"] = (child_type, child_key, experiment_id)
+        return SimpleNamespace(can_update=assessment_can_update)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    trace_info = {"trace_location": {"mlflow_experiment": {"experiment_id": "9"}}}
+    if has_assessments:
+        trace_info["assessments"] = [{"assessment_name": "a"}]
+    with auth_module.app.test_request_context(
+        "/x", method="POST", json={"trace": {"trace_info": trace_info}}
+    ):
+        assert auth_module.validate_can_start_trace_v3() is expected
+    if has_assessments:
+        assert calls["args"] == ("assessment", "*", "9")
+    else:
+        assert "args" not in calls  # no embedded assessments: tier not consulted
+
+
+@pytest.mark.parametrize("route", ["v2", "v3"])
+@pytest.mark.parametrize(
+    ("filter_string", "assessment_readable", "expected"),
+    [
+        ("attributes.status = 'OK'", False, True),  # non-assessment filter: not gated
+        ("feedback.correctness > 0.5", True, True),
+        ("issue.id = 'i-1'", False, False),
+        ("`expectation`.bar < 1", False, False),
+        ("assessment.foo = 'x'", False, False),
+    ],
+)
+def test_search_traces_assessment_filters_require_assessment_read(
+    monkeypatch, route, filter_string, assessment_readable, expected
+):
+    # Assessment-backed trace filters execute against assessment data (which rows match
+    # leaks denied values), so they require assessment READ on every requested experiment
+    # -- the same gate as the metrics/correlation routes (review finding).
+    monkeypatch.setattr(auth_module, "_trace_read_predicate", lambda: lambda _e: True)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda _u, rt, parent_type=None: lambda _e: assessment_readable,
+    )
+    if route == "v2":
+        with auth_module.app.test_request_context(
+            "/x", query_string={"experiment_ids": "9", "filter": filter_string}
+        ):
+            assert auth_module.validate_can_search_traces() is expected
+    else:
+        with auth_module.app.test_request_context(
+            "/x",
+            method="POST",
+            json={
+                "locations": [{"mlflow_experiment": {"experiment_id": "9"}}],
+                "filter": filter_string,
+            },
+        ):
+            assert auth_module.validate_can_search_traces_v3() is expected
+
+
+@pytest.mark.parametrize(
+    ("run_can_delete", "assessment_can_update", "expected"),
+    [(True, True, True), (True, False, False), (False, True, False)],
+)
+def test_delete_run_requires_assessment_tier(
+    monkeypatch, run_can_delete, assessment_can_update, expected
+):
+    # DeleteRun permanently deletes the run's source-run assessments, so the assessment
+    # child tier's mutation capability is required atop run delete; RestoreRun deletes no
+    # assessments and keeps the plain run-tier check (review finding).
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "run-1")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(
+            get_run=lambda _rid: SimpleNamespace(info=SimpleNamespace(experiment_id="9"))
+        ),
+    )
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        assert experiment_id == "9"
+        if child_type == "run":
+            return SimpleNamespace(can_delete=run_can_delete)
+        assert (child_type, child_key) == ("assessment", "*")
+        return SimpleNamespace(can_update=assessment_can_update)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    assert auth_module.validate_can_delete_run() is expected
+
+    # RestoreRun: run tier only, and the route map keeps the two validators split.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_run_id",
+        lambda: SimpleNamespace(can_delete=run_can_delete),
+    )
+    assert auth_module.validate_can_restore_run() is run_can_delete
+    from mlflow.protos.service_pb2 import DeleteRun, RestoreRun
+
+    assert auth_module.BEFORE_REQUEST_HANDLERS[DeleteRun] is auth_module.validate_can_delete_run
+    assert auth_module.BEFORE_REQUEST_HANDLERS[RestoreRun] is auth_module.validate_can_restore_run
+
+
+@pytest.mark.parametrize(
+    ("exp_can_delete", "run_can_delete", "assessment_can_update", "delete_ok", "restore_ok"),
+    [
+        (True, True, True, True, True),
+        (True, True, False, False, True),  # assessment veto blocks delete, not restore
+        (True, False, True, False, False),  # run tier gates both lifecycle directions
+        (False, True, True, False, False),
+    ],
+)
+def test_experiment_lifecycle_requires_child_tiers(
+    monkeypatch, exp_can_delete, run_can_delete, assessment_can_update, delete_ok, restore_ok
+):
+    # DeleteExperiment marks every run deleted (and deletes their source-run assessments);
+    # RestoreExperiment restores every run. Both must honor the authoritative run tier,
+    # and delete must additionally honor the assessment tier (review finding).
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "9")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_experiment_id",
+        lambda: SimpleNamespace(can_delete=exp_can_delete),
+    )
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        assert (child_key, experiment_id) == ("*", "9")
+        if child_type == "run":
+            return SimpleNamespace(can_delete=run_can_delete)
+        assert child_type == "assessment"
+        return SimpleNamespace(can_update=assessment_can_update)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    assert auth_module.validate_can_delete_experiment_lifecycle() is delete_ok
+    assert auth_module.validate_can_restore_experiment_lifecycle() is restore_ok
+    from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment
+
+    assert (
+        auth_module.BEFORE_REQUEST_HANDLERS[DeleteExperiment]
+        is auth_module.validate_can_delete_experiment_lifecycle
+    )
+    assert (
+        auth_module.BEFORE_REQUEST_HANDLERS[RestoreExperiment]
+        is auth_module.validate_can_restore_experiment_lifecycle
+    )
+
+
+@pytest.mark.parametrize(
+    ("trace_can_delete", "assessment_can_update", "queue_can_update", "expected"),
+    [
+        (True, True, True, True),
+        (True, False, True, False),
+        (True, True, False, False),
+        (False, True, True, False),
+    ],
+)
+def test_delete_traces_requires_assessment_and_queue_tiers(
+    monkeypatch, trace_can_delete, assessment_can_update, queue_can_update, expected
+):
+    # DeleteTraces cascades assessments and prunes review-queue items, so both child
+    # tiers' mutation capability is required atop trace delete (review finding). All
+    # affected rows live in the request's experiment and child grants are wildcard-only,
+    # so the pre-request experiment-scoped checks govern every selected row.
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _n: "9")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_trace_permission_for_experiment",
+        lambda _e: SimpleNamespace(can_delete=trace_can_delete),
+    )
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        assert (child_key, experiment_id) == ("*", "9")
+        if child_type == "assessment":
+            return SimpleNamespace(can_update=assessment_can_update)
+        assert child_type == "review_queue"
+        return SimpleNamespace(can_update=queue_can_update)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    assert auth_module.validate_can_delete_traces() is expected
+
+
+def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
+    # GetRun/SearchRuns serialize inputs.model_inputs / outputs.model_outputs; a run
+    # reader with (logged_model, *, DENY) must not enumerate denied model ids through
+    # them (review finding).
+    from mlflow.protos.service_pb2 import GetRun
+
+    msg = GetRun.Response()
+    msg.run.info.experiment_id = "9"
+    msg.run.inputs.model_inputs.add().model_id = "m-1"
+    msg.run.outputs.model_outputs.add().model_id = "m-2"
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    for readable, kept in ((False, 0), (True, 1)):
+        monkeypatch.setattr(
+            auth_module,
+            "_role_based_read_predicate",
+            lambda _u, rt, parent_type=None, r=readable: lambda _e: r,
+        )
+        resp = _fake_resp(msg)
+        auth_module.redact_get_run_model_io(resp)
+        out = GetRun.Response()
+        auth_module.parse_dict(json.loads(resp.data), out)
+        assert len(out.run.inputs.model_inputs) == kept
+        assert len(out.run.outputs.model_outputs) == kept
+
+
+def test_redact_prompt_optimization_jobs_response(monkeypatch):
+    # Job responses expose run/prompt/scorer identifiers; each is dropped when the
+    # caller's corresponding tier can't read it, while instantiable built-in scorers are
+    # retained (review finding).
+    from mlflow.protos.service_pb2 import SearchPromptOptimizationJobs
+
+    msg = SearchPromptOptimizationJobs.Response()
+    job = msg.jobs.add()
+    job.experiment_id = "9"
+    job.run_id = "run-1"
+    job.source_prompt_uri = "prompts:/p-src/1"
+    job.optimized_prompt_uri = "prompts:/p-opt/2"
+    job.config.scorers.extend(["Safety", "custom-scorer"])
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+
+    def fake_predicate(_u, resource_type, parent_type=None):
+        # run tier denied; prompt_version readable only for p-opt; scorer_version denied.
+        if resource_type == "run":
+            return lambda _e: False
+        if resource_type == "prompt_version":
+            return lambda name: name == "p-opt"
+        assert resource_type == "scorer_version"
+        return lambda _key: False
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    resp = _fake_resp(msg)
+    auth_module.redact_search_prompt_optimization_jobs(resp)
+    out = SearchPromptOptimizationJobs.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    redacted = out.jobs[0]
+    assert redacted.run_id == ""
+    assert redacted.source_prompt_uri == ""
+    assert redacted.optimized_prompt_uri == "prompts:/p-opt/2"
+    # The built-in survives; the unreadable registered scorer is dropped.
+    assert list(redacted.config.scorers) == ["Safety"]
+
+
 @pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
 def test_composite_routes_honor_scorer_version_deny(monkeypatch, scorer_version_denied, expected):
     # A (scorer_version, *, DENY) vetoes INVOKE_SCORER / INVOKE_GENAI_EVALUATE /
