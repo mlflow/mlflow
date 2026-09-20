@@ -8460,13 +8460,16 @@ def test_register_scorer_requires_gateway_endpoint_use(monkeypatch):
 
 def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
     # A positive sample rate enables background jobs that read traces, execute the stored
-    # scorer (with its gateway endpoint), and write assessments -- each denied tier must
-    # block enabling; disabling needs only experiment UPDATE (review finding).
+    # scorer (with its gateway endpoint), and write assessments. BACKWARDS-COMPATIBLE
+    # policy: trace/assessment resolve with experiment fallback (a plain experiment
+    # editor passes), and the scorer and gateway tiers are DENY-only overlays -- each
+    # explicit denial blocks enabling; disabling needs only experiment UPDATE.
     from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
-    granted = {"trace": True, "assessment": True, "scorer_version": True, "gateway": True}
+    granted = {"trace": True, "assessment": True}
+    denied = {"scorer": False, "gateway": False}
     monkeypatch.setattr(
         auth_module,
         "_get_trace_permission_for_experiment",
@@ -8478,14 +8481,10 @@ def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
         lambda _t, _k, _e: MANAGE if granted["assessment"] else NO_PERMISSIONS,
     )
     monkeypatch.setattr(
-        auth_module,
-        "_get_scorer_version_permission",
-        lambda _e, _n: MANAGE if granted["scorer_version"] else NO_PERMISSIONS,
+        auth_module, "_registered_scorer_deny_active", lambda _e, _n: denied["scorer"]
     )
     monkeypatch.setattr(
-        auth_module,
-        "_gateway_endpoint_use_permission_by_id",
-        lambda _i, _u: granted["gateway"],
+        auth_module, "_gateway_endpoint_deny_active", lambda _i, _u: denied["gateway"]
     )
     stored = {"scorer": SimpleNamespace(serialized_scorer="stored-payload")}
 
@@ -8505,23 +8504,28 @@ def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
 
     base = {"experiment_id": "e1", "name": "s1", "sample_rate": 0.5}
     assert result({**base, "sample_rate": 0}) is True  # disable: experiment UPDATE only
-    assert result(base) is True  # enable with every tier granted
-    for tier in ("trace", "assessment", "scorer_version", "gateway"):
+    assert result(base) is True  # enable: plain experiment editor keeps OSS behavior
+    for tier in ("trace", "assessment"):
         granted[tier] = False
         assert result(base) is False, tier
         granted[tier] = True
+    for tier in ("scorer", "gateway"):
+        denied[tier] = True
+        assert result(base) is False, tier
+        denied[tier] = False
     assert result({"experiment_id": "e1", "name": "s1"}) is False  # missing sample_rate
     stored["scorer"] = None
     assert result(base) is False  # missing scorer fails closed
 
 
 def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
-    # Configs carry scorer_id; the scorer_version tier parents to the SCORER
-    # (<experiment_id>/<name>), so the read gate resolves ids to scorer identities in ONE
-    # bulk listing across the distinct experiments (query-count bound: many experiments,
-    # one listing call) -- a per-scorer parent DENY applies, and an unresolved id fails
-    # closed (review findings).
-    from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
+    # Configs carry scorer_id; ids resolve to scorer identities in ONE bulk listing
+    # across the distinct experiments (query-count bound: many experiments, one listing
+    # call). BACKWARDS-COMPATIBLE policy: the scorer tier is a DENY-only overlay -- an
+    # experiment reader with no scorer grants keeps the OSS contract, an explicit
+    # scorer/scorer-version DENY hides the configs, and an unresolved id has no
+    # per-name veto to apply.
+    from mlflow.server.auth.permissions import MANAGE
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
@@ -8546,14 +8550,14 @@ def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
             list_scorers_across_experiments=fake_list_across,
         ),
     )
-    version_perm = {"value": MANAGE}
+    scorer_denied = {"value": False}
     resolved = []
 
-    def fake_version_perm(experiment_id, name):
+    def fake_deny_active(experiment_id, name):
         resolved.append((experiment_id, name))
-        return version_perm["value"]
+        return scorer_denied["value"]
 
-    monkeypatch.setattr(auth_module, "_get_scorer_version_permission", fake_version_perm)
+    monkeypatch.setattr(auth_module, "_registered_scorer_deny_active", fake_deny_active)
 
     def result():
         with auth_module.app.test_request_context(
@@ -8564,13 +8568,13 @@ def test_read_online_scoring_configs_honors_scorer_version_tier(monkeypatch):
     assert result() is True
     assert len(list_calls) == 1  # one bulk listing for 40 experiments, never per-experiment
     assert sorted(list_calls[0]) == sorted(f"e{i}" for i in range(n_experiments))
-    assert ("e0", "scorer-0") in resolved  # resolved to the scorer identity
-    version_perm["value"] = NO_PERMISSIONS
+    assert ("e0", "scorer-0") in resolved  # the veto folds on the scorer identity
+    scorer_denied["value"] = True
     assert result() is False
-    # An id absent from the bulk listing fails closed.
+    # An id absent from the bulk listing has no per-name veto: experiment READ decides.
     configs[:] = [SimpleNamespace(experiment_id="e0", scorer_id="sc-unknown")]
-    version_perm["value"] = MANAGE
-    assert result() is False
+    scorer_denied["value"] = True
+    assert result() is True
 
 
 def test_global_mcp_endpoint_search_honors_wildcard_version_deny(monkeypatch):

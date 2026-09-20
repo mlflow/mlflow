@@ -2253,11 +2253,18 @@ def validate_can_manage_scorer_permission():
 def validate_can_update_online_scoring_config():
     """A POSITIVE sample rate enables background jobs that load the stored scorer
     version, read the experiment's traces/sessions, execute the scorer (including any
-    gateway endpoint it references), and write assessments -- so enabling requires the
-    same effective tiers as that work: trace READ, assessment UPDATE, scorer-version
-    READ (authoritative child tier + scorer-parent fallback, honoring DENY), and USE on
-    the stored scorer's gateway endpoint (review finding). Disabling (sample_rate <= 0)
-    schedules no work and needs only experiment UPDATE.
+    gateway endpoint it references), and write assessments.
+
+    BACKWARDS-COMPATIBLE policy (owner decision): a plain experiment editor with no
+    child grants must keep the OSS contract (experiment UPDATE enables), so every
+    additional tier is consulted in a form that reduces to the experiment level or a
+    no-op when no explicit grant exists -- trace READ and assessment UPDATE resolve with
+    experiment fallback, while the scorer/scorer_version and gateway-endpoint tiers are
+    DENY-only overlays, matching the INVOKE_SCORER composite family (their positive
+    requirement lives on registration, which already gates gateway USE). Explicit
+    restrictions still block enabling: ``(trace/assessment, *, DENY)``, a scorer or
+    scorer-version DENY (per-name parent fallback included), and an endpoint DENY.
+    Disabling (sample_rate <= 0) schedules no work and needs only experiment UPDATE.
     """
     body = request.get_json(silent=True) or {}
     experiment_id = body.get("experiment_id")
@@ -2277,7 +2284,7 @@ def validate_can_update_online_scoring_config():
         return False
     if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
         return False
-    if not _get_scorer_version_permission(experiment_id, name).can_read:
+    if _registered_scorer_deny_active(experiment_id, name):
         return False
     # The scheduler executes the STORED scorer; its payload carries the resolved gateway
     # endpoint id when one is bound. A missing scorer or malformed payload fails closed.
@@ -2290,9 +2297,7 @@ def validate_can_update_online_scoring_config():
     parsed_ok, gateway_ref = _scorer_payload_gateway_ref(scorer.serialized_scorer)
     if not parsed_ok:
         return False
-    if gateway_ref is not None and not _gateway_endpoint_use_permission_by_id(
-        gateway_ref, username
-    ):
+    if gateway_ref is not None and _gateway_endpoint_deny_active(gateway_ref, username):
         return False
     return True
 
@@ -2315,12 +2320,15 @@ def validate_can_read_online_scoring_configs():
     for config in configs:
         if not _get_experiment_permission(config.experiment_id, username).can_read:
             return False
-    # Configs carry scorer_id, but the scorer_version tier parents to the SCORER
+    # Configs carry scorer_id, but the scorer/scorer_version tiers parent to the SCORER
     # (<experiment_id>/<name>) -- resolve ids to scorer identities in ONE bulk listing
     # across the distinct experiments (review finding: per-experiment list_scorers calls
-    # were O(experiments) on a caller-controlled request) so a per-scorer parent DENY
-    # applies; an id that doesn't resolve fails closed (review finding: substituting the
-    # experiment as parent silently changed the fold).
+    # were O(experiments) on a caller-controlled request). BACKWARDS-COMPATIBLE policy
+    # (owner decision): the scorer tier is a DENY-only overlay here, like the enable
+    # gate -- an experiment reader with no scorer grants keeps the OSS contract, an
+    # explicit scorer/scorer-version DENY hides the config, and an id that doesn't
+    # resolve has no per-name veto to apply (the wildcard version DENY still applies
+    # through the per-name veto's fold when the name resolves).
     experiment_ids = sorted({config.experiment_id for config in configs})
     scorer_names_by_id = {
         (sv.experiment_id, sv.scorer_id): sv.scorer_name
@@ -2328,9 +2336,9 @@ def validate_can_read_online_scoring_configs():
     }
     for config in configs:
         scorer_name = scorer_names_by_id.get((config.experiment_id, config.scorer_id))
-        if scorer_name is None:
-            return False
-        if not _get_scorer_version_permission(config.experiment_id, scorer_name).can_read:
+        if scorer_name is not None and _registered_scorer_deny_active(
+            config.experiment_id, scorer_name
+        ):
             return False
     return True
 
@@ -7721,6 +7729,30 @@ def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> st
         return match.group(1)
 
     return None
+
+
+def _gateway_endpoint_deny_active(endpoint_id: str, username: str) -> bool:
+    """``True`` iff an explicit ``DENY`` blocks the caller on the gateway endpoint
+    (addressed by resolved id, as stored scorer payloads carry it). DENY-only overlay:
+    an unresolvable endpoint has nothing to veto and returns ``False`` -- callers that
+    need a POSITIVE ``USE`` requirement use ``_gateway_endpoint_use_permission_by_id``.
+    """
+    try:
+        permission = _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="gateway_endpoint",
+                resource_key=endpoint_id,
+                workspace_lookup_id=endpoint_id,
+                workspace_fetcher=lambda eid: _get_tracking_store().get_gateway_endpoint(
+                    endpoint_id=eid
+                ),
+                workspace_label="gateway endpoint",
+            )
+        )
+    except MlflowException:
+        return False
+    return _deny_veto(permission)
 
 
 def _gateway_endpoint_use_permission_by_id(endpoint_id: str, username: str) -> bool:
