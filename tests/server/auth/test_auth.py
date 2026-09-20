@@ -9398,9 +9398,11 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
             "issues/invoke",
             {
                 "categories": ["correctness"],
+                # provider+model path: an endpoint_name would now be denied at the
+                # VALIDATOR (gateway USE, fail-closed for a nonexistent endpoint), which
+                # has its own test -- this test targets the HANDLER's trace binding.
                 "provider": "openai",
                 "model": "gpt-4o",
-                "endpoint_name": "my-endpoint",
             },
         ),
     ],
