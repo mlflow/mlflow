@@ -934,6 +934,7 @@ class TrackingServiceClient:
         max_results: int | None = None,
         order_by: list[dict[str, Any]] | None = None,
         page_token: str | None = None,
+        include_metrics: bool = True,
     ):
         if not isinstance(experiment_ids, list) or not all(
             isinstance(eid, str) for eid in experiment_ids
@@ -942,7 +943,13 @@ class TrackingServiceClient:
                 f"experiment_ids must be a list of strings, got {type(experiment_ids)}",
             )
         return self.store.search_logged_models(
-            experiment_ids, filter_string, datasets, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            datasets,
+            max_results,
+            order_by,
+            page_token,
+            include_metrics=include_metrics,
         )
 
     @record_usage_event(CreateDatasetEvent)

@@ -48,6 +48,26 @@ describe('useLoggedModelsForExperimentRunsTable', () => {
     );
   });
 
+  test('should ask the server not to return metric values', async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    server.use(
+      rest.post('/ajax-api/2.0/mlflow/logged-models/search', async (req, res, ctx) => {
+        requestBody = await req.json();
+        return res(ctx.json({ models: [] }));
+      }),
+    );
+
+    renderHook(() => useLoggedModelsForExperimentRunsTable({ experimentIds: ['test-experiment'] }), {
+      wrapper: ({ children }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>,
+    });
+
+    // The runs table renders each model's name and links to it, and shows no metric
+    // values, so asking for them would make the response many times larger for nothing.
+    await waitFor(() => {
+      expect(requestBody).toEqual(expect.objectContaining({ include_metrics: false }));
+    });
+  });
+
   test('should return logged models for experiment runs', async () => {
     const { result } = renderHook(() => useLoggedModelsForExperimentRunsTable({ experimentIds: ['test-experiment'] }), {
       wrapper: ({ children }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>,

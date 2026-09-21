@@ -4645,6 +4645,7 @@ class SearchLoggedModels(_message.Message):
     MAX_RESULTS_FIELD_NUMBER: _builtins.int
     ORDER_BY_FIELD_NUMBER: _builtins.int
     PAGE_TOKEN_FIELD_NUMBER: _builtins.int
+    INCLUDE_METRICS_FIELD_NUMBER: _builtins.int
     filter: _builtins.str
     """A filter expression over Logged Model info and data that allows returning a subset of
     Logged Models. The syntax is a subset of SQL that supports ANDing together binary operations
@@ -4654,6 +4655,12 @@ class SearchLoggedModels(_message.Message):
     """Maximum number of Logged Models to return. Max threshold is 50."""
     page_token: _builtins.str
     """Token indicating the page of Logged Models to fetch."""
+    include_metrics: _builtins.bool
+    """Whether to include metric values on the returned Logged Models. Metrics dominate the
+    size of a Logged Model, so a caller that only needs model identity - a table listing
+    the models a Run produced, for example - can set this to false to avoid fetching and
+    serializing them. Defaults to true, leaving existing callers unaffected.
+    """
     @_builtins.property
     def experiment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """IDs of the Experiments in which to search for Logged Models."""
@@ -4680,10 +4687,11 @@ class SearchLoggedModels(_message.Message):
         max_results: _builtins.int | None = ...,
         order_by: _abc.Iterable[Global___SearchLoggedModels.OrderBy] | None = ...,
         page_token: _builtins.str | None = ...,
+        include_metrics: _builtins.bool | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["filter", b"filter", "max_results", b"max_results", "page_token", b"page_token"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["filter", b"filter", "include_metrics", b"include_metrics", "max_results", b"max_results", "page_token", b"page_token"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["datasets", b"datasets", "experiment_ids", b"experiment_ids", "filter", b"filter", "max_results", b"max_results", "order_by", b"order_by", "page_token", b"page_token"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["datasets", b"datasets", "experiment_ids", b"experiment_ids", "filter", b"filter", "include_metrics", b"include_metrics", "max_results", b"max_results", "order_by", b"order_by", "page_token", b"page_token"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

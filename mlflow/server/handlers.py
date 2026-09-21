@@ -5914,6 +5914,7 @@ def _search_logged_models():
             else None
         ),
         page_token=request_message.page_token or None,
+        include_metrics=request_message.include_metrics,
     )
     response_message = SearchLoggedModels.Response()
     response_message.models.extend([e.to_proto() for e in models])

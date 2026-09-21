@@ -4133,6 +4133,93 @@ def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(
     assert actual_names == expected_names
 
 
+def test_search_logged_models_include_metrics_false_omits_metrics(store: SqlAlchemyStore):
+    """`include_metrics=False` drops metric values but changes nothing else."""
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for i in range(3):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        run = store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name=f"run-{i}"
+        )
+        store.log_metric(
+            run.info.run_id,
+            Metric("accuracy", float(i), timestamp=123, step=0, model_id=model.model_id),
+        )
+
+    with_metrics = store.search_logged_models(experiment_ids=[exp_id])
+    without_metrics = store.search_logged_models(experiment_ids=[exp_id], include_metrics=False)
+
+    assert [m.model_id for m in without_metrics] == [m.model_id for m in with_metrics]
+    assert all(m.metrics for m in with_metrics)
+    assert all(m.metrics is None for m in without_metrics)
+    # Everything other than the metrics is untouched.
+    assert [m.name for m in without_metrics] == [m.name for m in with_metrics]
+
+
+def test_search_logged_models_include_metrics_false_still_filters_and_orders(
+    store: SqlAlchemyStore,
+):
+    """Metrics stay filterable and sortable when they are not returned.
+
+    Both run against `logged_model_metrics` in SQL, so omitting the values from the
+    response must not change which models come back or in what order.
+    """
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for i in range(4):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        run = store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name=f"run-{i}"
+        )
+        store.log_metric(
+            run.info.run_id,
+            Metric("accuracy", float(i), timestamp=123, step=0, model_id=model.model_id),
+        )
+
+    kwargs = {
+        "experiment_ids": [exp_id],
+        "filter_string": "metrics.accuracy > 0.5",
+        "order_by": [{"field_name": "metrics.accuracy", "ascending": False}],
+    }
+    with_metrics = store.search_logged_models(**kwargs)
+    without_metrics = store.search_logged_models(**kwargs, include_metrics=False)
+
+    assert [m.name for m in with_metrics] == ["model-3", "model-2", "model-1"]
+    assert [m.name for m in without_metrics] == [m.name for m in with_metrics]
+    assert all(m.metrics is None for m in without_metrics)
+
+
+def test_search_logged_models_include_metrics_false_does_not_query_metrics(
+    store: SqlAlchemyStore,
+):
+    """The point of the flag is to not fetch the rows, not merely to hide them."""
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for i in range(3):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        run = store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name=f"run-{i}"
+        )
+        store.log_metric(
+            run.info.run_id,
+            Metric("accuracy", float(i), timestamp=123, step=0, model_id=model.model_id),
+        )
+
+    statements = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    engine = store.engine
+    sqlalchemy.event.listen(engine, "before_cursor_execute", record)
+    try:
+        store.search_logged_models(experiment_ids=[exp_id], include_metrics=False)
+    finally:
+        sqlalchemy.event.remove(engine, "before_cursor_execute", record)
+
+    assert not any("logged_model_metrics" in s for s in statements), (
+        f"metrics were still queried: {statements}"
+    )
+
+
 def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
     store: SqlAlchemyStore,
 ):
