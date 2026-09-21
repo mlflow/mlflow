@@ -289,13 +289,20 @@ def test_server_resolves_presigned_only_configuration(monkeypatch, args, env_val
         monkeypatch.setenv(MLFLOW_ARTIFACTS_ONLY_PRESIGNED.name, env_value)
 
     with (
-        mock.patch("mlflow.cli.artifacts_only_presigned_config_validation"),
-        mock.patch("mlflow.server.handlers.initialize_backend_stores"),
+        mock.patch(
+            "mlflow.cli.artifacts_only_presigned_config_validation"
+        ) as mock_presigned_validation,
+        mock.patch(
+            "mlflow.server.handlers.initialize_backend_stores"
+        ) as mock_initialize_backend_stores,
         mock.patch("mlflow.server._run_server") as run_server_mock,
     ):
         result = CliRunner().invoke(server, args)
 
     assert result.exit_code == 0, result.output
+    mock_presigned_validation.assert_called_once()
+    assert mock_presigned_validation.call_args.args[0] is expected
+    mock_initialize_backend_stores.assert_called_once()
     assert run_server_mock.call_args.kwargs["artifacts_only_presigned"] is expected
 
 

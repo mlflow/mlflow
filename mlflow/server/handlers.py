@@ -1374,6 +1374,7 @@ def _create_temp_artifact_file_response(
 
 
 def _send_artifact(artifact_repository, path):
+    reject_legacy_artifact_download()
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
     if (local_path := artifact_repository.get_local_path(path)) is not None:
@@ -7578,19 +7579,10 @@ def build_server_info_payload() -> dict[str, Any]:
     # This JSON is returned with no login, including when basic auth is on.
     # Clients use it to learn how the server is set up before they authenticate.
     # Do not add secrets, credentials, tenant data, or internal addresses.
+    from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    store = _get_tracking_store()
-    try:
-        trace_archival_config = get_trace_archival_server_config()
-    except Exception:
-        _logger.warning(
-            "Failed to load trace archival config while serving server-info; "
-            + "defaulting to disabled.",
-            exc_info=True,
-        )
-        trace_archival_config = None
     # The limits a skill upload is checked against, so a client can refuse an oversized folder
     # before packaging it. A malformed limit setting leaves them out rather than failing the
     # whole response, which every client reads at startup.
@@ -7605,18 +7597,33 @@ def build_server_info_payload() -> dict[str, Any]:
             exc_info=True,
         )
         skill_content_limits = {}
-    trace_archival_enabled = bool(
-        trace_archival_config
-        and trace_archival_config.enabled
-        and _store_supports_trace_archival(store)
-    )
 
-    if isinstance(store, FileStore):
-        store_type = "FileStore"
-    elif isinstance(store, SqlAlchemyStore):
-        store_type = "SqlStore"
-    else:
+    if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
         store_type = None
+        trace_archival_enabled = False
+    else:
+        store = _get_tracking_store()
+        try:
+            trace_archival_config = get_trace_archival_server_config()
+        except Exception:
+            _logger.warning(
+                "Failed to load trace archival config while serving server-info; "
+                + "defaulting to disabled.",
+                exc_info=True,
+            )
+            trace_archival_config = None
+        trace_archival_enabled = bool(
+            trace_archival_config
+            and trace_archival_config.enabled
+            and _store_supports_trace_archival(store)
+        )
+
+        if isinstance(store, FileStore):
+            store_type = "FileStore"
+        elif isinstance(store, SqlAlchemyStore):
+            store_type = "SqlStore"
+        else:
+            store_type = None
 
     multipart_uploads_enabled = False
     multipart_downloads_enabled = False
