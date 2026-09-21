@@ -262,6 +262,7 @@ from mlflow.server.handlers import (
     _update_workspace_handler,
     _upload_artifact,
     _upsert_dataset_records_handler,
+    _validate_source_model,
     _validate_source_run,
     _validate_trace_ids_in_experiment,
     catch_mlflow_exception,
@@ -308,7 +309,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE, MAX_CUSTOM_VIEWS_PER_EXPERIMENT
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
@@ -2803,6 +2804,109 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
             ),
         ):
             _validate_source_run("/local/path/xyz", run_id)
+
+
+@pytest.mark.parametrize(
+    ("root", "source"),
+    [
+        ("mlflow-artifacts:/1/run/artifacts", "mlflow-artifacts:/1/run/artifacts"),
+        ("mlflow-artifacts:/1/run/artifacts", "mlflow-artifacts:/1/run/artifacts/model"),
+        (
+            "https://mlflow.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts",
+            "https://mlflow.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model",
+        ),
+        (
+            "https://mlflow.example/prefix/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts",
+            "https://mlflow.example/prefix/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model",
+        ),
+    ],
+)
+def test_validate_source_run_accepts_matching_proxied_source(root, source):
+    run_id = uuid.uuid4().hex
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.return_value.info.artifact_uri = root
+        _validate_source_run(source, run_id)
+        get_store.return_value.get_run.assert_called_once_with(run_id)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "mlflow-artifacts:/1/run/artifacts-sibling/model",
+        "mlflow-artifacts:/1/run/artifacts-sibling%252fmodel",
+        "mlflow-artifacts:/1/run/a+b/model",
+        "mlflow-artifacts://other-host/1/run/artifacts/model",
+        "https://other.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model",
+    ],
+)
+def test_validate_source_run_rejects_unrelated_proxied_source(source):
+    root = "mlflow-artifacts:/1/run/artifacts"
+    if source == "mlflow-artifacts:/1/run/a+b/model":
+        root = "mlflow-artifacts:/1/run/a%20b"
+    if source.startswith("https:"):
+        root = "https://mlflow.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts"
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.return_value.info.artifact_uri = root
+        with pytest.raises(
+            MlflowException, match="must identify the resource that contains the source"
+        ):
+            _validate_source_run(source, uuid.uuid4().hex)
+
+
+def test_validate_source_run_rejects_proxied_source_without_run_id():
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_store,
+        pytest.raises(MlflowException, match="run_id request parameter"),
+    ):
+        _validate_source_run("mlflow-artifacts:/1/run/artifacts/model", "")
+    get_store.assert_not_called()
+
+
+def test_validate_source_run_requires_matching_runs_uri_id():
+    run_id = uuid.uuid4().hex
+    _validate_source_run(f"runs:/{run_id}/model", run_id)
+    with pytest.raises(MlflowException, match="run_id request parameter"):
+        _validate_source_run(f"runs:/{uuid.uuid4().hex}/model", run_id)
+
+
+def test_validate_source_model_requires_matching_logged_model_uri_id():
+    model_id = f"m-{uuid.uuid4().hex}"
+    _validate_source_model(f"models:/{model_id}", model_id)
+    with pytest.raises(MlflowException, match="model_id request parameter"):
+        _validate_source_model(f"models:/m-{uuid.uuid4().hex}", model_id)
+
+
+def test_validate_source_model_accepts_matching_proxied_source():
+    model_id = f"m-{uuid.uuid4().hex}"
+    root = f"mlflow-artifacts:/1/models/{model_id}/artifacts"
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_logged_model.return_value.artifact_location = root
+        _validate_source_model(f"{root}/model", model_id)
+        get_store.return_value.get_logged_model.assert_called_once_with(model_id)
+
+
+@pytest.mark.parametrize("source", ["s3://bucket/model", "gs://bucket/model", "wasbs://c@a/model"])
+def test_validate_source_run_preserves_external_sources(source):
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        _validate_source_run(source, uuid.uuid4().hex)
+    get_store.assert_not_called()
+
+
+def test_validate_source_run_uses_active_workspace_for_source_lookup():
+    run_id = uuid.uuid4().hex
+    root = f"mlflow-artifacts:/1/{run_id}/artifacts"
+    run = mock.MagicMock()
+    run.info.artifact_uri = root
+
+    def get_run(requested_run_id):
+        assert get_request_workspace() == "team-blue"
+        assert requested_run_id == run_id
+        return run
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.side_effect = get_run
+        with WorkspaceContext("team-blue"):
+            _validate_source_run(f"{root}/model", run_id)
 
 
 @pytest.mark.parametrize(
