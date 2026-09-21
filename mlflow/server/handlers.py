@@ -427,6 +427,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_jev_scorer_data,
     _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -5982,6 +5983,7 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
     _validate_third_party_scorer_data(serialized_data)
+    _validate_jev_scorer_data(serialized_data)
 
 
 @catch_mlflow_exception

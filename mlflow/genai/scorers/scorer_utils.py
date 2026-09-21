@@ -229,6 +229,8 @@ def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str
         return extract_model_from_serialized_scorer(base_judge)
     if tp_data := serialized_data.get("third_party_scorer_data"):
         return tp_data.get("model")
+    if jev_data := serialized_data.get("jev_scorer_pydantic_data"):
+        return jev_data.get("model")
     return None
 
 
@@ -250,6 +252,8 @@ def update_model_in_serialized_scorer(
     elif tp_data := result.get("third_party_scorer_data"):
         if tp_data.get("model") is not None:
             result["third_party_scorer_data"] = {**tp_data, "model": new_model}
+    elif jev_data := result.get("jev_scorer_pydantic_data"):
+        result["jev_scorer_pydantic_data"] = {**jev_data, "model": new_model}
     return result
 
 

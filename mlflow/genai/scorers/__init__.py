@@ -55,6 +55,8 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
+_JEV_IMPORTS = {"JevScorer", "make_jev_scorer"}
+
 
 def __getattr__(name):
     """Lazily import builtin scorers to avoid circular dependency."""
@@ -63,6 +65,11 @@ def __getattr__(name):
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
+
+    if name in _JEV_IMPORTS:
+        from mlflow.genai.scorers import jev
+
+        return getattr(jev, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -76,7 +83,7 @@ def __dir__():
     # Get the default module attributes
     module_attrs = list(globals().keys())
     # Add the lazy imports
-    return sorted(set(module_attrs) | _LAZY_IMPORTS)
+    return sorted(set(module_attrs) | _LAZY_IMPORTS | _JEV_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -110,6 +117,7 @@ if TYPE_CHECKING:
         UserFrustration,
         get_all_scorers,
     )
+    from mlflow.genai.scorers.jev import JevScorer, make_jev_scorer
 
 __all__ = [
     "Completeness",
@@ -137,8 +145,10 @@ __all__ = [
     "ToolCallEfficiency",
     "UserFrustration",
     "Scorer",
+    "JevScorer",
     "scorer",
     "make_scorer_ensemble",
+    "make_jev_scorer",
     "ScorerSamplingConfig",
     "agg_all",
     "agg_any",

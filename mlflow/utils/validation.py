@@ -1182,6 +1182,27 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
             )
 
 
+def _validate_jev_scorer_data(value: Any) -> None:
+    """Validate server-side Jev configurations, including scorers nested in containers."""
+    if isinstance(value, dict):
+        if value.get("jev_scorer_pydantic_data") is not None:
+            # Lazy import avoids loading the optional GenAI package for other validations.
+            from mlflow.genai.scorers.base import Scorer
+
+            scorer = Scorer.model_validate(value)
+            if scorer.model is None or not scorer.model.startswith("gateway:/"):
+                raise MlflowException.invalid_parameter_value(
+                    "Server-side Jev scorers require a gateway:/ endpoint with a configured "
+                    "TypeSafe API key. Use typesafe:/ models only for local SDK evaluation."
+                )
+        if isinstance(ensemble := value.get("ensemble_scorer_data"), dict):
+            if isinstance(scorers := ensemble.get("scorers"), list):
+                for scorer in scorers:
+                    _validate_jev_scorer_data(scorer)
+        if isinstance(memory_judge := value.get("memory_augmented_judge_data"), dict):
+            _validate_jev_scorer_data(memory_judge.get("base_judge"))
+
+
 def _validate_mcp_icon_url(url: str) -> None:
     """Validate an MCP icon URL on write/update requests.
 
