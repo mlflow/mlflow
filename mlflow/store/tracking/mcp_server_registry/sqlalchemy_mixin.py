@@ -25,7 +25,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -1023,33 +1022,6 @@ class SqlAlchemyMCPServerRegistryMixin:
         raise NotImplementedError(self.__class__.__name__)
 
 
-def _get_expression_comparison_func(comparator, dialect):
-    """Like SearchUtils.get_sql_comparison_func but safe for any SQL expression.
-
-    The MySQL path in get_sql_comparison_func accesses column.class_.__tablename__
-    to build raw BINARY SQL, which crashes on non-column expressions (CASE,
-    subqueries, etc.). This wraps the value with func.binary() for case-sensitive
-    comparison instead. Other dialects pass through to get_sql_comparison_func.
-    """
-    if dialect == MYSQL:
-
-        def mysql_safe_func(expression, value):
-            if isinstance(expression.type, sa.types.String):
-                if comparator == "LIKE":
-                    return expression.like(sa.func.binary(value))
-                elif comparator == "ILIKE":
-                    return expression.like(value)
-                elif comparator == "IN":
-                    return expression.in_([sa.func.binary(v) for v in value])
-                elif comparator == "NOT IN":
-                    return ~expression.in_([sa.func.binary(v) for v in value])
-                value = sa.func.binary(value)
-            return SearchUtils.get_comparison_func(comparator)(expression, value)
-
-        return mysql_safe_func
-    return SearchUtils.get_sql_comparison_func(comparator, dialect)
-
-
 def _validate_exactly_one(
     param1_name: str, param1_value: Any, param2_name: str, param2_value: Any
 ) -> None:
@@ -1260,7 +1232,9 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
             if key == "status":
                 resolved_status = SqlMCPServer.resolved_status_expression()
                 attribute_filters.append(
-                    _get_expression_comparison_func(comparator, dialect)(resolved_status, value)
+                    SearchUtils.get_sql_expression_comparison_func(comparator, dialect)(
+                        resolved_status, value
+                    )
                 )
             elif key == "has_access_endpoints":
                 if comparator != "=" or value.lower() not in ("true", "false"):
