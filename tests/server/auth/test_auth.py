@@ -10031,7 +10031,7 @@ def test_redact_run_model_io_on_logged_model_deny(monkeypatch):
 
 def test_run_model_io_filter_query_count_bounded_at_scale(monkeypatch):
     # 450 distinct model ids across a response resolve in exactly
-    # ceil(450 / _LOGGED_MODEL_LOOKUP_CHUNK) bulk searches -- no per-id lookups at any
+    # ceil(450 / _BULK_LOOKUP_CHUNK) bulk searches -- no per-id lookups at any
     # size (the chosen policy's 200-id call-count bound, review finding F7).
     import math
 
@@ -10071,7 +10071,7 @@ def test_run_model_io_filter_query_count_bounded_at_scale(monkeypatch):
     out = SearchRuns.Response()
     auth_module.parse_dict(json.loads(resp.data), out)
     assert len(out.runs[0].inputs.model_inputs) == 0
-    assert len(search_calls) == math.ceil(n / auth_module._LOGGED_MODEL_LOOKUP_CHUNK)
+    assert len(search_calls) == math.ceil(n / auth_module._BULK_LOOKUP_CHUNK)
 
 
 def test_redact_prompt_optimization_jobs_response(monkeypatch):

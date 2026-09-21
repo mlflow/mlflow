@@ -669,15 +669,10 @@ def _user_inherits_default_workspace_grant(workspace_name: str) -> bool:
 def _get_role_permission_or_default(
     role_permission_func: Callable[[], Permission | None],
 ) -> Permission:
-    """Fold the role-derived permission against ``default_permission`` as a floor.
-
-    Two levels are preserved rather than max'd against ``default_permission``:
-    ``NO_PERMISSIONS`` (the resolver's "user has no presence in this workspace" signal
-    — no role matches in the resource's workspace and it isn't an autogranted default
-    workspace) and ``DENY`` (an explicit sub-resource restriction). Flooring either
-    would silently leak ``default_permission`` (e.g. READ) past a workspace boundary or
-    an intended deny. ``None`` (workspaces disabled, no grant) still falls through to
-    ``default_permission`` as the safety net.
+    """Floor the role-derived permission at ``default_permission``. ``NO_PERMISSIONS``
+    (no presence in the resource's workspace) and ``DENY`` are preserved -- flooring
+    either would leak the default past a workspace boundary or an explicit deny;
+    ``None`` (workspaces disabled, no grant) falls through to the default.
     """
     perm = role_permission_func()
     default = get_permission(auth_config.default_permission)
@@ -741,15 +736,9 @@ def _wildcard_grant_in_request_workspace(resource_type: str, username: str) -> P
 
 
 def _top_level_create_denied(resource_type: str, username: str) -> bool:
-    """``True`` iff a workspace-wide ``(resource_type, *, DENY)`` blocks CREATING a top-level
-    resource of that type.
-
-    Mirrors the sub-resource rule for the parent tier: workspace ``USE``/``EDIT`` allows
-    creating a top-level resource, but a ``(type, *, DENY)`` prevents it — exactly as a
-    ``(child, *, DENY)`` prevents child creation even under parent ``USE``. Creation has no
-    resource id yet, so this resolves the wildcard ``(type, *)`` grant in the request
-    workspace. A ``DENY`` is opt-in, so this only ever blocks a caller who explicitly set
-    it — backwards-compatible with the pre-existing workspace-only create gate.
+    """True iff a workspace-wide ``(resource_type, *, DENY)`` blocks creating a top-level
+    resource -- the parent-tier mirror of the child-creation DENY rule. DENY is opt-in,
+    so this only blocks callers who explicitly set it.
     """
     perm = _wildcard_grant_in_request_workspace(resource_type, username)
     return perm is not None and perm.name == DENY.name
@@ -828,19 +817,10 @@ def _role_permission_for(
     parent_type: str | None = None,
     parent_id: str | None = None,
 ) -> Callable[[], Permission | None]:
-    """
-    Build a callable that resolves a user's role-based permission on a specific resource,
-    for use as ``role_permission_func`` in ``_get_role_permission_or_default``.
-
-    ``resource_key`` is the lookup key for ``role_permissions`` (may differ from the
-    workspace-resolution id for composite resources, e.g. scorers use
-    ``SqlAlchemyStore._scorer_pattern(experiment_id, scorer_name)`` as the role key
-    but resolve the workspace via the parent experiment).
-
-    ``parent_type``/``parent_id`` name the resource's parent tier for the sub-resource
-    inheritance fold: when the caller holds no grant on ``resource_type``, the store
-    falls back to the parent tier (today's inheritance). Top-level resources pass
-    neither and resolve on a single tier exactly as before.
+    """Build the ``role_permission_func`` for ``_get_role_permission_or_default``.
+    ``resource_key`` is the ``role_permissions`` lookup key (composite resources, e.g.
+    scorers, use a different key than the workspace-resolution id);
+    ``parent_type``/``parent_id`` enable the child -> parent fallback fold.
     """
 
     def _role_perm() -> Permission | None:
@@ -989,25 +969,17 @@ def _artifact_proxy_child_from_path(artifact_path: str | None) -> tuple[str, str
     # is present. Any other layout (``<exp>/file.txt``, ``<exp>/dir/file.txt``) is
     # experiment-level content and must keep experiment authorization -- otherwise a
     # run-only grant could read experiment data, and a ``(run, *, DENY)`` would wrongly
-    # block it (Copilot).
+    # block it.
     if third == "artifacts":
         return "run", second
     return None
 
 
 def _canonicalize_artifact_proxy_path(artifact_path: str | None) -> str | None:
-    """Canonicalize a proxied artifact path with the handler's own decode/safety rules
-    before authorization classifies it.
-
-    ``validate_path_is_safe`` (applied by every artifact handler before joining the path)
-    percent-decodes and rejects ``..``, alternate separators, and absolute forms -- but
-    ACCEPTS ``.`` and empty segments, which filesystem joining then collapses. Without the
-    same collapse here, ``7/run-1/./artifacts/x`` or ``7//models/m-1/artifacts/y`` would
-    shift the layout segments, classify as experiment-level (or miss the experiment id
-    entirely), and bypass the run/trace/logged_model child tier while the store still
-    resolves the canonical child location (review finding). A path the safety check
-    rejects is returned as-is: the handler rejects that request outright, so no data is
-    served under whatever tier it classifies to.
+    """Collapse ``.``/empty path segments exactly as filesystem joining does BEFORE
+    authorization classifies the layout: ``validate_path_is_safe`` accepts them, so
+    without this ``7/run-1/./artifacts/x`` would shift the layout segments and bypass
+    the run/trace-tier gate.
     """
     if not artifact_path:
         return artifact_path
@@ -1101,21 +1073,28 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
+# --- Adding auth for a NEW resource type: the standard building blocks -------------
+# Point checks:      _experiment_child_permission(type, key, experiment_id)  (child tier
+#                    with experiment fallback) or _role_permission_for(...) for other
+#                    parents, floored via _get_role_permission_or_default.
+# DENY-only vetoes:  name them ``_<x>_deny_active`` and implement via
+#                    _deny_veto(<point check>) -- see _registered_scorer_deny_active.
+# Collections:       NEVER per-row point checks. Build one predicate per response with
+#                    _role_based_read_predicate / _role_based_permission_resolver, and
+#                    resolve foreign ids with _bulk_experiment_index (chunked IN (...)).
+# Filters:           a filter referencing another resource is an inference channel; gate
+#                    it with _wildcard_filter_authority precedence (see the SearchTraces
+#                    ``*_filter_allowed`` gates) and fail closed on unboundable operators.
+# Redaction:         register an after-request handler that parses the response proto and
+#                    drops fields via the per-response predicate (see
+#                    _redact_trace_assessments_response).
+# ------------------------------------------------------------------------------------
 def _experiment_child_permission(
     child_type: str, child_key: str, experiment_id: str, username: str | None = None
 ) -> Permission:
-    """Resolve a sub-resource's permission on its own tier, scoped to ``experiment_id``.
-
-    The child (``run``/``trace``/``assessment``/``logged_model``/``review_queue``) is
-    resolved on ``child_type`` and, on child-grant absence, falls back to the parent
-    experiment (today's inheritance). ``child_key`` is the resource key: a concrete id
-    when one exists, or ``"*"`` for create-style routes that target the experiment
-    before a child id is minted (child grants are wildcard-grain, so ``"*"`` matches
-    any child grant). The experiment supplies both the workspace scope and the parent
-    fallback tier, so a ``DENY`` child grant restricts and a positive child grant
-    escalates independently of the experiment level. ``username`` defaults to the
-    request's authenticated user; callers that already resolved it (GraphQL, the
-    artifact proxy) pass it to avoid re-authenticating.
+    """Resolve a child tier (run/trace/assessment/...) scoped to ``experiment_id``,
+    falling back to the experiment on child-grant absence. ``child_key`` is a concrete
+    id, or ``"*"`` for create-style routes (child grants are wildcard-grain).
     """
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1163,13 +1142,9 @@ def _get_trace_permission_for_experiment(experiment_id: str) -> Permission:
 
 
 def _trace_read_predicate() -> Callable[[str], bool]:
-    """Bulk ``experiment_id -> bool`` trace-read predicate.
-
-    Loads the caller's grants once and evaluates every experiment locally, so a
-    multi-experiment trace request stays O(1) authorization queries instead of one
-    workspace + grants round trip per experiment. Equivalent per-experiment to
-    ``_get_trace_permission_for_experiment(eid).can_read`` (trace tier, experiment
-    fallback).
+    """Bulk ``experiment_id -> bool`` trace-read predicate: one grants query, evaluated
+    per experiment in memory (equivalent to
+    ``_get_trace_permission_for_experiment(eid).can_read``).
     """
     return _role_based_read_predicate(
         authenticate_request().username, "trace", parent_type="experiment"
@@ -1346,14 +1321,9 @@ def _get_permission_from_scorer_name() -> Permission:
 
 
 def _registered_scorer_deny_active(experiment_id: str, name: str) -> bool:
-    """``True`` iff invoking the CONCRETE registered scorer ``name`` is blocked by a ``DENY``.
-
-    Unlike ``_scorer_version_deny_active`` (which resolves only the workspace-wide
-    ``(scorer_version, *)`` tier), this resolves the specific scorer's ``scorer_version`` tier
-    WITH ``parent_type="scorer"`` fallback, so a ``DENY`` on the concrete scorer parent
-    ``(scorer, <name>, DENY)`` -- or on its versions -- blocks a caller who would otherwise
-    invoke that registered scorer via experiment-``UPDATE`` alone (Copilot finding 1). Used by
-    the invoke/evaluate/optimize routes when they reference a registered scorer by name.
+    """True iff a DENY blocks the concrete registered scorer ``name``: resolves its
+    scorer_version tier WITH scorer-parent fallback, so ``(scorer, <name>, DENY)`` or a
+    version DENY vetoes routes that reference the scorer.
     """
     return _deny_veto(_get_scorer_version_permission(experiment_id, name))
 
@@ -1381,31 +1351,18 @@ def _get_permission_from_scorer_version_name() -> Permission:
 
 
 def _deny_veto(*permissions: "Permission | None") -> bool:
-    """Universal DENY veto (RFC "absolute deny"): return ``True`` (⇒ reject) iff **any**
-    resolved permission is ``DENY``.
-
-    Positive requirements are anchor-scoped -- a route requires only its same-parent
-    children, so requiring a *cross-parent* positive grant would break an existing caller who
-    legitimately lacks it. A ``DENY`` is the opposite: it must hold on **every** resource the
-    call path touches (even a cross-parent one for which no positive grant is required),
-    because ``DENY`` is a net-new, opt-in grant -- vetoing only blocks a caller who
-    *explicitly* set ``(X, *, DENY)``, so it is backwards-compatible by construction. Resolve
-    each touched resource's tier (parent fallback is built into the resolver) and pass the
-    Permissions here.
+    """True (=> reject) iff any resolved permission is ``DENY``. Unlike positive
+    requirements (anchor-scoped), a DENY holds on EVERY resource the call path touches,
+    including cross-parent ones with no positive requirement -- DENY is opt-in, so
+    vetoing only blocks callers who explicitly set it.
     """
     return any(p is not None and p.name == DENY.name for p in permissions)
 
 
 def _scorer_version_deny_active(experiment_id: str) -> bool:
-    """``True`` iff the caller holds a workspace-wide ``(scorer_version, *, DENY)`` in the
-    experiment's workspace -- the cross-parent DENY veto for routes that *use* a scorer.
-
-    Composite/invoke routes (``INVOKE_SCORER`` / ``INVOKE_GENAI_EVALUATE`` /
-    ``CreatePromptOptimizationJob``) and new-scorer registration require no *positive*
-    ``scorer_version`` grant (it is cross-parent to the experiment anchor -- Copilot #32), but
-    a ``scorer_version`` ``DENY`` must still block them. The wildcard grant denies every
-    version in the workspace, so this resolves the ``(scorer_version, *)`` tier independent of
-    any specific scorer name.
+    """True iff the caller holds a workspace-wide ``(scorer_version, *, DENY)`` in the
+    experiment's workspace -- the cross-parent veto for routes that use scorers without
+    requiring a positive scorer_version grant.
     """
     username = authenticate_request().username
     return _deny_veto(
@@ -1468,29 +1425,13 @@ def _register_scorer_version_permission(experiment_id: str, name: str) -> Permis
 
 
 def validate_can_register_scorer():
-    """Register a scorer (creates the scorer parent and/or a new version).
-
-    OWNER RULING (supersedes the earlier OSS-parity exception): registering a version on
-    an EXISTING scorer is a scorer-version create and requires the SCORER tier's
-    ``can_update`` (EDIT+), resolved through the normal fold -- a per-name
-    ``(scorer, <experiment>/<name>)`` grant is authoritative (``DENY`` blocks; a grant
-    below EDIT blocks), and with no scorer grant the tier falls back to the experiment,
-    so a plain experiment editor keeps OSS behavior. A ``(scorer_version, *, DENY)``
-    still vetoes both branches (both write a version). DELIBERATE product contract, part
-    of the same ruling: POSITIVE ``scorer_version`` grants do NOT authorize creation --
-    version-creation authority lives on the scorer tier (or the experiment fallback);
-    a ``(scorer_version, *, EDIT)`` holder can update/delete existing versions but needs
-    scorer EDIT (or experiment EDIT) to register new ones.
-
-    CREATING the scorer parent (probe reports the scorer absent) keeps the create
-    policy: ``experiment.can_update`` plus the ``(scorer, *, DENY)`` create veto, and
-    flags parent creation for the after-request MANAGE grant. KNOWN LIMIT (deferred to a
-    follow-up PR): the probe is a pre-request check, so a concurrent create/delete
-    between probe and handler can misclassify the branch -- affecting which policy
-    applied and the MANAGE-grant flag. The flag-gated grant is already strictly safer
-    than master, which grants MANAGE unconditionally on every registration; the
-    race-free fix (a transactional store callback + created-signal) is intentionally
-    out of scope here.
+    """OWNER RULING: registering a version on an EXISTING scorer is a scorer-version
+    create and requires the SCORER tier's ``can_update`` -- a per-name scorer grant is
+    authoritative (DENY or below-EDIT blocks; EDIT+ authorizes), with experiment
+    fallback otherwise, so a plain experiment editor keeps OSS behavior. Positive
+    ``scorer_version`` grants deliberately do NOT confer creation (see RBAC docs).
+    Creating a NEW scorer requires experiment EDIT; a ``(scorer_version, *, DENY)``
+    vetoes both branches. A payload referencing a gateway endpoint requires USE on it.
     """
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
@@ -1499,8 +1440,7 @@ def validate_can_register_scorer():
     # Registration RESOLVES and BINDS any gateway endpoint referenced by the scorer's
     # serialized model (the store rewrites the name to an endpoint id and creates or
     # replaces a SqlGatewayEndpointBinding), so require the same gateway-endpoint USE as
-    # direct invocation; a malformed payload fails closed (review finding: an experiment
-    # editor could otherwise probe and mutate endpoint bindings without USE).
+    # direct invocation; a malformed payload fails closed.
     body = request.get_json(silent=True)
     serialized_scorer = body.get("serialized_scorer") if isinstance(body, dict) else None
     if serialized_scorer is not None:
@@ -1538,7 +1478,7 @@ def validate_can_delete_scorer_version():
         # operation: require the version child tier's can_delete (parent fallback when no
         # child grant exists) atop the parent delete -- a child DENY or lower child grant
         # that blocks deleting one version must not be bypassed by deleting the scorer
-        # (review finding).
+        # .
         if not _get_permission_from_scorer_name().can_delete:
             return False
         return _get_scorer_version_permission(
@@ -1685,14 +1625,9 @@ def validate_can_delete_experiment():
 
 
 def validate_can_delete_experiment_lifecycle():
-    """DeleteExperiment marks every run deleted and permanently deletes their source-run
-    assessments (``_mark_run_deleted`` per run), so it is a composite lifecycle operation:
-    require the authoritative run tier's delete and the assessment tier's mutation
-    capability atop experiment delete (review finding). Both child tiers are
-    wildcard-grain, so one experiment-scoped resolution each covers every affected row --
-    which rows the store selects cannot change the outcome. The cross-experiment
-    source-run assessment residual matches validate_can_delete_run's documented TODO
-    (owner ruling: probable store bug, call deferred upstream).
+    """DeleteExperiment cascades run deletion and their source-run assessments, so
+    require run delete + assessment mutation atop experiment delete (both child tiers
+    are wildcard-grain: one experiment-scoped resolution each).
     """
     experiment_id = _get_request_param("experiment_id")
     if not _get_permission_from_experiment_id().can_delete:
@@ -1742,18 +1677,11 @@ def validate_can_create_run():
 
 
 def validate_can_create_prompt_optimization_job():
-    """CreatePromptOptimizationJob creates a run (positive: run tier), uses scorers, and on
-    completion REGISTERS a new version of the ``source_prompt_uri`` prompt. A positive
-    ``scorer_version`` grant is not required (cross-parent to the experiment anchor), but a
-    ``(scorer_version, *, DENY)`` vetoes it and a DENY on each concrete REGISTERED scorer
-    the job would resolve from ``config.scorers`` vetoes as well. The source prompt's
-    version tier (prompt-parent fallback) must positively allow ``can_update``, since the
-    job writes to that prompt's version chain.
-
-    The body is parsed through the SAME proto message the handler uses (``parse_dict``
-    accepts both ``source_prompt_uri`` and its JSON alias ``sourcePromptUri``), so the
-    checks cannot be bypassed with an alias spelling the raw-dict lookup would miss
-    (review finding).
+    """CreatePromptOptimizationJob creates a run (run tier), uses scorers
+    (``scorer_version`` DENY vetoes, incl. per registered scorer in ``config.scorers``),
+    registers a new version of ``source_prompt_uri`` (its version tier must allow
+    ``can_update``), reads ``config.dataset_id`` (dataset READ on every associated
+    experiment, fail closed), and gates ``endpoint_name`` on gateway USE.
     """
     if not validate_can_create_run():
         return False
@@ -1762,8 +1690,7 @@ def validate_can_create_prompt_optimization_job():
     # The handler immediately loads config.dataset_id (get_genai_dataset), links it to
     # the new run, and the worker reads its records -- so the composite route must apply
     # the SAME check as the direct dataset APIs: READ on every associated experiment,
-    # fail-closed on a missing dataset (review finding: run/prompt permissions could
-    # otherwise read a dataset the direct routes deny).
+    # fail-closed on a missing dataset.
     if msg.config.dataset_id and not _dataset_read_allowed(
         msg.config.dataset_id, authenticate_request().username
     ):
@@ -1783,7 +1710,7 @@ def validate_can_create_prompt_optimization_job():
                     # Mirror the job's own resolution: a non-instantiable module attribute
                     # (e.g. an import like ``json``) makes the job fall back to the
                     # REGISTERED scorer of that name, so its DENY must still be checked
-                    # (Copilot).
+                    # .
                     pass
             if _registered_scorer_deny_active(experiment_id, name):
                 return False
@@ -1861,7 +1788,7 @@ def validate_can_log_batch():
 def validate_can_log_inputs():
     # LogInputs writes MODEL_INPUT lineage rows targeting the logged models in `models`, so a
     # run-updater could otherwise attach lineage to a logged model they are denied. Require
-    # run UPDATE AND UPDATE on every referenced logged-model id (Copilot finding 2), matching
+    # run UPDATE AND UPDATE on every referenced logged-model id, matching
     # LogMetric/LogBatch. Parse through the proto for the camelCase `modelId` alias.
     msg = _get_request_message(LogInputs())
     model_ids = {m.model_id for m in msg.models if m.model_id}
@@ -1877,21 +1804,10 @@ def validate_can_log_outputs():
 
 
 def validate_can_delete_run():
-    """DeleteRun also permanently deletes every assessment whose source run is this run
-    (``_mark_run_deleted``), so require the assessment child tier's mutation capability --
-    the same one gating direct assessment deletion -- atop run delete (review finding).
-    Assessments are wildcard-grain children, so one experiment-scoped resolution covers
-    them, and an explicit assessment grant (including DENY) is workspace-scoped and
-    therefore enforced regardless of which experiment hosts the assessment.
-
-    TODO(sub-resource-permissions follow-up): the store's deletion predicate matches
-    assessments by ``sourceRunId`` metadata WITHOUT constraining them to this run's
-    experiment, so for a caller with NO assessment grant (per-experiment fallback) a
-    cross-experiment sourced assessment is deleted under the run's experiment authority --
-    identical to master's behavior. Owner ruling: this cross-experiment cascade looks like
-    a store bug, not a contract the auth engine should model; take the call upstream
-    (constrain the predicate vs. transactional per-experiment authorization) with the
-    other transactional-store work.
+    """DeleteRun also permanently deletes every assessment whose source run is this run,
+    so require the assessment child tier's mutation capability atop run delete.
+    TODO(follow-up): the store's predicate also matches cross-experiment source-run
+    assessments (upstream gap U1); flagged, not enforceable from the auth package.
     """
     run_id = _get_request_param("run_id")
     experiment_id = _get_tracking_store().get_run(run_id).info.experiment_id
@@ -2047,8 +1963,7 @@ def validate_can_update_registered_model():
 def validate_can_delete_registered_model():
     # The route map uses the shared model-or-prompt form; delegate so the composite
     # whole-parent rule (parent delete AND version-tier delete) cannot drift between the
-    # two spellings (review finding: the composite check was first added here, where no
-    # route consults it).
+    # two spellings.
     return _validate_can_delete_registered_model_or_prompt()
 
 
@@ -2108,7 +2023,7 @@ def _validate_can_delete_registered_model_or_prompt():
     # operation: require the corresponding version child tier's can_delete (parent
     # fallback when no child grant exists) atop the parent delete -- a child DENY or
     # lower child grant that blocks deleting one version must not be bypassed by
-    # deleting the parent (review finding). Both helpers classify prompt-vs-model, so
+    # deleting the parent. Both helpers classify prompt-vs-model, so
     # the persisted namespace (registered_model[_version] or prompt[_version]) is
     # consulted for either registry shape.
     if not _get_permission_from_registered_model_or_prompt_name().can_delete:
@@ -2170,13 +2085,9 @@ def validate_can_create_experiment() -> bool:
 
 
 def _create_request_targets_prompt() -> bool:
-    """Classify a ``CreateRegisteredModel`` request as creating a prompt vs. a registered model
-    from its **request-body** ``mlflow.prompt.is_prompt`` tag.
-
-    Unlike ``_request_targets_prompt`` (which reads the *persisted* entity and so returns
-    ``False`` at create time, before the entity exists), a create has only the body to go on.
-    Mirrors the handler's ``_is_prompt_request``: tags collapse by key, last value wins, and
-    only a truthy value selects the prompt path.
+    """Classify a CreateRegisteredModel request as prompt vs. registered model from its
+    request-body ``mlflow.prompt.is_prompt`` tag (the persisted entity does not exist
+    yet). Mirrors the handler's ``_is_prompt_request`` collapse rules.
     """
     tags = _request_params().get("tags") or []
     value = "false"
@@ -2191,7 +2102,7 @@ def validate_can_create_registered_model() -> bool:
     # request's is_prompt tag). Workspace USE/EDIT allows it, but a (type, *, DENY) on the
     # type ACTUALLY being created prevents it. Veto only the matching type -- a
     # (prompt, *, DENY) must not block creating an ordinary registered model, nor vice versa
-    # (Copilot r4052491505).
+    # .
     if not _user_can_create_in_workspace():
         return False
     created_type = "prompt" if _create_request_targets_prompt() else "registered_model"
@@ -2251,22 +2162,13 @@ def validate_can_manage_scorer_permission():
 
 
 def validate_can_update_online_scoring_config():
-    """A POSITIVE sample rate enables background jobs that load the stored scorer
-    version, read the experiment's traces/sessions, execute the scorer (including any
-    gateway endpoint it references), and write assessments.
-
-    BACKWARDS-COMPATIBLE policy (owner decision): a plain experiment editor with no
-    child grants must keep the OSS contract (experiment UPDATE enables), so every
-    additional tier is consulted in a form that reduces to the experiment level or a
-    no-op when no explicit grant exists -- trace READ and assessment UPDATE resolve with
-    experiment fallback, while the scorer/scorer_version and gateway-endpoint tiers are
-    DENY-only overlays, matching the INVOKE_SCORER composite family (their positive
-    requirement lives on registration, which already gates gateway USE). Explicit
-    restrictions still block enabling: ``(trace/assessment, *, DENY)``, a scorer or
-    scorer-version DENY (per-name parent fallback included), and an endpoint DENY.
-    The trace/assessment/scorer tiers are evaluated from ONE grants query
-    (``_online_scoring_enable_tiers_allow``). Disabling (sample_rate <= 0) schedules no
-    work and needs only experiment UPDATE.
+    """A POSITIVE sample rate enables background jobs that read traces, execute the
+    stored scorer (and any gateway endpoint it references), and write assessments.
+    BACKWARDS-COMPATIBLE policy (owner decision): experiment UPDATE is the anchor;
+    trace READ / assessment UPDATE resolve with experiment fallback; the scorer and
+    gateway tiers are DENY-only overlays (their positive requirement lives on
+    registration). The three child tiers resolve from ONE grants query. Disabling
+    (sample_rate <= 0) needs only experiment UPDATE.
     """
     body = request.get_json(silent=True) or {}
     experiment_id = body.get("experiment_id")
@@ -2320,8 +2222,7 @@ def validate_can_read_online_scoring_configs():
             return False
     # Configs carry scorer_id, but the scorer/scorer_version tiers parent to the SCORER
     # (<experiment_id>/<name>) -- resolve ids to scorer identities in ONE bulk listing
-    # across the distinct experiments (review finding: per-experiment list_scorers calls
-    # were O(experiments) on a caller-controlled request). BACKWARDS-COMPATIBLE policy
+    # across the distinct experiments on a caller-controlled request). BACKWARDS-COMPATIBLE policy
     # (owner decision): the scorer tier is a DENY-only overlay here, like the enable
     # gate -- an experiment reader with no scorer grants keeps the OSS contract, an
     # explicit scorer/scorer-version DENY hides the config, and an id that doesn't
@@ -2536,8 +2437,7 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
     # Grant lookup stays namespaced under "prompt" (the dispatch's resource_type);
     # workspace resolution reuses the registry's get_registered_model exactly like the
     # runtime path (_get_permission_from_prompt_name), so get_user_permission cannot
-    # drift from real authorization decisions (review finding: prompt was advertised in
-    # VALID_RESOURCE_TYPES but unsupported here, breaking prompt-MANAGE delegation).
+    # drift from real authorization decisions.
     RESOURCE_TYPE_PROMPT: (
         "prompt",
         lambda: _get_model_registry_store().get_registered_model,
@@ -2639,7 +2539,7 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
         trace = _get_tracking_store().get_trace_info(trace_id)
         # Verify the CONCRETE assessment exists (the API reports permission on an instance;
         # a nonexistent id must resolve NO_PERMISSIONS via the caller's not-found catch, not
-        # report an allowed permission for a child that isn't there -- Copilot finding 2).
+        # report an allowed permission for a child that isn't there
         _get_tracking_store().get_assessment(trace_id, assessment_id)
         return _ResourceDispatch(
             resource_key=assessment_id,
@@ -2678,7 +2578,7 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
         # Verify the persisted entity's LOGICAL type matches the requested namespace
         # (prompts and registered models share the registry table): reporting a
         # permission for the wrong namespace would let get_user_permission disagree with
-        # the runtime routes, which classify by the persisted entity (review finding).
+        # the runtime routes, which classify by the persisted entity.
         # A mismatch follows the caller's RESOURCE_DOES_NOT_EXIST -> NO_PERMISSIONS path.
         rm = _get_model_registry_store().get_registered_model(resource_id)
         if rm._is_prompt() != (resource_type == RESOURCE_TYPE_PROMPT_VERSION):
@@ -2748,7 +2648,7 @@ def _resolve_user_permission_for_resource(
     # RESOURCE_DOES_NOT_EXIST; per the documented deny-by-default contract of
     # get_user_permission, an unknown resource must resolve to NO_PERMISSIONS, NOT leak
     # existence via a 404 (a self-permission caller is authorized before this lookup, so a
-    # 200-vs-404 split would be an existence oracle -- Copilot finding 4). Malformed input
+    # 200-vs-404 split would be an existence oracle
     # (INVALID_PARAMETER_VALUE) still surfaces as a 400.
     try:
         dispatch = _resource_dispatch_keys(resource_type, resource_id)
@@ -2939,13 +2839,9 @@ def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]
 def _load_role_grants(
     username: str, resource_type: str, parent_type: str | None
 ) -> tuple[bool, "_ReadGrants", "_ReadGrants | None", str | None]:
-    """Bulk-load ``username``'s child + parent grants for ``resource_type`` in one query.
-
-    Returns ``(workspace_admin, child_grants, parent_grants, workspace_name)``. A
-    ``workspace_name`` of ``None`` means there is no active workspace (callers deny / return
-    NO_PERMISSIONS). Shared by ``_role_based_read_predicate`` and
-    ``_role_based_permission_resolver`` so the single grants query and tier-loading logic
-    live in one place.
+    """Bulk-load the child + parent tier grants for ``resource_type`` in one query.
+    Returns ``(workspace_admin, child_grants, parent_grants, workspace_name)``;
+    ``workspace_name is None`` means no active workspace (callers deny).
     """
     workspace_name = (
         workspace_context.get_request_workspace()
@@ -2978,13 +2874,9 @@ def _load_role_grants(
 def _load_role_grants_for_types(
     username: str, resource_types: tuple[str, ...]
 ) -> tuple[bool, dict[str, "_ReadGrants"], str | None]:
-    """Bulk-load ``username``'s grants for SEVERAL resource types in one query -- the
-    multi-tier sibling of ``_load_role_grants``, for gates that consult more than one
-    child/parent tier per request (owner request: evaluate them all from a single grants
-    query instead of one round-trip per tier).
-
-    Returns ``(workspace_admin, grants_by_type, workspace_name)``; a ``workspace_name``
-    of ``None`` means there is no active workspace (callers deny).
+    """Multi-tier sibling of ``_load_role_grants``: one grants query covering several
+    resource types. Returns ``(workspace_admin, grants_by_type, workspace_name)``;
+    ``workspace_name is None`` means no active workspace (callers deny).
     """
     workspace_name = (
         workspace_context.get_request_workspace()
@@ -3013,13 +2905,9 @@ def _load_role_grants_for_types(
 
 
 def _online_scoring_enable_tiers_allow(username: str, experiment_id: str, name: str) -> bool:
-    """Evaluate the online-scoring enable gate's child tiers from ONE grants query:
-    trace READ and assessment UPDATE (experiment fallback -- a grant-less experiment
-    editor keeps the OSS contract), plus the scorer/scorer_version DENY-only veto
-    (scorer-parent fallback, per the INVOKE_SCORER composite family). Mirrors the point
-    folds' precedence: workspace-admin bypass, authoritative child tier (floored
-    positives, DENY-ahead-of-max), parent fallback, then the default floor;
-    ``NO_PERMISSIONS`` rows are inert exactly as in the bulk predicates.
+    """Evaluate the enable gate's child tiers from ONE grants query: trace READ and
+    assessment UPDATE (experiment fallback) plus the scorer/scorer_version DENY-only
+    veto (scorer-parent fallback). Mirrors the point folds' precedence.
     """
     workspace_admin, grants_by_type, workspace_name = _load_role_grants_for_types(
         username,
@@ -3077,36 +2965,12 @@ def _floor_positive_permission(perm: Permission) -> Permission:
 def _role_based_read_predicate(
     username: str, resource_type: str, parent_type: str | None = None
 ) -> Callable[[str], bool]:
-    """
-    Build a ``p(resource_id) -> bool`` read predicate from ``username``'s role grants
-    in the active workspace, honoring the sub-resource tier-override model.
-
-    Precedence (highest first), mirroring ``get_role_permission_for_resource``:
-
-    1. **workspace-admin** — a ``(workspace, *, MANAGE)`` grant reads everything
-       (beats a child ``DENY``).
-    2. **child tier** — if the caller holds *any* grant on ``resource_type``:
-       a ``DENY`` grant denies; otherwise the row's ``can_read`` decides (wildcard or
-       specific id). The parent is not consulted.
-    3. **parent fallback** — only when ``parent_type`` is given and the caller has no
-       grant on the child type: resolve the parent tier the same way (today's
-       inheritance).
-    4. **default** — ``default_permission.can_read`` when workspaces are disabled or
-       the default-workspace autogrant applies; otherwise deny.
-
-    ``DENY`` is an absolute deny within its tier; it never overrides a present child
-    grant downward. ``NO_PERMISSIONS`` rows are inert (ignored), preserving pre-RFC
-    behavior. Top-level reads pass no ``parent_type`` and behave as a single tier —
-    identical to before this RFC.
-
-    PRECONDITION — super-admin is NOT handled here. This predicate honors only the
-    *workspace*-admin bypass (step 1); the *super*-admin (global ``is_admin``) bypass
-    lives OUTSIDE, at each caller's ``if sender_is_admin(): return`` guard. So a super
-    admin whose only relevant grant is a ``DENY`` would be wrongly denied if a caller
-    invoked this predicate without that guard first. Every current caller does gate
-    ``sender_is_admin()`` first; a NEW caller MUST do the same. The clean fix (deferred)
-    is to fold the super-admin bypass into a single shared resolver so ``DENY`` can
-    never be evaluated ahead of it — see ``get_role_permission_for_resource``.
+    """Build a ``p(resource_id) -> bool`` read predicate from one grants query, under the
+    fold's precedence: (1) workspace-admin bypass; (2) child tier authoritative when any
+    child grant exists (DENY denies, else floored ``can_read``); (3) parent fallback
+    when ``parent_type`` is given; (4) the default floor. ``NO_PERMISSIONS`` rows are
+    inert. PRECONDITION: honors only the WORKSPACE-admin bypass -- callers MUST gate
+    ``sender_is_admin()`` first or a super admin holding only a DENY is wrongly denied.
     """
     workspace_admin, child, parent, workspace_name = _load_role_grants(
         username, resource_type, parent_type
@@ -3136,16 +3000,9 @@ def _role_based_read_predicate(
 def _role_based_permission_resolver(
     username: str, resource_type: str, parent_type: str | None = None
 ) -> Callable[[str], Permission]:
-    """Bulk ``resource_id -> Permission`` resolver — the full-``Permission`` analog of
-    ``_role_based_read_predicate``.
-
-    Loads the caller's grants once and resolves every id in memory (O(1) queries),
-    returning the effective ``Permission`` (all capability bits, for e.g. allowed-action
-    stamping) under the same precedence: workspace-admin -> ``MANAGE``; child tier
-    (DENY-ahead-of-max); parent fallback; else the configured ``default_permission``.
-
-    Same super-admin precondition as ``_role_based_read_predicate``: this honors only the
-    workspace-admin bypass, so callers MUST gate ``sender_is_admin()`` first.
+    """Bulk ``resource_id -> Permission`` resolver (full-``Permission`` analog of
+    ``_role_based_read_predicate``): one grants query, same precedence. Same
+    super-admin precondition -- callers MUST gate ``sender_is_admin()`` first.
     """
     workspace_admin, child, parent, workspace_name = _load_role_grants(
         username, resource_type, parent_type
@@ -3165,7 +3022,7 @@ def _role_based_permission_resolver(
             return MANAGE
         # Grant-resolved rows fold the same positive default_permission floor as the
         # point path (_get_role_permission_or_default), so bulk allowed-action stamping
-        # can't advertise less than the point routes enforce (review finding).
+        # can't advertise less than the point routes enforce.
         if child.has_grant(resource_id):
             return _floor_positive_permission(child.permission(resource_id))
         if parent is not None and parent.has_grant(resource_id):
@@ -3176,24 +3033,9 @@ def _role_based_permission_resolver(
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
-    """
-    Filter experiment IDs to only include those whose runs the user can read.
-
-    Called from ``search_runs_impl`` before the tracking store query. When workspaces
-    are enabled, the tracking store subsequently filters to the active workspace, so we
-    only consult role grants in that workspace here — experiments outside it would be
-    rejected anyway.
-
-    Run search reads runs, so filtering is gated on the ``run`` tier with experiment
-    fallback: a ``(run, *, READ)`` escalation exposes runs, a ``(run, *, DENY)``
-    restriction hides them, and absent run grants inherit experiment read (pre-RFC
-    behavior).
-
-    Args:
-        experiment_ids: List of experiment IDs to filter
-
-    Returns:
-        Filtered list of experiment IDs the user can read
+    """Filter experiment IDs to those whose RUNS the user can read (run tier with
+    experiment fallback), before the tracking store query. Unions role grants with
+    legacy per-experiment permissions; workspace scoping is applied by the store.
     """
     if not auth_config:
         return experiment_ids
@@ -3360,23 +3202,10 @@ def validate_can_update_gateway_model_definition():
 
 
 def validate_can_invoke_genai_evaluate():
-    """INVOKE_GENAI_EVALUATE creates a run in the request experiment, reads the supplied
-    ``trace_ids``, and the submitted evaluation job tags (``set_trace_tag``) and writes
-    assessments back onto those traces (``genai/evaluation/harness.py``). Enforce the three
-    experiment children it touches, each with experiment fallback so an experiment-``EDIT``
-    caller cannot bypass a ``(child, *, DENY)`` grant through this route:
-
-    * run UPDATE -- creates the evaluation run (same gate as ``CreateRun``);
-    * trace UPDATE -- the harness reads AND tags the evaluated traces
-      (``mlflow.set_trace_tag``, ``harness.py:894``), so require UPDATE, not just READ; gated
-      experiment-scoped (the wildcard-grain trace tier honors a workspace ``(trace, *,
-      DENY)`` regardless of the anchor experiment); and
-    * assessment UPDATE -- the evaluation always logs assessments back onto the traces
-      (unconditional here, unlike ``INVOKE_SCORER``'s ``log_assessments`` flag).
-
-    Asserting the supplied ``trace_ids`` actually belong to ``experiment_id`` is the
-    operation's business-logic concern, not the auth model's: trace is workspace/experiment-
-    grained, so the auth layer does not reverse-map a trace id to its experiment.
+    """INVOKE_GENAI_EVALUATE creates a run, reads + tags the evaluated traces, and
+    writes assessments: require run UPDATE (as CreateRun), trace UPDATE, and assessment
+    UPDATE, each with experiment fallback. Scorer use is vetoed by scorer_version /
+    per-registered-scorer DENYs (no positive scorer grant required).
     """
     if not validate_can_create_run():
         return False
@@ -3385,14 +3214,8 @@ def validate_can_invoke_genai_evaluate():
         return False
     if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
         return False
-    # Cross-parent DENY veto: a (scorer_version, *, DENY) blocks the evaluation even though
-    # no positive scorer_version grant is required (the eval uses registered scorers).
     if _scorer_version_deny_active(experiment_id):
         return False
-    # Entries with a non-null scorer_version reference a REGISTERED scorer (the handler
-    # resolves them by the name inside the serialized payload and executes them); honor a
-    # DENY on each concrete scorer parent / its versions (Copilot follow-up #1). Entries the
-    # handler would reject anyway (malformed JSON / missing name) are left to its 400.
     body = request.get_json(silent=True)
     if isinstance(body, dict):
         serialized_scorers = body.get("serialized_scorers") or []
@@ -3403,28 +3226,18 @@ def validate_can_invoke_genai_evaluate():
             try:
                 name = json.loads(serialized)["name"]
             except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-                continue  # handler rejects with INVALID_PARAMETER_VALUE before execution
+                continue  # malformed entry: the handler 400s before execution
             if isinstance(name, str) and _registered_scorer_deny_active(experiment_id, name):
                 return False
     return True
 
 
 def validate_can_invoke_issue_detection():
-    """
-    Issue detection creates a run in the request's experiment, reads the supplied
-    ``trace_ids``, writes ``Issue`` assessments back onto them (``_annotate_issue_traces``,
-    ``genai/discovery/pipeline.py``), and, when ``secret_id`` is given, decrypts that gateway
-    secret into the job environment. When ``endpoint_name`` is given, the handler routes the
-    judge through ``gateway:/<endpoint_name>``, requiring gateway-endpoint USE. Require
-    run-tier UPDATE on the target experiment
-    (experiment fallback, like ``CreateRun`` -- so a ``(run, *, DENY)`` grant is honored),
-    trace-tier READ and assessment-tier UPDATE on the experiment (honoring ``(trace, *,
-    DENY)`` / ``(assessment, *, DENY)``), and USE on the secret, mirroring model-definition
-    creation.
-
-    As with ``INVOKE_GENAI_EVALUATE``, trace/assessment are gated experiment-scoped;
-    asserting the supplied ``trace_ids`` belong to ``experiment_id`` is the operation's
-    business-logic concern, not the auth model's.
+    """Issue detection creates a run, reads traces, and writes Issue assessments:
+    require run UPDATE, trace READ, and assessment UPDATE (experiment fallback each).
+    ``endpoint_name`` routes the judge through ``gateway:/<name>`` and requires the
+    SAME USE as direct gateway invocation (the worker drops the caller identity);
+    ``secret_id`` requires USE on the secret.
     """
     if not validate_can_create_run():
         return False
@@ -3439,7 +3252,7 @@ def validate_can_invoke_issue_detection():
     # Mirror the handler's judge-model selection: a non-empty ``endpoint_name`` submits
     # discovery through ``gateway:/<name>``, so require the SAME ``USE`` check as direct
     # gateway invocation -- the worker doesn't propagate the caller identity, so the
-    # downstream gateway check cannot be relied on (review finding).
+    # downstream gateway check cannot be relied on.
     endpoint_name = body.get("endpoint_name")
     if endpoint_name and not _validate_gateway_use_permission(
         endpoint_name, authenticate_request().username
@@ -3453,20 +3266,10 @@ def validate_can_invoke_issue_detection():
 
 
 def validate_can_invoke_scorer():
-    """INVOKE_SCORER applies a scorer (as a judge) to existing traces and can log the
-    results back as assessments. It does NOT create a run or mutate the experiment, and --
-    consistent with how the route is gated today -- applying a scorer is not treated as an
-    operation on the scorer resource, so no scorer / scorer_version permission is required.
-    The permission-relevant resources are the ones it actually touches:
-
-    * experiment UPDATE -- the existing gate for writing within the experiment;
-    * trace READ -- the traces being scored; ``trace_ids`` all belong to the request
-      experiment, so the wildcard-grain trace tier (experiment fallback) covers them; and
-    * assessment UPDATE -- only when ``log_assessments`` is set, since the job then writes
-      assessments back onto the traces (matching the direct assessment-write routes).
-
-    The trace/assessment checks honor a ``(child, *, DENY)`` grant that an
-    experiment-``EDIT`` caller would otherwise bypass through this route.
+    """INVOKE_SCORER applies a scorer to existing traces: require experiment UPDATE
+    (the pre-existing gate), trace READ, and -- when ``log_assessments`` -- assessment
+    UPDATE (experiment fallback each). Applying a scorer needs no positive scorer
+    grant, but scorer_version / per-registered-scorer DENYs veto.
     """
     if not validate_can_update_experiment():
         return False
@@ -3477,13 +3280,8 @@ def validate_can_invoke_scorer():
     if isinstance(body, dict) and body.get("log_assessments", False):
         if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
             return False
-    # Cross-parent DENY veto: a (scorer_version, *, DENY) blocks invoking a scorer even
-    # though no positive scorer_version grant is required (Copilot #32 split verdict).
     if _scorer_version_deny_active(experiment_id):
         return False
-    # When the request references a REGISTERED scorer by name, also honor a DENY on that
-    # concrete scorer parent / its versions (scorer_version tier with scorer-parent fallback),
-    # so experiment UPDATE alone cannot invoke a scorer the caller is denied (Copilot #1).
     if isinstance(body, dict):
         scorer_name = body.get("scorer_name")
         if scorer_name and _registered_scorer_deny_active(experiment_id, scorer_name):
@@ -3690,20 +3488,24 @@ def _request_workspace_manager(username: str) -> bool:
     return _is_workspace_admin(store.get_user(username).id, workspace_name)
 
 
-def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
-    """A linked-prompts-backed trace filter (the bare ``prompt`` identifier) resolves
-    against the reserved tag, so which rows match (and page counts) leak denied
-    prompt-version references even after response redaction (review finding).
+def _wildcard_filter_authority(resource_type: str, username: str) -> tuple[bool, bool]:
+    """Classify the caller's wildcard child grant for a broad filter operator:
+    ``(denied, broad_allowed)``. A wildcard DENY is authoritative for the whole tier;
+    a positive (floored) readable wildcard covers every reference, allowing operators
+    that cannot be bounded to specific targets (``!=``, ``LIKE``, ...).
+    """
+    grant = _wildcard_grant_in_request_workspace(resource_type, username)
+    if grant is not None and grant.name == DENY.name:
+        return True, False
+    return False, grant is not None and _floor_positive_permission(grant).can_read
 
-    Policy, following the fold's precedence: the workspace-manager bypass allows any
-    prompt filter; a wildcard ``(prompt_version, *)`` child grant is authoritative --
-    DENY vetoes everything, a positive (floored) readable grant covers every prompt and
-    so allows even BROAD operators (``!=``, ``LIKE``, ...). Without an authoritative
-    child grant, an equality comparison names its target (``'<name>/<version>'``) and
-    the exact prompt resolves through the prompt_version fold WITH prompt-parent
-    fallback (a ``(prompt, <name>, DENY)`` blocks probing that prompt), while broad
-    operators cannot be bounded to specific parents and fail closed (the UI emits only
-    the equality grammar).
+
+def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
+    """Gate SearchTraces filters that reference linked prompts: matching rows leak
+    denied prompt-version references even after response redaction. Precedence:
+    workspace manager, wildcard grant (``_wildcard_filter_authority``), then equality
+    comparisons resolve their named prompt through the prompt_version fold; broad
+    operators without an authoritative wildcard fail closed.
     """
     context = None
     for filter_string in filter_strings:
@@ -3712,10 +3514,9 @@ def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
                 username = authenticate_request().username
                 if _request_workspace_manager(username):
                     return True
-                grant = _wildcard_grant_in_request_workspace("prompt_version", username)
-                if grant is not None and grant.name == DENY.name:
+                denied, broad_allowed = _wildcard_filter_authority("prompt_version", username)
+                if denied:
                     return False
-                broad_allowed = grant is not None and _floor_positive_permission(grant).can_read
                 context = (broad_allowed, _prompt_version_read_predicate(username))
             broad_allowed, per_name_readable = context
             if comparison.get("comparator") != "=":
@@ -3731,13 +3532,10 @@ def _search_traces_prompt_filter_allowed(*filter_strings) -> bool:
 
 
 def _linked_prompts_filter_comparisons(filter_string: str) -> list[dict]:
-    """The parsed comparisons of a trace filter that resolve to the linked-prompts tag,
-    decided by the SAME parser the store uses (``SearchTraceUtils`` maps the bare
-    ``prompt`` key to ``mlflow.linkedPrompts``) rather than a regex over an invented
-    spelling (review finding: the UI emits ``prompt = '<name>/<version>'``, which a
-    ``prompt.`` regex never matched). An unparsable prompt-mentioning filter yields an
-    unboundable sentinel so callers fail closed; grammars other layers own (e.g.
-    ``assessment.`` filters, which have their own gate) yield nothing.
+    """Comparisons of a trace filter that resolve to the linked-prompts tag, decided by
+    the store's OWN parser. Unparsable prompt-mentioning filters yield an unboundable
+    sentinel (callers fail closed); grammars other layers own (``assessment.``) yield
+    nothing.
     """
     from mlflow.tracing.constant import TraceTagKey
     from mlflow.utils.search_utils import SearchTraceUtils
@@ -3763,21 +3561,12 @@ _RESOURCE_FILTER_POINT_LOOKUP_BUDGET = 20
 
 
 def _search_traces_resource_filter_allowed(*filter_strings) -> bool:
-    """A trace filter backed by protected sibling metadata (the ``run_id`` alias and the
-    ``metadata.`mlflow.sourceRun``/``metadata.`mlflow.modelId`` spellings, all resolved
-    through the store's OWN parser) executes against run/logged-model references, so
-    which rows match (and page counts) leak denied associations even after response
-    redaction (review finding).
-
-    Policy, following the fold's precedence (the prompt-filter gate's shape): the
-    workspace-manager bypass allows anything; a wildcard child grant on the referenced
-    tier is authoritative -- DENY vetoes, a positive (floored) readable grant covers
-    every reference and so allows even broad operators. Without an authoritative grant,
-    an EXACT comparison names its target id, which is resolved to its ACTUAL experiment
-    (references may cross experiments -- ``link_traces_to_run`` binds arbitrary runs;
-    review finding) and judged point-equivalently there, bounded by a small per-request
-    lookup budget and fail-closed for missing references; broad operators (``!=``,
-    ``LIKE``, ...) cannot be bounded to specific parents and fail closed.
+    """Gate SearchTraces filters that reference sibling resources (``run_id`` /
+    ``metadata.`mlflow.sourceRun`` / ``metadata.`mlflow.modelId``): matching rows leak
+    denied run / logged-model associations. Precedence: workspace manager, wildcard
+    grant per tier (``_wildcard_filter_authority``), then exact comparisons resolve each
+    referenced id to its ACTUAL experiment (references may cross experiments) under a
+    small lookup budget; broad operators and unresolved ids fail closed.
     """
     from mlflow.tracing.constant import TraceMetadataKey
     from mlflow.utils.search_utils import SearchTraceUtils
@@ -3809,11 +3598,10 @@ def _search_traces_resource_filter_allowed(*filter_strings) -> bool:
 
     def context_for(tier):
         if tier not in tier_context:
-            grant = _wildcard_grant_in_request_workspace(tier, username)
-            if grant is not None and grant.name == DENY.name:
-                tier_context[tier] = None  # authoritative DENY: nothing passes
+            denied, broad_allowed = _wildcard_filter_authority(tier, username)
+            if denied:
+                tier_context[tier] = None
             else:
-                broad_allowed = grant is not None and _floor_positive_permission(grant).can_read
                 tier_context[tier] = (
                     broad_allowed,
                     _role_based_read_predicate(username, tier, parent_type="experiment"),
@@ -3843,7 +3631,7 @@ def _search_traces_resource_filter_allowed(*filter_strings) -> bool:
         elif comparator == "IN" and isinstance(value, (list, tuple)):
             values = list(value)
         else:
-            return False  # unboundable under parent-specific grants: fail closed
+            return False
         for reference_id in values:
             if budget <= 0 or not reference_id:
                 return False
@@ -3861,6 +3649,10 @@ def validate_can_search_traces():
     trace_readable = _trace_read_predicate()
     if not all(trace_readable(eid) for eid in experiment_ids):
         return False
+    # One endpoint, three inference channels: a trace FILTER can reference other
+    # resources (linked prompts, sibling runs/models, assessments), and which rows match
+    # leaks those references even after response redaction. Each gate covers one channel
+    # and passes immediately when its channel is absent from the filter.
     filter_string = request.args.get("filter", "")
     if not _search_traces_prompt_filter_allowed(filter_string):
         return False
@@ -3922,13 +3714,9 @@ def validate_can_batch_get_traces():
 
 
 def validate_can_delete_traces():
-    """DeleteTraces / DeleteTracesV3 cascade every assessment on the deleted traces and
-    explicitly delete their review-queue items, so require the assessment and review_queue
-    child tiers' mutation capability atop trace delete (review finding). Both child tiers
-    are wildcard-grain and every affected row lives in the request's experiment, so one
-    experiment-scoped resolution each governs every selected row identically -- the store's
-    dynamic (id- or timestamp-based) row selection cannot change the outcome, which is what
-    makes this pre-request check race-free without transactional binding.
+    """DeleteTraces cascades assessments and review-queue items, so require those child
+    tiers' mutation capability atop trace delete. Wildcard-grain within the request's
+    experiment, so the store's dynamic row selection cannot change the outcome.
     """
     experiment_id = _get_request_param("experiment_id")
     if not _get_trace_permission_for_experiment(experiment_id).can_delete:
@@ -3973,17 +3761,10 @@ def _prompt_version_deny_active(prompt_name: str) -> bool:
 
 
 def validate_can_link_prompts_to_trace():
-    """LinkPromptsToTrace persists PROMPT_VERSION associations onto a trace. Keep the trace
-    UPDATE requirement AND honor prompt-version DENY (Copilot findings 3 + follow-up):
-
-    * a workspace-wide ``(prompt_version, *, DENY)`` is resolved from the TRACE's workspace
-      (via its experiment), independent of the referenced prompt existing -- the handler
-      persists string associations without loading the prompt, so a nonexistent (or
-      not-yet-created) prompt name must not sidestep the veto through a failed parent lookup;
-    * a DENY on each named prompt's concrete parent/version tier also vetoes; and
-    * an empty prompt name is rejected outright (nothing resolvable to authorize).
-
-    No positive prompt_version grant is required (cross-parent to the trace anchor).
+    """LinkPromptsToTrace persists prompt-version associations onto a trace: require
+    trace UPDATE; a workspace-wide ``(prompt_version, *, DENY)`` vetoes independent of
+    the prompt existing (the handler never loads it), a DENY on each named prompt's
+    tier vetoes, and empty prompt names are rejected.
     """
     trace_id = _get_request_param("trace_id")
     if not _get_trace_permission(trace_id).can_update:
@@ -4040,18 +3821,14 @@ def validate_can_read_traces_by_experiment_ids():
 # ``issue.id`` from assessment rows with ``assessment_type == "issue"``). A
 # correlation/metric filter referencing any of these produces an assessment-derived
 # result, so it must be gated on the assessment tier. Mirrors the identifier set of
-# ``SearchTraceUtils`` (review finding: ``issue`` was missing).
+# ``SearchTraceUtils``.
 _ASSESSMENT_FILTER_IDENTIFIERS = ("assessment", "feedback", "expectation", "issue")
 
 
 def _filter_references_assessments(*filter_strings: str) -> bool:
-    """Best-effort, fail-safe check for whether a trace filter references assessment data.
-
-    Matches an identifier used as a filter field prefix (e.g. ``feedback.correctness``),
-    including a backtick-quoted identifier (e.g. `` `feedback`.correctness ``) since
-    ``SearchUtils._valid_entity_type`` strips the backticks. Deliberately conservative: a
-    false positive only over-restricts (requires assessment READ on a filter that merely
-    looks assessment-related), never under-protects.
+    """Conservative check for whether a trace filter references assessment data
+    (``feedback.``/``expectation.`` prefixes, backticks included). A false positive only
+    over-restricts; never under-protects.
     """
     for filter_string in filter_strings:
         if not filter_string:
@@ -4063,13 +3840,9 @@ def _filter_references_assessments(*filter_strings: str) -> bool:
 
 
 def validate_can_query_trace_metrics():
-    """Gate QueryTraceMetrics on the tiers of the data it returns.
-
-    Always require trace READ for every requested experiment. When ``view_type`` is
-    ``ASSESSMENTS`` the response is assessment-derived aggregates (values/counts/dimensions)
-    that never emit an assessment object -- so redaction cannot apply -- and must therefore
-    additionally require assessment READ. Otherwise a ``(trace READ)`` + ``(assessment,
-    *, DENY)`` caller would read assessment-derived data through this route.
+    """Require trace READ on every requested experiment; ``view_type=ASSESSMENTS``
+    additionally requires assessment READ -- the aggregates are assessment-derived and
+    redaction cannot apply to them.
     """
     from mlflow.protos.service_pb2 import MetricViewType
 
@@ -4090,14 +3863,9 @@ def validate_can_query_trace_metrics():
 
 
 def validate_can_calculate_trace_filter_correlation():
-    """Gate CalculateTraceFilterCorrelation on the tiers of the data it summarizes.
-
-    It returns an NPMI statistic over two trace-filter conditions. Always require trace READ
-    for every requested experiment; additionally require assessment READ when any of the
-    filter strings references assessment data (feedback/expectation), since the statistic is
-    then assessment-derived. Same expose-the-child-so-gate-the-child rule as
-    QueryTraceMetrics; the reference check is conservative (fail-safe toward requiring
-    assessment READ).
+    """Require trace READ on every requested experiment; additionally require
+    assessment READ when a filter references assessment data (the NPMI statistic is
+    then assessment-derived). Reference detection is conservative.
     """
     msg = _get_request_message(CalculateTraceFilterCorrelation())
     experiment_ids = list(msg.experiment_ids)
@@ -4133,7 +3901,7 @@ def validate_can_start_trace_v3():
             # persists every one of them (including on the existing-trace merge path), so
             # writing them requires the assessment child tier -- a trace writer holding
             # (assessment, *, DENY) must not create assessments by embedding them here
-            # (review finding). Assessments are wildcard-grain children, so one
+            # . Assessments are wildcard-grain children, so one
             # experiment-scoped resolution covers every supplied assessment.
             if body["trace"]["trace_info"].get("assessments"):
                 return _experiment_child_permission("assessment", "*", eid).can_update
@@ -4450,13 +4218,9 @@ def validate_can_delete_review_queue():
 
 
 def validate_can_add_items_to_review_queue():
-    """AddItemsToReviewQueue resolves every supplied trace id (``batch_get_trace_infos``)
-    and persists trace references, so require trace-tier READ on the queue's experiment
-    atop queue EDIT -- a caller holding ``(review_queue, *, EDIT)`` with ``(trace, *,
-    DENY)`` must not probe trace existence or attach denied traces (review finding). Trace
-    grants are wildcard-only, so one experiment-scoped resolution covers every supplied id,
-    and the deny fires before the handler's existence check leaks anything. Removing items
-    stays queue EDIT only: it resolves no trace and returns no trace data.
+    """AddItemsToReviewQueue resolves every supplied trace id and persists trace
+    references: require trace READ atop queue EDIT so a trace-DENY caller cannot probe
+    or attach traces. Removal stays queue EDIT only (resolves no trace).
     """
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     if not _get_review_queue_permission(queue).can_update:
@@ -4559,14 +4323,10 @@ def filter_list_review_queues(resp: Response) -> None:
 def _redact_prompt_optimization_jobs_response(
     resp: Response, response_cls, jobs_selector, *, dataset_point_check: bool
 ):
-    """Shared after-request redactor for prompt-optimization job responses (review
-    finding): jobs expose cross-resource identifiers, so drop each field the caller's
-    corresponding tier can't read -- ``run_id`` (run tier, keyed by the job's experiment
-    like every wildcard-grain child), source/optimized prompt URIs (prompt_version tier by
-    prompt name), ``config.dataset_id`` (dataset READ: every associated experiment), and
-    registered scorer names in the config (scorer_version tier by
-    ``<experiment_id>/<name>``; instantiable built-ins are not stored resources and are
-    retained). Predicates are built once per response.
+    """Drop each cross-resource identifier a job response embeds when the caller's
+    corresponding tier can't read it: ``run_id``, source/optimized prompt URIs,
+    ``config.dataset_id`` (``dataset_point_check=False`` clears it outright for search
+    responses), and registered scorer names (instantiable built-ins are retained).
     """
     if sender_is_admin():
         return
@@ -4602,7 +4362,7 @@ def _redact_prompt_optimization_jobs_response(
         return scorer_version_readable(store._scorer_pattern(experiment_id, name))
 
     # Dataset ids in job configs leak evaluation-dataset identifiers to callers the
-    # direct dataset routes would deny. EXPLICIT BOUNDED POLICY (review finding F4):
+    # direct dataset routes would deny. EXPLICIT BOUNDED POLICY:
     # only the point spelling (Get: exactly one job) resolves the dataset's
     # all-associated-experiments READ check; the Search collection clears
     # ``config.dataset_id`` outright for non-admins -- unpaginated job history makes any
@@ -4648,13 +4408,8 @@ def redact_search_prompt_optimization_jobs(resp: Response):
 
 
 def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable) -> None:
-    """Clear a ``TraceInfoV3``'s assessments when the caller can't read them.
-
-    Assessments are wildcard-grain children of the trace's experiment, so a single
-    per-experiment check gates every assessment on the trace. ``assessment_readable`` is a
-    ``p(experiment_id) -> bool`` predicate built once per response (see
-    ``_redact_trace_assessments_response``), so a multi-experiment batch stays O(1)
-    authorization queries rather than one workspace + grants round trip per experiment.
+    """Clear a ``TraceInfoV3``'s assessments when ``assessment_readable`` (a per-response
+    ``p(experiment_id) -> bool`` predicate) denies its experiment.
     """
     exp_id = trace_info_v3.trace_location.mlflow_experiment.experiment_id
     if not assessment_readable(exp_id):
@@ -4716,45 +4471,47 @@ def _prompt_version_read_predicate(username: str):
     return _role_based_read_predicate(username, "prompt_version", parent_type="prompt")
 
 
-def _bulk_run_experiment_index(run_ids: set[str], experiment_ids: set[str]) -> dict[str, str]:
-    """Resolve ``run_id -> experiment_id`` in BOUNDED queries via ``search_runs`` with an
-    ``attributes.run_id IN (...)`` filter (one query per chunk of distinct ids), scoped to
-    the candidate experiments -- the run twin of ``_bulk_logged_model_experiment_index``.
-    Ids that don't resolve are absent; callers treat absence as unreadable (fail closed).
+def _bulk_experiment_index(
+    resource_type: str, resource_ids: set[str], experiment_ids: set[str]
+) -> dict[str, str]:
+    """Resolve ``resource_id -> experiment_id`` for ``resource_type`` ("run" or
+    "logged_model") in bounded, chunked ``IN (...)`` queries scoped to the candidate
+    experiments. Unresolved ids are absent; callers treat absence as unreadable.
     """
     from mlflow.entities import ViewType
 
     index: dict[str, str] = {}
-    ids = sorted(rid for rid in run_ids if rid and "'" not in rid)
+    ids = sorted(rid for rid in resource_ids if rid and "'" not in rid)
     if not ids or not experiment_ids:
         return index
     tracking_store = _get_tracking_store()
     scoped_experiments = sorted(experiment_ids)
-    for start in range(0, len(ids), _LOGGED_MODEL_LOOKUP_CHUNK):
-        chunk = ids[start : start + _LOGGED_MODEL_LOOKUP_CHUNK]
+    for start in range(0, len(ids), _BULK_LOOKUP_CHUNK):
+        chunk = ids[start : start + _BULK_LOOKUP_CHUNK]
         quoted = ", ".join(f"'{rid}'" for rid in chunk)
-        runs = tracking_store.search_runs(
-            experiment_ids=scoped_experiments,
-            filter_string=f"attributes.run_id IN ({quoted})",
-            run_view_type=ViewType.ALL,
-            max_results=len(chunk),
-        )
-        for run in runs:
-            index[run.info.run_id] = run.info.experiment_id
+        if resource_type == "run":
+            for run in tracking_store.search_runs(
+                experiment_ids=scoped_experiments,
+                filter_string=f"attributes.run_id IN ({quoted})",
+                run_view_type=ViewType.ALL,
+                max_results=len(chunk),
+            ):
+                index[run.info.run_id] = run.info.experiment_id
+        else:
+            for model in tracking_store.search_logged_models(
+                experiment_ids=scoped_experiments,
+                filter_string=f"model_id IN ({quoted})",
+                max_results=len(chunk),
+            ):
+                index[model.model_id] = model.experiment_id
     return index
 
 
 def _filter_trace_metadata_sibling_ids(metadata_entries, username: str) -> None:
-    """Strip denied sibling identifiers from trace metadata (review finding: trace READ
-    plus ``(run, *, DENY)`` / ``(logged_model, *, DENY)`` could still learn
-    ``mlflow.sourceRun`` / ``mlflow.modelId`` through trace responses).
-
-    ``metadata_entries`` is a list of ``(experiment_id, metadata_map_or_repeated)`` pairs
-    covering every trace info in the response. Each referenced id is judged by its OWN
-    resource's experiment, resolved through BOUNDED chunked bulk queries scoped to the
-    response's experiments (same explicit policy as run lineage: a reference outside
-    every response experiment, or an unresolvable one, is hidden fail-closed; the
-    resource stays fully readable through its point routes).
+    """Strip ``mlflow.sourceRun`` / ``mlflow.modelId`` from trace metadata unless the
+    referenced resource's OWN experiment is readable on its tier. Resolution is bounded
+    chunked bulk lookup scoped to the response's experiments; references outside them
+    don't resolve and are stripped (fail closed; upstream gap U2).
     """
     from mlflow.tracing.constant import TraceMetadataKey
 
@@ -4785,9 +4542,9 @@ def _filter_trace_metadata_sibling_ids(metadata_entries, username: str) -> None:
             model_ids.add(mid)
     if not run_ids and not model_ids:
         return
-    run_index = _bulk_run_experiment_index(run_ids, experiment_ids) if run_ids else {}
+    run_index = _bulk_experiment_index("run", run_ids, experiment_ids) if run_ids else {}
     model_index = (
-        _bulk_logged_model_experiment_index(model_ids, experiment_ids) if model_ids else {}
+        _bulk_experiment_index("logged_model", model_ids, experiment_ids) if model_ids else {}
     )
     run_readable = _role_based_read_predicate(username, "run", parent_type="experiment")
     model_readable = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
@@ -4805,14 +4562,10 @@ def _filter_trace_metadata_sibling_ids(metadata_entries, username: str) -> None:
 def _redact_trace_assessments_response(
     resp: Response, response_cls, trace_info_v3_selector
 ) -> None:
-    """Shared after-request redactor for V3 trace responses embedding assessments, the
-    linked-prompts tag, and sibling run/model metadata.
-
-    ``trace_info_v3_selector`` yields each ``TraceInfoV3`` in the parsed response; the
-    row itself is already gated by the trace read validator, so this only drops embedded
-    content the corresponding child tiers should hide. Grant predicates are built once
-    from the caller's grants (one query each, evaluated in memory); sibling id
-    resolution uses bounded chunked bulk queries.
+    """Shared after-request redactor for V3 trace responses: drops embedded assessments,
+    linked-prompts tag entries, and sibling run/model metadata per the caller's child
+    tiers. Grant predicates are built once per response; sibling resolution is bounded
+    bulk lookup.
     """
     if sender_is_admin():
         return
@@ -4872,66 +4625,28 @@ def redact_search_traces_linked_prompts(resp: Response):
 
 def redact_end_trace_linked_prompts(resp: Response):
     # EndTrace echoes the COMPLETE updated TraceInfo, including pre-existing
-    # linked-prompt tags the caller didn't write (review finding).
+    # linked-prompt tags the caller didn't write.
     _redact_legacy_trace_infos_response(resp, EndTrace, lambda m: [m.trace_info])
 
 
 # Chunk size for bulk model_id IN (...) lookups: bounds each search page well under the
 # store's max_results caps while keeping the query count at ceil(distinct_ids / chunk).
-_LOGGED_MODEL_LOOKUP_CHUNK = 200
-
-
-def _bulk_logged_model_experiment_index(
-    model_ids: set[str], experiment_ids: set[str]
-) -> dict[str, str]:
-    """Resolve ``model_id -> experiment_id`` in BOUNDED queries via ``search_logged_models``
-    with a ``model_id IN (...)`` filter (one query per chunk of distinct ids), scoped to the
-    candidate experiments. Ids that don't resolve (deleted models, ids outside the candidate
-    experiments, or malformed ids that can't be safely quoted) are simply absent -- callers
-    treat absence as unreadable (fail closed).
-    """
-    index: dict[str, str] = {}
-    ids = sorted(mid for mid in model_ids if mid and "'" not in mid)
-    if not ids or not experiment_ids:
-        return index
-    tracking_store = _get_tracking_store()
-    for i in range(0, len(ids), _LOGGED_MODEL_LOOKUP_CHUNK):
-        chunk = ids[i : i + _LOGGED_MODEL_LOOKUP_CHUNK]
-        quoted = ",".join(f"'{mid}'" for mid in chunk)
-        page = tracking_store.search_logged_models(
-            experiment_ids=sorted(experiment_ids),
-            filter_string=f"model_id IN ({quoted})",
-            max_results=len(chunk),
-        )
-        for model in page:
-            index[model.model_id] = model.experiment_id
-    return index
+_BULK_LOOKUP_CHUNK = 200
 
 
 def _filter_runs_model_io(runs, username: str) -> None:
-    """Drop the logged-model input/output links the caller can't read from proto ``Run``
-    messages, judging each link by its own model's ACTUAL experiment (``log_inputs``/
-    ``log_outputs`` persist arbitrary model ids, so links may cross experiments).
-
-    EXPLICIT AUTH POLICY (review findings F7/F8, upstream gap U2): resolution is
-    STRICTLY BATCHED -- chunked ``model_id IN (...)`` searches scoped to the runs' own
-    experiments, ceil(distinct/chunk) queries per response and no per-id fallback. A
-    link whose model lives outside every experiment in the response therefore does not
-    resolve and is omitted from the EMBEDDED view, fail-closed, even when the caller
-    could read that model -- the model itself stays fully accessible through
-    GetLoggedModel / logged-model search, which authorize point-wise. Embedded
-    cross-experiment lineage cannot be both point-equivalent and bounded without a
-    batched cross-workspace id->experiment store primitive (flagged as U2 for separate
-    ownership); this policy chooses bounded + fail-closed and says so rather than
-    approximating equivalence with an N+1. Shared verbatim by the REST redactor and the
-    GraphQL result filter so the two surfaces cannot disagree.
+    """Drop logged-model input/output links the caller can't read, judging each link by
+    its own model's ACTUAL experiment (links may cross experiments). STRICTLY BATCHED:
+    chunked ``model_id IN (...)`` searches scoped to the response's experiments, no
+    per-id fallback -- unresolved links are dropped (fail closed; upstream gap U2).
+    Also filters the runs' linked-prompts tags.
     """
     runs = list(runs)
     prompt_version_readable = _prompt_version_read_predicate(username)
     for run in runs:
         # The reserved linked-prompts tag serializes prompt names and version numbers
         # onto runs; filter it by the prompt_version tier like the trace and
-        # logged-model spellings (review finding). Grant-predicate only: no store
+        # logged-model spellings. Grant-predicate only: no store
         # queries, bounded at any response size.
         _filter_linked_prompts_repeated_tags(run.data.tags, prompt_version_readable)
     model_ids = {
@@ -4940,7 +4655,9 @@ def _filter_runs_model_io(runs, username: str) -> None:
     if not model_ids:
         return
     readable = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
-    index = _bulk_logged_model_experiment_index(model_ids, {run.info.experiment_id for run in runs})
+    index = _bulk_experiment_index(
+        "logged_model", model_ids, {run.info.experiment_id for run in runs}
+    )
 
     def can_read(model_id) -> bool:
         experiment_id = index.get(model_id)
@@ -4985,7 +4702,7 @@ def redact_get_trace_info_v3_assessments(resp: Response):
 def redact_start_trace_v3_assessments(resp: Response):
     # StartTraceV3 echoes the trace (including merged pre-existing assessments on the
     # existing-trace path), so it needs the same embedded-assessment redaction as the V3
-    # read routes (review finding).
+    # read routes.
     _redact_trace_assessments_response(resp, StartTraceV3, lambda m: [m.trace.trace_info])
 
 
@@ -6392,16 +6109,8 @@ def redact_get_logged_model_linked_prompts(resp: Response) -> None:
 
 def _redact_latest_versions(registered_model, can_read_version) -> None:
     """Clear ``latest_versions`` and ``aliases`` when the caller can't read the model's
-    versions on the child tier.
-
-    ``GetRegisteredModel``/``UpdateRegisteredModel``/``RenameRegisteredModel``/
-    ``SearchRegisteredModels`` are gated on the parent registered model but embed
-    ``latest_versions`` and ``aliases`` (alias-to-version mappings), so a
-    ``registered_model_version`` DENY would otherwise leak version metadata through the
-    parent response. Version child grants are wildcard-only, so the read decision is a
-    single boolean for the whole model — clear both fields wholesale rather than filtering
-    per version. ``can_read_version`` is a ``_rm_or_prompt_version_read_predicate`` that
-    accepts the registered model itself (same ``name`` and prompt tag).
+    versions on the child tier -- parent-gated responses must not leak version metadata
+    past a version DENY. Version grants are wildcard-grain: one boolean per model.
     """
     if not can_read_version(registered_model):
         registered_model.ClearField("latest_versions")
@@ -6522,7 +6231,7 @@ def filter_search_model_versions(resp: Response):
     # to refill max_results and advance the continuation token by the store rows actually
     # consumed -- otherwise mixed prompt/model grants produce empty or short pages while
     # authorized versions exist right after, and clients treating an empty page as
-    # completion miss them (review finding). The registry token is offset-based.
+    # completion miss them. The registry token is offset-based.
     from mlflow.utils.search_utils import SearchUtils
 
     request_message = _get_request_message(SearchModelVersions())
@@ -6564,13 +6273,9 @@ def filter_search_model_versions(resp: Response):
 
 
 def rename_registered_model_permission(resp: Response):
-    """
-    Propagate a registered-model rename to RBAC grants.
-
-    ``RenameRegisteredModel`` is shared between registered models and prompts;
-    sweep both namespaces so a prompt rename doesn't orphan its
-    ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
-    so exactly one of the two renames applies and the other is a no-op.
+    """Propagate a registered-model rename to RBAC grants. The route is shared with
+    prompts, so sweep both namespaces; names are unique in the registry, so exactly one
+    applies.
     """
     # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
     # {}`` plus the explicit value checks below prevent ``None`` from
@@ -6667,15 +6372,9 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
 
 
 def filter_list_scorers(resp: Response) -> None:
-    """Filter ``ListScorers`` responses to rows the caller can read.
-
-    OSS parity (owner decision): every visible row requires **experiment READ** (the
-    container anchor, per-row -- so both the single-experiment and cross-experiment forms
-    enforce the same requirement) AND read on the row itself. The row resolves the
-    ``scorer_version`` child tier with scorer-parent fallback (the row embeds the scorer's
-    latest ``ScorerVersion``): a caller with only scorer grants behaves exactly as OSS via
-    the fallback, a ``scorer_version`` DENY hides the row, and a positive child grant keeps
-    it -- matching the per-version RPCs.
+    """OSS parity (owner decision): a visible row requires experiment READ (per row)
+    AND read on the row's scorer_version tier with scorer-parent fallback -- a
+    scorer_version DENY hides the row, scorer-only grants behave as OSS.
     """
     if sender_is_admin():
         return
@@ -7611,7 +7310,7 @@ class GraphQLAuthorizationMiddleware:
             # RESULT boundary (the resolvers return the whole proto response) with the
             # same shared bounded batch filter as the REST redactor -- one chunked
             # model_id IN (...) resolution per response, never a per-model lookup as
-            # nested fields resolve (review findings F6/F7/F8).
+            # nested fields resolve.
             runs = [result.run] if field_name == "mlflowGetRun" else list(result.runs)
             _filter_runs_model_io(runs, username)
             return result
@@ -7944,8 +7643,7 @@ def _get_mcp_server_validator(
                 # (server_version/server_alias params, version-bearing filter/order)
                 # still probes denied version metadata through result presence/count/
                 # order. Apply the wildcard (mcp_server_version, *, DENY) as a global
-                # veto before the handler (review finding: the per-server gate never
-                # reached this route).
+                # veto before the handler.
                 qp = request.query_params
                 version_tokens = ("server_version", "server_alias")
                 version_bearing = (
@@ -7990,7 +7688,7 @@ def _get_mcp_server_validator(
                 # AUTHORITATIVE for the version write exactly as on the existing-parent path:
                 # DENY vetoes, and a positive grant (with the default floor) must allow
                 # can_update -- a version READ/USE holder must not sidestep the child tier by
-                # auto-creating the parent (review finding). Only when no child grant exists
+                # auto-creating the parent. Only when no child grant exists
                 # does the create gate alone govern.
                 child_grant = _wildcard_grant_in_request_workspace("mcp_server_version", username)
                 if child_grant is None:
@@ -8003,7 +7701,7 @@ def _get_mcp_server_validator(
             # ``server_version``/``server_alias``, persist the binding, and return the
             # resolved version -- so a body naming a version requires version-tier UPDATE
             # (consistent with the version-write family), and the after-response filter
-            # alone must not be relied on to stop the write (review finding). Search
+            # alone must not be relied on to stop the write. Search
             # accepts version-bearing selection (``server_version``/``server_alias``
             # params, filter/order fields), whose result presence/count/order probes
             # denied version metadata -- pre-gate those on version-tier READ. A malformed
@@ -8051,7 +7749,7 @@ def _get_mcp_server_validator(
                 # (delete-orphan), so the version child tier must also allow delete
                 # (parent fallback when no child grant exists) -- a child DENY or lower
                 # child grant that blocks deleting one version must not be bypassed by
-                # deleting the server (review finding).
+                # deleting the server.
                 return _get_mcp_server_version_permission(name, username).can_delete
             case _:
                 return False
@@ -8232,7 +7930,7 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
     # This filter serves BOTH the global /endpoints search and the per-server
     # /{name}/endpoints route. On the per-server route the backfill MUST stay scoped to that
     # server: a bare search_mcp_access_endpoints() would pull endpoints from OTHER servers and
-    # advance a token in a different result set (Copilot finding 5). Recover the routed server
+    # advance a token in a different result set. Recover the routed server
     # name from the path (the suffix before the trailing "/endpoints"); None for the global
     # route.
     server_name = None
@@ -8307,7 +8005,7 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
 # these IN-PROCESS from an already-validated higher-level route (handlers.py, the online
 # scorer scheduler); the generic ``POST /ajax-api/3.0/jobs/`` surface would otherwise let
 # an authenticated caller run them with arbitrary params, bypassing every run/trace/
-# assessment/prompt/scorer/gateway validator (review finding, Critical). Direct HTTP
+# assessment/prompt/scorer/gateway validator. Direct HTTP
 # submission of these names is therefore DENIED for non-admins, fail closed. Names added
 # through ``_MLFLOW_ALLOWED_JOB_NAME_LIST`` are a deployment operator's explicit opt-in
 # and keep the authenticated-only contract.
