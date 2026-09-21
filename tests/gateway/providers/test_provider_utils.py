@@ -145,14 +145,21 @@ def test_proxy_root_url(base_url, expected):
     assert proxy_root_url(base_url) == expected
 
 
+# Body that cannot be read at all, as opposed to one that is read as None or "".
+_UNREADABLE = object()
+
+
 class _FailingResponse:
     """Response double for an upstream error, with the body shapes set per test.
 
-    ``json``/``text`` raise when their body is None, standing in for a response that
-    is not JSON, or whose body cannot be read at all.
+    ``json``/``text`` raise for ``_UNREADABLE``, standing in for a response that is not
+    JSON, or whose body cannot be read at all. aiohttp's own ``json()`` returns None for
+    an empty body and its ``text()`` returns "", which tests pass explicitly.
     """
 
-    def __init__(self, json_body=None, text_body=None, status=400, message="Bad Request"):
+    def __init__(
+        self, json_body=_UNREADABLE, text_body=_UNREADABLE, status=400, message="Bad Request"
+    ):
         self.status = status
         self.message = message
         self._json_body = json_body
@@ -162,12 +169,12 @@ class _FailingResponse:
         raise aiohttp.ClientResponseError(None, None, status=self.status, message=self.message)
 
     async def json(self):
-        if self._json_body is None:
+        if self._json_body is _UNREADABLE:
             raise ValueError("body is not JSON")
         return self._json_body
 
     async def text(self):
-        if self._text_body is None:
+        if self._text_body is _UNREADABLE:
             raise ValueError("body could not be read")
         return self._text_body
 
@@ -226,9 +233,19 @@ async def test_send_stream_request_falls_back_to_response_text():
     mock_post.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ("json_body", "text_body"),
+    [
+        # aiohttp reads an empty JSON body as None and an empty text body as "".
+        (None, _UNREADABLE),
+        ({}, _UNREADABLE),
+        (_UNREADABLE, ""),
+        (_UNREADABLE, _UNREADABLE),
+    ],
+)
 @pytest.mark.asyncio
-async def test_send_stream_request_falls_back_to_reason_phrase():
-    response = _FailingResponse()
+async def test_send_stream_request_falls_back_to_reason_phrase(json_body, text_body):
+    response = _FailingResponse(json_body=json_body, text_body=text_body)
     with (
         mock.patch(
             "mlflow.gateway.providers.utils._aiohttp_post",

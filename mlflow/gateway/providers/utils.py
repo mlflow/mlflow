@@ -113,7 +113,9 @@ def _error_detail(error_body: Any) -> str:
             return message
         case {"message": str(message)} if message:
             return message
-    return str(error_body)
+    # aiohttp's json() returns None for an empty body, so report nothing and let the
+    # caller fall back rather than stringifying it.
+    return str(error_body) if error_body else ""
 
 
 async def send_request(
@@ -200,10 +202,10 @@ async def send_stream_request(
             response.raise_for_status()
         except aiohttp.ClientResponseError as e:
             try:
-                detail = _error_detail(await response.json())
+                detail = _error_detail(await response.json()) or e.message
             except Exception:
                 try:
-                    detail = await response.text()
+                    detail = await response.text() or e.message
                 except Exception:
                     detail = e.message
             raise HTTPException(status_code=e.status, detail=detail)
@@ -264,10 +266,10 @@ async def send_proxy_request(
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
                 try:
-                    detail = _error_detail(await response.json())
+                    detail = _error_detail(await response.json()) or e.message
                 except Exception:
                     try:
-                        detail = await response.text()
+                        detail = await response.text() or e.message
                     except Exception:
                         detail = e.message
                 raise HTTPException(status_code=e.status, detail=detail)
