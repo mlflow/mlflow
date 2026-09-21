@@ -3167,8 +3167,7 @@ def _validate_prompt_source(source: str) -> None:
 def _validate_source_run(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
-            store = _get_tracking_store()
-            run = store.get_run(run_id)
+            run = _get_source_run(run_id, source)
             source = pathlib.Path(local_file_uri_to_path(source)).resolve()
             if is_local_uri(run.info.artifact_uri):
                 run_artifact_dir = pathlib.Path(
@@ -3205,7 +3204,7 @@ def _validate_source_run(source: str, run_id: str) -> None:
 
     if _is_mlflow_artifact_source(source):
         if run_id:
-            run = _get_tracking_store().get_run(run_id)
+            run = _get_source_run(run_id, source)
             if _is_uri_within_root(source, run.info.artifact_uri):
                 return
         _raise_invalid_model_version_source(source, "run_id")
@@ -3214,8 +3213,7 @@ def _validate_source_run(source: str, run_id: str) -> None:
 def _validate_source_model(source: str, model_id: str) -> None:
     if is_local_uri(source):
         if model_id:
-            store = _get_tracking_store()
-            model = store.get_logged_model(model_id)
+            model = _get_source_model(model_id, source)
             source = pathlib.Path(local_file_uri_to_path(source)).resolve()
             if is_local_uri(model.artifact_location):
                 run_artifact_dir = pathlib.Path(
@@ -3249,7 +3247,7 @@ def _validate_source_model(source: str, model_id: str) -> None:
 
     if _is_mlflow_artifact_source(source):
         if model_id:
-            model = _get_tracking_store().get_logged_model(model_id)
+            model = _get_source_model(model_id, source)
             if _is_uri_within_root(source, model.artifact_location):
                 return
         _raise_invalid_model_version_source(source, "model_id")
@@ -3294,6 +3292,24 @@ def _parse_model_version_source(source: str):
         return _parse_model_uri(source)
     except MlflowException:
         _raise_invalid_model_version_source(source, "model_id")
+
+
+def _get_source_run(run_id: str, source: str):
+    try:
+        return _get_tracking_store().get_run(run_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            _raise_invalid_model_version_source(source, "run_id")
+        raise
+
+
+def _get_source_model(model_id: str, source: str):
+    try:
+        return _get_tracking_store().get_logged_model(model_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            _raise_invalid_model_version_source(source, "model_id")
+        raise
 
 
 def _validate_registered_model_source(source: str, run_id: str, model_id: str) -> None:
