@@ -41,6 +41,7 @@ jobs:
                         contexts(first: 100, after: $endCursor) {
                           nodes {
                             ... on CheckRun {
+                              name
                               status
                               conclusion
                               startedAt
@@ -84,7 +85,11 @@ jobs:
                   | max_by([.[0].checkSuite.workflowRun.createdAt,
                             .[0].checkSuite.workflowRun.databaseId]))
             | .[]
+            # Do not hide queued retries with missing start times during deduplication.
             | select(all(.[]; .status == "COMPLETED"))
+            # Defensively discard superseded executions of the same job.
+            | group_by(.name)
+            | map(max_by(.startedAt // ""))
             | select(any(.[]; failed))
             | .[0].checkSuite.workflowRun as $run
             | ($run.workflow.resourcePath | endswith("/protect.yml")) as $is_protect
