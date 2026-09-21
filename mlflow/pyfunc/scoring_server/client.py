@@ -57,21 +57,31 @@ class ScoringServerClient(BaseScoringServerClient):
 
     def wait_server_ready(self, timeout=30, scoring_server_proc=None):
         begin_time = time.time()
+        last_error = None
 
         while True:
             time.sleep(0.3)
             try:
                 self.ping()
                 return
-            except Exception:
-                pass
+            except Exception as error:
+                last_error = error
             if time.time() - begin_time > timeout:
                 break
             if scoring_server_proc is not None:
                 return_code = scoring_server_proc.poll()
                 if return_code is not None:
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
-        raise RuntimeError("Wait scoring server ready timeout.")
+        elapsed = time.time() - begin_time
+        message = (
+            f"Scoring server at {self.url_prefix} was not ready after {elapsed:.1f}s "
+            f"(timeout: {timeout}s)."
+        )
+        if scoring_server_proc is not None:
+            message += f" Server PID: {scoring_server_proc.pid}."
+        if last_error is not None:
+            message += f" Last ping error: {type(last_error).__name__}: {last_error}"
+        raise RuntimeError(message) from last_error
 
     def invoke(self, data, params: dict[str, Any] | None = None):
         """

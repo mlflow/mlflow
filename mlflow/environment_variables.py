@@ -1550,6 +1550,18 @@ MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
 
+#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
+#: ``https``, ``mlflow-artifacts``, ``r2``, ``b2``, ``abfss``) that the tracking server connects
+#: to even when the URI points at a host other than the server's ``--default-artifact-root`` or
+#: ``--artifacts-destination``. The artifact repositories for these schemes connect to the host
+#: named in the URI, so inside a server process (and its job subprocesses) locations on other
+#: hosts are rejected, both when a client submits them and when a stored location is used.
+#: Locations on the server's own storage hosts are always accepted. Set to e.g. ``hdfs`` or
+#: ``http,https`` when clients legitimately store artifacts on another host. (default: none)
+MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
+)
+
 #: Whether an AI Gateway secret's ``api_base`` may target private, loopback or link-local
 #: addresses (e.g. cloud metadata at ``169.254.169.254``). When false, such values are
 #: rejected on write and again at connect time, on the raw proxy route as well. Set to true

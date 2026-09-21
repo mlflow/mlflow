@@ -2713,7 +2713,7 @@
     "google/gemma-4-26b-a4b-it-maas": {
       "mode": "chat",
       "context_window": {
-        "max_input": 256000,
+        "max_input": 262144,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -2728,7 +2728,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-09-21"
     },
     "imagegeneration@006": {
       "mode": "image_generation",
