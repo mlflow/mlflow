@@ -222,12 +222,11 @@ You can discover prompts by name, tag or other registry fields:
 ```python
 import mlflow
 
-# Fluent API: returns a flat list of all matching prompts
-prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
+# Fluent API: returns a flat list of all matching prompts, ordered by name
+prompts = mlflow.genai.search_prompts(
+    filter_string="task='summarization'", order_by=["name ASC"]
+)
 print(f"Found {len(prompts)} prompts")
-
-# Order results by name
-prompts = mlflow.genai.search_prompts(order_by=["name ASC"])
 
 # For pagination control, use the client API:
 from mlflow.tracking import MlflowClient
