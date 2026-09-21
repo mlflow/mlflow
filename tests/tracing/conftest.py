@@ -129,8 +129,12 @@ service:
         )
 
         try:
-            process.stdin.write(docker_collector_config)
-            process.stdin.close()
+            try:
+                process.stdin.write(docker_collector_config)
+                process.stdin.close()
+            except BrokenPipeError:
+                # The readiness loop below reports collector exit with logs.
+                pass
 
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
