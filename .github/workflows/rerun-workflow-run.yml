@@ -75,9 +75,7 @@ jobs:
             [ .[].data.repository.object.statusCheckRollup.contexts.nodes[]?
               | select(.checkSuite.app.slug == "github-actions"
                        and .checkSuite.workflowRun != null)
-              | select(.checkSuite.workflowRun.event != "dynamic")
-              | select(.checkSuite.workflowRun.workflow.resourcePath |
-                  endswith("/rerun-workflow-run.yml") or endswith("/retry.yml") | not) ]
+              | select(.checkSuite.workflowRun.event != "dynamic") ]
             # Keep all jobs from the newest run for each workflow path and event.
             | group_by([.checkSuite.workflowRun.workflow.resourcePath,
                         .checkSuite.workflowRun.event])
