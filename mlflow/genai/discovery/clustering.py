@@ -75,8 +75,9 @@ def cluster_by_llm(
             "(finish_reason=%s), falling back to singletons",
             response.choices[0].finish_reason,
         )
-        return [[i] for i in range(len(labels))]
-    result = _ClusterResponse(**json.loads(content))
+        result = _ClusterResponse(groups=[])
+    else:
+        result = _ClusterResponse(**json.loads(content))
 
     # Validate indices and collect groups; orphaned indices become singletons
     clustered_indices: set[int] = set()

@@ -1,6 +1,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
@@ -55,8 +57,9 @@ def test_cluster_by_llm_respects_max_issues():
             message=MagicMock(
                 content=json.dumps({
                     "groups": [
-                        {"name": "Issue: Group A", "indices": [0, 1, 2]},
-                        {"name": "Issue: Group B", "indices": [3, 4]},
+                        {"name": "Issue: Group A", "indices": [0, 1]},
+                        {"name": "Issue: Group B", "indices": [2, 3]},
+                        {"name": "Issue: Group C", "indices": [4]},
                     ]
                 })
             )
@@ -67,7 +70,19 @@ def test_cluster_by_llm_respects_max_issues():
         groups = cluster_by_llm(labels, max_issues=2, model="openai:/gpt-5")
 
     mock_completion.assert_called_once()
-    assert len(groups) <= 2
+    assert groups == [[0, 1], [2, 3]]
+
+
+@pytest.mark.parametrize("content", [None, "", "  ", '{"groups": []}'])
+def test_cluster_by_llm_limits_fallback_singletons(content):
+    response = MagicMock(
+        choices=[MagicMock(message=MagicMock(content=content), finish_reason="stop")]
+    )
+    with patch("mlflow.genai.discovery.clustering._call_llm", return_value=response) as mock_call:
+        groups = cluster_by_llm([f"Failure {i}" for i in range(5)], max_issues=2, model="test")
+
+    assert groups == [[0], [1]]
+    mock_call.assert_called_once()
 
 
 # ---- summarize_cluster ----

@@ -20,6 +20,7 @@ from mlflow.genai.discovery.entities import (
 )
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
+    _cluster_and_identify,
     _dedup_issues,
     _is_non_issue,
     build_issue_discovery_scorer,
@@ -1184,6 +1185,101 @@ def _make_dedup_response(
         for i, indices in enumerate(groups)
     ]
     return _make_litellm_response(json.dumps({"groups": group_objects}))
+
+
+@pytest.mark.parametrize("max_issues", [2, 3, 4])
+@pytest.mark.parametrize("empty_refinement", [False, True])
+def test_cluster_and_identify_limits_combined_refined_issues(max_issues, empty_refinement):
+    labels = [f"Tool {i} failed" for i in range(5)]
+    analyses = [
+        _ConversationAnalysis(full_rationale=label, affected_trace_ids=[f"trace-{i}"])
+        for i, label in enumerate(labels)
+    ]
+    initial_response = _make_litellm_response(
+        json.dumps({
+            "groups": [
+                {"name": "Shared failure", "indices": [0, 1]},
+                {"name": "Unrelated failures", "indices": [2, 3, 4]},
+            ]
+        })
+    )
+    refinement_response = _make_litellm_response(
+        ""
+        if empty_refinement
+        else json.dumps({"groups": [{"name": f"Failure {i}", "indices": [i]} for i in range(3)]})
+    )
+
+    def summarize(indices, *args, **kwargs):
+        return create_identified_issue(
+            example_indices=indices,
+            severity="not_an_issue" if indices == [2, 3, 4] else "high",
+        )
+
+    with (
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(labels, list(range(5))),
+        ) as mock_extract,
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster", side_effect=summarize
+        ) as mock_summary,
+        patch(
+            "mlflow.genai.discovery.clustering._call_llm",
+            side_effect=[initial_response, refinement_response],
+        ) as mock_cluster,
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm", return_value=_make_dedup_response([])
+        ) as mock_dedup,
+    ):
+        result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
+
+    assert [issue.example_indices for issue in result] == [[0, 1], [2], [3], [4]][:max_issues]
+    mock_extract.assert_called_once()
+    assert mock_summary.call_count == 5
+    assert mock_cluster.call_count == 2
+    mock_dedup.assert_called_once()
+
+
+def test_cluster_and_identify_limits_rejected_singleton_merge():
+    analyses = [
+        _ConversationAnalysis(full_rationale=f"Failure {i}", affected_trace_ids=[f"trace-{i}"])
+        for i in range(3)
+    ]
+    grouped_response = _make_litellm_response(
+        json.dumps({"groups": [{"name": "Unrelated failures", "indices": [0, 1, 2]}]})
+    )
+
+    def summarize(indices, *args, **kwargs):
+        return create_identified_issue(
+            example_indices=indices, severity="not_an_issue" if len(indices) > 1 else "high"
+        )
+
+    with (
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=([f"Failure {i}" for i in range(3)], [0, 1, 2]),
+        ) as mock_extract,
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster", side_effect=summarize
+        ) as mock_summary,
+        patch(
+            "mlflow.genai.discovery.clustering.summarize_cluster", side_effect=summarize
+        ) as mock_refinement_summary,
+        patch(
+            "mlflow.genai.discovery.clustering._call_llm", return_value=grouped_response
+        ) as mock_cluster,
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm", return_value=_make_dedup_response([])
+        ) as mock_dedup,
+    ):
+        result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues=2, categories=[])
+
+    assert [issue.example_indices for issue in result] == [[0], [1]]
+    mock_extract.assert_called_once()
+    assert mock_summary.call_count == 4
+    mock_refinement_summary.assert_called_once()
+    assert mock_cluster.call_count == 2
+    mock_dedup.assert_called_once()
 
 
 def test_dedup_issues_empty():
