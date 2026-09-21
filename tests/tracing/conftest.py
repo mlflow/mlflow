@@ -68,7 +68,7 @@ def async_logging_enabled(request, monkeypatch):
 
 
 @pytest.fixture
-def otel_collector():
+def otel_collector(tmp_path):
     """Start an OpenTelemetry collector in a Docker container."""
     for attempt in range(3):
         try:
@@ -106,6 +106,10 @@ service:
       receivers: [otlp]
       exporters: [debug]"""
 
+    config_path = tmp_path / "otel-collector.yaml"
+    config_path.write_text(docker_collector_config)
+    config_path.chmod(0o644)
+
     with tempfile.NamedTemporaryFile() as output_file:
         docker_cmd = [
             "docker",
@@ -115,27 +119,20 @@ service:
             f"127.0.0.1:{port}:4317",
             "-p",
             f"127.0.0.1:{health_port}:13133",
-            "-i",
+            "-v",
+            f"{config_path}:/etc/otelcol/config.yaml:ro",
             "otel/opentelemetry-collector",
-            "--config=/dev/stdin",
+            "--config=/etc/otelcol/config.yaml",
         ]
 
         process = subprocess.Popen(
             docker_cmd,
-            stdin=subprocess.PIPE,
             stdout=output_file,
             stderr=subprocess.STDOUT,
             text=True,
         )
 
         try:
-            try:
-                process.stdin.write(docker_collector_config)
-                process.stdin.close()
-            except BrokenPipeError:
-                # The readiness loop below reports collector exit with logs.
-                pass
-
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 if process.poll() is not None:
