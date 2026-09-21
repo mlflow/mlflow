@@ -91,10 +91,10 @@ jobs:
             | select(all(.[]; .status == "COMPLETED"))
             | select(any(.[]; failed))
             | .[0].checkSuite.workflowRun as $run
-            | ($run.workflow.resourcePath | endswith("/protect.yml")) as $protect
+            | ($run.workflow.resourcePath | endswith("/protect.yml")) as $is_protect
             # Every non-skipped job must be fast; Protect is exempt.
-            | select($protect or all(.[] | select(.conclusion != "SKIPPED"); fast))
-            | "\($run.databaseId) \($protect)"
+            | select($is_protect or all(.[] | select(.conclusion != "SKIPPED"); fast))
+            | "\($run.databaseId) \($is_protect)"
           ' <<< "$pages")
 
           rerun() {
@@ -105,8 +105,8 @@ jobs:
           # Submit Protect last because it polls the other checks for failures.
           protect_id=""
           if [ -n "$rows" ]; then
-            while read -r id protect; do
-              if [ "$protect" = "true" ]; then
+            while read -r id is_protect; do
+              if [ "$is_protect" = "true" ]; then
                 protect_id=$id
               else
                 rerun "$id" &
