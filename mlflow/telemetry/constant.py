@@ -89,12 +89,11 @@ NON_GENAI_MODULES = {
 
 MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
 
-# Built-in MLflow model flavors: packages exposing `save_model`, i.e. those that can be
-# passed to `mlflow.models.Model.log(flavor=...)`. Used to keep the telemetry `flavor`
-# value bounded; custom/third-party flavors are reported as "other".
-#
-# Regenerate with (then drop mlflow/prompt/promptlab_model.py, an internal model, not a flavor):
-#   grep -rlE '^def save_model\b' --include='*.py' mlflow/ | sed -E 's#^mlflow/##; s#/.*##; s#\.py$##' | sort -u
+# Built-in MLflow model flavors: packages exposing `save_model` (or `save_explainer`, for
+# `shap`) that can be passed to `mlflow.models.Model.log(flavor=...)`. Keeps the telemetry
+# `flavor` value bounded; custom/third-party flavors are reported as "other". Validated
+# against observed telemetry and maintained by hand (no runtime flavor registry) — update
+# when a built-in flavor is added or removed.
 KNOWN_FLAVORS = {
     "catboost",
     "diffusers",
@@ -113,6 +112,7 @@ KNOWN_FLAVORS = {
     "pyfunc",
     "pytorch",
     "sentence_transformers",
+    "shap",
     "sklearn",
     "spacy",
     "spark",
