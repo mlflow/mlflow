@@ -49,7 +49,7 @@ jobs:
           cutoff=$(jq -nr 'now - 3 * 24 * 60 * 60 | strftime("%Y-%m-%dT%H:%M:%SZ")')
           # TODO: Extend eligibility to other bot and human PRs.
           candidates=$(gh api graphql --paginate \
-            -f search="repo:$GH_REPO is:pr is:open draft:false author:app/copilot-swe-agent created:>=$cutoff" \
+            -f search="repo:$GH_REPO is:pr is:open draft:false author:app/copilot-swe-agent author:app/dependabot created:>=$cutoff" \
             -f query='
               query($search: String!, $endCursor: String) {
                 search(query: $search, type: ISSUE, first: 100, after: $endCursor) {
