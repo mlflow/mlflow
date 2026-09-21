@@ -46,7 +46,6 @@ class SkillManifest:
 
     name: str
     description: str | None
-    keywords: tuple[str, ...]
     path: Path
 
 
@@ -75,27 +74,6 @@ def parse_skill_md(content: str) -> tuple[dict[str, Any], str]:
     return metadata, match.group(2)
 
 
-def _extract_keywords(metadata: dict[str, Any]) -> tuple[str, ...]:
-    raw = metadata.get("keywords")
-    if raw is None and isinstance(metadata.get("metadata"), dict):
-        raw = metadata["metadata"].get("keywords")
-    if raw is None:
-        return ()
-    if isinstance(raw, str):
-        raw = raw.split(",")
-    if not isinstance(raw, list):
-        raise invalid_content(
-            f"{SKILL_MANIFEST_FILE} keywords must be a list or comma-separated string."
-        )
-    keywords = []
-    for item in raw:
-        if not isinstance(item, str):
-            raise invalid_content(f"{SKILL_MANIFEST_FILE} keywords must be strings, got {item!r}.")
-        if value := item.strip():
-            keywords.append(value)
-    return tuple(keywords)
-
-
 def inspect_skill_dir(
     root: str | os.PathLike[str], *, fallback_name: str | None = None
 ) -> SkillManifest:
@@ -106,7 +84,9 @@ def inspect_skill_dir(
     frontmatter ``name`` field; the directory name is never used because fetched content lands
     in an arbitrary temporary directory. Import adapters that synthesize names for legacy
     layouts may pass ``fallback_name`` explicitly. The name is validated against the Agent
-    Skills naming rules, and ``description`` and ``keywords`` are read when present.
+    Skills naming rules, and ``description`` is read when present. Any other frontmatter
+    key is ignored, whatever its shape, so a ``SKILL.md`` written for other tooling still
+    inspects cleanly.
     """
     root_path = Path(root)
     manifest_path = root_path / SKILL_MANIFEST_FILE
@@ -138,6 +118,5 @@ def inspect_skill_dir(
     return SkillManifest(
         name=name,
         description=description,
-        keywords=_extract_keywords(metadata),
         path=root_path,
     )
