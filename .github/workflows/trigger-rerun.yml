@@ -1,6 +1,6 @@
 # Triggers rerun.yml on PR approval.
 # See https://stackoverflow.com/questions/67247752/how-to-use-secret-in-pull-request-review-similar-to-pull-request-target for why we need this approach and how it works.
-name: rerun
+name: trigger-rerun
 
 on:
   pull_request_review:
