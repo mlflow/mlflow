@@ -474,13 +474,28 @@ def test_create_multipart_upload_falls_back_when_delegation_key_is_forbidden(moc
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.credential = mock.Mock(spec=["get_token"])
     response = mock.Mock(status_code=403)
-    mock_client.get_user_delegation_key.side_effect = HttpResponseError(response=response)
+    error = HttpResponseError(response=response)
+    error.error_code = "AuthorizationPermissionMismatch"
+    mock_client.get_user_delegation_key.side_effect = error
 
     with pytest.raises(
         _UnsupportedMultipartUploadException,
         match=_UnsupportedMultipartUploadException.MESSAGE,
     ):
         repo.create_multipart_upload("local_file")
+
+
+def test_create_multipart_upload_propagates_other_forbidden_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=403))
+    error.error_code = "AuthorizationFailure"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.create_multipart_upload("local_file")
+
+    assert exc_info.value is error
 
 
 def test_create_multipart_upload_propagates_other_delegation_key_errors(mock_client):

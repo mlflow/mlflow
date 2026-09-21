@@ -265,7 +265,10 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             try:
                 user_delegation_key = self.client.get_user_delegation_key(start, expiry)
             except HttpResponseError as e:
-                if e.status_code == 403:
+                if (
+                    e.status_code == 403
+                    and getattr(e, "error_code", None) == "AuthorizationPermissionMismatch"
+                ):
                     raise _UnsupportedMultipartUploadException() from e
                 raise
             sas_kwargs.update(user_delegation_key=user_delegation_key, start=start)
