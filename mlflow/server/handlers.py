@@ -3243,7 +3243,7 @@ def _validate_source_model(source: str, model_id: str) -> None:
             _raise_invalid_model_version_source(source, "model_id")
 
     if parsed_source.scheme == "runs":
-        _raise_invalid_model_version_source(source, "run_id")
+        _raise_invalid_model_version_source(source, "model_id")
 
     if _is_mlflow_artifact_source(source):
         if model_id:

@@ -3032,6 +3032,11 @@ def test_validate_source_model_requires_matching_logged_model_uri_id():
         _validate_source_model(f"models:/m-{uuid.uuid4().hex}", model_id)
 
 
+def test_validate_source_model_rejects_runs_uri_with_model_id_error():
+    with pytest.raises(MlflowException, match="model_id request parameter"):
+        _validate_source_model(f"runs:/{uuid.uuid4().hex}/model", f"m-{uuid.uuid4().hex}")
+
+
 @pytest.mark.parametrize(
     "source", ["models:/registered/1", "models:/registered@champion", "models:/registered/Staging"]
 )
