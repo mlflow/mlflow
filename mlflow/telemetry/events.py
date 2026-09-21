@@ -3,7 +3,7 @@ import os
 import sys
 from collections import Counter
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
@@ -24,23 +24,6 @@ GENAI_EVALUATION_PATH = "mlflow/genai/evaluation/base"
 GENAI_SCORERS_PATH = "mlflow/genai/scorers/base"
 GENAI_EVALUATE_FUNCTION = "_run_harness"
 SCORER_RUN_FUNCTION = "run"
-
-# Bounded value sets for register_model telemetry; anything else is reported as "other".
-_KNOWN_ENV_PACK_TYPES = {"databricks_model_serving"}  # mirrors EnvPackType in mlflow.utils.env_pack
-_KNOWN_MODEL_URI_SCHEMES = {
-    "file",
-    "s3",
-    "gs",
-    "wasbs",
-    "abfss",
-    "dbfs",
-    "ftp",
-    "sftp",
-    "hdfs",
-    "http",
-    "https",
-    "mlflow-artifacts",
-}
 
 
 def _bound_flavor(flavor_name: str | None) -> str | None:
@@ -293,12 +276,19 @@ class RegisterModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        # Lazy imports (and thus derive the bounded sets here) to avoid an
+        # events -> env_pack -> models.model -> events import cycle.
+        from mlflow.store.artifact.artifact_repository_registry import (
+            get_registered_artifact_repositories,
+        )
+        from mlflow.utils.env_pack import EnvPackType
+
         env_pack = arguments.get("env_pack")
         if env_pack is None:
             env_pack_kind = None
         else:
             kind = env_pack if isinstance(env_pack, str) else getattr(env_pack, "name", None)
-            env_pack_kind = kind if kind in _KNOWN_ENV_PACK_TYPES else "other"
+            env_pack_kind = kind if kind in get_args(EnvPackType) else "other"
 
         model_uri = arguments.get("model_uri") or ""
         if model_uri.startswith("runs:/"):
@@ -307,7 +297,8 @@ class RegisterModelEvent(Event):
             source_scheme = "models"
         elif "://" in model_uri:
             scheme = model_uri.split("://", 1)[0]
-            source_scheme = scheme if scheme in _KNOWN_MODEL_URI_SCHEMES else "other"
+            known_schemes = get_registered_artifact_repositories()
+            source_scheme = scheme if scheme in known_schemes else "other"
         else:
             source_scheme = "local"
 
