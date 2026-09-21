@@ -253,3 +253,64 @@ def test_agent_plugin_version_filter_parses_valid(filter_string, expected_key):
 def test_agent_plugin_version_filter_rejects_member_name():
     with pytest.raises(MlflowException, match=r"(?i)invalid"):
         SearchAgentPluginVersionUtils.parse_search_filter("member_name = 'review'")
+
+
+# ---------------------------------------------------------------------------
+# Value shape: only IN and NOT IN take a list
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "status = ('active')",
+        "status != ('active', 'draft')",
+        "status LIKE ('act%')",
+        "status ILIKE ('ACT%')",
+    ],
+)
+def test_filter_rejects_parenthesized_value_for_scalar_comparator(utils, filter_string):
+    # A parenthesized value parses as a tuple; comparing a column to one fails in
+    # the database, so it is rejected here instead.
+    with pytest.raises(MlflowException, match=r"requires a single value") as exc:
+        utils.parse_search_filter(filter_string)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+def test_filter_accepts_list_for_list_comparators(utils, comparator):
+    parsed = utils.parse_search_filter(f"status {comparator} ('active', 'draft')")
+    assert parsed == [
+        {
+            "type": "attribute",
+            "key": "status",
+            "comparator": comparator,
+            "value": ("active", "draft"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+@pytest.mark.parametrize("filter_string", ["status IN 'active'", "status NOT IN 'active'"])
+def test_filter_rejects_scalar_value_for_list_comparators(utils, filter_string):
+    # The base parser rejects this shape before the registry check runs, so the
+    # message comes from there rather than from the value-shape rule.
+    with pytest.raises(MlflowException, match=r"(?i)invalid clause") as exc:
+        utils.parse_search_filter(filter_string)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        # Field-specific rules still report their own message rather than the
+        # generic value-shape one.
+        ("name IN ('a', 'b')", r"Only 'status' supports IN and NOT IN"),
+        ("tags.team IN ('a')", r"(?i)quoted string value for tag"),
+    ],
+)
+def test_filter_keeps_field_specific_list_errors(filter_string, match):
+    with pytest.raises(MlflowException, match=match):
+        SearchSkillUtils.parse_search_filter(filter_string)

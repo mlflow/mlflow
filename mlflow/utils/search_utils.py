@@ -2949,6 +2949,16 @@ class _SkillRegistrySearchBase(SearchUtils):
                 f"Invalid comparator '{comparison['comparator']}' for {type_} '{key}'. "
                 f"Supported comparators: {sorted(allowed)}"
             )
+        # A parenthesized value parses as a tuple, which only IN and NOT IN accept.
+        # Without this check ``status = ('active')`` would compare a column to a
+        # tuple and fail in the database instead of here.
+        takes_list = comparator in ("IN", "NOT IN")
+        if isinstance(comparison["value"], (list, tuple, set)) != takes_list:
+            expected = "a parenthesized list of values" if takes_list else "a single value"
+            raise MlflowException.invalid_parameter_value(
+                f"Comparator '{comparator}' for {type_} '{key}' requires {expected}, "
+                f"got {comparison['value']!r}."
+            )
         comparison["comparator"] = comparator
 
 
