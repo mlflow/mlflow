@@ -5276,6 +5276,7 @@ _ROUTES_NEEDING_BODY = frozenset((
     "/gateway/openai/v1/embeddings",
     "/gateway/openai/v1/responses",
     "/gateway/anthropic/v1/messages",
+    "/gateway/typesafe/v1/systemone",
 ))
 
 
