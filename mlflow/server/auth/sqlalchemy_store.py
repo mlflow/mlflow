@@ -52,7 +52,7 @@ from mlflow.server.auth.permissions import (
     get_permission,
     max_permission,
 )
-from mlflow.store.db.db_types import SQLITE
+from mlflow.store.db.db_types import MYSQL, SQLITE
 from mlflow.store.db.utils import (
     _get_managed_session_maker,
     _get_routing_session_maker,
@@ -407,7 +407,7 @@ class SqlAlchemyStore:
         dbapi_connection = getattr(raw_connection, "dbapi_connection", raw_connection)
         if getattr(dbapi_connection, "in_transaction", False):
             return
-        connection.exec_driver_sql("BEGIN")
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
 
     def _insert_user_permission_in_session(
         self,
@@ -429,14 +429,16 @@ class SqlAlchemyStore:
             )
             session.flush()
 
-    @staticmethod
-    def _get_role_permission_in_session(
+    def _role_permission_query(
+        self,
         session,
         role_id: int,
         resource_type: str,
         resource_pattern: str,
-    ) -> SqlRolePermission | None:
-        return (
+        *,
+        for_update: bool = False,
+    ):
+        query = (
             session
             .query(SqlRolePermission)
             .filter(
@@ -444,8 +446,27 @@ class SqlAlchemyStore:
                 SqlRolePermission.resource_type == resource_type,
                 SqlRolePermission.resource_pattern == resource_pattern,
             )
-            .first()
         )
+        if for_update and self.db_type == MYSQL:
+            query = query.with_for_update()
+        return query
+
+    def _get_role_permission_in_session(
+        self,
+        session,
+        role_id: int,
+        resource_type: str,
+        resource_pattern: str,
+        *,
+        for_update: bool = False,
+    ) -> SqlRolePermission | None:
+        return self._role_permission_query(
+            session,
+            role_id,
+            resource_type,
+            resource_pattern,
+            for_update=for_update,
+        ).first()
 
     def _grant_user_permission_in_session(
         self,
@@ -482,7 +503,11 @@ class SqlAlchemyStore:
         except IntegrityError as e:
             if upsert:
                 existing = self._get_role_permission_in_session(
-                    session, role.id, resource_type, resource_pattern
+                    session,
+                    role.id,
+                    resource_type,
+                    resource_pattern,
+                    for_update=True,
                 )
                 if existing is not None:
                     existing.permission = permission
