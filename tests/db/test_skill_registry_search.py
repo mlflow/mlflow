@@ -24,6 +24,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkill,
     SqlSkillTag,
     SqlSkillVersion,
+    SqlSkillVersionTag,
 )
 from mlflow.store.tracking.skill_registry_filter import (
     apply_member_name_filter,
@@ -33,7 +34,7 @@ from mlflow.store.tracking.skill_registry_filter import (
 )
 from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.search_utils import SearchSkillUtils
+from mlflow.utils.search_utils import SearchSkillUtils, SearchSkillVersionUtils
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -207,7 +208,7 @@ def test_db_backend_tag_filters_intersect_per_key(store, org):
     assert _skill_names(store, org, "tags.team LIKE 'plat%' AND tags.team != 'platform'") == ["c"]
 
 
-# Counterpart: test_filter_by_timestamp_columns.
+# Counterparts: test_filter_by_timestamp_columns and test_filter_by_skill_version_number.
 # Numeric filter values are bound as integers: PostgreSQL rejects comparing a
 # BIGINT column to a string parameter, and the other engines only coerce it by
 # accident.
@@ -244,6 +245,44 @@ def test_db_backend_timestamp_filters(store, org, filter_string, expected):
             dialect=store.engine.dialect.name,
         )
         assert sorted(skill.name for skill in query) == expected
+
+
+# Version 10 sorts before 3 as a string, so this also shows the comparison is
+# numeric rather than lexicographic on every engine.
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("version >= 3", [3, 10]),
+        ("version > 3", [10]),
+        ("version < 3", [1]),
+        ("version != 10", [1, 3]),
+    ],
+)
+def test_db_backend_skill_version_number_filters(store, org, filter_string, expected):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(SqlSkill(workspace="default", organization=org, name="code-review"))
+        for version in (1, 3, 10):
+            session.add(
+                SqlSkillVersion(
+                    workspace="default",
+                    organization=org,
+                    name="code-review",
+                    version=version,
+                    status="active",
+                )
+            )
+
+    with store.ManagedSessionMaker() as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkillVersion).filter(SqlSkillVersion.organization == org),
+            SearchSkillVersionUtils.parse_search_filter(filter_string),
+            {"version": SqlSkillVersion.version},
+            SqlSkillVersion,
+            SqlSkillVersionTag,
+            tag_join_keys=["workspace", "organization", "name", "version"],
+            dialect=store.engine.dialect.name,
+        )
+        assert sorted(row.version for row in query) == expected
 
 
 # Counterparts: test_member_name_excludes_version_with_deleted_sibling,

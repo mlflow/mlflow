@@ -3031,9 +3031,11 @@ class SearchSkillVersionUtils(_SkillRegistrySearchBase):
         "organization",
         "source_type",
         "digest",
+        "version",
         *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
     }
-    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    # A skill version number is a monotonic integer, so it compares numerically.
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES | {"version"}
     VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
 
 

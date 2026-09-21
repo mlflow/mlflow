@@ -1244,7 +1244,7 @@ def test_unsupported_tag_comparator_rejected_for_hand_built_filters():
 
 
 # ---------------------------------------------------------------------------
-# Timestamp filters against real rows
+# Numeric attribute filters against real rows
 # ---------------------------------------------------------------------------
 
 
@@ -1279,3 +1279,42 @@ def test_filter_by_timestamp_columns(store, filter_string, expected):
             dialect=store.engine.dialect.name,
         )
         assert {row.name for row in query.all()} == expected
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("version >= 3", {3, 10}),
+        ("version > 3", {10}),
+        ("version < 3", {1}),
+        ("version = 10", {10}),
+        ("version != 10", {1, 3}),
+    ],
+)
+def test_filter_by_skill_version_number(store, filter_string, expected):
+    # Version 10 sorts before 3 as a string, so this also shows the comparison
+    # is numeric rather than lexicographic.
+    with session_scope(store) as session:
+        _add_skill(session, name="code-review", organization="acme")
+        for version in (1, 3, 10):
+            session.add(
+                SqlSkillVersion(
+                    workspace="default",
+                    organization="acme",
+                    name="code-review",
+                    version=version,
+                    status="active",
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkillVersion),
+            SearchSkillVersionUtils.parse_search_filter(filter_string),
+            {"version": SqlSkillVersion.version},
+            SqlSkillVersion,
+            SqlSkillVersionTag,
+            tag_join_keys=["workspace", "organization", "name", "version"],
+            dialect=store.engine.dialect.name,
+        )
+        assert {row.version for row in query.all()} == expected

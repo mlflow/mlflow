@@ -317,7 +317,7 @@ def test_filter_keeps_field_specific_list_errors(filter_string, match):
 
 
 # ---------------------------------------------------------------------------
-# Numeric attributes
+# Numeric attributes: timestamps and skill version numbers
 # ---------------------------------------------------------------------------
 
 
@@ -341,3 +341,24 @@ def test_filter_parses_timestamp_comparisons(utils, key, comparator):
 def test_filter_rejects_non_numeric_timestamp_value(utils, key):
     with pytest.raises(MlflowException, match=r"(?i)numeric value"):
         utils.parse_search_filter(f"{key} LIKE '17%'")
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", ">", ">=", "<", "<="])
+def test_skill_version_filter_parses_version_number(comparator):
+    parsed = SearchSkillVersionUtils.parse_search_filter(f"version {comparator} 3")
+    assert parsed == [{"type": "attribute", "key": "version", "comparator": comparator, "value": 3}]
+
+
+def test_skill_version_filter_rejects_non_numeric_version():
+    with pytest.raises(MlflowException, match=r"(?i)numeric value"):
+        SearchSkillVersionUtils.parse_search_filter("version LIKE '1%'")
+
+
+@pytest.mark.parametrize(
+    "utils", [SearchSkillUtils, SearchAgentPluginUtils, SearchAgentPluginVersionUtils]
+)
+def test_version_filter_rejected_on_other_surfaces(utils):
+    # Agent plugin versions are SemVer strings, so version filtering there needs
+    # SemVer comparisons rather than the numeric path used by skill versions.
+    with pytest.raises(MlflowException, match=r"(?i)invalid attribute key 'version'"):
+        utils.parse_search_filter("version = 1")
