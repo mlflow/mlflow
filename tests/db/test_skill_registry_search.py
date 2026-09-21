@@ -207,6 +207,45 @@ def test_db_backend_tag_filters_intersect_per_key(store, org):
     assert _skill_names(store, org, "tags.team LIKE 'plat%' AND tags.team != 'platform'") == ["c"]
 
 
+# Counterpart: test_filter_by_timestamp_columns.
+# Numeric filter values are bound as integers: PostgreSQL rejects comparing a
+# BIGINT column to a string parameter, and the other engines only coerce it by
+# accident.
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("created_at > 2000", ["newer"]),
+        ("created_at < 2000", ["older"]),
+        ("created_at = 1000", ["older"]),
+        ("last_updated_at >= 3000", ["newer"]),
+    ],
+)
+def test_db_backend_timestamp_filters(store, org, filter_string, expected):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        for name, stamp in [("older", 1000), ("newer", 3000)]:
+            _add_skill(session, org, name)
+            skill = (
+                session
+                .query(SqlSkill)
+                .filter(SqlSkill.organization == org, SqlSkill.name == name)
+                .one()
+            )
+            skill.created_at = stamp
+            skill.last_updated_at = stamp
+
+    with store.ManagedSessionMaker() as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill).filter(SqlSkill.organization == org),
+            SearchSkillUtils.parse_search_filter(filter_string),
+            {"created_at": SqlSkill.created_at, "last_updated_at": SqlSkill.last_updated_at},
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        assert sorted(skill.name for skill in query) == expected
+
+
 # Counterparts: test_member_name_excludes_version_with_deleted_sibling,
 # test_member_name_keeps_version_with_deprecated_sibling,
 # test_member_name_matches_older_eligible_version_when_newer_is_withdrawn, and

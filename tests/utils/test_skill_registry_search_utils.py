@@ -314,3 +314,30 @@ def test_filter_rejects_scalar_value_for_list_comparators(utils, filter_string):
 def test_filter_keeps_field_specific_list_errors(filter_string, match):
     with pytest.raises(MlflowException, match=match):
         SearchSkillUtils.parse_search_filter(filter_string)
+
+
+# ---------------------------------------------------------------------------
+# Numeric attributes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+@pytest.mark.parametrize("key", ["created_at", "last_updated_at"])
+@pytest.mark.parametrize("comparator", ["=", "!=", ">", ">=", "<", "<="])
+def test_filter_parses_timestamp_comparisons(utils, key, comparator):
+    parsed = utils.parse_search_filter(f"{key} {comparator} 1700000000000")
+    assert parsed == [
+        {
+            "type": "attribute",
+            "key": key,
+            "comparator": comparator,
+            "value": 1700000000000,
+        }
+    ]
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+@pytest.mark.parametrize("key", ["created_at", "last_updated_at"])
+def test_filter_rejects_non_numeric_timestamp_value(utils, key):
+    with pytest.raises(MlflowException, match=r"(?i)numeric value"):
+        utils.parse_search_filter(f"{key} LIKE '17%'")

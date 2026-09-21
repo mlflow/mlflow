@@ -1241,3 +1241,41 @@ def test_unsupported_tag_comparator_rejected_for_hand_built_filters():
             ["workspace", "organization", "name"],
             "sqlite",
         )
+
+
+# ---------------------------------------------------------------------------
+# Timestamp filters against real rows
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("created_at > 2000", {"newer"}),
+        ("created_at >= 2000", {"newer"}),
+        ("created_at < 2000", {"older"}),
+        ("created_at = 1000", {"older"}),
+        ("created_at != 1000", {"newer"}),
+        ("last_updated_at >= 3000", {"newer"}),
+    ],
+)
+def test_filter_by_timestamp_columns(store, filter_string, expected):
+    # Parsing binds numeric values as integers, so they compare against the
+    # BigInteger columns without relying on the engine to coerce a string.
+    with session_scope(store) as session:
+        for name, stamp in [("older", 1000), ("newer", 3000)]:
+            skill = _add_skill(session, name=name, organization="acme")
+            skill.created_at = stamp
+            skill.last_updated_at = stamp
+
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter(filter_string),
+            {"created_at": SqlSkill.created_at, "last_updated_at": SqlSkill.last_updated_at},
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        assert {row.name for row in query.all()} == expected

@@ -2931,6 +2931,14 @@ def _quote_keyword_fields(text: str) -> str:
     )
 
 
+def _to_number(value):
+    # Parsing already rejected non-numeric tokens for these attributes.
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return float(value)
+
+
 class _SkillRegistrySearchBase(SearchUtils):
     """Base class for skill registry search utils, quoting sqlparse keywords."""
 
@@ -2982,6 +2990,11 @@ class _SkillRegistrySearchBase(SearchUtils):
                 f"Invalid comparator '{comparison['comparator']}' for {type_} '{key}'. "
                 f"Supported comparators: {sorted(allowed)}"
             )
+        if type_ == cls._ATTRIBUTE_IDENTIFIER and key in cls.NUMERIC_ATTRIBUTES:
+            # The base parser keeps the raw token text, which would bind a string
+            # against an integer column. PostgreSQL rejects that comparison
+            # outright, and other engines only coerce it by accident.
+            comparison["value"] = _to_number(comparison["value"])
         # A parenthesized value parses as a tuple, which only IN and NOT IN accept.
         # Without this check ``status = ('active')`` would compare a column to a
         # tuple and fail in the database instead of here.
@@ -3004,6 +3017,7 @@ class SearchSkillUtils(_SkillRegistrySearchBase):
         "description",
         "search_text",
         "status",
+        *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
     }
     NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
     VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
@@ -3017,6 +3031,7 @@ class SearchSkillVersionUtils(_SkillRegistrySearchBase):
         "organization",
         "source_type",
         "digest",
+        *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
     }
     NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
     VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
@@ -3032,6 +3047,7 @@ class SearchAgentPluginUtils(_SkillRegistrySearchBase):
         "search_text",
         "status",
         "member_name",
+        *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
     }
     NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
     VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
@@ -3046,6 +3062,7 @@ class SearchAgentPluginVersionUtils(_SkillRegistrySearchBase):
         "status",
         "organization",
         "source_type",
+        *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
     }
     NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
     VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
