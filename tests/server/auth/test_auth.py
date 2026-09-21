@@ -8463,28 +8463,30 @@ def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
     # scorer (with its gateway endpoint), and write assessments. BACKWARDS-COMPATIBLE
     # policy: trace/assessment resolve with experiment fallback (a plain experiment
     # editor passes), and the scorer and gateway tiers are DENY-only overlays -- each
-    # explicit denial blocks enabling; disabling needs only experiment UPDATE.
-    from mlflow.server.auth.permissions import MANAGE, NO_PERMISSIONS
+    # explicit denial blocks enabling; disabling needs only experiment UPDATE. The three
+    # child tiers resolve from ONE grants query (asserted below).
+    from mlflow.server.auth.permissions import MANAGE
+
+    grant_rows = []  # (resource_type, resource_pattern, permission)
+    grants_queries = []
+
+    def fake_list_grants(_user_id, _workspace, primary, parent, additional_types=None):
+        grants_queries.append((primary, tuple(additional_types or ())))
+        return [
+            SimpleNamespace(resource_type=t, resource_pattern=p, permission=perm)
+            for t, p, perm in grant_rows
+        ]
 
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
-    granted = {"trace": True, "assessment": True}
-    denied = {"scorer": False, "gateway": False}
     monkeypatch.setattr(
-        auth_module,
-        "_get_trace_permission_for_experiment",
-        lambda _e: MANAGE if granted["trace"] else NO_PERMISSIONS,
+        auth_module.store, "list_role_grants_for_user_in_workspace", fake_list_grants
     )
+    monkeypatch.setattr(auth_module.store, "get_user", lambda _u: SimpleNamespace(id=7))
+    monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+    gateway_denied = {"value": False}
     monkeypatch.setattr(
-        auth_module,
-        "_experiment_child_permission",
-        lambda _t, _k, _e: MANAGE if granted["assessment"] else NO_PERMISSIONS,
-    )
-    monkeypatch.setattr(
-        auth_module, "_registered_scorer_deny_active", lambda _e, _n: denied["scorer"]
-    )
-    monkeypatch.setattr(
-        auth_module, "_gateway_endpoint_deny_active", lambda _i, _u: denied["gateway"]
+        auth_module, "_gateway_endpoint_deny_active", lambda _i, _u: gateway_denied["value"]
     )
     stored = {"scorer": SimpleNamespace(serialized_scorer="stored-payload")}
 
@@ -8499,20 +8501,38 @@ def test_update_online_scoring_config_requires_enabled_work_tiers(monkeypatch):
     monkeypatch.setattr(auth_module, "_scorer_payload_gateway_ref", lambda _p: (True, "ep-id-1"))
 
     def result(body):
+        grants_queries.clear()
         with auth_module.app.test_request_context("/x", method="POST", json=body):
             return auth_module.validate_can_update_online_scoring_config()
 
     base = {"experiment_id": "e1", "name": "s1", "sample_rate": 0.5}
     assert result({**base, "sample_rate": 0}) is True  # disable: experiment UPDATE only
-    assert result(base) is True  # enable: plain experiment editor keeps OSS behavior
-    for tier in ("trace", "assessment"):
-        granted[tier] = False
-        assert result(base) is False, tier
-        granted[tier] = True
-    for tier in ("scorer", "gateway"):
-        denied[tier] = True
-        assert result(base) is False, tier
-        denied[tier] = False
+    assert grants_queries == []  # ...and no child-tier grants query at all
+    # An experiment editor (their EDIT is a role grant) with no child grants keeps the
+    # OSS contract: trace/assessment resolve through the experiment fallback, and no
+    # scorer veto exists.
+    grant_rows[:] = [("experiment", "e1", "EDIT")]
+    assert result(base) is True
+    assert len(grants_queries) == 1  # every child tier from ONE grants query
+    # Each explicit DENY blocks enabling.
+    for deny_row in (
+        ("trace", "*", "DENY"),
+        ("assessment", "*", "DENY"),
+        ("scorer_version", "*", "DENY"),
+        ("scorer", "e1/s1", "DENY"),
+    ):
+        grant_rows[:] = [("experiment", "e1", "EDIT"), deny_row]
+        assert result(base) is False, deny_row
+    # A scorer DENY on a DIFFERENT scorer does not veto this one.
+    grant_rows[:] = [("experiment", "e1", "EDIT"), ("scorer", "e1/other", "DENY")]
+    assert result(base) is True
+    # The workspace-admin bypass wins over a child DENY.
+    grant_rows[:] = [("workspace", "*", "MANAGE"), ("trace", "*", "DENY")]
+    assert result(base) is True
+    grant_rows[:] = [("experiment", "e1", "EDIT")]
+    gateway_denied["value"] = True
+    assert result(base) is False  # endpoint DENY blocks
+    gateway_denied["value"] = False
     assert result({"experiment_id": "e1", "name": "s1"}) is False  # missing sample_rate
     stored["scorer"] = None
     assert result(base) is False  # missing scorer fails closed

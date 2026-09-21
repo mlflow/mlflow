@@ -2264,7 +2264,9 @@ def validate_can_update_online_scoring_config():
     requirement lives on registration, which already gates gateway USE). Explicit
     restrictions still block enabling: ``(trace/assessment, *, DENY)``, a scorer or
     scorer-version DENY (per-name parent fallback included), and an endpoint DENY.
-    Disabling (sample_rate <= 0) schedules no work and needs only experiment UPDATE.
+    The trace/assessment/scorer tiers are evaluated from ONE grants query
+    (``_online_scoring_enable_tiers_allow``). Disabling (sample_rate <= 0) schedules no
+    work and needs only experiment UPDATE.
     """
     body = request.get_json(silent=True) or {}
     experiment_id = body.get("experiment_id")
@@ -2280,11 +2282,7 @@ def validate_can_update_online_scoring_config():
         return False  # the handler requires sample_rate; fail closed at the gate
     if sample_rate <= 0:
         return True
-    if not _get_trace_permission_for_experiment(experiment_id).can_read:
-        return False
-    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
-        return False
-    if _registered_scorer_deny_active(experiment_id, name):
+    if not _online_scoring_enable_tiers_allow(username, experiment_id, name):
         return False
     # The scheduler executes the STORED scorer; its payload carries the resolved gateway
     # endpoint id when one is bound. A missing scorer or malformed payload fails closed.
@@ -2975,6 +2973,92 @@ def _load_role_grants(
         elif parent is not None and grant.resource_type == parent_type:
             parent.add(grant.resource_pattern, grant.permission)
     return workspace_admin, child, parent, workspace_name
+
+
+def _load_role_grants_for_types(
+    username: str, resource_types: tuple[str, ...]
+) -> tuple[bool, dict[str, "_ReadGrants"], str | None]:
+    """Bulk-load ``username``'s grants for SEVERAL resource types in one query -- the
+    multi-tier sibling of ``_load_role_grants``, for gates that consult more than one
+    child/parent tier per request (owner request: evaluate them all from a single grants
+    query instead of one round-trip per tier).
+
+    Returns ``(workspace_admin, grants_by_type, workspace_name)``; a ``workspace_name``
+    of ``None`` means there is no active workspace (callers deny).
+    """
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    grants_by_type = {rt: _ReadGrants(rt) for rt in resource_types}
+    workspace_admin = False
+    if workspace_name is None:
+        return workspace_admin, grants_by_type, workspace_name
+
+    user = store.get_user(username)
+    primary, *additional = resource_types
+    for grant in store.list_role_grants_for_user_in_workspace(
+        user.id, workspace_name, primary, None, additional_types=additional
+    ):
+        if (
+            grant.resource_type == RESOURCE_TYPE_WORKSPACE
+            and grant.resource_pattern == "*"
+            and grant.permission == MANAGE.name
+        ):
+            workspace_admin = True
+        elif grant.resource_type in grants_by_type:
+            grants_by_type[grant.resource_type].add(grant.resource_pattern, grant.permission)
+    return workspace_admin, grants_by_type, workspace_name
+
+
+def _online_scoring_enable_tiers_allow(username: str, experiment_id: str, name: str) -> bool:
+    """Evaluate the online-scoring enable gate's child tiers from ONE grants query:
+    trace READ and assessment UPDATE (experiment fallback -- a grant-less experiment
+    editor keeps the OSS contract), plus the scorer/scorer_version DENY-only veto
+    (scorer-parent fallback, per the INVOKE_SCORER composite family). Mirrors the point
+    folds' precedence: workspace-admin bypass, authoritative child tier (floored
+    positives, DENY-ahead-of-max), parent fallback, then the default floor;
+    ``NO_PERMISSIONS`` rows are inert exactly as in the bulk predicates.
+    """
+    workspace_admin, grants_by_type, workspace_name = _load_role_grants_for_types(
+        username,
+        (
+            RESOURCE_TYPE_EXPERIMENT,
+            RESOURCE_TYPE_TRACE,
+            RESOURCE_TYPE_ASSESSMENT,
+            RESOURCE_TYPE_SCORER,
+            RESOURCE_TYPE_SCORER_VERSION,
+        ),
+    )
+    if workspace_name is None:
+        return False
+    if workspace_admin:
+        return True
+    default_applies = not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(
+        workspace_name
+    )
+    default_perm = (
+        get_permission(auth_config.default_permission) if default_applies else (NO_PERMISSIONS)
+    )
+
+    def tier(child_type: str, child_key: str, parent_type: str, parent_id: str) -> Permission:
+        child = grants_by_type[child_type]
+        if child.has_grant(child_key):
+            return _floor_positive_permission(child.permission(child_key))
+        parent = grants_by_type[parent_type]
+        if parent.has_grant(parent_id):
+            return _floor_positive_permission(parent.permission(parent_id))
+        return default_perm
+
+    if not tier(RESOURCE_TYPE_TRACE, "*", RESOURCE_TYPE_EXPERIMENT, experiment_id).can_read:
+        return False
+    if not tier(RESOURCE_TYPE_ASSESSMENT, "*", RESOURCE_TYPE_EXPERIMENT, experiment_id).can_update:
+        return False
+    scorer_pattern = store._scorer_pattern(experiment_id, name)
+    return not _deny_veto(
+        tier(RESOURCE_TYPE_SCORER_VERSION, "*", RESOURCE_TYPE_SCORER, scorer_pattern)
+    )
 
 
 def _floor_positive_permission(perm: Permission) -> Permission:

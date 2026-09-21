@@ -1,6 +1,6 @@
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from urllib.parse import quote, unquote
 
@@ -2306,6 +2306,7 @@ class SqlAlchemyStore:
         workspace: str,
         resource_type: str,
         parent_type: str | None = None,
+        additional_types: "Collection[str] | None" = None,
     ) -> list["_RoleGrant"]:
         """
         Return the user's **role-based** permission grants in ``workspace`` that apply
@@ -2313,7 +2314,9 @@ class SqlAlchemyStore:
         plus the workspace-wide grants that apply to every type. Fetching both the child
         and parent types in one query lets the caller resolve the sub-resource
         tier-override (child authoritative, else parent fallback) without a second
-        round-trip. Direct per-resource grants (e.g. rows in ``experiment_permissions``)
+        round-trip; ``additional_types`` widens the same single query to further types
+        for callers that evaluate several tiers at once (e.g. the online-scoring enable
+        gate). Direct per-resource grants (e.g. rows in ``experiment_permissions``)
         are intentionally **not** included — callers that need the full authorization
         picture fold them in separately (see ``filter_experiment_ids``, which unions the
         result of this query with ``list_experiment_permissions`` from the legacy table).
@@ -2330,6 +2333,9 @@ class SqlAlchemyStore:
         if parent_type is not None:
             _validate_resource_type(parent_type)
             types.add(parent_type)
+        for extra_type in additional_types or ():
+            _validate_resource_type(extra_type)
+            types.add(extra_type)
         with self.ManagedSessionMaker() as session:
             rows = (
                 session
