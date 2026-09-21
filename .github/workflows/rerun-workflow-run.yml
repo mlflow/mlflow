@@ -41,7 +41,6 @@ jobs:
                         contexts(first: 100, after: $endCursor) {
                           nodes {
                             ... on CheckRun {
-                              name
                               status
                               conclusion
                               startedAt
@@ -85,9 +84,6 @@ jobs:
                   | max_by([.[0].checkSuite.workflowRun.createdAt,
                             .[0].checkSuite.workflowRun.databaseId]))
             | .[]
-            # Keep the latest execution of each job before checking eligibility.
-            | group_by(.name)
-            | map(max_by(.startedAt // ""))
             | select(all(.[]; .status == "COMPLETED"))
             | select(any(.[]; failed))
             | .[0].checkSuite.workflowRun as $run
