@@ -13,7 +13,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import ScorerCardContainer from './ScorerCardContainer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
-import { shouldPaginateScorers } from '../../../common/utils/FeatureUtils';
+import { shouldPaginateScorers, isJevScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
 import { SCORER_FORM_MODE } from './constants';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -35,6 +35,11 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
 
   const handleNewLLMScorerClick = () => {
     setInitialScorerType('llm');
+    setIsModalVisible(true);
+  };
+
+  const handleNewJevScorerClick = () => {
+    setInitialScorerType('jev');
     setIsModalVisible(true);
   };
 
@@ -85,6 +90,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   if (shouldShowEmptyState) {
     return (
       <ScorerEmptyStateRenderer
+        onAddJevScorerClick={isJevScorersEnabled() ? handleNewJevScorerClick : undefined}
         onAddLLMScorerClick={handleNewLLMScorerClick}
         onAddCustomCodeScorerClick={handleNewCustomCodeScorerClick}
       />
@@ -116,6 +122,14 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
           onClick={handleNewLLMScorerClick}
           menu={
             <DropdownMenu.Content>
+              {isJevScorersEnabled() && (
+                <DropdownMenu.Item
+                  componentId="mlflow.experiment-scorers.new-jev-scorer-menu-item"
+                  onClick={handleNewJevScorerClick}
+                >
+                  <FormattedMessage defaultMessage="Jev (TypeSafe)" description="Menu item to create a Jev judge" />
+                </DropdownMenu.Item>
+              )}
               <DropdownMenu.Item
                 componentId="mlflow.experiment-scorers.new-custom-code-scorer-menu-item"
                 onClick={handleNewCustomCodeScorerClick}

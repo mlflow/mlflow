@@ -23,6 +23,8 @@ The fastest way to create LLM judges is through the **Judge Builder UI** - no co
 - **SDK**: The `make_judge` API requires **MLflow >= 3.4.0**. For earlier versions, use the deprecated <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> instead.
   :::
 
+For structured evaluation with TypeSafe Jev, use the native [Jev scorer](/genai/eval-monitor/scorers/llm-judge/custom-judges/jev). It supports probabilities, categorical decisions, and rubric scores through the SDK and UI.
+
 ## Prompts and template variables
 
 To create a judge, you provide a prompt with natural language instructions on how to assess the quality of your agent. <APILink fn="mlflow.genai.judges.make_judge">`make_judge()`</APILink> accepts template variables to access the agent's inputs, outputs, expected outputs or behaviors, and even complete traces.

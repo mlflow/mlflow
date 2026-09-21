@@ -49,12 +49,15 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     hasV4Location,
   } = useSqlWarehouseContextSafe() ?? {};
   const showWarehouseSelector = hasV4Location;
+  const scorerType = useWatch({ control, name: 'scorerType' });
+  const isJevScorer = scorerType === 'jev';
+  const question = useWatch({ control, name: 'question' });
   const judgeInstructions = useWatch({ control, name: 'instructions' });
   const scorerName = useWatch({ control, name: 'name' });
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
   const modelValue = useWatch({ control, name: 'model' });
-  const { errors } = useFormState({ control });
+  const { errors, isValid } = useFormState({ control });
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
@@ -72,12 +75,12 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   useEffect(() => {
     reset();
     setCurrentTraceIndex(0);
-  }, [llmTemplate, reset]);
+  }, [scorerType, llmTemplate, reset]);
 
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {
     // Validate inputs based on mode
-    if (isInstructionsJudge ? !judgeInstructions : !llmTemplate) {
+    if (isJevScorer ? !question || !isValid : isInstructionsJudge ? !judgeInstructions : !llmTemplate) {
       return;
     }
 
@@ -88,11 +91,11 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
     try {
       // Prepare evaluation parameters based on mode
-      const evaluationParams = isInstructionsJudge
+      const evaluationParams = isInstructionsJudge || isJevScorer
         ? {
             itemIds: selectedItemIds,
             locations: traceSearchLocations,
-            judgeInstructions: judgeInstructions || '',
+            judgeInstructions: (isJevScorer ? question : judgeInstructions) || '',
             experimentId,
             serializedScorer,
             evaluationScope,
@@ -118,6 +121,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     // prettier-ignore
   }, [
+    isJevScorer,
+    question,
+    isValid,
     isInstructionsJudge,
     judgeInstructions,
     llmTemplate,
@@ -146,14 +152,14 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Convert judge evaluation result to assessments for display
   const assessments = useMemo(() => {
-    if (!currentEvalResult || !llmTemplate) {
+    if (!currentEvalResult || (!llmTemplate && !isJevScorer)) {
       return undefined;
     }
 
-    const baseName = scorerName || llmTemplate;
+    const baseName = scorerName || llmTemplate || 'Jev';
 
     // Custom judges or built-in judges with no results: single assessment
-    if (isInstructionsJudge || currentEvalResult.results.length === 0) {
+    if (isInstructionsJudge || isJevScorer || currentEvalResult.results.length === 0) {
       const assessment = convertEvaluationResultToAssessment(currentEvalResult, baseName);
       return [assessment];
     }
@@ -169,7 +175,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         index,
       );
     });
-  }, [currentEvalResult, isInstructionsJudge, llmTemplate, scorerName]);
+  }, [currentEvalResult, isInstructionsJudge, isJevScorer, llmTemplate, scorerName]);
 
   // Check if instructions contain {{trace}} variable (only supported when agentic judges are enabled)
   const isTraceVariableBlocked = useMemo(() => {
@@ -183,10 +189,10 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   // Only applies when not all templates are supported (DB). Templates must either
   // be an instructions judge or have a chat-assessments mapping.
   const isUnsupportedTemplate = useMemo(() => {
-    if (isRunningAllScorerTemplatesEnabled()) return false;
+    if (isJevScorer || isRunningAllScorerTemplatesEnabled()) return false;
     if (isInstructionsJudge) return false;
     return !ASSESSMENT_NAME_TEMPLATE_MAPPING[llmTemplate as keyof typeof ASSESSMENT_NAME_TEMPLATE_MAPPING];
-  }, [isInstructionsJudge, llmTemplate]);
+  }, [isInstructionsJudge, isJevScorer, llmTemplate]);
 
   // Determine if run scorer button should be disabled
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
@@ -211,7 +217,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
 
     // Model checks
-    if (isScorerModelSelectionEnabled() && !modelValue) {
+    if ((isJevScorer || isScorerModelSelectionEnabled()) && !modelValue) {
       return intl.formatMessage({
         defaultMessage: 'Please select a model to run the judge',
         description: 'Tooltip message when model is not selected',
@@ -239,8 +245,15 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       );
     }
 
+    if (isJevScorer && !isValid) {
+      return intl.formatMessage({
+        defaultMessage: 'Complete the Jev question and fix form validation errors before running the judge.',
+        description: 'Invalid Jev scorer form tooltip',
+      });
+    }
+
     // Judge-specific validation
-    if (isInstructionsJudge) {
+    if (isInstructionsJudge && !isJevScorer) {
       // Custom judge mode
       if (!judgeInstructions) {
         return intl.formatMessage({
@@ -260,7 +273,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           description: 'Tooltip message when instructions contain trace variable',
         });
       }
-    } else {
+    } else if (!isJevScorer) {
       // Built-in judge mode
       if (hasEmptyGuidelines) {
         return intl.formatMessage({
@@ -289,6 +302,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     return undefined;
   }, [
+    isJevScorer,
+    isValid,
     isSessionLevelScorer,
     modelValue,
     isInstructionsJudge,

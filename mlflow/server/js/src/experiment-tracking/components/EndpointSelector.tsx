@@ -29,6 +29,10 @@ interface EndpointOption {
 }
 
 export interface EndpointSelectorProps {
+  /** Restrict selection to endpoints whose models all use this provider. */
+  provider?: string;
+  /** Exclude endpoints using these providers, including fallback models. */
+  excludeProviders?: string[];
   /** Current selected endpoint name */
   currentEndpointName?: string;
   /** Called when user selects an endpoint */
@@ -54,6 +58,8 @@ export interface EndpointSelectorProps {
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
+  provider,
+  excludeProviders,
   currentEndpointName,
   onEndpointSelect,
   disabled = false,
@@ -71,13 +77,32 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   const { data: endpoints, isLoading, error, refetch } = useEndpointsQuery();
 
+  const isCompatibleEndpoint = useCallback(
+    (endpoint: Endpoint) =>
+      (!provider ||
+        (endpoint.model_mappings.length > 0 &&
+          endpoint.model_mappings.every((mapping) => mapping.model_definition?.provider === provider))) &&
+      !endpoint.model_mappings.some(
+        (mapping) => mapping.model_definition && excludeProviders?.includes(mapping.model_definition.provider),
+      ),
+    [provider, excludeProviders],
+  );
+
+  const selectableEndpoints = useMemo(
+    () =>
+      endpoints.filter(
+        (endpoint) => !excludeEndpointIds?.includes(endpoint.endpoint_id) && isCompatibleEndpoint(endpoint),
+      ),
+    [endpoints, excludeEndpointIds, isCompatibleEndpoint],
+  );
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    if (autoSelectFirstEndpoint && endpoints && endpoints.length > 0 && !currentEndpointName) {
-      onEndpointSelect(endpoints[0].name);
+    if (autoSelectFirstEndpoint && selectableEndpoints.length > 0 && !currentEndpointName) {
+      onEndpointSelect(selectableEndpoints[0].name);
     }
-  }, [autoSelectFirstEndpoint, endpoints, onEndpointSelect, currentEndpointName]);
+  }, [autoSelectFirstEndpoint, selectableEndpoints, onEndpointSelect, currentEndpointName]);
 
   const handleOpenCreateModal = useCallback(() => {
     setIsCreateModalOpen(true);
@@ -90,27 +115,27 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const handleCreateEndpointSuccess = useCallback(
     async (endpoint: Endpoint) => {
       await refetch();
-      onEndpointSelect(endpoint.name);
+      if (isCompatibleEndpoint(endpoint)) {
+        onEndpointSelect(endpoint.name);
+      }
       onEndpointCreated?.(endpoint);
       setIsCreateModalOpen(false);
     },
-    [refetch, onEndpointSelect, onEndpointCreated],
+    [refetch, onEndpointSelect, onEndpointCreated, isCompatibleEndpoint],
   );
 
   // Build endpoint options for the dropdown
   const endpointOptions: EndpointOption[] = useMemo(() => {
-    return endpoints
-      .filter((endpoint) => !excludeEndpointIds?.includes(endpoint.endpoint_id))
-      .map((endpoint) => {
-        const displayInfo = getEndpointDisplayInfo(endpoint);
-        return {
-          value: endpoint.name,
-          label: endpoint.name,
-          provider: displayInfo?.provider,
-          modelName: displayInfo?.modelName,
-        };
-      });
-  }, [endpoints, excludeEndpointIds]);
+    return selectableEndpoints.map((endpoint) => {
+      const displayInfo = getEndpointDisplayInfo(endpoint);
+      return {
+        value: endpoint.name,
+        label: endpoint.name,
+        provider: displayInfo?.provider,
+        modelName: displayInfo?.modelName,
+      };
+    });
+  }, [selectableEndpoints]);
 
   const currentEndpoint = useMemo(() => {
     return endpointOptions.find((opt) => opt.value === currentEndpointName);
@@ -241,6 +266,8 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
       {showCreateButton && (
         <CreateEndpointModal
+          key={provider}
+          provider={provider}
           open={isCreateModalOpen}
           onClose={handleCloseCreateModal}
           onSuccess={handleCreateEndpointSuccess}

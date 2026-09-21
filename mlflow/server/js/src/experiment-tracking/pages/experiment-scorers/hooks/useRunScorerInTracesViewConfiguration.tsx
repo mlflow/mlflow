@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LLMScorer } from '../types';
+import type { LLMScorer, JevScorer } from '../types';
 import { LLM_TEMPLATE } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
@@ -35,8 +35,10 @@ import { isEmpty } from 'lodash';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
 
+type ModelScorer = LLMScorer | JevScorer;
+
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
-  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
+  evaluateTraces: (scorer: ModelScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   allEvaluations: Record<string, ScorerEvaluation>;
 }
 
@@ -99,7 +101,7 @@ export const useRunScorerInTracesViewConfiguration = (
  * bulk evaluations are visible in `ModelTraceExplorerRunJudgesContext` (used by AssessmentCell).
  */
 export const useRunJudgesOnTracesConfiguration = (
-  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
+  evaluateTraces: (scorer: ModelScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
   allEvaluations: Record<string, ScorerEvaluation> | undefined,
   subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
@@ -180,7 +182,7 @@ const RunJudgeModalImpl = ({
   scope = ScorerEvaluationScope.TRACES,
 }: {
   itemIds: string[];
-  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
+  evaluateTraces: (scorer: ModelScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
   scope?: ScorerEvaluationScope;
@@ -198,14 +200,14 @@ const RunJudgeModalImpl = ({
 
   const [currentEndpointName, setCurrentEndpointName] = useState<string | undefined>(undefined);
 
-  const displayedLLMScorers = useMemo(() => {
+  const displayedModelScorers = useMemo(() => {
     const isDisplayingSessionLevelScorers = scope === ScorerEvaluationScope.SESSIONS;
     return data?.scheduledScorers.filter(
       (scorer) =>
-        scorer.type === 'llm' &&
+        (scorer.type === 'llm' || (scorer.type === 'jev' && scorer.model?.startsWith('gateway:/'))) &&
         (scorer.isSessionLevelScorer ?? false) === isDisplayingSessionLevelScorers &&
         scorer.name.toLowerCase().includes(searchValue.toLowerCase()),
-    ) as LLMScorer[];
+    ) as ModelScorer[];
   }, [data?.scheduledScorers, searchValue, scope]);
 
   const displayedTemplates = useMemo(() => {
@@ -218,13 +220,13 @@ const RunJudgeModalImpl = ({
   }, [templateOptions, searchValue]);
 
   const [error, setError] = useState<Error | undefined>(undefined);
-  const [selectedScorers, setSelectedScorers] = useState<LLMScorer[]>([]);
+  const [selectedScorers, setSelectedScorers] = useState<ModelScorer[]>([]);
   const [selectedTemplates, setSelectedTemplates] = useState<LLM_TEMPLATE[]>([]);
 
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
   const hasSelectedTemplates = selectedTemplates.length > 0;
 
-  const toggleScorer = (scorer: LLMScorer) => {
+  const toggleScorer = (scorer: ModelScorer) => {
     setSelectedScorers((prev) => {
       const isSelected = prev.some((s) => s.name === scorer.name);
       return isSelected ? prev.filter((s) => s.name !== scorer.name) : [...prev, scorer];
@@ -337,9 +339,9 @@ const RunJudgeModalImpl = ({
           >
             <PillControl.Item value="llm">
               <FormattedMessage
-                defaultMessage="Custom LLM-as-a-judge ({llmCount})"
-                description="Label for custom LLM judge type filter option"
-                values={{ llmCount: displayedLLMScorers?.length ?? 0 }}
+                defaultMessage="Saved judges ({llmCount})"
+                description="Label for saved judge type filter option"
+                values={{ llmCount: displayedModelScorers?.length ?? 0 }}
               />
             </PillControl.Item>
             <PillControl.Item value="template">
@@ -363,7 +365,7 @@ const RunJudgeModalImpl = ({
           {judgeSelectionMode === 'llm' && (
             <>
               {loadingScorers && <TableSkeleton lines={3} />}
-              {isEmpty(displayedLLMScorers) ? (
+              {isEmpty(displayedModelScorers) ? (
                 <div css={{ display: 'flex', justifyContent: 'center' }}>
                   <Typography.Hint>
                     <FormattedMessage
@@ -373,7 +375,7 @@ const RunJudgeModalImpl = ({
                   </Typography.Hint>
                 </div>
               ) : (
-                displayedLLMScorers?.map((scorer) => (
+                displayedModelScorers?.map((scorer) => (
                   <ScorerOption
                     scorer={scorer}
                     key={scorer.name}
@@ -409,6 +411,7 @@ const RunJudgeModalImpl = ({
               <FormattedMessage defaultMessage="Endpoint:" description="Label for endpoint selection" />
             </Typography.Text>
             <EndpointSelector
+              excludeProviders={['typesafe']}
               currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointName)}
               onEndpointSelect={(endpointName) => {
                 const modelValue = formatGatewayModelFromEndpoint(endpointName);
@@ -439,8 +442,8 @@ const ScorerOption = ({
   onClick,
   selected,
 }: {
-  scorer: LLMScorer;
-  onClick: (scorer: LLMScorer) => void;
+  scorer: ModelScorer;
+  onClick: (scorer: ModelScorer) => void;
   selected: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -455,7 +458,11 @@ const ScorerOption = ({
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
           <Typography.Hint>
-            <FormattedMessage defaultMessage="Custom judge" description="Label indicating a custom judge scorer" />
+            {scorer.type === 'jev' ? (
+              <FormattedMessage defaultMessage="Jev (TypeSafe)" description="Label for Jev scorer type" />
+            ) : (
+              <FormattedMessage defaultMessage="Custom judge" description="Label indicating a custom judge scorer" />
+            )}
           </Typography.Hint>
         </div>
       </Checkbox>

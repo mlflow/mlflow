@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useEvaluateTraces } from '../useEvaluateTraces';
-import type { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
+import type { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, JevScorer, ScheduledScorer } from '../types';
 import { ScorerEvaluationScope } from '../constants';
 import { transformScheduledScorer } from '../utils/scorerTransformUtils';
 import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
@@ -31,7 +31,11 @@ export const useRunSerializedScorer = ({
   }, [experimentId]);
 
   const getEvaluationParams = useCallback(
-    (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string): EvaluateTracesParams => {
+    (
+      scorerOrTemplate: LLMScorer | JevScorer | LLM_TEMPLATE,
+      traceIds: string[],
+      endpointName?: string,
+    ): EvaluateTracesParams => {
       if (!experimentId) {
         throw new Error('Experiment ID is required');
       }
@@ -49,7 +53,7 @@ export const useRunSerializedScorer = ({
         const scorerConfig = transformScheduledScorer(scorer);
         return {
           ...baseParams,
-          judgeInstructions: scorer.instructions || '',
+          judgeInstructions: scorer.type === 'jev' ? scorer.question : scorer.instructions || '',
           serializedScorer: scorerConfig.serialized_scorer,
         };
       }
@@ -96,7 +100,7 @@ export const useRunSerializedScorer = ({
   );
 
   const evaluateTraces = useCallback(
-    (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => {
+    (scorerOrTemplate: LLMScorer | JevScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => {
       const scorer = scorerOrTemplate;
       const evaluationParams = getEvaluationParams(scorer, traceIds, endpointName);
       return evaluateTracesFn(evaluationParams);

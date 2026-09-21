@@ -40,7 +40,41 @@ The AI Gateway supports providers across these categories:
 
 For a complete list of supported providers, view the provider dropdown when creating an endpoint or see the [LiteLLM documentation](https://docs.litellm.ai/docs/providers).
 
+### Evaluation Providers
+
+| Provider     | Model family | Passthrough API                 |
+| ------------ | ------------ | ------------------------------- |
+| **TypeSafe** | Jev          | `/gateway/typesafe/v1/systemone` |
+
+TypeSafe endpoints support structured evaluation through System One. They do not support the gateway's chat or embeddings APIs.
+
 ## Provider-Specific Passthrough APIs
+
+### TypeSafe
+
+Create a TypeSafe endpoint and attach a TypeSafe API key using an LLM connection. The following example assumes an endpoint named `jev-evaluator` and a local server without authentication:
+
+```bash
+curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "jev-evaluator",
+    "state": {
+      "inputs": {"question": "How do I reset my password?"},
+      "outputs": "Select Forgot password on the sign-in page."
+    },
+    "questions": {
+      "evaluation": {
+        "type": "noul",
+        "instructions": "Does outputs answer the question in inputs?"
+      }
+    }
+  }'
+```
+
+The `model` field identifies the gateway endpoint. The gateway supplies its configured Jev model and TypeSafe API key when forwarding the request. The endpoint's **Try it** panel accepts System One requests and displays structured answers.
+
+For experiment evaluation, use the [native Jev scorer](/genai/eval-monitor/scorers/llm-judge/custom-judges/jev) with `model="gateway:/jev-evaluator"`. See the [TypeSafe API reference](https://docs.typesafe.ai/api) for the System One schema.
 
 ### OpenAI
 

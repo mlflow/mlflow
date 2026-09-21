@@ -3,8 +3,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import type { ScheduledScorer } from './types';
 import { useDeleteScheduledScorerMutation } from './hooks/useDeleteScheduledScorer';
 import { syncFormWithScorer, getFormValuesFromScorer } from './scorerCardUtils';
-import type { LLMScorerFormData } from './LLMScorerFormRenderer';
-import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { DeleteScorerModalRenderer } from './DeleteScorerModalRenderer';
 import ScorerCardRenderer from './ScorerCardRenderer';
 import ScorerModalRenderer from './ScorerModalRenderer';
@@ -27,7 +26,7 @@ const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, exper
   const deleteScorerMutation = useDeleteScheduledScorerMutation();
 
   // React Hook Form for display mode
-  const form = useForm<LLMScorerFormData | CustomCodeScorerFormData>({
+  const form = useForm<ScorerFormData>({
     defaultValues: getFormValuesFromScorer(scorer),
   });
 

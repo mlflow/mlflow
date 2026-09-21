@@ -254,3 +254,6 @@ export const shouldShowEvalRunsIssuesPanel = () => {
 export const shouldSupportRunningDatabricksProviderJudgesFromUI = () => {
   return false;
 };
+
+// Native Jev scorer creation requires the OSS scorer serialization and gateway APIs.
+export const isJevScorersEnabled = () => true;

@@ -194,4 +194,65 @@ describe('EndpointSelector', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
+  test('filters all endpoint mappings by provider and auto-selects a compatible endpoint', async () => {
+    const typesafeEndpoint: Endpoint = {
+      ...mockEndpoints[0],
+      name: 'jev-endpoint',
+      endpoint_id: 'ep-jev',
+      model_mappings: [
+        {
+          ...mockEndpoints[0].model_mappings[0],
+          model_definition: {
+            ...mockEndpoints[0].model_mappings[0].model_definition!,
+            provider: 'typesafe',
+            model_name: 'jev-latest',
+          },
+        },
+      ],
+    };
+    const mixedEndpoint: Endpoint = {
+      ...typesafeEndpoint,
+      name: 'mixed',
+      endpoint_id: 'ep-mixed',
+      model_mappings: [...typesafeEndpoint.model_mappings, ...mockEndpoints[0].model_mappings],
+    };
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [...mockEndpoints, mixedEndpoint, typesafeEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+    renderWithDesignSystem(
+      <EndpointSelector provider="typesafe" autoSelectFirstEndpoint onEndpointSelect={mockOnEndpointSelect} />,
+    );
+    expect(mockOnEndpointSelect).toHaveBeenCalledWith('jev-endpoint');
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(screen.getByText('jev-endpoint')).toBeInTheDocument();
+    expect(screen.queryByText('mixed')).not.toBeInTheDocument();
+    expect(screen.queryByText('openai-endpoint')).not.toBeInTheDocument();
+  });
+  test('excludes evaluator providers from chat judge endpoint selection', async () => {
+    const evaluator: Endpoint = {
+      ...mockEndpoints[0],
+      name: 'jev-endpoint',
+      model_mappings: [
+        {
+          ...mockEndpoints[0].model_mappings[0],
+          model_definition: { ...mockEndpoints[0].model_mappings[0].model_definition!, provider: 'typesafe' },
+        },
+      ],
+    };
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [...mockEndpoints, evaluator],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+    renderWithDesignSystem(
+      <EndpointSelector excludeProviders={['typesafe']} onEndpointSelect={mockOnEndpointSelect} />,
+    );
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(screen.getByText('openai-endpoint')).toBeInTheDocument();
+    expect(screen.queryByText('jev-endpoint')).not.toBeInTheDocument();
+  });
 });

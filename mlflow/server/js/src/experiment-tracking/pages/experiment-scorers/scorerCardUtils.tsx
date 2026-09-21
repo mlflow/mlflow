@@ -6,7 +6,6 @@ import type { UseFormReset } from 'react-hook-form';
 import { isNil } from 'lodash';
 import type { ScheduledScorer, LLMScorer, CustomCodeScorer } from './types';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
-import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { outputTypeSpecToFormData } from './utils/scorerTransformUtils';
@@ -18,6 +17,9 @@ export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): st
       defaultMessage: 'Custom code',
       description: 'Label for custom code scorer type',
     });
+  }
+  if (scorer.type === 'jev') {
+    return intl.formatMessage({ defaultMessage: 'Jev (TypeSafe)', description: 'Label for Jev scorer type' });
   }
   if (scorer.type === 'llm') {
     if ((scorer as LLMScorer).isMemoryAugmented) {
@@ -38,7 +40,7 @@ export const getTypeIcon = (scorer: ScheduledScorer): React.ReactNode => {
   if (scorer.type === 'custom-code') {
     return <CodeIcon />;
   }
-  if (scorer.type === 'llm') {
+  if (scorer.type === 'llm' || scorer.type === 'jev') {
     return <SparkleDoubleIcon />;
   }
   throw new Error(`Unknown scorer type ${(scorer as any).type}`);
@@ -82,6 +84,20 @@ export const getStatusTag = (
  * @returns Form values object suitable for react-hook-form
  */
 export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormData | ScorerFormData => {
+  if (scorer.type === 'jev') {
+    return {
+      scorerType: 'jev',
+      name: scorer.name,
+      model: scorer.model ?? '',
+      question: scorer.question,
+      answerType: scorer.answerType,
+      criteria: scorer.criteria === null ? '' : JSON.stringify(scorer.criteria, null, 2),
+      threshold: scorer.threshold === null ? '' : String(scorer.threshold),
+      sampleRate: scorer.sampleRate ?? 0,
+      filterString: scorer.filterString ?? '',
+      evaluationScope: ScorerEvaluationScope.TRACES,
+    };
+  }
   // For LLM scorers, get instructions from the scorer or fall back to template defaults
   let instructions = '';
   if (scorer.type === 'llm') {
@@ -118,10 +134,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
  * @param scorer The ScheduledScorer to derive form values from
  * @param reset The react-hook-form reset function
  */
-export const syncFormWithScorer = (
-  scorer: ScheduledScorer,
-  reset: UseFormReset<LLMScorerFormData | CustomCodeScorerFormData>,
-): void => {
+export const syncFormWithScorer = (scorer: ScheduledScorer, reset: UseFormReset<ScorerFormData>): void => {
   const formValues = getFormValuesFromScorer(scorer);
   reset(formValues);
 };
