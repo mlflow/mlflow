@@ -398,6 +398,19 @@ class SqlAlchemyStore:
             f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
         )
 
+    def _validate_session_uses_auth_database(self, session) -> None:
+        bind = session.get_bind()
+        bind_url = getattr(getattr(bind, "engine", bind), "url", None)
+        if bind_url == self.engine.url:
+            return
+        raise MlflowException.invalid_parameter_value(
+            "Session-aware auth grant APIs require a session bound to the auth store "
+            "database. To include tracking rows and auth grants in one transaction, "
+            "configure the auth store and tracking store to use the same database and "
+            "pass that shared write session. Separate auth and tracking databases cannot "
+            "provide atomic rollback for resource rows plus grants."
+        )
+
     def _begin_sqlite_transaction_before_savepoint(self, session) -> None:
         if self.db_type != SQLITE:
             return
@@ -480,6 +493,7 @@ class SqlAlchemyStore:
     ) -> None:
         self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        self._validate_session_uses_auth_database(session)
         self._begin_sqlite_transaction_before_savepoint(session)
         user = self._get_user(session, username=username)
         workspace_name = self._get_active_workspace_name()
