@@ -72,7 +72,9 @@ jobs:
             [ .[].data.repository.object.statusCheckRollup.contexts.nodes[]?
               | select(.checkSuite.app.slug == "github-actions"
                        and .checkSuite.workflowRun != null)
-              | select(.checkSuite.workflowRun.event != "dynamic") ]
+              | select(.checkSuite.workflowRun.event != "dynamic")
+              | select(.checkSuite.workflowRun.workflow.resourcePath |
+                  endswith("/rerun-workflow-run.yml") or endswith("/retry.yml") | not) ]
             # Keep all jobs from the newest run for each workflow path and event.
             | group_by([.checkSuite.workflowRun.workflow.resourcePath,
                         .checkSuite.workflowRun.event])
@@ -86,8 +88,6 @@ jobs:
             | select(all(.[]; .status == "COMPLETED"))
             | select(any(.[]; failed))
             | .[0].checkSuite.workflowRun as $run
-            | select($run.workflow.resourcePath |
-                endswith("/rerun-workflow-run.yml") or endswith("/retry.yml") | not)
             | ($run.workflow.resourcePath | endswith("/protect.yml")) as $protect
             # Every non-skipped job must be fast; Protect is exempt.
             | select($protect or all(.[] | select(.conclusion != "SKIPPED");
