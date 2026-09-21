@@ -213,7 +213,13 @@ class SqlAlchemySkillRegistryMixin:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(skills[:max_results], token=next_token)
 
-    def _get_or_create_skill_for_version(self, session, name: str, organization: str) -> SqlSkill:
+    def _get_or_create_skill_for_version(
+        self,
+        session,
+        name: str,
+        organization: str,
+        created_by: str | None = None,
+    ) -> SqlSkill:
         skill = (
             self
             ._get_query(session, SqlSkill)
@@ -223,7 +229,14 @@ class SqlAlchemySkillRegistryMixin:
         if skill is not None:
             return skill
 
-        skill = self._with_workspace_field(SqlSkill(name=name, organization=organization))
+        skill = self._with_workspace_field(
+            SqlSkill(
+                name=name,
+                organization=organization,
+                created_by=created_by,
+                last_updated_by=created_by,
+            )
+        )
         try:
             session.add(skill)
             session.flush()
@@ -246,13 +259,16 @@ class SqlAlchemySkillRegistryMixin:
         subpath: str | None = None,
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
+        created_by: str | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
         _validate_skill_version(version)
         status = self._validate_skill_version_status(status)
 
-        skill = self._get_or_create_skill_for_version(session, name, organization)
+        skill = self._get_or_create_skill_for_version(
+            session, name, organization, created_by=created_by
+        )
         now = get_current_time_millis()
         skill_version = SqlSkillVersion(
             workspace=skill.workspace,
@@ -265,6 +281,8 @@ class SqlAlchemySkillRegistryMixin:
             subpath=subpath,
             digest=digest,
             status=status,
+            created_by=created_by,
+            last_updated_by=created_by,
             created_at=now,
             last_updated_at=now,
         )
@@ -288,6 +306,7 @@ class SqlAlchemySkillRegistryMixin:
         subpath: str | None = None,
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
+        created_by: str | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -317,6 +336,7 @@ class SqlAlchemySkillRegistryMixin:
                         subpath=subpath,
                         digest=digest,
                         status=status,
+                        created_by=created_by,
                     )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):

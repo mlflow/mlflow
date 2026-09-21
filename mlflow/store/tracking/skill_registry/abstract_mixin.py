@@ -53,6 +53,7 @@ class SkillRegistryMixin:
         subpath: str | None = None,
         digest: str | None = None,
         status: str = "active",
+        created_by: str | None = None,
     ) -> SkillVersion:
         raise NotImplementedError(self.__class__.__name__)
 

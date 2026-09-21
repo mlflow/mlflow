@@ -424,6 +424,29 @@ def test_create_skill_version_allocates_monotonically(store):
     assert second.version == 2
 
 
+def test_create_skill_version_persists_created_by_for_parent_and_version(store):
+    created = store.create_skill_version("reviewer", created_by="alice")
+
+    assert created.created_by == "alice"
+    assert created.last_updated_by == "alice"
+
+    parent = store.get_skill("reviewer")
+    assert parent.created_by == "alice"
+    assert parent.last_updated_by == "alice"
+
+
+def test_create_skill_version_does_not_update_existing_parent_audit_fields(store):
+    store.create_skill("reviewer", created_by="alice")
+
+    created = store.create_skill_version("reviewer", created_by="bob")
+
+    assert created.created_by == "bob"
+    assert created.last_updated_by == "bob"
+    parent = store.get_skill("reviewer")
+    assert parent.created_by == "alice"
+    assert parent.last_updated_by == "alice"
+
+
 def test_create_skill_version_does_not_reuse_deleted_version(store):
     _persist_deleted_skill_version(store)
 
