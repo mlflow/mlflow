@@ -89,24 +89,38 @@ NON_GENAI_MODULES = {
 
 MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
 
-# Built-in MLflow model flavors, used to keep telemetry `flavor` values bounded.
-# Custom/third-party flavors are reported as "other". Seeded from the canonical
-# flavor maps plus built-in flavors those maps don't track.
-KNOWN_FLAVORS = (
-    set(GENAI_FLAVOR_TO_MODULE_NAME)
-    | set(NON_GENAI_FLAVOR_TO_MODULE_NAME)
-    | {
-        "pyfunc",
-        "onnx",
-        "catboost",
-        "h2o",
-        "spacy",
-        "prophet",
-        "pmdarima",
-        "sentence_transformers",
-        "johnsnowlabs",
-    }
-)
+# Built-in MLflow model flavors: packages exposing `save_model`, i.e. those that can be
+# passed to `mlflow.models.Model.log(flavor=...)`. Used to keep the telemetry `flavor`
+# value bounded; custom/third-party flavors are reported as "other".
+#
+# Regenerate with (then drop mlflow/prompt/promptlab_model.py, an internal model, not a flavor):
+#   grep -rlE '^def save_model\b' --include='*.py' mlflow/ | sed -E 's#^mlflow/##; s#/.*##; s#\.py$##' | sort -u
+KNOWN_FLAVORS = {
+    "catboost",
+    "diffusers",
+    "dspy",
+    "h2o",
+    "johnsnowlabs",
+    "keras",
+    "langchain",
+    "lightgbm",
+    "llama_index",
+    "onnx",
+    "openai",
+    "paddle",
+    "pmdarima",
+    "prophet",
+    "pyfunc",
+    "pytorch",
+    "sentence_transformers",
+    "sklearn",
+    "spacy",
+    "spark",
+    "statsmodels",
+    "tensorflow",
+    "transformers",
+    "xgboost",
+}
 
 # fallback config to use for UI telemetry in case fetch fails
 FALLBACK_UI_CONFIG = {
