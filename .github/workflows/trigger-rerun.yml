@@ -1,0 +1,34 @@
+# Triggers rerun.yml on PR approval.
+# See https://stackoverflow.com/questions/67247752/how-to-use-secret-in-pull-request-review-similar-to-pull-request-target for why we need this approach and how it works.
+name: rerun
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  # rerun.yml triggers on `workflow_run`, so it needs a completed
+  # run to react to. This job is only that trigger and hands over no data:
+  # that workflow reads the PR head SHA from the event itself.
+  approved:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    if: >-
+      github.event.review.state == 'approved' &&
+      (
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association) ||
+        (github.event.review.user.type == 'Bot' && contains(fromJSON('["mlflow-app[bot]", "nailaopus[bot]"]'), github.event.review.user.login))
+      )
+    steps:
+      - run: echo "Approved, triggering rerun.yml"
