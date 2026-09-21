@@ -30,9 +30,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          # Adapted from gh pr checks, targeting a fixed SHA and GitHub Actions:
-          # Query: https://github.com/cli/cli/blob/0cf1092493af067646fc5f3db9421c6a6ec9c938/api/query_builder.go#L270-L312
-          # Deduplication: https://github.com/cli/cli/blob/0cf1092493af067646fc5f3db9421c6a6ec9c938/pkg/cmd/pr/checks/aggregate.go#L95-L120
           pages=$(gh api graphql --paginate --slurp \
             -f owner="${GH_REPO%/*}" -f name="${GH_REPO#*/}" -f sha="$HEAD_SHA" \
             -f query='
@@ -43,7 +40,6 @@ jobs:
                       statusCheckRollup {
                         contexts(first: 100, after: $endCursor) {
                           nodes {
-                            __typename
                             ... on CheckRun {
                               name
                               status
@@ -52,7 +48,12 @@ jobs:
                               completedAt
                               checkSuite {
                                 app { slug }
-                                workflowRun { databaseId event workflow { name } }
+                                workflowRun {
+                                  databaseId
+                                  event
+                                  createdAt
+                                  workflow { resourcePath }
+                                }
                               }
                             }
                           }
@@ -64,36 +65,47 @@ jobs:
                 }
               }')
 
-          # Deduplicate across all pages before filtering failures, so a newer
-          # successful or pending check suppresses a superseded failure.
           rows=$(jq -r '
+            def failed:
+              .conclusion == "FAILURE" or .conclusion == "TIMED_OUT"
+              or .conclusion == "STARTUP_FAILURE";
+            def fast:
+              try (((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601))
+                   | . >= 0 and . <= 60) catch false;
             [ .[].data.repository.object.statusCheckRollup.contexts.nodes[]?
-              | select(.__typename == "CheckRun")
-              | select(.checkSuite.app.slug == "github-actions") ]
-            | group_by([.name, .checkSuite.workflowRun.workflow.name,
+              | select(.checkSuite.app.slug == "github-actions"
+                       and .checkSuite.workflowRun != null)
+              | select(.checkSuite.workflowRun.event != "dynamic") ]
+            # Keep all jobs from the newest run for each workflow path and event.
+            | group_by([.checkSuite.workflowRun.workflow.resourcePath,
                         .checkSuite.workflowRun.event])
-            | map(max_by(.startedAt // ""))
+            | map(group_by(.checkSuite.workflowRun.databaseId)
+                  | max_by([.[0].checkSuite.workflowRun.createdAt,
+                            .[0].checkSuite.workflowRun.databaseId]))
             | .[]
-            | select(.status == "COMPLETED" and .conclusion == "FAILURE")
-            | select((.name | ascii_downcase) != "rerun")
-            | select(
-                (.name | ascii_downcase) == "protect"
-                or ((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601)) <= 60
-              )
-            | "\(.checkSuite.workflowRun.databaseId) \(.name | ascii_downcase)"
-          ' <<< "$pages" | sort -u -k1,1)
+            # Do not hide queued retries with missing start times during deduplication.
+            | select(all(.[]; .status == "COMPLETED"))
+            # Defensively discard superseded executions of the same job.
+            | group_by(.name)
+            | map(max_by(.startedAt // ""))
+            | select(any(.[]; failed))
+            | .[0].checkSuite.workflowRun as $run
+            | ($run.workflow.resourcePath | endswith("/protect.yml")) as $is_protect
+            # Every non-skipped job must be fast; Protect is exempt.
+            | select($is_protect or all(.[] | select(.conclusion != "SKIPPED"); fast))
+            | "\($run.databaseId) \($is_protect)"
+          ' <<< "$pages")
 
           rerun() {
             echo "Rerunning https://github.com/$GH_REPO/actions/runs/$1"
             gh run rerun "$1" --failed --repo "$GH_REPO" || echo "Failed to rerun $1"
           }
 
-          # Several failed jobs can belong to one workflow run. Submit each run
-          # once, and protect last because it polls the other checks for failures.
+          # Submit Protect last because it polls the other checks for failures.
           protect_id=""
           if [ -n "$rows" ]; then
-            while read -r id name; do
-              if [ "$name" = "protect" ]; then
+            while read -r id is_protect; do
+              if [ "$is_protect" = "true" ]; then
                 protect_id=$id
               else
                 rerun "$id" &
