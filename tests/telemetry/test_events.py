@@ -156,11 +156,19 @@ def test_create_model_version_parse_params(arguments, expected_params):
                 "registered_model_name": "my_model",
                 "kwargs": {"flavor_name": "pyfunc.ChatModel"},
             },
-            {"flavor": "pyfunc.ChatModel", "registered": True},
+            {"flavor": "pyfunc", "registered": True},
         ),
         (
             {"kwargs": {}},
             {"flavor": None, "registered": False},
+        ),
+        # Custom / third-party flavors are bounded to "other".
+        (
+            {
+                "flavor": SimpleNamespace(__name__="my_pkg.custom_flavor"),
+                "kwargs": {},
+            },
+            {"flavor": "other", "registered": False},
         ),
     ],
 )
@@ -190,6 +198,11 @@ def test_log_model_parse_params(arguments, expected_params):
                 "env_pack": SimpleNamespace(name="databricks_model_serving"),
             },
             {"env_pack": "databricks_model_serving", "source_scheme": "s3"},
+        ),
+        # Unrecognized scheme and env_pack are bounded to "other".
+        (
+            {"model_uri": "customscheme://bucket/model", "env_pack": "made_up_pack"},
+            {"env_pack": "other", "source_scheme": "other"},
         ),
     ],
 )

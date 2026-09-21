@@ -12,6 +12,7 @@ from mlflow.entities.mcp_server import MCPStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
+    KNOWN_FLAVORS,
     MODULES_TO_CHECK_IMPORT,
 )
 
@@ -23,6 +24,31 @@ GENAI_EVALUATION_PATH = "mlflow/genai/evaluation/base"
 GENAI_SCORERS_PATH = "mlflow/genai/scorers/base"
 GENAI_EVALUATE_FUNCTION = "_run_harness"
 SCORER_RUN_FUNCTION = "run"
+
+# Bounded value sets for register_model telemetry; anything else is reported as "other".
+_KNOWN_ENV_PACK_TYPES = {"databricks_model_serving"}  # mirrors EnvPackType in mlflow.utils.env_pack
+_KNOWN_MODEL_URI_SCHEMES = {
+    "file",
+    "s3",
+    "gs",
+    "wasbs",
+    "abfss",
+    "dbfs",
+    "ftp",
+    "sftp",
+    "hdfs",
+    "http",
+    "https",
+    "mlflow-artifacts",
+}
+
+
+def _bound_flavor(flavor_name: str | None) -> str | None:
+    if not flavor_name:
+        return None
+    # Reduce values like "mlflow.sklearn" or "pyfunc.ChatModel" to the base flavor.
+    base = flavor_name.removeprefix("mlflow.").split(".", 1)[0]
+    return base if base in KNOWN_FLAVORS else "other"
 
 
 def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
@@ -254,9 +280,9 @@ class LogModelEvent(Event):
         kwargs = arguments.get("kwargs") or {}
         flavor_name = kwargs.get("flavor_name")
         if not flavor_name and flavor is not None:
-            flavor_name = getattr(flavor, "__name__", "custom").removeprefix("mlflow.")
+            flavor_name = getattr(flavor, "__name__", None)
         return {
-            "flavor": flavor_name,
+            "flavor": _bound_flavor(flavor_name),
             "registered": arguments.get("registered_model_name") is not None,
         }
 
@@ -268,12 +294,11 @@ class RegisterModelEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         env_pack = arguments.get("env_pack")
-        if isinstance(env_pack, str):
-            env_pack_kind = env_pack
-        elif env_pack is not None:
-            env_pack_kind = getattr(env_pack, "name", "config")
-        else:
+        if env_pack is None:
             env_pack_kind = None
+        else:
+            kind = env_pack if isinstance(env_pack, str) else getattr(env_pack, "name", None)
+            env_pack_kind = kind if kind in _KNOWN_ENV_PACK_TYPES else "other"
 
         model_uri = arguments.get("model_uri") or ""
         if model_uri.startswith("runs:/"):
@@ -281,7 +306,8 @@ class RegisterModelEvent(Event):
         elif model_uri.startswith("models:/"):
             source_scheme = "models"
         elif "://" in model_uri:
-            source_scheme = model_uri.split("://", 1)[0]
+            scheme = model_uri.split("://", 1)[0]
+            source_scheme = scheme if scheme in _KNOWN_MODEL_URI_SCHEMES else "other"
         else:
             source_scheme = "local"
 
