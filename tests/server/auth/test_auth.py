@@ -1753,6 +1753,67 @@ def test_create_model_version_requires_read_on_source_model(
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize("source_suffix", ["/1", "@champion", "/Production"])
+def test_create_model_version_requires_read_on_source_registered_model(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_suffix: str
+):
+    owner, owner_password = create_user(client.tracking_uri)
+    copier, copier_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        exp_id = client.create_experiment("source-registered-model-authz-exp")
+        run = client.create_run(exp_id)
+        source_rm = client.create_registered_model("source-registered-model-authz-source")
+
+    grant_role_permission(client.tracking_uri, owner, "experiment", exp_id, "READ")
+
+    with User(owner, owner_password, monkeypatch):
+        source_mv = client.create_model_version(
+            source_rm.name, f"runs:/{run.info.run_id}/model", run_id=run.info.run_id
+        )
+        client.set_registered_model_alias(source_rm.name, "champion", source_mv.version)
+        client.transition_model_version_stage(source_rm.name, source_mv.version, "Production")
+
+    with User(copier, copier_password, monkeypatch):
+        destination_rm = client.create_registered_model(
+            f"source-registered-model-authz-destination-{random_str()}"
+        )
+
+    source = f"models:/{source_rm.name}{source_suffix}"
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={
+            "name": destination_rm.name,
+            "source": source,
+            "run_id": run.info.run_id,
+        },
+        auth=(copier, copier_password),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    grant_role_permission(client.tracking_uri, copier, "registered_model", source_rm.name, "READ")
+
+    if source_suffix == "/1":
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/model-versions/create",
+            json_payload={
+                "name": destination_rm.name,
+                "source": source,
+                "run_id": run.info.run_id,
+            },
+            auth=(copier, copier_password),
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_create_model_version_from_own_source_succeeds(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch
 ):

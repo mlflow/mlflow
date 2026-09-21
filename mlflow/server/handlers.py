@@ -346,7 +346,7 @@ from mlflow.store.artifact.host_policy import (
     validate_artifact_uri_host,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -3188,14 +3188,20 @@ def _validate_source_run(source: str, run_id: str) -> None:
     # raises an Exception.
     _validate_non_local_source_contains_relative_paths(source)
 
-    if RunsArtifactRepository.is_runs_uri(source):
+    parsed_source = urllib.parse.urlparse(source)
+    if parsed_source.scheme == "runs":
+        if parsed_source.netloc:
+            _raise_invalid_model_version_source(source, "run_id")
         source_run_id, _ = RunsArtifactRepository.parse_runs_uri(source)
         if run_id and source_run_id == run_id:
             return
         _raise_invalid_model_version_source(source, "run_id")
 
-    if _get_logged_model_id_from_uri(source) is not None:
-        _raise_invalid_model_version_source(source, "model_id")
+    if parsed_source.scheme == "models":
+        if parsed_source.netloc:
+            _raise_invalid_model_version_source(source, "model_id")
+        if _parse_model_version_source(source).model_id is not None:
+            _raise_invalid_model_version_source(source, "model_id")
 
     if _is_mlflow_artifact_source(source):
         if run_id:
@@ -3229,13 +3235,16 @@ def _validate_source_model(source: str, model_id: str) -> None:
     # raises an Exception.
     _validate_non_local_source_contains_relative_paths(source)
 
-    source_model_id = _get_logged_model_id_from_uri(source)
-    if source_model_id is not None:
-        if model_id and source_model_id == model_id:
-            return
-        _raise_invalid_model_version_source(source, "model_id")
+    parsed_source = urllib.parse.urlparse(source)
+    if parsed_source.scheme == "models":
+        if parsed_source.netloc:
+            _raise_invalid_model_version_source(source, "model_id")
+        if (source_model_id := _parse_model_version_source(source).model_id) is not None:
+            if model_id and source_model_id == model_id:
+                return
+            _raise_invalid_model_version_source(source, "model_id")
 
-    if RunsArtifactRepository.is_runs_uri(source):
+    if parsed_source.scheme == "runs":
         _raise_invalid_model_version_source(source, "run_id")
 
     if _is_mlflow_artifact_source(source):
@@ -3253,9 +3262,9 @@ def _iteratively_unquote(value: str) -> str:
 
 
 def _normalized_uri_parts(uri: str) -> tuple[str, str, tuple[str, ...]]:
-    parsed = urllib.parse.urlsplit(_iteratively_unquote(uri))
-    path = re.sub(r"/+", "/", parsed.path).rstrip("/")
-    return parsed.scheme.lower(), parsed.netloc.lower(), tuple(p for p in path.split("/") if p)
+    parsed = urllib.parse.urlsplit(uri)
+    path_parts = tuple(_iteratively_unquote(part) for part in parsed.path.split("/") if part)
+    return parsed.scheme.lower(), parsed.netloc.lower(), path_parts
 
 
 def _is_uri_within_root(source: str, root: str) -> bool:
@@ -3280,10 +3289,39 @@ def _is_mlflow_artifact_source(source: str) -> bool:
     )
 
 
-def _get_logged_model_id_from_uri(source: str) -> str | None:
-    if urllib.parse.urlparse(source).scheme != "models":
-        return None
-    return _parse_model_uri(source).model_id
+def _parse_model_version_source(source: str):
+    try:
+        return _parse_model_uri(source)
+    except MlflowException:
+        _raise_invalid_model_version_source(source, "model_id")
+
+
+def _validate_registered_model_source(source: str, run_id: str, model_id: str) -> None:
+    parsed_source = urllib.parse.urlparse(source)
+    if parsed_source.scheme != "models":
+        return
+    if parsed_source.netloc:
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. Registered model sources must use the "
+            "active model registry.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    parsed_model_uri = _parse_model_version_source(source)
+    if parsed_model_uri.model_id is not None:
+        return
+
+    store = _get_model_registry_store()
+    name, version = get_model_name_and_version(store, source)
+    source_model_version = store.get_model_version(name, version)
+    if (run_id or "") != (source_model_version.run_id or "") or (model_id or "") != (
+        source_model_version.model_id or ""
+    ):
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. The run_id and model_id request "
+            "parameters must match the referenced model version.",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 def _raise_invalid_model_version_source(source: str, source_id_name: str) -> None:
@@ -3324,6 +3362,9 @@ def _create_model_version():
         _validate_prompt_source(request_message.source)
     _validate_artifact_uri_scheme(request_message.source, "source")
     if not is_prompt:
+        _validate_registered_model_source(
+            request_message.source, request_message.run_id, request_message.model_id
+        )
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:

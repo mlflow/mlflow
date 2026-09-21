@@ -673,7 +673,7 @@ def test_copy_model_version_flow(client):
     name = "CopyMVTest"
     client.create_registered_model(name)
     src_mv = client.create_model_version(
-        name, "runs:/run_id/model", "run_id_1", description="dummy", tags={"hello": "world"}
+        name, "runs:/run_id_1/model", "run_id_1", description="dummy", tags={"hello": "world"}
     )
     client.set_registered_model_alias(name, "test_alias", "1")
     copy_mv = client.copy_model_version(f"models:/{name}@test_alias", name)
