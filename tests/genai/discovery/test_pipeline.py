@@ -1246,6 +1246,44 @@ def test_dedup_issues_dissimilar_issues_not_merged():
     assert len(result) == 2
 
 
+@pytest.mark.parametrize("indices", [[], [0], [0, 3], [0, -1], [-4, 0], [0, 0], [0, 1, 1]])
+def test_dedup_issues_invalid_group_preserves_issues(indices):
+    issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(3)]
+    original = [issue.model_dump() for issue in issues]
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([indices]),
+    ) as mock_call:
+        result = _dedup_issues(issues)
+
+    assert [issue.model_dump() for issue in result] == original
+    mock_call.assert_called_once()
+
+
+@pytest.mark.parametrize("invalid_indices", [[0, 1, 4], [0, 1, -1], [0, 1, 1]])
+@pytest.mark.parametrize("invalid_first", [True, False])
+def test_dedup_issues_skips_invalid_group_and_merges_valid_group(invalid_indices, invalid_first):
+    issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(4)]
+    original = [issue.model_dump() for issue in issues]
+    groups = [invalid_indices, [2, 3]] if invalid_first else [[2, 3], invalid_indices]
+    names = (
+        ["Issue: Invalid", "Issue: Valid"] if invalid_first else ["Issue: Valid", "Issue: Invalid"]
+    )
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response(groups, names=names),
+    ) as mock_call:
+        result = _dedup_issues(issues)
+
+    assert len(result) == 3
+    assert [issue.model_dump() for issue in result[:2]] == original[:2]
+    assert result[2].name == "Issue: Valid"
+    assert result[2].description == "Merged description"
+    assert result[2].root_cause == "Merged root cause"
+    assert set(result[2].example_indices) == {2, 3}
+    mock_call.assert_called_once()
+
+
 def test_dedup_issues_merges_example_indices_deduped():
     issue1 = create_identified_issue(example_indices=[0, 1])
     issue2 = create_identified_issue(example_indices=[1, 2])
