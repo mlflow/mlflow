@@ -500,13 +500,13 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
-        "reasoning": false,
+        "vision": true,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
       "deprecation_date": "2026-10-02",
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-21"
     },
     "databricks-gemini-2-5-pro": {
       "mode": "chat",
@@ -523,12 +523,13 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
-        "reasoning": false,
+        "vision": true,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-26"
+      "deprecation_date": "2026-10-02",
+      "last_updated_at": "2026-09-21"
     },
     "databricks-gemini-3-1-flash-image": {
       "mode": "chat",
@@ -561,12 +562,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": false,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-26"
+      "last_updated_at": "2026-09-21"
     },
     "databricks-gemini-3-1-pro": {
       "mode": "chat",
@@ -583,12 +584,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
-        "reasoning": false,
+        "vision": true,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-26"
+      "last_updated_at": "2026-09-21"
     },
     "databricks-gemini-3-5-flash": {
       "mode": "chat",
@@ -703,12 +704,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": false,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-26"
+      "last_updated_at": "2026-09-21"
     },
     "databricks-gemini-3-pro": {
       "mode": "chat",
