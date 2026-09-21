@@ -5,7 +5,7 @@ interface ScheduledScorerBase {
   name: string;
   sampleRate?: number; // Percentage between 0 and 100
   filterString?: string;
-  type: 'llm' | 'custom-code';
+  type: 'llm' | 'custom-code' | 'jev';
   version?: number;
   // Whether the UI disables monitoring for this scorer. If disabled, the UI
   // will not show the form fields for monitoring (sample rate, filter string, etc.)
@@ -158,7 +158,21 @@ export interface CustomCodeScorer extends ScheduledScorerBase {
   originalFuncName: string;
 }
 
-export type ScheduledScorer = LLMScorer | CustomCodeScorer;
+export type JevAnswerType = 'noul' | 'choice' | 'score';
+export type JevCriteria = Record<string, string> | string[] | null;
+
+export interface JevScorer extends ScheduledScorerBase {
+  type: 'jev';
+  model: string | null;
+  question: string;
+  answerType: JevAnswerType;
+  criteria: JevCriteria;
+  threshold: number | null;
+  // Preserve SDK configuration that has no corresponding form control.
+  sdkConfig?: { description?: string | null; aggregations?: string[] | null; timeout?: number | null };
+}
+
+export type ScheduledScorer = LLMScorer | CustomCodeScorer | JevScorer;
 
 export type ScorerConfig = {
   name: string;

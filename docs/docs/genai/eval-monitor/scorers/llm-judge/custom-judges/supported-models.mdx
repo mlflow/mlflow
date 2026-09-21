@@ -44,6 +44,10 @@ Judges configured with direct model providers require credentials to be availabl
 
 For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 
+## TypeSafe Jev Evaluation Models
+
+Jev uses a structured evaluation API. Create a [native Jev scorer](/genai/eval-monitor/scorers/llm-judge/custom-judges/jev) with `make_jev_scorer()` and `model="typesafe:/jev-latest"` for local evaluation with `TYPESAFE_API_KEY`. Use a TypeSafe `gateway:/` endpoint to save the scorer or run it from the UI. The chat-based `make_judge()` API does not support Jev models.
+
 ## Databricks-Hosted Models
 
 When using MLflow in Databricks, you can use Databricks-hosted models using the following formats:

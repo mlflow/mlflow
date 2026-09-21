@@ -22,6 +22,7 @@ The following table summarizes the available gateway APIs:
 | **Passthrough** | OpenAI                             | `POST /gateway/openai/v1/chat/completions`<br/>`POST /gateway/openai/v1/embeddings`<br/>`POST /gateway/openai/v1/responses` | Full OpenAI API access including Chat Completions, Embeddings, and Responses endpoints.                                            |
 | **Passthrough** | Anthropic                          | `POST /gateway/anthropic/v1/messages`                                                                                       | Direct access to Anthropic's Messages API.                                                                                         |
 | **Passthrough** | Google Gemini                      | `POST /gateway/gemini/v1beta/models/{endpoint_name}:generateContent`                                                        | Google Gemini's native generateContent API.                                                                                        |
+| **Passthrough** | TypeSafe | `POST /gateway/typesafe/v1/systemone` | Structured evaluation with Jev models. |
 
 ## Viewing Usage Examples
 
@@ -30,6 +31,8 @@ To see code examples for your endpoint, navigate to the Endpoints list and click
 ![Usage Modal](/images/genai/governance/ai-gateway/usage-modal.png)
 
 The usage modal organizes examples into two categories: unified APIs that work across any provider, and passthrough APIs that expose provider-specific features. Within each category, the **Try it** tab lets you send a test request directly from the UI.
+
+TypeSafe evaluation endpoints display System One examples and a structured request test panel. See [TypeSafe passthrough](/genai/governance/ai-gateway/endpoints/model-providers#typesafe) for usage. These endpoints support System One rather than chat completions or embeddings.
 
 ## Unified APIs
 

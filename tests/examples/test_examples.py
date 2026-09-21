@@ -1,11 +1,15 @@
+import json
 import os
 import re
+import runpy
 import shutil
 import sys
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
+import requests
 
 import mlflow
 from mlflow import cli
@@ -181,3 +185,87 @@ def test_command_example(directory, command):
         clear_hub_cache()
 
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)
+
+
+@pytest.mark.parametrize("model", ["typesafe:/jev-latest", "gateway:/jev-evaluator"])
+def test_jev_evaluation_example(model, monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-typesafe-key")
+    monkeypatch.setattr(sys, "argv", ["evaluate.py", "--model", model])
+    monkeypatch.setattr(
+        "mlflow.genai.scorers.jev._resolve_gateway_uri", lambda: "http://localhost:5000"
+    )
+
+    def respond(**kwargs):
+        if model.startswith("gateway:/"):
+            assert kwargs["endpoint"] == "/gateway/typesafe/v1/systemone"
+        else:
+            assert kwargs["url"] == "https://api.typesafe.ai/v1/systemone"
+            assert kwargs["headers"] == {"Authorization": "Bearer test-typesafe-key"}
+        payload = kwargs["json"]
+        assert payload["model"] == model.split(":/", 1)[1]
+        state = payload["state"]
+        assert set(state) == {"inputs", "outputs", "expectations"}
+        assert state["expectations"]["expected_response"]
+        question = payload["questions"]["evaluation"]
+        relevant = "password" in state["inputs"]["question"]
+        match question["type"]:
+            case "noul":
+                answer = {"noul": 0.9 if relevant else 0.2}
+            case "choice":
+                label = "account" if relevant else "billing"
+                answer = {
+                    "choice": label,
+                    "probabilities": {
+                        option: 0.8 if option == label else 0.1 for option in question["criteria"]
+                    },
+                    "confidence": 0.6,
+                }
+            case "score":
+                answer = {
+                    "score": 1.8 if relevant else 0.2,
+                    "probabilities": {
+                        "0": 0.0 if relevant else 0.8,
+                        "1": 0.2,
+                        "2": 0.8 if relevant else 0.0,
+                    },
+                    "confidence": 0.6,
+                    "legend": {str(i): value for i, value in enumerate(question["criteria"])},
+                }
+        response = requests.Response()
+        response.status_code = 200
+        response._content = json.dumps({
+            "model": "jev-1.13.0",
+            "answers": {"evaluation": {"type": question["type"], **answer}},
+            "usage": {"input_tokens": 100, "output_tokens": 20},
+        }).encode()
+        return response
+
+    request_path = (
+        "http_request" if model.startswith("gateway:/") else "_get_http_response_with_retries"
+    )
+    with mock.patch(f"mlflow.genai.scorers.jev.{request_path}", side_effect=respond) as request:
+        namespace = runpy.run_path(
+            str(Path(EXAMPLES_DIR, "jev_evaluation", "evaluate.py")), run_name="__main__"
+        )
+
+    assert request.call_count == 6
+    results = namespace["results"]
+    assert len(results.result_df) == 2
+    assert sorted(results.result_df["answer_relevance/value"]) == [False, True]
+    assert sorted(results.result_df["request_category/value"]) == ["account", "billing"]
+    assert sorted(results.result_df["answer_completeness/value"]) == [0.2, 1.8]
+    traces = mlflow.search_traces(run_id=results.run_id, return_type="list")
+    assert len(traces) == 2
+    for trace in traces:
+        feedback = {assessment.name: assessment for assessment in trace.info.assessments}
+        relevance = feedback["answer_relevance"]
+        assert json.loads(relevance.metadata["jev.probability"]) == (
+            0.9 if relevance.value else 0.2
+        )
+        assert relevance.rationale is None
+        assert set(json.loads(feedback["request_category"].metadata["jev.probabilities"])) == {
+            "account",
+            "billing",
+            "other",
+        }
+        assert len(json.loads(feedback["answer_completeness"].metadata["jev.legend"])) == 3

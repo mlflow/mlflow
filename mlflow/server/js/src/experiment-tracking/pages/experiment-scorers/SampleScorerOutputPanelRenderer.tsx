@@ -22,6 +22,7 @@ import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
 import { SimplifiedAssessmentView } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
+import JevAssessmentDetails from './JevAssessmentDetails';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
 
@@ -252,6 +253,12 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               </div>
             </div>
 
+            {assessments?.map(
+              (assessment) =>
+                'feedback' in assessment && (
+                  <JevAssessmentDetails key={assessment.assessment_id} assessment={assessment} />
+                ),
+            )}
             <div css={{ height: '600px' }}>{renderCurrentEvaluationResult()}</div>
           </div>
         ) : error ? (

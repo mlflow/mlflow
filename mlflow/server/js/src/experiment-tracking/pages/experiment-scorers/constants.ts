@@ -27,6 +27,7 @@ export const ASSESSMENT_NAME_TEMPLATE_MAPPING = {
 
 export const SCORER_TYPE = {
   LLM: 'llm',
+  JEV: 'jev',
   CUSTOM_CODE: 'custom-code',
 } as const;
 

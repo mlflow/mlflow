@@ -489,4 +489,58 @@ describe('SampleScorerOutputPanelContainer', () => {
       expect(getDisabledTooltip()).toMatch(/not yet supported/i);
     });
   });
+  it('runs a native Jev scorer and preserves probability metadata in the preview', async () => {
+    const run = jest.fn<ReturnType<typeof useEvaluateTraces>[0]>().mockResolvedValue(undefined);
+    const result: TraceJudgeEvaluationResult = {
+      trace: createMockTrace('tr-jev'),
+      error: null,
+      results: [
+        {
+          assessment_id: 'a',
+          assessment_name: 'quality',
+          trace_id: 'tr-jev',
+          source: { source_type: 'LLM_JUDGE', source_id: 'gateway:/jev' },
+          create_time: '2026-01-01',
+          last_update_time: '2026-01-01',
+          feedback: { value: false },
+          metadata: { 'jev.model': 'jev-latest', 'jev.probability': '0.4' },
+        },
+      ],
+    };
+    mockedUseEvaluateTraces.mockReturnValue([
+      run,
+      {
+        latestEvaluation: [result],
+        isLoading: false,
+        error: null,
+        reset: jest.fn(),
+      },
+    ] as ReturnType<typeof useEvaluateTraces>);
+    render(
+      <TestWrapper
+        selectedItemIds={['tr-jev']}
+        defaultValues={{
+          scorerType: 'jev',
+          name: 'quality',
+          model: 'gateway:/jev',
+          question: 'Is it correct?',
+          answerType: 'noul',
+          criteria: '',
+          threshold: '0.7',
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0].isRunScorerDisabled).toBe(false),
+    );
+    const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+    await props.handleRunScorer();
+    expect(JSON.parse(run.mock.calls[0][0].serializedScorer!)).toMatchObject({
+      jev_scorer_pydantic_data: { name: 'quality', question: 'Is it correct?', answer_type: 'noul', threshold: 0.7 },
+    });
+    expect(props.assessments?.[0]).toMatchObject({
+      feedback: { value: false },
+      metadata: { 'jev.probability': '0.4' },
+    });
+  });
 });

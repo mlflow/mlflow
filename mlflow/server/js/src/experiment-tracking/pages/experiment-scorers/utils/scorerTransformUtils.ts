@@ -2,6 +2,7 @@ import { type CausableError, ErrorName, PredefinedError } from '@databricks/web-
 import { ErrorLogType } from '@databricks/web-shared/errors';
 import type {
   ScheduledScorer,
+  JevScorer,
   LLMScorer,
   CustomCodeScorer,
   ScorerConfig,
@@ -11,6 +12,8 @@ import type {
 } from '../types';
 import { LLM_TEMPLATE, isGuidelinesTemplate } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
+import type { JevScorerFormData } from '../JevScorerFormRenderer';
+import { parseJevCriteria } from './jevScorerUtils';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
 import { ScorerEvaluationScope, type ScorerType } from '../constants';
 import type { RegisterScorerResponse, MLflowScorer } from '../api';
@@ -166,8 +169,8 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
   return undefined;
 }
 
-// Union type for all form data - combines both form interfaces
-export type ScorerFormData = (LLMScorerFormData | CustomCodeScorerFormData) & {
+// Union type for all scorer form interfaces
+export type ScorerFormData = (LLMScorerFormData | CustomCodeScorerFormData | JevScorerFormData) & {
   scorerType: ScorerType;
   evaluationScope?: ScorerEvaluationScope;
 };
@@ -210,7 +213,24 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
     }
 
     // Determine scorer type based on the serialized data
-    if (serializedData.instructions_judge_pydantic_data) {
+    if (serializedData.jev_scorer_pydantic_data) {
+      const data = serializedData.jev_scorer_pydantic_data;
+      return {
+        ...baseFields,
+        name: config.name,
+        type: 'jev',
+        model: data.model,
+        question: data.question,
+        answerType: data.answer_type,
+        criteria: data.criteria ?? null,
+        threshold: data.threshold ?? null,
+        sdkConfig: {
+          description: serializedData.description,
+          aggregations: serializedData.aggregations,
+          timeout: serializedData.timeout,
+        },
+      } as JevScorer;
+    } else if (serializedData.instructions_judge_pydantic_data) {
       // Instructions-based LLM scorer
       const instructions = serializedData.instructions_judge_pydantic_data.instructions || '';
       const model = serializedData.instructions_judge_pydantic_data.model;
@@ -381,7 +401,23 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
   }
 
   // Build serialized_scorer based on scorer type
-  if (scorer.type === 'llm') {
+  if (scorer.type === 'jev') {
+    config.serialized_scorer = JSON.stringify({
+      ...baseSerializedScorer,
+      ...scorer.sdkConfig,
+      name: scorer.name,
+      jev_scorer_pydantic_data: {
+        ...scorer.sdkConfig,
+        name: scorer.name,
+        model: scorer.model,
+        question: scorer.question,
+        answer_type: scorer.answerType,
+        criteria: scorer.criteria,
+        threshold: scorer.threshold,
+      },
+    });
+    config.custom = {};
+  } else if (scorer.type === 'llm') {
     const llmScorer = scorer as LLMScorer;
 
     if (llmScorer.isMemoryAugmented && llmScorer.rawMemoryAugmentedData) {
@@ -528,6 +564,22 @@ export function convertFormDataToScheduledScorer(
   formData: ScorerFormData,
   baseScorer?: ScheduledScorer,
 ): ScheduledScorer {
+  if (formData.scorerType === 'jev') {
+    return {
+      ...(baseScorer?.type === 'jev' ? baseScorer : {}),
+      name: formData.name,
+      type: 'jev',
+      model: formData.model,
+      question: formData.question,
+      answerType: formData.answerType,
+      criteria: parseJevCriteria(formData.answerType, formData.criteria),
+      threshold: formData.answerType === 'noul' && formData.threshold !== '' ? Number(formData.threshold) : null,
+      sampleRate: formData.model.startsWith('gateway:/') ? formData.sampleRate : 0,
+      filterString: formData.filterString || '',
+      isSessionLevelScorer: false,
+    };
+  }
+
   // For new scorers, create base object from scratch
   if (!baseScorer) {
     const newScorer: ScheduledScorer = {
