@@ -69,6 +69,9 @@ jobs:
             def failed:
               .conclusion == "FAILURE" or .conclusion == "TIMED_OUT"
               or .conclusion == "STARTUP_FAILURE";
+            def fast:
+              try (((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601))
+                   | . >= 0 and . <= 60) catch false;
             [ .[].data.repository.object.statusCheckRollup.contexts.nodes[]?
               | select(.checkSuite.app.slug == "github-actions"
                        and .checkSuite.workflowRun != null)
@@ -90,9 +93,7 @@ jobs:
             | .[0].checkSuite.workflowRun as $run
             | ($run.workflow.resourcePath | endswith("/protect.yml")) as $protect
             # Every non-skipped job must be fast; Protect is exempt.
-            | select($protect or all(.[] | select(.conclusion != "SKIPPED");
-                (try (((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601))
-                      | . >= 0 and . <= 60) catch false)))
+            | select($protect or all(.[] | select(.conclusion != "SKIPPED"); fast))
             | "\($run.databaseId) \($protect)"
           ' <<< "$pages")
 
