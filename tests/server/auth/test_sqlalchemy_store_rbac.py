@@ -39,6 +39,8 @@ _RESOURCE_GRANT_CASES = [
 ]
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.db.db_types import MYSQL
+from mlflow.store.tracking.dbmodels.models import SqlSkill
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
@@ -557,6 +559,78 @@ def test_mysql_upsert_recovery_role_permission_lookup_uses_locking_read(store):
         )
 
     assert "FOR UPDATE" in str(query.statement.compile(dialect=mysql.dialect()))
+
+
+def test_session_grants_reject_tracking_session_from_separate_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
+    tracking_store = TrackingSqlAlchemyStore(
+        f"sqlite:///{tmp_path / 'tracking.db'}",
+        str(tmp_path / "artifacts"),
+    )
+    auth_store.create_user("alice", "strong-password")
+
+    try:
+        with pytest.raises(MlflowException, match="same database"):
+            with tracking_store.ManagedSessionMaker(read_only=False) as session:
+                auth_store.grant_user_permissions_in_session(
+                    session,
+                    "alice",
+                    [(RESOURCE_TYPE_SKILL, "separate-db-skill", MANAGE.name)],
+                )
+    finally:
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
+def test_session_grants_share_tracking_transaction_when_databases_are_colocated(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    db_uri = f"sqlite:///{tmp_path / 'shared.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    tracking_store = TrackingSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+    user = auth_store.create_user("alice", "strong-password")
+
+    def create_skill_and_grant_then_abort():
+        with tracking_store.ManagedSessionMaker(read_only=False) as session:
+            session.add(
+                SqlSkill(
+                    workspace=DEFAULT_WORKSPACE_NAME,
+                    organization="",
+                    name="shared-db-skill",
+                )
+            )
+            auth_store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "shared-db-skill", MANAGE.name)],
+            )
+            raise MlflowException("abort shared transaction")
+
+    try:
+        with pytest.raises(MlflowException, match="abort shared transaction"):
+            create_skill_and_grant_then_abort()
+
+        with tracking_store.ManagedSessionMaker() as session:
+            assert (
+                session.query(SqlSkill).filter(SqlSkill.name == "shared-db-skill").first() is None
+            )
+        assert (
+            auth_store.get_role_permission_for_resource(
+                user.id,
+                RESOURCE_TYPE_SKILL,
+                "shared-db-skill",
+                DEFAULT_WORKSPACE_NAME,
+            )
+            is None
+        )
+    finally:
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
 
 
 def test_grant_user_permissions_in_session_rolls_back_partial_batch_on_duplicate(store, user):
