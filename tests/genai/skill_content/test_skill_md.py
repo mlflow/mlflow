@@ -5,6 +5,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.skill_md import (
     SKILL_MANIFEST_FILE,
+    SkillManifest,
     inspect_skill_dir,
     parse_skill_md,
 )
@@ -55,15 +56,29 @@ def test_inspect_skill_dir_reads_fields(tmp_path):
     manifest = inspect_skill_dir(root)
     assert manifest.name == "code-review"
     assert manifest.description == "Reviews code"
-    assert manifest.keywords == ("review", "quality")
     assert manifest.path == root
 
 
-def test_inspect_skill_dir_keywords_from_string_and_nested_metadata(tmp_path):
-    root = _skill_dir(tmp_path, "a", "---\nname: a\nkeywords: ' x, y ,,z '\n---\n")
-    assert inspect_skill_dir(root).keywords == ("x", "y", "z")
-    nested = _skill_dir(tmp_path, "b", "---\nname: b\nmetadata:\n  keywords: [q]\n---\n")
-    assert inspect_skill_dir(nested).keywords == ("q",)
+@pytest.mark.parametrize(
+    "frontmatter",
+    [
+        "keywords: [review, quality]",
+        "keywords: ' x, y ,,z '",
+        "keywords: {a: b}",
+        "keywords: [review, 2]",
+        "keywords: [[nested]]",
+        "metadata:\n  keywords: [[x]]",
+        "metadata: not-a-mapping",
+        "license: MIT\nallowed-tools: [Bash]",
+    ],
+)
+def test_inspect_skill_dir_ignores_other_frontmatter_keys(tmp_path, frontmatter):
+    # Skills have no keywords; a SKILL.md that carries such a field for other tooling, in any
+    # shape, is inspected like one without it.
+    content = f"---\nname: demo\ndescription: Demo skill\n{frontmatter}\n---\n"
+    manifest = inspect_skill_dir(_skill_dir(tmp_path, "demo", content))
+    assert manifest == SkillManifest(name="demo", description="Demo skill", path=manifest.path)
+    assert not hasattr(manifest, "keywords")
 
 
 def test_inspect_skill_dir_requires_declared_name(tmp_path):
@@ -75,7 +90,6 @@ def test_inspect_skill_dir_requires_declared_name(tmp_path):
     manifest = inspect_skill_dir(root, fallback_name="legacy-skill")
     assert manifest.name == "legacy-skill"
     assert manifest.description is None
-    assert manifest.keywords == ()
 
 
 def test_inspect_skill_dir_declared_name_beats_fallback(tmp_path):
@@ -126,8 +140,6 @@ def test_inspect_skill_dir_rejects_invalid_utf8(tmp_path):
     [
         ("---\nname: 42\n---\n", "name must be a string"),
         ("---\nname: demo\ndescription: [a]\n---\n", "description must be a string"),
-        ("---\nname: demo\nkeywords: {a: b}\n---\n", "keywords must be a list"),
-        ("---\nname: demo\nkeywords: [[nested]]\n---\n", "keywords must be strings"),
     ],
 )
 def test_inspect_skill_dir_field_type_errors(tmp_path, content, message):
@@ -181,9 +193,3 @@ def test_parse_skill_md_rejects_inline_merge_keys(frontmatter):
     # A quoted "<<" is an ordinary key, not a merge.
     metadata, _ = parse_skill_md('---\nname: demo\n"<<": literal\n---\n')
     assert metadata == {"name": "demo", "<<": "literal"}
-
-
-def test_inspect_skill_dir_rejects_non_string_keywords(tmp_path):
-    root = _skill_dir(tmp_path, "demo", "---\nname: demo\nkeywords: [review, 2]\n---\n")
-    with pytest.raises(MlflowException, match="keywords must be strings, got 2"):
-        inspect_skill_dir(root)
