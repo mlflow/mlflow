@@ -536,12 +536,12 @@ def test_auto_detected_multipart_upload_does_not_fallback(monkeypatch, tmp_path)
         mock.patch(
             "mlflow.utils.server_info.http_request",
             return_value=_mock_server_info_response(uploads=True),
-        ),
+        ) as mock_server_info_request,
         mock.patch.object(
             repo,
             "create_multipart_upload",
             side_effect=HTTPError(response=unsupported_response),
-        ),
+        ) as mock_create_multipart_upload,
         mock.patch("mlflow.store.artifact.http_artifact_repo.http_request") as mock_proxy_upload,
         pytest.raises(
             _UnsupportedMultipartUploadException,
@@ -550,6 +550,8 @@ def test_auto_detected_multipart_upload_does_not_fallback(monkeypatch, tmp_path)
     ):
         repo.log_artifact(str(local_file))
 
+    mock_server_info_request.assert_called_once()
+    mock_create_multipart_upload.assert_called_once_with(str(local_file), 1, None)
     mock_proxy_upload.assert_not_called()
 
 

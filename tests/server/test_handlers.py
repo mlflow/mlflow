@@ -517,6 +517,49 @@ def test_server_info_advertises_presigned_only_mode(monkeypatch):
     assert response.get_json()[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is True
 
 
+def test_server_info_artifacts_only_skips_tracking_store_and_advertises_artifact_capabilities(
+    monkeypatch,
+):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
+
+    class _FakeMultipartArtifactRepo(MultipartUploadMixin, MultipartDownloadMixin):
+        def create_multipart_upload(self, local_file, num_parts, artifact_path=None):
+            raise NotImplementedError
+
+        def complete_multipart_upload(self, local_file, upload_id, parts, artifact_path=None):
+            raise NotImplementedError
+
+        def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+            raise NotImplementedError
+
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            raise NotImplementedError
+
+    monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=_FakeMultipartArtifactRepo(),
+        ) as mock_get_artifact_repo,
+        app.test_client() as client,
+    ):
+        response = client.get("/api/3.0/mlflow/server-info")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data[SERVER_INFO_STORE_TYPE] is None
+    assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
+    assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is True
+    assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is True
+    assert data[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is True
+    mock_get_tracking_store.assert_not_called()
+    mock_get_artifact_repo.assert_called_once()
+
+
 def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 
@@ -5309,6 +5352,85 @@ def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_pa
     assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
     mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, dst_path=mock.ANY)
+
+
+def test_get_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "s3://bucket/run-artifacts"
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        app.test_request_context(query_string={"run_id": "run-1", "path": "model.pkl"}),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo", return_value=mock_artifact_repo
+        ) as mock_get_artifact_repo,
+    ):
+        mock_get_tracking_store.return_value.get_run.return_value = mock_run
+        response = get_artifact_handler()
+
+    assert response.status_code == 409
+    assert "Upgrade your MLflow client" in response.get_json()["message"]
+    mock_get_tracking_store.assert_called_once()
+    mock_get_tracking_store.return_value.get_run.assert_called_once_with("run-1")
+    mock_get_artifact_repo.assert_called_once_with(mock_run)
+    mock_artifact_repo.get_local_path.assert_not_called()
+
+
+def test_get_model_version_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    artifact_uri = "s3://bucket/model-artifacts"
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        app.test_request_context(
+            query_string={"name": "model", "version": "1", "path": "model.pkl"}
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_model_registry_store"
+        ) as mock_get_model_registry_store,
+        mock.patch(
+            "mlflow.server.handlers.get_artifact_repository", return_value=mock_artifact_repo
+        ) as mock_get_artifact_repository,
+    ):
+        mock_get_model_registry_store.return_value.get_model_version_download_uri.return_value = (
+            artifact_uri
+        )
+        response = get_model_version_artifact_handler()
+
+    assert response.status_code == 409
+    assert "Upgrade your MLflow client" in response.get_json()["message"]
+    mock_get_model_registry_store.assert_called_once()
+    mock_get_model_registry_store.return_value.get_model_version_download_uri.assert_called_once_with(
+        "model", "1"
+    )
+    mock_get_artifact_repository.assert_called_once_with(artifact_uri)
+    mock_artifact_repo.get_local_path.assert_not_called()
+
+
+def test_get_logged_model_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    artifact_uri = "s3://bucket/logged-model-artifacts"
+    mock_logged_model = mock.MagicMock(artifact_location=artifact_uri)
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        app.test_request_context(query_string={"artifact_file_path": "model.pkl"}),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store,
+        mock.patch(
+            "mlflow.server.handlers.get_artifact_repository", return_value=mock_artifact_repo
+        ) as mock_get_artifact_repository,
+    ):
+        mock_get_tracking_store.return_value.get_logged_model.return_value = mock_logged_model
+        response = get_logged_model_artifact_handler("model-1")
+
+    assert response.status_code == 409
+    assert "Upgrade your MLflow client" in response.get_json()["message"]
+    mock_get_tracking_store.assert_called_once()
+    mock_get_tracking_store.return_value.get_logged_model.assert_called_once_with("model-1")
+    mock_get_artifact_repository.assert_called_once_with(artifact_uri)
+    mock_artifact_repo.get_local_path.assert_not_called()
 
 
 def test_create_artifact_file_response_uses_local_path_mimetype_and_artifact_name(tmp_path):

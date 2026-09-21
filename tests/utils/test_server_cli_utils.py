@@ -36,7 +36,7 @@ def test_presigned_only_requires_supported_artifact_destination():
         mock.patch(
             "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
             return_value=mock.Mock(spec=[]),
-        ),
+        ) as mock_get_artifact_repository,
         pytest.raises(click.UsageError, match="presigned uploads and presigned downloads"),
     ):
         artifacts_only_presigned_config_validation(
@@ -46,15 +46,19 @@ def test_presigned_only_requires_supported_artifact_destination():
             artifacts_destination="./mlartifacts",
         )
 
+    mock_get_artifact_repository.assert_called_once_with("./mlartifacts")
+
 
 def test_presigned_only_accepts_supported_artifact_destination():
     with mock.patch(
         "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
         return_value=_PresignedArtifactRepository(),
-    ):
+    ) as mock_get_artifact_repository:
         artifacts_only_presigned_config_validation(
             True,
             serve_artifacts=True,
             artifacts_only=False,
             artifacts_destination="s3://bucket",
         )
+
+    mock_get_artifact_repository.assert_called_once_with("s3://bucket")
