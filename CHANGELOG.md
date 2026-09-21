@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.11.5 (2026-09-21)
+
+MLflow 2.11.5 includes several major features and improvements
+
+Features:
+
+- [Model Registry / Models] Add opt-in support for routing Unity Catalog model registry artifact uploads and downloads through the Databricks SDK Files API (#25986, @tonycai96)
+
 ## 2.10.2 (2024-02-09)
 
 MLflow 2.10.2 includes several major features and improvements
