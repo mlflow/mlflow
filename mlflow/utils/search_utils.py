@@ -332,6 +332,39 @@ class SearchUtils:
         }[dialect]
 
     @staticmethod
+    def get_sql_expression_comparison_func(comparator, dialect):
+        """Like get_sql_comparison_func, but safe for any SQL expression.
+
+        The MySQL path in get_sql_comparison_func reads ``column.class_.__tablename__``
+        to build raw BINARY SQL, which non-column expressions (CASE, subqueries, a
+        collated column) do not have. This wraps the value with ``func.binary()``
+        for case-sensitive comparison instead. Other dialects pass through to
+        get_sql_comparison_func.
+        """
+        import sqlalchemy as sa
+
+        if dialect != MYSQL:
+            return SearchUtils.get_sql_comparison_func(comparator, dialect)
+
+        def mysql_safe_func(expression, value):
+            if isinstance(expression.type, sa.types.String):
+                if comparator == "LIKE":
+                    return expression.like(sa.func.binary(value))
+                elif comparator == "ILIKE":
+                    # binary() would make this case-sensitive, and a plain LIKE
+                    # depends on the expression's collation. ilike() lowers both
+                    # sides, as the mapped-column path does.
+                    return expression.ilike(value)
+                elif comparator == "IN":
+                    return expression.in_([sa.func.binary(v) for v in value])
+                elif comparator == "NOT IN":
+                    return ~expression.in_([sa.func.binary(v) for v in value])
+                value = sa.func.binary(value)
+            return SearchUtils.get_comparison_func(comparator)(expression, value)
+
+        return mysql_safe_func
+
+    @staticmethod
     def translate_key_alias(key):
         if key in ["created", "Created"]:
             return "start_time"

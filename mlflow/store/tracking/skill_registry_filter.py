@@ -14,16 +14,12 @@ import sqlalchemy as sa
 
 from mlflow.entities import SkillStatus
 from mlflow.exceptions import MlflowException
-from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
     _agent_plugin_version_has_deleted_member,
-)
-from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
-    _get_expression_comparison_func,
 )
 from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
@@ -47,18 +43,13 @@ def _get_comparison_func(comparator: str, dialect: str, col):
     """Return a comparison function for a mapped column or a computed expression.
 
     ``SearchUtils.get_sql_comparison_func`` builds MySQL's case-sensitive SQL
-    from ``column.class_``, which computed expressions (e.g. a resolved
-    status subquery) do not have. Those reuse the MCP registry's
-    expression-safe comparison, which keeps MySQL and MSSQL comparisons
-    case-sensitive, matching the column path.
+    from ``column.class_``, which computed expressions (e.g. a resolved status
+    subquery) do not have. Those use the expression-safe variant, which keeps
+    MySQL and MSSQL comparisons case-sensitive, matching the column path.
     """
     if hasattr(col, "class_"):
         return SearchUtils.get_sql_comparison_func(comparator, dialect)
-    if dialect == MYSQL and comparator == "ILIKE":
-        # The MCP helper emits a plain LIKE here, which is case-sensitive under
-        # a binary collation. ilike() lowers both sides, as the column path does.
-        return lambda expression, value: expression.ilike(value)
-    return _get_expression_comparison_func(comparator, dialect)
+    return SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
 
 
 # ---------------------------------------------------------------------------
