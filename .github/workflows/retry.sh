@@ -83,7 +83,7 @@ runs=$(jq '
    | {id: .workflowRun.databaseId,
       attempt: .workflowRun.runAttempt,
       rerun: (.workflowRun.workflow.resourcePath |
-              endswith("/rerun-workflow-run.yml") or endswith("/retry.yml") | not),
+              endswith("/rerun.yml") or endswith("/retry.yml") | not),
       protect: (.workflowRun.workflow.resourcePath | endswith("/protect.yml"))}]
 ' <<< "$suites")
 

@@ -39,7 +39,7 @@ module.exports = async ({ github, context }) => {
   };
   const STATUS_ORDER = Object.values(STATE);
 
-  const IGNORED_WORKFLOWS = new Set([".github/workflows/rerun.yml"]);
+  const IGNORED_WORKFLOWS = new Set([".github/workflows/trigger-rerun.yml"]);
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
