@@ -18,7 +18,7 @@ import {
   ServerInfoProvider,
 } from './useServerInfo';
 import { QueryClient, QueryClientProvider, onlineManager } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { createMlflowQueryClient } from '@mlflow/mlflow/src/common/utils/createMlflowQueryClient';
+import { createMlflowQueryClient } from '@mlflow/mlflow/src/shared/web-shared/query-client/createMlflowQueryClient';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>

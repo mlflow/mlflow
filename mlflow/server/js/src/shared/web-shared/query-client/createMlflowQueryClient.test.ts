@@ -1,6 +1,6 @@
 import { describe, test, expect } from '@jest/globals';
 import { createMlflowQueryClient } from './createMlflowQueryClient';
-import { onlineManager } from './reactQueryHooks';
+import { onlineManager } from './queryClient';
 
 describe('createMlflowQueryClient', () => {
   test('defaults queries to networkMode "always"', () => {

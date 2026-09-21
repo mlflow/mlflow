@@ -14,7 +14,7 @@ import store from './store';
 import { useI18nInit } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
 import { QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { createMlflowQueryClient } from '@mlflow/mlflow/src/common/utils/createMlflowQueryClient';
+import { createMlflowQueryClient } from '@mlflow/mlflow/src/shared/web-shared/query-client/createMlflowQueryClient';
 import { createApolloClient } from './graphql/client';
 import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename

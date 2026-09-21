@@ -1,4 +1,4 @@
-import { QueryClient } from './reactQueryHooks';
+import { QueryClient } from './queryClient';
 
 /**
  * Builds the QueryClient used by the OSS MLflow UI entry points.

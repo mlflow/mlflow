@@ -4,7 +4,7 @@ import ReactDOM from 'react-dom';
 import { IntlProvider } from '@databricks/i18n';
 import { SupportsDuBoisThemes } from '../../design-system/SupportsDuBoisThemes';
 import { QueryClientProvider } from '../../query-client/queryClient';
-import { createMlflowQueryClient } from '@mlflow/mlflow/src/common/utils/createMlflowQueryClient';
+import { createMlflowQueryClient } from '../../query-client/createMlflowQueryClient';
 import { setActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
