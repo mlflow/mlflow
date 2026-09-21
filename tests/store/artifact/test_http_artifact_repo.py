@@ -221,12 +221,18 @@ def test_empty_file_uses_one_multipart_upload_part(http_artifact_repo, tmp_path,
             http_artifact_repo,
             "_upload_part",
             return_value=MultipartUploadPart(part_number=1, etag="etag"),
-        ),
+        ) as mock_upload_part,
         mock.patch.object(http_artifact_repo, "complete_multipart_upload") as mock_complete,
     ):
         http_artifact_repo.log_artifact(file_path)
 
     mock_create.assert_called_once_with(file_path, 1, None)
+    mock_upload_part.assert_called_once_with(
+        credential=credential,
+        local_file=file_path,
+        size=mock.ANY,
+        start_byte=0,
+    )
     mock_complete.assert_called_once()
 
 
