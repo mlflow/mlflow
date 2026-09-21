@@ -1,4 +1,3 @@
-import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -6,15 +5,9 @@ from unittest import mock
 
 import pytest
 
+from dev import remove_experimental_decorators as module
+
 SCRIPT_PATH = "dev/remove_experimental_decorators.py"
-MODULE_PATH = Path(__file__).parents[2] / SCRIPT_PATH
-
-
-def _load_script_module():
-    spec = importlib.util.spec_from_file_location("remove_experimental_decorators", MODULE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def test_script_with_specific_file(tmp_path: Path) -> None:
@@ -86,7 +79,6 @@ def func():
 
 
 def test_get_mlflow_release_dates_recovers_from_transient_url_error() -> None:
-    module = _load_script_module()
     response = mock.MagicMock()
     response.__enter__.return_value = response
     response.read.return_value = b'{"releases": {}}'
@@ -106,7 +98,6 @@ def test_get_mlflow_release_dates_recovers_from_transient_url_error() -> None:
 
 
 def test_get_mlflow_release_dates_reraises_after_three_attempts() -> None:
-    module = _load_script_module()
     error = module.URLError("connection reset")
     with (
         mock.patch.object(module, "urlopen", side_effect=error) as urlopen,
