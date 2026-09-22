@@ -1475,19 +1475,28 @@ def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
 
+def _fetch_or_none(fetch: "Callable[[str], Any]", resource_id: str) -> Any | None:
+    # None when the resource does not exist; any other store failure is re-raised, because
+    # reporting an outage as "permission denied" sends operators after the wrong fault.
+    try:
+        return fetch(resource_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return None
+        raise
+
+
 def _run_requirement(
     run_id: str, action: str
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
-    # None when the run cannot be resolved, so callers fail closed instead of letting a
-    # resource-not-found fall through to default_permission.
-    try:
-        run = _get_tracking_store().get_run(run_id)
-    except MlflowException:
+    # A missing run denies rather than 404ing, so the response is not an oracle for which
+    # run ids exist -- master applies the same reasoning to logged models.
+    run = _fetch_or_none(_get_tracking_store().get_run, run_id)
+    if run is None:
         return None
-    experiment_id = run.info.experiment_id
-    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
-    return anchor, [
-        Requirement(RESOURCE_TYPE_RUN, "*", action, ((RESOURCE_TYPE_EXPERIMENT, experiment_id),))
+    experiment = (RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id)
+    return experiment, [
+        Requirement(RESOURCE_TYPE_RUN, "*", action, fallback_if_no_grant=(experiment,))
     ]
 
 
@@ -1507,10 +1516,10 @@ def _authorize_create_in_experiment(experiment_id: str, created_type: str) -> bo
     # The experiment authorizes creation; the created type only VETOES. Child grants are
     # wildcard-only grain, so a positive requirement on created_type would let one grant
     # confer create rights in every experiment in the workspace.
-    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     return authorize(
         authenticate_request().username,
-        anchor,
+        experiment,
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
             Requirement(created_type, "*", ACTION_NOT_DENIED),
@@ -1538,16 +1547,20 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
         return False
     anchor, requirements = resolved
     for model_id in sorted(model_ids):
-        try:
-            model_experiment_id = _get_tracking_store().get_logged_model(model_id).experiment_id
-        except MlflowException:
+        model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+        if model is None:
             return False
+        # A metric may target a model in a DIFFERENT experiment, hence its own fallback.
+        # That experiment is assumed to share the run's workspace: the workspace is the
+        # permission boundary and no cross-workspace API exists, so every key in this batch
+        # resolves in the anchor's workspace.
+        model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
         requirements.append(
             Requirement(
                 RESOURCE_TYPE_LOGGED_MODEL,
                 "*",
                 "update",
-                ((RESOURCE_TYPE_EXPERIMENT, model_experiment_id),),
+                fallback_if_no_grant=(model_experiment,),
             )
         )
     return authorize(authenticate_request().username, anchor, requirements)
@@ -2698,17 +2711,14 @@ def validate_can_delete_traces():
 
 
 def _authorize_trace(trace_id: str, action: str) -> bool:
-    # An unresolvable trace denies, as the pre-existing resolver did (it returned
-    # NO_PERMISSIONS), so a deleted trace never becomes a default grant.
-    try:
-        experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
-    except MlflowException:
+    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    if trace is None:
         return False
-    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    experiment = (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id)
     return authorize(
         authenticate_request().username,
-        anchor,
-        [Requirement(RESOURCE_TYPE_TRACE, "*", action, (anchor,))],
+        experiment,
+        [Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,))],
     )
 
 
@@ -2727,11 +2737,10 @@ def validate_can_create_logged_model():
 
 
 def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | None":
-    try:
-        experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
-    except MlflowException:
+    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    if trace is None:
         return None
-    return (RESOURCE_TYPE_EXPERIMENT, experiment_id), experiment_id
+    return (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id), trace.experiment_id
 
 
 def validate_can_create_assessment():
@@ -2745,12 +2754,12 @@ def validate_can_create_assessment():
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
-    anchor, experiment_id = resolved
+    experiment, _ = resolved
     return authorize(
         authenticate_request().username,
-        anchor,
+        experiment,
         [
-            Requirement(RESOURCE_TYPE_TRACE, "*", "update", (anchor,)),
+            Requirement(RESOURCE_TYPE_TRACE, "*", "update", fallback_if_no_grant=(experiment,)),
             Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),
         ],
     )
@@ -2766,16 +2775,17 @@ def validate_can_update_assessment():
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
-    anchor, _ = resolved
+    experiment, _ = resolved
+    trace = (RESOURCE_TYPE_TRACE, "*")
     return authorize(
         authenticate_request().username,
-        anchor,
+        experiment,
         [
             Requirement(
                 RESOURCE_TYPE_ASSESSMENT,
                 "*",
                 "update",
-                ((RESOURCE_TYPE_TRACE, "*"), anchor),
+                fallback_if_no_grant=(trace, experiment),
             )
         ],
     )
