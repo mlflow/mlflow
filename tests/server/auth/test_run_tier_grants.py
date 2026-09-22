@@ -28,6 +28,7 @@ from mlflow.server.auth.permissions import (
     READ,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_RUN,
+    RESOURCE_TYPE_TRACE,
 )
 from mlflow.utils.os import is_windows
 
@@ -158,3 +159,86 @@ def test_a_per_id_run_grant_is_rejected_at_the_source(client: MlflowClient):
         grant_role_permission(
             client.tracking_uri, user, RESOURCE_TYPE_RUN, "some-run-id", EDIT.name
         )
+
+
+# --------------------------------------------------------------------- CreateRun
+
+
+def _create_run(tracking_uri, experiment_id, auth):
+    return requests.post(
+        f"{tracking_uri}/api/2.0/mlflow/runs/create",
+        json={"experiment_id": experiment_id},
+        auth=auth,
+    )
+
+
+def test_create_run_is_gated_on_the_run_tier(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
+):
+    """CreateRun has no run id, so the run tier is addressed at its wildcard grain."""
+    experiment_id, _ = run_fixture
+    denied, denied_password = create_user(client.tracking_uri)
+    grant_role_permission(
+        client.tracking_uri, denied, RESOURCE_TYPE_EXPERIMENT, experiment_id, EDIT.name
+    )
+    grant_role_permission(client.tracking_uri, denied, RESOURCE_TYPE_RUN, "*", DENY.name)
+    assert (
+        _create_run(client.tracking_uri, experiment_id, (denied, denied_password)).status_code
+        == 403
+    )
+
+    allowed, allowed_password = create_user(client.tracking_uri)
+    grant_role_permission(
+        client.tracking_uri, allowed, RESOURCE_TYPE_EXPERIMENT, experiment_id, EDIT.name
+    )
+    assert (
+        _create_run(client.tracking_uri, experiment_id, (allowed, allowed_password)).status_code
+        == 200
+    )
+
+
+# --------------------------------------------------------------------- trace tier
+
+
+def test_start_trace_is_gated_on_the_trace_tier(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
+):
+    experiment_id, _ = run_fixture
+    user, password = create_user(client.tracking_uri)
+    grant_role_permission(
+        client.tracking_uri, user, RESOURCE_TYPE_EXPERIMENT, experiment_id, MANAGE.name
+    )
+    grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_TRACE, "*", DENY.name)
+
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/traces",
+        json={
+            "experiment_id": experiment_id,
+            "timestamp_ms": 1,
+            "request_metadata": [],
+            "tags": [],
+        },
+        auth=(user, password),
+    )
+    assert response.status_code == 403
+
+
+def test_a_trace_grant_authorizes_start_trace_without_an_experiment_grant(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
+):
+    """Escalation on the trace tier."""
+    experiment_id, _ = run_fixture
+    user, password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_TRACE, "*", EDIT.name)
+
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/traces",
+        json={
+            "experiment_id": experiment_id,
+            "timestamp_ms": 1,
+            "request_metadata": [],
+            "tags": [],
+        },
+        auth=(user, password),
+    )
+    assert response.status_code == 200

@@ -282,10 +282,12 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_LOGGED_MODEL,
     RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_WORKSPACE,
     USE,
     GrantLoadKey,
@@ -1523,25 +1525,48 @@ def validate_can_update_run():
     return _authorize_run("update")
 
 
+def validate_can_create_run():
+    """``CreateRun`` has no run id yet, so the run tier is addressed at its wildcard grain
+    and the experiment in the request is both anchor and fallback.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [Requirement(RESOURCE_TYPE_RUN, "*", "update", (anchor,))],
+    )
+
+
 def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
-    # Require UPDATE on the run AND on any model_id the metrics target, so a user with
-    # UPDATE on their own run cannot inject metrics onto another user's logged models.
-    if not _get_permission_from_run_id().can_update:
+    """UPDATE on the run AND on every logged model the metrics target.
+
+    Without the second half, a caller with UPDATE on their own run could inject metrics
+    onto another user's logged models. A logged model resolves to its OWN experiment, since
+    a metric may target a model in a different one, so each contributes its own requirement
+    and its own fallback -- all resolved from one grants query.
+
+    A nonexistent model_id denies uniformly, so the response cannot be used as an oracle
+    for which model ids exist.
+    """
+    resolved = _run_requirement(_get_request_param("run_id"), "update")
+    if resolved is None:
         return False
-
-    # Check UPDATE permission on each distinct model_id. Catch RESOURCE_DOES_NOT_EXIST
-    # (nonexistent model_id) and deny uniformly with 403 so the response can't be used
-    # as an oracle for which model_ids exist.
-    for model_id in model_ids:
+    anchor, requirements = resolved
+    for model_id in sorted(model_ids):
         try:
-            if not _get_model_permission(model_id).can_update:
-                return False
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                return False
-            raise
-
-    return True
+            model_experiment_id = _get_tracking_store().get_logged_model(model_id).experiment_id
+        except MlflowException:
+            return False
+        requirements.append(
+            Requirement(
+                RESOURCE_TYPE_LOGGED_MODEL,
+                "*",
+                "update",
+                ((RESOURCE_TYPE_EXPERIMENT, model_experiment_id),),
+            )
+        )
+    return authorize(authenticate_request().username, anchor, requirements)
 
 
 def validate_can_log_metric():
@@ -2688,16 +2713,45 @@ def validate_can_delete_traces():
     ).can_delete
 
 
+def _authorize_trace(trace_id: str, action: str) -> bool:
+    """Authorize an operation on one existing trace, on the trace tier.
+
+    RFC 0000 re-points the trace routes from the experiment tier to the trace tier, with
+    the trace's experiment as fallback. An unresolvable trace denies: the pre-existing
+    resolver returned NO_PERMISSIONS for a missing trace, and failing closed here keeps
+    that, so a deleted trace never becomes a default grant.
+    """
+    try:
+        experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
+    except MlflowException:
+        return False
+    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [Requirement(RESOURCE_TYPE_TRACE, "*", action, (anchor,))],
+    )
+
+
 def validate_can_update_trace_by_trace_id():
-    return _get_permission_from_trace(
-        _get_request_param("trace_id"), authenticate_request().username
-    ).can_update
+    return _authorize_trace(_get_request_param("trace_id"), "update")
 
 
 def validate_can_update_trace_by_request_id():
-    return _get_permission_from_trace(
-        _get_request_param("request_id"), authenticate_request().username
-    ).can_update
+    return _authorize_trace(_get_request_param("request_id"), "update")
+
+
+def validate_can_start_trace():
+    """``StartTrace`` has no trace id yet: the trace tier is addressed at its wildcard
+    grain, anchored on the experiment the trace is being created in.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [Requirement(RESOURCE_TYPE_TRACE, "*", "update", (anchor,))],
+    )
 
 
 def validate_can_read_traces_by_experiment_ids():
@@ -3148,7 +3202,7 @@ BEFORE_REQUEST_HANDLERS = {
     SetExperimentTag: validate_can_update_experiment,
     DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
-    CreateRun: validate_can_update_experiment,
+    CreateRun: validate_can_create_run,
     GetRun: validate_can_read_run,
     DeleteRun: validate_can_delete_run,
     RestoreRun: validate_can_delete_run,
@@ -3247,7 +3301,7 @@ BEFORE_REQUEST_HANDLERS = {
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
     DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
     # Routes for traces
-    StartTrace: validate_can_update_experiment,
+    StartTrace: validate_can_start_trace,
     StartTraceV3: validate_can_start_trace_v3,
     EndTrace: validate_can_update_trace_by_request_id,
     GetTraceInfo: validate_can_read_trace_by_request_id,
