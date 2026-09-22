@@ -278,6 +278,7 @@ from mlflow.server.auth.permissions import (
     DENY,
     MANAGE,
     NO_PERMISSIONS,
+    RESOURCE_TYPE_ASSESSMENT,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
@@ -2741,6 +2742,48 @@ def validate_can_update_trace_by_request_id():
     return _authorize_trace(_get_request_param("request_id"), "update")
 
 
+def validate_can_create_logged_model():
+    """``CreateLoggedModel`` has no model id yet: the logged_model tier at its wildcard
+    grain, anchored on the experiment in the request.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", "update", (anchor,))],
+    )
+
+
+def validate_can_update_assessment():
+    """Assessments hang off a trace, which hangs off an experiment, so the chain is three
+    levels: assessment -> trace -> experiment.
+
+    Master gates these routes on the trace's experiment. Under RFC 0000 the assessment
+    tier is authoritative when present, the trace tier next, and the experiment last -- so
+    an operator can permit assessment writes without granting trace writes, or deny
+    assessments on traces a caller may otherwise edit.
+    """
+    trace_id = _get_request_param("trace_id")
+    try:
+        experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
+    except MlflowException:
+        return False
+    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT,
+                "*",
+                "update",
+                ((RESOURCE_TYPE_TRACE, "*"), anchor),
+            )
+        ],
+    )
+
+
 def validate_can_start_trace():
     """``StartTrace`` has no trace id yet: the trace tier is addressed at its wildcard
     grain, anchored on the experiment the trace is being created in.
@@ -3321,10 +3364,10 @@ BEFORE_REQUEST_HANDLERS = {
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
     CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
     QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
-    CreateAssessment: validate_can_update_trace_by_trace_id,
+    CreateAssessment: validate_can_update_assessment,
     GetAssessmentRequest: validate_can_read_trace_by_trace_id,
-    UpdateAssessment: validate_can_update_trace_by_trace_id,
-    DeleteAssessment: validate_can_update_trace_by_trace_id,
+    UpdateAssessment: validate_can_update_assessment,
+    DeleteAssessment: validate_can_update_assessment,
     # Routes for review queues
     CreateReviewQueue: validate_can_create_review_queue,
     GetReviewQueue: validate_can_view_review_queue,
@@ -3512,7 +3555,7 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
 }
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
-    CreateLoggedModel: validate_can_update_experiment,
+    CreateLoggedModel: validate_can_create_logged_model,
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
