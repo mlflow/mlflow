@@ -49,6 +49,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_WORKSPACE,
     Permission,
     _validate_permission_for_resource_type,
+    _validate_resource_pattern,
     _validate_resource_type,
     get_permission,
     max_permission,
@@ -1897,13 +1898,11 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
-        # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
-        # other pattern would be silently ignored by the resolver, so reject it up front.
-        if resource_type == RESOURCE_TYPE_WORKSPACE and resource_pattern != "*":
-            raise MlflowException.invalid_parameter_value(
-                f"resource_type='{resource_type}' requires resource_pattern='*'. "
-                f"Got resource_pattern='{resource_pattern}'."
-            )
+        # A pattern the type's grain does not allow would be silently ignored by the
+        # resolver, so reject it up front. This covers the workspace slot (wildcard only)
+        # and every sub-resource type (also wildcard only, until search-filter push-down
+        # can enforce a per-id child grant in list paths as well as point routes).
+        _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
             try:

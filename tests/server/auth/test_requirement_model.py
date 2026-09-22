@@ -45,6 +45,10 @@ def _default_permission(monkeypatch):
     monkeypatch.setattr(
         auth_module, "auth_config", type("Config", (), {"default_permission": READ.name})()
     )
+    # Workspaces off: an absent grant resolves to default_permission, matching the point
+    # path. With workspaces on it would be NO_PERMISSIONS unless the caller inherits the
+    # default workspace -- covered separately.
+    monkeypatch.setattr(auth_module.MLFLOW_ENABLE_WORKSPACES, "get", lambda: False)
 
 
 def grant(resource_type, pattern, permission):
@@ -59,7 +63,7 @@ def decide(requirements, rows):
     else:
         permissions = {key: _fold_grants_for_key(rows, key) for key in keys}
     return all(
-        _requirement_met(requirement, governing_permission(requirement, permissions))
+        _requirement_met(requirement, governing_permission(requirement, permissions, "ws"))
         for requirement in requirements
     )
 
@@ -304,6 +308,7 @@ def test_a_positive_grant_never_resolves_below_the_default(monkeypatch):
     monkeypatch.setattr(
         auth_module, "auth_config", type("Config", (), {"default_permission": EDIT.name})()
     )
+    monkeypatch.setattr(auth_module.MLFLOW_ENABLE_WORKSPACES, "get", lambda: False)
     requirement = Requirement(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, "update")
     rows = [grant(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, READ.name)]
     assert decide([requirement], rows) is True
@@ -315,6 +320,7 @@ def test_a_deny_is_not_floored_up_to_the_default(monkeypatch):
     monkeypatch.setattr(
         auth_module, "auth_config", type("Config", (), {"default_permission": MANAGE.name})()
     )
+    monkeypatch.setattr(auth_module.MLFLOW_ENABLE_WORKSPACES, "get", lambda: False)
     requirement = Requirement(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, "update")
     rows = [grant(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, DENY.name)]
     assert decide([requirement], rows) is False

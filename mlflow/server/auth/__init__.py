@@ -284,6 +284,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_SECRET,
     RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
     USE,
@@ -886,9 +887,45 @@ def resolve_permissions(
     return [_fold_grants_for_key(grants, key) for key in keys]
 
 
-def _absent_permission() -> Permission:
-    """What a caller with no grant anywhere resolves to."""
-    return get_permission(auth_config.default_permission)
+# Resource type -> how to find the resource's workspace. Only types that own a workspace
+# appear: a sub-resource is attributed through the resource it hangs off, which is why an
+# operation resolves ONE workspace (its anchor's) and loads every key there.
+_WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" = {
+    RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
+}
+
+
+def get_anchor_workspace(resource_type: str, resource_id: str) -> str | None:
+    """The workspace an operation's grants are resolved in, read from its anchor resource.
+
+    ``None`` means the lookup failed and the caller must fail closed. Deriving the
+    workspace from the resource (rather than the ambient request workspace) is what master
+    does on the point path, and what makes one batched query correct: everything the
+    operation touches lives in the anchor's workspace.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        # Every resource lives in the default workspace, which is where grants are stored.
+        # Skipping the tracking-store lookup keeps an artifacts-only server working.
+        return DEFAULT_WORKSPACE_NAME
+    entry = _WORKSPACE_FETCHER.get(resource_type)
+    if entry is None:
+        return None
+    label, fetcher_factory = entry
+    return _get_resource_workspace(resource_id, fetcher_factory(), label)
+
+
+def _absent_permission(workspace_name: str) -> Permission:
+    """What a caller with no grant on any of a requirement's keys resolves to.
+
+    The configured default where the caller inherits it, otherwise ``NO_PERMISSIONS``.
+    Same rule as the point path: with workspaces enabled, an absent grant is a denial
+    unless the operator opted into ``grant_default_workspace_access`` for the default
+    workspace, so a resource-not-found never silently becomes a default grant.
+    """
+    default_applies = not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(
+        workspace_name
+    )
+    return get_permission(auth_config.default_permission) if default_applies else NO_PERMISSIONS
 
 
 def _floor_positive_permission(perm: Permission) -> Permission:
@@ -903,7 +940,9 @@ def _floor_positive_permission(perm: Permission) -> Permission:
 
 
 def governing_permission(
-    requirement: Requirement, grants: "dict[GrantLoadKey, Permission | None]"
+    requirement: Requirement,
+    grants: "dict[GrantLoadKey, Permission | None]",
+    workspace_name: str,
 ) -> Permission:
     """Which key's grant governs ``requirement`` -- RFC 0000's tier override.
 
@@ -918,7 +957,42 @@ def governing_permission(
         grant = grants[key]
         if grant is not None:
             return grant if grant.denied else _floor_positive_permission(grant)
-    return _floor_positive_permission(_absent_permission())
+    return _floor_positive_permission(_absent_permission(workspace_name))
+
+
+def resolve_requirements(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> "list[Permission] | None":
+    """The permission that governs each requirement, from one grants query in the anchor's
+    workspace. ``None`` when the anchor workspace cannot be resolved (callers deny).
+
+    Stops before comparing, for routes whose decision is not a plain conjunction -- review
+    queues fold in queue membership and ownership, which are resource state rather than
+    grants, so no requirement can express them. Prefer ``authorize``; a caller here should
+    say why it cannot use it.
+    """
+    workspace_name = get_anchor_workspace(*anchor)
+    if workspace_name is None:
+        return None
+    keys = requirements_to_grant_load_keys(requirements)
+    permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
+    return [
+        governing_permission(requirement, permissions, workspace_name)
+        for requirement in requirements
+    ]
+
+
+def authorize(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> bool:
+    """Allow only if EVERY requirement is met by the permission that governs it."""
+    permissions = resolve_requirements(username, anchor, requirements)
+    if permissions is None:
+        return False
+    return all(
+        _requirement_met(requirement, permission)
+        for requirement, permission in zip(requirements, permissions)
+    )
 
 
 def _requirement_met(requirement: Requirement, permission: Permission) -> bool:
@@ -1412,8 +1486,41 @@ def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
 
+def _run_requirement(
+    run_id: str, action: str
+) -> "tuple[tuple[str, str], list[Requirement]] | None":
+    """The anchor and requirements for an operation on one run.
+
+    RFC 0000 re-points the run routes from the experiment tier to the run tier. The run is
+    the operation's whole subject, so it is a single requirement whose fallback ends at the
+    experiment the pre-existing check used: an absent run grant inherits the experiment
+    (master parity), a positive run grant authorizes on its own (escalation), and a run
+    ``DENY`` refuses regardless of the experiment (restriction).
+
+    ``None`` when the run cannot be resolved, so callers fail closed rather than letting a
+    resource-not-found become a default grant.
+    """
+    try:
+        run = _get_tracking_store().get_run(run_id)
+    except MlflowException:
+        return None
+    experiment_id = run.info.experiment_id
+    anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return anchor, [
+        Requirement(RESOURCE_TYPE_RUN, "*", action, ((RESOURCE_TYPE_EXPERIMENT, experiment_id),))
+    ]
+
+
+def _authorize_run(action: str) -> bool:
+    resolved = _run_requirement(_get_request_param("run_id"), action)
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(authenticate_request().username, anchor, requirements)
+
+
 def validate_can_update_run():
-    return _get_permission_from_run_id().can_update
+    return _authorize_run("update")
 
 
 def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:

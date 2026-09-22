@@ -281,10 +281,34 @@ def test_add_role_permission_invalid_resource_type(store):
         store.add_role_permission(role.id, "invalid_type", "123", "READ")
 
 
-def test_add_role_permission_workspace_requires_wildcard(store):
-    role = store.create_role(name="ws-role", workspace="ws1")
-    with pytest.raises(MlflowException, match="resource_type='workspace' requires"):
-        store.add_role_permission(role.id, "workspace", "42", "MANAGE")
+@pytest.mark.parametrize(
+    ("resource_type", "permission"),
+    [
+        # The workspace slot names its workspace via the role, never via the pattern.
+        ("workspace", "MANAGE"),
+        # Sub-resources are wildcard-only grain: a per-id grant could not be enforced in
+        # list/search paths, so it must not be writable at all.
+        ("run", "EDIT"),
+        ("trace", "DENY"),
+        ("scorer_version", "EDIT"),
+    ],
+)
+def test_add_role_permission_rejects_a_pattern_the_grain_disallows(
+    store, resource_type, permission
+):
+    role = store.create_role(name=f"grain-role-{resource_type}", workspace="ws1")
+    with pytest.raises(MlflowException, match="supports only wildcard"):
+        store.add_role_permission(role.id, resource_type, "42", permission)
+
+
+def test_add_role_permission_accepts_wildcard_for_those_types(store):
+    role = store.create_role(name="grain-role-ok", workspace="ws1")
+    for resource_type, permission in [
+        ("workspace", "MANAGE"),
+        ("run", "EDIT"),
+        ("scorer_version", "DENY"),
+    ]:
+        store.add_role_permission(role.id, resource_type, "*", permission)
 
 
 def test_add_role_permission_nonexistent_role(store):
