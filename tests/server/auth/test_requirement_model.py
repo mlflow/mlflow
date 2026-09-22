@@ -8,16 +8,6 @@ testable directly.
 
 import pytest
 
-from mlflow.server.auth import (
-    ACTION_NOT_DENIED,
-    Requirement,
-    _fold_grants_for_key,
-    _is_workspace_admin_grant,
-    _requirement_met,
-    governing_permission,
-    requirement_to_grant_load_keys,
-    requirements_to_grant_load_keys,
-)
 from mlflow.server.auth.permissions import (
     DENY,
     EDIT,
@@ -31,24 +21,26 @@ from mlflow.server.auth.permissions import (
     USE,
     GrantLoadKey,
 )
+from mlflow.server.auth.requirements import (
+    ACTION_NOT_DENIED,
+    Requirement,
+    fold_grants_for_key,
+    governing_permission,
+    is_workspace_admin_grant,
+    requirement_met,
+    requirement_to_grant_load_keys,
+    requirements_to_grant_load_keys,
+)
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow
 
 EXPERIMENT_ID = "5"
 SCORER_KEY = "5/my_scorer"
 
 
-@pytest.fixture(autouse=True)
-def _default_permission(monkeypatch):
-    """Pin ``default_permission`` so absence resolves predictably."""
-    import mlflow.server.auth as auth_module
-
-    monkeypatch.setattr(
-        auth_module, "auth_config", type("Config", (), {"default_permission": READ.name})()
-    )
-    # Workspaces off: an absent grant resolves to default_permission, matching the point
-    # path. With workspaces on it would be NO_PERMISSIONS unless the caller inherits the
-    # default workspace -- covered separately.
-    monkeypatch.setattr(auth_module.MLFLOW_ENABLE_WORKSPACES, "get", lambda: False)
+# The fold takes ``default_permission`` and ``absent`` as arguments, so these tests need no
+# config patching: what an absent grant means is the caller's decision, not the fold's.
+DEFAULT_PERMISSION = READ.name
+ABSENT = READ
 
 
 def grant(resource_type, pattern, permission):
@@ -58,12 +50,15 @@ def grant(resource_type, pattern, permission):
 def decide(requirements, rows):
     """Resolve requirements against grant rows, as ``_authorize`` will."""
     keys = requirements_to_grant_load_keys(requirements)
-    if any(_is_workspace_admin_grant(row) for row in rows):
+    if any(is_workspace_admin_grant(row) for row in rows):
         permissions = dict.fromkeys(keys, MANAGE)
     else:
-        permissions = {key: _fold_grants_for_key(rows, key) for key in keys}
+        permissions = {key: fold_grants_for_key(rows, key) for key in keys}
     return all(
-        _requirement_met(requirement, governing_permission(requirement, permissions, "ws"))
+        requirement_met(
+            requirement,
+            governing_permission(requirement, permissions, DEFAULT_PERMISSION, ABSENT),
+        )
         for requirement in requirements
     )
 
@@ -113,7 +108,7 @@ def test_within_a_key_the_highest_of_several_role_grants_wins():
         grant(RESOURCE_TYPE_EXPERIMENT, "5", READ.name),
         grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
     ]
-    assert _fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) == EDIT
+    assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) == EDIT
 
 
 def test_within_a_key_deny_beats_the_highest_positive():
@@ -121,25 +116,25 @@ def test_within_a_key_deny_beats_the_highest_positive():
         grant(RESOURCE_TYPE_EXPERIMENT, "5", MANAGE.name),
         grant(RESOURCE_TYPE_EXPERIMENT, "5", DENY.name),
     ]
-    assert _fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) == DENY
+    assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) == DENY
 
 
 def test_a_grant_on_a_different_resource_of_the_same_type_does_not_fold_in():
     rows = [grant(RESOURCE_TYPE_EXPERIMENT, "7", MANAGE.name)]
-    assert _fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) is None
+    assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) is None
 
 
 def test_a_per_id_grant_never_matches_a_wildcard_only_type():
     """Grant validation rejects these at the source; the fold must ignore them too."""
     rows = [grant(RESOURCE_TYPE_RUN, "some-run-id", MANAGE.name)]
-    assert _fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_RUN, "*")) is None
+    assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_RUN, "*")) is None
 
 
 def test_silence_is_distinguishable_from_no_access():
     """``None`` must not be collapsed into a permission: only the across-keys fold knows
     whether a fallback key may still speak.
     """
-    assert _fold_grants_for_key([], GrantLoadKey(RESOURCE_TYPE_RUN, "*")) is None
+    assert fold_grants_for_key([], GrantLoadKey(RESOURCE_TYPE_RUN, "*")) is None
 
 
 # ----------------------------------------------------- the fold ACROSS keys
@@ -295,32 +290,22 @@ def test_workspace_admin_is_not_restrictable_by_a_deny():
 def test_workspace_use_alone_confers_no_resource_access():
     """Pre-RFC behaviour: workspace USE is membership, not resource access."""
     rows = [grant(RESOURCE_TYPE_WORKSPACE, "*", USE.name)]
-    assert not any(_is_workspace_admin_grant(row) for row in rows)
-    assert _fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) is None
+    assert not any(is_workspace_admin_grant(row) for row in rows)
+    assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) is None
 
 
 # ------------------------------------------------------------------- floor
 
 
-def test_a_positive_grant_never_resolves_below_the_default(monkeypatch):
-    import mlflow.server.auth as auth_module
-
-    monkeypatch.setattr(
-        auth_module, "auth_config", type("Config", (), {"default_permission": EDIT.name})()
-    )
-    monkeypatch.setattr(auth_module.MLFLOW_ENABLE_WORKSPACES, "get", lambda: False)
+def test_a_positive_grant_never_resolves_below_the_default():
     requirement = Requirement(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, "update")
-    rows = [grant(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, READ.name)]
-    assert decide([requirement], rows) is True
+    permissions = {GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID): READ}
+    governing = governing_permission(requirement, permissions, EDIT.name, EDIT)
+    assert requirement_met(requirement, governing) is True
 
 
-def test_a_deny_is_not_floored_up_to_the_default(monkeypatch):
-    import mlflow.server.auth as auth_module
-
-    monkeypatch.setattr(
-        auth_module, "auth_config", type("Config", (), {"default_permission": MANAGE.name})()
-    )
-    monkeypatch.setattr(auth_module.MLFLOW_ENABLE_WORKSPACES, "get", lambda: False)
+def test_a_deny_is_not_floored_up_to_the_default():
     requirement = Requirement(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, "update")
-    rows = [grant(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, DENY.name)]
-    assert decide([requirement], rows) is False
+    permissions = {GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID): DENY}
+    governing = governing_permission(requirement, permissions, MANAGE.name, MANAGE)
+    assert requirement_met(requirement, governing) is False

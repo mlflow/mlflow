@@ -24,7 +24,7 @@ import threading
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, NamedTuple
+from typing import Any, Awaitable, Callable
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -275,7 +275,9 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
-    DENY,
+    DENY as DENY,
+)
+from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
     RESOURCE_TYPE_ASSESSMENT,
@@ -295,10 +297,24 @@ from mlflow.server.auth.permissions import (
     Permission,
     _validate_resource_type,
     get_permission,
-    matches,
+)
+from mlflow.server.auth.permissions import (
+    matches as matches,
 )
 from mlflow.server.auth.permissions import (
     max_permission as max_permission,
+)
+from mlflow.server.auth.requirements import (
+    ACTION_NOT_DENIED,
+    Requirement,
+    fold_grants_for_key,
+    governing_permission,
+    is_workspace_admin_grant,
+    requirement_met,
+    requirements_to_grant_load_keys,
+)
+from mlflow.server.auth.requirements import (
+    requirement_to_grant_load_keys as requirement_to_grant_load_keys,
 )
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
@@ -383,7 +399,8 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import RoleGrantRow as RoleGrantRow
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
@@ -763,125 +780,9 @@ def _get_resource_workspace(
     return workspace_name
 
 
-# ---------------------------------------------------------------------------
-# Requirement model
-#
-# An operation states what it requires; resolving those requirements is one grants
-# query and a pure fold. Two folds, both here:
-#
-#   * within a key  -- several role grants can match one key; DENY beats max
-#   * across keys   -- a requirement's own key, then its fallback chain; the first
-#                      key holding any grant decides (RFC 0000 tier override)
-# ---------------------------------------------------------------------------
-
-# A veto-only requirement: the key must not be denied, and nothing positive is required
-# of it. Not an RFC 0008 verb -- that catalogue has no veto -- so it is a local addition.
-#
-# This is what lets an operation name a resource it touches WITHOUT adding a positive
-# requirement. It matters because the fold is tier override: a present grant overrides an
-# inherited one downward as well as upward, so a positive requirement on a key the
-# pre-existing check never consulted would deny a caller who merely holds a narrower
-# grant there.
-ACTION_NOT_DENIED = "not_denied"
-
-# ``create`` has no ``can_create``: it gates on the workspace grant's ``can_use``.
-_ACTION_CAPABILITY = {
-    "read": "can_read",
-    "use": "can_use",
-    "update": "can_update",
-    "delete": "can_delete",
-    "manage": "can_manage",
-    "create": "can_use",
-}
-
-
-class Requirement(NamedTuple):
-    """One thing an operation requires: ``action`` on a resource.
-
-    ``fallback_if_no_grant`` lists keys to consult, in order, ONLY when the caller holds
-    no grant on this resource's own type -- inheritance, declared per operation rather
-    than in a global parent map.
-
-    Two shapes are used in practice:
-
-    * a re-pointed route states one requirement whose chain ends where the pre-existing
-      check looked, so an absent child grant inherits and a present one can escalate;
-    * a composite route states one positive requirement on the resource the pre-existing
-      check gates, plus an ``ACTION_NOT_DENIED`` requirement per other resource it
-      touches (no chain needed -- a veto has nothing to inherit).
-    """
-
-    resource_type: str
-    resource_id: str | None  # None for create-in-workspace (RFC 0008 convention)
-    action: str  # read | use | update | delete | manage | create | not_denied
-    fallback_if_no_grant: "tuple[tuple[str, str], ...]" = ()
-
-
-def requirement_to_grant_load_keys(requirement: Requirement) -> list[GrantLoadKey]:
-    """The keys that could decide ``requirement``: its own first, then each fallback.
-
-    Keys are flat addresses, never (child, parent) pairs, so the loader answers each one
-    independently and ``None`` means exactly "no grant on this type" -- the distinction a
-    pre-folded view destroys by substituting ``default_permission`` for an absent grant.
-    """
-    return [
-        GrantLoadKey(requirement.resource_type, requirement.resource_id or "*"),
-        *(GrantLoadKey(t, i) for t, i in requirement.fallback_if_no_grant),
-    ]
-
-
-def requirements_to_grant_load_keys(
-    requirements: "Sequence[Requirement]",
-) -> list[GrantLoadKey]:
-    """Every key that could decide any requirement, deduplicated -> ONE query."""
-    keys: list[GrantLoadKey] = []
-    for requirement in requirements:
-        keys.extend(requirement_to_grant_load_keys(requirement))
-    return list(dict.fromkeys(keys))
-
-
-def _is_workspace_admin_grant(grant: "RoleGrantRow") -> bool:
-    return (
-        grant.resource_type == RESOURCE_TYPE_WORKSPACE
-        and grant.resource_pattern == "*"
-        and grant.permission == MANAGE.name
-    )
-
-
-def _fold_grants_for_key(grants: "Sequence[RoleGrantRow]", key: GrantLoadKey) -> Permission | None:
-    # None means SILENT, not "no access": only the fold across keys knows whether a
-    # fallback key or the default should speak next.
-    denied = False
-    best: str | None = None
-    for grant in grants:
-        if grant.resource_type != key.resource_type:
-            continue
-        if not matches(grant.resource_pattern, key.resource_type, key.resource_id):
-            continue
-        if grant.permission == DENY.name:
-            denied = True
-        else:
-            best = grant.permission if best is None else max_permission(best, grant.permission)
-    if denied:
-        return DENY
-    return get_permission(best) if best is not None else None
-
-
-def resolve_permissions(
-    username: str, workspace_name: str, keys: "Sequence[GrantLoadKey]"
-) -> "list[Permission | None]":
-    """The permission at each key, from ONE store query. ``None`` means no grant there.
-
-    No default substitution and no flooring: policy about absence belongs to the fold
-    across keys, which is the only place that knows whether another key may still speak.
-    """
-    grants = store.list_grants(
-        store.get_user(username).id, workspace_name, {key.resource_type for key in keys}
-    )
-    if any(_is_workspace_admin_grant(grant) for grant in grants):
-        # Admins are not restrictable, so this precedes every other rule including DENY.
-        return [MANAGE] * len(keys)
-    return [_fold_grants_for_key(grants, key) for key in keys]
+# The requirement model itself lives in ``requirements``; what remains here is the wiring
+# it cannot have: loading the rows, resolving the anchor's workspace, and deciding what an
+# absent grant means.
 
 
 # Resource type -> how to find the resource's workspace. Only types that own a workspace
@@ -895,10 +796,10 @@ _WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" 
 def get_anchor_workspace(resource_type: str, resource_id: str) -> str | None:
     """The workspace an operation's grants are resolved in, read from its anchor resource.
 
-    ``None`` means the lookup failed and the caller must fail closed. Deriving the
-    workspace from the resource (rather than the ambient request workspace) is what master
-    does on the point path, and what makes one batched query correct: everything the
-    operation touches lives in the anchor's workspace.
+    ``None`` means the lookup failed and the caller must fail closed. Deriving the workspace
+    from the resource (rather than the ambient request workspace) is what the point path
+    does, and what makes one batched query correct: everything the operation touches lives
+    in the anchor's workspace.
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         # Every resource lives in the default workspace, which is where grants are stored.
@@ -920,33 +821,17 @@ def _absent_permission(workspace_name: str) -> Permission:
     return get_permission(auth_config.default_permission) if default_applies else NO_PERMISSIONS
 
 
-def _floor_positive_permission(perm: Permission) -> Permission:
-    # A positive grant never resolves below default_permission. DENY and the legacy
-    # NO_PERMISSIONS sentinel are exempt: flooring a veto to the default would void it.
-    if perm.name in (NO_PERMISSIONS.name, DENY.name):
-        return perm
-    return get_permission(max_permission(perm.name, auth_config.default_permission))
-
-
-def governing_permission(
-    requirement: Requirement,
-    grants: "dict[GrantLoadKey, Permission | None]",
-    workspace_name: str,
-) -> Permission:
-    """Which key's grant governs ``requirement`` -- RFC 0000's tier override.
-
-    The first key holding ANY grant decides, and the keys behind it are not consulted
-    ("not a cross-tier max"). So a ``DENY`` is never rescued by a more permissive
-    ancestor, and equally a narrower positive grant overrides a broader one.
-
-    No capability comparison happens here, so a route whose decision is not a plain
-    conjunction can apply its own logic to the result.
-    """
-    for key in requirement_to_grant_load_keys(requirement):
-        grant = grants[key]
-        if grant is not None:
-            return grant if grant.denied else _floor_positive_permission(grant)
-    return _floor_positive_permission(_absent_permission(workspace_name))
+def resolve_permissions(
+    username: str, workspace_name: str, keys: "Sequence[GrantLoadKey]"
+) -> "list[Permission | None]":
+    """The permission at each key, from ONE store query. ``None`` means no grant there."""
+    grants = store.list_grants(
+        store.get_user(username).id, workspace_name, {key.resource_type for key in keys}
+    )
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        # Admins are not restrictable, so this precedes every other rule including DENY.
+        return [MANAGE] * len(keys)
+    return [fold_grants_for_key(grants, key) for key in keys]
 
 
 def resolve_requirements(
@@ -965,8 +850,9 @@ def resolve_requirements(
         return None
     keys = requirements_to_grant_load_keys(requirements)
     permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
+    absent = _absent_permission(workspace_name)
     return [
-        governing_permission(requirement, permissions, workspace_name)
+        governing_permission(requirement, permissions, auth_config.default_permission, absent)
         for requirement in requirements
     ]
 
@@ -979,15 +865,9 @@ def authorize(
     if permissions is None:
         return False
     return all(
-        _requirement_met(requirement, permission)
+        requirement_met(requirement, permission)
         for requirement, permission in zip(requirements, permissions)
     )
-
-
-def _requirement_met(requirement: Requirement, permission: Permission) -> bool:
-    if requirement.action == ACTION_NOT_DENIED:
-        return not permission.denied
-    return bool(getattr(permission, _ACTION_CAPABILITY[requirement.action]))
 
 
 def _get_permission_from_experiment_id() -> Permission:
