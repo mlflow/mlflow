@@ -442,15 +442,14 @@ class PromptCache:
 
     def delete_all(self, prompt_name: str, *, registry_uri: str | None) -> None:
         """Delete all cached entries for a prompt name."""
-        registry_namespace = _get_prompt_cache_namespace(registry_uri)
-        workspace = get_request_workspace()
+        scope = PromptCacheKey.from_parts(prompt_name, registry_uri=registry_uri)
         with self._lock:
             keys_to_delete = [
                 key
                 for key in self._cache
-                if key.registry_namespace == registry_namespace
-                and key.workspace == workspace
-                and key.name == prompt_name
+                if key.registry_namespace == scope.registry_namespace
+                and key.workspace == scope.workspace
+                and key.name == scope.name
             ]
             for key in keys_to_delete:
                 self._cache.pop(key, None)

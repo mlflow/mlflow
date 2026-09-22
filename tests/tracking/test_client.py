@@ -2417,7 +2417,8 @@ def isolated_registry_uris(tmp_path: Path, cached_db: Path) -> list[str]:
 
 
 @pytest.fixture
-def workspace_registry_uri(tmp_path: Path, cached_db: Path) -> str:
+def workspace_registry_uri(tmp_path: Path, cached_db: Path, monkeypatch) -> str:
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     db_path = tmp_path / "workspace_registry.db"
     shutil.copy2(cached_db, db_path)
     return f"sqlite:///{db_path}"
@@ -2533,7 +2534,6 @@ def test_failed_prompt_mutation_preserves_cache(tracking_uri):
 def test_load_prompt_cache_isolated_by_workspace(
     workspace_registry_uri, monkeypatch, prompt_uri, getter_name, load_order
 ):
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: None)
     client = MlflowClient(tracking_uri=workspace_registry_uri, registry_uri=workspace_registry_uri)
     templates = {"team-a": "Team A", "team-b": "Team B"}
@@ -2559,7 +2559,6 @@ def test_load_prompt_cache_isolated_by_workspace(
 
 
 def test_prompt_cache_invalidation_is_workspace_scoped(workspace_registry_uri, monkeypatch):
-    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: None)
     client = MlflowClient(tracking_uri=workspace_registry_uri, registry_uri=workspace_registry_uri)
 
