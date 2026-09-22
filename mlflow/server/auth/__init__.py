@@ -288,6 +288,8 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_WORKSPACE,
     USE,
     Permission,
+    _format_skill_registry_resource_key,
+    _parse_skill_registry_resource_key,
     _validate_resource_type,
     get_permission,
 )
@@ -1774,24 +1776,11 @@ class _SkillRegistryAuthParent:
 
 
 def _skill_registry_resource_key(organization: str | None, name: str) -> str:
-    # Callers must pass the canonical organization/name values used by the Skill
-    # Registry store. The auth layer must not case-fold here because the backing
-    # resource primary keys are case-sensitive on production databases.
-    return f"@{organization}/{name}" if organization else name
+    return _format_skill_registry_resource_key(organization, name)
 
 
 def _skill_registry_resource_parts(resource_id: str) -> tuple[str, str]:
-    if resource_id.startswith("@"):
-        organization, sep, name = resource_id[1:].partition("/")
-        if sep and organization and name and "/" not in name:
-            return organization, name
-    elif resource_id and "/" not in resource_id:
-        return "", resource_id
-
-    raise MlflowException(
-        "Invalid Skill Registry resource_id. Expected 'name' or '@organization/name'.",
-        INVALID_PARAMETER_VALUE,
-    )
+    return _parse_skill_registry_resource_key(resource_id)
 
 
 def _get_skill_registry_parent_from_store_method(
