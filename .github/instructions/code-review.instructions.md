@@ -9,7 +9,7 @@ excludeAgent: "cloud-agent"
 
 When you have a fix to recommend, use two short sections for the finding:
 
-**⚠️ Issue:** State the trigger and concrete consequence that make the fix necessary.
+**🐛 Issue:** State the trigger and concrete consequence that make the fix necessary.
 
 **🔧 Fix:** Start with the change you recommend, adding only the detail needed to implement it.
 

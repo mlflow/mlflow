@@ -377,6 +377,7 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
+from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
@@ -2036,8 +2037,9 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    # Parse through the proto so the camelCase `secretId` alias resolves to the same
+    # secret the handler will use; a raw-key read would miss it.
+    secret_id = _get_request_message(CreateGatewayModelDefinition()).secret_id
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
         return True
@@ -2066,9 +2068,9 @@ def validate_can_update_gateway_model_definition():
     if not _get_permission_from_gateway_model_definition_id().can_update:
         return False
 
-    # If updating the secret, check USE permission on the new secret
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    # If updating the secret, check USE permission on the new secret. Parse through the
+    # proto so the camelCase `secretId` alias is covered.
+    secret_id = _get_request_message(UpdateGatewayModelDefinition()).secret_id
     if not secret_id:
         # No secret being changed, just return True
         return True
@@ -2140,6 +2142,13 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     return True
 
 
+def _model_configs_from_request(request_message) -> list[dict[str, Any]]:
+    # Parse through the proto so the camelCase `modelConfigs` / `modelDefinitionId`
+    # aliases resolve to the same model definitions the handler will link.
+    msg = _get_request_message(request_message)
+    return [{"model_definition_id": mc.model_definition_id} for mc in msg.model_configs]
+
+
 def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
@@ -2173,9 +2182,9 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions_for_create(model_configs)
+    return _validate_can_use_model_definitions_for_create(
+        _model_configs_from_request(CreateGatewayEndpoint())
+    )
 
 
 def validate_can_update_gateway_endpoint():
@@ -2187,9 +2196,22 @@ def validate_can_update_gateway_endpoint():
     if not _get_permission_from_gateway_endpoint_id().can_update:
         return False
 
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions(model_configs)
+    return _validate_can_use_model_definitions(_model_configs_from_request(UpdateGatewayEndpoint()))
+
+
+def validate_can_attach_model_to_gateway_endpoint():
+    """
+    Attaching a model links a model definition to an endpoint, so require UPDATE on the
+    endpoint and USE on the model definition. The attach body carries a singular
+    ``model_config``, which ``UpdateGatewayEndpoint`` does not define, so it is parsed
+    through its own proto.
+    """
+    if not _get_permission_from_gateway_endpoint_id().can_update:
+        return False
+    model_config = _get_request_message(AttachModelToGatewayEndpoint()).model_config
+    return _validate_can_use_model_definitions([
+        {"model_definition_id": model_config.model_definition_id}
+    ])
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
@@ -2896,7 +2918,7 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint,
     ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint,
     # Routes for gateway endpoint-model mappings
-    AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
+    AttachModelToGatewayEndpoint: validate_can_attach_model_to_gateway_endpoint,
     DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
     # Routes for gateway endpoint bindings
     CreateGatewayEndpointBinding: validate_can_update_gateway_endpoint,
@@ -5449,6 +5471,9 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
         True if authorized, or None if no validation is needed for this route.
     """
 
+    if path == "/gateway/mlflow/v1/models":
+        return _get_require_authentication_validator()
+
     async def validator(username: str, request: StarletteRequest) -> bool:
         body = None
         if path in _ROUTES_NEEDING_BODY:
@@ -5909,6 +5934,16 @@ def _filter_search_jobs(username: str, body: bytes, request: StarletteRequest) -
     return json.dumps(data).encode()
 
 
+def _filter_list_gateway_models(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    # Model discovery is expected to be infrequent. Accept per-endpoint queries
+    # to keep authorization consistent with gateway invocation.
+    data["data"] = [
+        model for model in data["data"] if _validate_gateway_use_permission(model["id"], username)
+    ]
+    return json.dumps(data).encode()
+
+
 FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
@@ -5917,6 +5952,7 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
     _search_jobs_endpoint: _filter_search_jobs,
+    _list_gateway_models_endpoint: _filter_list_gateway_models,
 }
 
 

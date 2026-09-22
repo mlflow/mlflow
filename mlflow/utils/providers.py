@@ -88,6 +88,7 @@ class CatalogPricingTier(TypedDict, total=False):
     output_per_million_tokens: float
     cache_read_per_million_tokens: float
     cache_write_per_million_tokens: float
+    cache_write_1hr_per_million_tokens: float
 
 
 class CatalogLongContextTier(CatalogPricingTier, total=False):
@@ -124,6 +125,7 @@ class ModelInfo(TypedDict, total=False):
     output_cost_per_token: float
     cache_read_input_token_cost: float
     cache_creation_input_token_cost: float
+    cache_creation_input_token_cost_above_1hr: float
     modality: dict[str, CatalogPricingModality]
     deprecation_date: str
     last_updated_at: str
@@ -204,6 +206,8 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
             info["cache_read_input_token_cost"] = v / 1_000_000
         if (v := pricing.get("cache_write_per_million_tokens")) is not None:
             info["cache_creation_input_token_cost"] = v / 1_000_000
+        if (v := pricing.get("cache_write_1hr_per_million_tokens")) is not None:
+            info["cache_creation_input_token_cost_above_1hr"] = v / 1_000_000
         if modality := pricing.get("modality"):
             info["modality"] = modality
 
@@ -355,8 +359,23 @@ def cost_per_token(
     custom_llm_provider: str | None = None,
     cache_read_input_tokens: int | None = None,
     cache_creation_input_tokens: int | None = None,
+    cache_creation_input_tokens_above_1hr: int | None = None,
 ) -> tuple[float, float] | None:
     """Calculate cost per token using the bundled model price data.
+
+    Args:
+        model: The model name to look up pricing for.
+        prompt_tokens: Total input tokens, including any cached tokens.
+        completion_tokens: Output tokens.
+        custom_llm_provider: Optional provider hint to speed up / disambiguate lookup.
+        cache_read_input_tokens: Portion of ``prompt_tokens`` served from the prompt cache.
+        cache_creation_input_tokens: Portion of ``prompt_tokens`` written to the prompt cache.
+        cache_creation_input_tokens_above_1hr: Portion of ``cache_creation_input_tokens`` that
+            was written with the extended 1-hour cache TTL (Anthropic reports this as
+            ``usage.cache_creation.ephemeral_1h_input_tokens``). These tokens are priced at the
+            model's 1-hour cache-creation rate when it publishes one, falling back to the standard
+            cache-creation rate otherwise; the remaining cache-creation tokens use the standard
+            (5-minute) rate. A single request may mix both TTLs.
 
     Returns:
         A tuple of (input_cost, output_cost) in USD, or None if the model is not found.
@@ -375,13 +394,22 @@ def cost_per_token(
     cache_creation = cache_creation_input_tokens or 0
     regular_input_tokens = max(prompt_tokens - cache_read - cache_creation, 0)
 
+    # Split cache-creation tokens by TTL: the 1-hour portion (a subset of the total) is priced
+    # at the 1-hour rate, the remainder at the standard 5-minute rate.
+    cache_creation_1hr = min(cache_creation_input_tokens_above_1hr or 0, cache_creation)
+    cache_creation_5m = cache_creation - cache_creation_1hr
+    cache_creation_rate = info.get("cache_creation_input_token_cost", input_cost_per_token)
+
     input_cost = regular_input_tokens * input_cost_per_token
     if cache_read > 0:
         input_cost += cache_read * info.get("cache_read_input_token_cost", input_cost_per_token)
-    if cache_creation > 0:
-        input_cost += cache_creation * info.get(
-            "cache_creation_input_token_cost", input_cost_per_token
+    if cache_creation_5m > 0:
+        input_cost += cache_creation_5m * cache_creation_rate
+    if cache_creation_1hr > 0:
+        cache_creation_1hr_rate = info.get(
+            "cache_creation_input_token_cost_above_1hr", cache_creation_rate
         )
+        input_cost += cache_creation_1hr * cache_creation_1hr_rate
     output_cost = completion_tokens * output_cost_per_token
 
     return input_cost, output_cost

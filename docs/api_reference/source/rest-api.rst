@@ -5711,6 +5711,24 @@ Example::
 
 
 
+.. _fastapiGETgatewaymlflowv1models:
+
+List Models
+-----------
+
++-------------------------------+-------------+
+|           Endpoint            | HTTP Method |
++===============================+=============+
+| ``/gateway/mlflow/v1/models`` | ``GET``     |
++-------------------------------+-------------+
+
+OpenAI-compatible models listing endpoint.
+
+The returned model ``id`` is the MLflow gateway endpoint name expected by
+``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+
+
+
 .. _fastapiPOSTgatewayopenaiv1chatcompletions:
 
 OpenAI Passthrough Chat
