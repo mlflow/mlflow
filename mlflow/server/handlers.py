@@ -3145,21 +3145,9 @@ def _validate_non_local_source_contains_relative_paths(source: str):
 
 
 def _validate_prompt_source(source: str) -> None:
-    """
-    Prompt versions never legitimately reference the tracking server's filesystem. A schemeless
-    source selects ``LocalArtifactRepository`` and becomes the directory that ``get-artifact``
-    later serves from, so any schemeless value other than the known client placeholders is
-    rejected outright; a separator-free name such as "mlflow" would still expose a directory
-    under the server's working directory. ``get_uri_scheme`` is used rather than ``urlparse`` so
-    that Windows drive letters ("C:/...") classify as local, exactly as the artifact layer does.
-    """
-    scheme = get_uri_scheme(source)
-    if scheme and scheme != "file":
-        _validate_non_local_source_contains_relative_paths(source)
-        return
     if source not in _PROMPT_SOURCE_PLACEHOLDERS:
         raise MlflowException(
-            f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts.",
+            f"Invalid prompt source: '{source}'. Prompt sources must use an MLflow placeholder.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -3312,10 +3300,17 @@ def _get_source_model(model_id: str, source: str):
         raise
 
 
-def _validate_registered_model_source(source: str, run_id: str, model_id: str) -> None:
+def _resolve_registered_model_source_lineage(
+    source: str,
+    run_id: str,
+    model_id: str,
+    *,
+    has_run_id: bool,
+    has_model_id: bool,
+) -> tuple[str, str | None, str | None]:
     parsed_source = urllib.parse.urlparse(source)
     if parsed_source.scheme != "models":
-        return
+        return source, run_id, model_id
     if parsed_source.netloc:
         raise MlflowException(
             f"Invalid model version source: '{source}'. Registered model sources must use the "
@@ -3325,19 +3320,24 @@ def _validate_registered_model_source(source: str, run_id: str, model_id: str) -
 
     parsed_model_uri = _parse_model_version_source(source)
     if parsed_model_uri.model_id is not None:
-        return
+        return source, run_id, model_id
 
     store = _get_model_registry_store()
     name, version = get_model_name_and_version(store, source)
     source_model_version = store.get_model_version(name, version)
-    if (run_id or "") != (source_model_version.run_id or "") or (model_id or "") != (
-        source_model_version.model_id or ""
+    if (has_run_id and (run_id or "") != (source_model_version.run_id or "")) or (
+        has_model_id and (model_id or "") != (source_model_version.model_id or "")
     ):
         raise MlflowException(
             f"Invalid model version source: '{source}'. The run_id and model_id request "
             "parameters must match the referenced model version.",
             INVALID_PARAMETER_VALUE,
         )
+    return (
+        f"models:/{name}/{source_model_version.version}",
+        run_id if has_run_id else source_model_version.run_id,
+        model_id if has_model_id else source_model_version.model_id,
+    )
 
 
 def _raise_invalid_model_version_source(source: str, source_id_name: str) -> None:
@@ -3377,30 +3377,37 @@ def _create_model_version():
     if is_prompt:
         _validate_prompt_source(request_message.source)
     _validate_artifact_uri_scheme(request_message.source, "source")
+    source = request_message.source
+    run_id = request_message.run_id
+    model_id = request_message.model_id
     if not is_prompt:
-        _validate_registered_model_source(
-            request_message.source, request_message.run_id, request_message.model_id
+        source, run_id, model_id = _resolve_registered_model_source_lineage(
+            source,
+            run_id,
+            model_id,
+            has_run_id=request_message.HasField("run_id"),
+            has_model_id=request_message.HasField("model_id"),
         )
-        if request_message.model_id:
-            _validate_source_model(request_message.source, request_message.model_id)
+        if model_id:
+            _validate_source_model(source, model_id)
         else:
-            _validate_source_run(request_message.source, request_message.run_id)
+            _validate_source_run(source, run_id)
     store = _get_model_registry_store()
     model_version = store.create_model_version(
         name=request_message.name,
-        source=request_message.source,
-        run_id=request_message.run_id,
+        source=source,
+        run_id=run_id,
         run_link=request_message.run_link,
         tags=request_message.tags,
         description=request_message.description,
-        model_id=request_message.model_id,
+        model_id=model_id,
     )
-    if not is_prompt and request_message.model_id:
+    if not is_prompt and model_id:
         tracking_store = _get_tracking_store()
         tracking_store.set_model_versions_tags(
             name=request_message.name,
             version=model_version.version,
-            model_id=request_message.model_id,
+            model_id=model_id,
         )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
@@ -3431,8 +3438,8 @@ def _create_model_version():
             payload=ModelVersionCreatedPayload(
                 name=request_message.name,
                 version=str(model_version.version),
-                source=request_message.source,
-                run_id=request_message.run_id or None,
+                source=source,
+                run_id=run_id or None,
                 tags={t.key: t.value for t in request_message.tags},
                 description=request_message.description or None,
             ),

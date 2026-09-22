@@ -3,12 +3,14 @@ from pathlib import Path
 
 import pytest
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
@@ -688,3 +690,32 @@ def test_copy_model_version_flow(client):
 
     copy_download_uri = client.get_model_version_download_uri(name, 2)
     assert copy_download_uri == src_mv.source
+
+
+@pytest.mark.parametrize("source_kind", ["version", "alias", "stage", "latest"])
+def test_register_model_from_registered_model_uri_preserves_lineage(client, source_kind):
+    source_name = "PromotionSource"
+    destination_name = "PromotionDestination"
+    run_id = "source-run"
+    client.create_registered_model(source_name)
+    source_version = client.create_model_version(
+        source_name, f"runs:/{run_id}/model", run_id=run_id
+    )
+    source_uris = {
+        "version": f"models:/{source_name}/{source_version.version}",
+        "alias": f"models:/{source_name}@champion",
+        "stage": f"models:/{source_name}/Production",
+        "latest": f"models:/{source_name}/latest",
+    }
+    client.set_registered_model_alias(source_name, "champion", source_version.version)
+    client.transition_model_version_stage(source_name, source_version.version, "Production")
+
+    with _use_tracking_uri(client.tracking_uri):
+        promoted_version = mlflow.register_model(
+            source_uris[source_kind],
+            destination_name,
+            await_registration_for=0,
+        )
+
+    assert promoted_version.run_id == run_id
+    assert promoted_version.source == f"models:/{source_name}/{source_version.version}"
