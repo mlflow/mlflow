@@ -76,6 +76,21 @@ def _get_version_row(store, version, *, name="reviewer", organization=""):
         return row.status
 
 
+def _get_version_audit(store, version, *, name="reviewer", organization=""):
+    with store.ManagedSessionMaker() as session:
+        row = (
+            store
+            ._get_query(session, SqlSkillVersion)
+            .filter(
+                SqlSkillVersion.name == name,
+                SqlSkillVersion.organization == organization,
+                SqlSkillVersion.version == version,
+            )
+            .one()
+        )
+        return row.last_updated_by, row.last_updated_at
+
+
 def _get_alias_rows(store, *, name="reviewer", organization=""):
     with store.ManagedSessionMaker() as session:
         return (
@@ -101,6 +116,27 @@ def test_update_skill_version_enforces_lifecycle_transitions(store):
 
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
     assert _get_version_row(store, 1) == SkillStatus.ACTIVE.value
+
+
+def test_update_skill_version_noop_does_not_change_audit_fields(store):
+    _seed_skill(store, [(1, SkillStatus.ACTIVE)])
+    before = _get_version_audit(store, 1)
+
+    assert store.update_skill_version("reviewer", 1).status == SkillStatus.ACTIVE
+    assert (
+        store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE).status
+        == SkillStatus.ACTIVE
+    )
+
+    assert _get_version_audit(store, 1) == before
+
+
+def test_update_skill_version_records_last_updated_by(store):
+    _seed_skill(store, [(1, SkillStatus.DRAFT)])
+
+    store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE, last_updated_by="alice")
+
+    assert _get_version_audit(store, 1)[0] == "alice"
 
 
 @pytest.mark.parametrize(
@@ -136,6 +172,17 @@ def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
 
     assert _get_version_row(store, 1) == SkillStatus.DELETED.value
     assert _get_alias_rows(store) == []
+
+
+def test_delete_skill_version_is_idempotent_and_records_last_updated_by(store):
+    _seed_skill(store, [(1, SkillStatus.DEPRECATED)])
+
+    store.delete_skill_version("reviewer", 1, last_updated_by="alice")
+    first_audit = _get_version_audit(store, 1)
+    store.delete_skill_version("reviewer", 1, last_updated_by="bob")
+
+    assert _get_version_row(store, 1) == SkillStatus.DELETED.value
+    assert _get_version_audit(store, 1) == first_audit
 
 
 def test_latest_skill_version_prefers_active_then_highest_non_deleted(store):
@@ -236,3 +283,17 @@ def test_deleting_a_missing_alias_raises(store):
         store.delete_skill_alias("reviewer", "missing")
 
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_deleting_latest_alias_reports_not_found(store):
+    _seed_skill(store, [(1, SkillStatus.ACTIVE)])
+
+    with pytest.raises(MlflowException, match="Alias 'latest' not found") as exc:
+        store.delete_skill_alias("reviewer", "latest")
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_skill_alias_validation_uses_skill_specific_error(store):
+    with pytest.raises(MlflowException, match="Skill alias name cannot be empty"):
+        store.set_skill_alias("reviewer", "", 1)

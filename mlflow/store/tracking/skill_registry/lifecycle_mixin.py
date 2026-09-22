@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import subqueryload
 
 from mlflow.entities.skill import (
@@ -7,7 +8,11 @@ from mlflow.entities.skill import (
     SkillStatus,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_CONFLICT,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillAlias, SqlSkillVersion
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
 from mlflow.utils.time import get_current_time_millis
@@ -17,9 +22,15 @@ from mlflow.utils.validation import _validate_skill_alias, _validate_skill_versi
 class SqlAlchemySkillRegistryLifecycleMixin:
     """SQLAlchemy lifecycle and alias operations for the Skill Registry."""
 
+    SET_SKILL_ALIAS_RETRIES = 3
+
     @staticmethod
     def _validate_skill_alias_name(alias: str) -> None:
-        _validate_skill_alias(alias)
+        try:
+            _validate_skill_alias(alias)
+        except MlflowException as e:
+            message = str(e).replace("Registered model alias name", "Skill alias name")
+            raise MlflowException.invalid_parameter_value(message) from e
 
     def _skill_version_query(self, session):
         return self._get_query(session, SqlSkillVersion).options(
@@ -67,6 +78,7 @@ class SqlAlchemySkillRegistryLifecycleMixin:
         version: int,
         organization: str = "",
         status: SkillStatus | str | None = NOT_SET,
+        last_updated_by: str | None = None,
     ):
         self._validate_skill_identity(name, organization)
         _validate_skill_version(version)
@@ -77,36 +89,98 @@ class SqlAlchemySkillRegistryLifecycleMixin:
 
         with self.ManagedSessionMaker(read_only=False) as session:
             skill_version = self._get_skill_version_or_raise(session, name, version, organization)
-            if status is not NOT_SET:
-                try:
-                    new_status = SkillStatus(status)
-                except (TypeError, ValueError) as e:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid SkillVersion status: {status!r}"
-                    ) from e
-                current_status = SkillStatus(skill_version.status)
-                self._validate_skill_status_transition(current_status, new_status)
-                skill_version.status = new_status.value
-                if new_status is SkillStatus.DELETED:
-                    self._delete_skill_aliases_for_version(session, skill_version)
+            if status is NOT_SET:
+                return skill_version.to_mlflow_entity()
 
-            skill_version.last_updated_at = get_current_time_millis()
-            session.flush()
-            if status is not NOT_SET and SkillStatus(status) is SkillStatus.DELETED:
+            try:
+                new_status = SkillStatus(status)
+            except (TypeError, ValueError) as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid SkillVersion status: {status!r}"
+                ) from e
+            current_status = SkillStatus(skill_version.status)
+            if new_status is current_status:
+                return skill_version.to_mlflow_entity()
+            self._validate_skill_status_transition(current_status, new_status)
+
+            now = get_current_time_millis()
+            updated = (
+                self
+                ._get_query(session, SqlSkillVersion)
+                .filter(
+                    SqlSkillVersion.name == name,
+                    SqlSkillVersion.organization == organization,
+                    SqlSkillVersion.version == version,
+                    SqlSkillVersion.status == current_status.value,
+                )
+                .update(
+                    {
+                        SqlSkillVersion.status: new_status.value,
+                        SqlSkillVersion.last_updated_by: last_updated_by,
+                        SqlSkillVersion.last_updated_at: now,
+                    },
+                    synchronize_session=False,
+                )
+            )
+            if updated != 1:
+                raise MlflowException(
+                    "Skill version changed while being updated; retry the operation",
+                    error_code=RESOURCE_CONFLICT,
+                )
+
+            skill_version.status = new_status.value
+            skill_version.last_updated_by = last_updated_by
+            skill_version.last_updated_at = now
+            if new_status is SkillStatus.DELETED:
+                self._delete_skill_aliases_for_version(session, skill_version)
                 return skill_version.to_mlflow_entity(alias_names=[])
             return skill_version.to_mlflow_entity()
 
-    def delete_skill_version(self, name: str, version: int, organization: str = "") -> None:
+    def delete_skill_version(
+        self,
+        name: str,
+        version: int,
+        organization: str = "",
+        last_updated_by: str | None = None,
+    ) -> None:
         self._validate_skill_identity(name, organization)
         _validate_skill_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             skill_version = self._get_skill_version_or_raise(session, name, version, organization)
             current_status = SkillStatus(skill_version.status)
+            if current_status is SkillStatus.DELETED:
+                return
             self._validate_skill_status_transition(current_status, SkillStatus.DELETED)
+
+            now = get_current_time_millis()
+            updated = (
+                self
+                ._get_query(session, SqlSkillVersion)
+                .filter(
+                    SqlSkillVersion.name == name,
+                    SqlSkillVersion.organization == organization,
+                    SqlSkillVersion.version == version,
+                    SqlSkillVersion.status == current_status.value,
+                )
+                .update(
+                    {
+                        SqlSkillVersion.status: SkillStatus.DELETED.value,
+                        SqlSkillVersion.last_updated_by: last_updated_by,
+                        SqlSkillVersion.last_updated_at: now,
+                    },
+                    synchronize_session=False,
+                )
+            )
+            if updated != 1:
+                raise MlflowException(
+                    "Skill version changed while being deleted; retry the operation",
+                    error_code=RESOURCE_CONFLICT,
+                )
+
             skill_version.status = SkillStatus.DELETED.value
-            skill_version.last_updated_at = get_current_time_millis()
+            skill_version.last_updated_by = last_updated_by
+            skill_version.last_updated_at = now
             self._delete_skill_aliases_for_version(session, skill_version)
-            session.flush()
 
     def _resolve_latest_skill_version(self, session, name: str, organization: str):
         skill = (
@@ -195,49 +269,85 @@ class SqlAlchemySkillRegistryLifecycleMixin:
         self._validate_skill_identity(name, organization)
         _validate_skill_version(version)
         self._validate_skill_alias_name(alias)
-        with self.ManagedSessionMaker(read_only=False) as session:
-            skill_version = (
-                self
-                ._get_query(session, SqlSkillVersion)
-                .filter(
-                    SqlSkillVersion.name == name,
-                    SqlSkillVersion.organization == organization,
-                    SqlSkillVersion.version == version,
-                )
-                .one_or_none()
-            )
-            if skill_version is None or skill_version.status == SkillStatus.DELETED.value:
-                raise MlflowException(
-                    f"Skill version '{name}' version '{version}' not found or is deleted",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            alias_row = (
-                self
-                ._get_query(session, SqlSkillAlias)
-                .filter(
-                    SqlSkillAlias.name == name,
-                    SqlSkillAlias.organization == organization,
-                    SqlSkillAlias.alias == alias,
-                )
-                .one_or_none()
-            )
-            if alias_row is None:
-                alias_row = self._with_workspace_field(
-                    SqlSkillAlias(
-                        name=name,
-                        organization=organization,
-                        alias=alias,
-                        version=version,
+        for attempt in range(self.SET_SKILL_ALIAS_RETRIES):
+            try:
+                with self.ManagedSessionMaker(read_only=False) as session:
+                    skill_version = (
+                        self
+                        ._get_query(session, SqlSkillVersion)
+                        .filter(
+                            SqlSkillVersion.name == name,
+                            SqlSkillVersion.organization == organization,
+                            SqlSkillVersion.version == version,
+                        )
+                        .one_or_none()
                     )
-                )
-                session.add(alias_row)
-            else:
-                alias_row.version = version
-            session.flush()
+                    if skill_version is None or skill_version.status == SkillStatus.DELETED.value:
+                        raise MlflowException(
+                            f"Skill version '{name}' version '{version}' not found or is deleted",
+                            error_code=RESOURCE_DOES_NOT_EXIST,
+                        )
+
+                    # Acquire the version row's write lock before checking aliases. This
+                    # serializes alias creation with a concurrent soft delete on databases
+                    # that support row locks and starts a write transaction on SQLite.
+                    locked = (
+                        self
+                        ._get_query(session, SqlSkillVersion)
+                        .filter(
+                            SqlSkillVersion.name == name,
+                            SqlSkillVersion.organization == organization,
+                            SqlSkillVersion.version == version,
+                            SqlSkillVersion.status != SkillStatus.DELETED.value,
+                        )
+                        .update(
+                            {SqlSkillVersion.status: SqlSkillVersion.status},
+                            synchronize_session=False,
+                        )
+                    )
+                    if locked != 1:
+                        raise MlflowException(
+                            f"Skill version '{name}' version '{version}' not found or is deleted",
+                            error_code=RESOURCE_DOES_NOT_EXIST,
+                        )
+
+                    alias_row = (
+                        self
+                        ._get_query(session, SqlSkillAlias)
+                        .filter(
+                            SqlSkillAlias.name == name,
+                            SqlSkillAlias.organization == organization,
+                            SqlSkillAlias.alias == alias,
+                        )
+                        .one_or_none()
+                    )
+                    if alias_row is None:
+                        alias_row = self._with_workspace_field(
+                            SqlSkillAlias(
+                                name=name,
+                                organization=organization,
+                                alias=alias,
+                                version=version,
+                            )
+                        )
+                        session.add(alias_row)
+                    else:
+                        alias_row.version = version
+                    session.flush()
+                    return
+            except MlflowException as e:
+                if not isinstance(e.__cause__, IntegrityError):
+                    raise
+                if attempt == self.SET_SKILL_ALIAS_RETRIES - 1:
+                    raise
 
     def delete_skill_alias(self, name: str, alias: str, organization: str = "") -> None:
         self._validate_skill_identity(name, organization)
+        if isinstance(alias, str) and alias.lower() == "latest":
+            raise MlflowException(
+                f"Alias '{alias}' not found on skill '{name}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         self._validate_skill_alias_name(alias)
         with self.ManagedSessionMaker(read_only=False) as session:
             alias_row = (
