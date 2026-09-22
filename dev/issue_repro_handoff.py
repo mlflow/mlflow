@@ -252,7 +252,7 @@ def determine_outcome(report: dict[str, Any], *, issue_labels: Iterable[object] 
         and fidelity["confidence"] >= MIN_CONFIDENCE
         and fidelity["failure_origin"] == "reported_symptom"
         and proposed_fix["scope"] == "small"
-        and bool(proposed_fix["summary"])
+        and bool(proposed_fix["summary"].strip())
         and proposed_fix["confidence"] >= MIN_CONFIDENCE
         and not report["environment_limitations"]
         and not report["safety_uncertainty"]
@@ -307,6 +307,10 @@ def validate_handoff(
         raise InvalidHandoff("invalid environment limitations")
     if not isinstance(handoff["safety_uncertainty"], bool):
         raise InvalidHandoff("invalid safety uncertainty")
+    fix_summary = _text(proposed_fix["summary"], name="proposed fix summary", allow_empty=True)
+    if fix_summary and not fix_summary.strip():
+        raise InvalidHandoff("invalid proposed fix summary")
+
     report = {
         "schema_version": SCHEMA_VERSION,
         "binding": binding,
@@ -322,9 +326,7 @@ def validate_handoff(
         },
         "proposed_fix": {
             "scope": _enum(proposed_fix["scope"], FIX_SCOPES, "fix scope"),
-            "summary": _text(
-                proposed_fix["summary"], name="proposed fix summary", allow_empty=True
-            ),
+            "summary": fix_summary,
             "confidence": _confidence(proposed_fix["confidence"], "fix confidence"),
         },
         "environment_limitations": [

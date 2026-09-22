@@ -285,11 +285,7 @@ def investigate(
                     "output_limit": ContainerOutputLimit,
                 }.get(failure, ContainerExecutionFailure)
                 raise TriageStageError("container", error_type())
-            source = (
-                (broker.scratch_root / "reproduce.py").read_text(encoding="utf-8")
-                if run_index is not None
-                else ""
-            )
+            source = broker.run_results[run_index]["source"] if run_index is not None else ""
     except TriageStageError:
         raise
     except Exception as error:

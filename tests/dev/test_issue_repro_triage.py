@@ -128,7 +128,7 @@ def _install_broker(monkeypatch, tmp_path, *, failure=None):
             self.scratch_root = Path(scratch_root)
             self.checkout_sha = checkout_sha
             (self.scratch_root / "reproduce.py").write_text(
-                "import mlflow\nprint('actual symptom')\n", encoding="utf-8"
+                "print('newer mutable source')\n", encoding="utf-8"
             )
             self.run_results = [
                 {
@@ -137,6 +137,7 @@ def _install_broker(monkeypatch, tmp_path, *, failure=None):
                     "exit_status": 1,
                     "duration_seconds": 0.25,
                     "failure": failure,
+                    "source": "import mlflow\nprint('snapshotted symptom')\n",
                 }
             ]
 
@@ -172,6 +173,9 @@ def test_investigation_runs_one_tools_less_judge_and_binds_trusted_evidence(monk
     assert report["execution"]["executed_sha"] == sha
     assert len(client.calls) == 1
     assert client.calls[0]["output_schema"] == triage.JUDGMENT_SCHEMA
+    judge_input = client.calls[0]["messages"][1]["content"]
+    assert "snapshotted symptom" in judge_input
+    assert "newer mutable source" not in judge_input
 
 
 @pytest.mark.parametrize(

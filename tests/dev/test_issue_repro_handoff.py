@@ -128,6 +128,10 @@ def test_enhancement_label_short_circuits_even_complete_bug_output():
         (lambda value: value.update(surface="ui"), "surface"),
         (lambda value: value["fidelity"].update(verdict="yes"), "fidelity verdict"),
         (lambda value: value["proposed_fix"].update(scope="medium"), "fix scope"),
+        (
+            lambda value: value["proposed_fix"].update(summary="  \n\t"),
+            "proposed fix summary",
+        ),
         (lambda value: value["fidelity"].update(confidence=float("nan")), "confidence"),
         (lambda value: value["execution"].update(duration_seconds=61), "duration"),
         (lambda value: value["execution"].update(timed_out="false"), "timed_out"),

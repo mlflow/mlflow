@@ -11,6 +11,7 @@ import json
 import os
 import selectors
 import subprocess
+import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -100,45 +101,61 @@ def _clean_git_env() -> dict[str, str]:
 
 
 def _default_runner(argv: Sequence[str], timeout: int, max_output: int) -> ReproResult:
+    if list(argv[:2]) != ["docker", "run"]:
+        raise ValueError("runner accepts only docker run")
     started = time.monotonic()
-    process = subprocess.Popen(
-        list(argv),
-        env=_clean_git_env(),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    assert process.stdout is not None and process.stderr is not None
-    selector = selectors.DefaultSelector()
-    selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-    selector.register(process.stderr, selectors.EVENT_READ, "stderr")
-    output = {"stdout": bytearray(), "stderr": bytearray()}
-    failure = None
+    with tempfile.TemporaryDirectory(prefix="mlflow-repro-container-") as directory:
+        container_name = f"mlflow-issue-repro-{Path(directory).name}"
+        command = [*argv[:2], "--name", container_name, *argv[2:]]
+        process = subprocess.Popen(
+            command,
+            env=_clean_git_env(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        assert process.stdout is not None and process.stderr is not None
+        selector = selectors.DefaultSelector()
+        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        output = {"stdout": bytearray(), "stderr": bytearray()}
+        failure = None
 
-    while selector.get_map():
-        remaining = timeout - (time.monotonic() - started)
-        if remaining <= 0:
-            failure = "timeout"
-            process.kill()
-            break
-        for key, _ in selector.select(min(remaining, 0.1)):
-            stream = process.stdout if key.data == "stdout" else process.stderr
-            chunk = os.read(stream.fileno(), 4096)
-            if not chunk:
-                selector.unregister(key.fileobj)
-                continue
-            target = output[key.data]
-            target.extend(chunk[: max(0, max_output - len(target))])
-            if sum(len(item) for item in output.values()) >= max_output:
-                failure = "output_limit"
+        try:
+            while selector.get_map():
+                remaining = timeout - (time.monotonic() - started)
+                if remaining <= 0:
+                    failure = "timeout"
+                    process.kill()
+                    break
+                for key, _ in selector.select(min(remaining, 0.1)):
+                    stream = process.stdout if key.data == "stdout" else process.stderr
+                    chunk = os.read(stream.fileno(), 4096)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        continue
+                    target = output[key.data]
+                    target.extend(chunk[: max(0, max_output - len(target))])
+                    if sum(len(item) for item in output.values()) >= max_output:
+                        failure = "output_limit"
+                        process.kill()
+                        break
+                if failure:
+                    break
+                if process.poll() is not None and not selector.get_map():
+                    break
+
+            if failure:
+                _force_remove_container(container_name)
+            process.wait(timeout=5)
+            if failure is None and _container_was_oom_killed(container_name):
+                failure = "resource_limit"
+        finally:
+            selector.close()
+            if process.poll() is None:
                 process.kill()
-                break
-        if failure:
-            break
-        if process.poll() is not None and not selector.get_map():
-            break
+            _force_remove_container(container_name)
 
-    process.wait(timeout=5)
     duration = time.monotonic() - started
     return ReproResult(
         stdout=bytes(output["stdout"]).decode("utf-8", errors="replace"),
@@ -147,6 +164,28 @@ def _default_runner(argv: Sequence[str], timeout: int, max_output: int) -> Repro
         duration_seconds=duration,
         failure=failure,
     )
+
+
+def _force_remove_container(container_name: str) -> None:
+    subprocess.run(
+        ["docker", "rm", "--force", container_name],
+        env=_clean_git_env(),
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+
+
+def _container_was_oom_killed(container_name: str) -> bool:
+    result = subprocess.run(
+        ["docker", "inspect", "--format", "{{.State.OOMKilled}}", container_name],
+        env=_clean_git_env(),
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=5,
+    )
+    return result.returncode == 0 and result.stdout.strip() == "true"
 
 
 class ReproductionBroker:
@@ -291,7 +330,6 @@ class ReproductionBroker:
         return [
             "docker",
             "run",
-            "--rm",
             "--pull",
             "never",
             "--platform",
@@ -336,6 +374,7 @@ class ReproductionBroker:
         if self.runs >= MAX_RUNS:
             raise BrokerLimitExceeded("reproduction run limit exceeded")
         self.runs += 1
+        source = (self.scratch_root / "reproduce.py").read_text(encoding="utf-8")
         result = self.runner(self.container_argv(), RUN_TIMEOUT_SECONDS, MAX_RESULT_BYTES)
         stdout = _truncate_utf8(result.stdout, MAX_RESULT_BYTES)
         stderr = _truncate_utf8(
@@ -348,7 +387,7 @@ class ReproductionBroker:
             "duration_seconds": min(result.duration_seconds, RUN_TIMEOUT_SECONDS),
             "failure": result.failure,
         }
-        self.run_results.append(evidence)
+        self.run_results.append({**evidence, "source": source})
         return evidence
 
     def finish(self, typed_handoff: object) -> dict[str, Any]:

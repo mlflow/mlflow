@@ -7,6 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
+import issue_repro_broker as broker_module
 from issue_repro_broker import (
     CONTAINER_IMAGE,
     MAX_RUNS,
@@ -192,9 +193,9 @@ def test_runner_uses_exact_fixed_offline_secret_free_container_spec(broker, monk
     result = broker.execute({"action": "run_repro", "relative_path": "scratch/reproduce.py"})
 
     argv, timeout, max_output = broker.runner_calls[0]
-    assert argv[:5] == ["docker", "run", "--rm", "--pull", "never"]
-    assert ["--platform", "linux/amd64"] == argv[5:7]
-    assert ["--network", "none"] == argv[7:9]
+    assert argv[:4] == ["docker", "run", "--pull", "never"]
+    assert ["--platform", "linux/amd64"] == argv[4:6]
+    assert ["--network", "none"] == argv[6:8]
     assert "--read-only" in argv
     assert ["--cap-drop", "ALL"] == argv[argv.index("--cap-drop") : argv.index("--cap-drop") + 2]
     assert "no-new-privileges:true" in argv
@@ -211,6 +212,79 @@ def test_runner_uses_exact_fixed_offline_secret_free_container_spec(broker, monk
     assert timeout == 60
     assert max_output == 12_000
     assert result["stdout"] == "observed\n"
+
+
+def test_each_run_keeps_its_own_source_snapshot(broker):
+    broker.write_scratch_repro("scratch/reproduce.py", "print('first')\n")
+    broker.run_repro("scratch/reproduce.py")
+    broker.write_scratch_repro("scratch/reproduce.py", "print('second')\n")
+    broker.run_repro("scratch/reproduce.py")
+
+    assert broker.run_results[0]["source"] == "print('first')\n"
+    assert broker.run_results[1]["source"] == "print('second')\n"
+
+
+@pytest.mark.parametrize(
+    ("program", "expected_failure"),
+    [
+        ("sleep 10", "timeout"),
+        ("while :; do printf xxxxxxxxxx; done", "output_limit"),
+    ],
+)
+def test_default_runner_force_removes_container_after_bounded_failure(
+    monkeypatch, program, expected_failure
+):
+    real_popen = subprocess.Popen
+    docker_calls = []
+    container_names = []
+
+    def popen(command, **kwargs):
+        container_names.append(command[command.index("--name") + 1])
+        return real_popen(["/bin/sh", "-c", program], **kwargs)
+
+    def run(command, **kwargs):
+        docker_calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="false\n", stderr="")
+
+    monkeypatch.setattr(broker_module.subprocess, "Popen", popen)
+    monkeypatch.setattr(broker_module.subprocess, "run", run)
+
+    result = broker_module._default_runner(
+        ["docker", "run", "--pull", "never", "image"],
+        timeout=3 if expected_failure == "output_limit" else 1,
+        max_output=10,
+    )
+
+    assert result.failure == expected_failure
+    assert container_names[0].startswith("mlflow-issue-repro-")
+    assert ["docker", "rm", "--force", container_names[0]] in docker_calls
+
+
+def test_default_runner_classifies_and_removes_oom_container(monkeypatch):
+    real_popen = subprocess.Popen
+    docker_calls = []
+    container_names = []
+
+    def popen(command, **kwargs):
+        container_names.append(command[command.index("--name") + 1])
+        return real_popen([sys.executable, "-c", "pass"], **kwargs)
+
+    def run(command, **kwargs):
+        docker_calls.append(command)
+        stdout = "true\n" if command[1] == "inspect" else ""
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(broker_module.subprocess, "Popen", popen)
+    monkeypatch.setattr(broker_module.subprocess, "run", run)
+
+    result = broker_module._default_runner(
+        ["docker", "run", "--pull", "never", "image"],
+        timeout=5,
+        max_output=100,
+    )
+
+    assert result.failure == "resource_limit"
+    assert ["docker", "rm", "--force", container_names[0]] in docker_calls
 
 
 def test_real_container_is_offline_read_only_and_secret_free(reproduction_image, tmp_path):
