@@ -896,6 +896,22 @@ def _get_permission_from_experiment_id() -> Permission:
     return _get_experiment_permission(experiment_id, username)
 
 
+def _role_grant_for_resource(
+    user_id: int, resource_type: str, resource_key: str, workspace_name: str
+) -> Permission | None:
+    # One loader, one fold, shared with the requirement model -- so DENY means the same thing
+    # on every route. The store's own fold combined grants with `max`, and DENY has the lowest
+    # priority, so a DENY alongside a positive grant in the same role was silently discarded.
+    #
+    # The workspace-admin bypass must be applied here: fold_grants_for_key deliberately ignores
+    # rows of a different resource_type, so a workspace-wide MANAGE would otherwise stop
+    # folding into resource queries and admins would lose access.
+    grants = store.list_grants(user_id, workspace_name, {resource_type})
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        return MANAGE
+    return fold_grants_for_key(grants, GrantLoadKey(resource_type, resource_key))
+
+
 def _role_permission_for(
     username: str,
     resource_type: str,
@@ -931,9 +947,7 @@ def _role_permission_for(
             # honors the grant even when the tracking store has no data for the resource — e.g.
             # an --artifacts-only server that shares the auth DB but has no experiment data.
             workspace_name = DEFAULT_WORKSPACE_NAME
-        perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
-        )
+        perm = _role_grant_for_resource(user.id, resource_type, resource_key, workspace_name)
         if perm is not None:
             return perm
         # No grant in the resolved workspace. With workspaces disabled, fall through
@@ -977,9 +991,7 @@ def _role_permission_for_known_workspace(
                 return NO_PERMISSIONS
             resolved_workspace = DEFAULT_WORKSPACE_NAME
         user = store.get_user(username)
-        perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, resolved_workspace
-        )
+        perm = _role_grant_for_resource(user.id, resource_type, resource_key, resolved_workspace)
         if perm is not None:
             return perm
         if not MLFLOW_ENABLE_WORKSPACES.get():
