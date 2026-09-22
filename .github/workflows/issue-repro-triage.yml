@@ -1,59 +1,38 @@
 name: Issue reproduction triage
 
-# A maintainer starts this workflow for a single issue, either by adding the
-# run-repro-triage label or with workflow_dispatch. The investigation job never
-# receives issue-write permission; the publish job is the only place that can
-# change the issue.
 on:
-  issues:
-    types: [labeled]
   workflow_dispatch:
     inputs:
       issue_number:
         description: "Positive GitHub issue number to investigate"
         required: true
         type: string
-      apply_changes:
-        description: "Apply the proposed report and triage label to the issue"
-        required: true
-        default: false
-        type: boolean
 
 concurrency:
-  group: >-
-    ${{ github.workflow }}-${{ github.repository }}-${{
-    github.event.issue.number || inputs.issue_number }}
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ inputs.issue_number }}
   cancel-in-progress: false
 
 defaults:
   run:
     shell: bash
 
-# Deny all permissions by default. The two jobs deliberately have different
-# authority so issue content can never cause the model to mutate GitHub.
 permissions: {}
 
 jobs:
   investigate:
-    # Only the exact trigger label or an explicit dispatch may reach the model
-    # secret. Outcome-label writes therefore cannot retrigger investigation.
-    if: >
+    if: >-
       github.repository == 'mlflow/mlflow' &&
-      github.event.repository.default_branch == 'master' &&
-      github.ref == 'refs/heads/master' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'issues' &&
-        github.event.action == 'labeled' &&
-        github.event.label.name == 'run-repro-triage'))
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       issues: read
     steps:
-      - name: Validate dispatch input
+      - name: Validate issue number
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
           if ! [[ "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
             echo "issue_number must be a positive integer" >&2
@@ -65,148 +44,88 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Bind trusted checkout
-        id: trusted-checkout
+      - name: Verify trusted checkout
+        id: checkout
         env:
           EVENT_SHA: ${{ github.sha }}
         run: |
           checkout_sha="$(git rev-parse HEAD)"
-          if [ "$checkout_sha" != "$EVENT_SHA" ]; then
-            echo "checkout SHA does not match event SHA" >&2
-            exit 1
-          fi
-          echo "checkout_sha=$checkout_sha" >> "$GITHUB_OUTPUT"
+          test "$checkout_sha" = "$EVENT_SHA"
+          echo "sha=$checkout_sha" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/setup-python
 
       - name: Fetch bounded issue context
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
-          REPO: ${{ github.repository }}
-        run: |
-          # This is deliberately a data-fetching step, separate from the
-          # model steps below. Issue text is never interpolated into a command.
-          gh api "repos/$REPO/issues/$ISSUE_NUMBER" > issue.json
-          # Fetch only the five newest comments. The selector treats them as
-          # untrusted data and further bounds each field before prompting.
-          gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments?per_page=5&sort=created&direction=desc" \
-            > issue-comments.json
-          jq '.comments = input' issue.json issue-comments.json > issue-with-comments.json
-          mv issue-with-comments.json issue.json
-
-      - name: Select reproduction template
-        env:
-          # The tools-less selector may choose typed data only. It has neither
-          # a GitHub token nor issue-write permission.
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
           REPOSITORY: ${{ github.repository }}
-          COMMIT_SHA: ${{ steps.trusted-checkout.outputs.checkout_sha }}
         run: |
-          python dev/triage_issue.py select --issue issue.json \
-            --repository "$REPOSITORY" --commit-sha "$COMMIT_SHA" --out selection.json
+          gh api "repos/$REPOSITORY/issues/$ISSUE_NUMBER" > issue-raw.json
+          jq -e 'select(.state == "open" and (has("pull_request") | not)) |
+            {number, state, title, body, labels: [.labels[].name]}' \
+            issue-raw.json > issue.json
+          rm issue-raw.json
 
-      - name: Run selected reproduction template
-        # This trusted harness accepts no model-provided shell command. Keep
-        # credentials out of this process; it records normalized evidence.
+      - name: Build offline reproduction image
         run: |
-          python dev/triage_issue.py run --selection selection.json --repo-root . \
-            --out evidence.json
+          docker build --pull=false \
+            --file dev/issue_repro_runtime/Dockerfile \
+            --tag mlflow-issue-repro:local .
 
-      - name: Assess reproduction evidence
+      - name: Run reproduction triage
         env:
-          # Like selection, assessment is tools-less and only writes a local,
-          # strict report. It cannot call GitHub.
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
-          REPOSITORY: ${{ github.repository }}
-          COMMIT_SHA: ${{ steps.trusted-checkout.outputs.checkout_sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          python dev/triage_issue.py assess --issue issue.json --evidence evidence.json \
-            --repository "$REPOSITORY" --commit-sha "$COMMIT_SHA" --out report.json \
-            --run-url "$RUN_URL"
-
-      - name: Upload triage report
-        if: "!cancelled()"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: >-
-            issue-repro-triage-${{ github.event.issue.number || inputs.issue_number }}-${{
-            github.sha }}
-          path: report.json
-          if-no-files-found: error
-          retention-days: 14
-
-  publish:
-    needs: investigate
-    if: >
-      needs.investigate.result == 'success' &&
-      github.repository == 'mlflow/mlflow' &&
-      github.event.repository.default_branch == 'master' &&
-      github.ref == 'refs/heads/master' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'issues' &&
-        github.event.action == 'labeled' &&
-        github.event.label.name == 'run-repro-triage'))
-    runs-on: ubuntu-slim
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      # The publisher is trusted, source-controlled code. A sparse checkout is
-      # necessary to run it; it receives no model key and executes no tests.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-          sparse-checkout: |
-            dev/publish_issue_repro_triage.py
-
-      - name: Verify trusted publisher checkout
-        env:
+          CHECKOUT_SHA: ${{ steps.checkout.outputs.sha }}
           EVENT_SHA: ${{ github.sha }}
-        run: |
-          checkout_sha="$(git rev-parse HEAD)"
-          if [ "$checkout_sha" != "$EVENT_SHA" ]; then
-            echo "publisher checkout SHA does not match event SHA" >&2
-            exit 1
-          fi
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: >-
-            issue-repro-triage-${{ github.event.issue.number || inputs.issue_number }}-${{
-            github.sha }}
-          path: triage-report
-
-      - name: Verify report binding
-        env:
-          CHECKOUT_SHA: ${{ github.sha }}
-          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
           REPOSITORY: ${{ github.repository }}
         run: |
+          python -m dev.issue_repro_triage \
+            --issue issue.json \
+            --repository "$REPOSITORY" \
+            --issue-number "$ISSUE_NUMBER" \
+            --event-sha "$EVENT_SHA" \
+            --checkout-sha "$CHECKOUT_SHA" \
+            --out report.json
+
+      - name: Validate and summarize report
+        env:
+          CHECKOUT_SHA: ${{ steps.checkout.outputs.sha }}
+          EVENT_SHA: ${{ github.sha }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          test "$(wc -c < report.json)" -le 32768
           jq -e \
             --arg repository "$REPOSITORY" \
             --argjson issue_number "$ISSUE_NUMBER" \
+            --arg event_sha "$EVENT_SHA" \
             --arg checkout_sha "$CHECKOUT_SHA" \
-            '.binding.repository == $repository and
-             .binding.issue_number == $issue_number and
-             .binding.commit_sha == $checkout_sha' \
-            triage-report/report.json > /dev/null
+            '.binding == {
+              repository: $repository,
+              issue_number: $issue_number,
+              event_sha: $event_sha,
+              checkout_sha: $checkout_sha
+            } and
+            (.proposed_outcome == "ready" or
+             .proposed_outcome == "requires-further-triage")' \
+            report.json > /dev/null
+          outcome="$(jq -r '.proposed_outcome' report.json)"
+          {
+            echo "## Issue reproduction triage"
+            echo
+            echo "Proposed outcome: \`$outcome\`"
+            echo
+            echo "Checked commit: \`$CHECKOUT_SHA\`"
+            echo
+            echo "Download the compact report artifact for sanitized evidence."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish report or dry-run summary
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLY_CHANGES: ${{ github.event_name == 'issues' || inputs.apply_changes }}
-          BOT_LOGIN: github-actions[bot]
-          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
-          REPO: ${{ github.repository }}
-        run: |
-          args=(--report triage-report/report.json --repository "$REPO" \
-            --issue-number "$ISSUE_NUMBER" --bot-login "$BOT_LOGIN" \
-            --summary "$GITHUB_STEP_SUMMARY")
-          if [ "$APPLY_CHANGES" = true ]; then
-            args+=(--apply-changes)
-          fi
-          python3 dev/publish_issue_repro_triage.py "${args[@]}"
+      - name: Upload compact triage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: issue-repro-triage-${{ inputs.issue_number }}-${{ github.sha }}
+          path: report.json
+          if-no-files-found: error
+          retention-days: 3
