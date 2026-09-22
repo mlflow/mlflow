@@ -3292,6 +3292,95 @@ def test_legacy_resolver_never_loads_a_child_deny(workspace_permission_setup):
     assert auth_module._get_experiment_permission("exp-1", username).can_read
 
 
+# =============================================================================
+# The §5e sub-resource baseline: a parent or intermediate veto must not be
+# bypassable by a grant on a higher-priority tier. See follow-up item 1.
+# =============================================================================
+
+
+def test_parent_deny_is_not_bypassed_by_a_child_grant(workspace_permission_setup):
+    """Hole A. ``fallback_if_no_grant`` means *only* if no grant, so a sufficient run grant ends
+    the chain and the experiment is never consulted -- letting a child grant override the
+    operator's DENY on the parent. The baseline's positive experiment READ closes it.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", DENY.name),
+        ("run", "*", MANAGE.name),
+    ])
+
+    assert not auth_module._authorize_run_id("run-1", "delete")
+    assert not auth_module._authorize_run_id("run-1", "read")
+
+
+def test_child_wildcard_alone_does_not_confer_access(workspace_permission_setup):
+    """The escalation the baseline bounds: run grain is wildcard-only, so ``(run, *, MANAGE)``
+    with no experiment grant would otherwise confer delete on every run in every experiment in
+    the workspace.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", MANAGE.name)])
+
+    assert not auth_module._authorize_run_id("run-1", "delete")
+
+
+def test_parent_grant_still_inherits_to_the_child_tier(workspace_permission_setup):
+    """The baseline must not deny anyone the parent tier allowed -- inheritance keeps working."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", MANAGE.name)])
+
+    assert auth_module._authorize_run_id("run-1", "read")
+    assert auth_module._authorize_run_id("run-1", "delete")
+
+
+def test_trace_deny_is_not_bypassed_by_an_assessment_grant(workspace_permission_setup):
+    """Hole B, the three-level chain assessment -> trace -> experiment.
+
+    A sufficient assessment grant ends the chain at the first key, so the operator's trace DENY
+    is never consulted. The parent READ baseline does NOT close this -- the experiment grant is
+    positive here -- so the intermediate trace tier needs its own veto requirement.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", EDIT.name),
+        ("trace", "*", DENY.name),
+        ("assessment", "*", MANAGE.name),
+    ])
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
+        method="PATCH",
+        json={"trace_id": "trace-1"},
+    ):
+        assert not auth_module.validate_can_update_assessment()
+
+
+def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_setup):
+    """The trace veto must cost nothing when the operator has not denied the trace tier."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", READ.name),
+        ("assessment", "*", MANAGE.name),
+    ])
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
+        method="PATCH",
+        json={"trace_id": "trace-1"},
+    ):
+        assert auth_module.validate_can_update_assessment()
+
+
 def test_list_user_role_permissions_workspace_is_default_when_workspaces_disabled(
     tmp_path, monkeypatch
 ):
