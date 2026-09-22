@@ -68,7 +68,7 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
-from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.schemas import chat, embeddings, models
 from mlflow.gateway.ssrf import upstream_ssrf_protection
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
@@ -984,6 +984,33 @@ async def chat_completions(request: Request):
             )(payload)
         except GuardrailViolation as e:
             raise HTTPException(status_code=400, detail=str(e))
+
+
+@gateway_router.get("/mlflow/v1/models", response_model=None)
+@translate_http_exception
+async def list_models(request: Request) -> models.ResponsePayload:
+    """
+    OpenAI-compatible models listing endpoint.
+
+    The returned model ``id`` is the MLflow gateway endpoint name expected by
+    ``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+    """
+    store = _get_store()
+    _validate_store(store)
+    endpoints = sorted(
+        (endpoint for endpoint in store.list_gateway_endpoints() if endpoint.name),
+        key=lambda endpoint: endpoint.name,
+    )
+    return models.ResponsePayload(
+        data=[
+            models.ModelObject(
+                id=endpoint.name,
+                created=endpoint.created_at // 1000,
+                owned_by="mlflow",
+            )
+            for endpoint in endpoints
+        ],
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
