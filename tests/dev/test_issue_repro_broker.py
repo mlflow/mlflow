@@ -1,10 +1,13 @@
 import copy
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from dev.issue_repro_broker import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
+
+from issue_repro_broker import (
     CONTAINER_IMAGE,
     MAX_RUNS,
     MAX_TURNS,

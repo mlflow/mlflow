@@ -1,9 +1,12 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
-import dev.issue_repro_triage as triage
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
+
+import issue_repro_triage as triage
 
 
 class FakeAnthropicClient(triage.AnthropicClient):

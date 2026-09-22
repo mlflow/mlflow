@@ -1,9 +1,13 @@
 import copy
 import json
+import sys
+from pathlib import Path
 
 import pytest
 
-from dev.issue_repro_handoff import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
+
+from issue_repro_handoff import (
     MAX_EXCERPT_BYTES,
     InvalidHandoff,
     has_enhancement_label,

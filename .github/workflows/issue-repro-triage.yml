@@ -1,5 +1,7 @@
 name: Issue reproduction triage
 
+cache-mode: none
+
 on:
   workflow_dispatch:
     inputs:
@@ -81,7 +83,7 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          python -m dev.issue_repro_triage \
+          python dev/issue_repro_triage.py \
             --issue issue.json \
             --repository "$REPOSITORY" \
             --issue-number "$ISSUE_NUMBER" \

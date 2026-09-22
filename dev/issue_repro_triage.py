@@ -11,8 +11,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from dev.issue_repro_broker import ReproductionBroker, run_agent
-from dev.issue_repro_handoff import (
+from issue_repro_broker import ReproductionBroker, run_agent
+from issue_repro_handoff import (
     MAX_EXCERPT_BYTES,
     REQUIRES_FURTHER_TRIAGE,
     has_enhancement_label,
