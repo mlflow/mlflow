@@ -11,7 +11,10 @@ or completeness of the answer. Do not make assumptions, approximations, or bring
 knowledge.
 
 <question>{{input}}</question>
-<answer>{{output}}</answer>\
+<answer>{{output}}</answer>
+
+The result is "yes" if the answer contains information that is relevant to the question, and \
+"no" otherwise.\
 """
 
 RELEVANCE_TO_QUERY_PROMPT_OUTPUT = """

@@ -11,7 +11,10 @@ completeness of the claim. Do not make assumptions, approximations, or bring in 
 
 <question>{{input}}</question>
 <claim>{{ground_truth}}</claim>
-<document>{{input}} - {{output}}</document>\
+<document>{{input}} - {{output}}</document>
+
+The result is "yes" if every statement in the claim is supported by the document in the context \
+of the question, and "no" otherwise.\
 """
 
 CORRECTNESS_PROMPT_OUTPUT = """

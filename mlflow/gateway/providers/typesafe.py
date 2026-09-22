@@ -1,6 +1,7 @@
 from typing import Any
 
 from mlflow.gateway.config import EndpointConfig, TypeSafeConfig
+from mlflow.gateway.constants import TYPESAFE_API_BASE_URL, TYPESAFE_SYSTEM_ONE_PATH
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction
 from mlflow.gateway.providers.utils import send_request
@@ -9,7 +10,7 @@ from mlflow.gateway.providers.utils import send_request
 class TypeSafeProvider(BaseProvider):
     DISPLAY_NAME = "TypeSafe"
     CONFIG_TYPE = TypeSafeConfig
-    PASSTHROUGH_PROVIDER_PATHS = {PassthroughAction.TYPESAFE_SYSTEM_ONE: "systemone"}
+    PASSTHROUGH_PROVIDER_PATHS = {PassthroughAction.TYPESAFE_SYSTEM_ONE: TYPESAFE_SYSTEM_ONE_PATH}
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         super().__init__(config, enable_tracing=enable_tracing)
@@ -23,7 +24,7 @@ class TypeSafeProvider(BaseProvider):
 
     @property
     def base_url(self) -> str:
-        return "https://api.typesafe.ai/v1"
+        return TYPESAFE_API_BASE_URL
 
     async def _passthrough(
         self,
