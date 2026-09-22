@@ -1117,8 +1117,11 @@ def test_create_model_version_source_read_blocks_cross_workspace(
     # AttributeError on `.get(...)`. Bypass the target-model check (which reads
     # `name` from the body) to isolate the source-read coercion.
     monkeypatch.setattr(
-        auth_module, "_validate_can_update_registered_model_or_prompt", lambda: True
+        auth_module,
+        "_registered_model_or_prompt_target",
+        lambda: (auth_module.RESOURCE_TYPE_REGISTERED_MODEL, "model-xyz"),
     )
+    monkeypatch.setattr(auth_module, "_authorize_create_version", lambda _target: True)
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/create",
         method="POST",
