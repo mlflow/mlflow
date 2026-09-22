@@ -1224,6 +1224,118 @@ def validate_can_register_scorer():
     )
 
 
+def _optimizer_gateway_endpoint(optimizer_config_json: str) -> str | None:
+    # The gateway endpoint named by an optimizer config's ``reflection_model``, or None when
+    # it names none. Malformed JSON yields None: the handler rejects it before the worker
+    # runs, so there is nothing to authorize.
+    if not optimizer_config_json:
+        return None
+    try:
+        config = json.loads(optimizer_config_json)
+    except (TypeError, ValueError):
+        return None
+    model = config.get("reflection_model") if isinstance(config, dict) else None
+    if not isinstance(model, str):
+        return None
+    provider, _, name = model.partition(":/")
+    return (name.lstrip("/") or None) if provider == "gateway" else None
+
+
+def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
+    # A built-in that instantiates is code, not a stored resource. Any other name makes the
+    # worker load the REGISTERED scorer of that name (optimize.job._load_scorers).
+    from mlflow.genai.scorers import builtin_scorers
+
+    registered = set()
+    for name in names:
+        builtin = getattr(builtin_scorers, name, None)
+        if builtin is not None:
+            try:
+                builtin()
+                continue
+            except Exception:
+                pass
+        registered.add(name)
+    return sorted(registered)
+
+
+def validate_can_create_prompt_optimization_job():
+    """Submitting hands work to a worker running with NO caller identity.
+
+    ``optimize_prompts_job`` takes no username, so nothing downstream can re-check the
+    caller: everything the request names has to be authorized here, at submit time.
+
+    The experiment remains the only positive gate, as before. Every other type is
+    veto-only, so no caller the pre-existing check allowed is denied -- but an operator's
+    DENY on a scorer, a gateway endpoint or the run tier is honoured rather than bypassed by
+    handing the work to a worker.
+    """
+    message = _get_request_message(CreatePromptOptimizationJob())
+    experiment_id = message.experiment_id
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    requirements = [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        # The handler creates a run in the experiment to track the optimization.
+        Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
+        # The worker loads and executes stored scorer versions.
+        Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+        *(
+            Requirement(
+                RESOURCE_TYPE_SCORER,
+                store._scorer_pattern(experiment_id, name),
+                ACTION_NOT_DENIED,
+            )
+            for name in _registered_scorer_names(message.config.scorers)
+        ),
+    ]
+    # optimizer_config_json reaches the worker verbatim, and its reflection_model is
+    # dispatched by llm_utils._call_llm, which routes a "gateway:/" URI to that gateway
+    # endpoint. Caller-authored input naming a resource, so it is gated here.
+    endpoint_name = _optimizer_gateway_endpoint(message.config.optimizer_config_json)
+    if endpoint_name is not None:
+        requirements.append(
+            Requirement(RESOURCE_TYPE_GATEWAY_ENDPOINT, endpoint_name, ACTION_NOT_DENIED)
+        )
+    return authorize(authenticate_request().username, experiment, requirements)
+
+
+def validate_can_invoke_scorer():
+    """Applying a scorer to EXISTING traces. It creates no run.
+
+    The experiment stays the only positive gate. The traces are read and assessments may be
+    written, and a named scorer's stored version is loaded and executed, so each of those
+    types vetoes. The scorer_version requirement falls back to the named scorer, since a
+    version is an existing sub-resource of it -- unlike a create, where the two types are
+    independent things coming into existence and so veto independently.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    body = request.get_json(silent=True)
+    body = body if isinstance(body, dict) else {}
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    requirements = [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+    ]
+    if body.get("log_assessments"):
+        requirements.append(Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED))
+    scorer_name = body.get("scorer_name")
+    if isinstance(scorer_name, str) and scorer_name:
+        scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, scorer_name))
+        requirements.append(
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            )
+        )
+    else:
+        # An inline serialized_scorer names no stored scorer, but the version tier can still
+        # be denied wholesale.
+        requirements.append(Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED))
+    return authorize(authenticate_request().username, experiment, requirements)
+
+
 def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
@@ -3340,7 +3452,7 @@ BEFORE_REQUEST_HANDLERS = {
     SetGatewayEndpointTag: validate_can_set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: validate_can_delete_gateway_endpoint_tag,
     # Routes for prompt optimization jobs
-    CreatePromptOptimizationJob: validate_can_update_experiment,
+    CreatePromptOptimizationJob: validate_can_create_prompt_optimization_job,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
@@ -3511,8 +3623,9 @@ BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    # Invoke endpoints create runs in an experiment -> require update on it.
-    (INVOKE_SCORER, "POST"): validate_can_update_experiment,
+    # INVOKE_SCORER applies a scorer to EXISTING traces and creates no run, despite what
+    # the grouping below suggests; it reads traces and may write assessments.
+    (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,

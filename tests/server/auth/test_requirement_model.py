@@ -14,9 +14,11 @@ from mlflow.server.auth.permissions import (
     MANAGE,
     READ,
     RESOURCE_TYPE_EXPERIMENT,
+    RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_SCORER_VERSION,
+    RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_WORKSPACE,
     USE,
     GrantLoadKey,
@@ -309,3 +311,107 @@ def test_a_deny_is_not_floored_up_to_the_default():
     permissions = {GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID): DENY}
     governing = governing_permission(requirement, permissions, MANAGE.name, MANAGE)
     assert requirement_met(requirement, governing) is False
+
+
+# ---------------------------------------------------------------------------
+# Composite routes: one operation naming several resources
+# ---------------------------------------------------------------------------
+
+
+def _prompt_optimization_requirements(experiment_id, scorer_pattern, endpoint=None):
+    """The shape validate_can_create_prompt_optimization_job builds."""
+    requirements = [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
+        Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+        Requirement(RESOURCE_TYPE_SCORER, scorer_pattern, ACTION_NOT_DENIED),
+    ]
+    if endpoint is not None:
+        requirements.append(
+            Requirement(RESOURCE_TYPE_GATEWAY_ENDPOINT, endpoint, ACTION_NOT_DENIED)
+        )
+    return requirements
+
+
+SCORER_PATTERN = f"{EXPERIMENT_ID}/myscorer"
+
+
+def test_prompt_optimization_needs_only_the_experiment_positively():
+    # The worker runs with no caller identity, so every named resource is checked at submit
+    # time -- but only the experiment is a positive requirement, exactly as before.
+    requirements = _prompt_optimization_requirements(EXPERIMENT_ID, SCORER_PATTERN)
+    rows = [grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name)]
+    assert decide(requirements, rows) is True
+
+
+@pytest.mark.parametrize(
+    ("denied_type", "denied_pattern"),
+    [
+        (RESOURCE_TYPE_RUN, "*"),
+        (RESOURCE_TYPE_SCORER_VERSION, "*"),
+        (RESOURCE_TYPE_SCORER, SCORER_PATTERN),
+    ],
+)
+def test_prompt_optimization_is_vetoed_by_any_named_resource(denied_type, denied_pattern):
+    requirements = _prompt_optimization_requirements(EXPERIMENT_ID, SCORER_PATTERN)
+    rows = [
+        grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
+        grant(denied_type, denied_pattern, DENY.name),
+    ]
+    assert decide(requirements, rows) is False
+
+
+def test_prompt_optimization_ignores_a_deny_on_a_scorer_it_does_not_name():
+    requirements = _prompt_optimization_requirements(EXPERIMENT_ID, SCORER_PATTERN)
+    rows = [
+        grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
+        grant(RESOURCE_TYPE_SCORER, f"{EXPERIMENT_ID}/other", DENY.name),
+    ]
+    assert decide(requirements, rows) is True
+
+
+def test_prompt_optimization_gates_the_gateway_endpoint_the_config_names():
+    # reflection_model reaches the worker verbatim and a "gateway:/" URI dispatches to that
+    # endpoint, so caller-authored config cannot reach an endpoint the operator denied.
+    requirements = _prompt_optimization_requirements(EXPERIMENT_ID, SCORER_PATTERN, "ep1")
+    rows = [
+        grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
+        grant(RESOURCE_TYPE_GATEWAY_ENDPOINT, "ep1", DENY.name),
+    ]
+    assert decide(requirements, rows) is False
+
+
+def _invoke_scorer_requirements(experiment_id, scorer_pattern):
+    """The shape validate_can_invoke_scorer builds for a named registered scorer."""
+    return [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+        Requirement(
+            RESOURCE_TYPE_SCORER_VERSION,
+            "*",
+            ACTION_NOT_DENIED,
+            fallback_if_no_grant=((RESOURCE_TYPE_SCORER, scorer_pattern),),
+        ),
+    ]
+
+
+def test_invoke_scorer_is_vetoed_by_a_deny_on_the_named_scorer():
+    requirements = _invoke_scorer_requirements(EXPERIMENT_ID, SCORER_PATTERN)
+    rows = [
+        grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
+        grant(RESOURCE_TYPE_SCORER, SCORER_PATTERN, DENY.name),
+    ]
+    assert decide(requirements, rows) is False
+
+
+def test_invoke_scorer_version_grant_overrides_a_scorer_deny():
+    # Tier override, downward as well as upward: the version's own grant decides and the
+    # scorer behind it is never consulted. This is why the version requirement CHAINS to the
+    # scorer here, where a create vetoes the two independently.
+    requirements = _invoke_scorer_requirements(EXPERIMENT_ID, SCORER_PATTERN)
+    rows = [
+        grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
+        grant(RESOURCE_TYPE_SCORER, SCORER_PATTERN, DENY.name),
+        grant(RESOURCE_TYPE_SCORER_VERSION, "*", READ.name),
+    ]
+    assert decide(requirements, rows) is True
