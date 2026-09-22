@@ -291,6 +291,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+    RESOURCE_TYPE_REVIEW_QUEUE,
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_SCORER_VERSION,
@@ -2911,10 +2912,34 @@ def validate_gateway_proxy():
 # (set / reopen status) requires EDIT plus membership in the queue's assigned-user
 # pool; reads require experiment READ, with per-queue visibility narrowed by
 # ``filter_list_review_queues``.
+def _review_queue_permission(queue, username: str) -> Permission:
+    """The permission governing one queue: its own grant, else the experiment it belongs to.
+
+    Returns the permission rather than a decision, because these routes blend it with queue
+    membership and ownership -- resource state, which no grant can express. The requirement
+    is therefore only ACTION_NOT_DENIED: a queue DENY resolves here and fails every branch
+    downstream, while nothing positive is demanded of a tier the caller may not use.
+    """
+    experiment = (RESOURCE_TYPE_EXPERIMENT, queue.experiment_id)
+    permissions = resolve_requirements(
+        username,
+        experiment,
+        [
+            Requirement(
+                RESOURCE_TYPE_REVIEW_QUEUE,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(experiment,),
+            )
+        ],
+    )
+    # An unresolvable workspace denies, like every other anchor failure.
+    return NO_PERMISSIONS if permissions is None else permissions[0]
+
+
 def _get_permission_from_review_queue_id() -> Permission:
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    username = authenticate_request().username
-    return _get_experiment_permission(queue.experiment_id, username)
+    return _review_queue_permission(queue, authenticate_request().username)
 
 
 def _get_permission_from_label_schema_id() -> Permission:
@@ -2940,7 +2965,7 @@ def _can_own_or_manage_review_queue(queue, username: str) -> bool:
     you own the queue (``created_by``). Ownership amplifies EDIT — it is never a
     substitute for it.
     """
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     if perm.can_manage:
         return True
     return perm.can_update and _is_review_queue_owner(queue, username)
@@ -2954,7 +2979,7 @@ def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
     """
     from mlflow.genai.review_queues import ReviewQueueType
 
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     if perm.can_manage:
         return True
     return (
@@ -3031,8 +3056,11 @@ def _reject_rename_review_queue_shadowing_user(queue, message):
 
 
 def validate_can_create_review_queue():
-    # Creating (and thereby owning) a queue requires experiment EDIT.
-    permission = _get_permission_from_experiment_id().can_update
+    # Creating (and thereby owning) a queue requires experiment EDIT, and is vetoable on the
+    # review_queue type -- the queue being created cannot itself authorize it.
+    permission = _authorize_create_in_experiment(
+        _get_request_param("experiment_id"), RESOURCE_TYPE_REVIEW_QUEUE
+    )
     # A custom queue may not take a registered username, which would shadow that
     # user's personal queue. Only enforced once the caller is authorized.
     if permission:
@@ -3048,7 +3076,7 @@ def validate_can_update_review_queue():
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     message = _parse_update_review_queue_request()
     if message.HasField("new_owner"):
-        permission = _get_experiment_permission(queue.experiment_id, username).can_manage
+        permission = _review_queue_permission(queue, username).can_manage
     else:
         permission = _can_own_or_manage_review_queue(queue, username)
     # A rename can't take a registered username either (same shadowing concern).
@@ -3102,7 +3130,7 @@ def validate_can_view_review_queue():
     # the row predicate in ``filter_list_review_queues``.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     if not perm.can_read:
         return False
     if perm.can_manage or _review_queue_has_member(queue, username):
@@ -3127,12 +3155,11 @@ def validate_can_view_review_queue_by_name():
 
 
 def validate_can_review_queue_item():
-    # Submitting / reopening review work: experiment EDIT plus membership in the
-    # queue's assigned-user pool (even a manager must assign themselves first).
-    # Fetch the queue once and resolve the experiment permission from it.
+    # Submitting / reopening review work: EDIT on the queue plus membership in its
+    # assigned-user pool (even a manager must assign themselves first).
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     return perm.can_update and _review_queue_has_member(queue, username)
 
 
