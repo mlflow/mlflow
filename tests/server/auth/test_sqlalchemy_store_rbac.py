@@ -633,6 +633,49 @@ def test_session_grants_share_tracking_transaction_when_databases_are_colocated(
         tracking_store.engine.dispose()
 
 
+@pytest.mark.parametrize("resource_type", [RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN])
+@pytest.mark.parametrize("resource_pattern", ["acme/name", "@", "@acme/", "@acme/name/extra"])
+def test_skill_registry_grant_rejects_invalid_resource_pattern(
+    store,
+    user,
+    resource_type,
+    resource_pattern,
+):
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.grant_user_permission(user.username, resource_type, resource_pattern, MANAGE.name)
+
+
+def test_skill_registry_session_grant_rejects_invalid_resource_pattern(store, user):
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "acme/name", MANAGE.name)],
+            )
+
+
+def test_skill_registry_role_permission_rejects_invalid_resource_pattern(store):
+    role = store.create_role("skill-admin", DEFAULT_WORKSPACE_NAME)
+
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.add_role_permission(role.id, RESOURCE_TYPE_SKILL, "acme/name", MANAGE.name)
+
+
+def test_skill_registry_grant_allows_resource_type_wildcard(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "*", MANAGE.name)
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id,
+            RESOURCE_TYPE_SKILL,
+            "any-skill",
+            DEFAULT_WORKSPACE_NAME,
+        )
+        == MANAGE
+    )
+
+
 def test_grant_user_permissions_in_session_rolls_back_partial_batch_on_duplicate(store, user):
     store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing-skill", READ.name)
 

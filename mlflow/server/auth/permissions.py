@@ -147,6 +147,24 @@ SKILL_REGISTRY_RESOURCE_TYPES = frozenset({
 })
 
 
+def _format_skill_registry_resource_key(organization: str | None, name: str) -> str:
+    return f"@{organization}/{name}" if organization else name
+
+
+def _parse_skill_registry_resource_key(resource_id: str) -> tuple[str, str]:
+    if resource_id.startswith("@"):
+        organization, sep, name = resource_id[1:].partition("/")
+        if sep and organization and name and "/" not in name:
+            return organization, name
+    elif resource_id and "/" not in resource_id:
+        return "", resource_id
+
+    raise MlflowException(
+        "Invalid Skill Registry resource_id. Expected 'name' or '@organization/name'.",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
 def _validate_permission(permission: str):
     if permission not in ALL_PERMISSIONS:
         raise MlflowException(

@@ -46,7 +46,10 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
+    SKILL_REGISTRY_RESOURCE_TYPES,
     Permission,
+    _format_skill_registry_resource_key,
+    _parse_skill_registry_resource_key,
     _validate_permission_for_resource_type,
     _validate_resource_type,
     get_permission,
@@ -411,6 +414,13 @@ class SqlAlchemyStore:
             "provide atomic rollback for resource rows plus grants."
         )
 
+    @staticmethod
+    def _validate_resource_pattern(resource_type: str, resource_pattern: str) -> str:
+        if resource_type in SKILL_REGISTRY_RESOURCE_TYPES and resource_pattern != "*":
+            organization, name = _parse_skill_registry_resource_key(resource_pattern)
+            return _format_skill_registry_resource_key(organization, name)
+        return resource_pattern
+
     def _begin_sqlite_transaction_before_savepoint(self, session) -> None:
         if self.db_type != SQLITE:
             return
@@ -493,6 +503,7 @@ class SqlAlchemyStore:
     ) -> None:
         self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         self._validate_session_uses_auth_database(session)
         self._begin_sqlite_transaction_before_savepoint(session)
         user = self._get_user(session, username=username)
@@ -646,6 +657,7 @@ class SqlAlchemyStore:
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_type(resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         not_found_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} not found."
@@ -691,6 +703,8 @@ class SqlAlchemyStore:
         workspace — for resources whose pattern can collide across workspaces
         (e.g. registered-model names). Admin-created roles are never touched.
         """
+        _validate_resource_type(resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
@@ -715,6 +729,9 @@ class SqlAlchemyStore:
         ``(resource_type, new_pattern)``. Used for resources whose pattern is the
         primary key and can change (e.g. registered-model rename).
         """
+        _validate_resource_type(resource_type)
+        old_pattern = self._validate_resource_pattern(resource_type, old_pattern)
+        new_pattern = self._validate_resource_pattern(resource_type, new_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
@@ -2043,6 +2060,7 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
         # other pattern would be silently ignored by the resolver, so reject it up front.
         if resource_type == RESOURCE_TYPE_WORKSPACE and resource_pattern != "*":
