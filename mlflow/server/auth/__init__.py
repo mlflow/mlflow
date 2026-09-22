@@ -287,6 +287,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_SECRET,
     RESOURCE_TYPE_LOGGED_MODEL,
     RESOURCE_TYPE_MCP_SERVER,
+    RESOURCE_TYPE_MCP_SERVER_VERSION,
     RESOURCE_TYPE_PROMPT,
     RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
@@ -805,6 +806,7 @@ _WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" 
         "registered_model",
         lambda: _get_model_registry_store().get_registered_model,
     ),
+    RESOURCE_TYPE_MCP_SERVER: ("mcp server", lambda: _get_tracking_store().get_mcp_server),
 }
 
 
@@ -820,6 +822,9 @@ def get_anchor_workspace(resource_type: str, resource_id: str) -> str | None:
         # Every resource lives in the default workspace, which is where grants are stored.
         # Skipping the tracking-store lookup keeps an artifacts-only server working.
         return DEFAULT_WORKSPACE_NAME
+    if resource_type == RESOURCE_TYPE_WORKSPACE:
+        # The anchor IS the workspace, for a create whose parent does not exist yet.
+        return workspace_context.get_request_workspace()
     entry = _WORKSPACE_FETCHER.get(resource_type)
     if entry is None:
         return None
@@ -1307,6 +1312,33 @@ def _get_gateway_model_definition_permission(model_definition_id: str) -> Permis
 
 def _get_permission_from_gateway_model_definition_id() -> Permission:
     return _get_gateway_model_definition_permission(_get_request_param("model_definition_id"))
+
+
+def _authorize_create_mcp_server_version(username: str, name: str) -> bool:
+    server = (RESOURCE_TYPE_MCP_SERVER, name)
+    return authorize(
+        username,
+        server,
+        [
+            Requirement(RESOURCE_TYPE_MCP_SERVER, name, "update"),
+            Requirement(RESOURCE_TYPE_MCP_SERVER_VERSION, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
+def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
+    # Posting a version to a server that does not exist creates BOTH, so both veto. The
+    # workspace authorizes it (validate_can_create_mcp_server) and is also the anchor, there
+    # being no parent resource to read a workspace from yet.
+    workspace = (RESOURCE_TYPE_WORKSPACE, "*")
+    return authorize(
+        username,
+        workspace,
+        [
+            Requirement(RESOURCE_TYPE_MCP_SERVER, name, ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_MCP_SERVER_VERSION, "*", ACTION_NOT_DENIED),
+        ],
+    )
 
 
 def _get_mcp_server_permission(name: str, username: str) -> Permission:
@@ -5921,7 +5953,10 @@ def _get_mcp_server_validator(
             parent_missing = not _server_exists()
             request.state.mcp_server_parent_auto_created = parent_missing
             if parent_missing:
-                return validate_can_create_mcp_server(username)
+                return validate_can_create_mcp_server(username) and _mcp_auto_create_not_denied(
+                    username, name
+                )
+            return _authorize_create_mcp_server_version(username, name)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":

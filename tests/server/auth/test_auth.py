@@ -7215,6 +7215,9 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
     monkeypatch.setattr(auth_module, "_get_mcp_server_permission", permission_helper)
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+    # Auto-creating the parent is also vetoable on the mcp_server and mcp_server_version
+    # types; that veto needs a live grants query, and this test pins the recheck lambda.
+    monkeypatch.setattr(auth_module, "_mcp_auto_create_not_denied", lambda _user, _name: True)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is True
