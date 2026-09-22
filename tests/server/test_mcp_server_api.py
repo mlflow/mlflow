@@ -12,7 +12,13 @@ from starlette.testclient import TestClient
 
 from mlflow.entities.mcp_server import MCPTool
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    PERMISSION_DENIED,
+    RESOURCE_ALREADY_EXISTS,
+    ErrorCode,
+)
+from mlflow.server.auth.permissions import MANAGE, get_permission
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
 from mlflow.server.mcp_server_api import (
     _ensure_version_create_parent_access,
@@ -383,6 +389,154 @@ def test_search_servers(client):
     r2 = client.get(PREFIX, params={"max_results": 2, "page_token": data["next_page_token"]})
     assert r2.status_code == 200
     assert len(r2.json()["mcp_servers"]) == 1
+
+
+def test_search_servers_scopes_request_before_storage(store):
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/alpha"},
+        ),
+        mock.patch("mlflow.server.auth._get_mcp_server_permission"),
+        mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    assert response.json()["mcp_servers"] == []
+    assert search.call_args.kwargs["filter_string"] == "name IN ('com.example/alpha')"
+
+
+def test_search_servers_returns_only_allowed_servers(store):
+    store.create_mcp_server(name="com.example/allowed")
+    store.create_mcp_server(name="com.example/denied")
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/allowed"},
+        ),
+        mock.patch("mlflow.server.auth._get_mcp_server_permission"),
+        mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    names = [s["name"] for s in response.json()["mcp_servers"]]
+    assert names == ["com.example/allowed"]
+
+
+def test_search_servers_returns_allowed_actions_for_authenticated_user(store):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/alpha"},
+        ),
+        mock.patch(
+            "mlflow.server.auth._get_mcp_server_permission",
+            return_value=get_permission(MANAGE.name),
+        ),
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    server = response.json()["mcp_servers"][0]
+    assert server["name"] == "com.example/alpha"
+    assert server["allowed_actions"] == ["USE", "UPDATE", "DELETE", "MANAGE"]
+
+
+def test_search_servers_returns_all_actions_for_admin(store):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "admin"
+        request.state.is_admin = True
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value=None),
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    assert response.json()["mcp_servers"][0]["allowed_actions"] == [
+        "USE",
+        "UPDATE",
+        "DELETE",
+        "MANAGE",
+    ]
+
+
+def test_search_servers_skips_storage_for_empty_auth_scope(store):
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value=set()),
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    assert response.json()["mcp_servers"] == []
+    search.assert_not_called()
+
+
+def test_search_servers_sqlite_guard_rejects_oversized_auth_scope(store):
+    # The handler imposes no arbitrary cap; SQLite's bind-variable limit surfaces
+    # as a controlled error from the store, consistent with experiment search.
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        return await call_next(request)
+
+    oversized_names = {f"com.example/server-{i}" for i in range(901)}
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=oversized_names
+        ),
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "900" in response.json()["message"]
 
 
 def test_search_servers_returns_resolved_icon_source(client):
