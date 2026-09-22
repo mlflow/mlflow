@@ -141,7 +141,7 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
-    def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
+    def backfill_spend(self, spend_by_policy: dict[str, float]) -> list[BudgetWindow]:
         """Set cumulative spend on windows from historical data.
 
         Used to seed newly created windows with spend from trace data
@@ -149,6 +149,11 @@ class BudgetTracker(ABC):
 
         Args:
             spend_by_policy: Dict mapping budget_policy_id to historical spend amount.
+
+        Returns:
+            List of windows that were newly exceeded (the seeded spend carried them past
+            their limit for the first time in this window). Used to trigger webhook
+            alerts, the same way ``record_cost`` reports a crossing made by a request.
         """
 
     @abstractmethod

@@ -220,7 +220,41 @@ def test_backfill_spend_sets_exceeded_at_exact_limit():
 def test_backfill_spend_nonexistent_is_noop():
     tracker = _make_tracker()
     tracker.refresh_policies([_make_policy()])
-    tracker.backfill_spend({"nonexistent-policy": 50.0})
+    assert tracker.backfill_spend({"nonexistent-policy": 50.0}) == []
+
+
+def test_backfill_spend_returns_the_window_it_carried_over_the_limit():
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+
+    newly_exceeded = tracker.backfill_spend({"bp-test": 150.0})
+    assert [w.policy.budget_policy_id for w in newly_exceeded] == ["bp-test"]
+    assert newly_exceeded[0].cumulative_spend == 150.0
+    assert newly_exceeded[0].exceeded is True
+
+
+def test_backfill_spend_returns_nothing_below_the_limit():
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+
+    assert tracker.backfill_spend({"bp-test": 42.5}) == []
+
+
+def test_backfill_spend_reports_a_crossing_only_once():
+    # The alert is edge-triggered, so a window already over its limit stays quiet.
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+
+    assert len(tracker.backfill_spend({"bp-test": 150.0})) == 1
+    assert tracker.backfill_spend({"bp-test": 175.0}) == []
+
+
+def test_backfill_spend_stays_quiet_when_record_cost_already_reported():
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    assert len(tracker.record_cost(120.0)) == 1
+
+    assert tracker.backfill_spend({"bp-test": 150.0}) == []
 
 
 def test_refresh_policies_returns_new_windows():

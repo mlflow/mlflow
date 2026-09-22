@@ -86,6 +86,35 @@ return {tostring(new_spend), 0}
 """
 
 
+# Lua script: seed a window's spend from trace history and set the exceeded flag,
+# returning 1 only when this call was the one that flipped it. Mirrors
+# _RECORD_COST_LUA so that a crossing first observed through backfill is reported
+# exactly once, even when several gateway processes refresh at the same time.
+_BACKFILL_SPEND_LUA = """
+local wkey = KEYS[1]
+local spend = ARGV[1]
+local limit = tonumber(ARGV[2])
+
+if redis.call('EXISTS', wkey) == 0 then
+    return 0
+end
+
+local was_exceeded = redis.call('HGET', wkey, 'exceeded')
+local exceeded = '0'
+if tonumber(spend) >= limit then
+    exceeded = '1'
+end
+
+redis.call('HSET', wkey, 'cumulative_spend', spend, 'exceeded', exceeded)
+
+if exceeded == '1' and was_exceeded ~= '1' then
+    return 1
+end
+
+return 0
+"""
+
+
 def _window_key(policy_id: str) -> str:
     return f"{_KEY_PREFIX}window:{policy_id}"
 
@@ -316,22 +345,29 @@ class RedisBudgetTracker(BudgetTracker):
 
         return False, None
 
-    def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
-        pipe = self._client.pipeline()
+    def backfill_spend(self, spend_by_policy: dict[str, float]) -> list[BudgetWindow]:
+        newly_exceeded: list[BudgetWindow] = []
 
         for budget_policy_id, spend in spend_by_policy.items():
-            wkey = _window_key(budget_policy_id)
-            if not self._client.exists(wkey):
-                continue
-
             if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
                 continue
             policy = _deserialize_policy(policy_data)
+            wkey = _window_key(budget_policy_id)
 
-            exceeded = "1" if spend >= policy.budget_amount else "0"
-            pipe.hset(wkey, mapping={"cumulative_spend": str(spend), "exceeded": exceeded})
+            # The window may be absent (never created, or expired); the script writes
+            # nothing in that case, matching the previous existence check.
+            flipped = self._client.eval(
+                _BACKFILL_SPEND_LUA,
+                1,
+                wkey,
+                str(spend),
+                str(policy.budget_amount),
+            )
 
-        pipe.execute()
+            if int(flipped) and (stored := self._client.hgetall(wkey)):
+                newly_exceeded.append(self._build_window(policy, stored))
+
+        return newly_exceeded
 
     def get_all_windows(self) -> list[BudgetWindow]:
         return [
