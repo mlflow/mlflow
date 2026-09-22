@@ -1,9 +1,11 @@
 import copy
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from dev.issue_repro_broker import (
+    CONTAINER_IMAGE,
     MAX_RUNS,
     MAX_TURNS,
     BrokerError,
@@ -12,6 +14,17 @@ from dev.issue_repro_broker import (
     ReproResult,
     run_agent,
 )
+
+
+@pytest.fixture(scope="module")
+def reproduction_image():
+    result = subprocess.run(
+        ["docker", "image", "inspect", CONTAINER_IMAGE],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        pytest.skip(f"reproduction image unavailable: {result.stderr.strip()}")
 
 
 @pytest.fixture(scope="module")
@@ -195,6 +208,76 @@ def test_runner_uses_exact_fixed_offline_secret_free_container_spec(broker, monk
     assert timeout == 60
     assert max_output == 12_000
     assert result["stdout"] == "observed\n"
+
+
+def test_real_container_is_offline_read_only_and_secret_free(reproduction_image, tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    broker = ReproductionBroker(
+        repo_root=repo_root,
+        scratch_root=scratch,
+        repository="mlflow/mlflow",
+        issue_number=42,
+        event_sha=sha,
+        checkout_sha=sha,
+    )
+    broker.execute({
+        "action": "write_scratch_repro",
+        "relative_path": "scratch/reproduce.py",
+        "content": """
+import os
+import socket
+from pathlib import Path
+
+import mlflow
+
+assert mlflow.__version__
+for key in ("ANTHROPIC_API_KEY", "GITHUB_TOKEN"):
+    assert key not in os.environ
+assert not Path("/var/run/docker.sock").exists()
+
+try:
+    socket.getaddrinfo("example.com", 443)
+except OSError:
+    pass
+else:
+    raise AssertionError("DNS unexpectedly available")
+
+try:
+    socket.create_connection(("1.1.1.1", 443), timeout=1)
+except OSError:
+    pass
+else:
+    raise AssertionError("TCP unexpectedly available")
+
+try:
+    Path("/workspace/mlflow/__init__.py").write_text("modified")
+except OSError:
+    pass
+else:
+    raise AssertionError("source checkout unexpectedly writable")
+
+print("sandbox-ok")
+""",
+    })
+
+    result = broker.execute({"action": "run_repro", "relative_path": "scratch/reproduce.py"})
+
+    assert result == {
+        "stdout": "sandbox-ok\n",
+        "stderr": "",
+        "exit_status": 0,
+        "duration_seconds": pytest.approx(result["duration_seconds"]),
+        "failure": None,
+    }
 
 
 def test_package_and_network_requests_cannot_change_fixed_argv(broker):
