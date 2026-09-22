@@ -834,7 +834,7 @@ class MlflowClient:
         prompt_tags = registry_client.get_registered_model(name)._tags
 
         # Invalidate "latest" cache entry since we just created a new version
-        PromptCache.get_instance().delete(name, alias="latest")
+        PromptCache.get_instance().delete(name, alias="latest", registry_uri=self._registry_uri)
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
@@ -1046,7 +1046,7 @@ class MlflowClient:
         # Check cache if cache_ttl_seconds > 0 (0 means no caching)
         if cache_ttl_seconds > 0:
             cache = PromptCache.get_instance()
-            cache_key = PromptCacheKey.from_uri(prompt_uri)
+            cache_key = PromptCacheKey.from_uri(prompt_uri, registry_uri=self._registry_uri)
             if cached_prompt := cache.get(cache_key):
                 return cached_prompt
 
@@ -1277,7 +1277,7 @@ class MlflowClient:
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
         # Invalidate cache for this alias since it now points to a different version
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1292,7 +1292,7 @@ class MlflowClient:
         self._get_registry_client().delete_prompt_alias(name, alias)
 
         # Invalidate cache for this alias
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1308,7 +1308,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1323,7 +1323,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -6275,7 +6275,7 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         registry_client.delete_prompt_version(name, version)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6441,7 +6441,7 @@ class MlflowClient:
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
             registry_client.delete_prompt(name)
-            PromptCache.get_instance().delete_all(name)
+            PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
             return
 
     @_disable_in_databricks()
