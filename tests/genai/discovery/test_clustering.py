@@ -74,15 +74,48 @@ def test_cluster_by_llm_respects_max_issues():
 
 
 @pytest.mark.parametrize("content", [None, "", "  ", '{"groups": []}'])
-def test_cluster_by_llm_limits_fallback_singletons(content):
+@pytest.mark.parametrize("enforce_limit", [True, False])
+def test_cluster_by_llm_limits_fallback_singletons(content, enforce_limit):
     response = MagicMock(
         choices=[MagicMock(message=MagicMock(content=content), finish_reason="stop")]
     )
     with patch("mlflow.genai.discovery.clustering._call_llm", return_value=response) as mock_call:
-        groups = cluster_by_llm([f"Failure {i}" for i in range(5)], max_issues=2, model="test")
+        groups = cluster_by_llm(
+            [f"Failure {i}" for i in range(5)],
+            max_issues=2,
+            model="test",
+            enforce_limit=enforce_limit,
+        )
 
-    assert groups == [[0], [1]]
+    assert groups == ([[0], [1]] if enforce_limit else [[0], [1], [2], [3], [4]])
     mock_call.assert_called_once()
+
+
+def test_cluster_by_llm_defers_cutoff_without_changing_prompt():
+    response = MagicMock(
+        choices=[
+            MagicMock(
+                message=MagicMock(
+                    content=json.dumps({
+                        "groups": [
+                            {"name": "Shared failure", "indices": [0, 1]},
+                            {"name": "Failure 2", "indices": [2]},
+                            {"name": "Failure 3", "indices": [3]},
+                        ]
+                    })
+                )
+            )
+        ]
+    )
+    labels = [f"Failure {i}" for i in range(5)]
+    with patch("mlflow.genai.discovery.clustering._call_llm", return_value=response) as mock_call:
+        limited = cluster_by_llm(labels, max_issues=2, model="test")
+        retained = cluster_by_llm(labels, max_issues=2, model="test", enforce_limit=False)
+
+    assert limited == [[0, 1], [2]]
+    assert retained == [[0, 1], [2], [3], [4]]
+    assert mock_call.call_count == 2
+    assert mock_call.call_args_list[0] == mock_call.call_args_list[1]
 
 
 # ---- summarize_cluster ----

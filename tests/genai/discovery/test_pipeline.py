@@ -1190,7 +1190,11 @@ def _make_dedup_response(
 
 @pytest.mark.parametrize("max_issues", [2, 3, 4])
 @pytest.mark.parametrize("empty_refinement", [False, True])
-def test_cluster_and_identify_limits_combined_refined_issues(max_issues, empty_refinement):
+@pytest.mark.parametrize("mixed_severities", [False, True])
+def test_cluster_and_identify_limits_combined_refined_issues(
+    max_issues, empty_refinement, mixed_severities, caplog, monkeypatch
+):
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
     labels = [f"Tool {i} failed" for i in range(5)]
     analyses = [
         _ConversationAnalysis(full_rationale=label, affected_trace_ids=[f"trace-{i}"])
@@ -1211,12 +1215,16 @@ def test_cluster_and_identify_limits_combined_refined_issues(max_issues, empty_r
     )
 
     def summarize(indices, *args, **kwargs):
+        severity = "high"
+        if mixed_severities:
+            severity = "high" if indices == [4] else "medium" if indices == [3] else "low"
         return create_identified_issue(
             example_indices=indices,
-            severity="not_an_issue" if indices == [2, 3, 4] else "high",
+            severity="not_an_issue" if indices == [2, 3, 4] else severity,
         )
 
     with (
+        caplog.at_level(logging.INFO, logger="mlflow.genai.discovery.pipeline"),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
             return_value=(labels, list(range(5))),
@@ -1234,7 +1242,21 @@ def test_cluster_and_identify_limits_combined_refined_issues(max_issues, empty_r
     ):
         result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
 
-    assert [issue.example_indices for issue in result] == [[0, 1], [2], [3], [4]][:max_issues]
+    expected_indices = [[0, 1], [2], [3], [4]]
+    if mixed_severities and max_issues < 4:
+        expected_indices = [[4], [3], [0, 1], [2]]
+    assert [issue.example_indices for issue in result] == expected_indices[:max_issues]
+    if max_issues < 4:
+        assert caplog.record_tuples == [
+            (
+                "mlflow.genai.discovery.pipeline",
+                logging.INFO,
+                f"Found 4 issues; retaining {max_issues} by severity and omitting "
+                f"{4 - max_issues} to respect max_issues.",
+            )
+        ]
+    else:
+        assert caplog.record_tuples == []
     mock_extract.assert_called_once()
     assert mock_summary.call_count == 5
     assert mock_cluster.call_count == 2
