@@ -1402,6 +1402,25 @@ class SqlAlchemyGatewayStoreMixin:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(policies[:max_results], next_token)
 
+    def list_budget_policies_across_workspaces(self) -> list[GatewayBudgetPolicy]:
+        """Return every budget policy, ignoring the active workspace.
+
+        The budget tracker holds one process- or Redis-wide set of windows and decides
+        per request whether a policy applies, so it has to be refreshed from every
+        workspace's policies at once. ``list_budget_policies`` is workspace-scoped, and
+        refreshing from it makes each refresh treat the other workspaces' policies as
+        deleted. Server-internal: this is not exposed through the REST API, which stays
+        workspace-scoped.
+        """
+        with self.ManagedSessionMaker() as session:
+            return [
+                bp.to_mlflow_entity()
+                for bp in session
+                .query(SqlGatewayBudgetPolicy)
+                .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
+                .all()
+            ]
+
     def sum_gateway_trace_cost(
         self,
         start_time_ms: int,

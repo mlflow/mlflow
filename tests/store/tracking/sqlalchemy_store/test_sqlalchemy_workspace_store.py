@@ -2302,6 +2302,33 @@ def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store)
         assert policies[0].target_value == "alice"
 
 
+def test_list_budget_policies_across_workspaces_ignores_the_active_workspace(
+    gateway_workspace_store,
+):
+    # The budget tracker keeps one set of windows for the whole server, so it needs every
+    # workspace's policies. The REST-facing listing stays workspace-scoped.
+    store = gateway_workspace_store
+    created = {}
+    for workspace in ("team-all-budget-a", "team-all-budget-b"):
+        with WorkspaceContext(workspace):
+            created[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    with WorkspaceContext("team-all-budget-a"):
+        assert [p.budget_policy_id for p in store.list_budget_policies()] == [
+            created["team-all-budget-a"]
+        ]
+        assert {p.budget_policy_id for p in store.list_budget_policies_across_workspaces()} == set(
+            created.values()
+        )
+        assert {p.workspace for p in store.list_budget_policies_across_workspaces()} == set(created)
+
+
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-def-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(

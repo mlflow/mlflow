@@ -14,6 +14,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.gateway.budget import (
     calculate_existing_cost_for_windows,
     check_budget_limit,
@@ -25,7 +26,9 @@ from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.workspace_context import WorkspaceContext
 
 _DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
 
@@ -77,7 +80,7 @@ _NO_TRACE_CONFIG = GatewayEndpointConfig(
 
 def _make_store(policies=None):
     store = MagicMock()
-    store.list_budget_policies.return_value = policies or []
+    store.list_budget_policies_across_workspaces.return_value = policies or []
     store.sum_gateway_trace_cost.return_value = 0.0
     return store
 
@@ -268,14 +271,51 @@ def test_fire_budget_exceeded_webhooks_with_workspace():
 
 def test_maybe_refresh_budget_policies():
     store = MagicMock()
-    store.list_budget_policies.return_value = [_make_policy()]
+    store.list_budget_policies_across_workspaces.return_value = [_make_policy()]
     store.sum_gateway_trace_cost.return_value = 0.0
 
     maybe_refresh_budget_policies(store)
 
-    store.list_budget_policies.assert_called_once()
+    store.list_budget_policies_across_workspaces.assert_called_once()
     tracker = get_budget_tracker()
     assert tracker._get_window_info("bp-test") is not None
+
+
+def test_maybe_refresh_keeps_other_workspaces_windows(tmp_path, db_uri, monkeypatch):
+    # A refresh is triggered by whichever workspace happens to send a request. It must not
+    # drop the windows belonging to the other workspaces.
+    # https://github.com/mlflow/mlflow/issues/26052
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+
+    policy_ids = {}
+    for workspace in ("budget-refresh-a", "budget-refresh-b"):
+        with WorkspaceContext(workspace):
+            policy_ids[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    tracker = get_budget_tracker()
+    with WorkspaceContext("budget-refresh-a"):
+        maybe_refresh_budget_policies(store)
+    tracker.record_cost(150.0, workspace="budget-refresh-a")
+    assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
+
+    # The refresh interval elapses and the next request happens to come from the other
+    # workspace, so the store hands the tracker only that workspace's policies.
+    tracker.invalidate()
+    with WorkspaceContext("budget-refresh-b"):
+        maybe_refresh_budget_policies(store)
+
+    assert tracker._get_window_info(policy_ids["budget-refresh-b"]) is not None
+    assert tracker._get_window_info(policy_ids["budget-refresh-a"]) is not None
+    assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
 
 
 def test_maybe_refresh_skips_when_not_needed():
@@ -284,7 +324,7 @@ def test_maybe_refresh_skips_when_not_needed():
 
     store = MagicMock()
     maybe_refresh_budget_policies(store)
-    store.list_budget_policies.assert_not_called()
+    store.list_budget_policies_across_workspaces.assert_not_called()
 
 
 # --- calculate_existing_cost_for_windows tests ---
@@ -340,7 +380,7 @@ def test_calculate_existing_cost_zero_spend_excluded():
 
 def test_refresh_triggers_backfill():
     store = MagicMock()
-    store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
+    store.list_budget_policies_across_workspaces.return_value = [_make_policy(budget_amount=100.0)]
     store.sum_gateway_trace_cost.return_value = 25.0
 
     maybe_refresh_budget_policies(store)
