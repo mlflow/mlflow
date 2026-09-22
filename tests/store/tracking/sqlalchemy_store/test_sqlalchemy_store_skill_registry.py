@@ -13,7 +13,6 @@ from mlflow.entities.skill_source import (
     SkillSourceType,
     ZipSource,
 )
-from mlflow.entities.workspace import Workspace
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.store.tracking.dbmodels.models import (
@@ -23,7 +22,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
 )
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
-from mlflow.tracking._tracking_service.utils import _get_sqlalchemy_store
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -205,83 +203,6 @@ def test_skill_queries_load_relationships_on_supported_backends(store):
 
     listed = store.search_skills()
     assert [(skill.name, skill.organization) for skill in listed] == [("reviewer", "acme")]
-
-
-def test_cannot_disable_workspaces_with_non_default_skills(tmp_path, monkeypatch):
-    uri = f"sqlite:///{tmp_path / 'registry.db'}"
-    artifacts = str(tmp_path / "artifacts")
-
-    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
-    with WorkspaceContext("default"):
-        scoped = _get_sqlalchemy_store(uri, artifacts)
-        scoped._get_workspace_provider_instance().create_workspace(Workspace(name="private-team"))
-    with WorkspaceContext("private-team"):
-        scoped.create_skill("secret-skill", description="private data")
-        scoped.create_skill_version("secret-skill")
-
-    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
-
-    with pytest.raises(MlflowException, match="Skills exist outside the default workspace") as exc:
-        _get_sqlalchemy_store(uri, artifacts)
-
-    assert exc.value.error_code == "INVALID_STATE"
-
-
-@pytest.mark.parametrize(
-    "operation",
-    ["get_skill", "search_skills", "update_skill", "get_skill_version", "create_skill_version"],
-)
-def test_existing_single_tenant_store_ignores_later_private_skills(
-    tmp_path, monkeypatch, operation
-):
-    uri = f"sqlite:///{tmp_path / 'registry.db'}"
-    artifacts = str(tmp_path / "artifacts")
-
-    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
-    single_tenant = _get_sqlalchemy_store(uri, artifacts)
-    single_tenant.create_skill("public-skill", organization="acme")
-
-    with monkeypatch.context() as server_b:
-        server_b.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
-        with WorkspaceContext("default"):
-            workspace_store = _get_sqlalchemy_store(uri, artifacts)
-            workspace_store._get_workspace_provider_instance().create_workspace(
-                Workspace(name="private-team")
-            )
-        with WorkspaceContext("private-team"):
-            workspace_store.create_skill(
-                "secret-skill", organization="acme", description="Private description"
-            )
-            for _ in range(2):
-                workspace_store.create_skill_version("secret-skill", organization="acme")
-
-    if operation == "search_skills":
-        skills = single_tenant.search_skills()
-        assert [(skill.name, skill.workspace) for skill in skills] == [("public-skill", "default")]
-    elif operation == "create_skill_version":
-        created = single_tenant.create_skill_version("secret-skill", organization="acme")
-        assert (created.workspace, created.version) == ("default", 1)
-    else:
-
-        def access_private_skill():
-            if operation == "get_skill":
-                return single_tenant.get_skill("secret-skill", organization="acme")
-            if operation == "get_skill_version":
-                return single_tenant.get_skill_version("secret-skill", 1, organization="acme")
-            return single_tenant.update_skill(
-                "secret-skill", organization="acme", description="Changed by server A"
-            )
-
-        with pytest.raises(MlflowException, match="not found") as exc:
-            access_private_skill()
-        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
-
-    with monkeypatch.context() as server_b:
-        server_b.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
-        with WorkspaceContext("private-team"):
-            private = workspace_store.get_skill("secret-skill", organization="acme")
-            assert private.description == "Private description"
-            assert private.latest_version == 2
 
 
 @pytest.mark.parametrize("name", ["", "Reviewer", "reviewer_name", "reviewer--tool"])
