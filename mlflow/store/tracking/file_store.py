@@ -358,6 +358,7 @@ class FileStore(AbstractStore):
         filter_string=None,
         order_by=None,
         page_token=None,
+        allowed_experiment_ids: list[str] | None = None,
     ):
         if not isinstance(max_results, int) or max_results < 1:
             raise MlflowException(
@@ -378,6 +379,9 @@ class FileStore(AbstractStore):
             experiment_ids += self._get_active_experiments(full_path=False)
         if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             experiment_ids += self._get_deleted_experiments(full_path=False)
+        if allowed_experiment_ids is not None:
+            allowed_ids = set(allowed_experiment_ids)
+            experiment_ids = [exp_id for exp_id in experiment_ids if exp_id in allowed_ids]
 
         experiments = []
         for exp_id in experiment_ids:

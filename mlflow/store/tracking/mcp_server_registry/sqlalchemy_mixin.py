@@ -25,7 +25,9 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.db.db_types import MYSQL
+from mlflow.store.db.db_types import MYSQL, SQLITE
+
+_SQLITE_MAX_FILTER_IN_SIZE = 900
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -1282,6 +1284,18 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
                     live_endpoint_exists if value.lower() == "true" else ~live_endpoint_exists
                 )
             else:
+                if (
+                    dialect == SQLITE
+                    and comparator in ("IN", "NOT IN")
+                    and isinstance(value, tuple)
+                    and len(value) > _SQLITE_MAX_FILTER_IN_SIZE
+                ):
+                    max_in = _SQLITE_MAX_FILTER_IN_SIZE
+                    raise MlflowException.invalid_parameter_value(
+                        f"Filter scope for '{key}' ({len(value)} values) exceeds "
+                        f"the maximum supported for SQLite-backed servers ({max_in}). "
+                        "Reduce the filter scope or migrate to a PostgreSQL backend."
+                    )
                 attr = getattr(SqlMCPServer, key)
                 attribute_filters.append(
                     SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
