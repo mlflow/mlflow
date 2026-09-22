@@ -6381,6 +6381,31 @@ def test_start_trace_merge_preserves_inferred_analytics_for_partial_metadata(
     assert result.trace_metadata["custom-metadata"] == "custom-value"
 
 
+def test_start_trace_preserves_extended_cache_creation_token_usage(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_extended_cache_creation_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=get_current_time_millis(),
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 300,
+                }),
+            },
+        )
+    )
+
+    assert result.token_usage == {
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 300,
+    }
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).cache_creation_input_tokens_above_1hr == 300
+
+
 def test_log_spans_writes_authoritative_cost_and_model_columns(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_authoritative_cost_and_model_columns")
     trace_id = f"tr-{uuid.uuid4().hex}"

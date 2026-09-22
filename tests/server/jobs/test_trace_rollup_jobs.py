@@ -88,7 +88,7 @@ def test_register_periodic_tasks_includes_locked_rollup_scheduler(monkeypatch):
     monkeypatch.delenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, raising=False)
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey, object())
+    register_periodic_tasks(huey)
 
     assert "sql_trace_rollup_scheduler" in huey.tasks
     assert huey.locks["sql_trace_rollup_scheduler"] == "sql-trace-rollup-scheduler-lock"
@@ -115,7 +115,7 @@ def test_periodic_worker_requires_explicit_backend_store(monkeypatch):
         initialize_periodic_tasks_tracking_store()
 
 
-def test_registered_periodic_services_share_injected_tracking_store(monkeypatch):
+def test_registered_periodic_services_share_tracking_store(monkeypatch):
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
     tracking_store = object()
     archival = Mock()
@@ -130,9 +130,13 @@ def test_registered_periodic_services_share_injected_tracking_store(monkeypatch)
         "mlflow.server.jobs.utils._should_run_trace_archival_scheduler", Mock(return_value=True)
     )
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollup_scheduler", rollup)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils.initialize_periodic_tasks_tracking_store",
+        Mock(return_value=tracking_store),
+    )
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey, tracking_store)
+    register_periodic_tasks(huey)
     huey.tasks["trace_archival_scheduler"][1]()
     huey.tasks["sql_trace_rollup_scheduler"][1]()
 
@@ -174,7 +178,7 @@ def test_invalid_schedule_is_ignored_when_rollups_are_disabled(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, "invalid")
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey, object())
+    register_periodic_tasks(huey)
 
     assert "online_scoring_scheduler" in huey.tasks
     assert "trace_archival_scheduler" in huey.tasks
@@ -186,7 +190,7 @@ def test_invalid_schedule_fails_registration_when_rollups_are_enabled(monkeypatc
     monkeypatch.setenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, "invalid")
 
     with pytest.raises(MlflowException, match="five-field UTC cron"):
-        register_periodic_tasks(_RecordingHuey(), object())
+        register_periodic_tasks(_RecordingHuey())
 
 
 @pytest.mark.parametrize(
@@ -214,7 +218,7 @@ def test_scheduler_noops_when_rollups_are_disabled(monkeypatch):
     maintenance.assert_not_called()
 
 
-def test_service_entrypoint_runs_without_jobs_backend(monkeypatch):
+def test_service_entrypoint_logs_historical_bootstrap(monkeypatch, caplog):
     monkeypatch.setenv(MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name, "false")
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
     engine = object()
@@ -222,8 +226,12 @@ def test_service_entrypoint_runs_without_jobs_backend(monkeypatch):
     expected = _stats()
     maintenance = Mock(return_value=expected)
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollups", maintenance)
+    monkeypatch.setattr(
+        trace_rollup_service, "sql_trace_rollup_rows_exist", Mock(return_value=False)
+    )
 
     assert run_sql_trace_rollup_scheduler(tracking_store) == expected
+    assert "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN" in caplog.text
     maintenance.assert_called_once_with(
         engine,
         max_partitions_per_run=MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get(),
@@ -251,6 +259,9 @@ def test_scheduler_delegates_to_shared_maintenance_path(monkeypatch):
     expected = _stats()
     maintenance = Mock(return_value=expected)
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollups", maintenance)
+    monkeypatch.setattr(
+        trace_rollup_service, "sql_trace_rollup_rows_exist", Mock(return_value=True)
+    )
 
     assert run_sql_trace_rollup_scheduler(tracking_store) == expected
     maintenance.assert_called_once_with(engine, max_partitions_per_run=7, max_workers=3)

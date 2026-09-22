@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import event
 from sqlalchemy.dialects import mssql, mysql, postgresql
+from sqlalchemy.orm import Session
 
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback, trace_location
 from mlflow.entities.trace_info import TraceInfo
@@ -34,6 +35,8 @@ from mlflow.store.tracking.utils.sql_trace_rollups import (
     GroupingSet,
     RollupFamily,
     _build_sql_grouped_span_cost_query,
+    _protect_rebuild_queue_read,
+    compute_covered_day_starts,
     configure_rollup_read_snapshot,
     resolve_rollup_read,
     rollup_read_is_current,
@@ -72,6 +75,10 @@ _P50_P90_P99 = [
     for value in (50, 90, 99)
 ]
 _SUM = [MetricAggregation(aggregation_type=AggregationType.SUM)]
+_MIN_MAX = [
+    MetricAggregation(aggregation_type=AggregationType.MIN),
+    MetricAggregation(aggregation_type=AggregationType.MAX),
+]
 
 
 def _day_of(timestamp_ms: int):
@@ -168,6 +175,8 @@ def _insert_trace_metric_rollup(
     *,
     sample_count,
     sum_value=None,
+    min_value=None,
+    max_value=None,
     trace_status=None,
     p50_value=None,
     p90_value=None,
@@ -183,6 +192,8 @@ def _insert_trace_metric_rollup(
                 trace_status=trace_status,
                 sample_count=sample_count,
                 sum_value=sum_value,
+                min_value=min_value,
+                max_value=max_value,
                 p50_value=p50_value,
                 p90_value=p90_value,
                 p99_value=p99_value,
@@ -748,9 +759,16 @@ def test_multi_experiment_request_falls_back_to_raw(store: SqlAlchemyStore, monk
         TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
     ],
 )
-@pytest.mark.parametrize("aggregations", [_SUM, _AVG])
-def test_token_sum_and_avg_stay_on_raw_path(
-    store: SqlAlchemyStore, monkeypatch, metric_name, aggregations
+@pytest.mark.parametrize(
+    ("aggregations", "expected_values"),
+    [
+        (_SUM, {"SUM": float(SENTINEL_COUNT)}),
+        (_AVG, {"AVG": float(SENTINEL_COUNT) / 2}),
+        (_MIN_MAX, {"MIN": 1.0, "MAX": float(SENTINEL_COUNT)}),
+    ],
+)
+def test_token_aggregations_use_rollups(
+    store: SqlAlchemyStore, monkeypatch, metric_name, aggregations, expected_values
 ):
     exp_id = _seed(store)
     _insert_trace_metric_rollup(
@@ -761,36 +779,21 @@ def test_token_sum_and_avg_stay_on_raw_path(
         GroupingSet.GLOBAL.value,
         sample_count=2,
         sum_value=float(SENTINEL_COUNT),
+        min_value=1.0,
+        max_value=float(SENTINEL_COUNT),
     )
 
-    # Token values are authoritative BIGINTs, but the current rollup sum is a float. The raw rows
-    # in this fixture are null, so consulting the sentinel rollup would incorrectly emit a point.
-    _assert_enabled_equals_raw(
+    _set_enabled(monkeypatch, True)
+    served = _query(
         store,
-        monkeypatch,
         exp_id,
         MetricViewType.TRACES,
         metric_name,
         aggregations,
         None,
     )
-
-
-def test_debug_log_explains_planner_fallback(store: SqlAlchemyStore, monkeypatch, caplog):
-    exp_id = _seed(store)
-    _set_enabled(monkeypatch, True)
-
-    with caplog.at_level(logging.DEBUG, logger="mlflow.store.tracking.utils.sql_trace_rollups"):
-        _query(
-            store,
-            exp_id,
-            MetricViewType.TRACES,
-            TraceMetricKey.INPUT_TOKENS,
-            _SUM,
-            None,
-        )
-
-    assert "token SUM and AVG require the authoritative BIGINT values" in caplog.text
+    assert len(served) == 1
+    assert dict(served[0][1]) == expected_values
 
 
 def test_debug_log_summarizes_missing_coverage(store: SqlAlchemyStore, monkeypatch, caplog):
@@ -988,6 +991,33 @@ def test_unbucketed_avg_uses_sum_and_count_contributions(store: SqlAlchemyStore,
     )
 
 
+def test_min_max_merge_rollup_and_raw_contributions(store: SqlAlchemyStore, monkeypatch):
+    exp_id = _seed(store)
+    _insert_trace_metric_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        TraceMetricKey.LATENCY,
+        GroupingSet.GLOBAL.value,
+        sample_count=2,
+        sum_value=400.0,
+        min_value=100.0,
+        max_value=300.0,
+    )
+
+    _assert_enabled_equals_raw(
+        store,
+        monkeypatch,
+        exp_id,
+        MetricViewType.TRACES,
+        TraceMetricKey.LATENCY,
+        _MIN_MAX,
+        None,
+        end=DAY_B_START + 10_000,
+        time_interval=None,
+    )
+
+
 def test_null_only_early_bucket_does_not_consume_max_results(store: SqlAlchemyStore, monkeypatch):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     _new_trace(store, exp_id, DAY_A_START + 5_000, duration_ms=None)
@@ -1012,6 +1042,49 @@ def test_null_only_early_bucket_does_not_consume_max_results(store: SqlAlchemySt
         None,
         start=DAY_A_START,
         end=DAY_B_START + MS_PER_DAY - 1,
+        max_results=1,
+    )
+
+
+def test_null_span_dimension_does_not_consume_max_results(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_A_START + 5_000,
+        span_time_ms=DAY_A_START + 5_000,
+        total_cost=0.25,
+        model_name=None,
+    )
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_A_START + 6_000,
+        span_time_ms=DAY_A_START + 6_000,
+        total_cost=0.75,
+        model_name="model",
+    )
+    _insert_span_cost_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        SpanMetricKey.TOTAL_COST,
+        GroupingSet.MODEL.value,
+        sample_count=1,
+        sum_value=0.75,
+        model_name="model",
+    )
+
+    _assert_enabled_equals_raw(
+        store,
+        monkeypatch,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        _SUM,
+        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
         max_results=1,
     )
 
@@ -1226,6 +1299,59 @@ def test_span_string_grouping_merges_rollup_and_raw_gap_in_sql(
         ],
         end=DAY_B_START + 10_000,
         time_interval=time_interval,
+    )
+
+
+def test_span_string_grouping_excludes_null_raw_gap_before_limit(
+    store: SqlAlchemyStore, monkeypatch
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_A_START + 5_000,
+        span_time_ms=DAY_A_START + 5_000,
+        total_cost=0.5,
+        model_name="covered",
+    )
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_B_START + 5_000,
+        span_time_ms=DAY_B_START + 5_000,
+        total_cost=0.75,
+        model_name=None,
+    )
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_B_START + 6_000,
+        span_time_ms=DAY_B_START + 6_000,
+        total_cost=1.25,
+        model_name="raw",
+    )
+    _insert_span_cost_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        SpanMetricKey.TOTAL_COST,
+        GroupingSet.MODEL.value,
+        sample_count=1,
+        sum_value=0.5,
+        model_name="covered",
+    )
+
+    _assert_enabled_equals_raw(
+        store,
+        monkeypatch,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        _SUM,
+        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
+        end=DAY_B_START + 10_000,
+        time_interval=None,
+        max_results=1,
     )
 
 
@@ -1576,6 +1702,69 @@ def test_rollup_snapshot_configures_repeatable_read(monkeypatch):
     configure_rollup_read_snapshot(SessionSpy(), "postgresql")
 
     assert calls == [{"execution_options": {"isolation_level": "REPEATABLE READ"}}]
+
+
+def test_mssql_coverage_read_holds_rebuild_queue_key_range():
+    query = Session().query(SqlTraceRollupRebuild.rollup_day)
+
+    statement = _protect_rebuild_queue_read(query, "mssql").statement.compile(
+        dialect=mssql.dialect()
+    )
+
+    assert "WITH (HOLDLOCK)" in str(statement)
+
+
+def test_coverage_checks_rebuild_queue_before_rollup_rows(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+):
+    exp_id = _seed(store)
+    _insert_trace_metric_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        TraceMetricKey.TRACE_COUNT,
+        GroupingSet.GLOBAL.value,
+        sample_count=2,
+    )
+    _set_enabled(monkeypatch, True)
+    plan = resolve_rollup_read(
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=_COUNT,
+        dimensions=None,
+        filters=None,
+        time_interval_seconds=DAILY_INTERVAL_SECONDS,
+        start_time_ms=DAY_A_RANGE[0],
+        end_time_ms=DAY_A_RANGE[1],
+        experiment_ids=[int(exp_id)],
+        db_type=store.db_type,
+    )
+    assert plan is not None
+
+    statements = []
+
+    def capture_select(_, __, statement, ___, ____, _____):
+        if statement.lstrip().lower().startswith("select"):
+            statements.append(statement.lower())
+
+    event.listen(store.engine, "before_cursor_execute", capture_select)
+    try:
+        with store.ManagedSessionMaker() as session:
+            assert compute_covered_day_starts(session, plan) == [DAY_A_START]
+    finally:
+        event.remove(store.engine, "before_cursor_execute", capture_select)
+
+    queue_read = next(
+        index
+        for index, statement in enumerate(statements)
+        if "from sql_trace_rollup_rebuild_queue" in statement
+    )
+    rollup_read = next(
+        index
+        for index, statement in enumerate(statements)
+        if "from sql_trace_metric_daily_rollups" in statement
+    )
+    assert queue_read < rollup_read
 
 
 def test_sqlite_rollup_snapshot_stays_stable_through_completed_rebuild(

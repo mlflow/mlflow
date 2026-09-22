@@ -9,14 +9,17 @@ from mlflow.store.db.trace_analytics import (
     DEFAULT_DDL_LOCK_TIMEOUT_SECONDS,
     ensure_analytics_columns,
 )
+from mlflow.store.db.trace_analytics_backfill_75868b020152 import (
+    COST_COLUMNS,
+    TOKEN_COLUMNS,
+    finite_float_or_none,
+    json_object,
+    token_count_or_none,
+    trace_analytics_values,
+)
 from mlflow.store.tracking.utils.trace_analytics import (
-    COST_COLUMN_BY_KEY,
-    TOKEN_COLUMN_BY_KEY,
-    _json_object,
     assessment_aggregate,
     bounded_model_dimension,
-    finite_float_or_none,
-    token_count_or_none,
 )
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -26,11 +29,16 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 
+# Backward-compatible names for the revision-frozen mappings used below.
+TOKEN_COLUMN_BY_KEY = TOKEN_COLUMNS
+COST_COLUMN_BY_KEY = COST_COLUMNS
+_json_object = json_object
+
 # Must equal the down_revision of the trace analytics migration (75868b020152): prepopulation runs
-# on a database sitting at exactly that revision, then the migration finishes. Kept as a literal so
-# this app module does not import a migration. A parity test
-# (test_prepopulation_revision_matches_migration_down_revision) keeps it aligned after a rebase
-# reparents the migration.
+# on a database sitting at exactly that revision, then the migration finishes. The companion
+# backfill module is frozen with that revision, while this literal keeps the app module independent
+# of Alembic migration imports. A parity test keeps it aligned after a rebase reparents the
+# migration.
 PREPOPULATION_SCHEMA_REVISION = "b7e2c1a4d9f3"
 DEFAULT_BATCH_SIZE = 250
 DEFAULT_PROGRESS_EVERY_BATCHES = 100
@@ -38,11 +46,11 @@ DEFAULT_PROGRESS_EVERY_BATCHES = 100
 _TRACE_VALUE_COLUMNS = (
     "trace_name",
     "session_id",
-    *TOKEN_COLUMN_BY_KEY.values(),
-    *COST_COLUMN_BY_KEY.values(),
+    *TOKEN_COLUMNS.values(),
+    *COST_COLUMNS.values(),
 )
 _SPAN_VALUE_COLUMNS = (
-    *COST_COLUMN_BY_KEY.values(),
+    *COST_COLUMNS.values(),
     "model_name",
     "model_provider",
 )
@@ -166,17 +174,17 @@ def analytics_columns_from_metadata(
             metadata[TraceMetadataKey.TRACE_SESSION], MAX_CHARS_IN_TRACE_INFO_METADATA
         )
     if TraceMetadataKey.TOKEN_USAGE in metadata:
-        token_usage = _json_object(metadata[TraceMetadataKey.TOKEN_USAGE])
+        token_usage = json_object(metadata[TraceMetadataKey.TOKEN_USAGE])
         columns.update({
             column: token_count_or_none(token_usage[key])
-            for key, column in TOKEN_COLUMN_BY_KEY.items()
+            for key, column in TOKEN_COLUMNS.items()
             if key in token_usage
         })
     if TraceMetadataKey.COST in metadata:
-        cost = _json_object(metadata[TraceMetadataKey.COST])
+        cost = json_object(metadata[TraceMetadataKey.COST])
         columns.update({
             column: finite_float_or_none(cost[key])
-            for key, column in COST_COLUMN_BY_KEY.items()
+            for key, column in COST_COLUMNS.items()
             if key in cost
         })
     return columns
@@ -245,12 +253,10 @@ def _trace_batch(
     for row in connection.execute(
         sa.select(trace_metrics.c.request_id, trace_metrics.c.key, trace_metrics.c.value).where(
             trace_metrics.c.request_id.in_(trace_ids),
-            trace_metrics.c.key.in_(list(TOKEN_COLUMN_BY_KEY)),
+            trace_metrics.c.key.in_(list(TOKEN_COLUMNS)),
         )
     ):
-        metrics_by_trace[row.request_id][TOKEN_COLUMN_BY_KEY[row.key]] = token_count_or_none(
-            row.value
-        )
+        metrics_by_trace[row.request_id][TOKEN_COLUMNS[row.key]] = token_count_or_none(row.value)
 
     update_statement = (
         trace_info
@@ -264,9 +270,11 @@ def _trace_batch(
         expected["trace_name"] = _bounded_string_or_none(
             trace_names[row.request_id], MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
         )
-        expected.update(analytics_columns_from_metadata(metadata_by_trace[row.request_id]))
-        for column, value in metrics_by_trace[row.request_id].items():
-            expected[column] = value
+        expected.update(
+            trace_analytics_values(
+                metadata_by_trace[row.request_id], metrics_by_trace[row.request_id]
+            )
+        )
         if not _values_match(row, expected):
             updates.append({"request_id_param": row.request_id, **expected})
 
@@ -303,11 +311,11 @@ def _span_metrics_for_keys_query(
                     ),
                 )
             )
-            .where(span_metrics.c.key.in_(list(COST_COLUMN_BY_KEY)))
+            .where(span_metrics.c.key.in_(list(COST_COLUMNS)))
         )
     return sa.select(*columns).where(
         sa.tuple_(span_metrics.c.trace_id, span_metrics.c.span_id).in_(span_keys),
-        span_metrics.c.key.in_(list(COST_COLUMN_BY_KEY)),
+        span_metrics.c.key.in_(list(COST_COLUMNS)),
     )
 
 
@@ -344,7 +352,7 @@ def _span_batch(
     ):
         span_key = (row.trace_id, row.span_id)
         if span_key in metrics_by_span:
-            metrics_by_span[span_key][COST_COLUMN_BY_KEY[row.key]] = finite_float_or_none(row.value)
+            metrics_by_span[span_key][COST_COLUMNS[row.key]] = finite_float_or_none(row.value)
 
     update_statement = (
         spans
@@ -358,7 +366,7 @@ def _span_batch(
     updates = []
     for row in rows:
         span_key = (row.trace_id, row.span_id)
-        dimensions = _json_object(row.dimension_attributes)
+        dimensions = json_object(row.dimension_attributes)
         expected = dict.fromkeys(_SPAN_VALUE_COLUMNS)
         expected.update(metrics_by_span[span_key])
         expected["model_name"] = bounded_model_dimension(dimensions.get(SpanAttributeKey.MODEL))

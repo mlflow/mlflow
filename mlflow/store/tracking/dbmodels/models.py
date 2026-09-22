@@ -861,6 +861,10 @@ class SqlTraceInfo(Base):
     """
     Denormalized cache-creation token usage used by trace analytics queries.
     """
+    cache_creation_input_tokens_above_1hr = Column(BigInteger, nullable=True)
+    """
+    Denormalized extended-TTL cache-creation token usage used by trace analytics queries.
+    """
     input_cost = Column(Float(precision=53), nullable=True)
     """
     Denormalized trace input cost used by trace analytics queries.
@@ -981,7 +985,12 @@ class SqlTraceMetadata(Base):
 class SqlTraceMetricDailyRollup(Base):
     __tablename__ = "sql_trace_metric_daily_rollups"
 
-    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -1011,13 +1020,18 @@ class SqlTraceMetricDailyRollup(Base):
 class SqlSpanCostDailyRollup(Base):
     __tablename__ = "sql_span_cost_daily_rollups"
 
-    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
     grouping_set = Column(String(50), nullable=False)
-    model_name = Column(String(500), nullable=True)
-    model_provider = Column(String(500), nullable=True)
+    model_name = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
+    model_provider = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
     sample_count = Column(BigInteger, nullable=False)
     sum_value = Column(Float(precision=53), nullable=True)
     min_value = Column(Float(precision=53), nullable=True)
@@ -1041,7 +1055,12 @@ class SqlSpanCostDailyRollup(Base):
 class SqlAssessmentDailyRollup(Base):
     __tablename__ = "sql_assessment_daily_rollups"
 
-    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -2280,11 +2299,11 @@ class SqlSpan(Base):
     """
     Denormalized total cost used by span analytics queries.
     """
-    model_name = Column(String(500), nullable=True)
+    model_name = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
     """
     Denormalized model name used by span cost analytics queries.
     """
-    model_provider = Column(String(500), nullable=True)
+    model_provider = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
     """
     Denormalized model provider used by span cost analytics queries.
     """

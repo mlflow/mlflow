@@ -512,6 +512,7 @@ CREATE TABLE trace_info (
 	total_tokens BIGINT,
 	cache_read_input_tokens BIGINT,
 	cache_creation_input_tokens BIGINT,
+	cache_creation_input_tokens_above_1hr BIGINT,
 	input_cost FLOAT,
 	output_cost FLOAT,
 	total_cost FLOAT,
@@ -860,4 +861,3 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
-

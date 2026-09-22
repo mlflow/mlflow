@@ -118,6 +118,13 @@ def run_sql_trace_rollup_scheduler(tracking_store) -> RollupBuildStats | None:
         _logger.info("SQL trace rollup scheduler skipped because the tracking store is not SQL.")
         return None
 
+    if not sql_trace_rollup_rows_exist(engine):
+        _logger.info(
+            "Starting SQL trace rollup bootstrap for historical data. This may take multiple "
+            "scheduled maintenance runs depending on the amount of existing data and "
+            "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN."
+        )
+
     stats = run_sql_trace_rollups(
         engine,
         max_partitions_per_run=MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get(),

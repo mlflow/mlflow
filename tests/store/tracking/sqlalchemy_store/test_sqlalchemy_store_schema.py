@@ -47,8 +47,12 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     for generated_schema_table, expected_schema_table in zip(
         generated_schema_table_chunks, expected_schema_table_chunks
     ):
-        generated_lines = [x.strip() for x in sorted(generated_schema_table.split("\n"))]
-        expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
+        generated_lines = [
+            line.strip() for line in sorted(generated_schema_table.split("\n")) if line.strip()
+        ]
+        expected_lines = [
+            line.strip() for line in sorted(expected_schema_table.split("\n")) if line.strip()
+        ]
         assert generated_lines == expected_lines, (
             "Generated schema did not match expected schema. Generated schema had table "
             f"definition:\n{generated_schema_table}\nExpected schema had table definition:"

@@ -830,18 +830,16 @@ def initialize_periodic_tasks_tracking_store():
     return tracking_store
 
 
-def register_periodic_tasks(huey_instance, tracking_store=None) -> None:
+def register_periodic_tasks(huey_instance) -> None:
     """
     Register all periodic tasks with the given huey instance.
 
     Args:
         huey_instance: The huey instance to register tasks with.
-        tracking_store: Optional pre-initialized store, primarily for tests. Production workers
-            initialize it lazily on the first store-dependent task poll.
     """
     from huey import crontab
 
-    cached_tracking_store = tracking_store
+    cached_tracking_store = None
 
     def get_tracking_store():
         nonlocal cached_tracking_store
