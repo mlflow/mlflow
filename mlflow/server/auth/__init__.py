@@ -2878,19 +2878,16 @@ def _bulk_requirements(
     # child it is inherent, since child grain is wildcard-only so every item consults the same
     # (child, "*") key and no per-item variation is expressible. Keys deduplicate to one per
     # distinct parent plus one child, so this is ONE grants query whatever the item count.
+    #
+    # Anchored on the WORKSPACE, so no id is fetched: the question here is whether a grant permits
+    # the action on each named id, not whether that id exists. An id with no grant is denied by
+    # _absent_permission; an id a wildcard grant covers is authorized whether or not it resolves,
+    # and the workspace-scoped tracking store is what keeps the response to this workspace. That
+    # also makes every id uniform -- anchoring on one of them would have existence-checked that one
+    # and not the rest.
     distinct = list(dict.fromkeys(str(experiment_id) for experiment_id in experiment_ids))
     if not distinct:
         # An unscoped bulk request denies, as each of these routes already did.
-        return None
-    # EVERY id is resolved, not just the anchor. Today each one goes through
-    # _get_experiment_permission, whose workspace lookup denies a nonexistent experiment; treating
-    # the rest as bare grant keys would let a bogus id ride on _absent_permission wherever
-    # grant_default_workspace_access supplies a readable default. Lookups are TTL-cached, so this
-    # costs no more than the per-item resolution it replaces.
-    if any(
-        get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id) is None
-        for experiment_id in distinct
-    ):
         return None
     requirements: list[Requirement] = []
     for experiment_id in distinct:
@@ -2899,7 +2896,7 @@ def _bulk_requirements(
         requirements.append(
             Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))
         )
-    return (RESOURCE_TYPE_EXPERIMENT, distinct[0]), requirements
+    return (RESOURCE_TYPE_WORKSPACE, "*"), requirements
 
 
 def _authorize_bulk(experiment_ids: "Sequence[str]", child_type: str, action: str) -> bool:
