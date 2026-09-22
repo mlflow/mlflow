@@ -3490,6 +3490,89 @@ def test_read_predicate_keeps_the_workspace_admin_bypass(workspace_permission_se
     assert predicate("exp-1")
 
 
+# =============================================================================
+# Bulk routes (design doc §5g): many resources in one request, one requirement
+# pair per distinct parent. Follow-up item 4.
+# =============================================================================
+
+
+def test_bulk_trace_read_honors_a_trace_deny(workspace_permission_setup):
+    """``SearchTraces`` resolved each experiment with ``_get_experiment_permission``, so the trace
+    tier was never consulted and ``(trace, *, DENY)`` did not stop it.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("trace", "*", DENY.name),
+    ])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces", query_string=[("experiment_ids", "exp-1")]
+    ):
+        assert not auth_module.validate_can_search_traces()
+
+
+def test_bulk_trace_read_inherits_from_the_experiment(workspace_permission_setup):
+    """No trace grant: the experiment tier still governs, for every id."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces",
+        query_string=[("experiment_ids", "exp-1"), ("experiment_ids", "exp-2")],
+    ):
+        assert auth_module.validate_can_search_traces()
+
+
+def test_bulk_trace_read_is_all_or_nothing_on_the_parent(workspace_permission_setup):
+    """Master's documented all-or-nothing over distinct parents, preserved: one unreadable
+    experiment fails the whole request rather than being filtered out.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", READ.name)])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces",
+        query_string=[("experiment_ids", "exp-1"), ("experiment_ids", "exp-2")],
+    ):
+        assert not auth_module.validate_can_search_traces()
+
+
+def test_bulk_metric_history_honors_a_run_deny(workspace_permission_setup):
+    """The same shape one tier over: bulk metric history resolves RUNS, so the run tier vetoes."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("run", "*", DENY.name),
+    ])
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow/metrics/get-history-bulk", query_string=[("run_id", "run-1")]
+    ):
+        assert not auth_module.validate_can_read_metric_history_bulk()
+
+
+def test_bulk_metric_history_inherits_from_the_experiment(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+        query_string=[("run_id", "run-1"), ("run_id", "run-2")],
+    ):
+        assert auth_module.validate_can_read_metric_history_bulk()
+
+
 def test_list_user_role_permissions_workspace_is_default_when_workspaces_disabled(
     tmp_path, monkeypatch
 ):

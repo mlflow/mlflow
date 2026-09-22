@@ -2789,10 +2789,7 @@ def validate_can_read_trace_by_trace_id():
 
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_search_traces_v3():
@@ -2808,10 +2805,7 @@ def validate_can_search_traces_v3():
         if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
         if (eid := ml_exp.get("experiment_id"))
     ]
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_batch_get_traces():
@@ -2826,17 +2820,14 @@ def validate_can_batch_get_traces():
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
     else:
         trace_ids = (request.json or {}).get("trace_ids", [])
-    username = authenticate_request().username
     tracking_store = _get_tracking_store()
     try:
-        experiment_ids = {tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids}
+        experiment_ids = [tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids]
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_delete_traces():
@@ -2877,6 +2868,46 @@ def validate_can_update_trace_by_trace_id():
 
 def validate_can_update_trace_by_request_id():
     return _authorize_trace(_get_request_param("request_id"), "update")
+
+
+def _bulk_requirements(
+    experiment_ids: "Sequence[str]", child_type: str, action: str
+) -> "tuple[tuple[str, str], list[Requirement]] | None":
+    # One requirement PAIR per distinct parent, ANDed by authorize. All-or-nothing holds on both
+    # axes for different reasons: on the parent it is master's behaviour here, preserved; on the
+    # child it is inherent, since child grain is wildcard-only so every item consults the same
+    # (child, "*") key and no per-item variation is expressible. Keys deduplicate to one per
+    # distinct parent plus one child, so this is ONE grants query whatever the item count.
+    distinct = list(dict.fromkeys(str(experiment_id) for experiment_id in experiment_ids))
+    if not distinct:
+        # An unscoped bulk request denies, as each of these routes already did.
+        return None
+    # EVERY id is resolved, not just the anchor. Today each one goes through
+    # _get_experiment_permission, whose workspace lookup denies a nonexistent experiment; treating
+    # the rest as bare grant keys would let a bogus id ride on _absent_permission wherever
+    # grant_default_workspace_access supplies a readable default. Lookups are TTL-cached, so this
+    # costs no more than the per-item resolution it replaces.
+    if any(
+        get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id) is None
+        for experiment_id in distinct
+    ):
+        return None
+    requirements: list[Requirement] = []
+    for experiment_id in distinct:
+        experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+        requirements.append(Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"))
+        requirements.append(
+            Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))
+        )
+    return (RESOURCE_TYPE_EXPERIMENT, distinct[0]), requirements
+
+
+def _authorize_bulk(experiment_ids: "Sequence[str]", child_type: str, action: str) -> bool:
+    resolved = _bulk_requirements(experiment_ids, child_type, action)
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(authenticate_request().username, anchor, requirements)
 
 
 def validate_can_create_logged_model():
@@ -2956,10 +2987,7 @@ def validate_can_start_trace():
 
 def validate_can_read_traces_by_experiment_ids():
     experiment_ids = (request.json or {}).get("experiment_ids", [])
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_start_trace_v3():
@@ -2977,28 +3005,23 @@ def validate_can_start_trace_v3():
 
 def validate_can_link_traces_to_run():
     tracking_store = _get_tracking_store()
-    username = authenticate_request().username
     run_id = _get_request_param("run_id")
-    try:
-        run = tracking_store.get_run(run_id)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return False
-        raise
-    if not _get_experiment_permission(run.info.experiment_id, username).can_update:
+    # Two tiers, so two decisions: linking WRITES the run and READS each trace. The run half
+    # reuses the run-tier chain, which fetches the run itself -- a missing one denies there, as
+    # this route's own lookup used to -- and carries the experiment READ baseline. The trace half
+    # is the bulk shape over the traces' own experiments, which need not be the run's.
+    if not _authorize_run_id(run_id, "update"):
         return False
     trace_ids = (request.json or {}).get("trace_ids", [])
     try:
-        trace_experiment_ids = {
+        trace_experiment_ids = [
             tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
-        }
+        ]
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(trace_experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in trace_experiment_ids
-    )
+    return _authorize_bulk(trace_experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -3016,26 +3039,12 @@ def validate_can_read_metric_history_bulk(run_ids=None):
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
     tracking_store = _get_tracking_store()
-
-    for run_id in run_ids:
-        run = tracking_store.get_run(run_id)
-        experiment_id = run.info.experiment_id
-        permission = _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
-        if not permission.can_read:
-            return False
-
-    return True
+    # A missing run still RAISES here rather than denying, as it always has on this route -- the
+    # 403-not-404 reasoning applies to routes that resolve a single named resource, not to a bulk
+    # read whose ids the caller already holds.
+    experiment_ids = [tracking_store.get_run(run_id).info.experiment_id for run_id in run_ids]
+    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_RUN, "read")
 
 
 def validate_can_read_metric_history_bulk_interval():
