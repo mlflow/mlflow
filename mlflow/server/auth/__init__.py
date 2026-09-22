@@ -841,7 +841,6 @@ def requirements_to_grant_load_keys(
 
 
 def _is_workspace_admin_grant(grant: "RoleGrantRow") -> bool:
-    """A ``(workspace, *, MANAGE)`` grant -- the workspace-admin shape."""
     return (
         grant.resource_type == RESOURCE_TYPE_WORKSPACE
         and grant.resource_pattern == "*"
@@ -850,13 +849,8 @@ def _is_workspace_admin_grant(grant: "RoleGrantRow") -> bool:
 
 
 def _fold_grants_for_key(grants: "Sequence[RoleGrantRow]", key: GrantLoadKey) -> Permission | None:
-    """Fold the grants matching ONE key into a single permission, or ``None`` if the
-    caller holds no grant on that key.
-
-    A user can hold several roles, so several rows can match: ``DENY`` among them wins
-    outright, otherwise the highest. ``None`` is not "no access" -- it means silent, and
-    only the caller knows whether a fallback key or the default should speak next.
-    """
+    # None means SILENT, not "no access": only the fold across keys knows whether a
+    # fallback key or the default should speak next.
     denied = False
     best: str | None = None
     for grant in grants:
@@ -918,13 +912,8 @@ def get_anchor_workspace(resource_type: str, resource_id: str) -> str | None:
 
 
 def _absent_permission(workspace_name: str) -> Permission:
-    """What a caller with no grant on any of a requirement's keys resolves to.
-
-    The configured default where the caller inherits it, otherwise ``NO_PERMISSIONS``.
-    Same rule as the point path: with workspaces enabled, an absent grant is a denial
-    unless the operator opted into ``grant_default_workspace_access`` for the default
-    workspace, so a resource-not-found never silently becomes a default grant.
-    """
+    # With workspaces enabled an absent grant is a denial unless the operator opted into
+    # grant_default_workspace_access, so a resource-not-found never becomes a default grant.
     default_applies = not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(
         workspace_name
     )
@@ -932,11 +921,8 @@ def _absent_permission(workspace_name: str) -> Permission:
 
 
 def _floor_positive_permission(perm: Permission) -> Permission:
-    """A matching positive grant never resolves below ``default_permission``.
-
-    ``DENY`` and the legacy ``NO_PERMISSIONS`` sentinel are preserved: flooring a veto up
-    to the default would silently void it.
-    """
+    # A positive grant never resolves below default_permission. DENY and the legacy
+    # NO_PERMISSIONS sentinel are exempt: flooring a veto to the default would void it.
     if perm.name in (NO_PERMISSIONS.name, DENY.name):
         return perm
     return get_permission(max_permission(perm.name, auth_config.default_permission))
@@ -1492,17 +1478,8 @@ def validate_can_read_run():
 def _run_requirement(
     run_id: str, action: str
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
-    """The anchor and requirements for an operation on one run.
-
-    RFC 0000 re-points the run routes from the experiment tier to the run tier. The run is
-    the operation's whole subject, so it is a single requirement whose fallback ends at the
-    experiment the pre-existing check used: an absent run grant inherits the experiment
-    (master parity), a positive run grant authorizes on its own (escalation), and a run
-    ``DENY`` refuses regardless of the experiment (restriction).
-
-    ``None`` when the run cannot be resolved, so callers fail closed rather than letting a
-    resource-not-found become a default grant.
-    """
+    # None when the run cannot be resolved, so callers fail closed instead of letting a
+    # resource-not-found fall through to default_permission.
     try:
         run = _get_tracking_store().get_run(run_id)
     except MlflowException:
@@ -1527,14 +1504,9 @@ def validate_can_update_run():
 
 
 def _authorize_create_in_experiment(experiment_id: str, created_type: str) -> bool:
-    """Authorize creating ``created_type`` inside ``experiment_id``.
-
-    The experiment authorizes the creation, as it does today. The created type carries a
-    VETO so ``(created_type, "*", DENY)`` still prevents it -- the operator lever the
-    sub-resource RFC wants -- without a wildcard child grant being able to CONFER
-    workspace-wide create rights, which is what re-pointing a create to the child tier
-    would do.
-    """
+    # The experiment authorizes creation; the created type only VETOES. Child grants are
+    # wildcard-only grain, so a positive requirement on created_type would let one grant
+    # confer create rights in every experiment in the workspace.
     anchor = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     return authorize(
         authenticate_request().username,
@@ -2726,13 +2698,8 @@ def validate_can_delete_traces():
 
 
 def _authorize_trace(trace_id: str, action: str) -> bool:
-    """Authorize an operation on one existing trace, on the trace tier.
-
-    RFC 0000 re-points the trace routes from the experiment tier to the trace tier, with
-    the trace's experiment as fallback. An unresolvable trace denies: the pre-existing
-    resolver returned NO_PERMISSIONS for a missing trace, and failing closed here keeps
-    that, so a deleted trace never becomes a default grant.
-    """
+    # An unresolvable trace denies, as the pre-existing resolver did (it returned
+    # NO_PERMISSIONS), so a deleted trace never becomes a default grant.
     try:
         experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
     except MlflowException:
@@ -2760,7 +2727,6 @@ def validate_can_create_logged_model():
 
 
 def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | None":
-    """The anchor and experiment id for an assessment's trace, or ``None`` to fail closed."""
     try:
         experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
     except MlflowException:
