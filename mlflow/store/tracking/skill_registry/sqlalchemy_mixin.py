@@ -20,6 +20,10 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillVersion
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
+from mlflow.store.tracking.skill_registry.constants import (
+    SKILL_VERSION_DIGEST_LENGTH,
+    SKILL_VERSION_SOURCE_MAX_LENGTH,
+)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -69,18 +73,22 @@ class SqlAlchemySkillRegistryMixin:
             ("ref", ref),
             ("subpath", subpath),
         ):
-            if value is not None and (not isinstance(value, str) or len(value) > 2048):
+            if value is not None and (
+                not isinstance(value, str) or len(value) > SKILL_VERSION_SOURCE_MAX_LENGTH
+            ):
                 raise MlflowException.invalid_parameter_value(
-                    f"Skill version {field_name} must be a string of at most 2048 characters."
+                    f"Skill version {field_name} must be a string of at most "
+                    f"{SKILL_VERSION_SOURCE_MAX_LENGTH} characters."
                 )
 
         if digest is not None and (
             not isinstance(digest, str)
-            or len(digest) != 64
+            or len(digest) != SKILL_VERSION_DIGEST_LENGTH
             or any(character not in "0123456789abcdef" for character in digest)
         ):
             raise MlflowException.invalid_parameter_value(
-                "Skill version digest must be a 64-character lowercase hexadecimal string."
+                "Skill version digest must be a "
+                f"{SKILL_VERSION_DIGEST_LENGTH}-character lowercase hexadecimal string."
             )
 
         if ref is not None and parsed_source_type not in (None, SkillSourceType.GIT):
