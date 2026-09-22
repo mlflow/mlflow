@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -83,4 +83,55 @@ class SkillRegistryMixin:
         version: int,
         organization: str = "",
     ) -> SkillVersion:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_skill_version_by_alias(
+        self,
+        name: str,
+        alias: str,
+        organization: str = "",
+    ) -> SkillVersion:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_latest_skill_version(
+        self,
+        name: str,
+        organization: str = "",
+    ) -> SkillVersion:
+        """Retrieve the version resolved as latest for a skill."""
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_skill_version(
+        self,
+        name: str,
+        version: int,
+        organization: str = "",
+        status: SkillStatus | None = NOT_SET,
+    ) -> SkillVersion:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_skill_version(
+        self,
+        name: str,
+        version: int,
+        organization: str = "",
+    ) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_skill_alias(
+        self,
+        name: str,
+        alias: str,
+        version: int,
+        organization: str = "",
+    ) -> None:
+        """Set an alias on a non-deleted skill version."""
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_skill_alias(
+        self,
+        name: str,
+        alias: str,
+        organization: str = "",
+    ) -> None:
         raise NotImplementedError(self.__class__.__name__)
