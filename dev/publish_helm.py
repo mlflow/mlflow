@@ -77,7 +77,7 @@ def chart_contents(package: Path) -> dict[str, bytes]:
         for member in archive.getmembers():
             if member.isdir():
                 continue
-            if not member.isfile() or member.name in result:
+            if not member.isreg() or member.name in result:
                 raise ValueError(f"Unexpected chart archive member: {member.name}")
             content = archive.extractfile(member)
             assert content is not None

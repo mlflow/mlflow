@@ -160,6 +160,18 @@ def test_chart_comparison_ignores_archive_timestamps(tmp_path):
     )
 
 
+def test_chart_comparison_rejects_symbolic_links(tmp_path):
+    package = tmp_path / "chart.tgz"
+    with tarfile.open(package, "w:gz") as archive:
+        link = tarfile.TarInfo("mlflow/Chart.yaml")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "outside-chart"
+        archive.addfile(link)
+
+    with pytest.raises(ValueError, match="Unexpected chart archive member: mlflow/Chart.yaml"):
+        publish_helm.chart_contents(package)
+
+
 @pytest.mark.parametrize(
     "state", ["absent", "identical", "conflicting", "registry-error", "missing-image"]
 )
