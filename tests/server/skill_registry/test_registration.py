@@ -102,6 +102,21 @@ def test_upload_is_scoped_to_the_request_workspace(store, artifact_root, monkeyp
     assert not (artifact_root / relative).exists()
 
 
+@pytest.mark.parametrize("upload", [True, False])
+def test_registration_records_the_creator_on_the_version_and_a_new_parent(
+    store, artifact_root, upload
+):
+    fields = {} if upload else {"source": "https://example.com/r.git"}
+    registration = SkillVersionRegistration(name="reviewer", created_by="alice", **fields)
+    if upload:
+        version = register_skill_version(registration, content=skill_archive(), multipart=True)
+    else:
+        version = register_skill_version(registration)
+    assert version.created_by == "alice"
+    assert version.last_updated_by == "alice"
+    assert store.get_skill("reviewer").created_by == "alice"
+
+
 # --- body and source must agree ---------------------------------------------------------------
 
 

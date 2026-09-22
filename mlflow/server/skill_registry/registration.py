@@ -67,6 +67,7 @@ class SkillVersionRegistration:
     subpath: str | None = None
     digest: str | None = None
     status: str = SkillStatus.ACTIVE.value
+    created_by: str | None = None
 
 
 def register_skill_version(
@@ -87,7 +88,9 @@ def register_skill_version(
 
     Args:
         registration: Parsed request metadata.
-        content: Stream of the ``content`` part, or ``None`` when the request has none.
+        content: Synchronous binary stream of the ``content`` part (for a FastAPI
+            ``UploadFile`` that is its ``.file``, not the upload object, whose ``read`` is
+            async), or ``None`` when the request has none.
         multipart: Whether the request body was ``multipart/form-data``.
 
     Returns:
@@ -178,6 +181,7 @@ def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
         subpath=resolved.subpath,
         digest=registration.digest,
         status=registration.status,
+        created_by=registration.created_by,
     )
 
 
@@ -232,6 +236,7 @@ def _register_uploaded(registration: SkillVersionRegistration, content: BinaryIO
             source=to_artifact_uri(artifact_path),
             digest=registration.digest,
             status=registration.status,
+            created_by=registration.created_by,
         )
     except MlflowException as e:
         if e.error_code in _DEFINITE_REJECTIONS:
