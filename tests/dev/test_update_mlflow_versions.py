@@ -200,3 +200,26 @@ def test_helm_release_ordering(monkeypatch, tmp_path, stage, version):
     else:
         assert chart.read_text() == previous
         assert get_current_py_version() == version
+
+
+def test_replace_helm_chart_does_not_update_dependency_versions(tmp_path):
+    chart = tmp_path / "Chart.yaml"
+    chart.write_text(
+        "name: mlflow\n"
+        "version: 0.1.1\n"
+        'appVersion: "3.16.0"\n'
+        "dependencies:\n"
+        "  - name: dependency\n"
+        "    version: 1.2.3\n"
+    )
+
+    update_mlflow_versions.replace_helm_chart("3.17.0", [chart])
+
+    assert chart.read_text() == (
+        "name: mlflow\n"
+        "version: 3.17.0\n"
+        'appVersion: "3.17.0"\n'
+        "dependencies:\n"
+        "  - name: dependency\n"
+        "    version: 1.2.3\n"
+    )

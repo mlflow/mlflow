@@ -58,7 +58,10 @@ def chart_digest(version: str) -> str | None:
     except urllib.error.HTTPError as error:
         # Never turn permission, authentication, or network failures into a push.
         if error.code == 404:
-            errors = json.load(error).get("errors", [])
+            try:
+                errors = json.loads(error.read().decode("utf-8")).get("errors", [])
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                errors = []
             if errors and all(e.get("code") == "MANIFEST_UNKNOWN" for e in errors):
                 return None
         raise

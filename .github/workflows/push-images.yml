@@ -135,7 +135,7 @@ jobs:
 
   publish-helm:
     needs: push-images
-    if: github.repository == 'mlflow/mlflow' && !github.event.release.prerelease
+    if: github.repository == 'mlflow/mlflow' && startsWith(github.ref_name, 'v') && !contains(github.ref_name, 'rc') && !github.event.release.prerelease
     permissions:
       contents: read
       packages: write

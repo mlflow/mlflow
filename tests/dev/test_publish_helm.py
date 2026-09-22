@@ -44,6 +44,20 @@ def test_reject_fork(monkeypatch):
         publish_helm.resolve_release("v3.16.0")
 
 
+def test_resolve_published_stable_release(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "mlflow/mlflow")
+    release = {"draft": False, "prerelease": False, "published_at": "2026-09-01"}
+    commit = "a" * 40
+    run = Mock(side_effect=[json.dumps(release), json.dumps({"sha": commit})])
+    monkeypatch.setattr(publish_helm, "run", run)
+
+    assert publish_helm.resolve_release("v3.16.0") == commit
+    assert run.call_args_list == [
+        call("gh", "api", "repos/mlflow/mlflow/releases/tags/v3.16.0"),
+        call("gh", "api", "repos/mlflow/mlflow/commits/v3.16.0"),
+    ]
+
+
 @pytest.mark.parametrize("field", ["name", "version", "appVersion"])
 def test_verify_rejects_wrong_chart_metadata(monkeypatch, field):
     metadata = {"name": "mlflow", "version": "3.16.0", "appVersion": "3.16.0"}
@@ -117,6 +131,21 @@ def test_registry_errors_fail_closed(monkeypatch, status, code, absent):
     else:
         with pytest.raises(urllib.error.HTTPError, match="registry error"):
             publish_helm.chart_digest("3.16.0")
+
+
+@pytest.mark.parametrize("body", [b"not-json", b"\xff"])
+def test_invalid_404_registry_body_fails_closed(monkeypatch, body):
+    error = urllib.error.HTTPError(
+        "https://ghcr.io/test", 404, "registry error", {}, io.BytesIO(body)
+    )
+    monkeypatch.setattr(
+        publish_helm.urllib.request,
+        "urlopen",
+        Mock(side_effect=[io.BytesIO(b'{"token":"test"}'), error]),
+    )
+
+    with pytest.raises(urllib.error.HTTPError, match="registry error"):
+        publish_helm.chart_digest("3.16.0")
 
 
 def test_chart_comparison_ignores_archive_timestamps(tmp_path):

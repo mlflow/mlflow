@@ -154,7 +154,7 @@ def replace_helm_chart(new_py_version: str, paths: list[Path]) -> None:
     released_version = replace_dev_or_rc_suffix_with(new_py_version, "")
     replace_occurrences(
         files=paths,
-        pattern=re.compile(r"^version:\s+.+$", re.MULTILINE),
+        pattern=re.compile(r"^(?![ \t])version:\s+.+$", re.MULTILINE),
         repl=f"version: {released_version}",
     )
     replace_occurrences(
