@@ -204,6 +204,11 @@ def test_log_model_parse_params(arguments, expected_params):
             {"model_uri": "customscheme://bucket/model", "env_pack": "made_up_pack"},
             {"env_pack": "other", "source_scheme": "other"},
         ),
+        # Single-slash schemes (e.g. dbfs:/) are real schemes, not local paths.
+        (
+            {"model_uri": "dbfs:/path/to/model"},
+            {"env_pack": None, "source_scheme": "dbfs"},
+        ),
     ],
 )
 def test_register_model_parse_params(arguments, expected_params):

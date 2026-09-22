@@ -34,6 +34,30 @@ def _bound_flavor(flavor_name: str | None) -> str | None:
     return base if base in KNOWN_FLAVORS else "other"
 
 
+# Built-in model-URI schemes, used to bound the telemetry `source_scheme` value. The
+# artifact-repository registry is intentionally not used, since plugins can register
+# schemes at runtime, which would make the value unbounded.
+_KNOWN_MODEL_URI_SCHEMES = {
+    "runs",
+    "models",
+    "file",
+    "s3",
+    "r2",
+    "b2",
+    "gs",
+    "wasbs",
+    "abfss",
+    "dbfs",
+    "ftp",
+    "sftp",
+    "hdfs",
+    "viewfs",
+    "http",
+    "https",
+    "mlflow-artifacts",
+}
+
+
 def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
     from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
@@ -276,11 +300,7 @@ class RegisterModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        # Lazy imports (and thus derive the bounded sets here) to avoid an
-        # events -> env_pack -> models.model -> events import cycle.
-        from mlflow.store.artifact.artifact_repository_registry import (
-            get_registered_artifact_repositories,
-        )
+        # Lazy import to avoid an events -> env_pack -> models.model -> events import cycle.
         from mlflow.utils.env_pack import EnvPackType
 
         env_pack = arguments.get("env_pack")
@@ -290,17 +310,12 @@ class RegisterModelEvent(Event):
             kind = env_pack if isinstance(env_pack, str) else getattr(env_pack, "name", None)
             env_pack_kind = kind if kind in get_args(EnvPackType) else "other"
 
-        model_uri = arguments.get("model_uri") or ""
-        if model_uri.startswith("runs:/"):
-            source_scheme = "runs"
-        elif model_uri.startswith("models:/"):
-            source_scheme = "models"
-        elif "://" in model_uri:
-            scheme = model_uri.split("://", 1)[0]
-            known_schemes = get_registered_artifact_repositories()
-            source_scheme = scheme if scheme in known_schemes else "other"
-        else:
+        # urlparse handles both `scheme:/path` (e.g. dbfs:/, runs:/) and `scheme://host/path`.
+        scheme = urlparse(arguments.get("model_uri") or "").scheme
+        if not scheme:
             source_scheme = "local"
+        else:
+            source_scheme = scheme if scheme in _KNOWN_MODEL_URI_SCHEMES else "other"
 
         return {"env_pack": env_pack_kind, "source_scheme": source_scheme}
 
