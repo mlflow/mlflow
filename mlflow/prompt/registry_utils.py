@@ -22,6 +22,7 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
 
@@ -37,12 +38,14 @@ class PromptCacheKey(NamedTuple):
 
     Attributes:
         registry_namespace: Non-secret identifier for the resolved registry URI
+        workspace: Active workspace name, or None when no workspace is selected
         name: Prompt name
         version: Prompt version (None for non-version lookups)
         alias: Prompt alias (None for non-alias lookups)
     """
 
     registry_namespace: str
+    workspace: str | None
     name: str
     version: int | None
     alias: str | None
@@ -75,6 +78,7 @@ class PromptCacheKey(NamedTuple):
             raise ValueError("Cannot specify both version and alias")
         return cls(
             registry_namespace=_get_prompt_cache_namespace(registry_uri),
+            workspace=get_request_workspace(),
             name=name,
             version=version,
             alias=alias,
@@ -439,11 +443,14 @@ class PromptCache:
     def delete_all(self, prompt_name: str, *, registry_uri: str | None) -> None:
         """Delete all cached entries for a prompt name."""
         registry_namespace = _get_prompt_cache_namespace(registry_uri)
+        workspace = get_request_workspace()
         with self._lock:
             keys_to_delete = [
                 key
                 for key in self._cache
-                if key.registry_namespace == registry_namespace and key.name == prompt_name
+                if key.registry_namespace == registry_namespace
+                and key.workspace == workspace
+                and key.name == prompt_name
             ]
             for key in keys_to_delete:
                 self._cache.pop(key, None)

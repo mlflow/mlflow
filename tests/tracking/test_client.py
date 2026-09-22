@@ -2,6 +2,7 @@ import contextlib
 import json
 import os
 import pickle
+import shutil
 import threading
 import time
 import uuid
@@ -48,7 +49,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
@@ -84,6 +85,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_context import WorkspaceContext
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -2406,6 +2408,21 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
+@pytest.fixture
+def isolated_registry_uris(tmp_path: Path, cached_db: Path) -> list[str]:
+    db_paths = [tmp_path / "registry_a.db", tmp_path / "registry_b.db"]
+    for db_path in db_paths:
+        shutil.copy2(cached_db, db_path)
+    return [f"sqlite:///{db_path}" for db_path in db_paths]
+
+
+@pytest.fixture
+def workspace_registry_uri(tmp_path: Path, cached_db: Path) -> str:
+    db_path = tmp_path / "workspace_registry.db"
+    shutil.copy2(cached_db, db_path)
+    return f"sqlite:///{db_path}"
+
+
 @pytest.mark.parametrize(
     ("prompt_uri", "getter_name"),
     [
@@ -2414,12 +2431,10 @@ def test_crud_prompts(tracking_uri):
     ],
 )
 @pytest.mark.parametrize("load_order", [(0, 1), (1, 0)])
-def test_load_prompt_cache_isolated_by_registry(tmp_path, prompt_uri, getter_name, load_order):
-    registry_uris = [
-        f"sqlite:///{tmp_path / 'registry_a.db'}",
-        f"sqlite:///{tmp_path / 'registry_b.db'}",
-    ]
-    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in registry_uris]
+def test_load_prompt_cache_isolated_by_registry(
+    isolated_registry_uris, prompt_uri, getter_name, load_order
+):
+    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in isolated_registry_uris]
     templates = ["Registry A", "Registry B"]
 
     for client, template in zip(clients, templates):
@@ -2449,12 +2464,8 @@ def test_load_prompt_cache_isolated_by_registry(tmp_path, prompt_uri, getter_nam
             assert getters[index].call_count == 1
 
 
-def test_prompt_cache_invalidation_is_registry_scoped(tmp_path):
-    registry_uris = [
-        f"sqlite:///{tmp_path / 'registry_a.db'}",
-        f"sqlite:///{tmp_path / 'registry_b.db'}",
-    ]
-    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in registry_uris]
+def test_prompt_cache_invalidation_is_registry_scoped(isolated_registry_uris):
+    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in isolated_registry_uris]
 
     for client in clients:
         client.register_prompt("shared_prompt", "Version 1")
@@ -2509,6 +2520,72 @@ def test_failed_prompt_mutation_preserves_cache(tracking_uri):
     ) as getter:
         assert client.load_prompt("prompts:/cached_prompt@production").version == 1
         assert getter.call_count == 0
+
+
+@pytest.mark.parametrize(
+    ("prompt_uri", "getter_name"),
+    [
+        ("prompts:/shared_prompt/1", "get_prompt_version"),
+        ("prompts:/shared_prompt@production", "get_prompt_version_by_alias"),
+    ],
+)
+@pytest.mark.parametrize("load_order", [("team-a", "team-b"), ("team-b", "team-a")])
+def test_load_prompt_cache_isolated_by_workspace(
+    workspace_registry_uri, monkeypatch, prompt_uri, getter_name, load_order
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: None)
+    client = MlflowClient(tracking_uri=workspace_registry_uri, registry_uri=workspace_registry_uri)
+    templates = {"team-a": "Team A", "team-b": "Team B"}
+
+    for workspace, template in templates.items():
+        with WorkspaceContext(workspace):
+            client.register_prompt("shared_prompt", template)
+            client.set_prompt_alias("shared_prompt", alias="production", version=1)
+
+    registry_client = client._get_registry_client()
+    with mock.patch.object(
+        registry_client,
+        getter_name,
+        wraps=getattr(registry_client, getter_name),
+    ) as getter:
+        for expected_call_count, workspace in enumerate(load_order, start=1):
+            with WorkspaceContext(workspace):
+                assert client.load_prompt(prompt_uri).template == templates[workspace]
+                assert getter.call_count == expected_call_count
+
+                assert client.load_prompt(prompt_uri).template == templates[workspace]
+                assert getter.call_count == expected_call_count
+
+
+def test_prompt_cache_invalidation_is_workspace_scoped(workspace_registry_uri, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: None)
+    client = MlflowClient(tracking_uri=workspace_registry_uri, registry_uri=workspace_registry_uri)
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            client.register_prompt("shared_prompt", "Version 1")
+            client.register_prompt("shared_prompt", "Version 2")
+            client.set_prompt_alias("shared_prompt", alias="production", version=1)
+            assert client.load_prompt("prompts:/shared_prompt@production").version == 1
+
+    with WorkspaceContext("team-a"):
+        client.set_prompt_alias("shared_prompt", alias="production", version=2)
+
+    registry_client = client._get_registry_client()
+    with mock.patch.object(
+        registry_client,
+        "get_prompt_version_by_alias",
+        wraps=registry_client.get_prompt_version_by_alias,
+    ) as getter:
+        with WorkspaceContext("team-a"):
+            assert client.load_prompt("prompts:/shared_prompt@production").version == 2
+            assert getter.call_count == 1
+
+        with WorkspaceContext("team-b"):
+            assert client.load_prompt("prompts:/shared_prompt@production").version == 1
+            assert getter.call_count == 1
 
 
 def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):

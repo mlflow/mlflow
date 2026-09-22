@@ -8,6 +8,7 @@ from mlflow.prompt.registry_utils import (
     PromptCacheKey,
     _get_prompt_cache_namespace,
 )
+from mlflow.utils.workspace_context import WorkspaceContext
 
 REGISTRY_URI = "https://registry.example.com"
 OTHER_REGISTRY_URI = "https://other-registry.example.com"
@@ -192,6 +193,22 @@ def test_cache_is_isolated_by_registry_uri():
     assert cache.get(other_key) == "other-value"
 
 
+def test_cache_is_isolated_by_workspace():
+    cache = PromptCache.get_instance()
+    with WorkspaceContext("team-a"):
+        key = PromptCacheKey.from_parts("my-prompt", version=1, registry_uri=REGISTRY_URI)
+        cache.set(key, "team-a-value")
+
+    with WorkspaceContext("team-b"):
+        other_key = PromptCacheKey.from_parts("my-prompt", version=1, registry_uri=REGISTRY_URI)
+        cache.set(other_key, "team-b-value")
+        cache.delete("my-prompt", version=1, registry_uri=REGISTRY_URI)
+
+    assert key != other_key
+    assert cache.get(key) == "team-a-value"
+    assert cache.get(other_key) is None
+
+
 def test_delete_all_is_scoped_by_registry_uri():
     cache = PromptCache.get_instance()
     key = PromptCacheKey.from_parts("my-prompt", version=1, registry_uri=REGISTRY_URI)
@@ -209,6 +226,26 @@ def test_delete_all_is_scoped_by_registry_uri():
     assert cache.get(key) is None
     assert cache.get(alias_key) is None
     assert cache.get(other_key) == "other-value"
+
+
+def test_delete_all_is_scoped_by_workspace():
+    cache = PromptCache.get_instance()
+    with WorkspaceContext("team-a"):
+        key = PromptCacheKey.from_parts("my-prompt", version=1, registry_uri=REGISTRY_URI)
+        alias_key = PromptCacheKey.from_parts(
+            "my-prompt", alias="production", registry_uri=REGISTRY_URI
+        )
+        cache.set(key, "team-a-value")
+        cache.set(alias_key, "team-a-alias-value")
+
+    with WorkspaceContext("team-b"):
+        other_key = PromptCacheKey.from_parts("my-prompt", version=1, registry_uri=REGISTRY_URI)
+        cache.set(other_key, "team-b-value")
+        cache.delete_all("my-prompt", registry_uri=REGISTRY_URI)
+
+    assert cache.get(key) == "team-a-value"
+    assert cache.get(alias_key) == "team-a-alias-value"
+    assert cache.get(other_key) is None
 
 
 def test_concurrent_get_instance():
