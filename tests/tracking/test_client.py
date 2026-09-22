@@ -2406,6 +2406,111 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
+@pytest.mark.parametrize(
+    ("prompt_uri", "getter_name"),
+    [
+        ("prompts:/shared_prompt/1", "get_prompt_version"),
+        ("prompts:/shared_prompt@production", "get_prompt_version_by_alias"),
+    ],
+)
+@pytest.mark.parametrize("load_order", [(0, 1), (1, 0)])
+def test_load_prompt_cache_isolated_by_registry(tmp_path, prompt_uri, getter_name, load_order):
+    registry_uris = [
+        f"sqlite:///{tmp_path / 'registry_a.db'}",
+        f"sqlite:///{tmp_path / 'registry_b.db'}",
+    ]
+    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in registry_uris]
+    templates = ["Registry A", "Registry B"]
+
+    for client, template in zip(clients, templates):
+        client.register_prompt("shared_prompt", template)
+        client.set_prompt_alias("shared_prompt", alias="production", version=1)
+
+    registry_clients = [client._get_registry_client() for client in clients]
+    with contextlib.ExitStack() as stack:
+        getters = [
+            stack.enter_context(
+                mock.patch.object(
+                    registry_client,
+                    getter_name,
+                    wraps=getattr(registry_client, getter_name),
+                )
+            )
+            for registry_client in registry_clients
+        ]
+
+        for position, index in enumerate(load_order):
+            assert clients[index].load_prompt(prompt_uri).template == templates[index]
+            assert getters[index].call_count == 1
+            if position == 0:
+                assert getters[1 - index].call_count == 0
+
+            assert clients[index].load_prompt(prompt_uri).template == templates[index]
+            assert getters[index].call_count == 1
+
+
+def test_prompt_cache_invalidation_is_registry_scoped(tmp_path):
+    registry_uris = [
+        f"sqlite:///{tmp_path / 'registry_a.db'}",
+        f"sqlite:///{tmp_path / 'registry_b.db'}",
+    ]
+    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in registry_uris]
+
+    for client in clients:
+        client.register_prompt("shared_prompt", "Version 1")
+        client.register_prompt("shared_prompt", "Version 2")
+        client.set_prompt_alias("shared_prompt", alias="production", version=1)
+        assert client.load_prompt("prompts:/shared_prompt@production").version == 1
+
+    clients[0].set_prompt_alias("shared_prompt", alias="production", version=2)
+
+    registry_clients = [client._get_registry_client() for client in clients]
+    with (
+        mock.patch.object(
+            registry_clients[0],
+            "get_prompt_version_by_alias",
+            wraps=registry_clients[0].get_prompt_version_by_alias,
+        ) as registry_a_getter,
+        mock.patch.object(
+            registry_clients[1],
+            "get_prompt_version_by_alias",
+            wraps=registry_clients[1].get_prompt_version_by_alias,
+        ) as registry_b_getter,
+    ):
+        assert clients[0].load_prompt("prompts:/shared_prompt@production").version == 2
+        assert registry_a_getter.call_count == 1
+
+        assert clients[1].load_prompt("prompts:/shared_prompt@production").version == 1
+        assert registry_b_getter.call_count == 0
+
+
+def test_failed_prompt_mutation_preserves_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.register_prompt("cached_prompt", "Version 1")
+    client.register_prompt("cached_prompt", "Version 2")
+    client.set_prompt_alias("cached_prompt", alias="production", version=1)
+    assert client.load_prompt("prompts:/cached_prompt@production").version == 1
+
+    registry_client = client._get_registry_client()
+    with (
+        mock.patch.object(
+            registry_client,
+            "set_prompt_alias",
+            side_effect=MlflowException("mutation failed"),
+        ),
+        pytest.raises(MlflowException, match="mutation failed"),
+    ):
+        client.set_prompt_alias("cached_prompt", alias="production", version=2)
+
+    with mock.patch.object(
+        registry_client,
+        "get_prompt_version_by_alias",
+        wraps=registry_client.get_prompt_version_by_alias,
+    ) as getter:
+        assert client.load_prompt("prompts:/cached_prompt@production").version == 1
+        assert getter.call_count == 0
+
+
 def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
     def wait_for_prompt_linking():
         """Wait for background prompt linking threads to complete."""
