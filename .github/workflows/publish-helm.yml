@@ -6,12 +6,22 @@ on:
       release_tag:
         required: true
         type: string
+      dry_run:
+        description: Package and verify locally without accessing GHCR
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       release_tag:
         description: Published stable release tag (vX.Y.Z)
         required: true
         type: string
+      dry_run:
+        description: Package and verify locally without accessing GHCR
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: publish-helm-${{ inputs.release_tag }}
@@ -58,6 +68,7 @@ jobs:
           persist-credentials: false
 
       - name: Login to GitHub Container Registry
+        if: "!inputs.dry_run"
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -69,8 +80,14 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
           RELEASE_SHA: ${{ steps.release.outputs.commit }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io \
-            --username "$GITHUB_ACTOR" --password-stdin
+          args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          else
+            printf '%s' "$GH_TOKEN" | helm registry login ghcr.io \
+              --username "$GITHUB_ACTOR" --password-stdin
+          fi
           python dev/publish_helm.py publish "$RELEASE_TAG" \
-            --chart-dir release-source/charts --source-sha "$RELEASE_SHA"
+            --chart-dir release-source/charts --source-sha "$RELEASE_SHA" "${args[@]}"

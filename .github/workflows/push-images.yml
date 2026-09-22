@@ -142,3 +142,4 @@ jobs:
     uses: ./.github/workflows/publish-helm.yml
     with:
       release_tag: ${{ github.event.release.tag_name }}
+      dry_run: false

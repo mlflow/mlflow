@@ -116,11 +116,12 @@ def pull_chart(version: str, destination: Path) -> Path:
     return destination / f"mlflow-{version}.tgz"
 
 
-def publish_chart(tag: str, chart_dir: Path, source_sha: str) -> None:
+def publish_chart(tag: str, chart_dir: Path, source_sha: str, dry_run: bool = False) -> None:
     version = release_version(tag)
     if resolve_release(tag) != source_sha:
         raise ValueError("The release tag changed after checkout")
-    run("docker", "manifest", "inspect", f"ghcr.io/mlflow/mlflow:{tag}-full")
+    if not dry_run:
+        run("docker", "manifest", "inspect", f"ghcr.io/mlflow/mlflow:{tag}-full")
     with tempfile.TemporaryDirectory() as temporary:
         directory = Path(temporary)
         run(
@@ -136,6 +137,19 @@ def publish_chart(tag: str, chart_dir: Path, source_sha: str) -> None:
         )
         package = directory / f"mlflow-{version}.tgz"
         verify_chart(package, version)
+        if dry_run:
+            summary = (
+                "Dry run succeeded; no GHCR registry or image operations were performed.\n\n"
+                f"- Source commit: `{source_sha}`\n"
+                f"- Chart version / appVersion: `{version}`\n"
+                f"- Expected image: `ghcr.io/mlflow/mlflow:{tag}-full`\n"
+                "- Local package metadata, Deployment and CronJob images verified.\n"
+            )
+            print(summary)
+            if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+                with open(summary_path, "a") as stream:
+                    stream.write(summary)
+            return
         expected = chart_contents(package)
         pulled = directory / "pulled"
         pulled.mkdir()
@@ -181,8 +195,9 @@ if __name__ == "__main__":
     publish.add_argument("release_tag")
     publish.add_argument("--chart-dir", type=Path, required=True)
     publish.add_argument("--source-sha", required=True)
+    publish.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if args.command == "resolve":
         print(f"commit={resolve_release(args.release_tag)}")
     else:
-        publish_chart(args.release_tag, args.chart_dir, args.source_sha)
+        publish_chart(args.release_tag, args.chart_dir, args.source_sha, args.dry_run)

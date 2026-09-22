@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import tarfile
 import urllib.error
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock, call
 
 import pytest
 import yaml
@@ -174,6 +174,53 @@ def test_publication_retries(monkeypatch, tmp_path, state):
     else:
         publish_helm.publish_chart("v3.16.0", tmp_path, "a" * 40)
     assert any(command[:2] == ("helm", "push") for command in commands) == (state == "absent")
+    assert (
+        publish_helm.verify_chart.call_count
+        == {
+            "absent": 2,
+            "identical": 2,
+            "conflicting": 1,
+            "registry-error": 1,
+            "missing-image": 0,
+        }[state]
+    )
+    assert all(call.args[1] == "3.16.0" for call in publish_helm.verify_chart.call_args_list)
+
+
+def test_dry_run_never_accesses_registry_or_image(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(publish_helm, "resolve_release", Mock(return_value="a" * 40))
+    command = Mock(return_value="")
+    verify = Mock()
+    digest = Mock()
+    pull = Mock()
+    contents = Mock()
+    monkeypatch.setattr(publish_helm, "run", command)
+    monkeypatch.setattr(publish_helm, "verify_chart", verify)
+    monkeypatch.setattr(publish_helm, "chart_digest", digest)
+    monkeypatch.setattr(publish_helm, "pull_chart", pull)
+    monkeypatch.setattr(publish_helm, "chart_contents", contents)
+
+    publish_helm.publish_chart("v3.16.0", tmp_path, "a" * 40, dry_run=True)
+
+    assert "Dry run succeeded" in capsys.readouterr().out
+    verify.assert_called_once()
+    assert verify.call_args.args[1] == "3.16.0"
+    digest.assert_not_called()
+    pull.assert_not_called()
+    contents.assert_not_called()
+    assert command.call_args_list == [
+        call(
+            "helm",
+            "package",
+            str(tmp_path),
+            "--version",
+            "3.16.0",
+            "--app-version",
+            "3.16.0",
+            "--destination",
+            ANY,
+        )
+    ]
 
 
 @pytest.mark.skipif(
