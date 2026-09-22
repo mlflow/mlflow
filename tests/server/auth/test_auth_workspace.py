@@ -3144,8 +3144,8 @@ def test_role_permission_resolver_honors_default_workspace_autogrant(monkeypatch
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def get_role_permission_for_resource(self, *args, **kwargs):
-            return None
+        def list_grants(self, user_id, workspace, resource_types):
+            return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
     monkeypatch.setattr(
@@ -3194,8 +3194,8 @@ def test_role_permission_resolver_denies_in_non_default_workspace(monkeypatch):
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def get_role_permission_for_resource(self, *args, **kwargs):
-            return None
+        def list_grants(self, user_id, workspace, resource_types):
+            return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
     monkeypatch.setattr(
