@@ -358,6 +358,7 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
 def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
     monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
     assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/gateway/mlflow/v1/models", "GET") is not None
     assert _find_fastapi_validator("/v1/traces", "GET") is not None
     assert _find_fastapi_validator("/ajax-api/3.0/jobs/search", "GET") is not None
     assert _find_fastapi_validator("/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
@@ -365,6 +366,7 @@ def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
 
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
     assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/models", "GET") is not None
     assert _find_fastapi_validator("/mlflow/v1/traces", "GET") is not None
     assert _find_fastapi_validator("/mlflow/ajax-api/3.0/jobs/search", "GET") is not None
     assert (
@@ -3139,7 +3141,7 @@ def test_gateway_secrets_permissions(client, monkeypatch):
             },
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
     # User2 cannot delete secrets without explicit permission
     with User(user2, password2, monkeypatch):
@@ -3155,7 +3157,7 @@ def test_gateway_secrets_permissions(client, monkeypatch):
             json={"secret_id": user1_decoy_secret_id, "secretId": user1_secret_id},
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
     with User(user1, password1, monkeypatch):
         response = requests.get(
@@ -3186,14 +3188,12 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         assert "using_default_passphrase" in response.json()
 
     with User(user1, password1, monkeypatch):
-        # The protobuf parser selects secretId, so this deletes the target while leaving the
-        # snake-case decoy and its permission intact.
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": user1_decoy_secret_id, "secretId": user1_secret_id},
             auth=(user1, password1),
         )
-        response.raise_for_status()
+        assert response.status_code == 400
 
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/users/permissions/get",
@@ -3210,6 +3210,13 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": user1_decoy_secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": user1_secret_id},
             auth=(user1, password1),
         )
         response.raise_for_status()
@@ -3384,7 +3391,7 @@ def test_gateway_endpoints_permissions(client, monkeypatch):
             json={"endpoint_id": decoy_endpoint_id, "endpointId": endpoint_id},
             auth=(user1, password1),
         )
-        response.raise_for_status()
+        assert response.status_code == 400
 
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/users/permissions/get",
@@ -3401,6 +3408,13 @@ def test_gateway_endpoints_permissions(client, monkeypatch):
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
             json={"endpoint_id": decoy_endpoint_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
             auth=(user1, password1),
         )
         response.raise_for_status()
@@ -3531,7 +3545,7 @@ def test_gateway_model_definitions_permissions(client, monkeypatch):
             },
             auth=(user1, password1),
         )
-        response.raise_for_status()
+        assert response.status_code == 400
 
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/users/permissions/get",
@@ -3548,6 +3562,13 @@ def test_gateway_model_definitions_permissions(client, monkeypatch):
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
             json={"model_definition_id": decoy_model_definition_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
             auth=(user1, password1),
         )
         response.raise_for_status()
@@ -3701,6 +3722,113 @@ def test_gateway_unauthenticated_access_denied(client, monkeypatch):
         url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
     )
     assert response.status_code == 401
+
+
+def _create_gateway_endpoint(tracking_uri, name, auth, workspace=None):
+    headers = {"X-MLFLOW-WORKSPACE": workspace} if workspace else {}
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": f"{name}-key",
+            "secret_value": {"api_key": "test-key"},
+            "provider": "openai",
+        },
+        auth=auth,
+        headers=headers,
+    )
+    response.raise_for_status()
+    secret_id = response.json()["secret"]["secret_id"]
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+        json={
+            "name": f"{name}-model",
+            "secret_id": secret_id,
+            "provider": "openai",
+            "model_name": "gpt-4o",
+        },
+        auth=auth,
+        headers=headers,
+    )
+    response.raise_for_status()
+    model_id = response.json()["model_definition"]["model_definition_id"]
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+        json={
+            "name": name,
+            "model_configs": [{"model_definition_id": model_id, "linkage_type": "PRIMARY"}],
+            "usage_tracking": False,
+        },
+        auth=auth,
+        headers=headers,
+    )
+    response.raise_for_status()
+    return response.json()["endpoint"]
+
+
+def test_list_models_filters_by_use_permission(fastapi_client):
+    tracking_uri = fastapi_client.tracking_uri
+    owner_auth = create_user(tracking_uri)
+    username, password = create_user(tracking_uri)
+    read_only = _create_gateway_endpoint(tracking_uri, "read-only", owner_auth)
+    usable = _create_gateway_endpoint(tracking_uri, "usable", owner_auth)
+    url = tracking_uri + "/gateway/mlflow/v1/models"
+
+    assert requests.get(url).status_code == 401
+
+    response = requests.get(url, auth=(username, password))
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
+    grant_role_permission(
+        tracking_uri, username, "gateway_endpoint", read_only["endpoint_id"], "READ"
+    )
+    grant_role_permission(tracking_uri, username, "gateway_endpoint", usable["endpoint_id"], "USE")
+
+    response = requests.get(url, auth=(username, password))
+    assert response.status_code == 200
+    assert [model["id"] for model in response.json()["data"]] == ["usable"]
+
+    # The admin owns neither endpoint and has no endpoint role grants.
+    response = requests.get(url, auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert response.status_code == 200
+    assert [model["id"] for model in response.json()["data"]] == ["read-only", "usable"]
+
+
+def test_list_models_isolates_workspaces(fastapi_workspace_client):
+    tracking_uri = fastapi_workspace_client.tracking_uri
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    username, password = create_user(tracking_uri)
+    requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/workspaces",
+        json={"name": "other-team"},
+        auth=admin_auth,
+    ).raise_for_status()
+    _create_gateway_endpoint(tracking_uri, "shared", admin_auth, DEFAULT_WORKSPACE_NAME)
+    other_endpoint = _create_gateway_endpoint(tracking_uri, "shared", admin_auth, "other-team")
+    grant_role_permission(
+        tracking_uri,
+        username,
+        "gateway_endpoint",
+        other_endpoint["endpoint_id"],
+        "USE",
+        workspace="other-team",
+    )
+    url = tracking_uri + "/gateway/mlflow/v1/models"
+
+    response = requests.get(
+        url,
+        auth=(username, password),
+        headers={"X-MLFLOW-WORKSPACE": DEFAULT_WORKSPACE_NAME},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
+    for credentials in ((username, password), admin_auth):
+        response = requests.get(url, auth=credentials, headers={"X-MLFLOW-WORKSPACE": "other-team"})
+        assert response.status_code == 200
+        assert [model["id"] for model in response.json()["data"]] == ["shared"]
 
 
 def test_gateway_endpoint_use_permission(fastapi_client, monkeypatch):
@@ -4046,8 +4174,7 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
         response.raise_for_status()
         secret_id_2 = response.json()["secret"]["secret_id"]
 
-    # User2 cannot create with a protobuf alias that selects secret_id_2 while the raw
-    # schema key names a secret they can use.
+    # Conflicting protobuf field spellings are rejected before authorization.
     with User(user2, password2, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
@@ -4060,7 +4187,7 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
             },
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
     # User2 cannot update the model definition to use secret_id_2 (no permission on that secret)
     with User(user2, password2, monkeypatch):
@@ -4087,8 +4214,7 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
         )
         assert response.status_code == 403
 
-    # User1 creates another model definition that user2 cannot update via a mixed
-    # model_definition_id/modelDefinitionId request.
+    # User1 creates another model definition for a conflicting-field request.
     with User(user1, password1, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
@@ -4113,7 +4239,7 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
             },
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
     # Grant USE permission to user2 on secret_id_2
     with User(user1, password1, monkeypatch):
@@ -4270,8 +4396,7 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
         response.raise_for_status()
         model_def_id_2 = response.json()["model_definition"]["model_definition_id"]
 
-    # User2 cannot create with a nested protobuf alias that selects model_def_id_2 while
-    # the raw schema key names a model definition they can use.
+    # Conflicting nested protobuf field spellings are rejected before authorization.
     with User(user2, password2, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
@@ -4287,7 +4412,7 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             },
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
     # User2 cannot update the endpoint to use model_def_id_2 (no permission on that model def)
     with User(user2, password2, monkeypatch):
@@ -4335,7 +4460,7 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             },
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
@@ -4350,8 +4475,7 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
         )
         assert response.status_code == 403
 
-    # User1 creates another endpoint that user2 cannot update via a mixed
-    # endpoint_id/endpointId request.
+    # User1 creates another endpoint for a conflicting-field request.
     with User(user1, password1, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
@@ -4379,7 +4503,7 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             },
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        assert response.status_code == 400
 
     # Grant USE permission to user2 on model_def_id_2
     with User(user1, password1, monkeypatch):
@@ -4587,6 +4711,218 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
         requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
+def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monkeypatch):
+    # Protobuf JSON accepts both `secret_id` and `secretId`, last key wins. Authorization
+    # must not read one spelling while the handler acts on the other (GHSA-3g8m-hm3x-gh2r).
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    def create_secret(name, user, password):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": name,
+                "secret_value": {"api_key": f"{name}-key"},
+                "provider": "openai",
+                "auth_config": {"api_base": "https://api.openai.com/v1"},
+            },
+            auth=(user, password),
+        )
+        response.raise_for_status()
+        return response.json()["secret"]["secret_id"]
+
+    with User(user1, password1, monkeypatch):
+        victim_secret_id = create_secret("victim_secret", user1, password1)
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "victim_model",
+                "secret_id": victim_secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        victim_model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(user2, password2, monkeypatch):
+        attacker_secret_id = create_secret("attacker_secret", user2, password2)
+
+        # Both spellings in one body are ambiguous and refused, in either key order.
+        for both in (
+            {"secret_id": attacker_secret_id, "secretId": victim_secret_id},
+            {"secretId": victim_secret_id, "secret_id": attacker_secret_id},
+        ):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/update",
+                json={**both, "auth_config": {"api_base": "https://attacker.example/v1"}},
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert "both 'secret_id' and 'secretId'" in response.json()["message"]
+
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+                json={"name": "m", **both, "provider": "openai", "model_name": "gpt-4"},
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert "both 'secret_id' and 'secretId'" in response.json()["message"]
+
+        # The camelCase spelling alone is authorized against the secret it names.
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "m",
+                "secretId": victim_secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "attacker_model",
+                "secret_id": attacker_secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        attacker_model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={"model_definition_id": attacker_model_def_id, "secretId": victim_secret_id},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+        # Nested model configs follow the same rules on endpoint creation.
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "e",
+                "modelConfigs": [
+                    {"modelDefinitionId": victim_model_def_id, "linkageType": "PRIMARY"}
+                ],
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+        # A conflicting inner spelling is refused under either spelling of the outer key.
+        for model_configs_key in ("model_configs", "modelConfigs"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+                json={
+                    "name": "e",
+                    model_configs_key: [
+                        {
+                            "model_definition_id": attacker_model_def_id,
+                            "modelDefinitionId": victim_model_def_id,
+                            "linkage_type": "PRIMARY",
+                        }
+                    ],
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert (
+                "both 'model_definition_id' and 'modelDefinitionId'" in response.json()["message"]
+            )
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "attacker_endpoint",
+                "model_configs": [
+                    {"model_definition_id": attacker_model_def_id, "linkage_type": "PRIMARY"}
+                ],
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        attacker_endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+        # Attaching a model requires USE on the model definition, whichever spelling names it.
+        for model_config_key in ("model_config", "modelConfig"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+                json={
+                    "endpoint_id": attacker_endpoint_id,
+                    model_config_key: {
+                        "model_definition_id": victim_model_def_id,
+                        "linkage_type": "FALLBACK",
+                    },
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 403
+
+        for model_config_key in ("model_config", "modelConfig"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+                json={
+                    "endpoint_id": attacker_endpoint_id,
+                    model_config_key: {
+                        "model_definition_id": attacker_model_def_id,
+                        "modelDefinitionId": victim_model_def_id,
+                        "linkage_type": "FALLBACK",
+                    },
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert (
+                "both 'model_definition_id' and 'modelDefinitionId'" in response.json()["message"]
+            )
+
+    # The victim secret still points at its original provider.
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
+            params={"secret_id": victim_secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        assert response.json()["secret"]["auth_config"] == {"api_base": "https://api.openai.com/v1"}
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": attacker_endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": attacker_model_def_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": attacker_secret_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": victim_model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": victim_secret_id},
             auth=(user1, password1),
         ).raise_for_status()
 
@@ -7532,6 +7868,74 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    ("path", "extra_payload"),
+    [
+        ("genai/evaluate/invoke", {"serialized_scorers": ['{"name": "judge"}']}),
+        (
+            "issues/invoke",
+            {
+                "categories": ["correctness"],
+                "provider": "openai",
+                "model": "gpt-4o",
+                "endpoint_name": "my-endpoint",
+            },
+        ),
+    ],
+)
+def test_invoke_endpoints_reject_foreign_trace_ids(client, path, extra_payload):
+    # UPDATE on the caller's own experiment must not be enough to process a trace from an
+    # experiment the caller cannot read (GHSA-v7w2-x9m4-3743).
+    base = client.tracking_uri
+    victim, victim_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    victim_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "victim-exp"},
+        auth=(victim, victim_pw),
+    ).json()["experiment_id"]
+    victim_trace_id = _create_trace(base, victim_exp_id, (victim, victim_pw))
+    attacker_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "attacker-exp"},
+        auth=(attacker, attacker_pw),
+    ).json()["experiment_id"]
+
+    # Control: the attacker cannot read the victim's trace directly.
+    resp = requests.get(
+        f"{base}/api/2.0/mlflow/traces/{victim_trace_id}/info", auth=(attacker, attacker_pw)
+    )
+    assert resp.status_code == 403
+
+    resp = requests.post(
+        f"{base}/ajax-api/3.0/mlflow/{path}",
+        json={
+            "experiment_id": attacker_exp_id,
+            "trace_ids": [victim_trace_id],
+            **extra_payload,
+        },
+        auth=(attacker, attacker_pw),
+    )
+    # The route validator passes (the attacker owns the experiment); the JSON error body
+    # shows the rejection comes from the handler binding the trace to that experiment.
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "PERMISSION_DENIED"
+
+    runs = requests.post(
+        f"{base}/api/2.0/mlflow/runs/search",
+        json={"experiment_ids": [attacker_exp_id]},
+        auth=(attacker, attacker_pw),
+    )
+    runs.raise_for_status()
+    assert runs.json().get("runs", []) == []
 
 
 @pytest.mark.parametrize(

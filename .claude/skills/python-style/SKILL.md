@@ -1,10 +1,11 @@
 ---
-paths: "**/*.py"
+name: python-style
+description: Python coding and testing conventions for MLflow. Use when writing, modifying, or reviewing Python source files and tests in this repository.
 ---
 
 # Python Style Guide
 
-This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
+This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
 
 ## Avoid Redundant Docstrings
 

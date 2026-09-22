@@ -1402,6 +1402,38 @@ def test_search_tags(store: SqlAlchemyStore):
     ) == [r2]
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        # A genuine 0.0 (is_nan=False) must keep matching, only the NaN placeholder is excluded.
+        ("metrics.loss < 0.1", ["zero"]),
+        ("metrics.loss <= 0", ["zero"]),
+        ("metrics.loss = 0", ["zero"]),
+        ("metrics.loss > 0", ["good"]),
+        ("metrics.loss >= 0", ["zero", "good"]),
+        ("metrics.loss < 1", ["zero", "good"]),
+        ("metrics.loss = 0.5", ["good"]),
+        # NaN != x is true for every x, matching IEEE 754 and the file store.
+        ("metrics.loss != 0", ["good", "diverged"]),
+        ("metrics.loss != 0.5", ["zero", "diverged"]),
+    ],
+)
+def test_search_metrics_nan_comparator_semantics(
+    store: SqlAlchemyStore, filter_string: str, expected: list[str]
+):
+    # NaN is stored as value=0 with is_nan=True, so the placeholder must not match.
+    experiment_id = _create_experiments(store, "search_metric_nan")
+    run_ids = {}
+    for name, value in [("zero", 0.0), ("good", 0.5), ("diverged", float("nan"))]:
+        run_id = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+        store.log_metric(run_id, entities.Metric("loss", value, 1, 0))
+        run_ids[name] = run_id
+
+    assert sorted(_search_runs(store, experiment_id, filter_string)) == sorted(
+        run_ids[name] for name in expected
+    )
+
+
 def test_search_metrics(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "search_metric")
     r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
@@ -4051,6 +4083,74 @@ def test_search_logged_models_invalid_operator_lists_applicable_operators(store:
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match=re.escape("Expected one of ('<', '<=', '>', '>=',")):
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
+
+
+def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    expected_names_and_values = []
+    for i in range(4):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        metric_value = 4.0 - i
+        expected_names_and_values.append((model.name, metric_value))
+        for dataset_name in ["train", "val", "test"]:
+            run = store.create_run(
+                experiment_id=exp_id,
+                user_id="user",
+                start_time=0,
+                tags=[],
+                run_name=f"{model.name}-{dataset_name}",
+            )
+            store.log_metric(
+                run.info.run_id,
+                Metric(
+                    "accuracy",
+                    metric_value,
+                    timestamp=123,
+                    step=0,
+                    model_id=model.model_id,
+                    dataset_name=dataset_name,
+                    dataset_digest="d",
+                ),
+            )
+
+    expected_names = [
+        name
+        for name, _ in sorted(expected_names_and_values, key=lambda item: item[1], reverse=True)
+    ]
+    order_by = [{"field_name": "metrics.accuracy", "ascending": False}]
+    page = store.search_logged_models(experiment_ids=[exp_id], order_by=order_by, max_results=1)
+    actual_names = []
+    while True:
+        actual_names.extend(model.name for model in page)
+        if page.token is None:
+            break
+        page = store.search_logged_models(
+            experiment_ids=[exp_id], order_by=order_by, max_results=1, page_token=page.token
+        )
+
+    assert actual_names == expected_names
+
+
+def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
+    store: SqlAlchemyStore,
+):
+    with store.ManagedSessionMaker() as session:
+        query = store._get_query(session, models.SqlLoggedModel)
+        ordered = store._apply_order_by_search_logged_models(
+            query, session, [{"field_name": "model_id", "ascending": False}]
+        )
+
+        order_by = [
+            str(clause.compile(compile_kwargs={"literal_binds": True}))
+            for clause in ordered._order_by_clauses
+        ]
+        assert order_by == [
+            "CASE WHEN (logged_models.model_id IS NULL) THEN 1 ELSE 0 END ASC",
+            "logged_models.model_id DESC",
+            "logged_models.creation_timestamp_ms DESC",
+        ]
 
 
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):

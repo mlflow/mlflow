@@ -393,6 +393,15 @@ def calculate_cost_by_model_and_token_usage(
 
         litellm = None
 
+    # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
+    # litellm's signature does not accept it, so only pass it when falling back to the builtin.
+    if (
+        litellm is None
+        and (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR))
+        is not None
+    ):
+        cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
+
     if litellm is not None:
         original_suppress = getattr(litellm, "suppress_debug_info")
 

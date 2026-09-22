@@ -779,6 +779,43 @@ def test_builtin_cost_fallback_with_cache_tokens():
     assert result["input_cost"] == pytest.approx(0.00225)
 
 
+def test_builtin_cost_prices_1hr_cache_creation_higher():
+    # claude-haiku-4-5 publishes a 1-hour cache-creation rate higher than the 5-minute rate,
+    # so pricing part of the cache-creation tokens at the 1-hour rate raises the input cost.
+    model = "claude-haiku-4-5"
+    base_usage = {
+        "input_tokens": 1000,
+        "output_tokens": 100,
+        "cache_creation_input_tokens": 300,
+    }
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        without_1hr = calculate_cost_by_model_and_token_usage(model, base_usage)
+        with_1hr = calculate_cost_by_model_and_token_usage(
+            model, {**base_usage, "cache_creation_input_tokens_above_1hr": 300}
+        )
+    assert without_1hr is not None
+    assert with_1hr is not None
+    assert with_1hr["input_cost"] > without_1hr["input_cost"]
+
+
+def test_1hr_cache_creation_not_forwarded_to_litellm(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 300,
+        "cache_creation_input_tokens_above_1hr": 100,
+    }
+    calculate_cost_by_model_and_token_usage("gpt-4o", usage)
+    mock_litellm_cost.assert_called()
+    # litellm's cost_per_token does not accept the MLflow-specific 1-hour breakdown kwarg.
+    assert all(
+        "cache_creation_input_tokens_above_1hr" not in call.kwargs
+        for call in mock_litellm_cost.call_args_list
+    )
+
+
 def test_builtin_cost_fallback_with_provider():
     with mock.patch.dict("sys.modules", {"litellm": None}):
         result = calculate_cost_by_model_and_token_usage(

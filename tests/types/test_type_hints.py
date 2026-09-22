@@ -1,4 +1,7 @@
 import datetime
+import os
+import subprocess
+import sys
 from typing import Any, Dict, List, Optional, Union, get_args
 from unittest import mock
 
@@ -22,6 +25,37 @@ from mlflow.types.type_hints import (
     _validate_data_against_type_hint,
 )
 from mlflow.types.utils import _infer_schema
+
+
+def test_import_responses_suppresses_expected_schema_inference_warnings():
+    code = """
+import logging
+
+logging.basicConfig(level=logging.WARNING)
+
+import mlflow.types.responses
+from mlflow.types.type_hints import _infer_schema_from_type_hint
+
+_infer_schema_from_type_hint(list[int | str])
+"""
+    env = os.environ.copy()
+    env.pop("MLFLOW_LOGGING_CONFIGURE_LOGGING", None)
+    env["MLFLOW_CONFIGURE_LOGGING"] = "0"
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env=env,
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    warning = (
+        "Union type hint is inferred as AnyType, and MLflow doesn't validate the data against "
+        "its element types."
+    )
+    assert result.stderr.count(warning) == 1
+    assert "Union type hint with multiple non-None types" not in result.stderr
 
 
 class CustomModel(pydantic.BaseModel):
