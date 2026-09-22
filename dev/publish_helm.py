@@ -154,11 +154,11 @@ def publish_chart(tag: str, chart_dir: Path, source_sha: str, dry_run: bool = Fa
                     stream.write(summary)
             return
         expected = chart_contents(package)
-        pulled = directory / "pulled"
-        pulled.mkdir()
         digest = chart_digest(version)
         if digest is not None:
-            existing = pull_chart(version, pulled)
+            existing_directory = directory / "existing"
+            existing_directory.mkdir()
+            existing = pull_chart(version, existing_directory)
             if chart_contents(existing) != expected:
                 raise ValueError(
                     f"Chart {version} already exists with different content; refusing overwrite"
@@ -167,7 +167,9 @@ def publish_chart(tag: str, chart_dir: Path, source_sha: str, dry_run: bool = Fa
         else:
             run("helm", "push", str(package), "oci://ghcr.io/mlflow/charts")
             result = "Published"
-        verified = pull_chart(version, pulled)
+        verification_directory = directory / "verified"
+        verification_directory.mkdir()
+        verified = pull_chart(version, verification_directory)
         verify_chart(verified, version)
         if chart_contents(verified) != expected:
             raise ValueError("Published chart content does not match the release package")

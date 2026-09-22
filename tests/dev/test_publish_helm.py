@@ -172,6 +172,26 @@ def test_chart_comparison_rejects_symbolic_links(tmp_path):
         publish_helm.chart_contents(package)
 
 
+def test_existing_chart_is_pulled_separately_for_verification(monkeypatch, tmp_path):
+    monkeypatch.setattr(publish_helm, "resolve_release", Mock(return_value="a" * 40))
+    monkeypatch.setattr(publish_helm, "run", Mock(return_value=""))
+    monkeypatch.setattr(publish_helm, "verify_chart", Mock())
+    existing = tmp_path / "existing.tgz"
+    verified = tmp_path / "verified.tgz"
+    pull = Mock(side_effect=[existing, verified])
+    monkeypatch.setattr(publish_helm, "pull_chart", pull)
+    contents = Mock(side_effect=[{"chart": b"candidate"}] * 3)
+    monkeypatch.setattr(publish_helm, "chart_contents", contents)
+    digest = "sha256:" + "a" * 64
+    monkeypatch.setattr(publish_helm, "chart_digest", Mock(side_effect=[digest, digest]))
+
+    publish_helm.publish_chart("v3.16.0", tmp_path, "a" * 40)
+
+    assert pull.call_count == 2
+    assert pull.call_args_list[0].args[1] != pull.call_args_list[1].args[1]
+    assert contents.call_args_list[1:] == [call(existing), call(verified)]
+
+
 @pytest.mark.parametrize(
     "state", ["absent", "identical", "conflicting", "registry-error", "missing-image"]
 )
