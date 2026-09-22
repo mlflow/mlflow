@@ -1,4 +1,5 @@
 import json
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1240,7 +1241,20 @@ def test_cluster_and_identify_limits_combined_refined_issues(max_issues, empty_r
     mock_dedup.assert_called_once()
 
 
-def test_cluster_and_identify_limits_rejected_singleton_merge():
+@pytest.mark.parametrize(
+    ("severities", "max_issues", "expected_indices"),
+    [
+        (["high", "high", "high"], 2, [[0], [1]]),
+        (["low", "medium", "high"], 2, [[2], [1]]),
+        (["medium", "high", "high"], 2, [[1], [2]]),
+        (["low", "medium", "high"], 3, [[0], [1], [2]]),
+        (["low", "medium", "high"], 4, [[0], [1], [2]]),
+    ],
+)
+def test_cluster_and_identify_limits_rejected_singleton_merge(
+    severities, max_issues, expected_indices, caplog, monkeypatch
+):
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
     analyses = [
         _ConversationAnalysis(full_rationale=f"Failure {i}", affected_trace_ids=[f"trace-{i}"])
         for i in range(3)
@@ -1251,10 +1265,12 @@ def test_cluster_and_identify_limits_rejected_singleton_merge():
 
     def summarize(indices, *args, **kwargs):
         return create_identified_issue(
-            example_indices=indices, severity="not_an_issue" if len(indices) > 1 else "high"
+            example_indices=indices,
+            severity="not_an_issue" if len(indices) > 1 else severities[indices[0]],
         )
 
     with (
+        caplog.at_level(logging.INFO, logger="mlflow.genai.discovery.pipeline"),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
             return_value=([f"Failure {i}" for i in range(3)], [0, 1, 2]),
@@ -1272,9 +1288,19 @@ def test_cluster_and_identify_limits_rejected_singleton_merge():
             "mlflow.genai.discovery.pipeline._call_llm", return_value=_make_dedup_response([])
         ) as mock_dedup,
     ):
-        result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues=2, categories=[])
+        result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
 
-    assert [issue.example_indices for issue in result] == [[0], [1]]
+    assert [issue.example_indices for issue in result] == expected_indices
+    if max_issues < 3:
+        assert caplog.record_tuples == [
+            (
+                "mlflow.genai.discovery.pipeline",
+                logging.INFO,
+                "Found 3 issues; retaining 2 by severity and omitting 1 to respect max_issues.",
+            )
+        ]
+    else:
+        assert caplog.record_tuples == []
     mock_extract.assert_called_once()
     assert mock_summary.call_count == 4
     mock_refinement_summary.assert_called_once()
