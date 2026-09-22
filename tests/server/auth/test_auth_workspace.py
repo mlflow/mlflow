@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     GET_ARTIFACT,
@@ -3214,6 +3214,82 @@ def test_role_permission_resolver_denies_in_non_default_workspace(monkeypatch):
     )
     perm = auth_module._get_role_permission_or_default(role_perm)
     assert perm.name == NO_PERMISSIONS.name
+
+
+def _grant(store, username, workspace, rows):
+    """Assign ``username`` a fresh role in ``workspace`` carrying ``rows``.
+
+    ``rows`` are ``(resource_type, resource_pattern, permission)`` triples.
+    """
+    role = store.create_role(f"role-{random_str(10)}", workspace)
+    for resource_type, resource_pattern, permission in rows:
+        store.add_role_permission(role.id, resource_type, resource_pattern, permission)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+    return role
+
+
+def test_legacy_resolver_lets_deny_beat_a_positive_grant(workspace_permission_setup):
+    """The regression `4af3cf834` fixed: the store folded grants with ``max`` and
+    ``PERMISSION_PRIORITY[DENY]`` is -1, so a ``DENY`` sharing a role with any positive grant was
+    silently discarded. Both rows below match the ``(experiment, exp-1)`` key -- a wildcard pattern
+    matches every id -- so the fold decides between them, and ``DENY`` must win.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    # The fixture pre-grants workspace MANAGE, which is stored as a synthetic (workspace, *, MANAGE)
+    # role grant and triggers the admin bypass. Drop to the member tier so the experiment rows are
+    # what decide.
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("experiment", "exp-1", DENY.name),
+    ])
+
+    denied = auth_module._get_experiment_permission("exp-1", username)
+    assert denied.name == DENY.name
+    assert not denied.can_read
+
+    # exp-2 is matched only by the wildcard row, so it keeps the positive grant. This is what
+    # makes the assertion above a fold result rather than a blanket failure.
+    assert auth_module._get_experiment_permission("exp-2", username).can_read
+
+
+def test_legacy_resolver_keeps_the_workspace_admin_bypass(workspace_permission_setup):
+    """``_role_grant_for_resource`` has to apply ``is_workspace_admin_grant`` itself:
+    ``fold_grants_for_key`` ignores rows of a different ``resource_type``, so a workspace-wide
+    MANAGE would otherwise never fold into a resource query and admins would lose access.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("workspace", "*", MANAGE.name),
+        ("experiment", "exp-1", DENY.name),
+    ])
+
+    permission = auth_module._get_experiment_permission("exp-1", username)
+    assert permission.name == MANAGE.name
+    assert permission.can_manage
+
+
+def test_legacy_resolver_never_loads_a_child_deny(workspace_permission_setup):
+    """Pins the limit `4af3cf834`'s own message records, so the gap stays visible.
+
+    The legacy callers resolve one resource_type and do not pass the parent, so a ``(run, *, DENY)``
+    row is never loaded on those paths -- it cannot veto anything resolved through the experiment
+    tier. Follow-up item 1 (the §5e baseline) is what makes a child tier participate.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    # Without this the fixture's workspace MANAGE would grant read on its own, and the assertion
+    # below would hold whether or not the run DENY was loaded.
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("run", "*", DENY.name),
+    ])
+
+    assert auth_module._get_experiment_permission("exp-1", username).can_read
 
 
 def test_list_user_role_permissions_workspace_is_default_when_workspaces_disabled(

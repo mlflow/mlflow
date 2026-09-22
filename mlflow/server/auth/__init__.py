@@ -313,6 +313,7 @@ from mlflow.server.auth.permissions import (
 from mlflow.server.auth.requirements import (
     ACTION_NOT_DENIED,
     Requirement,
+    floor_positive_permission,
     fold_grants_for_key,
     governing_permission,
     is_workspace_admin_grant,
@@ -676,23 +677,26 @@ def _get_role_permission_or_default(
 ) -> Permission:
     """Fold the role-derived permission against ``default_permission`` as a floor.
 
-    ``NO_PERMISSIONS`` is preserved rather than max'd against ``default_permission``
-    — it's the resolver's "user has no presence in this workspace" signal (no role
-    matches in the resource's workspace and it isn't an autograted default workspace).
-    That's the only place the workspace boundary lives in this chain; lifting it via
-    the floor would silently leak ``default_permission`` (e.g. READ) into every
-    workspace the user has no role in. ``None`` (workspaces disabled, no grant) still
-    falls through to ``default_permission`` as the safety net.
+    The floor applies only to a POSITIVE grant. ``DENY`` and ``NO_PERMISSIONS`` are returned
+    as they are, via the same ``floor_positive_permission`` the requirement model uses, so one
+    rule governs both paths:
+
+    * ``DENY`` is an explicit veto. ``max_permission`` would discard it outright --
+      ``PERMISSION_PRIORITY[DENY]`` is -1, so ``max(DENY, READ)`` is ``READ`` and the veto
+      silently became the default.
+    * ``NO_PERMISSIONS`` is the resolver's "user has no presence in this workspace" signal
+      (no role matched in the resource's workspace, and it isn't an autogranted default
+      workspace). That is the only place the workspace boundary lives in this chain; lifting
+      it via the floor would leak ``default_permission`` into every workspace the user has no
+      role in.
+
+    ``None`` (workspaces disabled, no grant matched) still falls through to
+    ``default_permission`` as the safety net.
     """
     perm = role_permission_func()
-    default = get_permission(auth_config.default_permission)
     if perm is None:
-        # Workspaces disabled, no grant matched.
-        return default
-    if perm.name == NO_PERMISSIONS.name:
-        # Workspace-boundary deny — see docstring.
-        return perm
-    return get_permission(max_permission(perm.name, default.name))
+        return get_permission(auth_config.default_permission)
+    return floor_positive_permission(perm, auth_config.default_permission)
 
 
 def _can_create_in_workspace(username: str) -> bool:
