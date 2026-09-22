@@ -114,6 +114,10 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.tracking.skill_registry.constants import (
+    SKILL_VERSION_DIGEST_LENGTH,
+    SKILL_VERSION_SOURCE_MAX_LENGTH,
+)
 from mlflow.store.tracking.utils.trace_analytics import (
     PROMOTED_TRACE_METADATA_KEYS,
     assessment_aggregate,
@@ -4876,10 +4880,10 @@ class SqlSkillVersion(Base):
     name = Column(String(128), nullable=False)
     version = Column(Integer, nullable=False)
     source_type = Column(String(20), nullable=True)
-    source = Column(String(2048), nullable=True)
-    ref = Column(String(2048), nullable=True)
-    subpath = Column(String(2048), nullable=True)
-    digest = Column(String(64), nullable=True)
+    source = Column(String(SKILL_VERSION_SOURCE_MAX_LENGTH), nullable=True)
+    ref = Column(String(SKILL_VERSION_SOURCE_MAX_LENGTH), nullable=True)
+    subpath = Column(String(SKILL_VERSION_SOURCE_MAX_LENGTH), nullable=True)
+    digest = Column(String(SKILL_VERSION_DIGEST_LENGTH), nullable=True)
     status = Column(
         String(20),
         nullable=False,
