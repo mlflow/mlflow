@@ -57,7 +57,12 @@ _DEFINITE_REJECTIONS = frozenset(
 
 @dataclass(frozen=True)
 class SkillVersionRegistration:
-    """The metadata of a registration request. Content, when present, travels beside it."""
+    """
+    The metadata of a registration request. Content, when present, travels beside it.
+
+    ``created_by`` is the authenticated server principal, filled in by the REST handler; it
+    is never accepted from the request body (see the RFC's audit metadata rules).
+    """
 
     name: str | None
     organization: str = ""
