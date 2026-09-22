@@ -89,10 +89,8 @@ NON_GENAI_MODULES = {
 
 MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
 
-# Built-in MLflow model flavors: packages exposing `save_model` (or `save_explainer`, for
-# `shap`) that can be passed to `mlflow.models.Model.log(flavor=...)`. Keeps the telemetry
-# `flavor` value bounded; custom/third-party flavors are reported as "other". Validated
-# against observed telemetry and maintained by hand (no runtime flavor registry) — update
+# Built-in MLflow flavors, used to bound the telemetry `flavor` value to a known set.
+# Anything else (a custom or third-party flavor) is reported as "other". Update this
 # when a built-in flavor is added or removed.
 KNOWN_FLAVORS = {
     "catboost",
