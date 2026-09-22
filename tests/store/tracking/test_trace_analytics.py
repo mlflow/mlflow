@@ -98,6 +98,7 @@ def test_analytics_columns_from_metadata_converts_integral_token_counts():
             "output_tokens": 50.0,
             "total_tokens": "150",
             "cache_read_input_tokens": 1.5,
+            "cache_creation_input_tokens_above_1hr": 25,
         })
     }
 
@@ -106,6 +107,7 @@ def test_analytics_columns_from_metadata_converts_integral_token_counts():
         "output_tokens": 50,
         "total_tokens": 150,
         "cache_read_input_tokens": None,
+        "cache_creation_input_tokens_above_1hr": 25,
     }
 
 
@@ -144,6 +146,7 @@ def test_compatibility_metadata_serializes_token_counts_as_integers():
         total_tokens=150,
         cache_read_input_tokens=None,
         cache_creation_input_tokens=None,
+        cache_creation_input_tokens_above_1hr=None,
         input_cost=None,
         output_cost=None,
         total_cost=None,

@@ -658,7 +658,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_unconfigured(monke
 
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey, object())
+    register_periodic_tasks(huey)
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
@@ -671,7 +671,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_config_invalid(mon
 
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey, object())
+    register_periodic_tasks(huey)
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
@@ -698,7 +698,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_configured(monkeyp
 
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey, object())
+    register_periodic_tasks(huey)
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names

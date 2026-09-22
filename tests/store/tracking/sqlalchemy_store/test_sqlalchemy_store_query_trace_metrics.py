@@ -28,7 +28,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.store.db import db_types
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceMetadata
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
     _apply_postgres_trace_first_span_query,
@@ -37,13 +37,16 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     _apply_filters,
     _partition_span_metric_filters,
     query_metrics,
+    validate_query_trace_metrics_params,
 )
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
+    CostKey,
     SpanAttributeKey,
     SpanMetricDimensionKey,
     SpanMetricKey,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceMetricDimensionKey,
     TraceMetricKey,
@@ -332,6 +335,77 @@ def test_query_trace_metrics_session_count_with_trace_metadata_filter_on_other_k
     }
 
 
+@pytest.mark.parametrize(
+    ("metadata_key", "matching_value", "other_value"),
+    [
+        (
+            TraceMetadataKey.TOKEN_USAGE,
+            {TokenUsageKey.TOTAL_TOKENS: 10},
+            {TokenUsageKey.TOTAL_TOKENS: 20},
+        ),
+        (
+            TraceMetadataKey.COST,
+            {CostKey.TOTAL_COST: 0.1},
+            {CostKey.TOTAL_COST: 0.2},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("view_type", "metric_name"),
+    [
+        (MetricViewType.TRACES, TraceMetricKey.TRACE_COUNT),
+        (MetricViewType.ASSESSMENTS, AssessmentMetricKey.ASSESSMENT_COUNT),
+    ],
+)
+def test_query_trace_metrics_filters_promoted_metadata(
+    store: SqlAlchemyStore,
+    metadata_key: str,
+    matching_value: dict[str, int | float],
+    other_value: dict[str, int | float],
+    view_type: MetricViewType,
+    metric_name: str,
+):
+    exp_id = store.create_experiment(f"filter-promoted-metadata-{uuid.uuid4()}")
+    for trace_id, metadata_value in (("matching", matching_value), ("other", other_value)):
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=100,
+                state=TraceStatus.OK,
+                trace_metadata={metadata_key: json.dumps(metadata_value)},
+            )
+        )
+        store.create_assessment(
+            Feedback(
+                trace_id=trace_id,
+                name="quality",
+                value=True,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+                ),
+            )
+        )
+
+    with store.ManagedSessionMaker() as session:
+        assert (
+            session.query(SqlTraceMetadata).filter(SqlTraceMetadata.key == metadata_key).count()
+            == 0
+        )
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=view_type,
+        metric_name=metric_name,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{metadata_key}` = '{json.dumps(matching_value)}'"],
+    )
+
+    assert len(result) == 1
+    assert result[0].values == {"COUNT": 1}
+
+
 def test_query_trace_metrics_count_by_status(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_count_by_status")
 
@@ -524,6 +598,67 @@ def test_query_trace_metrics_latency_avg(store: SqlAlchemyStore):
         "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {"AVG": 200.0},
     }
+
+
+def test_query_trace_metrics_min_max(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_latency_min_max")
+
+    for trace_id, duration in [("trace1", 100), ("trace2", 300)]:
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=duration,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "workflow"},
+            )
+        )
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.MIN),
+            MetricAggregation(aggregation_type=AggregationType.MAX),
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.LATENCY,
+        "dimensions": {},
+        "values": {"MIN": 100, "MAX": 300},
+    }
+
+
+@pytest.mark.parametrize(
+    ("view_type", "metric_name"),
+    [
+        (MetricViewType.TRACES, TraceMetricKey.LATENCY),
+        (MetricViewType.TRACES, TraceMetricKey.INPUT_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.OUTPUT_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.TOTAL_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.CACHE_READ_INPUT_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.CACHE_CREATION_INPUT_TOKENS),
+        (MetricViewType.SPANS, SpanMetricKey.LATENCY),
+        (MetricViewType.SPANS, SpanMetricKey.INPUT_COST),
+        (MetricViewType.SPANS, SpanMetricKey.OUTPUT_COST),
+        (MetricViewType.SPANS, SpanMetricKey.TOTAL_COST),
+        (MetricViewType.ASSESSMENTS, AssessmentMetricKey.ASSESSMENT_VALUE),
+    ],
+)
+def test_value_metrics_accept_min_max(view_type: MetricViewType, metric_name: str):
+    validate_query_trace_metrics_params(
+        view_type,
+        metric_name,
+        [
+            MetricAggregation(aggregation_type=AggregationType.MIN),
+            MetricAggregation(aggregation_type=AggregationType.MAX),
+        ],
+        dimensions=None,
+    )
 
 
 @pytest.mark.parametrize(

@@ -136,26 +136,35 @@ Configure rollup reads and maintenance with the following environment variables 
     </tr>
     <tr>
       <td>`MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN`</td>
-      <td>Maximum number of daily partitions successfully built or emptied by one maintenance run. Deferred partitions do not consume this publication budget.</td>
+      <td>Maximum number of daily partitions successfully built or emptied by one maintenance run. Deferred partitions (for example, partitions with active traces that are not yet eligible) do not consume this publication budget.</td>
       <td>`1000`</td>
     </tr>
     <tr>
       <td>`MLFLOW_TRACE_ROLLUPS_MAX_WORKERS`</td>
-      <td>Maximum number of experiments maintained concurrently. Days within an experiment are processed serially to preserve ordering.</td>
+      <td>Maximum number of experiments maintained concurrently during each maintenance run. Days within an experiment are processed serially to preserve ordering.</td>
       <td>`4`</td>
     </tr>
   </tbody>
 </Table>
 
-When job execution is available, MLflow registers the scheduled maintenance task automatically. The task builds only complete UTC-day partitions after the end of the day has been older than the 24-hour eligibility cutoff and all contributing traces are complete or inactive. Writes that can make an existing partition stale add it to a durable rebuild queue; the next maintenance run atomically replaces that partition and removes its queue entry.
+When job execution is available, MLflow registers the scheduled maintenance task automatically. The task builds only complete UTC-day partitions after the end of the day has been older than the 24-hour eligibility cutoff and all contributing traces are complete or inactive. Until a day has valid rollup coverage, queries for that day transparently use the raw path.
 
-The server-owned scheduler delegates each run to the service-level `run_sql_trace_rollup_scheduler(tracking_store)` function. The function no-ops when `MLFLOW_SQL_TRACE_ROLLUPS_ENABLED` is `false`. Until a day has valid rollup coverage, queries for that day transparently use the raw path.
+The built-in Huey scheduler is supported only when periodic rollup tasks are enabled on exactly one
+MLflow replica. In a multi-replica deployment, disable local periodic rollup tasks on the tracking
+server replicas and run rollup maintenance through the remote job service. All replicas may read
+rollups and enqueue rebuild work.
 
-Maintenance drains the durable rebuild queue before discovering new days. It examines past deferred entries so one active trace cannot block later eligible work, and emits warnings when deferred backlog remains or either the publication or bounded examination limit is reached. `MLFLOW_TRACE_ROLLUPS_MAX_WORKERS` is forced to `1` on SQLite because SQLite serializes writes; other SQL backends may process different experiments in parallel.
+Each maintenance pass rebuilds stale partitions before discovering new days. If rebuild work repeatedly prevents new partitions from being discovered, increase `MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN` so each pass can publish more partitions. Increasing `MLFLOW_TRACE_ROLLUPS_MAX_WORKERS` can shorten a pass by processing different experiments concurrently, but does not increase the number of partitions it can publish. SQLite always uses one worker because it permits only one concurrent writer.
+
+:::warning[Initial rollup bootstrap]
+
+When rollups are first enabled, maintenance must create partitions for eligible historical data. Depending on the amount of existing data and `MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN`, this initial bootstrap can take multiple scheduled runs before coverage is complete. Subsequent maintenance runs generally have less work because they process only new partitions and queued rebuilds. MLflow logs when the bootstrap starts and separate results for trace metrics, span costs, and assessments after every maintenance run.
+
+:::
 
 ### Disabling or recovering SQL trace rollups
 
-Before disabling SQL trace rollups, stop every MLflow server that uses the database and delete the derived rollup state:
+Before disabling SQL trace rollups and restarting MLflow, stop every MLflow server that uses the database and delete the derived rollup state. Otherwise, MLflow rejects startup while materialized rollup rows remain:
 
 ```bash
 mlflow db delete-trace-rollups <database-url>
@@ -168,6 +177,45 @@ mlflow db delete-trace-rollups --yes <database-url>
 ```
 
 If rollups are enabled again later, maintenance rebuilds them from the authoritative tables.
+
+`MLFLOW_SQL_TRACE_ROLLUPS_ENABLED` is not a hot-disable switch after rollups have been populated.
+Disabling it requires the coordinated stop, deletion, and restart procedure above. Rolling upgrades
+that mix MLflow versions are not supported for this schema transition.
+
+### Upgrading a database with trace analytics data
+
+Take a database backup before beginning. Stop every MLflow writer before the final schema upgrade;
+the migration promotes denormalized values to authoritative columns and removes their legacy
+representations.
+
+For large databases, the optional prepopulation command can reduce final migration downtime. It
+must run while the database is at the migration's immediate predecessor revision
+`b7e2c1a4d9f3`:
+
+```bash
+mlflow db prepopulate-trace-analytics <database-url>
+```
+
+The command is non-destructive and safe to resume. It does not advance the Alembic revision or
+remove legacy rows. After it completes:
+
+1. Stop all MLflow servers and other writers that use the database.
+2. Take or verify a restorable database backup.
+3. Run `mlflow db upgrade <database-url>`.
+4. Start all replicas on the new MLflow version. Do not mix old and new versions.
+5. If using built-in Huey scheduling, enable periodic rollup tasks on one replica only. For a
+   multi-replica deployment, use the remote rollup job instead.
+6. Enable `MLFLOW_SQL_TRACE_ROLLUPS_ENABLED` and monitor maintenance logs until historical
+   partitions have been built.
+
+Large cleanup operations can leave PostgreSQL statistics or table bloat temporarily stale. Allow
+normal autovacuum to catch up, or schedule `VACUUM (ANALYZE)` according to the database's operating
+procedures.
+
+To downgrade, stop all writers and take a backup before running the schema downgrade. The downgrade
+reconstructs reserved token metrics, token and cost metadata, span cost metrics, trace-name tags,
+session metadata, and model/provider dimension attributes before removing the denormalized columns.
+Deploy the older MLflow version only after the downgrade completes.
 
 :::note[Backend-specific behavior]
 

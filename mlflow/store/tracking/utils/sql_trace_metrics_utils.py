@@ -24,6 +24,10 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
     _apply_postgres_trace_first_span_query,
 )
+from mlflow.store.tracking.utils.trace_analytics import (
+    TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY,
+    get_trace_analytics_metadata_filter,
+)
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
@@ -65,27 +69,62 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
         dimensions=set(),
     ),
     TraceMetricKey.LATENCY: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.INPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.OUTPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.TOTAL_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.CACHE_READ_INPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
 }
@@ -103,25 +142,48 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_STATUS},
     ),
     SpanMetricKey.INPUT_COST: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
         },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
         },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
@@ -138,7 +200,12 @@ ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
         },
     ),
     AssessmentMetricKey.ASSESSMENT_VALUE: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={AssessmentMetricDimensionKey.ASSESSMENT_NAME},
     ),
 }
@@ -293,6 +360,10 @@ def _get_aggregation_expression(
             return func.sum(column)
         case AggregationType.AVG:
             return func.avg(column)
+        case AggregationType.MIN:
+            return func.min(column)
+        case AggregationType.MAX:
+            return func.max(column)
         case AggregationType.PERCENTILE:
             return get_percentile_aggregation(
                 db_type, aggregation.percentile_value, column, partition_by_columns
@@ -481,6 +552,20 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                                 )
                             else:
                                 query = query.filter(SqlTraceInfo.session_id == parsed_filter.value)
+                            continue
+                        if parsed_filter.key in TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY:
+                            predicate = get_trace_analytics_metadata_filter(
+                                parsed_filter.key,
+                                parsed_filter.comparator,
+                                parsed_filter.value,
+                                SqlTraceInfo,
+                            )
+                            if view_type == MetricViewType.ASSESSMENTS:
+                                predicate = exists().where(
+                                    SqlTraceInfo.request_id == trace_id_column,
+                                    predicate,
+                                )
+                            query = query.filter(predicate)
                             continue
                         metadata_filter = exists().where(
                             and_(
@@ -812,6 +897,9 @@ def query_metrics(
 
     for dimension in dimensions or []:
         query, dimension_column = _apply_dimension_to_query(query, dimension, view_type, db_type)
+        # Result conversion omits null dimensions. Exclude them before ORDER BY/LIMIT so they
+        # cannot consume result slots and make raw and rollup-backed queries return different rows.
+        query = query.filter(dimension_column.isnot(None))
         dimension_columns.append(dimension_column)
 
     # MSSQL and MySQL with percentile need special handling (window function requires subquery)

@@ -3,6 +3,10 @@ import math
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy import and_, false, or_
+from sqlalchemy.sql.elements import ColumnElement
+
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
@@ -22,6 +26,7 @@ TOKEN_COLUMN_BY_KEY = {
     TokenUsageKey.TOTAL_TOKENS: "total_tokens",
     TokenUsageKey.CACHE_READ_INPUT_TOKENS: "cache_read_input_tokens",
     TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: "cache_creation_input_tokens",
+    TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: ("cache_creation_input_tokens_above_1hr"),
 }
 COST_COLUMN_BY_KEY = {
     CostKey.INPUT_COST: "input_cost",
@@ -33,6 +38,62 @@ PROMOTED_TRACE_METADATA_KEYS = frozenset({
     TraceMetadataKey.TOKEN_USAGE,
     TraceMetadataKey.COST,
 })
+
+TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY = {
+    TraceMetadataKey.TOKEN_USAGE: TOKEN_COLUMN_BY_KEY,
+    TraceMetadataKey.COST: COST_COLUMN_BY_KEY,
+}
+
+
+def get_trace_analytics_metadata_filter(
+    key: str, comparator: str, value: str | None, trace_info_model
+) -> ColumnElement[bool]:
+    columns_by_item_key = {
+        item_key: getattr(trace_info_model, column)
+        for item_key, column in TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY[key].items()
+    }
+    metadata_exists = or_(*(column.isnot(None) for column in columns_by_item_key.values()))
+    if comparator == "IS NULL":
+        return ~metadata_exists
+    if comparator == "IS NOT NULL":
+        return metadata_exists
+    if comparator not in ("=", "!="):
+        raise MlflowException.invalid_parameter_value(
+            f"Comparator '{comparator}' is not supported for reserved metadata '{key}'. "
+            "Only '=', '!=', 'IS NULL', and 'IS NOT NULL' are supported."
+        )
+
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        parsed = None
+
+    converter = token_count_or_none if key == TraceMetadataKey.TOKEN_USAGE else finite_float_or_none
+    normalized = (
+        {
+            item_key: converted
+            for item_key in columns_by_item_key
+            if (converted := converter(parsed.get(item_key))) is not None
+        }
+        if isinstance(parsed, dict) and set(parsed).issubset(columns_by_item_key)
+        else {}
+    )
+    # Preserve equality against the exact JSON string synthesized for compatibility metadata.
+    canonical_value = json.dumps(normalized)
+    value_is_canonical = bool(normalized) and value == canonical_value
+    if value_is_canonical:
+        value_matches = and_(
+            *(
+                and_(column.isnot(None), column == normalized[item_key])
+                if item_key in normalized
+                else column.is_(None)
+                for item_key, column in columns_by_item_key.items()
+            )
+        )
+    else:
+        value_matches = false()
+
+    return value_matches if comparator == "=" else and_(metadata_exists, ~value_matches)
 
 
 def validate_session_id(value: str | None) -> str | None:

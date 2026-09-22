@@ -512,6 +512,7 @@ CREATE TABLE trace_info (
 	total_tokens BIGINT,
 	cache_read_input_tokens BIGINT,
 	cache_creation_input_tokens BIGINT,
+	cache_creation_input_tokens_above_1hr BIGINT,
 	input_cost FLOAT,
 	output_cost FLOAT,
 	total_cost FLOAT,

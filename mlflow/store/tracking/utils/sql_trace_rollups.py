@@ -44,6 +44,7 @@ from sqlalchemy import (
     or_,
     select,
 )
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -158,22 +159,6 @@ ROLLUP_METRICS: dict[RollupFamily, frozenset[str]] = {
         AssessmentMetricKey.ASSESSMENT_VALUE,
     }),
 }
-
-# Token counts are stored as exact BIGINT values in the authoritative trace table, while the
-# current rollup schema stores ``sum_value`` as a double-precision float. Serving SUM or AVG from
-# that column could change results above 2^53, so those shapes remain on the exact raw path.
-EXACT_INTEGER_SUM_METRICS = frozenset({
-    TraceMetricKey.INPUT_TOKENS,
-    TraceMetricKey.OUTPUT_TOKENS,
-    TraceMetricKey.TOTAL_TOKENS,
-    TraceMetricKey.CACHE_READ_INPUT_TOKENS,
-    TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
-})
-
-# Trace latency also originates from a BIGINT column, but a daily latency sum must exceed
-# 2**53 milliseconds (roughly 285,000 years of aggregate latency) before the rollup FLOAT
-# can lose integer precision. Keep latency AVG eligible because it is a core rollup use case;
-# supporting exact arbitrary-magnitude latency sums would require a future schema change.
 
 # Only trace-metric rollups store daily percentile columns, and only PostgreSQL computes them.
 PERCENTILE_FAMILIES = frozenset({RollupFamily.TRACE_METRIC})
@@ -435,15 +420,6 @@ def resolve_rollup_read(
     if len(experiment_ids) != 1:
         return _raw_fallback(view_type, metric_name, "the request is not single-experiment")
 
-    if metric_name in EXACT_INTEGER_SUM_METRICS and any(
-        agg.aggregation_type in {AggregationType.SUM, AggregationType.AVG} for agg in aggregations
-    ):
-        return _raw_fallback(
-            view_type,
-            metric_name,
-            "token SUM and AVG require the authoritative BIGINT values",
-        )
-
     if not all(_aggregation_servable(agg, family, db_type, bucketed) for agg in aggregations):
         return _raw_fallback(view_type, metric_name, "an aggregation is not rollup-servable")
 
@@ -566,6 +542,18 @@ def raw_aggregations_for_plan(plan: RollupReadPlan) -> list[MetricAggregation]:
     ]
 
 
+def _protect_rebuild_queue_read(query, db_type: str):
+    if db_type == db_types.MSSQL:
+        # Protect absent keys as well as existing rows. Publishers lock the same queue keys before
+        # replacing rollup rows, so this keeps readers and publishers on a queue-first lock order.
+        return query.with_hint(
+            SqlTraceRollupRebuild,
+            "WITH (HOLDLOCK)",
+            dialect_name=db_types.MSSQL,
+        )
+    return query
+
+
 def compute_covered_day_starts(session: Session, plan: RollupReadPlan) -> list[int]:
     """Return the candidate days actually servable from rollups.
 
@@ -577,6 +565,19 @@ def compute_covered_day_starts(session: Session, plan: RollupReadPlan) -> list[i
     candidate_dates = list(date_to_ms.keys())
     model = FAMILY_MODEL[plan.family]
 
+    queue_query = session.query(SqlTraceRollupRebuild.rollup_day).filter(
+        SqlTraceRollupRebuild.experiment_id == plan.experiment_id,
+        SqlTraceRollupRebuild.rollup_family == plan.family.value,
+        SqlTraceRollupRebuild.rollup_day.in_(candidate_dates),
+    )
+    queued = {
+        row_day
+        for (row_day,) in _protect_rebuild_queue_read(queue_query, session.get_bind().dialect.name)
+    }
+    readable_dates = [rollup_day for rollup_day in candidate_dates if rollup_day not in queued]
+    if not readable_dates:
+        return []
+
     built = {
         row_day
         for (row_day,) in session
@@ -585,19 +586,11 @@ def compute_covered_day_starts(session: Session, plan: RollupReadPlan) -> list[i
             model.experiment_id == plan.experiment_id,
             model.metric_name == plan.metric_name,
             model.grouping_set == plan.grouping_set.value,
-            model.rollup_day.in_(candidate_dates),
+            model.rollup_day.in_(readable_dates),
         )
         .distinct()
     }
-    queued = {
-        row_day
-        for (row_day,) in session.query(SqlTraceRollupRebuild.rollup_day).filter(
-            SqlTraceRollupRebuild.experiment_id == plan.experiment_id,
-            SqlTraceRollupRebuild.rollup_family == plan.family.value,
-            SqlTraceRollupRebuild.rollup_day.in_(candidate_dates),
-        )
-    }
-    covered = [ms for d, ms in date_to_ms.items() if d in built and d not in queued]
+    covered = [ms for d, ms in date_to_ms.items() if d in built]
     return sorted(covered)
 
 
@@ -849,6 +842,7 @@ def _build_sql_grouped_span_cost_query(
         .where(
             SqlSpan.experiment_id == plan.experiment_id,
             metric_column.isnot(None),
+            *(column.isnot(None) for column in raw_string_columns),
             _build_time_range_predicate(
                 SqlSpan.start_time_unix_nano,
                 raw_ranges,
@@ -1142,6 +1136,23 @@ def ensure_locked_rebuild_entry(
         )
         if updated:
             return query.one()
+
+    if session.get_bind().dialect.name == db_types.MYSQL:
+        # Avoid locking a missing key before insertion. InnoDB allows concurrent transactions to
+        # take compatible gap locks for the same absent key, which can deadlock when both insert.
+        # The atomic upsert establishes the row first; the locking read then serializes writers on
+        # that existing row.
+        stmt = mysql_insert(SqlTraceRollupRebuild).values(
+            experiment_id=experiment_id,
+            rollup_day=rollup_day,
+            rollup_family=family.value,
+        )
+        session.execute(
+            stmt.on_duplicate_key_update({
+                "rollup_family": stmt.inserted.rollup_family,
+            })
+        )
+        return _lock_rebuild_entry_query(session, query).one()
 
     if entry := _lock_rebuild_entry_query(session, query).one_or_none():
         return entry

@@ -13,7 +13,7 @@ change needs a new revision and a new frozen module, never an edit to this one.
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects import mssql, mysql, postgresql
 
 # Column lengths frozen at revision 75868b020152. Kept as literals so a later change to the
 # application's live length constants cannot alter this revision's stored schema.
@@ -33,6 +33,7 @@ def analytics_columns_by_table() -> dict[str, list[sa.Column]]:
             sa.Column("total_tokens", sa.BigInteger(), nullable=True),
             sa.Column("cache_read_input_tokens", sa.BigInteger(), nullable=True),
             sa.Column("cache_creation_input_tokens", sa.BigInteger(), nullable=True),
+            sa.Column("cache_creation_input_tokens_above_1hr", sa.BigInteger(), nullable=True),
             sa.Column("input_cost", sa.Float(precision=53), nullable=True),
             sa.Column("output_cost", sa.Float(precision=53), nullable=True),
             sa.Column("total_cost", sa.Float(precision=53), nullable=True),
@@ -85,7 +86,22 @@ def types_are_compatible(
             actual, (sa.BigInteger, sa.SmallInteger)
         )
     if isinstance(expected, sa.Float):
-        return isinstance(actual, sa.Float)
+        if not isinstance(actual, sa.Float):
+            return False
+        expected_precision = getattr(expected, "precision", None)
+        actual_precision = getattr(actual, "precision", None)
+        if expected_precision is None or actual_precision == expected_precision:
+            return True
+        if actual_precision is not None:
+            return False
+        # Some backends reflect their native double-precision type without an explicit precision.
+        # Accept only those 53-bit representations, not narrower REAL/FLOAT columns.
+        return (
+            (dialect.name == "postgresql" and isinstance(actual, postgresql.DOUBLE_PRECISION))
+            or (dialect.name == "mysql" and isinstance(actual, mysql.DOUBLE))
+            or (dialect.name == "mssql" and isinstance(actual, mssql.FLOAT))
+            or dialect.name == "sqlite"
+        )
     if isinstance(expected, sa.Boolean):
         if isinstance(actual, sa.Boolean):
             return True
@@ -94,10 +110,9 @@ def types_are_compatible(
         # rerun that revalidates the is_numeric_value column it already added).
         return isinstance(actual, mysql.TINYINT) and getattr(actual, "display_width", None) == 1
     if isinstance(expected, sa.String):
-        # MySQL maps long String columns to TEXT via with_variant(), so a reflected Text column is
-        # an acceptable match for an expected String on that dialect.
         if isinstance(actual, sa.Text):
-            return True
+            # Accept TEXT only when the expected type explicitly compiles to TEXT on MySQL.
+            return dialect.name == "mysql" and isinstance(expected.dialect_impl(dialect), sa.Text)
         return isinstance(actual, sa.String) and expected.length == actual.length
     return type(expected) is type(actual)
 
@@ -133,6 +148,8 @@ def _validate_existing_column(
         problems.append(
             f"server default {actual.get('default')!r}; expected a false server default"
         )
+    elif expected.server_default is None and actual.get("default") is not None:
+        problems.append(f"unexpected server default {actual.get('default')!r}")
 
     if problems:
         raise RuntimeError(

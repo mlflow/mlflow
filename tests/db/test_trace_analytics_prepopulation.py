@@ -88,8 +88,8 @@ def test_prepopulation_is_non_destructive_and_idempotent(tmp_path):
 
         first = prepopulation.prepopulate_trace_analytics(engine, batch_size=1)
         assert first == prepopulation.TraceAnalyticsPrepopulationStats(
-            traces=prepopulation.EntityPrepopulationStats(scanned=2, updated=1),
-            spans=prepopulation.EntityPrepopulationStats(scanned=3, updated=3),
+            traces=prepopulation.EntityPrepopulationStats(scanned=3, updated=1),
+            spans=prepopulation.EntityPrepopulationStats(scanned=4, updated=4),
             assessments=prepopulation.EntityPrepopulationStats(scanned=6, updated=6),
         )
         assert _schema_revision(engine) == PREVIOUS_REVISION
@@ -142,7 +142,7 @@ def test_prepopulation_is_non_destructive_and_idempotent(tmp_path):
                 conn.execute(
                     sa.select(sa.func.count()).where(spans.c.dimension_attributes.isnot(None))
                 ).scalar_one()
-                == 3
+                == 4
             )
 
         second = prepopulation.prepopulate_trace_analytics(engine, batch_size=1)
@@ -223,8 +223,8 @@ def test_prepopulation_reports_monotonic_progress(tmp_path):
         )
 
         assert progress == {
-            "traces": [1, 2],
-            "spans": [1, 2, 3],
+            "traces": [1, 2, 3],
+            "spans": [1, 2, 3, 4],
             "assessments": [1, 2, 3, 4, 5, 6],
         }
     finally:
@@ -468,7 +468,7 @@ def test_final_migration_repairs_legacy_writes_after_prepopulation(tmp_path):
             )
 
         update_counts = _upgrade_and_count_analytics_updates(engine, config)
-        assert update_counts == {"trace": 1, "span": 1, "assessment": 1}
+        assert update_counts == {"trace": 2, "span": 1, "assessment": 1}
 
         with engine.connect() as conn:
             trace_info = _table(conn, "trace_info")
@@ -518,7 +518,7 @@ def test_final_migration_skips_fully_prepopulated_rows(tmp_path):
         prepopulation.prepopulate_trace_analytics(engine)
 
         update_counts = _upgrade_and_count_analytics_updates(engine, config)
-        assert update_counts == {"trace": 0, "span": 0, "assessment": 0}
+        assert update_counts == {"trace": 1, "span": 0, "assessment": 0}
     finally:
         engine.dispose()
 
@@ -597,6 +597,10 @@ def test_prepopulation_schema_contract_matches_orm_models(tmp_path):
             mysql.TEXT(),
             mysql.dialect(),
         ),
+        (sa.Float(precision=53), postgresql.DOUBLE_PRECISION(), postgresql.dialect()),
+        (sa.Float(precision=53), mysql.DOUBLE(), mysql.dialect()),
+        (sa.Float(precision=53), mssql.FLOAT(), mssql.dialect()),
+        (sa.Float(precision=53), sqlite.FLOAT(), sqlite.dialect()),
         # MySQL has no native BOOLEAN type: it stores and reflects Boolean columns as TINYINT(1),
         # so a reflected TINYINT(1) must match an expected Boolean on that dialect (e.g. when a
         # prepopulation rerun revalidates the is_numeric_value column it already added).
@@ -619,7 +623,46 @@ def test_types_are_incompatible_for_non_boolean_tinyint(expected, actual, dialec
     assert not schema.types_are_compatible(expected, actual, dialect)
 
 
+@pytest.mark.parametrize(
+    ("expected", "actual", "dialect"),
+    [
+        (sa.Float(precision=53), sa.Float(precision=24), postgresql.dialect()),
+        (sa.Float(precision=53), postgresql.REAL(), postgresql.dialect()),
+        (sa.Float(precision=53), mysql.FLOAT(), mysql.dialect()),
+        (sa.String(length=500), postgresql.TEXT(), postgresql.dialect()),
+        (sa.String(length=500), mysql.TEXT(), mysql.dialect()),
+    ],
+)
+def test_types_are_incompatible_for_promoted_column_shapes(expected, actual, dialect):
+    assert not schema.types_are_compatible(expected, actual, dialect)
+
+
+def test_existing_column_rejects_unexpected_server_default():
+    expected = sa.Column("input_tokens", sa.BigInteger(), nullable=True)
+    actual = {
+        "name": "input_tokens",
+        "type": sa.BigInteger(),
+        "nullable": True,
+        "default": "0",
+    }
+
+    with pytest.raises(RuntimeError, match="unexpected server default"):
+        schema._validate_existing_column(
+            "trace_info",
+            expected,
+            actual,
+            sqlite.dialect(),
+        )
+
+
 def test_prepopulation_conversion_semantics_match_the_frozen_migration():
+    assert MIGRATION_MODULE._TOKEN_COLUMNS is prepopulation.TOKEN_COLUMN_BY_KEY
+    assert MIGRATION_MODULE._COST_COLUMNS is prepopulation.COST_COLUMN_BY_KEY
+    assert MIGRATION_MODULE._finite_float_or_none is prepopulation.finite_float_or_none
+    assert MIGRATION_MODULE._token_count_or_none is prepopulation.token_count_or_none
+    assert MIGRATION_MODULE._json_object is prepopulation._json_object
+    assert MIGRATION_MODULE.trace_analytics_values is prepopulation.trace_analytics_values
+
     numeric_values = [
         None,
         True,
@@ -636,7 +679,7 @@ def test_prepopulation_conversion_semantics_match_the_frozen_migration():
         -(2**63) - 1,
         2**63,
         "not-a-number",
-        # Overflow: the frozen and live copies must agree that a huge integer is non-numeric.
+        # Overflow: the shared frozen helper treats a huge integer as non-numeric.
         10**400,
         -(10**400),
     ]
@@ -741,8 +784,8 @@ def test_prepopulation_cli(tmp_path):
         assert "Traces progress: scanned=1, updated=1" in result.output
         assert "Spans progress: scanned=1, updated=1" in result.output
         assert "Assessments progress: scanned=1, updated=1" in result.output
-        assert "Traces: scanned=2, updated=1" in result.output
-        assert "Spans: scanned=3, updated=3" in result.output
+        assert "Traces: scanned=3, updated=1" in result.output
+        assert "Spans: scanned=4, updated=4" in result.output
         assert "Assessments: scanned=6, updated=6" in result.output
         assert "without advancing the Alembic revision" in result.output
         assert "Run `mlflow db upgrade`" in result.output
