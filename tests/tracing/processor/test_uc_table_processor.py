@@ -151,6 +151,40 @@ def test_on_end_sets_user_session_span_attributes():
     assert otel_span.attributes["session.id"] == "sess-123"
 
 
+def test_on_end_exports_root_span_when_setting_user_session_attributes_fails():
+    # Regression test for https://github.com/mlflow/mlflow/issues/26046
+    # A failure while setting user/session attributes on the root span must not prevent
+    # the span from being exported to the exporter.
+    trace_info = create_test_trace_info("request_id", 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace("trace_id", trace_info)
+
+    otel_span = create_mock_otel_span(
+        name="foo",
+        trace_id="trace_id",
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+    span = LiveSpan(otel_span, "request_id")
+    span.set_status("OK")
+
+    mock_exporter = mock.MagicMock()
+    processor = DatabricksUCTableSpanProcessor(span_exporter=mock_exporter)
+
+    with mock.patch.object(
+        processor,
+        "_set_user_session_span_attributes",
+        side_effect=RuntimeError("boom"),
+    ):
+        processor.on_end(otel_span)
+
+    # The root span should still be exported even though setting the user/session
+    # attributes raised an exception.
+    mock_exporter.export.assert_called_once_with((otel_span,))
+
+
 def test_on_end_does_not_set_user_session_attributes_when_missing():
     trace_manager = InMemoryTraceManager.get_instance()
     with mock.patch.object(trace_manager, "pop_trace", return_value=None):

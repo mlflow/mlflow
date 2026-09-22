@@ -85,7 +85,16 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
 
     def on_end(self, span: OTelReadableSpan) -> None:
         if span._parent is None:
-            self._set_user_session_span_attributes(span)
+            # Setting user/session attributes on the root span is best-effort: a failure
+            # here must never prevent the span from being exported (#26046).
+            try:
+                self._set_user_session_span_attributes(span)
+            except Exception:
+                _logger.debug(
+                    "Failed to set user session span attributes for root span. "
+                    "Span export will proceed without them.",
+                    exc_info=True,
+                )
         super().on_end(span)
 
     def _set_user_session_span_attributes(self, root_span: OTelReadableSpan) -> None:
