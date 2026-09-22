@@ -113,3 +113,12 @@ exclude = [
   "mlflow/store/db_migrations",
   "tests/protos",
 ]
+
+[tool.mlflow-release]
+# Read ONLY by the mlflow/releases `python.yml` "Validate ref and version" gate, which
+# greps pyproject.toml for a `version = "..."` line and checks its major.minor matches the
+# release branch. Only major.minor is checked, so this is the branch marker (2.11) and
+# never needs per-patch updates. The real published version lives in mlflow/version.py;
+# this is NOT used by the build (a [project].version would break setup.py's dynamic version
+# and the MLFLOW_SKINNY package-name toggle, so it's intentionally under a [tool.*] table).
+version = "2.11"
