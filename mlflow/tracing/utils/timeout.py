@@ -171,8 +171,9 @@ class MlflowTraceTimeoutCache(_TimedCache):
     def __delitem__(self, key, cache_delitem=Cache.__delitem__):
         """Delete the item from the cache and the linked list."""
         cache_delitem(self, key)
-        link = self._links.pop(key)
-        link.unlink()
+        link = self._links.pop(key, None)
+        if link is not None:
+            link.unlink()
 
     def _start_expire_check_loop(self):
         # Close the daemon thread when the main thread exits
@@ -208,7 +209,11 @@ class MlflowTraceTimeoutCache(_TimedCache):
 
         # End the expired traces and set the status to ERROR in background thread
         for request_id in expired:
-            trace = self[request_id]
+            trace = self.get(request_id)
+            if trace is None:
+                # Trace was removed concurrently (e.g. atexit clear() racing the
+                # background expiry thread); skip silently rather than raising KeyError.
+                continue
             if root_span := trace.get_root_span():
                 try:
                     root_span.set_status(SpanStatusCode.ERROR)

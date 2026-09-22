@@ -51,6 +51,59 @@ def test_expire_traces(cache):
     span_1_2.assert_not_called()
 
 
+def test_expire_skips_concurrently_deleted_traces():
+    """expire() must not raise KeyError when a trace is removed between
+    _get_expired_traces() building the snapshot and the self[key] lookup.
+
+    This is the race that occurs when the atexit clear() and the background
+    expiry thread both invoke expire() concurrently (issue #24610).
+    """
+    cache = MlflowTraceTimeoutCache(timeout=1, maxsize=10)
+    span = _mock_span("span_concurrent")
+    cache["tr_concurrent"] = _Trace(None, span_dict={"span_concurrent": span})
+
+    # Wait for the trace to pass its timeout so _get_expired_traces() returns it
+    time.sleep(1.5)
+    assert "tr_concurrent" in cache._get_expired_traces()
+
+    # Simulate the race: remove the trace before expire() can access self[key]
+    del cache["tr_concurrent"]
+
+    # expire() must not raise KeyError and must not permanently stop the loop
+    cache.expire()  # should complete without exception
+    cache.clear()
+
+
+def test_expire_check_loop_survives_concurrent_deletion():
+    """The background expiry thread must remain alive after a concurrent deletion.
+
+    Before the fix, expire() raised KeyError which the loop caught and then
+    broke permanently (thread exited), silently disabling the trace-timeout feature
+    for the rest of the process lifetime.
+    """
+    cache = MlflowTraceTimeoutCache(timeout=1, maxsize=10)
+    span = _mock_span("span_loop")
+    cache["tr_loop"] = _Trace(None, span_dict={"span_loop": span})
+
+    # Wait for the trace to expire
+    time.sleep(1.5)
+
+    # Simulate the race: delete the trace before expire() processes it
+    if "tr_loop" in cache:
+        del cache["tr_loop"]
+
+    # Calling expire() after the concurrent deletion must not raise, proving the
+    # loop body can execute again (i.e. the loop did not break permanently).
+    cache.expire()
+
+    # The background thread must still be alive — not exited due to an uncaught exception.
+    assert cache._expire_checker_thread.is_alive(), (
+        "Expiry thread exited after a concurrent deletion — "
+        "the KeyError race is still silently disabling trace-timeout"
+    )
+    cache.clear()
+
+
 class _SlowModel:
     @mlflow.trace
     def predict(self, x):
