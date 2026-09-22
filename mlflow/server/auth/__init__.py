@@ -287,9 +287,13 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_SECRET,
     RESOURCE_TYPE_LOGGED_MODEL,
     RESOURCE_TYPE_MCP_SERVER,
+    RESOURCE_TYPE_PROMPT,
+    RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SCORER_VERSION,
     RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_WORKSPACE,
     USE,
@@ -790,6 +794,16 @@ def _get_resource_workspace(
 # operation resolves ONE workspace (its anchor's) and loads every key there.
 _WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" = {
     RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
+    # A prompt IS a registered model (distinguished by a tag), so both read the same store
+    # and share its cache label.
+    RESOURCE_TYPE_REGISTERED_MODEL: (
+        "registered_model",
+        lambda: _get_model_registry_store().get_registered_model,
+    ),
+    RESOURCE_TYPE_PROMPT: (
+        "registered_model",
+        lambda: _get_model_registry_store().get_registered_model,
+    ),
 }
 
 
@@ -1179,6 +1193,28 @@ def _get_permission_from_registered_model_or_prompt_name() -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for_known_workspace(username, "registered_model", name, None)
+    )
+
+
+def validate_can_register_scorer():
+    """Registering adds a version, creating the scorer if it does not yet exist.
+
+    The experiment authorizes it, as it did before: a scorer's MANAGE grant is handed to the
+    creator afterwards, so it cannot be the thing that permits creation. Both created types
+    veto -- named for the scorer, since a scorer grant addresses one by
+    ``<experiment_id>/<name>``, and wildcard for the version, whose id is not yet known.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    scorer = store._scorer_pattern(experiment_id, _get_request_param("name"))
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+            Requirement(RESOURCE_TYPE_SCORER, scorer, ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+        ],
     )
 
 
@@ -1592,11 +1628,40 @@ def _validate_can_manage_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_manage
 
 
+def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
+    # A prompt is a registered model carrying a tag, so the family is only known by fetching.
+    # None when the name does not exist: creating a version under it would fail anyway, and
+    # denying keeps the response from reporting which names exist.
+    name = _get_request_param("name")
+    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
+    if rm is None:
+        return None
+    return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
+
+
+def _authorize_create_version(target: "tuple[str, str]") -> bool:
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    return authorize(
+        authenticate_request().username,
+        (container_type, name),
+        [
+            Requirement(container_type, name, "update"),
+            Requirement(version_type, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
 def validate_can_create_model_version():
     # Downstream artifact reads are gated on the destination registered model. Require read on
     # the resource that owns the source so creating a version cannot grant access to artifacts
     # the caller could not already read.
-    if not _validate_can_update_registered_model_or_prompt():
+    target = _registered_model_or_prompt_target()
+    if target is None or not _authorize_create_version(target):
         return False
     # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
     # `modelId` aliases the handler accepts are authorized against the same IDs it will
@@ -2691,7 +2756,7 @@ def validate_can_start_trace_v3():
                 "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
             }
         } if eid:
-            return _get_experiment_permission(eid, authenticate_request().username).can_update
+            return _authorize_create_in_experiment(eid, RESOURCE_TYPE_TRACE)
         case _:
             return False
 
@@ -3168,7 +3233,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
     GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
     # Routes for scorers
-    RegisterScorer: validate_can_update_experiment,
+    RegisterScorer: validate_can_register_scorer,
     ListScorers: validate_can_read_scorer_list,
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
