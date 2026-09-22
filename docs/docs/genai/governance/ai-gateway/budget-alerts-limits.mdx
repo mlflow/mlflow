@@ -70,6 +70,39 @@ Budget windows are fixed intervals:
 
 Accumulated spend resets to zero at the start of each new window.
 
+## Request Rate Limits
+
+Budget policies cap spend; a **rate limit** caps request volume. Each endpoint can carry a
+`calls_per_minute` limit, the equivalent of the legacy gateway's per-route
+`limit: {calls: N, renewal_period: minute}` configuration:
+
+```python
+store.create_gateway_endpoint(
+    name="chat-endpoint",
+    model_configs=[...],
+    calls_per_minute=60,
+)
+```
+
+Leaving `calls_per_minute` unset (or updating it to `0`) disables rate limiting for the endpoint.
+
+The gateway keeps a 60-second sliding window per endpoint and rejects a request once the window
+is full, before the request reaches the provider. The response carries a `Retry-After` header with
+the number of seconds until a slot frees up:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 42
+
+{
+  "detail": "Rate limit exceeded for endpoint 'chat-endpoint'. Limit: 60 calls per minute. Retry after 42 second(s)."
+}
+```
+
+Rejected requests are not counted against the window. Like the `local` budget tracker, the window
+lives in the gateway worker process, so a limit of `N` with `W` workers admits up to `N * W` calls
+per minute. The limit is request based; it does not consider token usage.
+
 ## Authorization
 
 When [authentication](/self-hosting/security/basic-http-auth) is enabled for the tracking server, only admin users can create, update, or delete budget policies.

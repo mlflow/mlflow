@@ -138,6 +138,28 @@ def _normalize_budget_target_value(
     return None
 
 
+def _validate_calls_per_minute(calls_per_minute: int | None, allow_zero: bool = False) -> None:
+    """Validate a per-endpoint rate limit.
+
+    Args:
+        calls_per_minute: The limit to validate. None means "not specified".
+        allow_zero: Whether 0 is accepted. Updates use 0 to remove an existing limit,
+            while creates have no limit to remove.
+    """
+    if calls_per_minute is None:
+        return
+    if isinstance(calls_per_minute, bool) or not isinstance(calls_per_minute, int):
+        raise MlflowException(
+            f"calls_per_minute must be an integer, got {type(calls_per_minute).__name__}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if calls_per_minute < 0 or (calls_per_minute == 0 and not allow_zero):
+        raise MlflowException(
+            f"calls_per_minute must be a positive integer, got {calls_per_minute}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 class SqlAlchemyGatewayStoreMixin:
     """Mixin class providing SQLAlchemy Gateway implementations for tracking stores.
 
@@ -621,6 +643,7 @@ class SqlAlchemyGatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        calls_per_minute: int | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -638,19 +661,23 @@ class SqlAlchemyGatewayStoreMixin:
                           with name 'gateway/{endpoint_name}'.
             usage_tracking: Whether to enable usage tracking for this endpoint.
                            When True, traces will be logged for endpoint invocations.
+            calls_per_minute: Maximum number of requests allowed per minute for this
+                           endpoint. None disables rate limiting.
 
         Returns:
             Endpoint entity with model_mappings populated.
 
         Raises:
-            MlflowException: If model_configs list is empty (INVALID_PARAMETER_VALUE),
-                or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST).
+            MlflowException: If model_configs list is empty or calls_per_minute is not a
+                positive integer (INVALID_PARAMETER_VALUE), or if any referenced model
+                definition does not exist (RESOURCE_DOES_NOT_EXIST).
         """
         if not model_configs:
             raise MlflowException(
                 "Endpoint must have at least one model configuration",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        _validate_calls_per_minute(calls_per_minute)
 
         with self.ManagedSessionMaker(read_only=False) as session:
             # Validate all model definitions exist
@@ -711,6 +738,7 @@ class SqlAlchemyGatewayStoreMixin:
                     fallback_config_json=fallback_config_json,
                     experiment_id=int(experiment_id) if experiment_id else None,
                     usage_tracking=usage_tracking,
+                    calls_per_minute=calls_per_minute,
                 )
             )
             session.add(sql_endpoint)
@@ -779,6 +807,7 @@ class SqlAlchemyGatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        calls_per_minute: int | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -792,10 +821,13 @@ class SqlAlchemyGatewayStoreMixin:
             model_configs: Optional new list of model configurations (replaces all linkages).
             experiment_id: Optional new experiment ID for tracing.
             usage_tracking: Optional flag to enable/disable usage tracking.
+            calls_per_minute: Optional new per-minute request limit. Pass 0 to remove an
+                existing limit.
 
         Returns:
             Updated Endpoint entity.
         """
+        _validate_calls_per_minute(calls_per_minute, allow_zero=True)
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_endpoint = self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
@@ -825,6 +857,9 @@ class SqlAlchemyGatewayStoreMixin:
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
+
+            if calls_per_minute is not None:
+                sql_endpoint.calls_per_minute = calls_per_minute or None
 
             # Replace model linkages if model_configs provided
             if model_configs is not None:

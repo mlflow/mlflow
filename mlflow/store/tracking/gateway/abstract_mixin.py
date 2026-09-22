@@ -234,6 +234,7 @@ class GatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        calls_per_minute: int | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -251,6 +252,8 @@ class GatewayStoreMixin:
                           and usage_tracking is True, an experiment will be auto-created.
             usage_tracking: Whether to enable usage tracking for this endpoint.
                            When True, traces will be logged for endpoint invocations.
+            calls_per_minute: Maximum number of requests allowed per minute for this
+                           endpoint. None disables rate limiting.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -282,6 +285,7 @@ class GatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        calls_per_minute: int | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -298,6 +302,8 @@ class GatewayStoreMixin:
                            When set to True, enables usage tracking and auto-creates
                            experiment if not provided. When set to False, disables
                            usage tracking (experiment_id is cleared).
+            calls_per_minute: Optional new per-minute request limit. Pass 0 to remove an
+                           existing limit.
 
         Returns:
             Updated Endpoint entity.

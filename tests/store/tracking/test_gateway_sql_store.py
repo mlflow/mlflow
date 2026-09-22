@@ -3589,3 +3589,80 @@ def test_sum_gateway_trace_cost_username_and_workspace(store: SqlAlchemyStore):
         start_time_ms=0, end_time_ms=5000, workspace="workspace-p", username="alice"
     )
     assert abs(total - 0.10) < 1e-9
+
+
+# ==================== Endpoint rate limit (calls_per_minute) ====================
+
+
+def _create_rate_limited_endpoint(store: SqlAlchemyStore, name: str, calls_per_minute=None):
+    secret = store.create_gateway_secret(
+        secret_name=f"{name}-key", secret_value={"api_key": "sk-rate-limit"}, provider="openai"
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4o"
+    )
+    return store.create_gateway_endpoint(
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        calls_per_minute=calls_per_minute,
+    )
+
+
+def test_create_gateway_endpoint_persists_calls_per_minute(store: SqlAlchemyStore):
+    endpoint = _create_rate_limited_endpoint(store, "rl-endpoint", calls_per_minute=30)
+
+    with store.ManagedSessionMaker() as session:
+        sql_endpoint = (
+            session
+            .query(SqlGatewayEndpoint)
+            .filter(SqlGatewayEndpoint.endpoint_id == endpoint.endpoint_id)
+            .one()
+        )
+        assert sql_endpoint.calls_per_minute == 30
+
+    config = get_endpoint_config(endpoint_name="rl-endpoint", store=store)
+    assert config.calls_per_minute == 30
+
+
+def test_create_gateway_endpoint_without_calls_per_minute_disables_rate_limiting(
+    store: SqlAlchemyStore,
+):
+    _create_rate_limited_endpoint(store, "rl-unlimited")
+    config = get_endpoint_config(endpoint_name="rl-unlimited", store=store)
+    assert config.calls_per_minute is None
+
+
+@pytest.mark.parametrize("calls_per_minute", [0, -1, -60, "60", 1.5, True])
+def test_create_gateway_endpoint_rejects_invalid_calls_per_minute(
+    store: SqlAlchemyStore, calls_per_minute
+):
+    with pytest.raises(MlflowException, match=r"calls_per_minute must be") as exc_info:
+        _create_rate_limited_endpoint(store, "rl-invalid", calls_per_minute=calls_per_minute)
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_update_gateway_endpoint_sets_and_clears_calls_per_minute(store: SqlAlchemyStore):
+    endpoint = _create_rate_limited_endpoint(store, "rl-updatable", calls_per_minute=10)
+
+    store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, calls_per_minute=100)
+    assert get_endpoint_config(endpoint_name="rl-updatable", store=store).calls_per_minute == 100
+
+    # An update that omits calls_per_minute leaves the existing limit untouched.
+    store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, name="rl-updatable")
+    assert get_endpoint_config(endpoint_name="rl-updatable", store=store).calls_per_minute == 100
+
+    # 0 removes the limit.
+    store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, calls_per_minute=0)
+    assert get_endpoint_config(endpoint_name="rl-updatable", store=store).calls_per_minute is None
+
+
+def test_update_gateway_endpoint_rejects_negative_calls_per_minute(store: SqlAlchemyStore):
+    endpoint = _create_rate_limited_endpoint(store, "rl-update-invalid", calls_per_minute=10)
+    with pytest.raises(MlflowException, match=r"calls_per_minute must be a positive integer"):
+        store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, calls_per_minute=-5)
