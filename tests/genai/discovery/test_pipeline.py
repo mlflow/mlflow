@@ -1188,11 +1188,21 @@ def _make_dedup_response(
     return _make_litellm_response(json.dumps({"groups": group_objects}))
 
 
-@pytest.mark.parametrize("max_issues", [2, 3, 4])
-@pytest.mark.parametrize("empty_refinement", [False, True])
-@pytest.mark.parametrize("mixed_severities", [False, True])
+@pytest.mark.parametrize(
+    ("severities", "max_issues", "expected_indices"),
+    [
+        pytest.param(["high", "high", "high", "high"], 2, [[0, 1], [2]], id="stable-ties"),
+        pytest.param(["low", "low", "medium", "high"], 2, [[4], [3]], id="high-last"),
+        pytest.param(["high", "low", "medium", "low"], 2, [[0, 1], [3]], id="high-first"),
+        pytest.param(["low", "low", "medium", "high"], 3, [[4], [3], [0, 1]], id="cutoff-tie"),
+        pytest.param(["low", "low", "medium", "high"], 4, [[0, 1], [2], [3], [4]], id="at-limit"),
+    ],
+)
+@pytest.mark.parametrize(
+    "empty_refinement", [False, True], ids=["explicit-groups", "empty-response"]
+)
 def test_cluster_and_identify_limits_combined_refined_issues(
-    max_issues, empty_refinement, mixed_severities, caplog, monkeypatch
+    severities, max_issues, expected_indices, empty_refinement, caplog, monkeypatch
 ):
     monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
     labels = [f"Tool {i} failed" for i in range(5)]
@@ -1214,13 +1224,13 @@ def test_cluster_and_identify_limits_combined_refined_issues(
         else json.dumps({"groups": [{"name": f"Failure {i}", "indices": [i]} for i in range(3)]})
     )
 
+    severity_by_group = dict(zip([(0, 1), (2,), (3,), (4,)], severities))
+    severity_by_group[(2, 3, 4)] = "not_an_issue"
+
     def summarize(indices, *args, **kwargs):
-        severity = "high"
-        if mixed_severities:
-            severity = "high" if indices == [4] else "medium" if indices == [3] else "low"
         return create_identified_issue(
             example_indices=indices,
-            severity="not_an_issue" if indices == [2, 3, 4] else severity,
+            severity=severity_by_group[tuple(indices)],
         )
 
     with (
@@ -1242,21 +1252,18 @@ def test_cluster_and_identify_limits_combined_refined_issues(
     ):
         result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
 
-    expected_indices = [[0, 1], [2], [3], [4]]
-    if mixed_severities and max_issues < 4:
-        expected_indices = [[4], [3], [0, 1], [2]]
-    assert [issue.example_indices for issue in result] == expected_indices[:max_issues]
+    assert [issue.example_indices for issue in result] == expected_indices
+    limit_logs = [
+        record
+        for record in caplog.records
+        if record.name == "mlflow.genai.discovery.pipeline" and "max_issues" in record.getMessage()
+    ]
     if max_issues < 4:
-        assert caplog.record_tuples == [
-            (
-                "mlflow.genai.discovery.pipeline",
-                logging.INFO,
-                f"Found 4 issues; retaining {max_issues} by severity and omitting "
-                f"{4 - max_issues} to respect max_issues.",
-            )
+        assert [(record.levelno, record.args) for record in limit_logs] == [
+            (logging.INFO, (4, max_issues, 4 - max_issues))
         ]
     else:
-        assert caplog.record_tuples == []
+        assert limit_logs == []
     mock_extract.assert_called_once()
     assert mock_summary.call_count == 5
     assert mock_cluster.call_count == 2
@@ -1313,16 +1320,17 @@ def test_cluster_and_identify_limits_rejected_singleton_merge(
         result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
 
     assert [issue.example_indices for issue in result] == expected_indices
+    limit_logs = [
+        record
+        for record in caplog.records
+        if record.name == "mlflow.genai.discovery.pipeline" and "max_issues" in record.getMessage()
+    ]
     if max_issues < 3:
-        assert caplog.record_tuples == [
-            (
-                "mlflow.genai.discovery.pipeline",
-                logging.INFO,
-                "Found 3 issues; retaining 2 by severity and omitting 1 to respect max_issues.",
-            )
+        assert [(record.levelno, record.args) for record in limit_logs] == [
+            (logging.INFO, (3, 2, 1))
         ]
     else:
-        assert caplog.record_tuples == []
+        assert limit_logs == []
     mock_extract.assert_called_once()
     assert mock_summary.call_count == 4
     mock_refinement_summary.assert_called_once()

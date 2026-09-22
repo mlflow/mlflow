@@ -52,8 +52,8 @@ def cluster_by_llm(
         model: Model URI for the clustering LLM.
         categories: Optional issue categories to use as a grouping signal.
         token_counter: Optional token counter for tracking LLM usage.
-        enforce_limit: Whether to truncate excess groups. Disable when a later stage
-            selects issues using information unavailable during label grouping.
+        enforce_limit: Whether to cap the returned groups at max_issues. Set to False
+            to defer selection until after refinement.
 
     Returns:
         List of index lists, where each inner list is a cluster of label indices.
@@ -204,7 +204,7 @@ def recluster_singletons(
         idx = singleton.example_indices[0]
         singleton_labels.append(analysis_labels.get(idx, singleton.name))
 
-    # Keep scored candidates until final selection, including recovered orphan labels.
+    # Preserve candidates so the final cutoff can compare their severities.
     new_groups = cluster_by_llm(
         singleton_labels, max_issues, model, token_counter=token_counter, enforce_limit=False
     )
