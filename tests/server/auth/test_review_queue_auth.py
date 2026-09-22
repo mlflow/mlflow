@@ -56,6 +56,11 @@ def _setup(
     # validators COMBINE that permission with queue state, so the tier resolution itself is
     # stubbed here; the tier's own precedence is covered in test_requirement_model.
     monkeypatch.setattr(auth, "_review_queue_permission", lambda _queue, _user: perm)
+    # filter_list_review_queues has no queue object to key on, so it resolves the tier by
+    # experiment id. Stubbed to the same permission for the same reason as above.
+    monkeypatch.setattr(
+        auth, "_review_queue_permission_in_experiment", lambda _experiment_id, _user: perm
+    )
     # Create is gated on the experiment with a veto on the review_queue type; stubbed to the
     # experiment's verdict so these tests keep pinning the shadow-check interaction rather
     # than the gate.
