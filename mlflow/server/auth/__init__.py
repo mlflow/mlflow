@@ -1078,47 +1078,26 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_run_permission(run_id: str) -> Permission:
-    # run permissions inherit from parent resource (experiment)
-    # so we just get the experiment permission
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
+def _authorize_logged_model(action: str) -> bool:
+    return _authorize_logged_model_id(_get_request_param("model_id"), action)
+
+
+def _authorize_logged_model_id(model_id: str, action: str) -> bool:
+    model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+    if model is None:
+        return False
+    experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,))],
     )
 
 
-def _get_permission_from_run_id() -> Permission:
-    return _get_run_permission(_get_request_param("run_id"))
-
-
-def _get_model_permission(model_id: str) -> Permission:
-    # logged model permissions inherit from parent resource (experiment)
-    model = _get_tracking_store().get_logged_model(model_id)
-    experiment_id = model.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
-
-
-def _get_permission_from_model_id() -> Permission:
-    return _get_model_permission(_get_request_param("model_id"))
+def _prompt_optimization_job_experiment_id() -> str | None:
+    job_entity = get_job(_get_request_param("job_id"))
+    experiment_id = json.loads(job_entity.params).get("experiment_id")
+    return experiment_id or None
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -1533,7 +1512,7 @@ def validate_can_delete_experiment_artifact_proxy():
 
 # Runs
 def validate_can_read_run():
-    return _get_permission_from_run_id().can_read
+    return _authorize_run("read")
 
 
 def _fetch_or_none(fetch: "Callable[[str], Any]", resource_id: str) -> Any | None:
@@ -1561,12 +1540,16 @@ def _run_requirement(
     ]
 
 
-def _authorize_run(action: str) -> bool:
-    resolved = _run_requirement(_get_request_param("run_id"), action)
+def _authorize_run_id(run_id: str, action: str) -> bool:
+    resolved = _run_requirement(run_id, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
     return authorize(authenticate_request().username, anchor, requirements)
+
+
+def _authorize_run(action: str) -> bool:
+    return _authorize_run_id(_get_request_param("run_id"), action)
 
 
 def validate_can_update_run():
@@ -1645,11 +1628,11 @@ def validate_can_log_batch():
 
 
 def validate_can_delete_run():
-    return _get_permission_from_run_id().can_delete
+    return _authorize_run("delete")
 
 
 def validate_can_manage_run():
-    return _get_permission_from_run_id().can_manage
+    return _authorize_run("manage")
 
 
 # Prompt optimization jobs
@@ -1657,29 +1640,47 @@ def validate_can_read_prompt_optimization_job():
     return _get_permission_from_prompt_optimization_job_id().can_read
 
 
+def _authorize_prompt_optimization_job(action: str) -> bool:
+    # Cancel terminates the job's MLflow run (update_run_info -> KILLED) and delete removes it
+    # (delete_run), so both touch a run exactly as create does. Veto-only on the run tier, to
+    # match the experiment-only gate these routes had before.
+    experiment_id = _prompt_optimization_job_experiment_id()
+    if experiment_id is None:
+        return False
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, action),
+            Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
 def validate_can_update_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_update
+    return _authorize_prompt_optimization_job("update")
 
 
 def validate_can_delete_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_delete
+    return _authorize_prompt_optimization_job("delete")
 
 
 # Logged models
 def validate_can_read_logged_model():
-    return _get_permission_from_model_id().can_read
+    return _authorize_logged_model("read")
 
 
 def validate_can_update_logged_model():
-    return _get_permission_from_model_id().can_update
+    return _authorize_logged_model("update")
 
 
 def validate_can_delete_logged_model():
-    return _get_permission_from_model_id().can_delete
+    return _authorize_logged_model("delete")
 
 
 def validate_can_manage_logged_model():
-    return _get_permission_from_model_id().can_manage
+    return _authorize_logged_model("manage")
 
 
 def validate_can_update_run_or_logged_model():
@@ -1697,8 +1698,8 @@ def validate_can_update_run_or_logged_model():
             error_code=INVALID_PARAMETER_VALUE,
         )
     if msg.model_id:
-        return _get_model_permission(msg.model_id).can_update
-    return _get_run_permission(msg.run_id).can_update
+        return _authorize_logged_model_id(msg.model_id, "update")
+    return _authorize_run_id(msg.run_id, "update")
 
 
 # Registered models
@@ -1824,28 +1825,13 @@ def validate_can_create_model_version():
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
-    if msg.HasField("run_id") and not (
-        msg.run_id and _can_read_model_version_source(_get_run_permission, msg.run_id)
-    ):
+    if msg.HasField("run_id") and not (msg.run_id and _authorize_run_id(msg.run_id, "read")):
         return False
     if msg.HasField("model_id") and not (
-        msg.model_id and _can_read_model_version_source(_get_model_permission, msg.model_id)
+        msg.model_id and _authorize_logged_model_id(msg.model_id, "read")
     ):
         return False
     return True
-
-
-def _can_read_model_version_source(
-    get_permission: Callable[[str], Permission], source_id: str
-) -> bool:
-    # Deny a nonexistent source id uniformly (403 rather than 404) so the response cannot
-    # be used as an oracle for which run/model ids exist.
-    try:
-        return get_permission(source_id).can_read
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return False
-        raise
 
 
 def validate_can_create_experiment() -> bool:
@@ -2640,39 +2626,24 @@ def validate_can_delete_gateway_endpoint_tag():
     return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointTag())
 
 
-def _get_permission_from_run_id_or_uuid() -> Permission:
-    """
-    Get permission for Flask routes that use either run_id or run_uuid parameter.
-    """
+def _run_id_or_uuid_param() -> str:
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     if not run_id:
         raise MlflowException(
             "Request must specify run_id or run_uuid parameter",
             INVALID_PARAMETER_VALUE,
         )
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+    return run_id
 
 
 def validate_can_read_run_artifact():
     """Checks READ permission on run artifacts."""
-    return _get_permission_from_run_id_or_uuid().can_read
+    return _authorize_run_id(_run_id_or_uuid_param(), "read")
 
 
 def validate_can_update_run_artifact():
     """Checks UPDATE permission on run artifacts."""
-    return _get_permission_from_run_id_or_uuid().can_update
+    return _authorize_run_id(_run_id_or_uuid_param(), "update")
 
 
 def _get_permission_from_model_version() -> Permission:
@@ -2720,26 +2691,12 @@ def validate_can_read_trace_artifact():
     return _get_permission_from_trace_request_id().can_read
 
 
-def _get_permission_from_trace(trace_id: str, username: str) -> Permission:
-    try:
-        trace = _get_tracking_store().get_trace_info(trace_id)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return NO_PERMISSIONS
-        raise
-    return _get_experiment_permission(trace.experiment_id, username)
-
-
 def validate_can_read_trace_by_request_id():
-    return _get_permission_from_trace(
-        _get_request_param("request_id"), authenticate_request().username
-    ).can_read
+    return _authorize_trace(_get_request_param("request_id"), "read")
 
 
 def validate_can_read_trace_by_trace_id():
-    return _get_permission_from_trace(
-        _get_request_param("trace_id"), authenticate_request().username
-    ).can_read
+    return _authorize_trace(_get_request_param("trace_id"), "read")
 
 
 def validate_can_search_traces():
@@ -2795,9 +2752,19 @@ def validate_can_batch_get_traces():
 
 
 def validate_can_delete_traces():
-    return _get_experiment_permission(
-        _get_request_param("experiment_id"), authenticate_request().username
-    ).can_delete
+    # Keyed on the experiment, not on trace ids, so there is no trace to resolve positively --
+    # the trace tier can only veto. Without it, (trace, "*", DENY) would block editing a trace
+    # but not deleting every trace in the experiment.
+    experiment_id = _get_request_param("experiment_id")
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+        ],
+    )
 
 
 def _authorize_trace(trace_id: str, action: str) -> bool:

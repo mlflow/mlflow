@@ -21,7 +21,9 @@ from typing import TYPE_CHECKING, NamedTuple
 
 from mlflow.server.auth.permissions import (
     DENY,
+    MANAGE,
     NO_PERMISSIONS,
+    RESOURCE_TYPE_WORKSPACE,
     GrantLoadKey,
     Permission,
     get_permission,
@@ -104,8 +106,6 @@ def requirements_to_grant_load_keys(
 
 
 def is_workspace_admin_grant(grant: "RoleGrantRow") -> bool:
-    from mlflow.server.auth.permissions import MANAGE, RESOURCE_TYPE_WORKSPACE
-
     return (
         grant.resource_type == RESOURCE_TYPE_WORKSPACE
         and grant.resource_pattern == "*"
