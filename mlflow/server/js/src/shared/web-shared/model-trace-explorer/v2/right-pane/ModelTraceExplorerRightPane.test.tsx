@@ -7,7 +7,10 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
+import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceSpan } from '../ModelTrace.types';
+import { ModelSpanType } from '../ModelTrace.types';
+import { getDefaultActiveTab, normalizeNewSpanData } from '../ModelTraceExplorer.utils';
 import { mockSpans, MOCK_RETRIEVER_SPAN, MOCK_CHAT_SPAN } from '../../ModelTraceExplorer.test-utils';
 import { ModelTraceExplorerPreferencesProvider } from '../ModelTraceExplorerPreferencesContext';
 
@@ -24,6 +27,85 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('ModelTraceExplorerRightPane', () => {
+  it('renders structured Jev inputs and answers with the resolved model', async () => {
+    const inputs = {
+      state: 'I was charged twice',
+      model: 'jev-latest',
+      questions: {
+        billing: { type: 'noul', instructions: 'Is this about billing?' },
+        tone: { type: 'choice', criteria: { calm: null, angry: null } },
+        urgency: { type: 'score', criteria: ['low', 'high'] },
+      },
+    };
+    const outputs = {
+      model: 'jev-1.13.0',
+      answers: {
+        billing: { type: 'noul', noul: 0.98 },
+        tone: { type: 'choice', choice: 'angry', confidence: 0.96, probabilities: { calm: 0.02, angry: 0.98 } },
+        urgency: { type: 'score', score: 0.9, confidence: 0.94, legend: { 0: 'low', 1: 'high' } },
+      },
+      usage: { input_tokens: 10, output_tokens: 0 },
+    };
+    const tokenUsage = { input_tokens: 10, output_tokens: 0, total_tokens: 10 };
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'TypeSafeClient',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('LLM'),
+          'mlflow.spanInputs': JSON.stringify(inputs),
+          'mlflow.spanOutputs': JSON.stringify(outputs),
+          'mlflow.llm.model': JSON.stringify('jev-1.13.0'),
+          'mlflow.chat.tokenUsage': JSON.stringify(tokenUsage),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'jev-trace',
+    );
+
+    expect(span.type).toBe(ModelSpanType.LLM);
+    expect(span.inputs).toEqual(inputs);
+    expect(span.outputs).toEqual(outputs);
+    expect(span.modelName).toBe('jev-1.13.0');
+    expect(span.tokenUsage).toEqual(tokenUsage);
+    expect(span.chatMessages).toBeUndefined();
+    expect(getDefaultActiveTab(span)).toBe('content');
+
+    render(
+      <>
+        <div data-testid="model-badge">
+          <SpanModelCostBadge activeSpan={span} />
+        </div>
+        <ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />
+      </>,
+      { wrapper: Wrapper },
+    );
+
+    const modelBadge = within(screen.getByTestId('model-badge'));
+    expect(modelBadge.getByText('Model')).toBeInTheDocument();
+    expect(modelBadge.getByText('jev-1.13.0')).toBeInTheDocument();
+    expect(screen.getByText('Inputs')).toBeInTheDocument();
+    expect(screen.getByText('Outputs')).toBeInTheDocument();
+    const contentTab = screen.getByTestId('model-trace-explorer-content-tab');
+    expect(contentTab).toHaveTextContent('I was charged twice');
+    expect(contentTab).toHaveTextContent('Is this about billing?');
+    expect(contentTab).toHaveTextContent('answers');
+    expect(contentTab).toHaveTextContent('noul');
+    expect(contentTab).toHaveTextContent('angry');
+    expect(contentTab).toHaveTextContent('probabilities');
+    expect(contentTab).toHaveTextContent('0.98');
+    expect(contentTab).toHaveTextContent('score');
+
+    await userEvent.click(screen.getAllByText('Pretty')[1]);
+    await userEvent.click(screen.getByText('JSON'));
+    expect(contentTab).toHaveTextContent('answers');
+    expect(contentTab).toHaveTextContent('probabilities');
+    expect(contentTab).toHaveTextContent('confidence');
+  });
+
   it('renders selected span payloads with the pretty field renderers by default', () => {
     const { rerender } = render(
       <ModelTraceExplorerContentTab
