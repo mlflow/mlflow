@@ -1246,7 +1246,11 @@ def test_dedup_issues_dissimilar_issues_not_merged():
     assert len(result) == 2
 
 
-@pytest.mark.parametrize("indices", [[], [0], [0, 3], [0, -1], [-4, 0], [0, 0], [0, 1, 1]])
+@pytest.mark.parametrize(
+    "indices",
+    [[], [0], [0, 3], [0, -1], [-4, 0], [0, 0], [0, 1, 1]],
+    ids=["empty", "singleton", "out-of-range", "negative", "below-range", "self-merge", "repeated"],
+)
 def test_dedup_issues_invalid_group_preserves_issues(indices):
     issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(3)]
     original = [issue.model_dump() for issue in issues]
@@ -1281,6 +1285,31 @@ def test_dedup_issues_skips_invalid_group_and_merges_valid_group(invalid_indices
     assert result[2].description == "Merged description"
     assert result[2].root_cause == "Merged root cause"
     assert set(result[2].example_indices) == {2, 3}
+    mock_call.assert_called_once()
+
+
+@pytest.mark.parametrize("invalid_first", [True, False], ids=["invalid-first", "invalid-last"])
+def test_dedup_issues_invalid_group_cannot_overwrite_valid_merge(invalid_first):
+    issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(3)]
+    untouched = issues[2].model_dump()
+    groups = [[0, 2, 3], [0, 1]] if invalid_first else [[0, 1], [0, 2, 3]]
+    names = (
+        ["Issue: Invalid", "Issue: Valid"] if invalid_first else ["Issue: Valid", "Issue: Invalid"]
+    )
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response(
+            groups, names=names, descriptions=names, root_causes=names
+        ),
+    ) as mock_call:
+        result = _dedup_issues(issues)
+
+    assert len(result) == 2
+    assert set(result[0].example_indices) == {0, 1}
+    assert result[0].name == "Issue: Valid"
+    assert result[0].description == "Issue: Valid"
+    assert result[0].root_cause == "Issue: Valid"
+    assert result[1].model_dump() == untouched
     mock_call.assert_called_once()
 
 
