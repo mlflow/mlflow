@@ -407,6 +407,9 @@ step_entries(inp) := entries if {
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
+
+	# Reusable workflow callers cannot set timeout-minutes; check the called jobs instead.
+	not job.uses
 	not job["timeout-minutes"]
 }
 

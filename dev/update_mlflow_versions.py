@@ -151,10 +151,16 @@ def replace_java_pom_xml(old_version: str, new_py_version: str, paths: list[Path
 
 
 def replace_helm_chart(new_py_version: str, paths: list[Path]) -> None:
+    released_version = replace_dev_or_rc_suffix_with(new_py_version, "")
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r"^version:\s+.+$", re.MULTILINE),
+        repl=f"version: {released_version}",
+    )
     replace_occurrences(
         files=paths,
         pattern=re.compile(r'^appVersion:\s+".+"$', re.MULTILINE),
-        repl=f'appVersion: "{replace_dev_or_rc_suffix_with(new_py_version, "")}"',
+        repl=f'appVersion: "{released_version}"',
     )
 
 
@@ -175,7 +181,7 @@ def update_versions(new_py_version: str, helm_app_version: str | None = None) ->
       - a RC version (e.g. "2.1.0rc0")
       - a dev version (e.g. "2.1.0.dev0")
 
-    `helm_app_version` is the version written to the Helm chart's `appVersion`.
+    `helm_app_version` is written to the Helm chart's `version` and `appVersion`.
     The Helm chart's `appVersion` is used as the default Docker image tag, so it
     must point to a published release. When omitted, the Helm chart is left
     untouched.

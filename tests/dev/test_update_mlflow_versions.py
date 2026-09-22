@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
+from dev import update_mlflow_versions
 from dev.update_mlflow_versions import (
     get_current_py_version,
     replace_java,
@@ -168,3 +169,34 @@ def _parse_diff_line(diff: list[str]) -> dict[int, str]:
             diff_lines[int(match.group(1))] = diff[idx + 1][2:]
 
     return diff_lines
+
+
+@pytest.mark.parametrize(
+    ("stage", "version"),
+    [("pre_release", "3.17.0"), ("pre_release", "3.17.0rc1"), ("post_release", "3.17.0")],
+)
+def test_helm_release_ordering(monkeypatch, tmp_path, stage, version):
+    monkeypatch.chdir(tmp_path)
+    for name in (
+        "_PYPROJECT_TOML_FILES",
+        "_JAVA_VERSION_FILES",
+        "_JAVA_POM_XML_FILES",
+        "_TS_VERSION_FILES",
+        "_R_VERSION_FILES",
+    ):
+        monkeypatch.setattr(update_mlflow_versions, name, [])
+    Path("mlflow").mkdir()
+    Path("charts").mkdir()
+    Path("mlflow/version.py").write_text('VERSION = "3.17.0.dev0"\n')
+    chart = Path("charts/Chart.yaml")
+    previous = 'name: mlflow\nversion: 0.1.1\nappVersion: "3.16.0"\n'
+    chart.write_text(previous)
+
+    getattr(update_mlflow_versions, stage)(version)
+
+    if stage == "post_release":
+        assert chart.read_text() == 'name: mlflow\nversion: 3.17.0\nappVersion: "3.17.0"\n'
+        assert get_current_py_version() == "3.17.1.dev0"
+    else:
+        assert chart.read_text() == previous
+        assert get_current_py_version() == version
