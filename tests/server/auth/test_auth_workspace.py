@@ -12,6 +12,7 @@ from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     GET_ARTIFACT,
@@ -23,7 +24,7 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
 from mlflow.utils import workspace_context
 
 from tests.helper_functions import random_str
@@ -3381,6 +3382,114 @@ def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_
         assert auth_module.validate_can_update_assessment()
 
 
+# =============================================================================
+# The read predicate (design doc §5f, follow-up items 2 and 6): a list row and a
+# point request must reach the same decision.
+# =============================================================================
+
+
+def test_read_predicate_honors_a_wildcard_deny(workspace_permission_setup):
+    """``(experiment, *, DENY)`` alone listed EVERYTHING: the predicate skipped any row failing
+    ``can_read``, so DENY fell through to ``default_permission``.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", DENY.name)])
+
+    predicate = auth_module._role_based_read_predicate(username, "experiment")
+    assert not predicate("exp-1")
+    assert not predicate("exp-2")
+
+
+def test_read_predicate_lets_a_specific_deny_override_a_wildcard_read(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("experiment", "exp-1", DENY.name),
+    ])
+
+    predicate = auth_module._role_based_read_predicate(username, "experiment")
+    assert not predicate("exp-1")
+    assert predicate("exp-2")
+
+
+def test_read_predicate_agrees_with_the_point_route(workspace_permission_setup):
+    """The property that matters: no grant configuration may make a row visible in a listing but
+    unreadable at its point route, or the reverse.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("experiment", "exp-1", DENY.name),
+    ])
+
+    predicate = auth_module._role_based_read_predicate(username, "experiment")
+    for experiment_id in ("exp-1", "exp-2"):
+        assert predicate(experiment_id) == (
+            auth_module._get_experiment_permission(experiment_id, username).can_read
+        ), experiment_id
+
+
+def test_read_predicate_child_deny_hides_every_row(workspace_permission_setup):
+    """A veto stated as an ordinary requirement: listing logged models keys on the EXPERIMENT,
+    so without it ``(logged_model, *, DENY)`` was bypassable via ``POST /logged-models/search``.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("logged_model", "*", DENY.name),
+    ])
+
+    predicate = auth_module._role_based_read_predicate(
+        username,
+        "experiment",
+        also_require=[Requirement("logged_model", "*", ACTION_NOT_DENIED)],
+    )
+    assert not predicate("exp-1")
+    # …while the experiment tier itself stays readable.
+    assert auth_module._role_based_read_predicate(username, "experiment")("exp-1")
+
+
+def test_read_predicate_child_grant_is_never_positive(workspace_permission_setup):
+    """An ACTION_NOT_DENIED requirement is satisfied by a grant but never CONFERS read, so a
+    wildcard sub-resource grant must not make rows visible the row tier does not allow.
+
+    The workspace grant is removed outright, not merely downgraded: the row requirement falls back
+    to the workspace tier, so leaving even USE there would confer read on its own and the
+    assertion would pass for the wrong reason.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("logged_model", "*", MANAGE.name)])
+
+    predicate = auth_module._role_based_read_predicate(
+        username,
+        "experiment",
+        also_require=[Requirement("logged_model", "*", ACTION_NOT_DENIED)],
+    )
+    assert not predicate("exp-1")
+
+
+def test_read_predicate_keeps_the_workspace_admin_bypass(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _grant(store, username, "team-a", [
+        ("workspace", "*", MANAGE.name),
+        ("experiment", "*", DENY.name),
+    ])
+
+    predicate = auth_module._role_based_read_predicate(username, "experiment")
+    assert predicate("exp-1")
+
+
 def test_list_user_role_permissions_workspace_is_default_when_workspaces_disabled(
     tmp_path, monkeypatch
 ):
@@ -3793,7 +3902,18 @@ def test_user_cannot_create_via_autogrant_when_default_permission_lacks_use(monk
         assert not auth_module._user_can_create_in_workspace()
 
 
-def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
+def test_role_based_read_predicate_matches_the_point_route_on_no_permissions_rows(monkeypatch):
+    """A ``NO_PERMISSIONS`` row must mean the same thing in a listing as at a point route.
+
+    It used to not: the predicate skipped any row failing ``can_read`` and fell through to
+    ``default_permission``, so such a row LISTED while ``_get_experiment_permission`` denied it
+    (v2 preserves ``NO_PERMISSIONS`` as the workspace-boundary signal rather than maxing it against
+    the default, which is what master did). Asserting the two agree, rather than asserting a
+    particular answer, keeps them tied together if either side changes.
+
+    The row type is ungrantable in both versions -- ``RESOURCE_GRANTABLE_PERMISSIONS`` omits it --
+    so this configuration is only reachable through a fake like this one, or a legacy DB row.
+    """
     monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
     monkeypatch.setattr(
         auth_module,
@@ -3806,22 +3926,22 @@ def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def list_role_grants_for_user_in_workspace(self, *args, **kwargs):
+        def list_grants(self, user_id, workspace, resource_types):
             return [
-                ("*", NO_PERMISSIONS.name),
-                ("exp-allowed", READ.name),
-                ("exp-explicit-deny", NO_PERMISSIONS.name),
+                RoleGrantRow("experiment", "*", NO_PERMISSIONS.name),
+                RoleGrantRow("experiment", "exp-allowed", READ.name),
+                RoleGrantRow("experiment", "exp-explicit-deny", NO_PERMISSIONS.name),
             ]
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     predicate = auth_module._role_based_read_predicate("alice", "experiment")
-    # Specific positive grant wins.
+    for experiment_id in ("exp-allowed", "exp-other", "exp-explicit-deny"):
+        assert predicate(experiment_id) == (
+            auth_module._get_experiment_permission(experiment_id, "alice").can_read
+        ), experiment_id
+    # A specific positive grant still reads, so the parity above is not vacuous.
     assert predicate("exp-allowed")
-    # NO_PERMISSIONS wildcard is ignored; default READ fallback applies.
-    assert predicate("exp-other")
-    # Per-resource NO_PERMISSIONS is ignored; default READ fallback applies.
-    assert predicate("exp-explicit-deny")
 
 
 # =============================================================================

@@ -2303,13 +2303,43 @@ def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
     return can_read
 
 
-def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
+def _role_based_read_predicate(
+    username: str,
+    resource_type: str,
+    also_require: "Sequence[Requirement]" = (),
+) -> Callable[[str], bool]:
     """
-    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
-    grants in the active workspace. Max-style: any positive grant (specific or
-    wildcard) wins; ``NO_PERMISSIONS`` rows are ignored. Falls back to
-    ``default_permission.can_read`` when workspaces are disabled, otherwise to
-    deny.
+    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role grants in the active
+    workspace.
+
+    Every row is decided by ``governing_permission`` and ``requirement_met`` -- the same two
+    functions behind ``authorize`` -- against ``Requirement(resource_type, row_id, "read")``. That
+    shared path is the point: a row cannot be visible in a listing but unreadable at its own point
+    route, or the reverse.
+
+    ``also_require`` carries any further requirements that do NOT vary by row, so they are
+    evaluated once and, when unmet, short-circuit to a constant ``False``. A listing whose rows
+    lead to a sub-resource states that here, as an ordinary requirement:
+
+        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)]
+
+    The relationship stays at the call site and in the same vocabulary every route uses, rather
+    than being named by this signature -- nothing here knows or asserts which types are parents of
+    which. A veto is spelled out as ``ACTION_NOT_DENIED`` because that is what the route means;
+    a positive action would be honoured too, and reads honestly if a caller ever needs one.
+
+    The row requirement falls back to the workspace tier, which is what the loader this replaced
+    did by folding ``(workspace, "*")`` rows in for every resource type. Tier override makes that
+    strictly safer than before: a grant on the row's own key now decides, so
+    ``(experiment, "*", DENY)`` is honoured, where previously any workspace-level grant that could
+    read still listed everything.
+
+    NOTE a pre-existing inconsistency this preserves rather than introduces: master folds a
+    workspace grant into a POINT permission only at ``MANAGE``
+    (``get_role_permission_for_resource``, mirrored here by ``is_workspace_admin_grant``), but its
+    predicate loader folded workspace rows in at ANY level. So ``(workspace, "*", USE)`` lists
+    experiments it cannot then read. Closing that would deny a caller master allows, so it is left
+    alone and reported as design feedback.
     """
     workspace_name = (
         workspace_context.get_request_workspace()
@@ -2319,31 +2349,47 @@ def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[s
     if workspace_name is None:
         return lambda _resource_id: False
 
-    user = store.get_user(username)
-    readable: set[str] = set()
-    wildcard_can_read = False
-    for resource_pattern, permission in store.list_role_grants_for_user_in_workspace(
-        user.id, workspace_name, resource_type
-    ):
-        if not get_permission(permission).can_read:
-            continue
-        if resource_pattern == "*":
-            wildcard_can_read = True
-        else:
-            readable.add(resource_pattern)
+    # One query for every type any requirement can reach, fallback chains included. The row
+    # requirement's own key varies, but its TYPE does not, so the whole request loads here.
+    load_types = {resource_type} | {
+        key.resource_type for key in requirements_to_grant_load_keys(also_require)
+    }
+    grants = store.list_grants(store.get_user(username).id, workspace_name, load_types)
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        # Admins are not restrictable, so this precedes every other rule including DENY.
+        return lambda _resource_id: True
 
-    default_can_read = get_permission(auth_config.default_permission).can_read
-    fallback = (
-        default_can_read
-        if (
-            not MLFLOW_ENABLE_WORKSPACES.get()
-            or _user_inherits_default_workspace_grant(workspace_name)
-        )
-        else False
-    )
+    absent = _absent_permission(workspace_name)
+    default_permission = auth_config.default_permission
+
+    def met(requirement: Requirement) -> bool:
+        permissions = {
+            key: fold_grants_for_key(grants, key)
+            for key in requirement_to_grant_load_keys(requirement)
+        }
+        governing = governing_permission(requirement, permissions, default_permission, absent)
+        return requirement_met(requirement, governing)
+
+    if not all(met(requirement) for requirement in also_require):
+        return lambda _resource_id: False
+
+    # Memoized per distinct id: a listing repeats ids heavily, keeping this
+    # O(distinct ids x grants) rather than O(rows x grants).
+    decided: dict[str, bool] = {}
 
     def predicate(resource_id: str) -> bool:
-        return resource_id in readable or wildcard_can_read or fallback
+        cached = decided.get(resource_id)
+        if cached is None:
+            cached = met(
+                Requirement(
+                    resource_type,
+                    resource_id,
+                    "read",
+                    fallback_if_no_grant=((RESOURCE_TYPE_WORKSPACE, "*"),),
+                )
+            )
+            decided[resource_id] = cached
+        return cached
 
     return predicate
 
@@ -2369,7 +2415,14 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
     try:
         if sender_is_admin():
             return experiment_ids
-        predicate = _role_based_read_predicate(authenticate_request().username, "experiment")
+        predicate = _role_based_read_predicate(
+            authenticate_request().username,
+            "experiment",
+            # The rows this scopes are RUNS (the only caller is search_runs_impl), so the run tier
+            # vetoes: without it (run, "*", DENY) still searched every run in every readable
+            # experiment.
+            also_require=[Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
+        )
         return [exp_id for exp_id in experiment_ids if predicate(exp_id)]
     except (RuntimeError, AttributeError):
         # Auth system not fully initialized, skip filtering
@@ -4662,7 +4715,15 @@ def filter_search_logged_models(resp: Response) -> None:
     parse_dict(resp.json, response_proto)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "experiment")
+    # Rows are logged models keyed on their experiment, so the logged-model tier vetoes here or
+    # nowhere: SearchLoggedModels is authorized ONLY by this filter (it is in neither
+    # BEFORE_REQUEST_HANDLERS nor AFTER_REQUEST_HANDLERS by proto), which is how
+    # (logged_model, "*", DENY) was bypassable via POST /logged-models/search.
+    can_read = _role_based_read_predicate(
+        username,
+        "experiment",
+        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)],
+    )
     # Remove unreadable models
     for m in list(response_proto.models):
         if not can_read(m.info.experiment_id):
@@ -4893,6 +4954,14 @@ def filter_list_scorers(resp: Response) -> None:
     (empty ``experiment_id``) skip that gate so the response can carry scorers from
     multiple experiments. This filter applies the experiment + scorer read
     predicates per row so the picker doesn't leak names the caller has no grant on.
+
+    NOT on the single-requirement shape the other listings use, and deliberately so: scorer grain
+    is per-id (``<experiment_id>/<name>``), not wildcard-only, so the scorer key VARIES BY ROW and
+    cannot be hoisted into ``also_require`` the way a wildcard-only tier can. Combining two
+    predicates with AND is also not tier override -- it is stricter, so a scorer grant cannot lift
+    a row whose experiment tier denies it, making this filter narrower than its own point route
+    (``_get_permission_from_scorer_name``). Fixing it needs a two-key predicate
+    ``p(experiment_id, scorer_pattern)``; tracked as follow-up item 2b.
     """
     if sender_is_admin():
         return
