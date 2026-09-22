@@ -172,6 +172,9 @@ from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStor
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
 )
+from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
+    SqlAlchemySkillRegistryMixin,
+)
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
     validate_query_trace_metrics_params,
@@ -303,7 +306,12 @@ class DatasetFilter(TypedDict, total=False):
     dataset_digest: str
 
 
-class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMixin, AbstractStore):
+class SqlAlchemyStore(
+    SqlAlchemySkillRegistryMixin,
+    SqlAlchemyMCPServerRegistryMixin,
+    SqlAlchemyGatewayStoreMixin,
+    AbstractStore,
+):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
@@ -426,7 +434,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         Return a query for ``model``. Workspace-aware subclasses override this to enforce scoping.
         """
-
         return session.query(model)
 
     @staticmethod
