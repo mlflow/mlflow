@@ -160,7 +160,10 @@ WILDCARD_ONLY = frozenset({PatternKind.WILDCARD})
 # cannot be enforced in list/search paths until filter push-down lands, and a grant that
 # holds on a point route but not in search is worse than no grant at all.
 TYPE: dict[str, frozenset[PatternKind]] = {
-    RESOURCE_TYPE_WORKSPACE: WILDCARD_AND_ID,
+    # The workspace slot is a single wildcard grant per workspace ("am I a member /
+    # an admin here?"), never per-id: the workspace itself is named by the role's
+    # ``workspace`` column, not by the pattern.
+    RESOURCE_TYPE_WORKSPACE: WILDCARD_ONLY,
     RESOURCE_TYPE_EXPERIMENT: WILDCARD_AND_ID,
     RESOURCE_TYPE_REGISTERED_MODEL: WILDCARD_AND_ID,
     RESOURCE_TYPE_PROMPT: WILDCARD_AND_ID,
