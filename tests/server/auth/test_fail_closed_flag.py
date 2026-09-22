@@ -42,6 +42,19 @@ def test_authorized_elsewhere_is_recognized():
     assert a._authorized_outside_before_request(_Req("/api/2.0/mlflow/runs/search", "POST"))
 
 
+def test_ownership_grant_after_handler_does_not_authorize_route():
+    # CreateGatewaySecret carries an after-request MANAGE grant that only records
+    # ownership; it must not exempt the route from the fail-closed net
+    # (GHSA-4449-4cjp-ffp5). Response filters still self-authorize.
+    req = _Req("/api/3.0/mlflow/gateway/secrets/create", "POST")
+    assert (
+        a.AFTER_REQUEST_HANDLERS[(req.path, req.method)]
+        is a.set_can_manage_gateway_secret_permission
+    )
+    assert not a._authorized_outside_before_request(req)
+    assert a._authorized_outside_before_request(_Req("/api/3.0/mlflow/gateway/secrets/list"))
+
+
 def test_public_suffix_not_matched_as_incidental_tail():
     # Anchored to an API-version prefix, so an unrelated route ending in the same
     # segments is not treated as authorized.

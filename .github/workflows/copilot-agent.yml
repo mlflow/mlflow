@@ -35,6 +35,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           # `markPullRequestReadyForReview` rejects `pull-requests: write`
           # alone. See https://github.com/cli/cli/issues/8910.
           permission-contents: write

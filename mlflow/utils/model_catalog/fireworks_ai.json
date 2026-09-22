@@ -1086,9 +1086,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-17"
     },
     "accounts/fireworks/models/deepseek-v4-pro": {
       "mode": "chat",
@@ -3003,12 +3003,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": true,
+        "vision": false,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-09-22"
     },
     "accounts/fireworks/models/ministral-3-14b-instruct-2512": {
       "mode": "chat",
@@ -5685,19 +5685,23 @@
     },
     "accounts/fireworks/routers/glm-5p3-fast": {
       "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
       "pricing": {
         "input_per_million_tokens": 2.1,
         "output_per_million_tokens": 6.6,
         "cache_read_per_million_tokens": 0.39
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-09-17"
     },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
       "mode": "chat",
@@ -5848,9 +5852,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-17"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -5879,6 +5883,34 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-15"
+    },
+    "deepseek-v4-pro-0813": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.32,
+        "output_per_million_tokens": 3.96,
+        "cache_read_per_million_tokens": 0.044,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 4.95,
+            "cache_read_per_million_tokens": 0.055
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-22"
     },
     "deepseek-v4p1-flash": {
       "mode": "chat",
@@ -6040,6 +6072,81 @@
         "response_schema": true
       },
       "last_updated_at": "2026-08-25"
+    },
+    "glm-5p3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.26,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.75,
+            "output_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.325
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "glm-5p3-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.1,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.39
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-17"
+    },
+    "glm-5p3-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.03,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.1875,
+            "output_per_million_tokens": 0.625,
+            "cache_read_per_million_tokens": 0.0375
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-22"
     },
     "gpt-oss-120b": {
       "mode": "chat",
@@ -6349,12 +6456,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": true,
+        "vision": false,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-09-22"
     },
     "muse-glimmer-30b": {
       "mode": "chat",

@@ -12,6 +12,72 @@
       },
       "last_updated_at": "2026-05-28"
     },
+    "bytedance/seedance-2.0/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "bytedance/seedance-2.0/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "bytedance/seedance-2.0/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "bytedance/seedance-2.5/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "bytedance/seedance-2.5/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "bytedance/seedance-2.5/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
     "fal-ai/bytedance/dreamina/v3.1/text-to-image": {
       "mode": "image_generation",
       "capabilities": {
@@ -55,6 +121,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-05-28"
+    },
+    "fal-ai/flux/dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "fal-ai/flux/schnell": {
       "mode": "image_generation",
@@ -188,6 +265,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "high/1024-x-1024/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-1024/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-1024/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-1024/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "high/1024-x-1024/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -220,6 +341,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "high/1024-x-1536/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-1536/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-1536/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-1536/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "high/1024-x-1536/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -254,6 +419,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "high/1024-x-768/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-768/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-768/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1024-x-768/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "high/1024-x-768/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -286,6 +495,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "high/1920-x-1080/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1920-x-1080/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1920-x-1080/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/1920-x-1080/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "high/1920-x-1080/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -320,6 +573,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "high/2560-x-1440/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/2560-x-1440/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/2560-x-1440/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/2560-x-1440/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "high/2560-x-1440/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -352,6 +649,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "high/3840-x-2160/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/3840-x-2160/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "high/3840-x-2160/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "high/3840-x-2160/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -386,6 +727,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "low/1024-x-1024/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-1024/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-1024/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-1024/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "low/1024-x-1024/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -418,6 +803,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "low/1024-x-1536/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-1536/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-1536/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-1536/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "low/1024-x-1536/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -452,6 +881,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "low/1024-x-768/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-768/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-768/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1024-x-768/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "low/1024-x-768/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -484,6 +957,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "low/1920-x-1080/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1920-x-1080/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1920-x-1080/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/1920-x-1080/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "low/1920-x-1080/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -518,6 +1035,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "low/2560-x-1440/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/2560-x-1440/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/2560-x-1440/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/2560-x-1440/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "low/2560-x-1440/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -551,6 +1112,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "low/3840-x-2160/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/3840-x-2160/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "low/3840-x-2160/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "low/3840-x-2160/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -561,6 +1166,270 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "max/1024-x-1024/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1024/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1024/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1024/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1536/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1536/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1536/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-1536/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-768/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-768/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-768/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1024-x-768/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1920-x-1080/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1920-x-1080/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1920-x-1080/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/1920-x-1080/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/2560-x-1440/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/2560-x-1440/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/2560-x-1440/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/2560-x-1440/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/3840-x-2160/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/3840-x-2160/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "max/3840-x-2160/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "medium/1024-x-1024/gpt-image-2": {
       "mode": "image_generation",
@@ -583,6 +1452,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "medium/1024-x-1024/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-1024/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-1024/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-1024/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "medium/1024-x-1024/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -617,6 +1530,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "medium/1024-x-1536/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-1536/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-1536/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-1536/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "medium/1024-x-1536/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -649,6 +1606,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "medium/1024-x-768/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-768/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-768/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1024-x-768/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "medium/1024-x-768/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -683,6 +1684,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "medium/1920-x-1080/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1920-x-1080/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1920-x-1080/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/1920-x-1080/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "medium/1920-x-1080/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -715,6 +1760,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "medium/2560-x-1440/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/2560-x-1440/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/2560-x-1440/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/2560-x-1440/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "medium/2560-x-1440/openai/gpt-image-2/edit": {
       "mode": "image_generation",
@@ -749,6 +1838,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "medium/3840-x-2160/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/3840-x-2160/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "medium/3840-x-2160/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "medium/3840-x-2160/openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -759,6 +1892,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "minimax/h3/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "minimax/h3/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     },
     "openai/gpt-image-2": {
       "mode": "image_generation",
@@ -771,6 +1926,50 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
     "openai/gpt-image-2/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -781,6 +1980,270 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-25"
+    },
+    "xhigh/1024-x-1024/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1024/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1024/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1024/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1536/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1536/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1536/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-1536/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-768/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-768/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-768/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1024-x-768/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1920-x-1080/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1920-x-1080/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1920-x-1080/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/1920-x-1080/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/2560-x-1440/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/2560-x-1440/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/2560-x-1440/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/2560-x-1440/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/3840-x-2160/openai/gpt-image-2.5/flare/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/3840-x-2160/openai/gpt-image-2.5/sunburst/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "xhigh/3840-x-2160/openai/gpt-image-2.5/sunburst/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-22"
     }
   }
 }

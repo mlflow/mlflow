@@ -1,0 +1,8 @@
+{"type":"user","message":{"role":"user","content":"Use Claude Code"},"timestamp":"2025-01-15T10:00:00.000Z"}
+{"type":"assistant","message":{"id":"msg_tool","role":"assistant","content":[{"type":"tool_use","id":"tool_a","name":"Read","input":{}}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":40,"output_tokens":25}},"timestamp":"2025-01-15T10:00:01.000Z"}
+{"type":"assistant","message":{"id":"msg_think","role":"assistant","content":[{"type":"thinking","thinking":"Need state."}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":40,"output_tokens":25}},"timestamp":"2025-01-15T10:00:02.000Z"}
+{"type":"assistant","message":{"id":"msg_split","role":"assistant","content":[{"type":"text","text":"Reading files."}],"model":"claude-sonnet-4-20250514"},"timestamp":"2025-01-15T10:00:03.000Z"}
+{"type":"assistant","message":{"id":"msg_split","role":"assistant","content":[{"type":"tool_use","id":"tool_b","name":"Read","input":{}}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":40,"output_tokens":25}},"timestamp":"2025-01-15T10:00:04.000Z"}
+{"type":"progress","timestamp":"2025-01-15T10:00:04.500Z"}
+{"type":"assistant","message":{"id":"msg_split","role":"assistant","content":[{"type":"tool_use","id":"tool_c","name":"Read","input":{}}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":40,"output_tokens":25}},"timestamp":"2025-01-15T10:00:05.000Z"}
+{"type":"progress","timestamp":"2025-01-15T10:00:05.500Z"}

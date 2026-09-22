@@ -5,6 +5,14 @@ excludeAgent: "cloud-agent"
 
 # Code Review Instructions
 
+## Review Comment Format
+
+When you have a fix to recommend, use two short sections for the finding:
+
+**🐛 Issue:** State the trigger and concrete consequence that make the fix necessary.
+
+**🔧 Fix:** Start with the change you recommend, adding only the detail needed to implement it.
+
 ## Knowledge Cutoff
 
 Your training data has a cutoff. Treat anything you don't recognize as **new, not wrong**. Here are things you might flag as incorrect but are actually valid:
