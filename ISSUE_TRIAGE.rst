@@ -11,28 +11,6 @@ Issue and pull request triage has three steps:
 
 The remainder of the document describes the labels used in each of these steps and how to apply them.
 
-Manual reproduction triage
-##########################
-
-Maintainers can run the ``Issue reproduction triage`` GitHub Actions workflow for one issue from
-the Actions tab. It investigates the issue against trusted ``master`` source and produces a concise,
-evidence-backed report. The default is a dry run: the report is available in the workflow summary and
-artifact, while the issue itself is unchanged. Re-run with ``apply_changes`` selected only after reviewing
-that result.
-
-An applied run updates one bot-owned triage report comment and sets exactly one workflow-owned state label:
-
-- ``ready``: a reproduced bug whose evidence indicates a small, localized fix with no identified API,
-  compatibility, design, security, or performance risk.
-- ``needs committer feedback``: maintainer review is required. This includes every feature request,
-  broad or multi-component proposed fix, unreproduced result, unavailable environment, and inconclusive
-  or risky result.
-
-The report records the tested commit, Python version, bounded command output, and a link to the full
-Actions run. A failure to reproduce is not a dismissal of the report; it means a maintainer needs to
-decide the next investigation step. The workflow preserves other labels and assignees, and a rerun
-updates its existing report rather than adding another comment.
-
 Assign appropriate process labels
 #######
 Assign at least one process label to every issue you triage.
