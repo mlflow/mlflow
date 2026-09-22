@@ -54,7 +54,9 @@ def main() -> None:
                 f"ERROR: {JS_BUILD_DIR} is missing or empty. Build the UI "
                 "(cd mlflow/server/js && yarn install && yarn build) before the release package."
             )
-        build({})
+        # Clear MLFLOW_SKINNY so an ambient value can't make setup.py build skinny here
+        # ("" is falsey in setup.py's `bool(os.environ.get("MLFLOW_SKINNY"))` check).
+        build({"MLFLOW_SKINNY": ""})
     else:  # skinny
         build({"MLFLOW_SKINNY": "1"})
 
