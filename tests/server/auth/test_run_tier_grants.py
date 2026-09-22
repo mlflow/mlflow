@@ -172,11 +172,27 @@ def _create_run(tracking_uri, experiment_id, auth):
     )
 
 
-def test_create_run_is_gated_on_the_run_tier(
+def test_create_run_is_gated_on_the_experiment_with_a_run_veto(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
 ):
-    """CreateRun has no run id, so the run tier is addressed at its wildcard grain."""
+    """Creation is authorized by the CONTAINER, and the run tier only vetoes.
+
+    A run grant is wildcard-only grain, so it names no experiment; letting it authorize
+    creation would confer create rights in every experiment in the workspace.
+    """
     experiment_id, _ = run_fixture
+
+    # experiment EDIT alone creates, exactly as before the RFC
+    allowed, allowed_password = create_user(client.tracking_uri)
+    grant_role_permission(
+        client.tracking_uri, allowed, RESOURCE_TYPE_EXPERIMENT, experiment_id, EDIT.name
+    )
+    assert (
+        _create_run(client.tracking_uri, experiment_id, (allowed, allowed_password)).status_code
+        == 200
+    )
+
+    # a run DENY is the operator's lever to prevent run creation
     denied, denied_password = create_user(client.tracking_uri)
     grant_role_permission(
         client.tracking_uri, denied, RESOURCE_TYPE_EXPERIMENT, experiment_id, EDIT.name
@@ -187,14 +203,18 @@ def test_create_run_is_gated_on_the_run_tier(
         == 403
     )
 
-    allowed, allowed_password = create_user(client.tracking_uri)
-    grant_role_permission(
-        client.tracking_uri, allowed, RESOURCE_TYPE_EXPERIMENT, experiment_id, EDIT.name
-    )
-    assert (
-        _create_run(client.tracking_uri, experiment_id, (allowed, allowed_password)).status_code
-        == 200
-    )
+
+def test_a_run_grant_alone_does_not_confer_run_creation(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
+):
+    """No escalation on creates: a wildcard run grant must not become workspace-wide
+    create rights.
+    """
+    experiment_id, _ = run_fixture
+    user, password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_RUN, "*", MANAGE.name)
+
+    assert _create_run(client.tracking_uri, experiment_id, (user, password)).status_code == 403
 
 
 # --------------------------------------------------------------------- trace tier
@@ -223,10 +243,10 @@ def test_start_trace_is_gated_on_the_trace_tier(
     assert response.status_code == 403
 
 
-def test_a_trace_grant_authorizes_start_trace_without_an_experiment_grant(
+def test_a_trace_grant_alone_does_not_confer_trace_creation(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
 ):
-    """Escalation on the trace tier."""
+    """StartTrace is a create: the experiment authorizes it, the trace tier only vetoes."""
     experiment_id, _ = run_fixture
     user, password = create_user(client.tracking_uri)
     grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_TRACE, "*", EDIT.name)
@@ -241,4 +261,4 @@ def test_a_trace_grant_authorizes_start_trace_without_an_experiment_grant(
         },
         auth=(user, password),
     )
-    assert response.status_code == 200
+    assert response.status_code == 403
