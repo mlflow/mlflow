@@ -4,6 +4,7 @@ import abc
 import asyncio
 import json
 from contextlib import nullcontext
+from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
@@ -19,6 +20,7 @@ from mlflow.entities.gateway_guardrail import (
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
+from mlflow.genai.scorers.scorer_utils import validate_serialized_scorer_models
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -426,7 +428,12 @@ class JudgeGuardrail(Guardrail):
             server_url.rstrip("/") if entity.action_endpoint_name and server_url else None
         )
 
-        scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
+        serialized_scorer = entity.scorer.serialized_scorer
+        if is_dataclass(serialized_scorer):
+            validate_serialized_scorer_models(asdict(serialized_scorer))
+        elif isinstance(serialized_scorer, dict):
+            validate_serialized_scorer_models(serialized_scorer)
+        scorer = Scorer.model_validate(serialized_scorer)
 
         # Inside the server process MLFLOW_TRACKING_URI points to the backend store
         # (e.g. sqlite://), so _resolve_gateway_uri() would fail for gateway:/ URIs.

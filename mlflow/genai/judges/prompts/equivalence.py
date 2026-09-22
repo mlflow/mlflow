@@ -10,7 +10,10 @@ are semantically equivalent or convey the same meaning, and if the output format
 expected format (e.g., JSON structure, list format, sentence structure).
 
 <actual_output>{{output}}</actual_output>
-<expected_output>{{expected_output}}</expected_output>\
+<expected_output>{{expected_output}}</expected_output>
+
+The result is "yes" if the outputs are semantically equivalent and their formats match, and \
+"no" otherwise.\
 """
 
 EQUIVALENCE_PROMPT_OUTPUT = """

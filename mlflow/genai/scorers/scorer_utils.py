@@ -41,6 +41,13 @@ THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
     "`mlflow.genai.evaluate(..., scorers=[...])` without calling `.register()`."
 )
 
+DIRECT_TYPESAFE_SCORER_NOT_SUPPORTED_ERROR = (
+    "Scorers using a direct TypeSafe model URI (`typesafe:/...`) can only be run "
+    "locally. They cannot be registered with or executed by an MLflow server because "
+    "server workers must not access `TYPESAFE_API_KEY`. Gateway-backed TypeSafe scorer "
+    "execution is not yet supported."
+)
+
 # Restricts dynamic imports during third-party scorer deserialization to this closed set
 # of the modules that define the supported scorer classes, so a malicious payload can't
 # turn `model_validate` into arbitrary import. Matched verbatim, never by package prefix:
@@ -296,6 +303,33 @@ def validate_scorer_model(model: str | None) -> None:
         raise MlflowException.invalid_parameter_value(
             "Scorer model cannot be empty or contain only whitespace."
         )
+    if model.strip().startswith("typesafe:/"):
+        raise MlflowException.invalid_parameter_value(DIRECT_TYPESAFE_SCORER_NOT_SUPPORTED_ERROR)
+
+
+def validate_serialized_scorer_models(serialized_data: dict[str, Any]) -> None:
+    """Validate every model URI that can be reconstructed from a serialized scorer.
+
+    Ensembles and memory-augmented judges contain complete serialized scorers. Walk those
+    containers recursively so server-side validation cannot be bypassed by wrapping a scorer.
+    """
+    for data_key in (
+        INSTRUCTIONS_JUDGE_PYDANTIC_DATA,
+        BUILTIN_SCORER_PYDANTIC_DATA,
+        "third_party_scorer_data",
+    ):
+        if isinstance(data := serialized_data.get(data_key), dict) and "model" in data:
+            validate_scorer_model(data["model"])
+
+    if isinstance(memory_data := serialized_data.get("memory_augmented_judge_data"), dict):
+        if isinstance(base_judge := memory_data.get("base_judge"), dict):
+            validate_serialized_scorer_models(base_judge)
+
+    if isinstance(ensemble_data := serialized_data.get("ensemble_scorer_data"), dict):
+        if isinstance(scorers := ensemble_data.get("scorers"), list):
+            for scorer in scorers:
+                if isinstance(scorer, dict):
+                    validate_serialized_scorer_models(scorer)
 
 
 def parse_tool_call_expectations(

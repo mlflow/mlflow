@@ -28,6 +28,7 @@ from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     THIRD_PARTY_SCORER_ALLOWED_MODULES,
     THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
+    validate_scorer_model,
 )
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
@@ -1320,6 +1321,8 @@ class Scorer(BaseModel):
         if self.kind == ScorerKind.ENSEMBLE:
             for sub_scorer in self._scorers:
                 sub_scorer._check_can_be_registered(error_message)
+
+        validate_scorer_model(getattr(self, "model", None))
 
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
         # execution risk. Only allow registration when using Databricks tracking URI.

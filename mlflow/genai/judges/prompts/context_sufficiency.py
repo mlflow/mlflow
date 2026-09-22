@@ -15,7 +15,10 @@ approximations, or bring in external knowledge.
   <question>{{input}}</question>
   <answer>{{ground_truth}}</answer>
 </claim>
-<document>{{retrieval_context}}</document>\
+<document>{{retrieval_context}}</document>
+
+The result is "yes" if every statement in the claim is supported by the document, and "no" \
+otherwise.\
 """
 
 CONTEXT_SUFFICIENCY_PROMPT_OUTPUT = """

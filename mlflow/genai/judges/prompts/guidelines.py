@@ -11,12 +11,15 @@ correctness, relevance, or effectiveness of the inputs.
 <guidelines>
 {{guidelines}}
 </guidelines>
-{{guidelines_context}}\
+{{guidelines_context}}
+
+The result is "no" if any guideline is not satisfied. The result is "yes" if all guidelines are \
+satisfied or none of them apply to the inputs.\
 """
 
 GUIDELINES_PROMPT_OUTPUT = """
 
-Please provide your assessment using only the following json format. Do not use any markdown formatting or output additional lines. If any of the guidelines are not satisfied, the result must be "no". If none of the guidelines apply to the given inputs, the result must be "yes".
+Please provide your assessment using only the following json format. Do not use any markdown formatting or output additional lines.
 {
   "rationale": "Detailed reasoning for your assessment. If the assessment does not satisfy the guideline, state which parts of the guideline are not satisfied. Start each rationale with `Let's think step by step. `",
   "result": "yes|no"

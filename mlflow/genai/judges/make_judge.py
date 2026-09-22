@@ -133,7 +133,8 @@ def make_judge(
                       variables are not supported.
                       Note: {{ conversation }} can only coexist with {{ expectations }}.
                       It cannot be used together with {{ inputs }}, {{ outputs }}, or {{ trace }}.
-        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
+        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4" or
+                        "typesafe:/jev-latest").
         description: A description of what the judge evaluates
         feedback_value_type: Type specification for the 'value' field in the Feedback
                         object. The judge will use structured outputs to enforce this type.

@@ -4,6 +4,7 @@ This module backs the `POST /ajax-api/3.0/mlflow/genai/evaluate/invoke` endpoint
 used by the "Run evaluation" modal's "Run judges" button.
 """
 
+import json
 import logging
 import os
 
@@ -16,6 +17,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
+from mlflow.genai.scorers.scorer_utils import validate_serialized_scorer_models
 from mlflow.server.jobs import job
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 
@@ -44,6 +46,8 @@ def invoke_genai_evaluate_job(
     client = MlflowClient()
 
     try:
+        for serialized_scorer in serialized_scorers:
+            validate_serialized_scorer_models(json.loads(serialized_scorer))
         for i in range(0, len(trace_ids), MAX_TRACE_LINKS_PER_REQUEST):
             client.link_traces_to_run(trace_ids[i : i + MAX_TRACE_LINKS_PER_REQUEST], run_id)
         traces = client._tracing_client.batch_get_traces(trace_ids)

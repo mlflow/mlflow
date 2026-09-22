@@ -601,6 +601,7 @@ def test_register_scorer_validates_name(store: SqlAlchemyStore, name, error_matc
     [
         ("", "cannot be empty"),
         ("   ", "cannot be empty"),
+        ("typesafe:/jev-latest", "can only be run locally"),
     ],
 )
 def test_register_scorer_validates_model(store: SqlAlchemyStore, model, error_match):

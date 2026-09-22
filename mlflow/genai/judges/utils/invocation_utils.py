@@ -228,6 +228,13 @@ def get_chat_completions_with_structured_output(
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
     from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+    from mlflow.genai.judges.typesafe import _is_typesafe_model
+
+    if _is_typesafe_model(model_uri):
+        raise MlflowException.invalid_parameter_value(
+            "TypeSafe judge models do not support generic structured chat completions or "
+            "trace-based field extraction. Use a built-in judge or `make_judge` instead."
+        )
 
     if GatewayAdapter.is_applicable(model_uri=model_uri, prompt=messages):
         return GatewayAdapter().invoke_with_structured_output(

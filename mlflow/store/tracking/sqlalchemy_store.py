@@ -104,6 +104,7 @@ from mlflow.genai.scorers.scorer_utils import (
     update_model_in_serialized_scorer,
     validate_scorer_model,
     validate_scorer_name,
+    validate_serialized_scorer_models,
 )
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -2813,6 +2814,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # Parse serialized_scorer and validate its contents
             serialized_data = json.loads(serialized_scorer)
+            validate_serialized_scorer_models(serialized_data)
 
             # Validate model if present
             model = extract_model_from_serialized_scorer(serialized_data)

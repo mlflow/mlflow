@@ -38,6 +38,7 @@ def list_prompt():
         ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
         ("gemini:/gemini-2.5-flash", "string", GatewayAdapter),
         ("mistral:/mistral-large", "string", GatewayAdapter),
+        ("gateway:/jev-evaluator", "string", GatewayAdapter),
         # endpoints with string prompt
         ("endpoints:/my-endpoint", "string", GatewayAdapter),
     ],
@@ -92,6 +93,9 @@ def test_get_adapter_with_litellm(
         ("unknown_provider:/some-model", "list"),
         # endpoints with list prompt — Gateway rejects, LiteLLM not available
         ("endpoints:/my-endpoint", "list"),
+        # TypeSafe models use the native judge invocation path, not chat adapters
+        ("typesafe:/jev-latest", "string"),
+        ("typesafe:/jev-latest", "list"),
     ],
 )
 def test_get_adapter_unsupported_without_litellm(
@@ -106,6 +110,19 @@ def test_get_adapter_unsupported_without_litellm(
             MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
         ):
             get_adapter(model_uri, prompt)
+
+
+@pytest.mark.parametrize("prompt_type", ["string", "list"])
+def test_get_adapter_rejects_typesafe_with_litellm(prompt_type, string_prompt, list_prompt):
+    prompt = string_prompt if prompt_type == "string" else list_prompt
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+            return_value=True,
+        ),
+        pytest.raises(MlflowException, match="No suitable adapter"),
+    ):
+        get_adapter("typesafe:/jev-latest", prompt)
 
 
 def test_send_chat_request_uses_timeout_from_env_var(monkeypatch):

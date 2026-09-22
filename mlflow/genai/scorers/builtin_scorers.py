@@ -75,6 +75,7 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
+from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -499,7 +500,10 @@ class RetrievalRelevance(BuiltInScorer):
         self, span_id: str, request: str, chunks: list[dict[str, str]]
     ) -> list[Feedback]:
         """Compute the relevance of retrieved context for one retriever span."""
-        from mlflow.genai.judges.prompts.retrieval_relevance import get_prompt
+        from mlflow.genai.judges.prompts.retrieval_relevance import (
+            RETRIEVAL_RELEVANCE_PROMPT_INSTRUCTIONS,
+            get_prompt,
+        )
 
         model = self.model or get_default_model()
 
@@ -517,14 +521,25 @@ class RetrievalRelevance(BuiltInScorer):
             )
         else:
             for i, chunk in enumerate(chunks):
-                prompt = get_prompt(request=request, context=chunk["content"])
-                feedback = invoke_judge_model(
-                    model,
-                    prompt,
-                    assessment_name=self.name,
-                    inference_params=self.inference_params,
-                    extra_headers=self.extra_headers,
-                )
+                if _is_typesafe_model(model):
+                    feedback = _invoke_typesafe_judge(
+                        model,
+                        instructions=RETRIEVAL_RELEVANCE_PROMPT_INSTRUCTIONS,
+                        state={"input": request, "doc": chunk["content"]},
+                        feedback_value_type=Literal["yes", "no"],
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    )
+                else:
+                    prompt = get_prompt(request=request, context=chunk["content"])
+                    feedback = invoke_judge_model(
+                        model,
+                        prompt,
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
                     **(sanitized_feedback.metadata or {}),
@@ -2108,6 +2123,7 @@ class Equivalence(BuiltInScorer):
         from mlflow.genai.judges.builtin import _sanitize_feedback
         from mlflow.genai.judges.prompts.equivalence import (
             EQUIVALENCE_FEEDBACK_NAME,
+            EQUIVALENCE_PROMPT_INSTRUCTIONS,
             get_prompt,
         )
 
@@ -2167,17 +2183,28 @@ class Equivalence(BuiltInScorer):
         model = self.model or get_default_model()
         assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
-        prompt = get_prompt(
-            output=outputs_str,
-            expected_output=expectations_str,
-        )
-        feedback = invoke_judge_model(
-            model,
-            prompt,
-            assessment_name=assessment_name,
-            inference_params=self.inference_params,
-            extra_headers=self.extra_headers,
-        )
+        if _is_typesafe_model(model):
+            feedback = _invoke_typesafe_judge(
+                model,
+                instructions=EQUIVALENCE_PROMPT_INSTRUCTIONS,
+                state={"output": actual_output, "expected_output": expected_output},
+                feedback_value_type=Literal["yes", "no"],
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            )
+        else:
+            prompt = get_prompt(
+                output=outputs_str,
+                expected_output=expectations_str,
+            )
+            feedback = invoke_judge_model(
+                model,
+                prompt,
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            )
 
         return _sanitize_feedback(feedback)
 
@@ -2891,19 +2918,17 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
     @property
     def instructions(self) -> str:
-        """
-        This property is required by BuiltInSessionLevelScorer but is not used.
-        KnowledgeRetention uses composition (delegating to last_turn_scorer)
-        rather than using its own instructions.
-        """
-        raise NotImplementedError(
-            "KnowledgeRetention uses composition with last_turn_scorer "
-            "and does not use instructions directly."
-        )
+        return KNOWLEDGE_RETENTION_PROMPT
 
     @property
     def feedback_value_type(self) -> Any:
         return Literal["yes", "no"]
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        serialized = super().model_dump(**kwargs)
+        if isinstance(self.last_turn_scorer, _LastTurnKnowledgeRetention):
+            serialized["builtin_scorer_pydantic_data"].pop("last_turn_scorer", None)
+        return serialized
 
     def __call__(
         self,
@@ -2957,8 +2982,8 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         rationale_lines = []
         for turn_idx, feedback in enumerate(per_turn_feedbacks):
             status = "✗" if str(feedback.value) == CategoricalRating.NO else "✓"
-            turn_summary = feedback.rationale
-            rationale_lines.append(f"- Turn {turn_idx + 1}: {status} {turn_summary}")
+            turn_summary = f" {feedback.rationale}" if feedback.rationale is not None else ""
+            rationale_lines.append(f"- Turn {turn_idx + 1}: {status}{turn_summary}")
         return rationale_lines
 
     def _compute_aggregate(self, per_turn_feedbacks: list[Feedback]) -> Feedback:

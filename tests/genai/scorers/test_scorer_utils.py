@@ -16,6 +16,7 @@ from mlflow.genai.scorers.scorer_utils import (
     parse_tool_call_expectations,
     recreate_function,
     update_model_in_serialized_scorer,
+    validate_serialized_scorer_models,
 )
 from mlflow.genai.utils.type import FunctionCall
 
@@ -433,6 +434,38 @@ def test_extract_and_build_gateway_model():
     assert extract_endpoint_ref("gateway:/my-endpoint") == "my-endpoint"
     assert build_gateway_model("my-endpoint") == "gateway:/my-endpoint"
     assert extract_endpoint_ref(build_gateway_model("test")) == "test"
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        {
+            "ensemble_scorer_data": {
+                "scorers": [
+                    {
+                        INSTRUCTIONS_JUDGE_PYDANTIC_DATA: {
+                            "model": "typesafe:/jev-latest",
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "memory_augmented_judge_data": {
+                "base_judge": {
+                    BUILTIN_SCORER_PYDANTIC_DATA: {
+                        "model": "typesafe:/jev-latest",
+                    }
+                }
+            }
+        },
+    ],
+)
+def test_validate_serialized_scorer_models_rejects_nested_direct_typesafe(
+    serialized_scorer,
+):
+    with pytest.raises(MlflowException, match="can only be run locally"):
+        validate_serialized_scorer_models(serialized_scorer)
 
 
 def test_extract_model_from_serialized_scorer():

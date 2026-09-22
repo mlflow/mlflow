@@ -336,6 +336,8 @@ class GatewayAdapter(BaseJudgeAdapter):
         prompt: str | list["ChatMessage"],
     ) -> bool:
         model_provider, _ = _parse_model_uri(model_uri)
+        if model_provider == "typesafe":
+            return False
         if not is_supported_provider(model_provider) and model_provider not in {
             "endpoints",
             "gateway",

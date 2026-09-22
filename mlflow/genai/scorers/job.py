@@ -1,5 +1,6 @@
 """Huey job functions for async scorer invocation."""
 
+import json
 import logging
 import os
 import random
@@ -33,6 +34,7 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
+from mlflow.genai.scorers.scorer_utils import validate_serialized_scorer_models
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -166,6 +168,8 @@ def invoke_scorer_job(
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
+    validate_serialized_scorer_models(json.loads(serialized_scorer))
+
     # Propagate the original user identity to gateway requests. These env vars
     # are read by get_gateway_litellm_config() and encoded into a Basic auth
     # header so the auth middleware can authenticate as the correct user.
@@ -478,6 +482,7 @@ def run_online_scoring_scheduler() -> None:
 
                 for scorer in scorers:
                     try:
+                        validate_serialized_scorer_models(json.loads(scorer.serialized_scorer))
                         scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
                         if scorer_obj.is_session_level_scorer:
                             session_level_scorers.append(scorer)

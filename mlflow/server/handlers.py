@@ -99,7 +99,10 @@ from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
-from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    validate_serialized_scorer_models,
+)
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -5981,6 +5984,7 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
+    validate_serialized_scorer_models(serialized_data)
     _validate_third_party_scorer_data(serialized_data)
 
 

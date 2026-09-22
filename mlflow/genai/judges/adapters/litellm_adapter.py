@@ -581,7 +581,8 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
-        return _is_litellm_available()
+        model_provider, _, _ = model_uri.partition(":/")
+        return model_provider != "typesafe" and _is_litellm_available()
 
     def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE

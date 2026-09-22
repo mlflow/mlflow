@@ -1,11 +1,12 @@
 import re
 from difflib import unified_diff
-from typing import Callable
+from typing import Callable, Literal
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import USE_CASE_CUSTOM_PROMPT_JUDGE
+from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
 from mlflow.genai.judges.utils import (
     get_default_model,
     invoke_judge_model,
@@ -125,15 +126,24 @@ def custom_prompt_judge(
 
     def judge(**kwargs) -> Feedback:
         try:
-            # Render prompt template with the given kwargs
-            prompt = format_prompt(prompt_template, **kwargs)
-            prompt = _remove_choice_brackets(prompt)
-            prompt = _add_structured_output_instructions(prompt)
-
-            # Call the judge
-            feedback = invoke_judge_model(
-                model, prompt, name, use_case=USE_CASE_CUSTOM_PROMPT_JUDGE
-            )
+            instructions = _remove_choice_brackets(prompt_template)
+            if _is_typesafe_model(model):
+                feedback = _invoke_typesafe_judge(
+                    model,
+                    instructions=instructions,
+                    state=kwargs,
+                    feedback_value_type=Literal[tuple(choices)],
+                    assessment_name=name,
+                )
+            else:
+                prompt = format_prompt(instructions, **kwargs)
+                prompt = _add_structured_output_instructions(prompt)
+                feedback = invoke_judge_model(
+                    model,
+                    prompt,
+                    name,
+                    use_case=USE_CASE_CUSTOM_PROMPT_JUDGE,
+                )
             feedback.source = source
 
             # Feedback value must be one of the choices
@@ -142,7 +152,10 @@ def custom_prompt_judge(
 
             # Map to numeric value if mapping is provided
             if numeric_values:
-                feedback.metadata = {"string_value": feedback.value}
+                feedback.metadata = {
+                    **(feedback.metadata or {}),
+                    "string_value": feedback.value,
+                }
                 feedback.value = numeric_values[feedback.value]
             return feedback
 

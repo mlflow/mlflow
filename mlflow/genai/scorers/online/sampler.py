@@ -1,11 +1,13 @@
 """Dense sampling strategy for online scoring."""
 
 import hashlib
+import json
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer, ScorerSamplingConfig
+from mlflow.genai.scorers.scorer_utils import validate_serialized_scorer_models
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScorer
@@ -28,6 +30,7 @@ class OnlineScorerSampler:
         self._scorers: dict[str, Scorer] = {}
         for online_scorer in online_scorers:
             try:
+                validate_serialized_scorer_models(json.loads(online_scorer.serialized_scorer))
                 scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
                 scorer._set_registration_metadata(
                     backend=SCORER_BACKEND_TRACKING,

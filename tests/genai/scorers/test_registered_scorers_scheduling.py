@@ -1,10 +1,13 @@
+from typing import Literal
 from unittest.mock import patch
 
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import Guidelines, scorer
+from mlflow.genai import make_judge
+from mlflow.genai.scorers import Guidelines, Safety, scorer
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
+from mlflow.genai.scorers.scorer_utils import DIRECT_TYPESAFE_SCORER_NOT_SUPPORTED_ERROR
 
 
 @pytest.fixture(autouse=True)
@@ -306,6 +309,26 @@ def test_builtin_scorer_register(mock_register_scorer):
     assert guidelines_scorer.name == "guidelines"
     original_dump_after = guidelines_scorer.model_dump()
     assert original_dump_after["name"] == "guidelines"
+
+
+@pytest.mark.parametrize(
+    "scorer",
+    [
+        Safety(model="typesafe:/jev-latest"),
+        make_judge(
+            name="typesafe_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="typesafe:/jev-latest",
+            feedback_value_type=Literal["pass", "fail"],
+        ),
+    ],
+)
+def test_direct_typesafe_scorer_cannot_be_registered(scorer, mock_register_scorer):
+    with pytest.raises(MlflowException, match="can only be run locally") as exc_info:
+        scorer.register()
+
+    assert str(exc_info.value) == DIRECT_TYPESAFE_SCORER_NOT_SUPPORTED_ERROR
+    mock_register_scorer.assert_not_called()
 
 
 def test_builtin_scorer_update():
