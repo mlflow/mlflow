@@ -339,6 +339,7 @@ class MCPServerResponse(BaseModel):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+    allowed_actions: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_entity(cls, entity: MCPServer) -> MCPServerResponse:
@@ -597,12 +598,27 @@ def create_mcp_server(body: CreateMCPServerRequest, request: Request) -> MCPServ
 
 @mcp_server_router.get("", response_model=SearchMCPServersResponse)
 def search_mcp_servers(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
     page_token: str | None = Query(None),
 ) -> SearchMCPServersResponse:
-    from mlflow.server.handlers import _get_tracking_store
+    from mlflow.server.handlers import _get_tracking_store, _quote_filter_values
+
+    username = getattr(request.state, "username", None)
+    is_admin = getattr(request.state, "is_admin", False)
+
+    readable_names = None
+    if username:
+        from mlflow.server.auth import get_readable_resource_ids_for_user
+
+        readable_names = get_readable_resource_ids_for_user(username, "mcp_server")
+    if readable_names is not None:
+        if not readable_names:
+            return SearchMCPServersResponse(mcp_servers=[])
+        auth_filter = f"name IN ({_quote_filter_values(readable_names)})"
+        filter_string = f"{filter_string} AND {auth_filter}" if filter_string else auth_filter
 
     results = _get_tracking_store().search_mcp_servers(
         filter_string=filter_string,
@@ -610,10 +626,21 @@ def search_mcp_servers(
         order_by=order_by,
         page_token=page_token,
     )
-    return SearchMCPServersResponse(
-        mcp_servers=[MCPServerResponse.from_entity(s) for s in results],
-        next_page_token=results.token,
-    )
+    if username:
+        from mlflow.server.auth import _get_mcp_server_permission, _permission_to_allowed_actions
+
+        def _with_actions(s):
+            actions = (
+                ["USE", "UPDATE", "DELETE", "MANAGE"]
+                if is_admin
+                else _permission_to_allowed_actions(_get_mcp_server_permission(s.name, username))
+            )
+            return MCPServerResponse.from_entity(s).model_copy(update={"allowed_actions": actions})
+
+        servers = [_with_actions(s) for s in results]
+    else:
+        servers = [MCPServerResponse.from_entity(s) for s in results]
+    return SearchMCPServersResponse(mcp_servers=servers, next_page_token=results.token)
 
 
 # Static route — must be registered before /{name:path} routes

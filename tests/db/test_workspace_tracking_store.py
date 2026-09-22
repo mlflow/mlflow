@@ -79,3 +79,32 @@ def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
 
         with pytest.raises(MlflowException, match="must be a valid integer"):
             psycopg3_store.search_experiments(filter_string="experiment_id = 'not-a-number'")
+
+
+def test_allowed_experiment_ids_respects_workspace_boundary(tmp_path, monkeypatch):
+    """Workspace filter and allowed_experiment_ids are combined: a grant to an experiment
+    in another workspace must not leak that experiment into the current workspace results.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    store = WorkspaceAwareSqlAlchemyStore(
+        f"sqlite:///{tmp_path / 'test.db'}", artifact_dir.as_uri()
+    )
+
+    with WorkspaceContext("team-a"):
+        exp_a1 = store.create_experiment("exp-a1")
+        exp_a2 = store.create_experiment("exp-a2")
+
+    with WorkspaceContext("team-b"):
+        exp_b1 = store.create_experiment("exp-b1")
+
+    with WorkspaceContext("team-a"):
+        # Grant set includes one experiment from team-a and one from team-b.
+        results = store.search_experiments(allowed_experiment_ids=[exp_a1, exp_b1])
+        # team-b experiment must not appear even though it is in the allowed set.
+        result_ids = {e.experiment_id for e in results}
+        assert result_ids == {exp_a1}
+        assert exp_b1 not in result_ids
+        assert exp_a2 not in result_ids

@@ -55,7 +55,6 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_version,
     search_all_access_endpoints,
     search_mcp_server_versions,
-    search_mcp_servers,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.utils import workspace_context
@@ -5702,7 +5701,8 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+    # user2 has no experiment grants at all; the validator checks whether the
+    # caller has any readable experiments and denies with 403 if the set is empty.
 
     def batch_get(auth):
         return requests.post(
@@ -6237,7 +6237,7 @@ def test_read_predicate_honors_grant_default_workspace_access(
 
 @pytest.mark.parametrize(
     "endpoint_fn",
-    [search_mcp_servers, search_all_access_endpoints],
+    [search_all_access_endpoints],
 )
 def test_response_filter_matches_endpoint_functions(endpoint_fn):
     request = SimpleNamespace(scope={"endpoint": endpoint_fn})

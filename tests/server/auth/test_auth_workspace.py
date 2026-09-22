@@ -3656,6 +3656,25 @@ def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
     assert predicate("exp-explicit-deny")
 
 
+def test_get_readable_resource_ids_denies_on_resolution_error(monkeypatch, caplog):
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", Mock(side_effect=RuntimeError("unavailable"))
+    )
+
+    assert auth_module.get_readable_resource_ids("experiment") == set()
+    assert "Failed to resolve request authorization scope; denying access" in caplog.text
+
+
+def test_get_readable_resource_ids_skips_scoping_when_auth_is_disabled(monkeypatch):
+    authenticate = Mock()
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", authenticate)
+
+    assert auth_module.get_readable_resource_ids("experiment") is None
+    authenticate.assert_not_called()
+
+
 # =============================================================================
 # Unified per-user permission convenience APIs — validator dispatcher tests
 # =============================================================================

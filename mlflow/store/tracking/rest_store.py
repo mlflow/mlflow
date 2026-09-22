@@ -282,7 +282,17 @@ class RestStore(
         filter_string=None,
         order_by=None,
         page_token=None,
+        allowed_experiment_ids: list[str] | None = None,
     ):
+        if allowed_experiment_ids is not None:
+            if not allowed_experiment_ids:
+                return PagedList([], None)
+            quoted_ids = ", ".join(
+                "'" + experiment_id.replace("\\", "\\\\").replace("'", "\\'") + "'"
+                for experiment_id in sorted(allowed_experiment_ids)
+            )
+            auth_filter = f"experiment_id IN ({quoted_ids})"
+            filter_string = f"{filter_string} AND {auth_filter}" if filter_string else auth_filter
         req_body = message_to_json(
             SearchExperiments(
                 view_type=view_type,
