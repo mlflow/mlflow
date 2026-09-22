@@ -60,7 +60,7 @@ jobs:
 
       - name: Test release packaging and version updates
         run: |
-          uv pip install --system pytest pyyaml packaging
+          uv pip install --system pytest pyyaml packaging pydantic
           python -m pytest --noconftest -o addopts='' \
             tests/dev/test_publish_helm.py tests/dev/test_update_mlflow_versions.py
 
