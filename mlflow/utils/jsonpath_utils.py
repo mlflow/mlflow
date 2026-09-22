@@ -152,6 +152,15 @@ def filter_json_by_fields(data: dict[str, Any], field_paths: list[str]) -> dict[
     return result
 
 
+def _quote_segment(segment: str) -> str:
+    """Wrap a path segment in backticks when it contains a dot.
+
+    Paths returned by find_matching_paths are split again by the caller, so a segment
+    that contains a dot has to carry the same quoting a hand written path would.
+    """
+    return f"`{segment}`" if "." in segment else segment
+
+
 def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
     """Find all actual paths in data that match a wildcard pattern."""
     parts = split_path_respecting_backticks(wildcard_path)
@@ -167,7 +176,7 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             paths = []
             if isinstance(current_data, dict):
                 for key in current_data.keys():
-                    new_path = f"{current_path}.{key}"
+                    new_path = f"{current_path}.{_quote_segment(key)}"
                     paths.extend(find_paths(current_data[key], remaining, new_path))
             elif isinstance(current_data, list):
                 for i, item in enumerate(current_data):
@@ -176,7 +185,7 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             return paths
         else:
             if isinstance(current_data, dict) and part in current_data:
-                new_path = f"{current_path}.{part}"
+                new_path = f"{current_path}.{_quote_segment(part)}"
                 return find_paths(current_data[part], remaining, new_path)
             return []
 
