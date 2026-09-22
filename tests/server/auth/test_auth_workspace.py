@@ -4570,3 +4570,61 @@ def test_review_queue_list_filter_honors_a_queue_manage_grant(workspace_permissi
 
     rows = [{"queue_id": "q1", "users": ["bob"]}, {"queue_id": "q2", "users": ["carol"]}]
     assert _run_list_filter(rows) == ["q1", "q2"]
+
+
+def _run_scorer_list_filter(rows):
+    import json as _json
+
+    from mlflow.protos.service_pb2 import ListScorers
+    from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
+    message = ListScorers.Response()
+    parse_dict({"scorers": rows}, message)
+    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/scorers/list"):
+        auth_module.filter_list_scorers(resp)
+    if resp.data is None:
+        return [r["scorer_name"] for r in rows]
+    out = ListScorers.Response()
+    parse_dict(_json.loads(resp.data), out)
+    return [s.scorer_name for s in out.scorers]
+
+
+def test_scorer_list_filter_honors_a_scorer_deny(workspace_permission_setup):
+    """The scorer tier is per-id grain, so a DENY can name ONE scorer. It must drop that row and
+    leave its sibling, which the pre-`e5b3004d4` predicate could not do -- it discarded DENY.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("scorer", "*", READ.name),
+        ("scorer", "1/blocked", DENY.name),
+    ])
+
+    # Scorer.experiment_id is an int32 in the proto, so ids here are numeric. The predicate
+    # matches grant keys and never fetches an experiment, so any id works.
+    rows = [
+        {"experiment_id": 1, "scorer_name": "blocked"},
+        {"experiment_id": 1, "scorer_name": "allowed"},
+    ]
+    assert _run_scorer_list_filter(rows) == ["allowed"]
+
+
+def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup):
+    """The other tier: denying the experiment drops its scorers even with a scorer grant."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("experiment", "1", DENY.name),
+        ("scorer", "*", READ.name),
+    ])
+
+    rows = [
+        {"experiment_id": 1, "scorer_name": "s1"},
+        {"experiment_id": 2, "scorer_name": "s2"},
+    ]
+    assert _run_scorer_list_filter(rows) == ["s2"]
