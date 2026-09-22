@@ -3131,8 +3131,9 @@ def validate_gateway_proxy():
 # (set / reopen status) requires EDIT plus membership in the queue's assigned-user
 # pool; reads require experiment READ, with per-queue visibility narrowed by
 # ``filter_list_review_queues``.
-def _review_queue_permission(queue, username: str) -> Permission:
-    """The permission governing one queue: its own grant, else the experiment it belongs to.
+def _review_queue_permission_in_experiment(experiment_id: str, username: str) -> Permission:
+    """The permission governing queues in one experiment: the queue tier's grant, else the
+    experiment's own.
 
     Returns the permission rather than a decision, because these routes blend it with queue
     membership and ownership -- resource state, which no grant can express. The requirement
@@ -3142,9 +3143,13 @@ def _review_queue_permission(queue, username: str) -> Permission:
     The experiment READ baseline cannot be folded into the returned permission, so it gates it:
     failing the baseline yields NO_PERMISSIONS, which fails every branch downstream exactly as a
     queue DENY does.
+
+    Keyed on the experiment id rather than a queue object, because ``review_queue`` grain is
+    wildcard-only: every queue in an experiment resolves to the SAME permission. That is what lets
+    ``filter_list_review_queues`` resolve once for a whole response instead of once per row.
     """
-    experiment = (RESOURCE_TYPE_EXPERIMENT, queue.experiment_id)
-    baseline = Requirement(RESOURCE_TYPE_EXPERIMENT, queue.experiment_id, "read")
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    baseline = Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read")
     permissions = resolve_requirements(
         username,
         experiment,
@@ -3165,6 +3170,10 @@ def _review_queue_permission(queue, username: str) -> Permission:
     if not requirement_met(baseline, experiment_permission):
         return NO_PERMISSIONS
     return queue_permission
+
+
+def _review_queue_permission(queue, username: str) -> Permission:
+    return _review_queue_permission_in_experiment(queue.experiment_id, username)
 
 
 def _get_permission_from_review_queue_id() -> Permission:
@@ -3356,8 +3365,10 @@ def validate_can_get_or_create_user_queue():
 
 
 def validate_can_view_review_queue():
-    # Detail-tier read: experiment READ plus MANAGE, owner, or membership. Mirrors
-    # the row predicate in ``filter_list_review_queues``.
+    # Detail-tier read: experiment READ plus MANAGE, owner, or membership. NOT a mirror of
+    # ``filter_list_review_queues`` -- that list tier is deliberately broader (it lists rows an
+    # EDITor cannot open, matching upstream). Both resolve the same queue tier, so a queue-tier
+    # grant reaches both surfaces.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     perm = _review_queue_permission(queue, username)
@@ -3408,11 +3419,20 @@ def validate_can_manage_label_schema():
 def filter_list_review_queues(resp: Response) -> None:
     """Narrow a ``ListReviewQueues`` response to queues the caller may see.
 
-    A server admin or any user with experiment EDIT (or MANAGE) sees every
-    queue (the list tier is intentionally broad — clicking into a queue is
-    separately gated by ``validate_can_view_review_queue``). A READ-only user
-    sees only queues they are assigned to (their personal queue plus any custom
-    queue whose assigned-user pool contains them).
+    A server admin, or any caller whose governing permission carries EDIT (or MANAGE), sees every
+    queue. The list tier is deliberately BROADER than the detail tier -- a row exposes only a
+    queue's name, type, owner, timestamps, assigned users and schema ids, while opening one is
+    separately gated by ``validate_can_view_review_queue``. A READ-only caller sees only queues
+    they are assigned to.
+
+    That deliberate breadth means the two are NOT mirrors: an experiment EDITor is listed queues
+    they can neither manage, own, nor belong to, and opening those 403s. Upstream behaves the same
+    way, so it is left alone here.
+
+    What this DOES share with the detail gate is the tier: both resolve
+    ``_review_queue_permission_in_experiment``, so a queue-tier grant reaches both. Otherwise
+    ``(review_queue, "*", DENY)`` would 403 every open while still listing every row, and a queue
+    MANAGE grant would open queues the list had hidden.
     """
     if sender_is_admin():
         return
@@ -3421,14 +3441,21 @@ def filter_list_review_queues(resp: Response) -> None:
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # One shared experiment, so resolve the grant once: EDIT/MANAGE see all rows,
-    # READ-only users see only queues they're assigned to.
+    # Every row shares the request's experiment and review_queue grain is wildcard-only, so one
+    # resolution governs the whole response.
     experiment_id = _get_request_param("experiment_id")
-    perm = _get_experiment_permission(experiment_id, username)
-    if perm.can_update:
+    perm = _review_queue_permission_in_experiment(experiment_id, username)
+    if perm.can_read and perm.can_update:
         return
 
-    visible = [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
+    # can_read is checked first, exactly as the detail gate checks it: a DENY (or a failed
+    # experiment baseline) must beat membership, which would otherwise expose a row whose queue
+    # the caller cannot open.
+    visible = (
+        [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
+        if perm.can_read
+        else []
+    )
     response_message.ClearField("review_queues")
     response_message.review_queues.extend(visible)
     resp.data = message_to_json(response_message)
