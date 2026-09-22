@@ -1103,10 +1103,16 @@ def _authorize_logged_model_id(model_id: str, action: str) -> bool:
     if model is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+    # Experiment READ baseline -- see _run_requirement.
     return authorize(
         authenticate_request().username,
         experiment,
-        [Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,))],
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read"),
+            Requirement(
+                RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,)
+            ),
+        ],
     )
 
 
@@ -1316,6 +1322,10 @@ def validate_can_invoke_scorer():
     scorer_name = body.get("scorer_name")
     if isinstance(scorer_name, str) and scorer_name:
         scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, scorer_name))
+        # The named scorer vetoes in its own right: the chain below stops at the first key
+        # holding a grant, so a scorer_version grant would otherwise end it before this
+        # scorer's DENY was consulted.
+        requirements.append(Requirement(*scorer, ACTION_NOT_DENIED))
         requirements.append(
             Requirement(
                 RESOURCE_TYPE_SCORER_VERSION,
@@ -1551,8 +1561,14 @@ def _run_requirement(
     if run is None:
         return None
     experiment = (RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id)
+    # The experiment READ baseline (§5e). Run grain is wildcard-only, so without it one
+    # (run, "*", …) grant reaches every run in the workspace; and because a chain stops at the
+    # first key holding a grant, a sufficient run grant would end it before an experiment DENY
+    # was ever consulted. Free: the key is already loaded for the fallback, and every level with
+    # update/delete/manage also carries read, so it denies no one the experiment tier allowed.
     return experiment, [
-        Requirement(RESOURCE_TYPE_RUN, "*", action, fallback_if_no_grant=(experiment,))
+        Requirement(RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id, "read"),
+        Requirement(RESOURCE_TYPE_RUN, "*", action, fallback_if_no_grant=(experiment,)),
     ]
 
 
@@ -1615,6 +1631,9 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
         # permission boundary and no cross-workspace API exists, so every key in this batch
         # resolves in the anchor's workspace.
         model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+        requirements.append(
+            Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read")
+        )
         requirements.append(
             Requirement(
                 RESOURCE_TYPE_LOGGED_MODEL,
@@ -2788,10 +2807,14 @@ def _authorize_trace(trace_id: str, action: str) -> bool:
     if trace is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id)
+    # Experiment READ baseline -- see _run_requirement.
     return authorize(
         authenticate_request().username,
         experiment,
-        [Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,))],
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, trace.experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,)),
+        ],
     )
 
 
@@ -2827,11 +2850,14 @@ def validate_can_create_assessment():
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
-    experiment, _ = resolved
+    experiment, experiment_id = resolved
+    # Experiment READ baseline: the container here is a TRACE -- itself a sub-resource -- so the
+    # container requirement is a chain and needs the same bound as any other shape-A route.
     return authorize(
         authenticate_request().username,
         experiment,
         [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
             Requirement(RESOURCE_TYPE_TRACE, "*", "update", fallback_if_no_grant=(experiment,)),
             Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),
         ],
@@ -2844,22 +2870,29 @@ def validate_can_update_assessment():
     Three levels: assessment -> trace -> experiment. An operator can permit assessment
     edits without granting trace edits, or deny assessments on traces a caller may
     otherwise edit.
+
+    The intermediate trace tier carries its OWN veto. A chain stops at the first key holding a
+    grant, so a sufficient assessment grant would otherwise end it before a trace DENY was
+    consulted -- and unlike the terminal experiment key, whose positive READ requirement already
+    subsumes a veto, nothing else here would ever look at the trace.
     """
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
-    experiment, _ = resolved
+    experiment, experiment_id = resolved
     trace = (RESOURCE_TYPE_TRACE, "*")
     return authorize(
         authenticate_request().username,
         experiment,
         [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
             Requirement(
                 RESOURCE_TYPE_ASSESSMENT,
                 "*",
                 "update",
                 fallback_if_no_grant=(trace, experiment),
-            )
+            ),
         ],
     )
 
@@ -3046,8 +3079,13 @@ def _review_queue_permission(queue, username: str) -> Permission:
     membership and ownership -- resource state, which no grant can express. The requirement
     is therefore only ACTION_NOT_DENIED: a queue DENY resolves here and fails every branch
     downstream, while nothing positive is demanded of a tier the caller may not use.
+
+    The experiment READ baseline cannot be folded into the returned permission, so it gates it:
+    failing the baseline yields NO_PERMISSIONS, which fails every branch downstream exactly as a
+    queue DENY does.
     """
     experiment = (RESOURCE_TYPE_EXPERIMENT, queue.experiment_id)
+    baseline = Requirement(RESOURCE_TYPE_EXPERIMENT, queue.experiment_id, "read")
     permissions = resolve_requirements(
         username,
         experiment,
@@ -3057,11 +3095,17 @@ def _review_queue_permission(queue, username: str) -> Permission:
                 "*",
                 ACTION_NOT_DENIED,
                 fallback_if_no_grant=(experiment,),
-            )
+            ),
+            baseline,
         ],
     )
     # An unresolvable workspace denies, like every other anchor failure.
-    return NO_PERMISSIONS if permissions is None else permissions[0]
+    if permissions is None:
+        return NO_PERMISSIONS
+    queue_permission, experiment_permission = permissions
+    if not requirement_met(baseline, experiment_permission):
+        return NO_PERMISSIONS
+    return queue_permission
 
 
 def _get_permission_from_review_queue_id() -> Permission:
