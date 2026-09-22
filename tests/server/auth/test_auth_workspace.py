@@ -4477,3 +4477,96 @@ def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkey
         assert sorted(p.name for p in perms) == ["com.test/b"]
 
     auth_store.engine.dispose()
+
+
+# =============================================================================
+# The review-queue LIST filter must honour the queue tier the detail gate uses
+# (findings 2 + 7, tracker item 2c).
+# =============================================================================
+
+
+def _list_review_queues_response(rows):
+    import json as _json
+
+    from mlflow.protos.review_queues_pb2 import ListReviewQueues
+    from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
+    message = ListReviewQueues.Response()
+    parse_dict({"review_queues": rows}, message)
+    return SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+
+
+def _run_list_filter(rows):
+    import json as _json
+
+    from mlflow.protos.review_queues_pb2 import ListReviewQueues
+    from mlflow.utils.proto_json_utils import parse_dict
+
+    resp = _list_review_queues_response(rows)
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/review-queues/list", query_string={"experiment_id": "exp-1"}
+    ):
+        auth_module.filter_list_review_queues(resp)
+    if resp.data is None:
+        # The filter returned without narrowing: every row stayed visible.
+        return [q["queue_id"] for q in rows]
+    out = ListReviewQueues.Response()
+    parse_dict(_json.loads(resp.data), out)
+    return [q.queue_id for q in out.review_queues]
+
+
+def test_review_queue_list_filter_honors_a_queue_deny(workspace_permission_setup):
+    """``(review_queue, *, DENY)`` 403s the detail gate, but the list filter -- still on the
+    experiment tier -- returned every row, leaking name, assigned users and created_by for
+    queues the caller cannot open.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("review_queue", "*", DENY.name),
+    ])
+
+    rows = [{"queue_id": "q1", "users": [username]}, {"queue_id": "q2", "users": ["bob"]}]
+    assert _run_list_filter(rows) == []
+
+
+def test_review_queue_list_filter_unchanged_without_a_queue_grant(workspace_permission_setup):
+    """No regression: absent a queue grant the list tier stays exactly as broad as master's --
+    an experiment EDITor sees every row, including queues they neither own nor belong to.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    rows = [{"queue_id": "q1", "users": ["bob"]}, {"queue_id": "q2", "users": ["carol"]}]
+    assert _run_list_filter(rows) == ["q1", "q2"]
+
+
+def test_review_queue_list_filter_read_only_still_sees_only_assigned(workspace_permission_setup):
+    """The other half of no-regression: a READ-only caller keeps seeing only their own rows."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    rows = [{"queue_id": "q1", "users": [username]}, {"queue_id": "q2", "users": ["bob"]}]
+    assert _run_list_filter(rows) == ["q1"]
+
+
+def test_review_queue_list_filter_honors_a_queue_manage_grant(workspace_permission_setup):
+    """The inverse gap: a queue MANAGE grant lets the detail gate open any queue, so the list
+    must stop hiding them behind a merely-READ experiment tier.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("review_queue", "*", MANAGE.name),
+    ])
+
+    rows = [{"queue_id": "q1", "users": ["bob"]}, {"queue_id": "q2", "users": ["carol"]}]
+    assert _run_list_filter(rows) == ["q1", "q2"]
