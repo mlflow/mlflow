@@ -122,6 +122,17 @@ def test_search_skills_returns_stable_paginated_results(store):
     assert second_page.token is None
 
 
+@pytest.mark.parametrize(
+    "max_results",
+    [0, -1, 1001, True, "1"],
+)
+def test_search_skills_rejects_invalid_max_results(store, max_results):
+    with pytest.raises(MlflowException, match="max_results") as exc:
+        store.search_skills(max_results=max_results)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_search_skills_eager_loads_tags_and_aliases(store):
     for index in range(20):
         store.create_skill(f"skill-{index:02d}")

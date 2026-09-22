@@ -24,6 +24,7 @@ from mlflow.store.tracking.skill_registry.constants import (
     SKILL_VERSION_DIGEST_LENGTH,
     SKILL_VERSION_SOURCE_MAX_LENGTH,
 )
+from mlflow.store.tracking.skill_registry_pagination import validate_max_results
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -208,7 +209,7 @@ class SqlAlchemySkillRegistryMixin:
                 "Skill search filters and custom ordering are not supported yet",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        self._validate_max_results_param(max_results)
+        validate_max_results(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         with self.ManagedSessionMaker() as session:
             query = self._skill_query(session).order_by(
