@@ -3,6 +3,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.permissions import (
     ALL_PERMISSIONS,
+    DENY,
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
@@ -22,7 +23,7 @@ from mlflow.server.auth.permissions import (
 # ---- Permission hierarchy ---------------------------------------------------
 
 # The canonical ordering the rest of the auth layer relies on.
-_EXPECTED_ORDER = [NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
+_EXPECTED_ORDER = [DENY, NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
 
 
 def test_permission_priority_is_total_order():
@@ -131,7 +132,7 @@ def test_validate_resource_type_accepts_known(resource_type):
     _validate_resource_type(resource_type)
 
 
-@pytest.mark.parametrize("bogus", ["", "Experiment", "workspaces", "run", "trace"])
+@pytest.mark.parametrize("bogus", ["", "Experiment", "workspaces", "runs", "traces"])
 def test_validate_resource_type_rejects_unknown(bogus):
     with pytest.raises(MlflowException, match="Invalid resource type"):
         _validate_resource_type(bogus)
@@ -162,13 +163,24 @@ def test_prompt_is_a_first_class_resource_type():
 def test_grantable_permission_sets_pin_simplified_model():
     """Pin the two-tier workspace model and the resource-grant set.
 
-    Workspace grants accept only USE / MANAGE; resource grants accept any of
-    READ / USE / EDIT / MANAGE (no NO_PERMISSIONS). These sets gate every
-    permission write through the store, so a regression here would silently
-    re-enable the old five-value-anywhere model.
+    Workspace grants accept only USE / MANAGE. Resource grants accept
+    READ / USE / EDIT / MANAGE plus DENY, the sub-resource RFC's absolute deny.
+    ``NO_PERMISSIONS`` stays excluded: an absent grant plus ``default_permission``
+    already expresses "no access". These sets gate every permission write through the
+    store, so a regression here would silently re-enable the old
+    five-value-anywhere model.
     """
     assert WORKSPACE_GRANTABLE_PERMISSIONS == {USE.name, MANAGE.name}
-    assert RESOURCE_GRANTABLE_PERMISSIONS == {READ.name, USE.name, EDIT.name, MANAGE.name}
+    assert RESOURCE_GRANTABLE_PERMISSIONS == {
+        READ.name,
+        USE.name,
+        EDIT.name,
+        MANAGE.name,
+        DENY.name,
+    }
+    # DENY is NOT grantable workspace-wide: an admin-wide veto has no use case and
+    # would be unremovable once roles relied on it.
+    assert DENY.name not in WORKSPACE_GRANTABLE_PERMISSIONS
 
 
 @pytest.mark.parametrize(
@@ -220,4 +232,4 @@ def test_validate_permission_for_resource_type_rejects_unknown():
     with pytest.raises(MlflowException, match="Invalid permission"):
         _validate_permission_for_resource_type("ADMIN", "experiment")
     with pytest.raises(MlflowException, match="Invalid resource type"):
-        _validate_permission_for_resource_type(USE.name, "trace")
+        _validate_permission_for_resource_type(USE.name, "traces")

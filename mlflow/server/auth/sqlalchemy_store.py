@@ -1,6 +1,7 @@
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
+from typing import NamedTuple
 from urllib.parse import quote, unquote
 
 from sqlalchemy import and_, or_, select, text
@@ -94,6 +95,18 @@ _RETAINED_LEGACY_PERMISSION_TABLES: tuple[str, ...] = (
     "gateway_model_definition_permissions",
     "workspace_permissions",
 )
+
+
+class RoleGrantRow(NamedTuple):
+    """One role-based grant row, detached from the ORM session.
+
+    A plain tuple deliberately: the fold runs outside the store, so nothing it receives
+    should be a live SQLAlchemy instance.
+    """
+
+    resource_type: str
+    resource_pattern: str
+    permission: str
 
 
 class SqlAlchemyStore:
@@ -2173,6 +2186,42 @@ class SqlAlchemyStore:
         """
         with self.ManagedSessionMaker() as session:
             return workspace in self._workspace_admin_workspaces(session, user_id)
+
+    def list_grants(
+        self, user_id: int, workspace: str, resource_types: "Collection[str]"
+    ) -> list["RoleGrantRow"]:
+        """The user's role-based grants in ``workspace`` for ``resource_types``, plus the
+        workspace-wide grants (which can apply to any type).
+
+        Loading only: no fold, no precedence, no parent/child notion. The caller decides
+        what the rows mean — see ``resolve_permissions`` in ``mlflow.server.auth``.
+
+        Direct per-resource grants (e.g. ``experiment_permissions`` rows) are deliberately
+        excluded, as in ``list_role_grants_for_user_in_workspace``; callers that need the
+        full picture fold those in separately.
+        """
+        types = set(resource_types)
+        for resource_type in types:
+            _validate_resource_type(resource_type)
+        types.add(RESOURCE_TYPE_WORKSPACE)
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(
+                    SqlRolePermission.resource_type,
+                    SqlRolePermission.resource_pattern,
+                    SqlRolePermission.permission,
+                )
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    SqlRolePermission.resource_type.in_(types),
+                )
+                .all()
+            )
+            return [RoleGrantRow(rtype, pattern, permission) for rtype, pattern, permission in rows]
 
     def list_role_grants_for_user_in_workspace(
         self, user_id: int, workspace: str, resource_type: str
