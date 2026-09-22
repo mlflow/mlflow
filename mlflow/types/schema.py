@@ -948,6 +948,15 @@ class TensorSpec:
             return f"{self.name!r}: {self._tensorInfo!r}"
 
 
+def _name_or_index(spec: ColSpec | TensorSpec, index: int) -> str | int:
+    """Return a spec's name, or its position when the spec is unnamed.
+
+    A spec is unnamed only when its name is None, which is what Schema.has_input_names
+    checks. Names such as 0 or "" are names, not missing values.
+    """
+    return index if spec.name is None else spec.name
+
+
 class Schema:
     """
     Specification of a dataset.
@@ -1017,15 +1026,15 @@ class Schema:
 
     def input_names(self) -> list[str | int]:
         """Get list of data names or range of indices if the schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs)]
+        return [_name_or_index(x, i) for i, x in enumerate(self.inputs)]
 
     def required_input_names(self) -> list[str | int]:
         """Get list of required data names or range of indices if schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs) if x.required]
+        return [_name_or_index(x, i) for i, x in enumerate(self.inputs) if x.required]
 
     def optional_input_names(self) -> list[str | int]:
         """Get list of optional data names or range of indices if schema has no names."""
-        return [x.name or i for i, x in enumerate(self.inputs) if not x.required]
+        return [_name_or_index(x, i) for i, x in enumerate(self.inputs) if not x.required]
 
     def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise."""
