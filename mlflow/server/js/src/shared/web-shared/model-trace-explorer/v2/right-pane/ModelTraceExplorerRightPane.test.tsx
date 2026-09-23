@@ -79,6 +79,35 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.queryByText('Tells a joke')).toBeInTheDocument();
   });
 
+  it('does not duplicate top-level OTEL chat messages in pretty mode', () => {
+    render(
+      <ModelTraceExplorerContentTab
+        activeSpan={
+          {
+            key: 'span-1',
+            inputs: [{ role: 'user', parts: [{ type: 'text', content: 'Gibt es klassifizierte Artikel?' }] }],
+            outputs: [
+              {
+                role: 'assistant',
+                parts: [{ type: 'text', content: 'Nein, es gibt aktuell keine klassifizierten Artikel im System.' }],
+              },
+            ],
+            attributes: {},
+            assessments: [],
+          } as any
+        }
+        searchFilter=""
+        activeMatch={null}
+      />,
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    expect(screen.getAllByText('Gibt es klassifizierte Artikel?')).toHaveLength(1);
+    expect(screen.getAllByText('Nein, es gibt aktuell keine klassifizierten Artikel im System.')).toHaveLength(1);
+  });
+
   it('shows raw input and output fields after switching render mode', async () => {
     render(<ModelTraceExplorerContentTab activeSpan={MOCK_CHAT_SPAN} searchFilter="" activeMatch={null} />, {
       wrapper: Wrapper,

@@ -93,6 +93,10 @@ const getOutputChatMessages = (
   );
 };
 
+const hasTopLevelChatPayload = (data: unknown, messageFormat?: string): boolean => {
+  return (normalizeConversation(data, messageFormat)?.length ?? 0) > 0;
+};
+
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
   className,
@@ -121,6 +125,17 @@ export function ModelTraceExplorerDefaultSpanView({
     () => getOutputChatMessages(activeSpan, inputChatMessages),
     [activeSpan, inputChatMessages],
   );
+  const inputHasTopLevelChatPayload = useMemo(
+    () => hasTopLevelChatPayload(activeSpan?.inputs, activeSpan?.chatMessageFormat),
+    [activeSpan],
+  );
+  const outputHasTopLevelChatPayload = useMemo(() => {
+    if (hasTopLevelChatPayload(activeSpan?.outputs, activeSpan?.chatMessageFormat)) {
+      return true;
+    }
+    const outputs = activeSpan?.outputs;
+    return inputChatMessages.length > 0 && typeof outputs === 'string' && outputs.length > 0;
+  }, [activeSpan, inputChatMessages.length]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -227,8 +242,14 @@ export function ModelTraceExplorerDefaultSpanView({
     </div>
   );
 
-  const renderNonChatFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
-    const nonChatFields = fields.filter(({ key }) => !CHAT_FIELD_KEYS[section].has(key.toLowerCase()));
+  const renderNonChatFields = (
+    section: 'inputs' | 'outputs',
+    fields: typeof inputList,
+    skipAnonymousTopLevelField = false,
+  ) => {
+    const nonChatFields = fields.filter(
+      ({ key }) => !(skipAnonymousTopLevelField && key === '') && !CHAT_FIELD_KEYS[section].has(key.toLowerCase()),
+    );
     return nonChatFields.length > 0 ? renderPrettyFields(section, nonChatFields) : null;
   };
 
@@ -242,7 +263,7 @@ export function ModelTraceExplorerDefaultSpanView({
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <ModelTraceExplorerChatSections messages={inputChatMessages} />
-            {renderNonChatFields(section, inputList)}
+            {renderNonChatFields(section, inputList, inputHasTopLevelChatPayload)}
           </div>
         );
       }
@@ -251,7 +272,7 @@ export function ModelTraceExplorerDefaultSpanView({
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <ModelTraceExplorerConversation messages={outputChatMessages} />
-            {renderNonChatFields(section, outputList)}
+            {renderNonChatFields(section, outputList, outputHasTopLevelChatPayload)}
           </div>
         );
       }
