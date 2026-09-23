@@ -503,13 +503,6 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def claim_run(self, run_id, expected_status, status):
-        return self.store.claim_run(
-            run_id=run_id,
-            expected_status=RunStatus.from_string(expected_status),
-            run_status=RunStatus.from_string(status),
-        )
-
     @record_usage_event(LogBatchEvent)
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True

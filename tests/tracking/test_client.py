@@ -2280,18 +2280,6 @@ def test_update_run(mock_store):
     )
 
 
-def test_claim_run(mock_store):
-    mock_store.claim_run.return_value = True
-
-    assert MlflowClient()._claim_run("run_id", "SCHEDULED", "RUNNING")
-
-    mock_store.claim_run.assert_called_once_with(
-        run_id="run_id",
-        expected_status=RunStatus.SCHEDULED,
-        run_status=RunStatus.RUNNING,
-    )
-
-
 def test_client_log_metric_params_tags_overrides(mock_store):
     experiment_id = mock.Mock()
     start_time = mock.Mock()

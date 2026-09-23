@@ -1368,52 +1368,6 @@ class UpdateRun(_message.Message):
 Global___UpdateRun: _TypeAlias = UpdateRun  # noqa: Y015
 
 @_typing.final
-class ClaimRun(_message.Message):
-    DESCRIPTOR: _descriptor.Descriptor
-
-    @_typing.final
-    class Response(_message.Message):
-        DESCRIPTOR: _descriptor.Descriptor
-
-        UPDATED_FIELD_NUMBER: _builtins.int
-        updated: _builtins.bool
-        """Whether the conditional status update succeeded."""
-        def __init__(
-            self,
-            *,
-            updated: _builtins.bool | None = ...,
-        ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["updated", b"updated"]  # noqa: Y015
-        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["updated", b"updated"]  # noqa: Y015
-        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-        def WhichOneof(self, oneof_group: _Never) -> None: ...
-
-    RUN_ID_FIELD_NUMBER: _builtins.int
-    EXPECTED_STATUS_FIELD_NUMBER: _builtins.int
-    STATUS_FIELD_NUMBER: _builtins.int
-    run_id: _builtins.str
-    """ID of the run to update. Must be provided."""
-    expected_status: Global___RunStatus.ValueType
-    """Update the run only when its current status matches this value."""
-    status: Global___RunStatus.ValueType
-    """New status for the run."""
-    def __init__(
-        self,
-        *,
-        run_id: _builtins.str | None = ...,
-        expected_status: Global___RunStatus.ValueType | None = ...,
-        status: Global___RunStatus.ValueType | None = ...,
-    ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["expected_status", b"expected_status", "run_id", b"run_id", "status", b"status"]  # noqa: Y015
-    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["expected_status", b"expected_status", "run_id", b"run_id", "status", b"status"]  # noqa: Y015
-    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
-
-Global___ClaimRun: _TypeAlias = ClaimRun  # noqa: Y015
-
-@_typing.final
 class DeleteRun(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 

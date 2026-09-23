@@ -518,40 +518,30 @@ def test_set_trial_state_values_transitions_waiting_trial_to_running(setup_stora
     assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
 
 
-def test_set_trial_state_values_uses_atomic_claim_for_waiting_trial(setup_storage):
+def test_set_trial_state_values_uses_existing_run_state_for_waiting_trial(setup_storage):
     storage = setup_storage
     study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
     trial_id = storage.create_new_trial(study_id)
     assert storage.set_trial_state_values(trial_id, state=TrialState.WAITING)
 
     with (
-        patch.object(storage._mlflow_client, "_claim_run", return_value=False) as claim_run,
         patch.object(
             storage._mlflow_client,
             "get_run",
-            side_effect=AssertionError("claiming a trial must not perform a separate read"),
-        ),
-    ):
-        assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
-
-    claim_run.assert_called_once_with(
-        trial_id,
-        expected_status="SCHEDULED",
-        status="RUNNING",
-    )
-
-    with (
-        patch.object(storage._mlflow_client, "_claim_run", return_value=True) as claim_run,
+            return_value=MagicMock(info=MagicMock(status="SCHEDULED")),
+        ) as get_run,
         patch.object(storage._mlflow_client, "update_run") as update_run,
     ):
         assert storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
 
-    claim_run.assert_called_once_with(
-        trial_id,
-        expected_status="SCHEDULED",
-        status="RUNNING",
-    )
-    update_run.assert_not_called()
+    get_run.assert_called_once_with(trial_id)
+    update_run.assert_called_once_with(trial_id, status="RUNNING")
+
+    with patch.object(storage._mlflow_client, "get_run") as get_run:
+        get_run.return_value.info.status = "RUNNING"
+        assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+    get_run.assert_called_once_with(trial_id)
 
 
 def test_get_trial_param_and_get_trial_params(setup_storage):

@@ -966,23 +966,6 @@ def test_update_run_info(store: SqlAlchemyStore):
     assert updated_info.end_time == origin_run_info.end_time
 
 
-def test_claim_run_is_atomic(store: SqlAlchemyStore):
-    experiment_id = _create_experiments(store, "test_claim_run_is_atomic")
-    run_id = store.create_run(**_get_run_configs(experiment_id=experiment_id)).info.run_id
-    store.update_run_info(run_id, RunStatus.SCHEDULED, None, None)
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(
-            executor.map(
-                lambda _: store.claim_run(run_id, RunStatus.SCHEDULED, RunStatus.RUNNING),
-                range(2),
-            )
-        )
-
-    assert sorted(results) == [False, True]
-    assert store.get_run(run_id).info.status == "RUNNING"
-
-
 def test_update_run_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_update_run_name")
     configs = _get_run_configs(experiment_id=experiment_id)

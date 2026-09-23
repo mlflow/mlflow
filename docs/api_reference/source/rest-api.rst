@@ -2972,63 +2972,6 @@ Request Structure
 
 
 
-.. _mlflowMlflowServiceclaimRun:
-
-Claim Run
-=========
-
-
-+---------------------------+-------------+
-|         Endpoint          | HTTP Method |
-+===========================+=============+
-| ``2.0/mlflow/runs/claim`` | ``POST``    |
-+---------------------------+-------------+
-
-Atomically update a run only if its current status matches the expected status.
-
-
-
-
-.. _mlflowClaimRun:
-
-Request Structure
------------------
-
-
-
-
-
-
-+-----------------+------------------------+-----------------------------------------------------------------------------------------+
-|   Field Name    |          Type          |                                       Description                                       |
-+=================+========================+=========================================================================================+
-| run_id          | ``STRING``             | ID of the run to update. Must be provided. This field is required.                      |
-+-----------------+------------------------+-----------------------------------------------------------------------------------------+
-| expected_status | :ref:`mlflowrunstatus` | Update the run only when its current status matches this value. This field is required. |
-+-----------------+------------------------+-----------------------------------------------------------------------------------------+
-| status          | :ref:`mlflowrunstatus` | New status for the run. This field is required.                                         |
-+-----------------+------------------------+-----------------------------------------------------------------------------------------+
-
-.. _mlflowClaimRunResponse:
-
-Response Structure
-------------------
-
-
-
-
-
-
-+------------+----------+--------------------------------------------------+
-| Field Name |   Type   |                   Description                    |
-+============+==========+==================================================+
-| updated    | ``BOOL`` | Whether the conditional status update succeeded. |
-+------------+----------+--------------------------------------------------+
-
-===========================
-
-
-
 .. _mlflowMlflowServicecreatePresignedUploadUrl:
 
 Create Presigned Upload URL

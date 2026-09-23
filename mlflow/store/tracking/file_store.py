@@ -71,7 +71,6 @@ from mlflow.tracing.utils import (
 )
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
-    ExclusiveFileLock,
     append_to,
     exists,
     find,
@@ -723,23 +722,6 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)
         return new_info
-
-    def claim_run(self, run_id, expected_status, run_status):
-        _validate_run_id(run_id)
-        run_info = self._get_run_info(run_id)
-        check_run_is_active(run_info)
-        lock_path = os.path.join(
-            self._get_run_dir(run_info.experiment_id, run_id),
-            f".{FileStore.META_DATA_FILE_NAME}.lock",
-        )
-        with ExclusiveFileLock(lock_path):
-            run_info = self._get_run_info(run_id)
-            check_run_is_active(run_info)
-            if run_info.status != RunStatus.to_string(expected_status):
-                return False
-            new_info = run_info._copy_with_overrides(run_status, None)
-            self._overwrite_run_info(new_info)
-            return True
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """

@@ -84,7 +84,6 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
-    ClaimRun,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -377,17 +376,6 @@ class RestStore(
         )
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
-
-    def claim_run(self, run_id, expected_status, run_status):
-        req_body = message_to_json(
-            ClaimRun(
-                run_id=run_id,
-                status=run_status,
-                expected_status=expected_status,
-            )
-        )
-        response_proto = self._call_endpoint(ClaimRun, req_body)
-        return response_proto.updated
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
