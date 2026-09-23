@@ -48,7 +48,9 @@ def cluster_by_llm(
 
     Args:
         labels: Failure labels to cluster.
-        max_issues: Maximum number of groups to request from the LLM.
+        max_issues: Final issue limit, also used as the LLM grouping target.
+            Intermediate refinement calls may exceed this limit with enforce_limit=False;
+            the pipeline caps the final issues after refinement.
         model: Model URI for the clustering LLM.
         categories: Optional issue categories to use as a grouping signal.
         token_counter: Optional token counter for tracking LLM usage.
