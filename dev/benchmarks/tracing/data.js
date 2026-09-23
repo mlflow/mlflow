@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790169807906,
+  "lastUpdate": 1790181296774,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "Mytolo@users.noreply.github.com",
-            "name": "Mytolo",
-            "username": "Mytolo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7a72efaf39d64b74f97b8cdd7def02d06b03b85d",
-          "message": "Add ON DELETE CASCADE relationship for `SqlTraceInfo` to `SqlExperiment` (#23194)\n\nCo-authored-by: Panajiotis Kessler <Panajiotis.Kessler@digits.schwarz>\nCo-authored-by: Tomu Hirata <tomu.hirata@gmail.com>",
-          "timestamp": "2026-05-27T21:10:03Z",
-          "tree_id": "06d21785b479a7124f62662fcd2bd0169db2a471",
-          "url": "https://github.com/mlflow/mlflow/commit/7a72efaf39d64b74f97b8cdd7def02d06b03b85d"
-        },
-        "date": 1779916428796,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 49.39138999999955,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 32.92424530303175,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 31.198209072726968,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 31.077405059999137,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 27.302003615381828,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 8.037728000005018,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 17.50699219999774,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "HumairAK@users.noreply.github.com",
+            "name": "Humair Khan",
+            "username": "HumairAK"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9a3cab6d373ed10b4cf8f736026a7e93e701e1dc",
+          "message": "fix: stabilize OpenAI integration tests (#26124)\n\nSigned-off-by: Humair Khan <HumairAK@users.noreply.github.com>\nCo-authored-by: Codex <noreply@openai.com>",
+          "timestamp": "2026-09-23T16:31:33Z",
+          "tree_id": "e9c0b77cb3aea7666fc517ac6bc4e1bcf727574b",
+          "url": "https://github.com/mlflow/mlflow/commit/9a3cab6d373ed10b4cf8f736026a7e93e701e1dc"
+        },
+        "date": 1790181293797,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.01271205000165,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.666576034486217,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.332365549297576,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.149648361344146,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.6057223749999,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.608275399991271,
             "unit": "ms"
           }
         ]
