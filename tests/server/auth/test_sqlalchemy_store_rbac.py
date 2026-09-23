@@ -301,6 +301,51 @@ def test_add_role_permission_rejects_a_pattern_the_grain_disallows(
         store.add_role_permission(role.id, resource_type, "42", permission)
 
 
+@pytest.mark.parametrize(
+    "grant_method", ["grant_user_permission", "grant_user_resource_permission"]
+)
+@pytest.mark.parametrize(
+    ("resource_type", "permission"),
+    [
+        ("run", "EDIT"),
+        ("trace", "DENY"),
+        ("assessment", "DENY"),
+        ("logged_model", "EDIT"),
+        ("review_queue", "EDIT"),
+        ("registered_model_version", "EDIT"),
+        ("prompt_version", "DENY"),
+        ("scorer_version", "DENY"),
+        ("mcp_server_version", "DENY"),
+    ],
+)
+def test_user_grants_reject_a_pattern_the_grain_disallows(
+    store, grant_method, resource_type, permission
+):
+    """Grain must be validated at EVERY write boundary, not only the role API.
+
+    ``matches()`` accepts only ``"*"`` for a wildcard-only type, so a per-id row is stored and then
+    silently ignored by the fold. An operator granting or denying one run id would get a success
+    response for a grant that does nothing -- and for a DENY that is a false sense of protection.
+    """
+    store.create_user(f"grain-{grant_method}-{resource_type}", "pw1234567890")
+    with pytest.raises(MlflowException, match="supports only wildcard"):
+        getattr(store, grant_method)(
+            f"grain-{grant_method}-{resource_type}", resource_type, "42", permission
+        )
+
+
+@pytest.mark.parametrize(
+    "grant_method", ["grant_user_permission", "grant_user_resource_permission"]
+)
+def test_user_grants_still_accept_wildcard_and_per_id_where_declared(store, grant_method):
+    username = f"grain-ok-{grant_method}"
+    store.create_user(username, "pw1234567890")
+    # Wildcard on a wildcard-only child.
+    getattr(store, grant_method)(username, "run", "*", "EDIT")
+    # A per-id grant on a type that declares ID grain is unaffected.
+    getattr(store, grant_method)(username, "experiment", "exp-1", "READ")
+
+
 def test_add_role_permission_accepts_wildcard_for_those_types(store):
     role = store.create_role(name="grain-role-ok", workspace="ws1")
     for resource_type, permission in [
