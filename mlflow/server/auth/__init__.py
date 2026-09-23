@@ -210,6 +210,7 @@ from mlflow.protos.service_pb2 import (
     LogModel,
     LogOutputs,
     LogParam,
+    MetricViewType,
     QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
@@ -3001,6 +3002,68 @@ def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | N
     return (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id), trace.experiment_id
 
 
+def validate_can_get_assessment():
+    """Reading one assessment directly. The assessment IS the subject, so a denied assessment
+    tier refuses the route rather than redacting -- redaction would leave nothing to return.
+
+    Deliberately NOT folded into ``validate_can_read_trace_by_trace_id``, which also gates
+    GetTrace: adding an assessment requirement there would convert GetTrace from redaction to
+    denial and block traces that carry no assessments at all.
+    """
+    resolved = _assessment_trace_context(_get_request_param("trace_id"))
+    if resolved is None:
+        return False
+    experiment, experiment_id = resolved
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)),
+            Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,)),
+        ],
+    )
+
+
+def validate_can_query_trace_metrics():
+    """Aggregate trace metrics. ``view_type=ASSESSMENTS`` additionally requires the assessment tier.
+
+    That view returns numbers DERIVED from assessments: ``assessment_count`` groups by
+    assessment_name AND assessment_value -- a verdict histogram -- and ``assessment_value``
+    averages `_get_assessment_numeric_value_column`, which maps true/"yes" to 1.0 and
+    false/"no" to 0.0, so for a boolean judge the average IS the pass rate. There is no field to
+    redact and no row to drop (one row already aggregates every assessment in scope), so the
+    tier refuses the route.
+
+    Checking ``view_type`` alone is sufficient: assessment data is reachable only through this
+    view, because the filter grammar raises INVALID_PARAMETER_VALUE for an assessment key under
+    any other view_type, and no TRACES or SPANS metric touches the assessments table.
+    """
+    message = _get_request_message(QueryTraceMetrics())
+    experiment_ids = list(message.experiment_ids)
+    resolved = _bulk_requirements(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [
+            *requirements,
+            *(
+                Requirement(
+                    RESOURCE_TYPE_ASSESSMENT,
+                    "*",
+                    "read",
+                    fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, experiment_id),),
+                )
+                for experiment_id in experiment_ids
+                if message.view_type == MetricViewType.Value("ASSESSMENTS")
+            ),
+        ],
+    )
+
+
 def validate_can_create_assessment():
     """An assessment is created inside a trace, so the TRACE authorizes it.
 
@@ -3676,9 +3739,9 @@ BEFORE_REQUEST_HANDLERS = {
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
     CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
-    QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
+    QueryTraceMetrics: validate_can_query_trace_metrics,
     CreateAssessment: validate_can_create_assessment,
-    GetAssessmentRequest: validate_can_read_trace_by_trace_id,
+    GetAssessmentRequest: validate_can_get_assessment,
     UpdateAssessment: validate_can_update_assessment,
     DeleteAssessment: validate_can_update_assessment,
     # Routes for review queues
@@ -5147,51 +5210,113 @@ def filter_list_gateway_model_definitions(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
-def redact_trace_assessments(resp: Response) -> None:
-    """Withhold ``assessments[]`` from a trace read when the assessment tier denies them.
+def _withhold_denied_assessments(trace_infos) -> bool:
+    """Clear ``assessments[]`` from each TraceInfoV3 whose experiment denies the assessment tier.
 
-    The trace itself stays readable -- the caller passed ``validate_can_read_trace_by_trace_id``
-    and only the assessments riding inside ``trace_info`` are withheld. Redaction rather than
-    denying the route, because working with traces while holding no access to their assessments is
-    a real configuration; and because the assessment requirement is wildcard-only and therefore
-    CONSTANT, denying the route would also block traces that carry no assessments at all.
+    Returns whether anything was cleared, so a caller only re-serializes when it must.
+
+    Redaction rather than denying the route: working with traces while holding no access to their
+    assessments is a real configuration, and because the assessment requirement is wildcard-only
+    and therefore CONSTANT, denying would also block traces carrying no assessments at all.
+
+    One gate per DISTINCT experiment, memoized. The assessment tier is wildcard-only, so within an
+    experiment the decision cannot vary by row; a single-experiment response -- every point read,
+    and the usual search -- therefore costs one query no matter how many rows it carries.
+    """
+    username = authenticate_request().username
+    gates: dict[str, RetentionGate] = {}
+    withheld = False
+    for trace_info in trace_infos:
+        if not trace_info.assessments:
+            continue
+        experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
+        gate = gates.get(experiment_id)
+        if gate is None:
+            # A missing experiment location needs no branch. With workspaces enabled the anchor is
+            # then unresolvable, which makes every decision False and withholds; the fetch failure
+            # is swallowed by `_get_resource_workspace`, so this cannot raise. With workspaces
+            # disabled the anchor is the default workspace and `default_permission` governs.
+            experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            # The fallback is the compatibility guarantee: absent an assessment grant the
+            # experiment governs, so only an explicit grant -- including DENY -- narrows anything.
+            gate = retention_gate(
+                username,
+                experiment,
+                [
+                    Requirement(
+                        RESOURCE_TYPE_ASSESSMENT,
+                        "*",
+                        "read",
+                        fallback_if_no_grant=(experiment,),
+                    )
+                ],
+            )
+            gates[experiment_id] = gate
+        if not gate.retains(RESOURCE_TYPE_ASSESSMENT):
+            trace_info.ClearField("assessments")
+            withheld = True
+    return withheld
+
+
+def redact_trace_assessments(resp: Response) -> None:
+    """Withhold ``assessments[]`` from GetTrace / GetTraceInfoV3.
+
+    The trace itself stays readable -- the caller passed the route's own trace-read validator and
+    only the assessments riding inside ``trace_info`` are withheld.
 
     NOT in ``_SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS``: the route's authorization decision stays
     with its before-request validator. This only narrows what that decision returns.
     """
     if sender_is_admin():
         return
-
     response_message = GetTrace.Response()
     parse_dict(resp.json, response_message)
-    trace_info = response_message.trace.trace_info
-    if not trace_info.assessments:
-        # Nothing to withhold, so no grants are loaded: the common case adds no query.
-        return
+    if _withhold_denied_assessments([response_message.trace.trace_info]):
+        resp.data = message_to_json(response_message)
 
-    # The trace gate already established experiment READ and trace READ, so the assessment tier is
-    # all that is left to consult. The fallback is the compatibility guarantee: absent an
-    # assessment grant the experiment governs, so only an explicit grant -- including DENY --
-    # narrows anything.
-    #
-    # A missing experiment location needs no branch. With workspaces enabled the anchor is then
-    # unresolvable, which makes every decision False and withholds; the fetch failure is swallowed
-    # by `_get_resource_workspace`, so this cannot raise. With workspaces disabled the anchor is
-    # the default workspace and `default_permission` governs, exactly as on every other route.
-    experiment = (
-        RESOURCE_TYPE_EXPERIMENT,
-        trace_info.trace_location.mlflow_experiment.experiment_id,
-    )
-    gate = retention_gate(
-        authenticate_request().username,
-        experiment,
-        [Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,))],
-    )
-    if gate.retains(RESOURCE_TYPE_ASSESSMENT):
-        return
 
-    trace_info.ClearField("assessments")
-    resp.data = message_to_json(response_message)
+def redact_trace_info_v3_assessments(resp: Response) -> None:
+    """GetTraceInfoV3 carries the same ``trace.trace_info`` shape as GetTrace."""
+    if sender_is_admin():
+        return
+    response_message = GetTraceInfoV3.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_assessments([response_message.trace.trace_info]):
+        resp.data = message_to_json(response_message)
+
+
+def redact_batch_trace_assessments(resp: Response) -> None:
+    """BatchGetTraces returns ``traces[]`` of Trace, so the assessments sit one level down."""
+    if sender_is_admin():
+        return
+    response_message = BatchGetTraces.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_assessments([t.trace_info for t in response_message.traces]):
+        resp.data = message_to_json(response_message)
+
+
+def redact_batch_trace_info_assessments(resp: Response) -> None:
+    """BatchGetTraceInfos returns ``trace_infos[]`` of TraceInfoV3 directly."""
+    if sender_is_admin():
+        return
+    response_message = BatchGetTraceInfos.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_assessments(response_message.trace_infos):
+        resp.data = message_to_json(response_message)
+
+
+def redact_search_traces_v3_assessments(resp: Response) -> None:
+    """SearchTracesV3 returns ``traces[]`` of TraceInfoV3.
+
+    The V2 SearchTraces and GetTraceInfo need no counterpart: they return ``TraceInfo``, which has
+    no assessments field at all.
+    """
+    if sender_is_admin():
+        return
+    response_message = SearchTracesV3.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_assessments(response_message.traces):
+        resp.data = message_to_json(response_message)
 
 
 def filter_list_gateway_secrets(resp: Response) -> None:
@@ -5228,6 +5353,10 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
     GetTrace: redact_trace_assessments,
+    GetTraceInfoV3: redact_trace_info_v3_assessments,
+    BatchGetTraces: redact_batch_trace_assessments,
+    BatchGetTraceInfos: redact_batch_trace_info_assessments,
+    SearchTracesV3: redact_search_traces_v3_assessments,
     SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
