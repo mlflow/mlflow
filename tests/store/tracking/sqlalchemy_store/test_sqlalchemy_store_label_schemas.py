@@ -1,6 +1,8 @@
 import time
 
 import pytest
+from sqlalchemy.dialects import mssql
+from sqlalchemy.orm import Query
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import (
@@ -423,6 +425,29 @@ def test_list_seeds_protected_default_question(store):
     assert d.is_default is True
     assert d.instruction == DEFAULT_LABEL_SCHEMA_INSTRUCTION
     assert d.enable_comment is False
+
+
+def test_default_question_lookup_uses_mssql_compatible_boolean_predicate(store, monkeypatch):
+    exp_id = _create_experiments(store, "default_q_mssql_boolean")
+    statements = []
+
+    def capture_first(query):
+        statements.append(
+            str(
+                query.statement.compile(
+                    dialect=mssql.dialect(), compile_kwargs={"literal_binds": True}
+                )
+            )
+        )
+        return object()
+
+    monkeypatch.setattr(Query, "first", capture_first)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store._ensure_default_label_schema(session, exp_id)
+
+    assert len(statements) == 1
+    assert "is_default = 1" in statements[0]
+    assert "is_default IS 1" not in statements[0]
 
 
 def test_default_question_seed_is_idempotent(store):
