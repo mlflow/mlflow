@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.13.3 (2026-09-23)
+
+MLflow 2.13.3 includes several major features and improvements
+
+Features:
+
+- [Model Registry / Models] Backport UC model registry Databricks Files API artifact repository to 2.13.3 (#25987, @tonycai96)
+
 ## 2.12.2 (2024-05-08)
 
 MLflow 2.12.2 is a patch release that includes several bug fixes and integration improvements to existing features. New features that are introduced in this patch release are intended to provide a foundation to further major features that will be released in the next 2 minor releases.
