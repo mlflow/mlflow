@@ -5103,6 +5103,50 @@ def test_search_traces_assessment_filter_allowed_without_a_grant(workspace_permi
     assert _run_search_traces("feedback.safety = 'no'") is True
 
 
+def _deny_tier(workspace_permission_setup, tier):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        (tier, "*", DENY.name),
+    ])
+
+
+def test_search_traces_refuses_a_run_backed_filter(workspace_permission_setup):
+    """A run_id filter reveals the run's existence and its association with these traces through
+    which rows come back, so a run DENY has to refuse it. The parser normalizes every spelling to
+    the same request_metadata comparison.
+    """
+    _deny_tier(workspace_permission_setup, "run")
+
+    assert _run_search_traces("run_id = 'run-1'") is False
+    assert _run_search_traces("attributes.run_id = 'run-1'") is False
+    assert _run_search_traces("metadata.`mlflow.sourceRun` = 'run-1'") is False
+    # Broad operators need no special handling: run grain is wildcard-only, so one key decides.
+    assert _run_search_traces("run_id LIKE '%run%'") is False
+    # Unrelated filters are untouched.
+    assert _run_search_traces("status = 'OK'") is True
+    assert _run_search_traces("feedback.safety = 'no'") is True
+
+
+def test_search_traces_refuses_a_logged_model_backed_filter(workspace_permission_setup):
+    _deny_tier(workspace_permission_setup, "logged_model")
+
+    assert _run_search_traces("metadata.`mlflow.modelId` = 'model-1'") is False
+    assert _run_search_traces("run_id = 'run-1'") is True
+
+
+def test_search_traces_run_filter_allowed_without_a_run_grant(workspace_permission_setup):
+    """No run grant: the experiment governs, so nothing master allowed is newly denied."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert _run_search_traces("run_id = 'run-1'") is True
+
+
 def test_filter_correlation_refuses_an_assessment_backed_filter(workspace_permission_setup):
     """npmi and the four counts are computed over whatever the filters select."""
     _deny_assessments(workspace_permission_setup)
