@@ -222,6 +222,7 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
+    SearchRuns,
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
@@ -6027,6 +6028,135 @@ def filter_list_gateway_model_definitions(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+_TRACE_METADATA_SIBLING_TIERS = {
+    "mlflow.sourceRun": RESOURCE_TYPE_RUN,
+    "mlflow.modelId": RESOURCE_TYPE_LOGGED_MODEL,
+}
+
+
+def _denied_sibling_tiers(username: str, resource_types) -> "set[str]":
+    """Which of `resource_types` the caller is explicitly DENIED, as one constant answer.
+
+    These tiers are wildcard-only grain, so a `(type, "*", DENY)` holds for every resource of that
+    type in the workspace -- the decision cannot vary by row, and no id needs resolving. That is
+    what keeps this to a single grants query on a response of any size.
+
+    It therefore honours only an EXPLICIT deny. A caller with no grant on the tier should fall back
+    to the referenced resource's OWN experiment, which is not in the response;
+    `_authorize_logged_model_id` / `_authorize_run_id` do exactly that per id, and using them here
+    would cost one store fetch per distinct reference. Left as a residual (description.md §6).
+    """
+    gate = retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(resource_type, "*", ACTION_NOT_DENIED) for resource_type in resource_types],
+    )
+    return {
+        resource_type for resource_type in resource_types if not gate.retains(resource_type)
+    }
+
+
+def _withhold_denied_run_model_links(runs, username: str) -> bool:
+    """Clear a run's logged-model input/output links when the caller is denied the model tier.
+
+    `GetRun` and `SearchRuns` echo `inputs.model_inputs[]` / `outputs.model_outputs[]`, which name
+    logged models by id. `GetLoggedModel` applies the model tier to exactly those ids, so without
+    this a `(logged_model, "*", DENY)` holder is refused the model and handed its id by the run.
+    """
+    linked = [
+        run for run in runs if run.inputs.model_inputs or run.outputs.model_outputs
+    ]
+    if not linked:
+        return False
+    if RESOURCE_TYPE_LOGGED_MODEL not in _denied_sibling_tiers(
+        username, (RESOURCE_TYPE_LOGGED_MODEL,)
+    ):
+        return False
+    for run in linked:
+        run.inputs.ClearField("model_inputs")
+        run.outputs.ClearField("model_outputs")
+    return True
+
+
+def _withhold_denied_trace_metadata_siblings(metadata_fields, username: str) -> bool:
+    """Strip `mlflow.sourceRun` / `mlflow.modelId` from trace metadata on a denied tier.
+
+    A trace carries the ids of the run that produced it and the model it scored, so the trace
+    response is a route to both tiers. v2 already refuses FILTERING a trace search by
+    `metadata.mlflow.sourceRun` on the run tier; returning the same value is the other half.
+
+    `metadata_fields` accepts both spellings: TraceInfoV3's `trace_metadata` map and TraceInfo's
+    repeated `request_metadata` key/value entries.
+    """
+    present = [field for field in metadata_fields if len(field)]
+    if not present:
+        return False
+    denied = _denied_sibling_tiers(username, tuple(set(_TRACE_METADATA_SIBLING_TIERS.values())))
+    strip = {key for key, tier in _TRACE_METADATA_SIBLING_TIERS.items() if tier in denied}
+    if not strip:
+        return False
+    withheld = False
+    for field in present:
+        if hasattr(field, "keys"):
+            for key in strip & set(field.keys()):
+                del field[key]
+                withheld = True
+            continue
+        for index in range(len(field) - 1, -1, -1):
+            if field[index].key in strip:
+                del field[index]
+                withheld = True
+    return withheld
+
+
+def _redact_run_response(resp: Response, response_message, runs_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_run_model_links(runs_of(response_message), authenticate_request().username):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_run_model_links(resp: Response) -> None:
+    _redact_run_response(resp, GetRun.Response(), lambda message: [message.run])
+
+
+def redact_search_runs_model_links(resp: Response) -> None:
+    _redact_run_response(resp, SearchRuns.Response(), lambda message: message.runs)
+
+
+def _redact_trace_metadata_response(resp: Response, response_message, metadata_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_trace_metadata_siblings(
+        metadata_of(response_message), authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_start_trace_v3_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, StartTraceV3.Response(), lambda m: [m.trace.trace_info.trace_metadata]
+    )
+
+
+def redact_trace_info_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, GetTraceInfo.Response(), lambda m: [m.trace_info.request_metadata]
+    )
+
+
+def redact_search_traces_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, SearchTraces.Response(), lambda m: [t.request_metadata for t in m.traces]
+    )
+
+
 def _withhold_denied_assessments(trace_infos) -> bool:
     """Clear ``assessments[]`` from each TraceInfoV3 whose experiment denies the assessment tier.
 
@@ -6088,7 +6218,13 @@ def redact_trace_assessments(resp: Response) -> None:
         return
     response_message = GetTrace.Response()
     parse_dict(resp.json, response_message)
-    if _withhold_denied_assessments([response_message.trace.trace_info]):
+    username = authenticate_request().username
+    trace_infos = [response_message.trace.trace_info]
+    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in trace_infos], username
+    )
+    if withheld:
         resp.data = message_to_json(response_message)
 
 
@@ -6098,7 +6234,13 @@ def redact_trace_info_v3_assessments(resp: Response) -> None:
         return
     response_message = GetTraceInfoV3.Response()
     parse_dict(resp.json, response_message)
-    if _withhold_denied_assessments([response_message.trace.trace_info]):
+    username = authenticate_request().username
+    trace_infos = [response_message.trace.trace_info]
+    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in trace_infos], username
+    )
+    if withheld:
         resp.data = message_to_json(response_message)
 
 
@@ -6132,7 +6274,12 @@ def redact_search_traces_v3_assessments(resp: Response) -> None:
         return
     response_message = SearchTracesV3.Response()
     parse_dict(resp.json, response_message)
-    if _withhold_denied_assessments(response_message.traces):
+    username = authenticate_request().username
+    withheld = _withhold_denied_assessments(response_message.traces)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in response_message.traces], username
+    )
+    if withheld:
         resp.data = message_to_json(response_message)
 
 
@@ -6169,6 +6316,11 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
+    GetRun: redact_get_run_model_links,
+    SearchRuns: redact_search_runs_model_links,
+    StartTraceV3: redact_start_trace_v3_metadata,
+    GetTraceInfo: redact_trace_info_metadata,
+    SearchTraces: redact_search_traces_metadata,
     GetTrace: redact_trace_assessments,
     GetTraceInfoV3: redact_trace_info_v3_assessments,
     BatchGetTraces: redact_batch_trace_assessments,
