@@ -4828,6 +4828,159 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
 # ==========================================================================================
 
 
+def _run_multi_trace_redaction(proto_name, handler_name, payload):
+    import json as _json
+
+    from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
+    proto = getattr(__import__("mlflow.protos.service_pb2", fromlist=[proto_name]), proto_name)
+    message = proto.Response()
+    parse_dict(payload, message)
+    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/traces"):
+        getattr(auth_module, handler_name)(resp)
+    out = proto.Response()
+    parse_dict(_json.loads(resp.data) if resp.data is not None else resp.json, out)
+    return out
+
+
+def _info_row(experiment_id, trace_id, names):
+    return {
+        "trace_id": trace_id,
+        "trace_location": {"mlflow_experiment": {"experiment_id": experiment_id}},
+        "assessments": [{"assessment_name": n} for n in names],
+    }
+
+
+def test_batch_trace_infos_redaction_honors_assessment_deny(workspace_permission_setup):
+    """BatchGetTraceInfos returns trace_infos[] of TraceInfoV3 directly, assessments always set."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+    out = _run_multi_trace_redaction(
+        "BatchGetTraceInfos",
+        "redact_batch_trace_info_assessments",
+        {"trace_infos": [_info_row("exp-1", "t1", ["a1"]), _info_row("exp-2", "t2", ["a2"])]},
+    )
+    assert [len(i.assessments) for i in out.trace_infos] == [0, 0]
+    # The rows themselves survive: only the assessments are withheld.
+    assert [i.trace_id for i in out.trace_infos] == ["t1", "t2"]
+
+
+def test_search_traces_v3_redaction_inherits_the_experiment(workspace_permission_setup):
+    """No assessment grant: the experiment governs, so assessments stay. The compatibility case."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    out = _run_multi_trace_redaction(
+        "SearchTracesV3",
+        "redact_search_traces_v3_assessments",
+        {"traces": [_info_row("exp-1", "t1", ["a1", "a2"])]},
+    )
+    assert [a.assessment_name for a in out.traces[0].assessments] == ["a1", "a2"]
+
+
+def test_batch_get_traces_redaction_reaches_nested_trace_info(workspace_permission_setup):
+    """BatchGetTraces wraps each TraceInfoV3 in a Trace, so the assessments sit one level down."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+    out = _run_multi_trace_redaction(
+        "BatchGetTraces",
+        "redact_batch_trace_assessments",
+        {"traces": [{"trace_info": _info_row("exp-1", "t1", ["a1"])}]},
+    )
+    assert len(out.traces[0].trace_info.assessments) == 0
+
+
+def _run_get_assessment(monkeypatch, experiment_id):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/t1/assessments/a1",
+        query_string={"trace_id": "t1", "assessment_id": "a1"},
+    ):
+        monkeypatch.setattr(
+            auth_module._get_tracking_store(),
+            "get_trace_info",
+            lambda _tid: SimpleNamespace(experiment_id=experiment_id),
+            raising=False,
+        )
+        return auth_module.validate_can_get_assessment()
+
+
+def test_get_assessment_denies_rather_than_redacts(workspace_permission_setup, monkeypatch):
+    """The assessment is the SUBJECT of this route, so a DENY refuses it outright."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+    assert _run_get_assessment(monkeypatch, "exp-1") is False
+
+
+def test_get_assessment_inherits_the_experiment(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert _run_get_assessment(monkeypatch, "exp-1") is True
+
+
+def _run_query_trace_metrics(view_type):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/metrics",
+        json={
+            "experiment_ids": ["exp-1"],
+            "view_type": view_type,
+            "metric_name": "assessment_count",
+            "aggregations": [{"aggregation_type": "COUNT"}],
+        },
+    ):
+        return auth_module.validate_can_query_trace_metrics()
+
+
+def test_query_trace_metrics_denies_the_assessments_view(workspace_permission_setup):
+    """The assessments view returns a verdict histogram and a pass-rate average -- numbers derived
+    from assessments, with no field to redact and no row to drop.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+    assert _run_query_trace_metrics("ASSESSMENTS") is False
+    # The other views aggregate nothing from assessments, so they are untouched.
+    assert _run_query_trace_metrics("TRACES") is True
+    assert _run_query_trace_metrics("SPANS") is True
+
+
+def test_query_trace_metrics_assessments_view_allowed_without_a_grant(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert _run_query_trace_metrics("ASSESSMENTS") is True
+
+
 def _run_trace_redaction(experiment_id="exp-1", assessment_names=("a1", "a2")):
     """Run ``redact_trace_assessments`` over a GetTrace response and return the names kept."""
     import json as _json
