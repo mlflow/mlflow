@@ -3407,7 +3407,7 @@ def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
     resource still reveals its existence and its association with these traces even when the tier's
     content is stripped from the rows that come back.
     """
-    resolved = _bulk_requirements(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
     if resolved is None:
         return False
     anchor, requirements = resolved
@@ -3440,7 +3440,8 @@ def validate_can_search_traces_v3():
     """Only ``mlflow_experiment`` locations carry an experiment_id we can permission-check.
 
     ``inference_table`` and future location types map to no local experiment, so they are excluded
-    and a request carrying only those is denied through ``_bulk_requirements`` returning ``None``.
+    and a request carrying only those is denied through
+    ``_bulk_requirements_in_experiments`` returning ``None``.
 
     Read from the parsed proto rather than raw JSON. The handler parses with ``ParseDict``, which
     accepts lowerCamelCase aliases per list element, so a body mixing one snake_case location with
@@ -3476,7 +3477,7 @@ def validate_can_batch_get_traces():
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    return _authorize_bulk_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_delete_traces():
@@ -3519,7 +3520,7 @@ def validate_can_update_trace_by_request_id():
     return _authorize_trace(_get_request_param("request_id"), "update")
 
 
-def _bulk_requirements(
+def _bulk_requirements_in_experiments(
     experiment_ids: "Sequence[str]", child_type: str, action: str
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
     # One requirement PAIR per distinct parent, ANDed by authorize. All-or-nothing holds on both
@@ -3548,8 +3549,10 @@ def _bulk_requirements(
     return (RESOURCE_TYPE_WORKSPACE, "*"), requirements
 
 
-def _authorize_bulk(experiment_ids: "Sequence[str]", child_type: str, action: str) -> bool:
-    resolved = _bulk_requirements(experiment_ids, child_type, action)
+def _authorize_bulk_in_experiments(
+    experiment_ids: "Sequence[str]", child_type: str, action: str
+) -> bool:
+    resolved = _bulk_requirements_in_experiments(experiment_ids, child_type, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
@@ -3608,7 +3611,7 @@ def validate_can_query_trace_metrics():
     """
     message = _get_request_message(QueryTraceMetrics())
     experiment_ids = list(message.experiment_ids)
-    resolved = _bulk_requirements(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
     if resolved is None:
         return False
     anchor, requirements = resolved
@@ -3739,7 +3742,7 @@ def validate_can_link_traces_to_run():
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return _authorize_bulk(trace_experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    return _authorize_bulk_in_experiments(trace_experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -3762,7 +3765,7 @@ def validate_can_read_metric_history_bulk(run_ids=None):
     # 403-not-404 reasoning applies to routes that resolve a single named resource, not to a bulk
     # read whose ids the caller already holds.
     experiment_ids = [tracking_store.get_run(run_id).info.experiment_id for run_id in run_ids]
-    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_RUN, "read")
+    return _authorize_bulk_in_experiments(experiment_ids, RESOURCE_TYPE_RUN, "read")
 
 
 def validate_can_read_metric_history_bulk_interval():
