@@ -4628,3 +4628,81 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
         {"experiment_id": 2, "scorer_name": "s2"},
     ]
     assert _run_scorer_list_filter(rows) == ["s2"]
+
+
+# ==========================================================================================
+# Trace assessment redaction (design doc 5h; review finding 9a)
+# ==========================================================================================
+
+
+def _run_trace_redaction(experiment_id="exp-1", assessment_names=("a1", "a2")):
+    """Run ``redact_trace_assessments`` over a GetTrace response and return the names kept."""
+    import json as _json
+
+    from mlflow.protos.service_pb2 import GetTrace
+    from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
+    message = GetTrace.Response()
+    parse_dict(
+        {
+            "trace": {
+                "trace_info": {
+                    "trace_id": "trace-1",
+                    "trace_location": {"mlflow_experiment": {"experiment_id": experiment_id}},
+                    "assessments": [{"assessment_name": n} for n in assessment_names],
+                }
+            }
+        },
+        message,
+    )
+    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    with auth_module.app.test_request_context("/api/2.0/mlflow/traces/trace-1"):
+        auth_module.redact_trace_assessments(resp)
+    out = GetTrace.Response()
+    parse_dict(_json.loads(resp.data) if resp.data is not None else resp.json, out)
+    return [a.assessment_name for a in out.trace.trace_info.assessments], out
+
+
+def test_trace_assessments_redacted_on_assessment_deny(workspace_permission_setup):
+    """A DENY on the assessment tier withholds the assessments but keeps the trace."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", READ.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+    kept, response = _run_trace_redaction()
+    assert kept == []
+    # The trace is still returned -- redaction, not denial.
+    assert response.trace.trace_info.trace_id == "trace-1"
+
+
+def test_trace_assessments_kept_when_inherited_from_the_experiment(workspace_permission_setup):
+    """No assessment grant: the experiment governs through the fallback, so they stay.
+
+    This is the compatibility case -- a deployment that never grants the assessment tier must see
+    exactly what it saw before.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", READ.name)])
+
+    kept, _ = _run_trace_redaction()
+    assert kept == ["a1", "a2"]
+
+
+def test_trace_assessments_kept_on_explicit_assessment_read(workspace_permission_setup):
+    """An explicit positive grant on the assessment tier keeps them."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", READ.name),
+        ("assessment", "*", READ.name),
+    ])
+
+    kept, _ = _run_trace_redaction()
+    assert kept == ["a1", "a2"]
