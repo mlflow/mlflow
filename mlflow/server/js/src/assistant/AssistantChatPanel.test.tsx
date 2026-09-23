@@ -347,6 +347,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: true,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: true,
     };
     mockNeedsApiKey = true;
     const user = userEvent.setup();
@@ -374,6 +375,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: true,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: true,
     };
     mockNeedsApiKey = true;
     mockPendingAutomaticMessage = {
@@ -405,6 +407,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: false,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: false,
     };
     mockNeedsApiKey = false;
     mockPendingAutomaticMessage = {
@@ -428,6 +431,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: true,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: true,
     };
     mockError = 'OpenAI requires an API key.';
     mockErrorCode = 'api_key_missing';
@@ -470,6 +474,27 @@ describe('AssistantChatPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Back from settings' }));
     expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
     expect(mockRefreshConfig).toHaveBeenCalledWith({ silent: true });
+  });
+
+  test('a remote client that is permitted to use the Assistant can open Settings', async () => {
+    // Previously the gear was gated on isLocalServer, so a remote client could never reach
+    // settings. It is now gated on canUseAssistant, so a permitted remote client can.
+    const user = userEvent.setup();
+    mockIsLocalServer = false;
+    mockCanUseAssistant = true;
+    renderChatPanel();
+
+    const settings = screen.getByLabelText('Settings');
+    expect(settings).not.toBeDisabled();
+    await user.click(settings);
+    expect(screen.getByRole('button', { name: 'Back from settings' })).toBeInTheDocument();
+  });
+
+  test('a client that cannot use the Assistant has the Settings gear disabled', () => {
+    mockCanUseAssistant = false;
+    renderChatPanel();
+
+    expect(screen.getByLabelText('Settings')).toBeDisabled();
   });
 
   test('token footer shows a compact total and an info trigger when usage is present', () => {

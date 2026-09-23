@@ -39,6 +39,8 @@ class ToolResultBlock(BaseModel):
 
 ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock
 
+TURN_CONTROL_CONTEXT_KEYS = frozenset({"tool_decisions", "client_tool_results"})
+
 
 class Message(BaseModel):
     """Structured message representation for assistant conversations.
@@ -75,10 +77,17 @@ class Event(BaseModel):
         return f"event: {self.type}\ndata: {json.dumps(self.data)}\n\n"
 
     @classmethod
-    def from_error(cls, error: str, session_id: str | None = None) -> "Event":
+    def from_error(
+        cls,
+        error: str,
+        session_id: str | None = None,
+        conversation_history: str | None = None,
+    ) -> "Event":
         data = {"error": error}
         if session_id:
             data["session_id"] = session_id
+        if conversation_history:
+            data["conversation_history"] = conversation_history
         return cls(type=EventType.ERROR, data=data)
 
     @classmethod
@@ -100,6 +109,15 @@ class Event(BaseModel):
     @classmethod
     def from_result(cls, result: Any, session_id: str) -> "Event":
         return cls(type=EventType.DONE, data={"result": result, "session_id": session_id})
+
+    @classmethod
+    def from_conversation_history(cls, conversation_history: str) -> "Event":
+        """DONE event for stateless providers: the turn's payload is the updated history that
+        the client carries forward, not a server-side session handle.
+        """
+        return cls(
+            type=EventType.DONE, data={"result": None, "conversation_history": conversation_history}
+        )
 
     @classmethod
     def from_interrupted(cls) -> "Event":

@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Literal
 
-from mlflow.assistant.config import AssistantConfig, ProviderConfig
+from mlflow.assistant.config import AssistantConfig, ProviderConfig, get_config_user
 from mlflow.assistant.types import Event
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASSISTANT_SANDBOX,
@@ -32,17 +32,24 @@ def assistant_sandbox_enabled() -> bool:
     return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and shutil.which("docker") is not None
 
 
-@lru_cache(maxsize=10)
-def load_config(name: str) -> ProviderConfig:
-    cfg = AssistantConfig.load()
+@lru_cache(maxsize=32)
+def _load_config_cached(name: str, user: str | None) -> ProviderConfig:
+    # Load for the EXPLICIT user (not the request ContextVar), so the cache key and the loaded
+    # data derive from the same ``user`` and cannot diverge (which would serve one user's provider
+    # config under another user's key).
+    cfg = AssistantConfig.load_for_user(user)
     if not cfg or name not in cfg.providers:
         raise RuntimeError(f"Provider configuration not found for {name}")
     return cfg.providers[name]
 
 
+def load_config(name: str) -> ProviderConfig:
+    return _load_config_cached(name, get_config_user())
+
+
 def clear_config_cache() -> None:
     """Clear the config cache to pick up config changes."""
-    load_config.cache_clear()
+    _load_config_cached.cache_clear()
 
 
 def load_config_or_default(name: str) -> ProviderConfig:
@@ -66,6 +73,12 @@ class NotAuthenticatedError(ProviderNotConfiguredError):
 
 class AssistantProvider(ABC):
     """Abstract base class for assistant providers."""
+
+    # Whether conversation history lives on the client and the provider can stream
+    # statelessly (no server-side session persistence). Remote/deployable providers
+    # opt in; local/single-host providers leave it False and keep server-side sessions.
+    # TODO (joshuawong-db): Unify this with the remote_assistant flag
+    client_carries_history: bool = False
 
     @property
     @abstractmethod
@@ -127,7 +140,6 @@ class AssistantProvider(ABC):
     def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
         raise NotImplementedError(f"Model listing is not supported for provider '{self.name}'")
 
-    @abstractmethod
     def astream(
         self,
         prompt: str,
@@ -138,7 +150,12 @@ class AssistantProvider(ABC):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         """
-        Stream responses from the assistant asynchronously.
+        Stream responses for a server-managed (stateful) turn.
+
+        The server owns the conversation: `session_id` resumes the provider's prior turn
+        and `mlflow_session_id` tracks the subprocess for cancellation. Stateful providers
+        (e.g. Claude Code, Codex) override this; stateless providers override
+        `astream_stateless` instead.
 
         Args:
             prompt: The prompt to send to the assistant
@@ -152,3 +169,33 @@ class AssistantProvider(ABC):
         Yields:
             Event objects with 'type' and 'data' payloads.
         """
+        raise NotImplementedError(f"{self.name} does not support stateful streaming")
+
+    def astream_stateless(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        conversation_history: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[Event, None]:
+        """
+        Stream responses for a stateless turn (client carries the full history).
+
+        Nothing is persisted server-side: `conversation_history` is the entire prior
+        conversation, serialized by the client, so any host can serve any turn. There is
+        no session handle and no subprocess to cancel. Stateless providers (e.g. MLflow AI
+        Gateway) override this; stateful providers override `astream` instead.
+
+        Args:
+            prompt: The prompt to send to the assistant
+            tracking_uri: MLflow tracking server URI for the assistant to use
+            conversation_history: The full prior conversation, serialized by the client
+            cwd: Working directory for the assistant
+            context: Additional context for the assistant, such as information from
+                the current UI page the user is viewing (e.g., experimentId, traceId)
+
+        Yields:
+            Event objects with 'type' and 'data' payloads.
+        """
+        raise NotImplementedError(f"{self.name} does not support stateless streaming")

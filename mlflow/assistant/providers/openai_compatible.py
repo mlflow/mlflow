@@ -31,22 +31,32 @@ from mlflow.assistant.providers.tool_executor import (
     CLIENT_TOOLS,
     build_tools_schema,
     execute_tool,
+    is_remote_caller,
+    restrict_permissions_for_remote,
     static_permission_error,
 )
-from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
+from mlflow.assistant.types import (
+    TURN_CONTROL_CONTEXT_KEYS,
+    Event,
+    EventType,
+    Message,
+    ToolResultBlock,
+    ToolUseBlock,
+)
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
 _logger = logging.getLogger(__name__)
 
-# OpenAI-compatible servers have no server-side session state, so we encode
-# the full message history as JSON in the session_id field. 500 KB stays
+# OpenAI-compatible servers have no server-side session state, so the client
+# carries the full message history as JSON in conversation_history. 500 KB stays
 # well below typical LLM context windows and gives tool-heavy multi-turn
 # conversations enough headroom to avoid frequent trimming. Older turns
 # are dropped first; the system message at index 0 is always kept.
 _MAX_SESSION_BYTES = 500 * 1024
 _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
+_GENERIC_PROVIDER_ERROR = "The assistant provider returned an error. Please try again."
 
 # Callable signature for the per-preset model-listing strategy.
 # Takes (base_url, api_key) and returns a list of model/endpoint names.
@@ -229,16 +239,27 @@ def _merge_tool_call_chunk(accumulator: list[dict[str, Any]], chunk: dict[str, A
     """Merge a streamed tool-call delta into the accumulator.
 
     OpenAI streams tool calls in pieces keyed by `index`: the first chunk
-    typically carries `id` and `function.name`, subsequent chunks append to
-    `function.arguments`.
+    typically carries `id` and `function.name`, subsequent chunks carry no `id`
+    and append to `function.arguments`.
+
+    A chunk bearing a *new* `id` begins a new tool call, so we key on `id` when
+    present and only fall back to `index` for id-less continuation chunks. Some
+    servers (e.g. the MLflow gateway with certain models) emit each complete
+    parallel call as its own chunk reusing `index: 0` but with distinct ids;
+    keying purely on `index` would merge those into one call with a doubled name
+    and concatenated (invalid-JSON) arguments.
     """
-    idx = chunk.get("index", 0)
-    while len(accumulator) <= idx:
-        accumulator.append({"id": "", "function": {"name": "", "arguments": ""}})
-    entry = accumulator[idx]
-    if call_id := chunk.get("id"):
-        entry["id"] = call_id
     fn = chunk.get("function") or {}
+    if call_id := chunk.get("id"):
+        entry = next((e for e in accumulator if e["id"] == call_id), None)
+        if entry is None:
+            entry = {"id": call_id, "function": {"name": "", "arguments": ""}}
+            accumulator.append(entry)
+    else:
+        idx = chunk.get("index", 0)
+        while len(accumulator) <= idx:
+            accumulator.append({"id": "", "function": {"name": "", "arguments": ""}})
+        entry = accumulator[idx]
     if name := fn.get("name"):
         entry["function"]["name"] = name
     if args := fn.get("arguments"):
@@ -259,7 +280,9 @@ class OpenAICompatibleProvider(AssistantProvider):
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
         allows_remote_access: bool = False,
+        client_carries_history: bool = False,
     ):
+        self.client_carries_history = client_carries_history
         self._name = name
         self._display_name = display_name
         self._description = description
@@ -378,7 +401,36 @@ class OpenAICompatibleProvider(AssistantProvider):
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
+        """Adapt client-carried history to the legacy server-managed session protocol."""
+        async for event in self.astream_stateless(
+            prompt=prompt,
+            tracking_uri=tracking_uri,
+            conversation_history=session_id,
+            cwd=cwd,
+            context=context,
+        ):
+            history = event.data.get("conversation_history")
+            if history and event.type == EventType.DONE:
+                yield Event.from_result(result=event.data.get("result"), session_id=history)
+            elif history and event.type == EventType.ERROR:
+                yield Event.from_error(event.data["error"], session_id=history)
+            else:
+                yield event
+
+    async def astream_stateless(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        conversation_history: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[Event, None]:
         config = self._load_config()
+        # Remote callers are capped at the restricted profile: their config full_access is dropped
+        # and they are not offered the interactive full-access grant below (which could only elevate
+        # to a level a remote caller is not allowed to reach). Local callers are unaffected.
+        remote = is_remote_caller()
+        caller_permissions = restrict_permissions_for_remote(config.permissions)
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None
         chat_url = self._chat_url_builder(base_url, tracking_uri)
         if not chat_url:
@@ -410,22 +462,32 @@ class OpenAICompatibleProvider(AssistantProvider):
                 return
             model = available[0]
 
-        if context:
-            user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
+        model_context = {
+            k: v for k, v in (context or {}).items() if k not in TURN_CONTROL_CONTEXT_KEYS
+        }
+        if model_context:
+            user_text = f"<context>\n{json.dumps(model_context)}\n</context>\n\n{prompt}"
         else:
             user_text = prompt
 
         messages: list[dict[str, Any]] = []
-        if session_id:
+        if conversation_history:
             try:
-                messages = json.loads(session_id)
+                decoded = json.loads(conversation_history)
+                if isinstance(decoded, list):
+                    # History is untrusted client input. Preserve generated conversation turns,
+                    # but never let the client replace or add system instructions.
+                    messages = [
+                        message
+                        for message in decoded
+                        if isinstance(message, dict) and message.get("role") != "system"
+                    ]
             except (json.JSONDecodeError, TypeError):
-                _logger.warning("Failed to decode session history; starting a new session")
+                _logger.warning("Failed to decode conversation history; starting fresh")
                 messages = []
 
-        if not messages:
-            sys_content = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
-            messages.append({"role": "system", "content": sys_content})
+        sys_content = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
+        messages.insert(0, {"role": "system", "content": sys_content})
 
         tool_decisions = (context or {}).get("tool_decisions") or {}
         # tool_call_id -> {"content": str, "is_error": bool}, delivered by the client
@@ -459,6 +521,7 @@ class OpenAICompatibleProvider(AssistantProvider):
 
         headers = self._auth_headers(api_key)
 
+        tool_was_executed = False
         try:
             async with aiohttp.ClientSession() as session:
                 while True:
@@ -511,8 +574,16 @@ class OpenAICompatibleProvider(AssistantProvider):
                         ) as resp:
                             if resp.status != 200:
                                 body = await resp.text()
+                                _logger.error(
+                                    "%s returned HTTP %s: %s", self._display_name, resp.status, body
+                                )
+                                history = (
+                                    json.dumps(_trim_session(messages))
+                                    if tool_was_executed
+                                    else None
+                                )
                                 yield Event.from_error(
-                                    f"{self._display_name} error {resp.status}: {body}"
+                                    _GENERIC_PROVIDER_ERROR, conversation_history=history
                                 )
                                 return
 
@@ -546,10 +617,18 @@ class OpenAICompatibleProvider(AssistantProvider):
                                     message = (
                                         error.get("message") if isinstance(error, dict) else error
                                     )
+                                    _logger.error(
+                                        "%s returned a streamed error: %s",
+                                        self._display_name,
+                                        message or error,
+                                    )
+                                    history = (
+                                        json.dumps(_trim_session(messages))
+                                        if tool_was_executed
+                                        else None
+                                    )
                                     yield Event.from_error(
-                                        f"{self._display_name} error: {message}"
-                                        if message
-                                        else f"{self._display_name} returned an error: {error}"
+                                        _GENERIC_PROVIDER_ERROR, conversation_history=history
                                     )
                                     return
 
@@ -589,16 +668,23 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
 
                         if not stream_had_signal:
+                            history = (
+                                json.dumps(_trim_session(messages)) if tool_was_executed else None
+                            )
                             yield Event.from_error(
                                 f"{self._display_name} returned an empty response and ended "
                                 "unexpectedly. The upstream provider likely failed before "
-                                "producing any output (e.g. an invalid API key or a rate limit)."
+                                "producing any output (e.g. an invalid API key or a rate limit).",
+                                conversation_history=history,
                             )
                             return
 
                         if not tool_calls_acc:
-                            if visible_text:
-                                messages.append({"role": "assistant", "content": visible_text})
+                            # No tool calls this round: the model's turn is done. Persist whatever
+                            # text it produced (possibly empty) and fall through to finalize with
+                            # the updated history, so a retry resumes from it rather than re-running
+                            # any tools already executed this turn.
+                            messages.append({"role": "assistant", "content": visible_text})
                             break
 
                         # Normalize accumulated tool calls into the OpenAI
@@ -680,28 +766,23 @@ class OpenAICompatibleProvider(AssistantProvider):
                                 "tool_call_id": tc["id"],
                                 "content": content,
                             })
+                            tool_was_executed = True
                             continue
 
                         # Permission gating. With full access (config) tools run without
-                        # prompting. Otherwise we prompt only for a call that BOTH has a session
-                        # (so a decision can be delivered on resume) AND isn't already permitted by
-                        # the static policy: allowlisted Bash commands (e.g. `mlflow`) and
-                        # in-workspace file ops run without a prompt, as they did before tool-call
-                        # permissions existed; the prompt is kept as an override for the previously
-                        # hard-denied calls. The session pauses the turn at a per-call Yes/No
-                        # prompt; a later resume delivers the choice via `tool_decisions`, and an
-                        # explicit allow overrides the static allowlist for that call. Anything not
-                        # gated (no session, or a statically-allowed call) is left to the static
-                        # policy enforced by execute_tool.
+                        # prompting. Otherwise we prompt only for a call the static policy wouldn't
+                        # already permit: allowlisted Bash commands (e.g. `mlflow`) and in-workspace
+                        # file ops run without a prompt, as they did before tool-call permissions
+                        # existed; the prompt is kept as an override for the previously hard-denied
+                        # calls. The turn pauses at a per-call Yes/No prompt; a later resume
+                        # delivers the choice via `tool_decisions`, and an explicit allow overrides
+                        # the static allowlist for that call. Calls the static policy already allows
+                        # are left to it, enforced by execute_tool.
                         needs_prompt = (
-                            static_permission_error(tool_name, tool_input, config.permissions, cwd)
+                            static_permission_error(tool_name, tool_input, caller_permissions, cwd)
                             is not None
                         )
-                        gated = (
-                            not config.permissions.full_access
-                            and bool(mlflow_session_id)
-                            and needs_prompt
-                        )
+                        gated = not remote and not caller_permissions.full_access and needs_prompt
                         decision = tool_decisions.get(tc["id"])
 
                         # Emit the tool-use block when a call is first surfaced
@@ -746,7 +827,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                             continue
 
                         effective_permissions = (
-                            PermissionsConfig(full_access=True) if gated else config.permissions
+                            PermissionsConfig(full_access=True) if gated else caller_permissions
                         )
                         result_str, is_error = await execute_tool(
                             tool_name,
@@ -774,13 +855,15 @@ class OpenAICompatibleProvider(AssistantProvider):
                             "tool_call_id": tc["id"],
                             "content": result_str,
                         })
+                        tool_was_executed = True
 
                     if paused:
                         break
 
-            new_session_id = json.dumps(_trim_session(messages))
-            yield Event.from_result(result=None, session_id=new_session_id)
+            new_history = json.dumps(_trim_session(messages))
+            yield Event.from_conversation_history(new_history)
 
-        except Exception as e:
+        except Exception:
             _logger.exception("Error communicating with %s", self._display_name)
-            yield Event.from_exception(e)
+            history = json.dumps(_trim_session(messages)) if tool_was_executed else None
+            yield Event.from_error(_GENERIC_PROVIDER_ERROR, conversation_history=history)
