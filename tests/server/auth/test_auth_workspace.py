@@ -2322,6 +2322,41 @@ def _search_registered_models_names(rows):
     return [rm["name"] for rm in out.get("registered_models", [])]
 
 
+def test_version_point_reads_honor_a_version_deny(workspace_permission_setup):
+    """A version DENY must withhold a version whether it is fetched by name or found by searching;
+    GetModelVersion and friends consulted only the parent. GetRegisteredModel shares the old
+    validator and must stay parent-only, since a version denial should not hide the parent.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/get", query_string={"name": "model-xyz", "version": "3"}
+    ):
+        assert auth_module.validate_can_read_model_or_prompt_version() is False
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/get", query_string={"name": "model-xyz"}
+    ):
+        assert auth_module._validate_can_read_registered_model_or_prompt() is True
+
+
+def test_version_point_reads_still_inherit_from_the_parent(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/get", query_string={"name": "model-xyz", "version": "3"}
+    ):
+        assert auth_module.validate_can_read_model_or_prompt_version() is True
+
+
 def test_version_read_filters_honor_a_version_deny(workspace_permission_setup, monkeypatch):
     """The version tier withholds VERSION rows without hiding their parents from a model list --
     which is why the veto lives in a version-specific predicate rather than the shared one that

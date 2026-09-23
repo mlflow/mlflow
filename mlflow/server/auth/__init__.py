@@ -1993,6 +1993,33 @@ def _authorize_version_action(action: str) -> bool:
     )
 
 
+def validate_can_read_model_or_prompt_version():
+    """Point reads of a version: the parent must be readable and the version tier may veto.
+
+    Matches the shape `_rm_or_prompt_version_read_predicate` applies to the search responses, so a
+    version DENY withholds a version whether it is fetched by name or found by searching. Separate
+    from `_validate_can_read_registered_model_or_prompt` because that also serves
+    `GetRegisteredModel`, where a version denial must not hide the parent.
+    """
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    return authorize(
+        authenticate_request().username,
+        (container_type, name),
+        [
+            Requirement(container_type, name, "read"),
+            Requirement(version_type, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
 def validate_can_update_model_or_prompt_version():
     return _authorize_version_action("update")
 
@@ -3933,20 +3960,20 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
     RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
-    GetLatestVersions: _validate_can_read_registered_model_or_prompt,
+    GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
-    GetModelVersion: _validate_can_read_registered_model_or_prompt,
+    GetModelVersion: validate_can_read_model_or_prompt_version,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
     TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
-    GetModelVersionDownloadUri: _validate_can_read_registered_model_or_prompt,
+    GetModelVersionDownloadUri: validate_can_read_model_or_prompt_version,
     SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     SetModelVersionTag: validate_can_update_model_or_prompt_version,
     DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
     SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
     DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
-    GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
+    GetModelVersionByAlias: validate_can_read_model_or_prompt_version,
     # Routes for scorers
     RegisterScorer: validate_can_register_scorer,
     ListScorers: validate_can_read_scorer_list,

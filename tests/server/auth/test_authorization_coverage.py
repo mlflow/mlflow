@@ -211,7 +211,9 @@ def test_gateway_guardrail_gating():
     assert vname(f"{base}/get", "GET") == "sender_is_admin"
     assert vname(f"{base}/list", "GET") == "sender_is_admin"
     assert vname(f"{base}/delete", "DELETE") == "sender_is_admin"
-    # Endpoint-attached routes gate on the owning gateway endpoint.
+    # Endpoint-attached routes gate on the owning gateway endpoint. add-to-endpoint and
+    # update-config additionally veto on the scorer tier, since a Guardrail carries a full
+    # ScorerVersion; remove-from-endpoint and list-for-endpoint do not serve one.
     assert (
         vname(f"{base}/add-to-endpoint", "POST") == "validate_can_add_guardrail_to_gateway_endpoint"
     )
