@@ -1,5 +1,6 @@
 """Huey job functions for async scorer invocation."""
 
+import json
 import logging
 import os
 import random
@@ -37,6 +38,7 @@ from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.utils.validation import _validate_jev_scorer_data
 from mlflow.utils.workspace_context import WorkspaceContext
 
 _logger = logging.getLogger(__name__)
@@ -175,6 +177,7 @@ def invoke_scorer_job(
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
     # Deserialize scorer
+    _validate_jev_scorer_data(json.loads(serialized_scorer))
     scorer = Scorer.model_validate_json(serialized_scorer)
     if scorer_version is not None:
         scorer._set_registration_metadata(

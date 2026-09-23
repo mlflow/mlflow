@@ -2373,7 +2373,20 @@ def test_get_online_scoring_configs_workspace_scoped(workspace_tracking_store):
         assert configs[0].sample_rate == 0.2
 
 
-def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
+@pytest.mark.parametrize(
+    "scorer_data",
+    [
+        _gateway_model_scorer_json(),
+        json.dumps({
+            "jev_scorer_pydantic_data": {
+                "model": "gateway:/my-endpoint",
+                "question": "Is outputs relevant?",
+                "answer_type": "noul",
+            }
+        }),
+    ],
+)
+def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store, scorer_data):
     with WorkspaceContext("team-active-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-active-a")
         with mock.patch.object(
@@ -2381,9 +2394,7 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
             "get_gateway_endpoint",
             return_value=_mock_gateway_endpoint(),
         ):
-            workspace_tracking_store.register_scorer(
-                exp_a, "scorer-a", _gateway_model_scorer_json()
-            )
+            workspace_tracking_store.register_scorer(exp_a, "scorer-a", scorer_data)
         workspace_tracking_store.upsert_online_scoring_config(
             experiment_id=exp_a,
             scorer_name="scorer-a",
@@ -2397,9 +2408,7 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
             "get_gateway_endpoint",
             return_value=_mock_gateway_endpoint(),
         ):
-            workspace_tracking_store.register_scorer(
-                exp_b, "scorer-b", _gateway_model_scorer_json()
-            )
+            workspace_tracking_store.register_scorer(exp_b, "scorer-b", scorer_data)
         workspace_tracking_store.upsert_online_scoring_config(
             experiment_id=exp_b,
             scorer_name="scorer-b",

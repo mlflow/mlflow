@@ -70,6 +70,7 @@ class ScorerKind(Enum):
     THIRD_PARTY = "third_party"
     MEMORY_AUGMENTED = "memory_augmented"
     ENSEMBLE = "ensemble"
+    JEV = "jev"
 
 
 _ALLOWED_SCORERS_FOR_REGISTRATION = [
@@ -80,6 +81,7 @@ _ALLOWED_SCORERS_FOR_REGISTRATION = [
     ScorerKind.MEMORY_AUGMENTED,
     ScorerKind.THIRD_PARTY,
     ScorerKind.ENSEMBLE,
+    ScorerKind.JEV,
 ]
 
 
@@ -193,6 +195,9 @@ class SerializedScorer:
     # InstructionsJudge fields (for make_judge created judges)
     instructions_judge_pydantic_data: dict[str, Any] | None = None
 
+    # TypeSafe Jev scorer configuration (no executable code or credentials).
+    jev_scorer_pydantic_data: dict[str, Any] | None = None
+
     # MemoryAugmentedJudge fields (for aligned judges)
     memory_augmented_judge_data: dict[str, Any] | None = None
 
@@ -209,6 +214,7 @@ class SerializedScorer:
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
         has_instructions_fields = self.instructions_judge_pydantic_data is not None
+        has_jev_fields = self.jev_scorer_pydantic_data is not None
         has_memory_augmented_fields = self.memory_augmented_judge_data is not None
         has_third_party_fields = self.third_party_scorer_data is not None
         has_ensemble_fields = self.ensemble_scorer_data is not None
@@ -218,6 +224,7 @@ class SerializedScorer:
             has_builtin_fields,
             has_decorator_fields,
             has_instructions_fields,
+            has_jev_fields,
             has_memory_augmented_fields,
             has_third_party_fields,
             has_ensemble_fields,
@@ -228,6 +235,7 @@ class SerializedScorer:
                 "SerializedScorer must have either builtin scorer fields "
                 "(builtin_scorer_class), decorator scorer fields (call_source), "
                 "instructions judge fields (instructions_judge_pydantic_data), "
+                "Jev scorer fields (jev_scorer_pydantic_data), "
                 "memory augmented judge fields (memory_augmented_judge_data), "
                 "third-party scorer fields (third_party_scorer_data), "
                 "or ensemble scorer fields (ensemble_scorer_data) present"
@@ -564,6 +572,24 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
                 )
+
+        elif serialized.jev_scorer_pydantic_data is not None:
+            # Import here because JevScorer inherits from Scorer.
+            from mlflow.genai.scorers.jev import JevScorer
+
+            try:
+                data = dict(serialized.jev_scorer_pydantic_data)
+                data.update(
+                    name=serialized.name,
+                    description=serialized.description,
+                    aggregations=serialized.aggregations,
+                    timeout=serialized.timeout,
+                )
+                return JevScorer(**data)
+            except (TypeError, ValueError) as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid Jev scorer configuration: {e}"
+                ) from e
 
         # Handle MemoryAugmentedJudge scorers
         elif serialized.memory_augmented_judge_data is not None:
@@ -1334,6 +1360,18 @@ class Scorer(BaseModel):
             raise MlflowException.invalid_parameter_value(
                 THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR
             )
+
+        if self.kind == ScorerKind.JEV:
+            if is_databricks_uri(get_tracking_uri()):
+                raise MlflowException.invalid_parameter_value(
+                    "Registering Jev scorers is only supported by the OSS MLflow tracking server."
+                )
+            if self.model is None or not self.model.startswith("gateway:/"):
+                raise MlflowException.invalid_parameter_value(
+                    "Registering Jev scorers requires a gateway:/ endpoint. Configure the "
+                    "TypeSafe API key in the gateway endpoint; use typesafe:/ models for "
+                    "local evaluation."
+                )
 
         store = _get_scorer_store()
         if (
