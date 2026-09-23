@@ -894,6 +894,66 @@ def authorize(
     )
 
 
+class RetentionDecisions:
+    """One retention decision per resource, asked by type and id rather than by dict key.
+
+    ``retains(type)`` defaults the id to ``"*"``, which is the whole answer for a wildcard-only
+    tier -- every sub-resource tier in ``PATTERN_KINDS`` is wildcard-only, so a filter over them
+    reads as ``decisions.retains(RESOURCE_TYPE_ASSESSMENT)``. A per-id tier passes its id.
+
+    Asking about a resource no requirement covered RAISES rather than returning False. It would
+    have been folded against grants that were never loaded, so the answer would be a guess; and a
+    mistyped type silently redacting an entire response is worse than a loud failure. The genuine
+    runtime condition -- an anchor workspace that cannot be resolved -- is already handled by
+    ``retention_decisions``, which returns False for every requirement so callers fail closed.
+    """
+
+    def __init__(self, by_resource: "dict[tuple[str, str], bool]") -> None:
+        self._by_resource = by_resource
+
+    def retains(self, resource_type: str, resource_id: str = "*") -> bool:
+        try:
+            return self._by_resource[(resource_type, resource_id)]
+        except KeyError:
+            raise KeyError(
+                f"No retention decision for ({resource_type!r}, {resource_id!r}). Pass a "
+                f"Requirement covering it to retention_decisions. Decided: "
+                f"{sorted(self._by_resource)}"
+            ) from None
+
+    def __len__(self) -> int:
+        return len(self._by_resource)
+
+
+def retention_decisions(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> RetentionDecisions:
+    """Whether EACH requirement is met, keyed by the resource it speaks about.
+
+    ``authorize``'s sibling: the same single query and the same fold, but the results are kept
+    separate instead of collapsed with ``all``. A gate wants the conjunction; a response filter
+    wants one decision per thing it might withhold, so it can keep a trace and drop that trace's
+    assessments.
+
+    Keyed by ``(resource_type, resource_id)`` -- a wildcard tier answers under ``(type, "*")``, a
+    per-id tier under its own id. Requirements repeated over the same resource collapse to one
+    entry, and ``resolve_requirements`` already dedupes their grant keys, so asking about the same
+    resource twice costs nothing.
+
+    Every decision is False when the anchor workspace cannot be resolved, so a caller that
+    withholds on False fails closed without special-casing the unresolvable case.
+    """
+    permissions = resolve_requirements(username, anchor, requirements)
+    if permissions is None:
+        return RetentionDecisions({(r.resource_type, r.resource_id): False for r in requirements})
+    return RetentionDecisions({
+        (requirement.resource_type, requirement.resource_id): requirement_met(
+            requirement, permission
+        )
+        for requirement, permission in zip(requirements, permissions)
+    })
+
+
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
@@ -5046,18 +5106,6 @@ def filter_list_gateway_model_definitions(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
-def _assessments_readable(experiment_id: str, username: str) -> bool:
-    # The trace gate already established experiment READ and trace READ, so the assessment tier is
-    # all that is left to consult. Absent an assessment grant the experiment governs through the
-    # fallback, so this narrows only where an explicit grant -- including DENY -- exists.
-    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
-    return authorize(
-        username,
-        experiment,
-        [Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,))],
-    )
-
-
 def redact_trace_assessments(resp: Response) -> None:
     """Withhold ``assessments[]`` from a trace read when the assessment tier denies them.
 
@@ -5080,13 +5128,30 @@ def redact_trace_assessments(resp: Response) -> None:
         # Nothing to withhold, so no grants are loaded: the common case adds no query.
         return
 
-    experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
-    if experiment_id and _assessments_readable(experiment_id, authenticate_request().username):
-        return
-
     # A trace with no experiment location has no tier to inherit from, and the trace gate anchors
     # on the experiment too, so such a trace could not have been read here at all. Withhold rather
     # than guess at a tier.
+    keep = False
+    experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
+    if experiment_id:
+        experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+        # The trace gate already established experiment READ and trace READ, so the assessment
+        # tier is all that is left to consult. The fallback is the compatibility guarantee: absent
+        # an assessment grant the experiment governs, so only an explicit grant -- including
+        # DENY -- narrows anything.
+        decisions = retention_decisions(
+            authenticate_request().username,
+            experiment,
+            [
+                Requirement(
+                    RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,)
+                )
+            ],
+        )
+        keep = decisions.retains(RESOURCE_TYPE_ASSESSMENT)
+    if keep:
+        return
+
     trace_info.ClearField("assessments")
     resp.data = message_to_json(response_message)
 
