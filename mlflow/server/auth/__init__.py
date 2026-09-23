@@ -1705,8 +1705,44 @@ def validate_can_update_experiment():
     return _get_permission_from_experiment_id().can_update
 
 
+# Deleting an experiment withdraws everything it contains, so the tiers governing that content
+# each get a say. The store's soft delete only re-stages the runs, but the experiment's traces,
+# logged models, assessments and review queues all become inaccessible with it, so authority over
+# them is authority this operation exercises.
+_EXPERIMENT_CASCADE_TIERS = (
+    RESOURCE_TYPE_RUN,
+    RESOURCE_TYPE_TRACE,
+    RESOURCE_TYPE_LOGGED_MODEL,
+    RESOURCE_TYPE_ASSESSMENT,
+    RESOURCE_TYPE_REVIEW_QUEUE,
+)
+
+
 def validate_can_delete_experiment():
-    return _get_permission_from_experiment_id().can_delete
+    """DeleteExperiment and RestoreExperiment: delete on the experiment AND on what it contains.
+
+    Each child tier carries ``delete`` with the experiment as fallback, so a caller holding no child
+    grant is judged exactly as master judges them. A caller who does hold one is judged by it: tier
+    override means the narrower grant decides, so ``(run, EDIT)`` -- which cannot delete runs --
+    withholds the cascade even from an experiment MANAGE holder. That is the intended reading of a
+    child grant taking priority, not an accident of it.
+
+    Master pairs Restore with Delete under ``can_delete`` (both map to this validator), so restore
+    keeps the same requirement rather than being split off.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
+            *(
+                Requirement(tier, "*", "delete", fallback_if_no_grant=(experiment,))
+                for tier in _EXPERIMENT_CASCADE_TIERS
+            ),
+        ],
+    )
 
 
 def validate_can_manage_experiment():
@@ -2051,6 +2087,31 @@ def _authorize_version_action(action: str) -> bool:
     )
 
 
+def validate_can_delete_registered_model_or_prompt_cascade():
+    """DeleteRegisteredModel destroys every version of the model (an ORM delete), so the version
+    tier carries ``delete`` with the parent as fallback. Not shared with the alias routes, which
+    mutate the parent's alias map and destroy no version.
+    """
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [
+            Requirement(container_type, name, "delete"),
+            Requirement(version_type, "*", "delete", fallback_if_no_grant=(container,)),
+        ],
+    )
+
+
 def validate_can_read_model_or_prompt_version():
     """Point reads of a version: the parent must be readable and the version tier may veto.
 
@@ -2217,8 +2278,29 @@ def validate_can_update_scorer():
     return _get_permission_from_scorer_name().can_update
 
 
+def _scorer_version_delete_allowed() -> bool:
+    # DeleteScorer removes every version, so the version tier carries `delete` rather than only
+    # vetoing as it does on the read routes. Falls back to the named scorer, so a caller with no
+    # version grant is unaffected.
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                "delete",
+                fallback_if_no_grant=(scorer,),
+            ),
+        ],
+    )
+
+
 def validate_can_delete_scorer():
-    return _get_permission_from_scorer_name().can_delete and _scorer_version_not_denied()
+    return _get_permission_from_scorer_name().can_delete and _scorer_version_delete_allowed()
 
 
 def validate_can_manage_scorer():
@@ -4015,7 +4097,7 @@ BEFORE_REQUEST_HANDLERS = {
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
     GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
-    DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,
+    DeleteRegisteredModel: validate_can_delete_registered_model_or_prompt_cascade,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
     RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
     GetLatestVersions: validate_can_read_model_or_prompt_version,
@@ -5329,6 +5411,36 @@ def filter_search_logged_models(resp: Response) -> None:
     resp.data = message_to_json(response_proto)
 
 
+def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
+    """Drop embedded ``latest_versions`` when the version tier withholds them.
+
+    ``RegisteredModel`` embeds ModelVersion rows, so a registered-model response is a second route
+    to version data that ``SearchModelVersions`` and ``GetModelVersion`` already gate. The versions
+    ride as passengers on a model the caller may legitimately read, so they are redacted and the row
+    survives.
+
+    One decision per model, not per version: a ModelVersion's ``name`` IS its registered model's
+    name, so every embedded version shares the parent's grant identity and classification.
+    """
+    can_read = _rm_or_prompt_version_read_predicate(username)
+    withheld = False
+    for registered_model in registered_models:
+        if registered_model.latest_versions and not can_read(registered_model):
+            withheld = True
+            del registered_model.latest_versions[:]
+    return withheld
+
+
+def redact_get_registered_model_versions(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = GetRegisteredModel.Response()
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    if _withhold_denied_latest_versions([response_message.registered_model], username):
+        resp.data = message_to_json(response_message)
+
+
 def filter_search_registered_models(resp: Response):
     if sender_is_admin():
         return
@@ -5382,6 +5494,8 @@ def filter_search_registered_models(resp: Response):
         final_offset = start_offset + len(refetched)
         response_message.next_page_token = SearchUtils.create_page_token(final_offset)
 
+    # A row the caller may read can still embed versions the version tier withholds.
+    _withhold_denied_latest_versions(response_message.registered_models, username)
     resp.data = message_to_json(response_message)
 
 
@@ -5781,6 +5895,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     BatchGetTraceInfos: redact_batch_trace_info_assessments,
     SearchTracesV3: redact_search_traces_v3_assessments,
     SearchModelVersions: filter_search_model_versions,
+    GetRegisteredModel: redact_get_registered_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
