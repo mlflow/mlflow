@@ -11,6 +11,7 @@ import { useCreateSecret } from './useCreateSecret';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
+import { hasMixedTypeSafeProviders } from '../utils/gatewayUtils';
 
 export { getReadableErrorMessage };
 
@@ -153,7 +154,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const handleSubmit = useCallback(
     async (values: EditEndpointFormData) => {
-      if (!endpoint) return;
+      if (!endpoint || hasMixedTypeSafeProviders([...values.trafficSplitModels, ...values.fallbackModels])) return;
 
       try {
         const getSecretId = async (model: TrafficSplitModel | FallbackModel): Promise<string> => {
@@ -323,6 +324,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const isFormComplete = useMemo(() => {
     if (trafficSplitModels.length === 0) return false;
+    if (hasMixedTypeSafeProviders([...trafficSplitModels, ...fallbackModels])) return false;
 
     const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
     if (Math.abs(totalWeight - 100) > 0.01) return false;
