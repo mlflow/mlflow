@@ -3073,19 +3073,24 @@ def validate_can_search_traces():
 
 
 def validate_can_search_traces_v3():
-    locations = (request.json or {}).get("locations", [])
-    # Only mlflow_experiment locations carry an experiment_id we can permission-check;
-    # inference_table and other future location types don't map to a local experiment so
-    # they are intentionally excluded and requests containing only those locations are
-    # denied (fail-closed) via the bool(experiment_ids) guard below.
+    """Only ``mlflow_experiment`` locations carry an experiment_id we can permission-check.
+
+    ``inference_table`` and future location types map to no local experiment, so they are excluded
+    and a request carrying only those is denied through ``_bulk_requirements`` returning ``None``.
+
+    Read from the parsed proto rather than raw JSON. The handler parses with ``ParseDict``, which
+    accepts lowerCamelCase aliases per list element, so a body mixing one snake_case location with
+    one ``mlflowExperiment``/``experimentId`` location would hide the second experiment from
+    authorization while the handler searched both.
+    """
+    message = _get_request_message(SearchTracesV3())
     experiment_ids = [
-        eid
-        for loc in locations
-        if isinstance(loc, dict)
-        if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
-        if (eid := ml_exp.get("experiment_id"))
+        location.mlflow_experiment.experiment_id
+        for location in message.locations
+        if location.HasField("mlflow_experiment")
+        if location.mlflow_experiment.experiment_id
     ]
-    return _authorize_trace_search(experiment_ids, (request.json or {}).get("filter", ""))
+    return _authorize_trace_search(experiment_ids, message.filter)
 
 
 def validate_can_batch_get_traces():
@@ -3343,16 +3348,13 @@ def validate_can_read_traces_by_experiment_ids():
 
 
 def validate_can_start_trace_v3():
-    body = request.json or {}
-    match body:
-        case {
-            "trace": {
-                "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
-            }
-        } if eid:
-            return _authorize_create_in_experiment(eid, RESOURCE_TYPE_TRACE)
-        case _:
-            return False
+    # Read from the parsed proto, as the handler does: a structural match on raw JSON rejected the
+    # lowerCamelCase spelling the handler accepts, refusing valid requests.
+    message = _get_request_message(StartTraceV3())
+    experiment_id = message.trace.trace_info.trace_location.mlflow_experiment.experiment_id
+    if not experiment_id:
+        return False
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE)
 
 
 def validate_can_link_traces_to_run():

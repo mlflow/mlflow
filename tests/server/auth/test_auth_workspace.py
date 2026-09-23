@@ -5284,6 +5284,66 @@ def test_filter_correlation_gates_camel_case_filters(workspace_permission_setup,
     assert _run_filter_correlation("status = 'OK'", camel_case=True) is True
 
 
+def _run_search_traces_v3(locations, filter_string=""):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/search",
+        method="POST",
+        json={"locations": locations, "filter": filter_string},
+    ):
+        return auth_module.validate_can_search_traces_v3()
+
+
+def _snake_location(experiment_id):
+    return {"mlflow_experiment": {"experiment_id": experiment_id}}
+
+
+def _camel_location(experiment_id):
+    return {"mlflowExperiment": {"experimentId": experiment_id}}
+
+
+def test_search_traces_v3_sees_mixed_alias_locations(workspace_permission_setup):
+    """The handler parses locations with ParseDict, which accepts lowerCamelCase PER LIST ELEMENT.
+    A body mixing one permitted snake_case location with one denied camelCase location therefore
+    hid the second experiment from a raw-JSON walk while the handler searched both.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", READ.name),
+        ("experiment", "exp-2", DENY.name),
+    ])
+
+    assert _run_search_traces_v3([_snake_location("exp-1")]) is True
+    assert _run_search_traces_v3([_snake_location("exp-2")]) is False
+    # The denied experiment must not become invisible by changing its spelling, in either order.
+    assert _run_search_traces_v3([_snake_location("exp-1"), _camel_location("exp-2")]) is False
+    assert _run_search_traces_v3([_camel_location("exp-2"), _snake_location("exp-1")]) is False
+    # A wholly camelCase permitted request is honoured rather than refused.
+    assert _run_search_traces_v3([_camel_location("exp-1")]) is True
+
+
+def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup):
+    """A structural match on raw JSON refused the lowerCamelCase spelling the handler accepts."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    def _run(location):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/traces",
+            method="POST",
+            json={"trace": {"trace_info": {"trace_location": location}}},
+        ):
+            return auth_module.validate_can_start_trace_v3()
+
+    assert _run(_snake_location("exp-1")) is True
+    assert _run(_camel_location("exp-1")) is True
+    # A body naming no experiment still denies.
+    assert _run({}) is False
+
+
 def _deny_tier(workspace_permission_setup, tier):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
