@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import tempfile
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -55,6 +56,12 @@ from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 _logger = logging.getLogger(__name__)
 
 MAX_RETRY_COUNT = 10
+
+# Process-wide cache of SQLAlchemy engines, keyed by database URI. The tracking, model registry,
+# job, and workspace stores all go through this cache so that stores pointing at the same database
+# share a single connection pool instead of opening one pool per store.
+_engine_map: dict[str, sqlalchemy.engine.Engine] = {}
+_engine_map_lock = threading.Lock()
 
 
 def _get_package_dir():
@@ -466,3 +473,35 @@ def create_sqlalchemy_engine(db_uri):
             return statement, parameters
 
     return engine
+
+
+def get_or_create_engine(db_uri: str) -> sqlalchemy.engine.Engine:
+    """
+    Return the process-wide engine for ``db_uri``, creating it on first use.
+
+    Reusing one engine per database URI keeps the number of connection pools proportional to the
+    number of distinct databases rather than to the number of store instances.
+    """
+    if (engine := _engine_map.get(db_uri)) is not None:
+        return engine
+    with _engine_map_lock:
+        if db_uri not in _engine_map:
+            _engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
+        return _engine_map[db_uri]
+
+
+def dispose_engine(db_uri: str) -> None:
+    """Dispose the cached engine for ``db_uri`` and drop it from the cache."""
+    with _engine_map_lock:
+        engine = _engine_map.pop(db_uri, None)
+    if engine is not None:
+        engine.dispose()
+
+
+def dispose_all_engines() -> None:
+    """Dispose every cached engine and empty the cache."""
+    with _engine_map_lock:
+        engines = list(_engine_map.values())
+        _engine_map.clear()
+    for engine in engines:
+        engine.dispose()

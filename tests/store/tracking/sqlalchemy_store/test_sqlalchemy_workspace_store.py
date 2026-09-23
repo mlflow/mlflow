@@ -46,6 +46,11 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.utils import dispose_engine
+from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
+from mlflow.store.model_registry.sqlalchemy_workspace_store import (
+    WorkspaceAwareSqlAlchemyStore as WorkspaceAwareModelRegistryStore,
+)
 from mlflow.store.tracking.dbmodels.models import (
     SqlEntityAssociation,
     SqlExperiment,
@@ -1150,7 +1155,7 @@ def test_workspace_startup_rejects_root_ending_with_workspaces(tmp_path, db_uri,
     ) as excinfo:
         tracking_utils._get_sqlalchemy_store(db_uri, bad_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
 
 def test_workspace_startup_rejects_root_already_scoped(tmp_path, db_uri, monkeypatch):
@@ -1164,7 +1169,7 @@ def test_workspace_startup_rejects_root_already_scoped(tmp_path, db_uri, monkeyp
     ) as excinfo:
         tracking_utils._get_sqlalchemy_store(db_uri, bad_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
 
 def test_workspace_startup_ignores_default_experiment_reserved_location(
@@ -1194,7 +1199,7 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     workspace_store = tracking_utils._get_sqlalchemy_store(db_uri, base_root.as_uri())
     workspace_store._dispose_engine()
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
 
 def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db_uri, monkeypatch):
@@ -1206,7 +1211,7 @@ def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         store.rename_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, "renamed-default")
     store._dispose_engine()
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
     # Re-initializing the store (simulating a server restart) must not crash on the renamed
     # default experiment. The by-ID bootstrap guard should find experiment 0 and skip re-creating
@@ -1221,7 +1226,7 @@ def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db
         assert default_experiment.experiment_id == SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
     finally:
         restarted_store._dispose_engine()
-        SqlAlchemyStore._engine_map.pop(db_uri, None)
+        dispose_engine(db_uri)
 
 
 def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
@@ -1258,13 +1263,13 @@ def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
         )
         session.flush()
     store._dispose_engine()
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
     # The wrapped message is the driver's error string, whose class name is dialect-specific:
     # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
     with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
         tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
 
 def test_single_tenant_startup_rejects_non_default_workspace_experiments(
@@ -1280,7 +1285,7 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(
         workspace_store.create_experiment("team-exp")
 
     workspace_store._dispose_engine()
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     with pytest.raises(
@@ -1290,7 +1295,22 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(
         SqlAlchemyStore(db_uri, artifact_root.as_uri())
 
     assert excinfo.value.error_code == "INVALID_STATE"
-    SqlAlchemyStore._engine_map.pop(db_uri, None)
+    dispose_engine(db_uri)
+
+
+def test_workspace_aware_stores_for_same_database_share_one_engine(tmp_path, db_uri, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+
+    tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, artifact_root.as_uri())
+    registry_store = WorkspaceAwareModelRegistryStore(db_uri)
+    job_store = WorkspaceAwareSqlAlchemyJobStore(db_uri)
+
+    assert registry_store.engine is tracking_store.engine
+    assert job_store.engine is tracking_store.engine
+
+    tracking_store._dispose_engine()
 
 
 def test_metric_bulk_operations_are_workspace_scoped(workspace_tracking_store):

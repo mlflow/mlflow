@@ -190,3 +190,26 @@ def test_make_parent_dirs_if_sqlite_skips_non_sqlite() -> None:
     # Should not raise any errors for non-SQLite URIs
     utils._make_parent_dirs_if_sqlite("postgresql://localhost/db")
     utils._make_parent_dirs_if_sqlite("mysql://localhost/db")
+
+
+def test_get_or_create_engine_reuses_cached_engine(tmp_path: Path) -> None:
+    db_uri = f"sqlite:///{tmp_path / 'test.db'}"
+
+    engine = utils.get_or_create_engine(db_uri)
+    assert utils.get_or_create_engine(db_uri) is engine
+    assert utils.get_or_create_engine(f"sqlite:///{tmp_path / 'other.db'}") is not engine
+
+    utils.dispose_all_engines()
+
+
+def test_dispose_engine_evicts_cached_engine(tmp_path: Path) -> None:
+    db_uri = f"sqlite:///{tmp_path / 'test.db'}"
+
+    engine = utils.get_or_create_engine(db_uri)
+    utils.dispose_engine(db_uri)
+    # Disposing an unknown URI is a no-op.
+    utils.dispose_engine(db_uri)
+
+    assert utils.get_or_create_engine(db_uri) is not engine
+
+    utils.dispose_all_engines()
