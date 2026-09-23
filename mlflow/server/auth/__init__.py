@@ -3076,7 +3076,15 @@ def validate_can_update_gateway_endpoint():
     if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
         return False
 
-    return _validate_can_use_model_definitions(msg.model_configs)
+    if not _validate_can_use_model_definitions(msg.model_configs):
+        return False
+    # The body can also re-point the endpoint at an experiment, which master does not gate, so the
+    # experiment vetoes rather than carrying a positive level.
+    if not msg.experiment_id:
+        return True
+    return _gateway_resources_not_denied(
+        [Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)]
+    )
 
 
 def _guardrail_scorer_not_denied(guardrail_id: str) -> bool:
@@ -3125,8 +3133,39 @@ def validate_can_attach_model_to_gateway_endpoint():
     return _get_gateway_model_definition_permission(model_definition_id).can_use
 
 
+def _gateway_resources_not_denied(requirements) -> bool:
+    """Veto-only check for resources a gateway route NAMES but does not gate.
+
+    Anchored on the workspace because ``gateway_endpoint`` is not in ``_WORKSPACE_FETCHER``, so an
+    endpoint anchor would resolve no workspace and deny every request. Veto rather than a positive
+    level, since master gates these routes on the endpoint alone and requiring more would refuse
+    callers master allows.
+    """
+    if not requirements:
+        return True
+    return authorize(
+        authenticate_request().username, (RESOURCE_TYPE_WORKSPACE, "*"), list(requirements)
+    )
+
+
 def validate_can_detach_model_from_gateway_endpoint():
-    return _validate_can_update_gateway_endpoint_from_request(DetachModelFromGatewayEndpoint())
+    # Detaching NAMES a model definition but neither uses nor destroys it, so unlike
+    # `validate_can_attach_model_to_gateway_endpoint` -- which requires `can_use` because attaching
+    # puts the model into service -- the definition only vetoes here.
+    msg = _get_request_message(DetachModelFromGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+    if not msg.model_definition_id:
+        return True
+    return _gateway_resources_not_denied(
+        [
+            Requirement(
+                RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+                msg.model_definition_id,
+                ACTION_NOT_DENIED,
+            )
+        ]
+    )
 
 
 def validate_can_create_gateway_endpoint_binding():
@@ -5765,6 +5804,70 @@ def filter_list_scorers(resp: Response) -> None:
 # The list endpoints reach the handler behind the gateway-proxy validator (authenticated);
 # these after-request filters are the row-level access control, dropping rows the caller
 # cannot read. Keep them registered in AFTER_REQUEST_PATH_HANDLERS.
+def _withhold_denied_endpoint_model_definitions(endpoints, username: str) -> bool:
+    """Redact denied model definitions, and denied secrets within them, from GatewayEndpoint rows.
+
+    ``GatewayEndpoint.model_mappings[]`` embeds a whole ``GatewayModelDefinition`` -- not just an id
+    -- and that message carries ``secret_id`` and ``secret_name``. So an endpoint response is a
+    route to two further grantable types, and Get, Update and List all return the same message.
+
+    The definitions are passengers on an endpoint the caller may legitimately read, so they are
+    redacted and the mapping row survives. A denied definition takes its id with it, since the id
+    alone still names the resource; a readable definition whose SECRET is denied keeps everything
+    except the two secret fields.
+    """
+    mappings = [mapping for endpoint in endpoints for mapping in endpoint.model_mappings]
+    if not mappings:
+        # Nothing embedded, so no grants need loading -- an endpoint listing that carries no
+        # mappings costs no extra query.
+        return False
+    gate = retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION, "*", ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_GATEWAY_SECRET, "*", ACTION_NOT_DENIED),
+        ],
+    )
+    withheld = False
+    for mapping in mappings:
+        definition_id = (
+            mapping.model_definition_id or mapping.model_definition.model_definition_id
+        )
+        if definition_id and not gate.retains(
+            RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION, definition_id
+        ):
+            mapping.ClearField("model_definition")
+            mapping.ClearField("model_definition_id")
+            withheld = True
+            continue
+        secret_id = mapping.model_definition.secret_id
+        if secret_id and not gate.retains(RESOURCE_TYPE_GATEWAY_SECRET, secret_id):
+            mapping.model_definition.ClearField("secret_id")
+            mapping.model_definition.ClearField("secret_name")
+            withheld = True
+    return withheld
+
+
+def _redact_gateway_endpoint_response(resp: Response, response_message) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    if _withhold_denied_endpoint_model_definitions([response_message.endpoint], username):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_gateway_endpoint_model_definitions(resp: Response) -> None:
+    _redact_gateway_endpoint_response(resp, GetGatewayEndpoint.Response())
+
+
+def redact_update_gateway_endpoint_model_definitions(resp: Response) -> None:
+    _redact_gateway_endpoint_response(resp, UpdateGatewayEndpoint.Response())
+
+
 def filter_list_gateway_endpoints(resp: Response) -> None:
     """Filter ``ListGatewayEndpoints`` responses to endpoints the caller can read."""
     if sender_is_admin():
@@ -5775,6 +5878,10 @@ def filter_list_gateway_endpoints(resp: Response) -> None:
     kept = [row for row in response_message.endpoints if can_read(row.endpoint_id)]
     response_message.ClearField("endpoints")
     response_message.endpoints.extend(kept)
+    # A row the caller may read can still embed a denied model definition or secret.
+    _withhold_denied_endpoint_model_definitions(
+        response_message.endpoints, authenticate_request().username
+    )
     resp.data = message_to_json(response_message)
 
 
@@ -5959,6 +6066,8 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
     DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
     # Cross-resource gateway list endpoints: filter rows to what the caller can read.
+    GetGatewayEndpoint: redact_get_gateway_endpoint_model_definitions,
+    UpdateGatewayEndpoint: redact_update_gateway_endpoint_model_definitions,
     ListGatewayEndpoints: filter_list_gateway_endpoints,
     ListGatewayModelDefinitions: filter_list_gateway_model_definitions,
     ListGatewaySecretInfos: filter_list_gateway_secrets,

@@ -5640,6 +5640,142 @@ def test_single_model_responses_redact_embedded_versions(
     assert out["registered_model"]["name"] == "model-xyz"
 
 
+def _endpoint_payload(definition_id="md-1", secret_id="sec-1"):
+    return {
+        "endpoint": {
+            "endpoint_id": "ep-1",
+            "model_mappings": [{
+                "mapping_id": "map-1",
+                "endpoint_id": "ep-1",
+                "model_definition_id": definition_id,
+                "model_definition": {
+                    "model_definition_id": definition_id,
+                    "name": "md",
+                    "secret_id": secret_id,
+                    "secret_name": "my-secret",
+                    "provider": "openai",
+                },
+            }],
+        }
+    }
+
+
+def _run_endpoint_redaction(handler, payload):
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/get", method="GET",
+        query_string={"endpoint_id": "ep-1"},
+    ):
+        getattr(auth_module, handler)(flask_resp)
+    return json.loads(flask_resp.get_data(as_text=True))["endpoint"]["model_mappings"][0]
+
+
+@pytest.mark.parametrize(
+    "handler",
+    ["redact_get_gateway_endpoint_model_definitions",
+     "redact_update_gateway_endpoint_model_definitions"],
+)
+def test_endpoint_responses_redact_a_denied_model_definition(
+    workspace_permission_setup, monkeypatch, handler
+):
+    """GatewayEndpoint.model_mappings embeds a whole GatewayModelDefinition, so Get, Update and List
+    are each a route to it. A denied definition takes its id with it, since the id still names it.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_model_definition", "md-1", DENY.name)])
+
+    mapping = _run_endpoint_redaction(handler, _endpoint_payload())
+    assert "model_definition" not in mapping
+    assert "model_definition_id" not in mapping
+    # The mapping row itself survives, so the response shape stays valid.
+    assert mapping["mapping_id"] == "map-1"
+
+
+def test_endpoint_responses_redact_only_the_secret_when_the_secret_is_denied(
+    workspace_permission_setup, monkeypatch
+):
+    """A readable definition whose SECRET is denied keeps everything except the two secret fields --
+    gateway_secret is its own grantable type named inside the embedded definition.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_secret", "sec-1", DENY.name)])
+
+    mapping = _run_endpoint_redaction(
+        "redact_get_gateway_endpoint_model_definitions", _endpoint_payload()
+    )
+    definition = mapping["model_definition"]
+    assert "secret_id" not in definition
+    assert "secret_name" not in definition
+    assert definition["provider"] == "openai"
+    assert definition["model_definition_id"] == "md-1"
+
+
+def test_endpoint_responses_untouched_without_a_deny(workspace_permission_setup, monkeypatch):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    mapping = _run_endpoint_redaction(
+        "redact_get_gateway_endpoint_model_definitions", _endpoint_payload()
+    )
+    assert mapping["model_definition"]["secret_id"] == "sec-1"
+    assert mapping["model_definition_id"] == "md-1"
+
+
+def test_detach_model_vetoes_a_denied_model_definition(workspace_permission_setup, monkeypatch):
+    """Detach NAMES a model definition but neither uses nor destroys it, so it vetoes rather than
+    requiring can_use as attach does -- requiring more would refuse callers master allows.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    monkeypatch.setattr(
+        auth_module, "_get_gateway_endpoint_permission", lambda endpoint_id: MANAGE
+    )
+    _grant(store, username, "team-a", [("gateway_model_definition", "md-1", DENY.name)])
+
+    def _detach(definition_id):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/gateway/endpoints/models/detach",
+            method="POST",
+            json={"endpoint_id": "ep-1", "model_definition_id": definition_id},
+        ):
+            return auth_module.validate_can_detach_model_from_gateway_endpoint()
+
+    assert _detach("md-1") is False
+    # A definition with no DENY is unaffected: master's endpoint-only check still decides.
+    assert _detach("md-2") is True
+
+
+def test_update_endpoint_vetoes_a_denied_experiment(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    monkeypatch.setattr(
+        auth_module, "_get_gateway_endpoint_permission", lambda endpoint_id: MANAGE
+    )
+    monkeypatch.setattr(auth_module, "_validate_can_use_model_definitions", lambda configs: True)
+    _grant(store, username, "team-a", [("experiment", "exp-1", DENY.name)])
+
+    def _update(experiment_id):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/gateway/endpoints/update",
+            method="POST",
+            json={"endpoint_id": "ep-1", "experiment_id": experiment_id},
+        ):
+            return auth_module.validate_can_update_gateway_endpoint()
+
+    assert _update("exp-1") is False
+    assert _update("exp-2") is True
+
+
 def _get_registered_model_versions(rows, name="model-xyz", tags=None):
     payload = json.dumps({
         "registered_model": {"name": name, "tags": tags or [], "latest_versions": rows}
