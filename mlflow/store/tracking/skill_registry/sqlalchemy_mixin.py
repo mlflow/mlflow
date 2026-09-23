@@ -211,17 +211,31 @@ class SqlAlchemySkillRegistryMixin:
     def delete_skill_and_collect_artifacts(self, name: str, organization: str = "") -> list[str]:
         self._validate_skill_identity(name, organization)
         with self.ManagedSessionMaker(read_only=False) as session:
-            skill = (
+            # Take the parent row's write lock before reading anything, so the versions
+            # captured below are exactly the ones the cascade will remove: a concurrent
+            # registration blocks on this row (its version insert needs the parent) until the
+            # delete commits, and then either fails or recreates the skill from version 1. On
+            # SQLite the no-op update starts the write transaction, which serializes writers.
+            locked = (
                 self
                 ._get_query(session, SqlSkill)
                 .filter(SqlSkill.name == name, SqlSkill.organization == organization)
-                .one_or_none()
+                .update(
+                    {SqlSkill.last_updated_at: SqlSkill.last_updated_at},
+                    synchronize_session=False,
+                )
             )
-            if skill is None:
+            if locked != 1:
                 raise MlflowException(
                     f"Skill '{name}' not found in organization '{organization}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+            skill = (
+                self
+                ._get_query(session, SqlSkill)
+                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                .one()
+            )
             self._purge_stale_skill_memberships(session, skill)
             owned_paths = [
                 path

@@ -1,3 +1,4 @@
+import threading
 from unittest import mock
 
 import pytest
@@ -10,12 +11,16 @@ from mlflow.server.skill_registry import (
     register_skill_version,
 )
 from mlflow.server.skill_registry import deletion as deletion_module
+from mlflow.server.skill_registry import registration as registration_module
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
 )
-from mlflow.store.tracking.skill_registry.artifact_paths import validate_referenced_mlflow_source
+from mlflow.store.tracking.skill_registry.artifact_paths import (
+    owned_skill_upload_path,
+    validate_referenced_mlflow_source,
+)
 
 from tests.server.skill_registry.conftest import (
     SKILL_FILES,
@@ -152,6 +157,62 @@ def test_delete_skill_leaves_unrelated_content_alone(store, artifact_root):
     assert unrelated.read_bytes() == b"model"
     # Only the token directory goes, never the identity prefix of a surviving neighbor.
     assert (artifact_root / "skills" / "@acme" / "reviewer-two").is_dir()
+
+
+def test_delete_racing_a_registration_never_orphans_a_tree(store, artifact_root):
+    # A registration that reaches its commit while the delete is between capturing versions
+    # and removing them must not land in that window: the parent row lock holds it until the
+    # delete commits, after which it recreates the skill from version 1. Every tree left on
+    # disk belongs to a live version.
+    _, first = _upload()
+    stored = threading.Event()
+    committed = threading.Event()
+    outcome = {}
+    original_store_tree = registration_module.store_skill_tree
+
+    def store_then_signal(local_dir, artifact_path):
+        original_store_tree(local_dir, artifact_path)
+        outcome["path"] = artifact_path
+        stored.set()
+
+    def upload():
+        with mock.patch.object(
+            registration_module, "store_skill_tree", side_effect=store_then_signal
+        ) as store_tree:
+            outcome["version"] = register_skill_version(
+                SkillVersionRegistration(name="reviewer", organization="acme"),
+                content=skill_archive(),
+                multipart=True,
+            )
+        store_tree.assert_called_once()
+        committed.set()
+
+    thread = threading.Thread(target=upload, name="concurrent-registration")
+
+    def classify_in_the_window(**kwargs):
+        thread.start()
+        # The concurrent upload has written its content and is now trying to commit its row.
+        assert stored.wait(timeout=10)
+        # It cannot commit while this transaction holds the parent row.
+        assert not committed.wait(timeout=2)
+        return owned_skill_upload_path(**kwargs)
+
+    with mock.patch(
+        "mlflow.store.tracking.skill_registry.sqlalchemy_mixin.owned_skill_upload_path",
+        side_effect=classify_in_the_window,
+    ) as classify:
+        delete_skill("reviewer", organization="acme")
+    classify.assert_called_once()
+    thread.join(timeout=30)
+    assert committed.is_set()
+    assert not (artifact_root / first).exists()
+    # The registration went through after the delete, as version 1 of a fresh skill, and its
+    # tree is the only one under the identity prefix.
+    assert outcome["version"].version == 1
+    assert store.get_skill_version("reviewer", 1, organization="acme") == outcome["version"]
+    assert version_rows(store) == 1
+    tokens = sorted(p.name for p in (artifact_root / "skills" / "@acme" / "reviewer").iterdir())
+    assert tokens == [outcome["path"].rsplit("/", 1)[-1]]
 
 
 def test_delete_then_recreate_restarts_versions_at_a_fresh_path(store, artifact_root):
