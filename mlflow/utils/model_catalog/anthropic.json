@@ -159,6 +159,7 @@
         "output_per_million_tokens": 50.0,
         "cache_read_per_million_tokens": 1.0,
         "cache_write_per_million_tokens": 12.5,
+        "cache_write_1hr_per_million_tokens": 20.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -174,7 +175,37 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-10"
+      "last_updated_at": "2026-09-21"
+    },
+    "claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 0.25,
+        "cache_write_per_million_tokens": 12.5,
+        "cache_write_1hr_per_million_tokens": 20.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-21"
     },
     "claude-haiku-4-5": {
       "mode": "chat",
@@ -187,7 +218,8 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25
+        "cache_write_per_million_tokens": 1.25,
+        "cache_write_1hr_per_million_tokens": 2.0
       },
       "capabilities": {
         "function_calling": true,
@@ -196,7 +228,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-21"
     },
     "claude-haiku-4-5-20251001": {
       "mode": "chat",
@@ -209,7 +241,8 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25
+        "cache_write_per_million_tokens": 1.25,
+        "cache_write_1hr_per_million_tokens": 2.0
       },
       "capabilities": {
         "function_calling": true,
@@ -218,7 +251,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-21"
     },
     "claude-mythos-5": {
       "mode": "chat",
@@ -232,6 +265,7 @@
         "output_per_million_tokens": 50.0,
         "cache_read_per_million_tokens": 1.0,
         "cache_write_per_million_tokens": 12.5,
+        "cache_write_1hr_per_million_tokens": 20.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -247,7 +281,37 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-18"
+    },
+    "claude-mythos-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 0.25,
+        "cache_write_per_million_tokens": 12.5,
+        "cache_write_1hr_per_million_tokens": 20.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-21"
     },
     "claude-mythos-preview": {
       "mode": "chat",
@@ -261,6 +325,7 @@
         "output_per_million_tokens": 50.0,
         "cache_read_per_million_tokens": 1.0,
         "cache_write_per_million_tokens": 12.5,
+        "cache_write_1hr_per_million_tokens": 20.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -276,7 +341,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-18"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -380,6 +445,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -395,7 +461,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-4-5-20251101": {
       "mode": "chat",
@@ -409,6 +475,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -424,7 +491,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -438,6 +505,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -453,7 +521,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-4-6-20260205": {
       "mode": "chat",
@@ -467,6 +535,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -482,7 +551,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-4-7": {
       "mode": "chat",
@@ -496,6 +565,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -511,7 +581,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-4-7-20260416": {
       "mode": "chat",
@@ -525,6 +595,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -540,7 +611,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-4-8": {
       "mode": "chat",
@@ -554,6 +625,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -569,7 +641,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-opus-5": {
       "mode": "chat",
@@ -583,6 +655,7 @@
         "output_per_million_tokens": 25.0,
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
+        "cache_write_1hr_per_million_tokens": 10.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -598,7 +671,37 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-27"
+      "last_updated_at": "2026-09-21"
+    },
+    "claude-opus-5-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 5.0,
+        "cache_write_1hr_per_million_tokens": 8.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-23"
     },
     "claude-sonnet-4-20250514": {
       "mode": "chat",
@@ -643,7 +746,7 @@
     "claude-sonnet-4-5": {
       "mode": "chat",
       "context_window": {
-        "max_input": 200000,
+        "max_input": 1000000,
         "max_output": 64000,
         "max_tokens": 64000
       },
@@ -652,6 +755,7 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "cache_write_1hr_per_million_tokens": 6.0,
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -676,47 +780,9 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
     },
     "claude-sonnet-4-5-20250929": {
-      "mode": "chat",
-      "context_window": {
-        "max_input": 200000,
-        "max_output": 64000,
-        "max_tokens": 64000
-      },
-      "pricing": {
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3,
-        "cache_write_per_million_tokens": 3.75,
-        "long_context": [
-          {
-            "threshold_tokens": 200000,
-            "input_per_million_tokens": 6.0,
-            "output_per_million_tokens": 22.5,
-            "cache_write_per_million_tokens": 7.5,
-            "cache_read_per_million_tokens": 0.6
-          }
-        ],
-        "tooling": {
-          "search_context_per_query": {
-            "search_context_size_high": 0.01,
-            "search_context_size_low": 0.01,
-            "search_context_size_medium": 0.01
-          }
-        }
-      },
-      "capabilities": {
-        "function_calling": true,
-        "vision": true,
-        "reasoning": true,
-        "prompt_caching": true,
-        "response_schema": true
-      },
-      "last_updated_at": "2026-06-01"
-    },
-    "claude-sonnet-4-6": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
@@ -728,6 +794,16 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "cache_write_1hr_per_million_tokens": 6.0,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 6.0,
+            "output_per_million_tokens": 22.5,
+            "cache_write_per_million_tokens": 7.5,
+            "cache_read_per_million_tokens": 0.6
+          }
+        ],
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -743,7 +819,37 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-09-21"
+    },
+    "claude-sonnet-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 3.75,
+        "cache_write_1hr_per_million_tokens": 6.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-21"
     },
     "claude-sonnet-5": {
       "mode": "chat",
@@ -757,6 +863,7 @@
         "output_per_million_tokens": 10.0,
         "cache_read_per_million_tokens": 0.2,
         "cache_write_per_million_tokens": 2.5,
+        "cache_write_1hr_per_million_tokens": 4.0,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -772,7 +879,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-06"
+      "last_updated_at": "2026-09-21"
     }
   }
 }

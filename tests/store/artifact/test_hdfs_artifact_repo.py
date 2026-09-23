@@ -6,6 +6,7 @@ import pyarrow
 import pytest
 
 from mlflow.entities import FileInfo
+from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE
 from mlflow.store.artifact.hdfs_artifact_repo import (
     HdfsArtifactRepository,
     _parse_extra_conf,
@@ -221,3 +222,50 @@ def test_is_directory_called_with_relative_path(hdfs_system_mock):
 
     assert repo._is_directory("dir")
     get_file_info_mock.assert_called_once_with("/some/path/dir")
+
+
+def test_log_artifact_streams_data_in_chunks(hdfs_system_mock, tmp_path):
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    local_file = tmp_path / "chunked_file"
+    data = b"a" * ARTIFACT_STREAM_CHUNK_SIZE + b"tail"
+    local_file.write_bytes(data)
+
+    repo.log_artifact(str(local_file))
+
+    destination = (
+        hdfs_system_mock.return_value.open_output_stream.return_value.__enter__.return_value
+    )
+    assert destination.write.call_args_list == [
+        call(data[:ARTIFACT_STREAM_CHUNK_SIZE]),
+        call(b"tail"),
+    ]
+
+
+def test_log_artifacts_streams_data_in_chunks(hdfs_system_mock, tmp_path):
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    local_file = tmp_path / "chunked_file"
+    data = b"a" * ARTIFACT_STREAM_CHUNK_SIZE + b"tail"
+    local_file.write_bytes(data)
+
+    repo.log_artifacts(str(tmp_path))
+
+    destination = (
+        hdfs_system_mock.return_value.open_output_stream.return_value.__enter__.return_value
+    )
+    assert destination.write.call_args_list == [
+        call(data[:ARTIFACT_STREAM_CHUNK_SIZE]),
+        call(b"tail"),
+    ]
+
+
+def test_download_file_streams_data_in_chunks(hdfs_system_mock, tmp_path):
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    chunks = [b"a" * ARTIFACT_STREAM_CHUNK_SIZE, b"tail", b""]
+    source = hdfs_system_mock.return_value.open_input_stream.return_value.__enter__.return_value
+    source.read.side_effect = chunks
+
+    local_path = tmp_path / "downloaded"
+    repo._download_file("some/remote/file", str(local_path))
+
+    assert local_path.read_bytes() == b"".join(chunks)
+    assert source.read.call_args_list == [call(ARTIFACT_STREAM_CHUNK_SIZE)] * len(chunks)

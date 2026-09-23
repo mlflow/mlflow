@@ -17,6 +17,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
@@ -86,7 +87,6 @@ jobs:
     # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.
-    permissions: {}
     # Heavy: yarn install + dev server boot + Chrome download + a vision/browser
     # review loop. The Claude step is capped at 30m within this budget.
     timeout-minutes: 45
@@ -101,6 +101,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: read
           permission-pull-requests: read
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -109,6 +111,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-pull-requests: write
 
       - name: Resolve job URL
@@ -197,7 +201,7 @@ jobs:
         run: |
           mkdir -p /tmp/ui-review
           # Pre-populate the GenAI demo dataset (offline, no API key) so pages aren't empty.
-          uv run --frozen python -c "from mlflow.demo import generate_all_demos; generate_all_demos(refresh=True)"
+          uv run python -c "from mlflow.demo import generate_all_demos; generate_all_demos(refresh=True)"
           # Install a credential-free stub `claude` so the Assistant provider's auth
           # probe passes and its chat panel renders (the dev server has no
           # ANTHROPIC_API_KEY). Scoped to the dev server's own PATH; the real CLI in
@@ -205,7 +209,7 @@ jobs:
           # non-Assistant reviews and keeps the Assistant reviewable on any PR.
           # run_dev_server.py starts the backend + `yarn start` frontend (much faster than
           # a full `yarn build`) and honors MLFLOW_TRACKING_URI for the store.
-          uv run --frozen dev/run_dev_server.py --stub-providers claude > /tmp/dev-server.log 2>&1 &
+          uv run dev/run_dev_server.py --stub-providers claude > /tmp/dev-server.log 2>&1 &
           echo "DEV_PID=$!" >> "$GITHUB_ENV"
           APP_URL=""
           for _ in $(seq 1 120); do

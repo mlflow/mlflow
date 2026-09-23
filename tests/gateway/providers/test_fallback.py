@@ -280,6 +280,83 @@ async def test_fallback_provider_passthrough():
         assert response["result"] == "success"
 
 
+@pytest.mark.asyncio
+async def test_fallback_passthrough_stream_first_provider_succeeds():
+    config = chat_config()
+    provider = _get_fallback_provider([config])
+
+    resp = chat_stream_response()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        from mlflow.gateway.providers.base import PassthroughAction
+
+        action = PassthroughAction.OPENAI_CHAT
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(action, payload)
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) > 0
+        assert mock_client.post.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_fallback_passthrough_stream_second_provider_succeeds():
+    config1 = chat_config()
+    config2 = chat_config()
+    config2["name"] = "chat-fallback"
+
+    provider = _get_fallback_provider([config1, config2])
+
+    resp = chat_stream_response()
+
+    with mock.patch("aiohttp.ClientSession") as mock_session:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+        mock_session.return_value = mock_client
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            MockAsyncStreamingResponse(resp),
+        ]
+
+        from mlflow.gateway.providers.base import PassthroughAction
+
+        action = PassthroughAction.OPENAI_CHAT
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(action, payload)
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) > 0
+        assert mock_client.post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fallback_passthrough_stream_all_providers_fail():
+    config1 = chat_config()
+    config2 = chat_config()
+    config2["name"] = "chat-fallback"
+
+    provider = _get_fallback_provider([config1, config2])
+
+    with mock.patch("aiohttp.ClientSession") as mock_session:
+        mock_client = mock_http_client(MockAsyncResponse({}))
+        mock_session.return_value = mock_client
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            Exception("Second provider failed"),
+        ]
+
+        from mlflow.gateway.providers.base import PassthroughAction
+
+        action = PassthroughAction.OPENAI_CHAT
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(action, payload)
+        with pytest.raises(Exception, match="All 2 fallback attempts failed"):
+            [chunk async for chunk in result]
+
+        assert mock_client.post.call_count == 2
+
+
 @pytest.mark.parametrize(
     ("exception", "expected_status"),
     [

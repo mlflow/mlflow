@@ -19,7 +19,7 @@ describe('ExperimentViewSharedViewBanner', () => {
     const onDiscard = jest.fn();
     renderWithDesignSystem(<ExperimentViewSharedViewBanner onOverride={onOverride} onDiscard={onDiscard} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /exit shared view/i }));
 
     expect(onDiscard).toHaveBeenCalledTimes(1);
     expect(onOverride).not.toHaveBeenCalled();

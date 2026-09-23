@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 import yaml
 
+from mlflow.exceptions import MlflowException
 from mlflow.models.container import _install_model_dependencies_to_env
 from mlflow.utils import env_manager as em
 
@@ -225,3 +226,12 @@ def test_package_name_with_requirements_substring_not_modified(tmp_path):
         assert "my-requirements.txt-parser" in call_args
         assert "requirements.txt-tools" in call_args
         assert not any(model_path in arg for arg in call_args if "parser" in arg or "tools" in arg)
+
+
+@pytest.mark.parametrize("env_manager", [em.UV, "unknown"])
+def test_unsupported_env_manager_raises(tmp_path, env_manager):
+    model_path = str(tmp_path)
+    _create_model_artifact(model_path, dependencies=["pip"])
+
+    with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
+        _install_model_dependencies_to_env(model_path, env_manager=env_manager)

@@ -1,7 +1,7 @@
 import { jest, describe, test, expect } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
-import type { RunsChartsLineCardConfig } from '../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsLineCardConfig } from '../runs-charts.types';
 import { RunsChartType } from '../runs-charts.types';
 import { IntlProvider } from 'react-intl';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
@@ -48,11 +48,11 @@ const sampleLineChartConfig: RunsChartsLineCardConfig = {
 };
 
 describe('RunsChartsConfigureModal', () => {
-  const renderTestComponent = (onSubmit?: () => void) => {
+  const renderTestComponent = (onSubmit?: () => void, config: RunsChartsCardConfig = sampleLineChartConfig) => {
     const queryClient = new QueryClient();
     render(
       <RunsChartsConfigureModal
-        config={sampleLineChartConfig}
+        config={config}
         chartRunData={sampleChartData}
         groupBy={null}
         metricKeyList={[]}
@@ -130,6 +130,35 @@ describe('RunsChartsConfigureModal', () => {
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         displayPoints: true,
+      }),
+    );
+  });
+
+  test('it should preserve the metric section when switching chart type for a new chart', async () => {
+    const onSubmit = jest.fn();
+    const newChartConfig = {
+      type: RunsChartType.LINE,
+      deleted: false,
+      isGenerated: false,
+      metricSectionId: 'some-section-uuid',
+    } as RunsChartsCardConfig;
+
+    renderTestComponent(onSubmit, newChartConfig);
+
+    await waitFor(() => {
+      expect(screen.getByText('Add new chart')).toBeInTheDocument();
+    });
+
+    // eslint-disable-next-line testing-library/no-node-access
+    await userEvent.click(document.getElementById('chart-type-select') as HTMLElement);
+    await userEvent.click(screen.getByText('Bar chart'));
+
+    await userEvent.click(screen.getByText('Add chart'));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: RunsChartType.BAR,
+        metricSectionId: 'some-section-uuid',
       }),
     );
   });

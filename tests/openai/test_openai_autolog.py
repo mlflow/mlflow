@@ -9,6 +9,7 @@ import pytest
 from openai.resources.chat.completions import Completions as ChatCompletions
 from openai.resources.completions import Completions
 from openai.resources.embeddings import Embeddings
+from openai.types.chat import ChatCompletion
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -17,7 +18,7 @@ from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.autolog import _get_span_type
-from mlflow.openai.utils.chat_schema import _parse_tools
+from mlflow.openai.utils.chat_schema import _parse_tools, _parse_usage
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     CostKey,
@@ -239,6 +240,52 @@ async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+    }
+
+
+@pytest.mark.parametrize(
+    ("cache_usage", "expected_cache_usage"),
+    [
+        (
+            {"cache_read_input_tokens": 9203, "cache_creation_input_tokens": 0},
+            {
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 9203,
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 0,
+            },
+        ),
+        (
+            {
+                "prompt_tokens_details": {"cached_tokens": 50},
+                "cache_read_input_tokens": 9999,
+                "cache_creation_input_tokens": 8888,
+            },
+            {
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 50,
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 8888,
+            },
+        ),
+    ],
+)
+def test_parse_usage_cache_tokens(cache_usage, expected_cache_usage):
+    response = ChatCompletion.model_validate({
+        "id": "chatcmpl-cache",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "databricks-claude-opus-4-8",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 20,
+            "total_tokens": 120,
+            **cache_usage,
+        },
+    })
+
+    assert _parse_usage(response) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 120,
+        **expected_cache_usage,
     }
 
 
@@ -1236,7 +1283,25 @@ async def test_tracing_headers_preserve_user_headers(client):
 @pytest.mark.skipif(
     Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
 )
-async def test_chat_completions_autolog_streaming_with_cached_tokens(client, mock_litellm_cost):
+@pytest.mark.parametrize(
+    ("cache_usage", "expected_cache_usage"),
+    [
+        (
+            {"prompt_tokens_details": {"cached_tokens": 30, "audio_tokens": 0}},
+            {TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30},
+        ),
+        (
+            {"cache_read_input_tokens": 30, "cache_creation_input_tokens": 10},
+            {
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 10,
+            },
+        ),
+    ],
+)
+async def test_chat_completions_autolog_streaming_with_cached_tokens(
+    client, mock_litellm_cost, cache_usage, expected_cache_usage
+):
     mlflow.openai.autolog()
 
     mock_chunk = {
@@ -1249,8 +1314,8 @@ async def test_chat_completions_autolog_streaming_with_cached_tokens(client, moc
             "prompt_tokens": 50,
             "completion_tokens": 20,
             "total_tokens": 70,
-            "prompt_tokens_details": {"cached_tokens": 30, "audio_tokens": 0},
             "completion_tokens_details": {"reasoning_tokens": 0},
+            **cache_usage,
         },
     }
 
@@ -1290,5 +1355,5 @@ async def test_chat_completions_autolog_streaming_with_cached_tokens(client, moc
         TokenUsageKey.INPUT_TOKENS: 50,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
-        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+        **expected_cache_usage,
     }

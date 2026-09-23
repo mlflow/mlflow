@@ -2679,6 +2679,140 @@ def test_update_budget_policy_amount_only_preserves_endpoint_scope(store: SqlAlc
     assert updated.target_value == endpoint_id
 
 
+def test_create_budget_policy_user_scope(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    assert policy.target_scope == BudgetTargetScope.USER
+    assert policy.target_value == "alice@example.com"
+
+    fetched = store.get_budget_policy(budget_policy_id=policy.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.USER
+    assert fetched.target_value == "alice@example.com"
+
+
+def test_update_scope_switch_never_adopts_previous_target(store: SqlAlchemyStore):
+    # A target only makes sense within the scope it was written for: an endpoint ID
+    # is meaningless as a username and vice versa. Switching scope without an
+    # explicit new target must fail instead of silently reinterpreting the old one.
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-adopt")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    with pytest.raises(MlflowException, match="target_value is required"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.USER,
+        )
+    reloaded = store.get_budget_policy(created.budget_policy_id)
+    assert reloaded.target_scope == BudgetTargetScope.ENDPOINT
+    assert reloaded.target_value == endpoint_id
+
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.USER
+    assert updated.target_value == "alice@example.com"
+
+
+def test_update_user_to_endpoint_switch_validates_endpoint_exists(store: SqlAlchemyStore):
+    # Switching a USER policy to ENDPOINT with a target that is not a real endpoint
+    # must fail the existence check rather than persist a username as an endpoint ID.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.ENDPOINT,
+            target_value="alice@example.com",
+        )
+
+
+def test_update_budget_policy_user_target(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_value="bob@example.com",
+    )
+    assert updated.target_value == "bob@example.com"
+    # Unchanged fields are preserved.
+    assert updated.target_scope == BudgetTargetScope.USER
+
+    # Omitting target_value on a subsequent update leaves it unchanged.
+    again = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        budget_amount=50.0,
+    )
+    assert again.target_value == "bob@example.com"
+    assert again.budget_amount == 50.0
+
+
+def test_update_budget_policy_switch_to_global_clears_target(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.GLOBAL,
+    )
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+    # Switching away from USER clears the stale target.
+    assert updated.target_value is None
+
+
+def test_update_budget_policy_switch_to_untargeted_with_target_drops_target(
+    store: SqlAlchemyStore,
+):
+    # A single call that both switches to an untargeted scope and passes a target must
+    # not leave the policy with a stale target. The store enforces the invariant even
+    # for programmatic callers that bypass the REST-handler validation.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.WORKSPACE,
+        target_value="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.WORKSPACE
+    assert updated.target_value is None
+
+
 def test_update_budget_policy_target_ignored_on_untargeted_policy(store: SqlAlchemyStore):
     # Setting a target on a policy that stays GLOBAL/WORKSPACE is a no-op: untargeted
     # policies can never carry a target_value.
@@ -2695,6 +2829,39 @@ def test_update_budget_policy_target_ignored_on_untargeted_policy(store: SqlAlch
     )
     assert updated.target_scope == BudgetTargetScope.GLOBAL
     assert updated.target_value is None
+
+
+def test_create_budget_policy_user_scope_without_target_raises(store: SqlAlchemyStore):
+    # The store enforces the USER-requires-target invariant directly, so a
+    # programmatic caller bypassing the REST handler still can't create an inert
+    # (never-matching) USER policy.
+    with pytest.raises(MlflowException, match="target_value is required when target_scope is USER"):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=25.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.USER,
+            budget_action=BudgetAction.REJECT,
+        )
+
+
+def test_update_budget_policy_switch_to_user_without_target_raises(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    with pytest.raises(MlflowException, match="target_value is required when target_scope is USER"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.USER,
+        )
+    # The failed update rolled back: the policy is unchanged (still GLOBAL, no target).
+    fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.GLOBAL
+    assert fetched.target_value is None
 
 
 # =============================================================================
@@ -3221,6 +3388,7 @@ def _insert_trace_with_cost(
     span_costs,
     is_gateway=True,
     endpoint_id="ep-test",
+    username=None,
 ):
     trace = SqlTraceInfo(
         request_id=trace_id,
@@ -3239,6 +3407,15 @@ def _insert_trace_with_cost(
             value=endpoint_id,
         )
         session.add(metadata)
+
+    if username is not None:
+        session.add(
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.AUTH_USERNAME,
+                value=username,
+            )
+        )
 
     for span_id, cost in span_costs:
         span = SqlSpan(
@@ -3362,3 +3539,53 @@ def test_sum_gateway_trace_cost_endpoint_filter(store: SqlAlchemyStore):
     # No endpoint filter includes both.
     total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
     assert abs(total_all - 0.35) < 1e-9
+
+
+def test_sum_gateway_trace_cost_username_filter(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-username")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _insert_trace_with_cost(session, exp_id, "t-alice", 1000, [("s1", 0.10)], username="alice")
+        _insert_trace_with_cost(session, exp_id, "t-bob", 1000, [("s1", 0.25)], username="bob")
+        # A gateway trace without any recorded username should be excluded when
+        # filtering by username.
+        _insert_trace_with_cost(session, exp_id, "t-anon", 1000, [("s1", 0.99)])
+
+    total_alice = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, username="alice")
+    assert abs(total_alice - 0.10) < 1e-9
+
+    total_bob = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, username="bob")
+    assert abs(total_bob - 0.25) < 1e-9
+
+    # No username filter includes every gateway trace.
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 1.34) < 1e-9
+
+    # Unknown username matches nothing.
+    total_none = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, username="carol")
+    assert total_none == 0.0
+
+
+def test_sum_gateway_trace_cost_username_and_workspace(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        exp_ws = SqlExperiment(
+            name=f"cost-username-ws-{uuid.uuid4().hex}",
+            artifact_location="/tmp/pw",
+            lifecycle_stage="active",
+            workspace="workspace-p",
+        )
+        session.add(exp_ws)
+        session.flush()
+
+        _insert_trace_with_cost(
+            session, exp_ws.experiment_id, "t-a1", 1000, [("s1", 0.10)], username="alice"
+        )
+        _insert_trace_with_cost(
+            session, exp_ws.experiment_id, "t-a2", 1000, [("s1", 0.20)], username="bob"
+        )
+
+    total = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-p", username="alice"
+    )
+    assert abs(total - 0.10) < 1e-9

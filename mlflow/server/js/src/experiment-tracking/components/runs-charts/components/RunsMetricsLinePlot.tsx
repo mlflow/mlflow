@@ -737,34 +737,31 @@ export const RunsMetricsLinePlot = React.memo(
 
     const themedPlotlyLayout = useMemo(() => createThemedPlotlyLayout(theme), [theme]);
 
-    // When switching axis title, Plotly.js mutates its layout object
-    // internally which leads to desync problems and automatic axis range
-    // ends up with an invalid value. In order to fix it, we are mutating
-    // axis object and injecting metric key as title in
-    // the render phase.
-    // It could be fixed by wrapping plotly.js directly instead of using
-    // react-plotly.js - but the effort does not correspond to the plan of
-    // moving away from plotly soon.
-    const immediateLayout = layout;
-    if (immediateLayout.xaxis) {
-      immediateLayout.xaxis.title = xAxisKeyLabel;
-      immediateLayout.xaxis.type = xAxisPlotlyType;
-      if (xRange) {
-        immediateLayout.xaxis.range = xRange;
-      }
-      immediateLayout.xaxis.automargin = true;
-      immediateLayout.xaxis.tickformat =
-        shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE
-          ? '%H:%M:%S'
-          : undefined;
-    }
-    immediateLayout.template = { layout: themedPlotlyLayout };
-
-    if (immediateLayout.yaxis && yRange) {
-      immediateLayout.yaxis.range = yRange;
-      immediateLayout.yaxis.automargin = true;
-      immediateLayout.yaxis.tickformat = 'f';
-    }
+    // Plotly mutates the layout object it receives. Derive a fresh layout for each render so
+    // a zoom range cleared by autoscale cannot remain on the next Plotly update.
+    const immediateLayout: Partial<Layout> = {
+      ...layout,
+      template: { layout: themedPlotlyLayout },
+      xaxis: layout.xaxis && {
+        ...layout.xaxis,
+        title: xAxisKeyLabel,
+        type: xAxisPlotlyType,
+        range: xRange,
+        autorange: xRange === undefined,
+        automargin: true,
+        tickformat:
+          shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE
+            ? '%H:%M:%S'
+            : undefined,
+      },
+      yaxis: layout.yaxis && {
+        ...layout.yaxis,
+        range: yRange,
+        autorange: yRange === undefined,
+        automargin: true,
+        tickformat: 'f',
+      },
+    };
 
     const legendLabelData = useMemo(
       () =>

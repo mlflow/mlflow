@@ -2,6 +2,7 @@ import invariant from 'invariant';
 import { first, isString } from 'lodash';
 
 import type {
+  ModelTrace,
   ModelTraceSpan,
   Assessment,
   Expectation,
@@ -39,6 +40,19 @@ export const createAssessment = ({
 
 export const fetchTraceInfoV3 = ({ traceId }: { traceId: string }) =>
   fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`));
+
+export type FetchTraceInfoV3Response = {
+  trace?: {
+    trace_info?: ModelTrace['info'];
+  };
+};
+
+// V4 trace-info response: the trace info is returned at the response root.
+export type GetTraceInfoV4Response = ModelTraceInfoV3;
+
+// Either the V3-wrapped or V4-root trace-info response, as returned by the
+// trace-info query which dispatches between the two APIs at runtime.
+export type ModelTraceInfoQueryResponse = FetchTraceInfoV3Response | GetTraceInfoV4Response;
 
 export const fetchBatchTraceInfosV3 = async ({
   traceIds,

@@ -2,14 +2,34 @@
 name: pr-review
 description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<pr_url>"
-arguments: [pr_url]
+argument-hint: "<pr_url> <pr_checkout> <payload_path> <media_dir> <base_dir>"
+arguments: [pr_url, pr_checkout, payload_path, media_dir, base_dir]
 ---
 
 # Review Pull Request
 
-Review $pr_url and write a JSON review payload to `/tmp/review-payload.json`. Do not post anything:
-writing that payload is the whole job.
+Review $pr_url and write a JSON review payload to $payload_path. Do not post anything: writing
+that payload is the whole job.
+
+## The reviewed tree
+
+The PR is checked out at `$pr_checkout`, not in the working directory:
+
+```text
+$base_dir             # the working directory: this skill and the `skills`
+                      # CLI come from here, and nothing you review does
+$pr_checkout          # the reviewed tree: the PR merged into its base
+```
+
+The working directory holds a checkout of the same repository, so it looks like the code under
+review and is not guaranteed to match it. Everything aimed at the PR needs the prefix:
+`git -C $pr_checkout ...`, `$pr_checkout/<path>` to open or grep a file, and
+`cd $pr_checkout && ...` for anything that builds or runs repository code. The
+`uv run` commands below are the exception: `--directory $base_dir` pins each one to
+this checkout, so it keeps using this tree's `skills` package and rules even when the
+working directory has moved into `$pr_checkout`. uv resolves its workspace from the
+working directory, and so does the rule loader, so dropping the flag silently hands
+both to the code under review.
 
 ## Instructions
 
@@ -26,13 +46,16 @@ These reads are independent. Issue them as parallel tool calls in a single turn,
 gh pr view <pr_url> --json title,body
 ```
 
-**PR diff hunks** via the [`fetch-diff`](../fetch-diff/SKILL.md) skill:
+**PR diff hunks**. `$pr_checkout` holds the merge ref (see step 3), so `HEAD^1 HEAD` is exactly
+the PR diff:
 
 ```bash
-uv run --package skills skills fetch-diff <pr_url>
+git -C $pr_checkout diff HEAD^1 HEAD | uv run --directory $base_dir --package skills skills annotate-diff
 ```
 
-Its annotated output gives you the `line` and `side` to anchor each comment on.
+Each line comes back as `old_line new_line | <marker> content`, which gives you the `line` and
+`side` to anchor each comment on: `-` is `side=LEFT` at `old_line`, `+` is `side=RIGHT` at
+`new_line`, and an unmarked context line is `side=RIGHT` at `new_line`. Pass `--help` for the rest.
 
 **Existing review threads**, so you can avoid duplicating prior feedback. Up to 100 threads (open,
 resolved, and outdated) with up to 20 comments each:
@@ -65,32 +88,32 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
 Load the repository style rules applicable to the changed files:
 
 ```bash
-git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+git -C $pr_checkout diff --name-only HEAD^1 | uv run --directory $base_dir --package skills skills load-rules
 ```
 
 ### 3. Analyze the change
 
-The working tree holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so file contents
-reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites
-of changed symbols, file conventions).
+`$pr_checkout` holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so its file
+contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns,
+call sites of changed symbols, file conventions), scoping every search to that directory.
 
 The merge ref's base parent is reachable as `HEAD^1`. When the diff doesn't show enough (verifying
 a refactor preserved behavior, reading a masked deleted file, or seeing the pre-change version of a
-heavily modified one), use `git show HEAD^1:<path>` rather than re-fetching the file over the API.
+heavily modified one), use `git -C $pr_checkout show HEAD^1:<path>` rather than re-fetching the file
+over the API.
 The checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and `git blame` stop at
 the shallow boundary rather than reaching the commit that actually introduced a line. Neither
 errors, so don't trust them for pre-change history.
 
-Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
-quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
-finding should be dropped rather than hedged.
+Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, a web
+fetch, or a web search (`$base_dir/.claude/skills/pr-review/search-web.sh "<query>"`) will settle
+most questions in seconds, and an unverified finding should be dropped rather than hedged. When the
+cheap checks don't settle it, escalate to the expensive ones: build the docs site, build and boot
+the UI, start the backend.
 
-Node and `agent-browser` are on PATH for docs and UI changes. Render when it settles whether the
-change is correct, or when a capture shows a finding more plainly than prose can. Building the
-docs site or the UI is expensive; do it only when the finding justifies it. Capture to an
-absolute path named for what it shows:
-`agent-browser screenshot --full /tmp/review-media/traces-table.png`, and cite that same path
-in a finding.
+Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
+what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same
+path in a finding.
 
 Evaluate the changed code across these dimensions:
 
@@ -127,7 +150,7 @@ Classify each finding that survives those exclusions:
 ### 4. Write and validate the review payload
 
 Read [`review-payload.schema.json`](./review-payload.schema.json), then write
-`/tmp/review-payload.json` matching it. It defines the severity prefix each comment body carries
+`$payload_path` matching it. It defines the severity prefix each comment body carries
 and derives `event` from those prefixes.
 
 Authoring rules not captured by the schema:
@@ -142,10 +165,9 @@ Authoring rules not captured by the schema:
   suggestion block already shows.
 - Use suggestion blocks for simple fixes: fence with ` ```suggestion ` and preserve original
   indentation.
-- If you have no findings, emit an empty `comments` array.
 - To attach an image or video (a diagram, a chart, a captured repro), write the file into
-  `/tmp/review-media/` and cite it by the absolute path you wrote it to:
-  `![desc](/tmp/review-media/name.png)` to embed, or `[desc](/tmp/review-media/name.png)`
+  `$media_dir` and cite it by the absolute path you wrote it to:
+  `![desc]($media_dir/name.png)` to embed, or `[desc]($media_dir/name.png)`
   to link. A later workflow step uploads it and rewrites the reference to a URL. Do not
   upload anything yourself. Skip this unless a visual genuinely beats prose; most reviews
   need none.
@@ -156,11 +178,10 @@ Authoring rules not captured by the schema:
 Validate before finishing, then fix any errors and re-emit until both of these pass:
 
 ```bash
-uv run --package skills skills validate-review /tmp/review-payload.json
-# only when you wrote a file into /tmp/review-media/
-uv run --package skills skills embed-media --check \
-  --dir /tmp/review-media --target /tmp/review-payload.json
+uv run --directory $base_dir --package skills skills validate-review $payload_path
+# only when you wrote a file into $media_dir
+uv run --directory $base_dir --package skills skills embed-media --check --dir $media_dir --target $payload_path
 ```
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
-after writing and validating `/tmp/review-payload.json`.
+after writing and validating `$payload_path`.

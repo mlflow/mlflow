@@ -19,6 +19,7 @@ mlflow/demo/
     ├── prompts.py           # Prompt versions and aliases
     ├── traces.py            # Sample traces with various patterns
     ├── custom_view.py       # Saved custom view (span I/O cards + accuracy form)
+    ├── saved_views.py       # Saved Traces table views
     ├── evaluation.py        # Evaluation runs and datasets
     ├── judges.py            # Registered LLM judges
     ├── issues.py            # Detected issues linked to failing traces

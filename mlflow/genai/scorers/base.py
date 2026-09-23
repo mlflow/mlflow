@@ -3,7 +3,9 @@ import importlib
 import inspect
 import json
 import logging
-from contextvars import ContextVar
+import math
+import threading
+from contextvars import ContextVar, copy_context
 from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
@@ -33,6 +35,7 @@ from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_uri
+from mlflow.utils.timeout import MlflowTimeoutError
 
 _logger = logging.getLogger(__name__)
 
@@ -43,8 +46,15 @@ SCORER_BACKEND_DATABRICKS = "databricks"
 # Context variable to track if we're in a scorer call (prevents nested telemetry)
 _in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
 
+# Set while a scorer runs inside its timeout worker thread, so the re-entrant `run()` there
+# doesn't spawn another timeout thread.
+_in_scorer_timeout: ContextVar[bool] = ContextVar("mlflow_scorer_timeout", default=False)
+
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+
+# Default per-invocation timeout (seconds) for @scorer scorers that don't set an explicit timeout.
+DEFAULT_SCORER_TIMEOUT = 300
 _AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
 _AggregationType: TypeAlias = (
     Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
@@ -163,6 +173,9 @@ class SerializedScorer:
     aggregations: list[str] | None = None
     description: str | None = None
     is_session_level_scorer: bool = False
+    # Per-invocation timeout (seconds). Defaults to `0` (no timeout) so scorers serialized before
+    # this field existed (legacy scorers) stay unbounded; a fresh scorer serializes `None`.
+    timeout: int | float | None = 0
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
@@ -291,11 +304,15 @@ class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
     description: str | None = None
+    # Per-invocation timeout (seconds) enforced by `run()`. `None` (default) uses
+    # DEFAULT_SCORER_TIMEOUT; `0` disables the timeout.
+    timeout: int | float | None = None
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
     _experiment_id: str | None = PrivateAttr(default=None)
+    _scorer_version: int | None = PrivateAttr(default=None)
     # Predicate deciding whether this scorer's value counts as passing in an
     # assertion (``EvaluationResult.passed``). In-process only: it is a local
     # testing concern and is intentionally not serialized. ``None`` falls back to
@@ -349,6 +366,11 @@ class Scorer(BaseModel):
         return self._sampling_config.filter_string if self._sampling_config else None
 
     @property
+    def scorer_version(self) -> int | None:
+        """Get the registered version of this scorer, if available."""
+        return self._scorer_version
+
+    @property
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
@@ -363,10 +385,12 @@ class Scorer(BaseModel):
         backend: str,
         experiment_id: str | None,
         sampling_config: ScorerSamplingConfig | None,
+        scorer_version: int | None = None,
     ) -> "Scorer":
         self._registered_backend = backend
         self._experiment_id = experiment_id
         self._sampling_config = sampling_config
+        self._scorer_version = scorer_version
         return self
 
     def __repr__(self) -> str:
@@ -427,6 +451,7 @@ class Scorer(BaseModel):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            timeout=self.timeout,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             call_source=source_info.get("call_source"),
@@ -551,10 +576,10 @@ class Scorer(BaseModel):
             module_path = data.get("module") or ""
             class_name = data.get("class")
             metric_name = data.get("metric_name")
-            if not any(
-                module_path == m or module_path.startswith(m + ".")
-                for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
-            ):
+            # Exact match only: a dotted descendant of an allow-listed package can be a
+            # caller-placed file (e.g. a run artifact under a `file://` experiment root),
+            # and `import_module` would execute it before the class check below.
+            if module_path not in THIRD_PARTY_SCORER_ALLOWED_MODULES:
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': module '{module_path}' is not "
                     f"in the allow-list {sorted(THIRD_PARTY_SCORER_ALLOWED_MODULES)}."
@@ -563,6 +588,21 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': missing required fields in "
                     f"third_party_scorer_data (class, metric_name)."
+                )
+            # The wrappers resolve unknown metric names by splicing them into an import
+            # path (`ragas.metrics.collections.<metric_name>`, `deepeval.metrics.<metric_name>`),
+            # so a dotted name would reach a caller-placed module the same way.
+            if not metric_name.isidentifier():
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': metric_name '{metric_name}' "
+                    "must be a plain identifier."
+                )
+            # Concrete subclasses pin `metric_name` via ClassVar and inherit the wrapper's
+            # `__init__`, so a `metric_name` kwarg would override the validated value above.
+            if "metric_name" in (data.get("kwargs") or {}):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': kwargs must not contain "
+                    "'metric_name'; set it at the top level of third_party_scorer_data."
                 )
             try:
                 module = importlib.import_module(module_path)
@@ -576,6 +616,11 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': class '{class_name}' not "
                     f"found in module '{module_path}'."
+                )
+            if not (inspect.isclass(scorer_class) and issubclass(scorer_class, Scorer)):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': '{module_path}.{class_name}' "
+                    "is not a Scorer subclass."
                 )
             init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
             # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
@@ -708,6 +753,7 @@ class Scorer(BaseModel):
             name=serialized.name,
             description=serialized.description,
             aggregations=serialized.aggregations,
+            timeout=serialized.timeout,
         )
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
@@ -715,6 +761,17 @@ class Scorer(BaseModel):
         return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session=None):
+        if not _in_scorer_timeout.get():
+            if timeout := (DEFAULT_SCORER_TIMEOUT if self.timeout is None else self.timeout):
+                return self._run_with_timeout(
+                    timeout,
+                    inputs=inputs,
+                    outputs=outputs,
+                    expectations=expectations,
+                    trace=trace,
+                    session=session,
+                )
+
         from mlflow.evaluation import Assessment as LegacyAssessment
 
         merged = {
@@ -767,6 +824,36 @@ class Scorer(BaseModel):
             result.name = self.name
 
         return result
+
+    def _run_with_timeout(self, timeout: int | float, **kwargs: Any) -> Any:
+        # Daemon thread re-enters run() (guarded by _in_scorer_timeout) instead of calling the
+        # scorer directly, so a Scorer.run frame stays on its stack for telemetry callsite lookup.
+        ctx = copy_context()
+        outcome: dict[str, Any] = {}
+
+        def _target() -> None:
+            _in_scorer_timeout.set(True)
+            try:
+                outcome["value"] = self.run(**kwargs)
+            except BaseException as e:  # re-surface whatever the scorer raised on the caller
+                outcome["error"] = e
+
+        thread = threading.Thread(
+            target=lambda: ctx.run(_target), name=f"MlflowScorer-{self.name}", daemon=True
+        )
+        thread.start()
+        # Thread.join rejects values above TIMEOUT_MAX; clamp so a huge timeout just means "wait".
+        thread.join(min(timeout, threading.TIMEOUT_MAX))
+        if thread.is_alive():
+            # Warn so a climbing thread count from timed-out scorers is diagnosable.
+            _logger.warning("Scorer '%s' timed out after %s seconds.", self.name, timeout)
+            raise MlflowTimeoutError(
+                f"Scorer '{self.name}' timed out after {timeout} seconds. Set a longer timeout "
+                f"with `@scorer(timeout=...)`, or `timeout=0` to disable the timeout."
+            )
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome["value"]
 
     def __call__(
         self,
@@ -1273,6 +1360,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    timeout: int | float | None = None,
 ) -> Scorer: ...
 
 
@@ -1284,6 +1372,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    timeout: int | float | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1294,6 +1383,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    timeout: int | float | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1380,6 +1470,9 @@ def scorer(
             Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
             (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
             the default rule applies (a ``yes`` rating or ``True`` passes).
+        timeout: Maximum seconds a single scorer invocation may run during
+            ``mlflow.genai.evaluate`` and monitoring before it is recorded as a
+            ``SCORER_ERROR`` failure. Defaults to ``None`` (300 seconds); ``0`` disables it.
 
     Example:
 
@@ -1461,6 +1554,17 @@ def scorer(
             )
     """
 
+    if timeout is not None and not (
+        isinstance(timeout, (int, float))
+        and not isinstance(timeout, bool)
+        and math.isfinite(timeout)
+        and timeout >= 0
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"`timeout` must be a non-negative, finite number of seconds or None "
+            f"(use 0 to disable the timeout), got {timeout!r}."
+        )
+
     if func is None:
         return functools.partial(
             scorer,
@@ -1468,6 +1572,7 @@ def scorer(
             description=description,
             aggregations=aggregations,
             pass_if=pass_if,
+            timeout=timeout,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1521,6 +1626,7 @@ def scorer(
         name=name or func.__name__,
         description=description,
         aggregations=aggregations,
+        timeout=timeout,
     )
 
 

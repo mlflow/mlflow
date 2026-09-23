@@ -7,6 +7,7 @@ This helps avoid unnecessary commit history noise from whitespace-only changes.
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -53,10 +54,17 @@ def github_api_request(url: str, accept: str) -> str:
     return _retry_urlopen(request)
 
 
-def get_pr_diff(owner: str, repo: str, pull_number: int) -> str:
-    url = f"https://github.com/{owner}/{repo}/pull/{pull_number}.diff"
-    request = urllib.request.Request(url)
-    return _retry_urlopen(request)
+def get_pr_diff(base_revision: str) -> str:
+    return subprocess.check_output(
+        [
+            "git",
+            "diff",
+            "--no-ext-diff",
+            "--no-color",
+            f"{base_revision}...HEAD",
+        ],
+        text=True,
+    )
 
 
 def get_pr_labels(owner: str, repo: str, pull_number: int) -> list[str]:
@@ -97,7 +105,7 @@ def parse_diff(diff_text: str | None) -> list[str]:
     return files
 
 
-def parse_args() -> tuple[str, str, int]:
+def parse_args() -> tuple[str, str, int, str]:
     parser = argparse.ArgumentParser(
         description="Check for unnecessary whitespace-only changes in the diff"
     )
@@ -112,15 +120,20 @@ def parse_args() -> tuple[str, str, int]:
         required=True,
         help="Pull request number",
     )
+    parser.add_argument(
+        "--base-revision",
+        required=True,
+        help='Base revision for the diff (e.g., "HEAD^1" or "upstream/master")',
+    )
     args = parser.parse_args()
 
     owner, repo = args.repo.split("/")
-    return owner, repo, args.pr
+    return owner, repo, args.pr, args.base_revision
 
 
 def main() -> None:
-    owner, repo, pull_number = parse_args()
-    diff_text = get_pr_diff(owner, repo, pull_number)
+    owner, repo, pull_number, base_revision = parse_args()
+    diff_text = get_pr_diff(base_revision)
     if files := parse_diff(diff_text):
         pr_labels = get_pr_labels(owner, repo, pull_number)
         has_bypass_label = BYPASS_LABEL in pr_labels

@@ -7,14 +7,11 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -30,6 +27,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   e2e-tests:
@@ -37,7 +35,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: false && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +75,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: false && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

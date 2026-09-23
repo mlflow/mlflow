@@ -3037,7 +3037,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT, USER).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3071,8 +3071,8 @@ class SqlGatewayBudgetPolicy(Base):
     target_value = Column(String(255), nullable=True)
     """
     Target the policy applies to: `String` (limit 255 characters). Interpreted per
-    ``target_scope`` — a gateway endpoint ID for ENDPOINT; the policy then applies
-    solely to requests routed to that endpoint. NULL for GLOBAL and WORKSPACE scopes.
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT, a username
+    for USER. NULL for GLOBAL and WORKSPACE scopes.
     """
 
     __table_args__ = (

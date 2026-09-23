@@ -106,10 +106,15 @@ export const RunsChartsConfigureModal = ({
     if (!type) {
       return;
     }
-    const emptyChartCard = RunsChartsCardConfig.getEmptyChartCardByType(type, false);
-    if (emptyChartCard) {
-      setCurrentFormState(emptyChartCard);
-    }
+    setCurrentFormState((current) => {
+      const emptyChartCard = RunsChartsCardConfig.getEmptyChartCardByType(
+        type,
+        false,
+        current.uuid,
+        current.metricSectionId,
+      );
+      return emptyChartCard ?? current;
+    });
   }, []);
 
   const previewData = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);

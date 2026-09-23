@@ -1,7 +1,9 @@
 import { describe, expect, test, jest } from '@jest/globals';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { TracesTableView, type TracesTableViewProps, type TracesTableViewState } from './TracesTableView';
-import { makeTraces } from './test-utils/mockTraces';
+import { useBulkTraceSelection } from './hooks/useBulkTraceSelection';
+import { makeSessionTrace, makeTraces } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
 
 const baseProps = (over: Partial<TracesTableViewProps> = {}): TracesTableViewProps => ({
@@ -33,8 +35,28 @@ const baseProps = (over: Partial<TracesTableViewProps> = {}): TracesTableViewPro
   hasPrev: false,
   onClearFilters: jest.fn(),
   onRetry: jest.fn(),
+  onHideColumn: jest.fn(),
   ...over,
 });
+
+const rangeSelectionTraces = makeTraces(4, 'range');
+
+// Wire the real selection hook so a shift-click drives actual range state through the view.
+const RangeSelectionHarness = (): JSX.Element => {
+  const bulk = useBulkTraceSelection(rangeSelectionTraces);
+  return (
+    <TracesTableView
+      {...baseProps({
+        traces: rangeSelectionTraces,
+        selectedForBulk: bulk.selected,
+        isAllOnPageSelected: bulk.isAllVisibleChecked,
+        isSomeOnPageSelected: bulk.isSomeVisibleChecked,
+        onToggleBulkRow: bulk.toggle,
+        onToggleBulkAll: bulk.toggleAll,
+      })}
+    />
+  );
+};
 
 describe('TracesTableView', () => {
   test('always renders the toolbar search box', async () => {
@@ -87,6 +109,20 @@ describe('TracesTableView', () => {
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
   });
 
+  test('forwards sessionsMayBeIncomplete so paginated grouped sessions hide partial aggregates', async () => {
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    const grouped = { traces, visibleColumns: ['tokens' as const], isGroupedBySession: true };
+
+    const { unmount } = await renderWithProviders(
+      <TracesTableView {...baseProps({ ...grouped, sessionsMayBeIncomplete: true })} />,
+    );
+    expect(screen.queryByText('30')).not.toBeInTheDocument();
+    unmount();
+
+    await renderWithProviders(<TracesTableView {...baseProps({ ...grouped, sessionsMayBeIncomplete: false })} />);
+    expect(screen.getByText('30')).toBeInTheDocument();
+  });
+
   test('customEmptyState short-circuits the viewState region but keeps the toolbar', async () => {
     await renderWithProviders(
       <TracesTableView {...baseProps({ viewState: 'empty', customEmptyState: <div>pick-a-warehouse</div> })} />,
@@ -113,5 +149,20 @@ describe('TracesTableView', () => {
     await renderWithProviders(<TracesTableView {...baseProps({ viewState: 'ready', PaginationBarWrapper })} />);
     const wrapper = screen.getByTestId('pagination-wrapper');
     expect(wrapper).toContainElement(screen.getByText(/Rows per page/));
+  });
+
+  test('Shift-clicking a trace checkbox selects the visible range from the previous checkbox', async () => {
+    const user = userEvent.setup();
+    await renderWithProviders(<RangeSelectionHarness />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select trace range-000' }));
+    await user.keyboard('{Shift>}');
+    await user.click(screen.getByRole('checkbox', { name: 'Select trace range-002' }));
+    await user.keyboard('{/Shift}');
+
+    expect(screen.getByRole('checkbox', { name: 'Select trace range-000' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Select trace range-001' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Select trace range-002' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Select trace range-003' })).not.toBeChecked();
   });
 });

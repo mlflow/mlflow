@@ -79,7 +79,7 @@ When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torc
 
 :::danger[Requirements and Limitations]
 
-- `torch` >= 2.4
+- `torch` >= 2.4 (`torch` >= 2.10 is required to load the model when `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`, see [below](#global-configuration-to-force-mlflow-pickle-free-model-loading))
 - An **input_example** is required (and only `Tensor` type inputs are supported for the exported model)
 - Not supported for `torch.jit.ScriptModule` models
 - Model weights **cannot be transferred between devices** after loading. If the model is saved with weights on GPU device 0, it must also be loaded onto GPU device 0 — not CPU or a different GPU.
@@ -152,17 +152,21 @@ export MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false
 
 When set to `false`, loading a model that was saved with `pickle` or `cloudpickle` will raise an error unless you use a pickle-free saving option when logging the model. The default is `true` for backward compatibility.
 
+:::note[PyTorch `pt2` models]
+`torch.export.load` internally deserializes parts of a `.pt2` archive with `torch.load(weights_only=False)`. When `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`, MLflow therefore verifies before loading that every record in the archive is accepted by torch's restricted `weights_only` unpickler (tensors and primitive containers only), and refuses the model otherwise. This verification requires `torch` >= 2.10 (older versions have known `weights_only` unpickler vulnerabilities); on older versions, loading a `pt2` model with the flag set to `false` raises an error asking you to upgrade `torch` or enable the flag.
+:::
+
 :::note
 In Databricks Runtime, loading models serialized with `pickle` or `cloudpickle` is always allowed, regardless of the `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` environment variable. This is because Databricks uses a managed MLflow artifact store that protects model artifacts from unauthorized modification. By ensuring artifact integrity, the platform mitigates the risk of executing malicious code during `pickle` or `cloudpickle` deserialization.
 :::
 
 ## Summary
 
-| Flavor              | Pickle-free option             | Notes                                                         | Impact when becoming default                                                                       |
-| ------------------- | ------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        | No impact — transparent upgrade for most models.                                                   |
-| PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4; not for ScriptModule. | **Breaking change** — `input_example` will be required; `torch.jit.ScriptModule` is not supported. |
-| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                        | Requires upgrading to dspy > 3.1.0.                                                                |
-| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                     | No impact — transparent upgrade for sklearn-type LightGBM models.                                  |
-| LangChain           | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                                         |
-| Custom Python model | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                                         |
+| Flavor              | Pickle-free option             | Notes                                                                                                                            | Impact when becoming default                                                                       |
+| ------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                                                                                           | No impact — transparent upgrade for most models.                                                   |
+| PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4 (>= 2.10 to load with `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`); not for ScriptModule. | **Breaking change** — `input_example` will be required; `torch.jit.ScriptModule` is not supported. |
+| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                                                                                           | Requires upgrading to dspy > 3.1.0.                                                                |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                                                                                        | No impact — transparent upgrade for sklearn-type LightGBM models.                                  |
+| LangChain           | Models From Code               | Pickle saving emits warnings.                                                                                                    | No impact.                                                                                         |
+| Custom Python model | Models From Code               | Pickle saving emits warnings.                                                                                                    | No impact.                                                                                         |

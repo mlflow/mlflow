@@ -27,7 +27,7 @@ describe('SharedViewBanner', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /exit shared view/i }));
 
     expect(onDiscard).toHaveBeenCalledTimes(1);
     expect(onOverride).not.toHaveBeenCalled();
@@ -56,7 +56,7 @@ describe('SharedViewBanner', () => {
     renderWithDesignSystem(<SharedViewBanner componentId="test.shared_view" message="msg" onDiscard={jest.fn()} />);
 
     expect(screen.queryByRole('button', { name: /override/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^discard$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /exit shared view/i })).toBeInTheDocument();
   });
 
   it('renders a dismiss button only when onDismiss is provided, and invokes only it', () => {

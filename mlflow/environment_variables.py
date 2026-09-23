@@ -115,14 +115,84 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: Enables AI Gateway endpoints and UI.
+#: (default: ``True``)
+MLFLOW_ENABLE_AI_GATEWAY = _BooleanEnvironmentVariable("MLFLOW_ENABLE_AI_GATEWAY", True)
+
 #: **Experimental** — subject to change or removal in a future release.
-#: Controls whether the MLflow Assistant API is reachable from non-localhost clients.
-#: Remote access is still limited to providers that don't require local execution
-#: (e.g. the MLflow Gateway); this only opts into that check.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients. When true,
+#: the server runs the work the assistant would otherwise run on the host — the ``Bash`` tool and
+#: the coding-agent CLI providers — inside a hardened Docker container instead (automatically,
+#: when a ``docker`` executable is available), so those providers can serve remote clients without
+#: executing on the host. When false (the default) the assistant is localhost-only and runs that
+#: work in a host subprocess, exactly as before.
 #: (default: ``False``)
 MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
 )
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Override for whether the assistant runs its work (the ``Bash`` tool and the coding-agent CLI
+#: providers) inside a Docker sandbox. Tri-state:
+#:
+#: - unset (the default): derive it from the deployment — sandbox when the assistant is in remote
+#:   mode (``MLFLOW_ENABLE_REMOTE_ASSISTANT``) and a ``docker`` executable is available.
+#: - ``true``: force the sandbox on (a turn fails at container start if Docker is unavailable).
+#: - ``false``: force it off — run that work in a host subprocess even in remote mode, letting an
+#:   operator opt out of sandboxing.
+#:
+#: (default: unset)
+MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASSISTANT_SANDBOX", None
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
+#: The image must have Python and MLflow installed. If the image is not present locally, a
+#: minimal one is built on first use.
+#: (default: ``mlflow-sandbox:latest``)
+MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
+    "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used to run the MLflow Assistant's CLI providers (e.g. Claude Code) in a
+#: sandbox. Unlike ``MLFLOW_SANDBOX_DOCKER_IMAGE``, this image must additionally contain the
+#: provider CLI and its language runtime. Operators are expected to build/provide this image;
+#: there is no minimal auto-built fallback for it.
+#: (default: ``mlflow-assistant-sandbox:latest``)
+MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
+    "MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE", str, "mlflow-assistant-sandbox:latest"
+)
+
+#: Internal. A per-server-boot identifier set by the server on startup and inherited by all of
+#: its worker processes. Sandbox containers are labeled with it so startup cleanup can remove
+#: only containers left by a *previous* server generation, never one a sibling worker in the
+#: current generation just launched. Not intended to be set by users.
+_MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
+
+#: Internal. Set by ``mlflow server --app-name basic-auth`` for its worker processes once the
+#: admin user has been bootstrapped in the CLI process, so each worker skips the redundant
+#: bootstrap and legacy-password checks (each one a PBKDF2 hash comparison against the primary
+#: database). Not intended to be set by users.
+_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED = _BooleanEnvironmentVariable(
+    "_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED", False
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
+#: When set, it is injected as ``HTTP_PROXY``/``HTTPS_PROXY`` into every sandbox container, with
+#: only the fixed self-host bypass list (``host.docker.internal`` + loopback) excluded via
+#: ``NO_PROXY`` so a co-located tracking server stays reachable. A remote tracking host is NOT
+#: auto-exempted — it must be allowlisted in the proxy itself. Point this at a proxy that
+#: allowlists only the destinations the sandbox needs (e.g. the model provider API) to steer
+#: egress through an operator-controlled chokepoint. Note this only shapes egress
+#: from *cooperative* HTTP clients that honor the proxy env; it is not a hard boundary, since the
+#: container still has network access and code that ignores the proxy env or opens raw sockets
+#: can reach other hosts. Pair it with host-level firewalling for a true egress boundary. When
+#: unset, sandbox containers have unrestricted egress.
+#: (default: ``None``)
+MLFLOW_SANDBOX_EGRESS_PROXY = _EnvironmentVariable("MLFLOW_SANDBOX_EGRESS_PROXY", str, None)
 
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
@@ -478,6 +548,22 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: Specified the path to the configuration file for MLflow Authentication.
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the username of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_username`` in the
+#: authentication configuration file.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_USERNAME = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_USERNAME", str, None)
+
+#: Specifies the password of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_password`` in the
+#: authentication configuration file. MLflow ships no default admin password, so this variable
+#: (or ``admin_password`` in the configuration file) must be set before the admin user exists.
+#: On upgraded deployments whose admin user still has the legacy default password
+#: ``password1234`` (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr), which the server no
+#: longer accepts, it is also used once at startup to replace that password.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_PASSWORD = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_PASSWORD", str, None)
 
 #: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
 #: (default: ``None``)
@@ -1180,8 +1266,9 @@ MLFLOW_SERVER_X_FRAME_OPTIONS = _EnvironmentVariable(
 )
 
 #: Deny (403) authenticated requests to routes with no authorization decision in the
-#: built-in basic-auth app (fail-closed). Off by default. (default: ``False``)
-MLFLOW_BASIC_AUTH_FAIL_CLOSED = _BooleanEnvironmentVariable("MLFLOW_BASIC_AUTH_FAIL_CLOSED", False)
+#: built-in basic-auth app (fail-closed). On by default; set to ``False`` to restore the
+#: previous fail-open behavior. (default: ``True``)
+MLFLOW_BASIC_AUTH_FAIL_CLOSED = _BooleanEnvironmentVariable("MLFLOW_BASIC_AUTH_FAIL_CLOSED", True)
 
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.
@@ -1420,6 +1507,11 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
 
+#: Disable the hint that points a coding agent at the MLflow tracing skill on
+#: ``import mlflow``. The hint is only ever emitted when a coding agent is detected.
+#: (default: ``False``)
+MLFLOW_DISABLE_AGENT_HINT = _BooleanEnvironmentVariable("MLFLOW_DISABLE_AGENT_HINT", False)
+
 
 def _split_strip(s: str) -> list[str]:
     return [s.strip() for s in s.split(",")]
@@ -1450,6 +1542,33 @@ MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
 #: policy.
 MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
     "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
+
+#: Allowed URL schemes for an AI Gateway secret's ``api_base``. Set to ``http,https`` to
+#: allow plaintext upstreams. (default: ``https``)
+MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
+#: ``https``, ``mlflow-artifacts``, ``r2``, ``b2``, ``abfss``) that the tracking server connects
+#: to even when the URI points at a host other than the server's ``--default-artifact-root`` or
+#: ``--artifacts-destination``. The artifact repositories for these schemes connect to the host
+#: named in the URI, so inside a server process (and its job subprocesses) locations on other
+#: hosts are rejected, both when a client submits them and when a stored location is used.
+#: Locations on the server's own storage hosts are always accepted. Set to e.g. ``hdfs`` or
+#: ``http,https`` when clients legitimately store artifacts on another host. (default: none)
+MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
+)
+
+#: Whether an AI Gateway secret's ``api_base`` may target private, loopback or link-local
+#: addresses (e.g. cloud metadata at ``169.254.169.254``). When false, such values are
+#: rejected on write and again at connect time, on the raw proxy route as well. Set to true
+#: for private upstreams such as in-cluster vLLM or Private Link endpoints.
+#: (default: ``False``)
+MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", False
 )
 
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.

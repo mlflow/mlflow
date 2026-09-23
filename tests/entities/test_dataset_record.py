@@ -214,6 +214,30 @@ def test_dataset_record_to_from_dict():
     assert record2 == record
 
 
+def test_dataset_record_round_trip_with_unspecified_source():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"question": "What is MLflow?"},
+        source=DatasetRecordSource(source_type="UNSPECIFIED", source_data={}),
+        created_time=123456789,
+        last_update_time=987654321,
+    )
+    assert record.source_type == "UNSPECIFIED"
+
+    proto = record.to_proto()
+    assert proto.source_type == ProtoDatasetRecordSource.SourceType.Value("SOURCE_TYPE_UNSPECIFIED")
+    record2 = DatasetRecord.from_proto(proto)
+    assert record2 == record
+    assert record2.source_type == "UNSPECIFIED"
+
+    data = record.to_dict()
+    assert data["source_type"] == "UNSPECIFIED"
+    assert data["source"] == {"source_type": "UNSPECIFIED", "source_data": {}}
+    record3 = DatasetRecord.from_dict(data)
+    assert record3 == record
+
+
 def test_dataset_record_equality():
     source = DatasetRecordSource(source_type="HUMAN", source_data={"user_id": "user1"})
     record1 = DatasetRecord(

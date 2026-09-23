@@ -94,7 +94,7 @@ export const ExperimentViewSavedViewsButton = ({
             )}
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
+        <DropdownMenu.Content align="start">
           <SavedViewsMenu
             componentId="mlflow.experiment_page.saved_views"
             testIdPrefix="saved-views"

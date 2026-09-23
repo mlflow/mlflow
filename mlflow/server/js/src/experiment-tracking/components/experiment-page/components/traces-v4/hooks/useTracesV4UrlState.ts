@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 // Reuse the generic (branding-free) number-search-param helper from datasets-v2.
 import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useNumberSearchParam';
@@ -19,8 +19,15 @@ const PAGE_SIZE_PARAM = 'pageSize';
 const SORT_PARAM = 'sort';
 const DIR_PARAM = 'dir';
 const TRACE_ID_PARAM = 'traceId';
+// v3 (and several still-live producers: the `/traces/:traceId` redirect, the issue-detection trace
+// picker, regression test-case links) open a trace by writing `?selectedEvaluationId=`. v4 reads
+// `traceId`, so honor the legacy param as a fallback and normalize it away on the next write.
+const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
 // Repeatable param (like v3's `filter`): each value is `encodeURIComponent(key)=encodeURIComponent(value)`.
 const TAG_PARAM = 'tag';
+// Present only when grouping is on; the single `session` value leaves room for other groupings later.
+const GROUP_BY_PARAM = 'groupBy';
+const SESSION_GROUP_BY_VALUE = 'session';
 
 /** A single click-to-filter tag constraint (`tags.<key> = '<value>'`), persisted in the URL. */
 export interface TagFilter {
@@ -67,6 +74,9 @@ export interface TracesV4UrlState {
   /** Trace id whose detail drawer is open, or undefined. */
   traceId: string | undefined;
   setTraceId: (next: string | undefined) => void;
+  /** Whether traces are grouped into collapsible session rows. */
+  isGroupedBySession: boolean;
+  setIsGroupedBySession: (next: boolean) => void;
   /** Click-to-filter tag constraints, in URL order. */
   tagFilters: TagFilter[];
   /** Add a tag filter; toggles off if the identical (key, value) is already present. Resets `?page`. */
@@ -99,12 +109,22 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const pageSizeRaw = searchParams.get(PAGE_SIZE_PARAM);
   const sortRaw = searchParams.get(SORT_PARAM);
   const dirRaw = searchParams.get(DIR_PARAM);
-  const traceId = searchParams.get(TRACE_ID_PARAM) ?? undefined;
-  // getAll → the repeatable `tag` values.
-  const tagFilters = searchParams
-    .getAll(TAG_PARAM)
-    .map(decodeTagFilter)
-    .filter((filter): filter is TagFilter => filter !== undefined);
+  const traceId = searchParams.get(TRACE_ID_PARAM) ?? searchParams.get(LEGACY_TRACE_ID_PARAM) ?? undefined;
+  const isGroupedBySession = searchParams.get(GROUP_BY_PARAM) === SESSION_GROUP_BY_VALUE;
+  // getAll → the repeatable `tag` values. Memoize on the serialized params: `getAll().map().filter()`
+  // returns a fresh array every render, and consumers use `tagFilters` as an effect dependency (e.g.
+  // the controller's clear-selection effect). Without a stable identity that effect would re-run on
+  // every render and, in this case, wipe the bulk selection the instant it's made.
+  const tagParamsKey = searchParams.getAll(TAG_PARAM).join('\n');
+  const tagFilters = useMemo(
+    () =>
+      tagParamsKey
+        .split('\n')
+        .filter((value) => value !== '')
+        .map(decodeTagFilter)
+        .filter((filter): filter is TagFilter => filter !== undefined),
+    [tagParamsKey],
+  );
 
   const pageSize = toValidPageSize(pageSizeRaw);
   const sort: TraceColumnId = isSortableColumnId(sortRaw) ? sortRaw : DEFAULT_SORT_COLUMN;
@@ -161,11 +181,29 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const setTraceId = useCallback(
     (next: string | undefined) => {
       setSearchParams((params) => {
+        // Always drop the legacy alias so it doesn't shadow future canonical writes or linger in the URL.
+        params.delete(LEGACY_TRACE_ID_PARAM);
         if (next) {
           params.set(TRACE_ID_PARAM, next);
         } else {
           params.delete(TRACE_ID_PARAM);
         }
+        return params;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const setIsGroupedBySession = useCallback(
+    (next: boolean) => {
+      setSearchParams((params) => {
+        if (next) {
+          params.set(GROUP_BY_PARAM, SESSION_GROUP_BY_VALUE);
+        } else {
+          params.delete(GROUP_BY_PARAM);
+        }
+        // Grouped mode fetches one big page; a cursor from the paged view is meaningless either way.
+        params.delete(PAGE_PARAM);
         return params;
       });
     },
@@ -230,6 +268,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     setSort,
     traceId,
     setTraceId,
+    isGroupedBySession,
+    setIsGroupedBySession,
     tagFilters,
     addTagFilter,
     setTagFilters,

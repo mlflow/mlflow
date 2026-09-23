@@ -34,6 +34,7 @@ const KeyValueViewerApi = {
         .describe('Initial display format for string values (json/text/markdown).')
         .optional(),
       hideFormatToggle: z.boolean().describe('When true, hides the per-value format dropdown.').optional(),
+      weight: z.number().describe('Relative flex weight when placed directly inside a Row/Column.').optional(),
     })
     .strict(),
 } satisfies ComponentApi;
@@ -67,9 +68,10 @@ export const KeyValueViewer: ReactComponentImplementation = createComponentImple
   ({ props }) => {
     const label = props.label ? asString(props.label) : '';
     const initialRenderMode = isFormat(props.initialFormat) ? FORMAT_TO_RENDER_MODE[props.initialFormat] : undefined;
+    const weight = typeof props.weight === 'number' ? props.weight : 1;
 
     return (
-      <div css={{ flex: 1, minWidth: 0 }}>
+      <div css={{ flex: `${weight}`, minWidth: 0 }}>
         <ModelTraceExplorerCodeSnippet
           title={label}
           data={toJsonString(props.value)}

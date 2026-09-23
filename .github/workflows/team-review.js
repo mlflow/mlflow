@@ -1,35 +1,52 @@
 const STATS_ISSUE_NUMBER = 19428;
-const MEMBERS = [
-  "B-Step62",
-  "harupy",
-  "kriscon-db",
-  "aaronteo-db",
-  "joshuawong-db",
-  "tanghaoji",
-  "mprahl",
-  "HumairAK",
-];
 const REVIEWER_BALANCE_RULES = [{ reviewers: ["mprahl", "HumairAK"], maxSelected: 1 }];
 
 async function loadStats(github, owner, repo) {
-  try {
-    const issue = await github.rest.issues.get({
-      owner,
-      repo,
-      issue_number: STATS_ISSUE_NUMBER,
-    });
-    const match = issue.data.body.match(/```json\n([\s\S]*?)\n```/);
-    if (match) {
-      return JSON.parse(match[1]);
-    }
-  } catch (err) {
-    console.warn(`Warning: Failed to load stats from issue: ${err.message}`);
+  const issueUrl = `https://github.com/${owner}/${repo}/issues/${STATS_ISSUE_NUMBER}`;
+  const issue = await github.rest.issues.get({
+    owner,
+    repo,
+    issue_number: STATS_ISSUE_NUMBER,
+  });
+  const match = issue.data.body.match(/```json\n([\s\S]*?)\n```/);
+  if (!match) {
+    throw new Error(`No JSON block found in ${issueUrl}`);
   }
-  return { reviewCounts: {} };
+
+  let stats;
+  try {
+    stats = JSON.parse(match[1]);
+  } catch (err) {
+    throw new Error(`Malformed JSON block in ${issueUrl}: ${err.message}`);
+  }
+
+  const { reviewCounts } = stats;
+  if (typeof reviewCounts !== "object" || reviewCounts === null || Array.isArray(reviewCounts)) {
+    throw new Error(`\`reviewCounts\` is missing or not an object in ${issueUrl}`);
+  }
+  if (Object.keys(reviewCounts).length === 0) {
+    throw new Error(`\`reviewCounts\` is empty in ${issueUrl}, so the roster has no members`);
+  }
+
+  // A rule naming someone off the roster is inert rather than broken, so warn instead of throwing.
+  const staleRuleReviewers = [
+    ...new Set(
+      REVIEWER_BALANCE_RULES.flatMap((rule) => rule.reviewers.filter((r) => !(r in reviewCounts)))
+    ),
+  ];
+  if (staleRuleReviewers.length > 0) {
+    console.warn(
+      `Warning: REVIEWER_BALANCE_RULES names ${staleRuleReviewers.join(", ")}, ` +
+        `absent from ${issueUrl}. Affected rules have no effect.`
+    );
+  }
+  return stats;
 }
 
 async function saveStats(github, owner, repo, stats) {
-  const body = `This issue tracks reviewer assignment counts for fair distribution.
+  const body = `This issue is the source of truth for team review membership. Add or remove a
+reviewer by editing the JSON block below. Add new reviewers at roughly the current highest count,
+since the lowest counts are assigned first.
 
 \`\`\`json
 ${JSON.stringify(stats, null, 2)}
@@ -167,12 +184,10 @@ module.exports = async ({ github, context }) => {
   const approved = reviews.data.filter((r) => r.state === "APPROVED").map((r) => r.user.login);
   const requested = context.payload.pull_request.requested_reviewers.map((r) => r.login);
 
-  const eligibleReviewers = MEMBERS.filter(
+  const stats = await loadStats(github, owner, repo);
+  const eligibleReviewers = Object.keys(stats.reviewCounts).filter(
     (m) => !approved.includes(m) && !requested.includes(m) && m !== author && m !== copilotInitiator
   );
-
-  // Load stats, select reviewers, and update stats
-  const stats = await loadStats(github, owner, repo);
   const selectedReviewers = selectReviewers(eligibleReviewers, stats);
 
   if (selectedReviewers.length > 0) {

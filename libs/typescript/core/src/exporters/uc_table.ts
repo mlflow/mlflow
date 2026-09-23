@@ -24,6 +24,7 @@ import { InMemoryTraceManager } from '../core/trace_manager';
 import { constructTraceIdV4, parseTraceIdV4 } from '../core/utils/trace_id';
 import { aggregateUsageFromSpans, convertHrTimeToMs } from '../core/utils';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
+import { resolveEnvironmentMetadata } from '../core/utils/environment';
 
 /**
  * Span processor for Databricks Unity Catalog backed traces.
@@ -68,6 +69,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
       const traceId = constructTraceIdV4(locationString, otelTraceId);
 
       const traceMetadata: Record<string, string> = {
+        ...resolveEnvironmentMetadata(),
         [TraceMetadataKey.SCHEMA_VERSION]: '4',
       };
       const ctxMetadata = getConfiguredTraceMetadata();

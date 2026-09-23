@@ -22,21 +22,29 @@ import {
 export function useAssessmentCountMetrics({
   experimentIds,
   runUuid,
+  loggedModelId,
   timeRange,
   disabled,
 }: {
   experimentIds: string[];
   runUuid?: string;
+  loggedModelId?: string;
   timeRange?: { startTime?: string; endTime?: string };
   disabled: boolean;
 }): AssessmentCountMetrics | undefined {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
   const enabled = usingInfinitePagination && !disabled;
 
-  const filters = useMemo(
-    () => (runUuid ? [createTraceMetadataFilter('mlflow.sourceRun', runUuid)] : undefined),
-    [runUuid],
-  );
+  const filters = useMemo(() => {
+    const nextFilters = [];
+    if (runUuid) {
+      nextFilters.push(createTraceMetadataFilter('mlflow.sourceRun', runUuid));
+    }
+    if (loggedModelId) {
+      nextFilters.push(createTraceMetadataFilter('mlflow.modelId', loggedModelId));
+    }
+    return nextFilters.length > 0 ? nextFilters : undefined;
+  }, [runUuid, loggedModelId]);
 
   const startTimeMs = timeRange?.startTime ? Number(timeRange.startTime) : undefined;
   const endTimeMs = timeRange?.endTime ? Number(timeRange.endTime) : undefined;

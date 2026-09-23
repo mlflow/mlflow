@@ -231,17 +231,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def _experiment_where_clauses(self):
         return [SqlExperiment.workspace == self._get_active_workspace()]
 
-    def _filter_experiment_ids(self, session, experiment_ids):
+    def _filter_experiment_ids(self, session, experiment_ids, lifecycle_stage: str | None = None):
         workspace = self._get_active_workspace()
-        rows = (
-            session
-            .query(SqlExperiment.experiment_id)
-            .filter(
-                SqlExperiment.experiment_id.in_(experiment_ids),
-                SqlExperiment.workspace == workspace,
-            )
-            .all()
+        experiment_ids = [int(e) for e in experiment_ids]
+        query = session.query(SqlExperiment.experiment_id).filter(
+            SqlExperiment.experiment_id.in_(experiment_ids),
+            SqlExperiment.workspace == workspace,
         )
+        if lifecycle_stage is not None:
+            query = query.filter(SqlExperiment.lifecycle_stage == lifecycle_stage)
+        rows = query.all()
         return [row[0] for row in rows]
 
     def _filter_entity_ids(
@@ -259,7 +258,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 session
                 .query(SqlExperiment.experiment_id)
                 .filter(
-                    SqlExperiment.experiment_id.in_(entity_ids),
+                    SqlExperiment.experiment_id.in_([int(e) for e in entity_ids]),
                     SqlExperiment.workspace == workspace,
                 )
                 .all()

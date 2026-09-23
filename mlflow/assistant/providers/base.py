@@ -1,3 +1,4 @@
+import shutil
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from pathlib import Path
@@ -5,8 +6,30 @@ from typing import Any, AsyncGenerator, Callable, Literal
 
 from mlflow.assistant.config import AssistantConfig, ProviderConfig
 from mlflow.assistant.types import Event
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASSISTANT_SANDBOX,
+    MLFLOW_ENABLE_REMOTE_ASSISTANT,
+)
 
 ClientToolDelivery = Literal["tool", "structured", "unsupported"]
+
+
+def assistant_sandbox_enabled() -> bool:
+    """Whether the assistant should run untrusted work in a Docker sandbox instead of on the host.
+
+    ``MLFLOW_ENABLE_ASSISTANT_SANDBOX`` is a tri-state override: ``true`` forces the sandbox on and
+    ``false`` forces it off (letting an operator opt out), regardless of the deployment. When it is
+    unset (the default), sandboxing is derived: on for a remote/multi-user server
+    (``MLFLOW_ENABLE_REMOTE_ASSISTANT``) that has a ``docker`` executable on PATH, off otherwise (a
+    local server runs the work in a host subprocess, as before).
+
+    Only the presence of the ``docker`` CLI is probed here — cheap and non-blocking, so it is safe
+    to call from provider availability checks; an unreachable daemon surfaces later, when the
+    container is actually started.
+    """
+    if (override := MLFLOW_ENABLE_ASSISTANT_SANDBOX.get()) is not None:
+        return override
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and shutil.which("docker") is not None
 
 
 @lru_cache(maxsize=10)
