@@ -1128,10 +1128,62 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
+# The segment AFTER the experiment id names the child whose artifacts these are, mirroring the
+# store's own layout: a run is ``<experiment_id>/<run_id>/artifacts/...``, a logged model
+# ``<experiment_id>/models/<model_id>/artifacts/...`` and a trace
+# ``<experiment_id>/traces/<trace_id>/artifacts/...``. All three tiers are wildcard-only grain, so
+# the TYPE is the whole answer and the child id never has to be resolved -- no store lookup, and no
+# response that reveals which ids exist.
+_ARTIFACT_PROXY_CHILD_FOLDERS = {
+    "models": RESOURCE_TYPE_LOGGED_MODEL,
+    "traces": RESOURCE_TYPE_TRACE,
+}
+
+
+def _artifact_proxy_child_type(artifact_path: str) -> "str | None":
+    """The child tier a proxy path names, or None for an experiment-level path."""
+    remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
+    segments = [segment for segment in remainder.split("/") if segment]
+    if not segments:
+        return None
+    if child_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(segments[0]):
+        return child_type
+    # ``<run_id>/artifacts/...``: only treat it as a run when the run layout is actually present,
+    # so an experiment-level file is still judged on the experiment alone.
+    return RESOURCE_TYPE_RUN if len(segments) > 1 and segments[1] == "artifacts" else None
+
+
+def _authorize_artifact_proxy_child(artifact_path: "str | None", action: str) -> bool:
+    """The child half of an artifact-proxy decision; the caller supplies the parent half.
+
+    The proxy serves a repository path directly, so the same run, trace or logged-model content the
+    point artifact routes gate was reachable by its concrete proxy path with only the leading
+    experiment id checked. Shaped like ``_run_requirement``: the child tier carries the action with
+    the experiment as fallback, so a caller holding no child grant is judged exactly as before.
+    """
+    if not artifact_path:
+        return True
+    match = _EXPERIMENT_ID_PATTERN.match(f"{artifact_path.lstrip('/')}/")
+    child_type = _artifact_proxy_child_type(artifact_path) if match else None
+    if child_type is None:
+        return True
+    experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+    return authorize(
+        getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username,
+        experiment,
+        [Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))],
+    )
+
+
+def _artifact_proxy_path() -> "str | None":
+    # ``view_args`` is None when no route matched, so guard it rather than assuming a match.
+    return (request.view_args or {}).get("artifact_path") or request.args.get("path")
+
+
 def _get_experiment_id_from_view_args():
     # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
     # For the list-artifacts endpoint, the path is a query parameter named "path".
-    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
+    if artifact_path := _artifact_proxy_path():
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
@@ -1662,15 +1714,21 @@ def validate_can_manage_experiment():
 
 
 def validate_can_read_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_read
+    return _get_permission_from_experiment_id_artifact_proxy().can_read and (
+        _authorize_artifact_proxy_child(_artifact_proxy_path(), "read")
+    )
 
 
 def validate_can_update_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_update
+    return _get_permission_from_experiment_id_artifact_proxy().can_update and (
+        _authorize_artifact_proxy_child(_artifact_proxy_path(), "update")
+    )
 
 
 def validate_can_delete_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_manage
+    return _get_permission_from_experiment_id_artifact_proxy().can_manage and (
+        _authorize_artifact_proxy_child(_artifact_proxy_path(), "manage")
+    )
 
 
 # Runs
@@ -7164,6 +7222,40 @@ def _get_proxy_artifact_permission(
     return get_permission(auth_config.default_permission)
 
 
+def _artifact_proxy_path_from_request_path(path: str, query_path: "str | None") -> "str | None":
+    prefixes = (
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/",
+    )
+    for prefix in prefixes:
+        if path.startswith(prefix):
+            remainder = path.removeprefix(prefix)
+            # Strip the route family segment (artifacts/, mpu/create/, ...) to leave the
+            # repository-relative path the experiment-id parser matches on.
+            for family in ("artifacts/", "mpu/create/", "mpu/complete/", "mpu/abort/"):
+                if remainder.startswith(family):
+                    return remainder.removeprefix(family) or query_path
+    return query_path
+
+
+def _authorize_fastapi_artifact_proxy_child(
+    path: str, username: str, query_path: "str | None", action: str
+) -> bool:
+    artifact_path = _artifact_proxy_path_from_request_path(path, query_path)
+    if not artifact_path:
+        return True
+    match = _EXPERIMENT_ID_PATTERN.match(f"{artifact_path.lstrip('/')}/")
+    child_type = _artifact_proxy_child_type(artifact_path) if match else None
+    if child_type is None:
+        return True
+    experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+    return authorize(
+        username,
+        experiment,
+        [Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))],
+    )
+
+
 def _get_fastapi_proxy_artifact_validator(
     path: str, method: str
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -7172,12 +7264,18 @@ def _get_fastapi_proxy_artifact_validator(
         permission = await asyncio.to_thread(
             _get_proxy_artifact_permission, path, username, query_path
         )
-        return {
-            "GET": permission.can_read,
-            "PUT": permission.can_update,
-            "DELETE": permission.can_manage,
-            "POST": permission.can_update,
-        }.get(method, False)
+        allowed, action = {
+            "GET": (permission.can_read, "read"),
+            "PUT": (permission.can_update, "update"),
+            "DELETE": (permission.can_manage, "manage"),
+            "POST": (permission.can_update, "update"),
+        }.get(method, (False, None))
+        if not allowed:
+            return False
+        # Same child gate as the Flask validators, so neither dispatch path is the softer one.
+        return await asyncio.to_thread(
+            _authorize_fastapi_artifact_proxy_child, path, username, query_path, action
+        )
 
     return validator
 

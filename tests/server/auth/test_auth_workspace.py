@@ -2322,6 +2322,81 @@ def _search_registered_models_names(rows):
     return [rm["name"] for rm in out.get("registered_models", [])]
 
 
+def _run_artifact_proxy(validator, artifact_path, method="GET"):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow-artifacts/artifacts",
+        method=method,
+        query_string={"path": artifact_path},
+    ):
+        return getattr(auth_module, validator)()
+
+
+@pytest.mark.parametrize(
+    ("tier", "artifact_path"),
+    [
+        ("run", "1/abc123/artifacts/model.pkl"),
+        ("logged_model", "1/models/m-abc/artifacts/data.bin"),
+        ("trace", "1/traces/tr-1/artifacts/spans.json"),
+    ],
+)
+def test_artifact_proxy_honors_child_tier_deny(workspace_permission_setup, tier, artifact_path):
+    """The proxy serves a repository path directly, and the path encodes the child. Checking
+    only the leading experiment id let a child DENY be bypassed by the concrete proxy path,
+    while the point artifact routes refused it.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", MANAGE.name),
+        (tier, "*", DENY.name),
+    ])
+
+    assert (
+        _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", artifact_path) is False
+    )
+    assert _run_artifact_proxy(
+        "validate_can_update_experiment_artifact_proxy", artifact_path, method="PUT"
+    ) is False
+    assert _run_artifact_proxy(
+        "validate_can_delete_experiment_artifact_proxy", artifact_path, method="DELETE"
+    ) is False
+    # FastAPI dispatch must not be the softer path.
+    assert auth_module._authorize_fastapi_artifact_proxy_child(
+        f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
+    ) is False
+
+
+def test_artifact_proxy_child_deny_does_not_cross_tiers(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", MANAGE.name),
+        ("run", "*", DENY.name),
+    ])
+
+    assert _run_artifact_proxy(
+        "validate_can_read_experiment_artifact_proxy", "1/traces/tr-1/artifacts/f"
+    ) is True
+    # An experiment-level path names no child, so the experiment alone governs it.
+    assert _run_artifact_proxy(
+        "validate_can_read_experiment_artifact_proxy", "1/plain-file.txt"
+    ) is True
+
+
+def test_artifact_proxy_still_inherits_from_the_experiment(workspace_permission_setup):
+    """No child grant: the experiment decides, exactly as before."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
+
+    assert _run_artifact_proxy(
+        "validate_can_read_experiment_artifact_proxy", "1/abc123/artifacts/model.pkl"
+    ) is True
+
+
 def test_version_point_reads_honor_a_version_deny(workspace_permission_setup):
     """A version DENY must withhold a version whether it is fetched by name or found by searching;
     GetModelVersion and friends consulted only the parent. GetRegisteredModel shares the old
