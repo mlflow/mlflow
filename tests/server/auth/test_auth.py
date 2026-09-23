@@ -7076,7 +7076,7 @@ def test_read_predicate_honors_grant_default_workspace_access(
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def list_role_grants_for_user_in_workspace(self, user_id, workspace, resource_type):
+        def list_grants(self, user_id, workspace, resource_types):
             return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
