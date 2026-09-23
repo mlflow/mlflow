@@ -269,9 +269,16 @@ class GeminiAdapter(ProviderAdapter):
         # struct.
         # Gemini doc: https://ai.google.dev/api/caching#FunctionCall
 
+        # A candidate can mix text and functionCall parts in any order, e.g. a short
+        # "Let me look that up." followed by the call. Keep both.
         tool_calls = []
+        text_parts = []
         for part in content_parts:
-            function_call = part["functionCall"]
+            if "text" in part:
+                text_parts.append(part["text"])
+            function_call = part.get("functionCall")
+            if not function_call:
+                continue
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
@@ -320,11 +327,13 @@ class GeminiAdapter(ProviderAdapter):
                         thought_signature=thought_sig,
                     )
                 )
+        content = "".join(text_parts) or None
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
                 delta=chat_schema.StreamDelta(
                     role="assistant",
+                    content=content,
                     tool_calls=tool_calls,
                 ),
                 finish_reason=finish_reason,
@@ -333,6 +342,7 @@ class GeminiAdapter(ProviderAdapter):
             index=choice_idx,
             message=chat_schema.ResponseMessage(
                 role="assistant",
+                content=content,
                 tool_calls=tool_calls,
             ),
             finish_reason=finish_reason,
@@ -393,7 +403,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
             if parts := candidate.get("content", {}).get("parts", None):
-                if parts[0].get("functionCall", None):
+                if any(part.get("functionCall") for part in parts):
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
                             parts, finish_reason, idx, False
@@ -454,7 +464,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
             if parts:
-                if parts[0].get("functionCall"):
+                if any(part.get("functionCall") for part in parts):
                     # for gemini model streaming response,
                     # the function call message is not split into chunks
                     # it still contains the full function call arguments data.

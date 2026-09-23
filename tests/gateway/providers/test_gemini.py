@@ -1070,6 +1070,49 @@ def test_gemini_function_call_thought_signature_response(part):
     assert choice.message.tool_calls[0].thought_signature == "sig_token"
 
 
+def _mixed_parts_response(parts):
+    return {
+        "candidates": [{"content": {"role": "model", "parts": parts}, "finishReason": "STOP"}],
+        "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1, "totalTokenCount": 2},
+    }
+
+
+_TEXT_PART = {"text": "Let me look that up."}
+_CALL_PART = {"functionCall": {"name": "get_weather", "args": {"city": "Baku"}, "id": "call_1"}}
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [[_TEXT_PART, _CALL_PART], [_CALL_PART, _TEXT_PART]],
+    ids=["text-then-call", "call-then-text"],
+)
+def test_gemini_chat_mixed_text_and_function_call_parts(parts):
+    config = EndpointConfig(**chat_config())
+    resp = GeminiAdapter.model_to_chat(_mixed_parts_response(parts), config)
+
+    message = resp.choices[0].message
+    assert message.content == "Let me look that up."
+    assert [(c.id, c.function.name, c.function.arguments) for c in message.tool_calls] == [
+        ("call_1", "get_weather", '{"city": "Baku"}')
+    ]
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [[_TEXT_PART, _CALL_PART], [_CALL_PART, _TEXT_PART]],
+    ids=["text-then-call", "call-then-text"],
+)
+def test_gemini_chat_streaming_mixed_text_and_function_call_parts(parts):
+    config = EndpointConfig(**chat_config())
+    resp = GeminiAdapter.model_to_chat_streaming(_mixed_parts_response(parts), config)
+
+    delta = resp.choices[0].delta
+    assert delta.content == "Let me look that up."
+    assert [(c.id, c.function.name, c.function.arguments) for c in delta.tool_calls] == [
+        ("call_1", "get_weather", '{"city": "Baku"}')
+    ]
+
+
 def chat_stream_response():
     return [
         b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
