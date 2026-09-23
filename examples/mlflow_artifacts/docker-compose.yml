@@ -1,36 +1,43 @@
-version: "3"
 services:
-  minio:
-    image: minio/minio
+  storage:
+    image: rustfs/rustfs:1.0.0-alpha.83
     expose:
       - "9000"
     ports:
       - "9000:9000"
-      # MinIO Console is available at http://localhost:9001
+      # RustFS Console is available at http://localhost:9001
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: "user"
-      MINIO_ROOT_PASSWORD: "password"
+      RUSTFS_ADDRESS: :9000
+      RUSTFS_SERVER_DOMAINS: storage:9000
+      RUSTFS_REGION: us-east-1
+      RUSTFS_ACCESS_KEY: "user"
+      RUSTFS_SECRET_KEY: "password"
+      RUSTFS_CONSOLE_ENABLE: "true"
     healthcheck:
-      test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+      test: ["CMD-SHELL", 'curl -s http://127.0.0.1:9000/health | grep -q ''"status":"ok"''']
       interval: 1s
       timeout: 10s
       retries: 5
     # Note there is no bucket by default
-    command: server /data --console-address ":9001"
+    command: /data
 
-  minio-create-bucket:
-    image: minio/mc
+  create-bucket:
+    image: amazon/aws-cli:2.33.25
     depends_on:
-      minio:
+      storage:
         condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: "user"
+      AWS_SECRET_ACCESS_KEY: "password"
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: >
-      bash -c "
-      mc alias set minio http://minio:9000 user password &&
-      if ! mc ls minio/bucket; then
-        mc mb minio/bucket
-      else
+      /bin/sh -c "
+      set -e;
+      if aws --endpoint-url=http://storage:9000 s3api head-bucket --bucket bucket 2>/dev/null; then
         echo 'bucket already exists'
+      else
+        aws --endpoint-url=http://storage:9000 s3api create-bucket --bucket bucket
       fi
       "
 
@@ -39,13 +46,14 @@ services:
       context: .
       dockerfile: "${DOCKERFILE:-Dockerfile}"
     depends_on:
-      - minio-create-bucket
+      create-bucket:
+        condition: service_completed_successfully
     expose:
       - "5500"
     ports:
       - "5500:5500"
     environment:
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_S3_ENDPOINT_URL: http://storage:9000
       AWS_ACCESS_KEY_ID: "user"
       AWS_SECRET_ACCESS_KEY: "password"
       MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"

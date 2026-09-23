@@ -1,10 +1,34 @@
 ---
-paths:
-  - ".github/workflows/**/*.yml"
-  - ".github/actions/**/*.yml"
+name: github-actions-style
+description: GitHub Actions workflow and composite action conventions for MLflow. Use when writing, modifying, or reviewing workflows in .github/workflows/ or actions in .github/actions/ in this repository.
 ---
 
 # GitHub Actions Workflow Guidelines
+
+## Reinvent the Wheel When It's Cheap
+
+Prefer a small `run:` step or repository script over a third-party action when
+the behavior is straightforward and cheap to implement and maintain. Use tools
+already available in the job, such as `gh`, `curl`, or Python. A few lines of
+code can avoid another dependency to audit, pin, and update, reduce exposure to
+supply chain attacks, and skip the action's download overhead.
+
+```yaml
+# Bad: adds a dependency just to label a PR
+- uses: example/label-pr@...
+  with:
+    label: needs-review
+
+# Good
+- env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
+    REPO: ${{ github.repository }}
+  run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label needs-review
+```
+
+Use a third-party action when it provides substantial functionality that would
+be costly or error-prone to reproduce.
 
 ## Use `ubuntu-slim` for Lightweight Tasks
 
@@ -39,6 +63,38 @@ If the trigger event already carries the data, read it from the `github` context
 ```
 
 Only fetch when the data isn't in the payload (e.g., check runs, review threads, changed files on `issue_comment`).
+
+## Prefer Job Conditions Over Shell Guards
+
+When a condition determines whether a job has any work and can be evaluated
+from workflow contexts, use a job-level `if` instead of starting a `run` script
+and checking the condition in the shell. GitHub can then skip the job without
+provisioning a runner.
+
+```yaml
+# Bad: every opened issue provisions a runner before checking its title
+jobs:
+  label:
+    runs-on: ubuntu-slim
+    steps:
+      - env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          if echo "$ISSUE_TITLE" | grep -qi "bug report"; then
+            gh issue edit ... --add-label bug
+          fi
+
+# Good: unrelated issues skip the job before a runner is provisioned
+jobs:
+  label:
+    if: contains(github.event.issue.title, 'bug report')
+    runs-on: ubuntu-slim
+    steps:
+      - run: gh issue edit ... --add-label bug
+```
+
+Keep the condition inside `run` when it depends on information produced on the
+runner or a command's result and cannot be evaluated as a workflow expression.
 
 ## Prefer `gh` CLI over `actions/github-script`
 
@@ -140,7 +196,7 @@ Set `sparse-checkout-cone-mode: false` only when you need to target individual f
 
 ## `pipefail` Is Already On
 
-Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
+Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
 
 ## Mask Secrets Generated Mid-Job
 

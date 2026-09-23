@@ -14,6 +14,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   check-comment:
@@ -228,6 +229,8 @@ jobs:
           # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
           # for how to rotate the private key
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -253,18 +256,17 @@ jobs:
 
       - name: Configure git
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ needs.check-comment.outputs.pull_number }}
-          REPO: ${{ github.repository }}
+          AUTHOR_LOGIN: ${{ github.event.issue.user.login }}
+          AUTHOR_ID: ${{ github.event.issue.user.id }}
+          AUTHOR_TYPE: ${{ github.event.issue.user.type }}
         run: |
-          AUTHOR=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author')
-          IS_BOT=$(echo "$AUTHOR" | jq -r '.is_bot')
-          if [ "$IS_BOT" = "false" ]; then
-            LOGIN=$(echo "$AUTHOR" | jq -r '.login')
-          else
+          if [ "$AUTHOR_TYPE" = "Bot" ]; then
             LOGIN="mlflow-app[bot]"
+            ID=191841109
+          else
+            LOGIN="$AUTHOR_LOGIN"
+            ID="$AUTHOR_ID"
           fi
-          ID=$(gh api "users/$LOGIN" --jq '.id')
           git config user.name "$LOGIN"
           git config user.email "${ID}+${LOGIN}@users.noreply.github.com"
 

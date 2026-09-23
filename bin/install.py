@@ -149,15 +149,15 @@ TOOLS = [
     ),
     Tool(
         name="rg",
-        version="14.1.1",
+        version="15.2.0",
         assets={
             ("linux", "x86_64"): (
-                "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
-                "4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e",
+                "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
+                "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
             ),
             ("darwin", "arm64"): (
-                "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
-                "24ad76777745fbff131c8fbc466742b011f925bfa4fffa2ded6def23b5b937be",
+                "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-apple-darwin.tar.gz",
+                "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4",
             ),
         },
     ),

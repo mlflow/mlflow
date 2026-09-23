@@ -1179,6 +1179,10 @@
     "defaultMessage": "Group traces by session",
     "description": "Tooltip for the group by session button in the V4 traces table toolbar"
   },
+  "2p9R6I": {
+    "defaultMessage": "Run this from your project's Git repository to connect to MLflow and launch your coding agent to add tracing. Have Claude Code, Codex, or OpenCode installed first.",
+    "description": "Description above the MLflow setup wizard terminal command in the agent action card"
+  },
   "2pEWG3": {
     "defaultMessage": "Select a version to view details.",
     "description": "MCP server detail placeholder when no version is selected"
@@ -1286,6 +1290,10 @@
   "3Ld280": {
     "defaultMessage": "No traces yet",
     "description": "Title for the traces empty state"
+  },
+  "3LhJyC": {
+    "defaultMessage": "Loading source model",
+    "description": "Screen reader label shown while the source logged model of a model version is loading"
   },
   "3MZ6H+": {
     "defaultMessage": "Submit",
@@ -1578,10 +1586,6 @@
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
-  },
-  "4aEfUy": {
-    "defaultMessage": "Run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app.",
-    "description": "Description above the mlflow agent setup terminal command in the agent action card"
   },
   "4aoazH": {
     "defaultMessage": "Close",
@@ -3338,10 +3342,6 @@
   "BUJfbQ": {
     "defaultMessage": "Inputs",
     "description": "Header for the dataset record inputs column"
-  },
-  "BUdrAE": {
-    "defaultMessage": "One-line setup",
-    "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
   "BWH8UR": {
     "defaultMessage": "API key name:",
@@ -5642,6 +5642,10 @@
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"
+  },
+  "LEQdst": {
+    "defaultMessage": "Source Model",
+    "description": "Label name for the source logged model metadata in model version page"
   },
   "LEiN8m": {
     "defaultMessage": "Tags",
@@ -8006,6 +8010,10 @@
   "UlkINy": {
     "defaultMessage": "Admin",
     "description": "Roles table column flagging admin roles when workspaces are disabled"
+  },
+  "Ulp7ge": {
+    "defaultMessage": "TypeSafe endpoints require all primary and fallback models to use TypeSafe.",
+    "description": "Validation error for mixing TypeSafe evaluation models with other providers"
   },
   "UmwZQv": {
     "defaultMessage": "using Prompt Engineering",
@@ -14450,6 +14458,10 @@
   "tHrp+A": {
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
+  },
+  "tLJ0LB": {
+    "defaultMessage": "One-line setup",
+    "description": "Tab label for the MLflow setup wizard path in the agent action card"
   },
   "tLTTEX": {
     "defaultMessage": "Enter description",

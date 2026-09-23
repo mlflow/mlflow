@@ -43,6 +43,7 @@ def test_transform_entry_chat_model():
         "output_cost_per_token": 1.5e-5,
         "cache_read_input_token_cost": 3e-7,
         "cache_creation_input_token_cost": 3.75e-6,
+        "cache_creation_input_token_cost_above_1hr": 6e-6,
         "max_input_tokens": 200000,
         "max_output_tokens": 64000,
         "max_tokens": 64000,
@@ -61,6 +62,7 @@ def test_transform_entry_chat_model():
             "output_per_million_tokens": 15.0,
             "cache_read_per_million_tokens": 0.3,
             "cache_write_per_million_tokens": 3.75,
+            "cache_write_1hr_per_million_tokens": 6.0,
         },
         "capabilities": {
             "function_calling": True,
@@ -70,6 +72,17 @@ def test_transform_entry_chat_model():
             "response_schema": True,
         },
     }
+
+
+def test_transform_entry_without_1hr_cache_creation_cost():
+    info = {
+        "mode": "chat",
+        "input_cost_per_token": 3e-6,
+        "cache_creation_input_token_cost": 3.75e-6,
+    }
+    pricing = _transform_entry(info)["pricing"]
+    assert pricing["cache_write_per_million_tokens"] == 3.75
+    assert "cache_write_1hr_per_million_tokens" not in pricing
 
 
 def test_transform_entry_includes_image_generation():

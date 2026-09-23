@@ -37,7 +37,7 @@ npm install @mlflow/core
 ```
 
 > [!NOTE]
-> MLflow Typescript SDK requires Node.js 20 or higher.
+> MLflow Typescript SDK requires Node.js 22 or higher.
 
 ## Quickstart
 

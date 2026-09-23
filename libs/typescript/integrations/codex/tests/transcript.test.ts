@@ -1,4 +1,11 @@
-import { resolve } from 'path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+jest.mock('node:os', () => ({
+  ...jest.requireActual<typeof import('node:os')>('node:os'),
+  homedir: jest.fn(),
+}));
 
 import {
   readTranscript,
@@ -10,6 +17,7 @@ import {
   getModel,
   getSessionId,
   buildToolResultMap,
+  findTranscriptForThread,
 } from '../src/transcript';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
@@ -96,5 +104,67 @@ describe('readTranscript + parsing', () => {
   it('returns empty tool result map for basic transcript', () => {
     const results = buildToolResultMap(basicRecords);
     expect(Object.keys(results).length).toBe(0);
+  });
+});
+
+describe('findTranscriptForThread', () => {
+  let originalCodexHome: string | undefined;
+  let testRoot: string;
+
+  beforeEach(() => {
+    originalCodexHome = process.env.CODEX_HOME;
+    testRoot = mkdtempSync(join(tmpdir(), 'mlflow-codex-transcript-'));
+    jest.useFakeTimers().setSystemTime(new Date(2026, 3, 5, 10));
+  });
+
+  afterEach(() => {
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodexHome;
+    }
+    jest.mocked(homedir).mockReset();
+    jest.useRealTimers();
+    rmSync(testRoot, { recursive: true, force: true });
+  });
+
+  function writeTranscript(codexHome: string, threadId: string): string {
+    const transcriptDir = join(codexHome, 'sessions', '2026', '04', '05');
+    mkdirSync(transcriptDir, { recursive: true });
+    const transcriptPath = join(transcriptDir, `rollout-2026-04-05T10-00-00-${threadId}.jsonl`);
+    writeFileSync(transcriptPath, '{}\n', 'utf-8');
+    return transcriptPath;
+  }
+
+  it('uses CODEX_HOME instead of the legacy home directory', () => {
+    const codexHome = join(testRoot, 'custom-codex-home');
+    const legacyHome = join(testRoot, 'legacy-home');
+    process.env.CODEX_HOME = codexHome;
+    jest.mocked(homedir).mockReturnValue(legacyHome);
+
+    const expectedPath = writeTranscript(codexHome, 'shared-thread-id');
+    writeTranscript(join(legacyHome, '.codex'), 'shared-thread-id');
+
+    expect(findTranscriptForThread('shared-thread-id')).toBe(expectedPath);
+  });
+
+  it('uses ~/.codex when CODEX_HOME is unset', () => {
+    const legacyHome = join(testRoot, 'legacy-home');
+    delete process.env.CODEX_HOME;
+    jest.mocked(homedir).mockReturnValue(legacyHome);
+
+    const expectedPath = writeTranscript(join(legacyHome, '.codex'), 'legacy-thread-id');
+
+    expect(findTranscriptForThread('legacy-thread-id')).toBe(expectedPath);
+  });
+
+  it('uses ~/.codex when CODEX_HOME is empty', () => {
+    const legacyHome = join(testRoot, 'legacy-home');
+    process.env.CODEX_HOME = '';
+    jest.mocked(homedir).mockReturnValue(legacyHome);
+
+    const expectedPath = writeTranscript(join(legacyHome, '.codex'), 'empty-home-thread-id');
+
+    expect(findTranscriptForThread('empty-home-thread-id')).toBe(expectedPath);
   });
 });

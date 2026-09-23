@@ -101,7 +101,11 @@ from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewSt
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
-from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
+from mlflow.prompt.constants import (
+    _PROMPT_SOURCE_PLACEHOLDERS,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_TAG_KEY,
+)
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -328,6 +332,7 @@ from mlflow.server.workspace_helpers import (
 )
 from mlflow.store.artifact.artifact_repo import (
     ARTIFACT_STREAM_CHUNK_SIZE,
+    ArtifactRepository,
     MultipartDownloadMixin,
     MultipartUploadMixin,
     PresignedUploadMixin,
@@ -335,6 +340,11 @@ from mlflow.store.artifact.artifact_repo import (
     _validate_attachment_path,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.host_policy import (
+    host_addressed_rejection_message,
+    rejected_host_addressed_scheme,
+    validate_artifact_uri_host,
+)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -395,18 +405,29 @@ from mlflow.utils.server_info import (
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
+    SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
+from mlflow.utils.uri import (
+    get_uri_scheme,
+    is_local_uri,
+    validate_path_is_safe,
+    validate_query_string,
+)
 from mlflow.utils.validation import (
     MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
+    _validate_experiment_id,
+    _validate_gateway_secret_auth_config,
+    _validate_gateway_secret_value,
+    _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
     invalid_value,
@@ -620,7 +641,7 @@ def _get_trace_repo_from_uri(artifact_uri: str):
         # e.g. s3://<experiment_id>/traces/<request_id>
         artifact_repo = get_artifact_repository(artifact_uri)
     else:
-        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
 
 
@@ -1074,6 +1095,60 @@ def _validate_request_json_with_schema(
             )
 
 
+def _reject_conflicting_field_aliases(request_json: Any, message_descriptor: Any) -> None:
+    """
+    Reject a JSON object that spells one protobuf field two ways.
+
+    ``ParseDict`` accepts both a field's proto name (``secret_id``) and its JSON name
+    (``secretId``) and silently lets whichever key comes later win. Authorization
+    layers that key off the raw body would then authorize one value while the handler
+    acts on another, so a body carrying both spellings is ambiguous and refused.
+    """
+    if not isinstance(request_json, dict):
+        return
+    for field in message_descriptor.fields:
+        if (
+            field.name != field.json_name
+            and field.name in request_json
+            and field.json_name in request_json
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"Request specifies both '{field.name}' and '{field.json_name}'; "
+                "provide only one of them."
+            )
+        if field.type != descriptor.FieldDescriptor.TYPE_MESSAGE:
+            continue
+        nested = field.message_type
+        # Map entries and well-known types carry caller-chosen keys, not proto fields.
+        if nested.GetOptions().map_entry or nested.full_name.startswith("google.protobuf."):
+            continue
+        value = request_json.get(field.name, request_json.get(field.json_name))
+        for item in value if isinstance(value, list) else [value]:
+            _reject_conflicting_field_aliases(item, nested)
+
+
+def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
+    """Check whether a protobuf field was present in the incoming HTTP request.
+
+    Protobuf ``repeated`` fields deserialise to ``[]`` whether the caller
+    sent an empty list *or* omitted the field entirely.  For
+    fields where the difference matters (e.g. ``experiment_ids``) :
+
+    * absent  → no auth restriction (``None``)
+    * ``[]``  → deny-all (empty authorised set)
+
+    This helper inspects the raw Flask request (query-string for GET,
+    JSON body for POST) to distinguish the two cases.
+    """
+    try:
+        if request.method == "GET":
+            return field.name in request.args
+        request_json = _get_normalized_request_json()
+        return field.name in request_json or field.json_name in request_json
+    except RuntimeError:
+        return False
+
+
 def _get_request_message(request_message, flask_request=request, schema=None):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
@@ -1107,6 +1182,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     else:
         request_json = _get_normalized_request_json(flask_request)
 
+    _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     proto_parsing_succeeded = True
     try:
         parse_dict(request_json, request_message)
@@ -1383,6 +1459,25 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
+def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
+    scheme = rejected_host_addressed_scheme(uri)
+    if scheme is not None:
+        raise MlflowException.invalid_parameter_value(
+            host_addressed_rejection_message(scheme, field_name=field_name)
+        )
+
+
+def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
+    """
+    Build the artifact repository for a stored location the server did not configure itself,
+    refusing to connect to hosts outside its configured artifact storage. The registry applies the
+    same policy to every repository built in a server process; this explicit check keeps the
+    handlers covered when the server is run without the `mlflow server` CLI environment.
+    """
+    validate_artifact_uri_host(artifact_uri)
+    return get_artifact_repository(artifact_uri)
+
+
 def _validate_storage_location_uri(value: str, field_name: str) -> str:
     """Validate a storage URI shared by experiment and workspace settings."""
     parsed = urllib.parse.urlparse(value)
@@ -1392,6 +1487,7 @@ def _validate_storage_location_uri(value: str, field_name: str) -> str:
         )
 
     validate_query_string(parsed.query)
+    _validate_artifact_uri_scheme(value, field_name)
     _validate_experiment_artifact_location(value)
     _validate_experiment_artifact_location_length(value)
     return value
@@ -1409,7 +1505,23 @@ def _validate_optional_workspace_storage_location(value: str | None, field_name:
 
 
 def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
-    return _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    validated = _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    if validated in (None, ""):
+        return validated
+    # A scheme-less relative value is resolved by tracking clients against their own working
+    # directory, so artifacts would silently be written to the client machine. Classify with
+    # ``get_uri_scheme``, the same call the artifact repository registry and
+    # ``_validate_prompt_source`` use, so that values they treat as local paths (including
+    # single-letter "schemes" such as 'C:team-a') are rejected here. Unlike a prompt source, an
+    # absolute path is a legitimate artifact root on a shared filesystem, mirroring the
+    # server-level ``--default-artifact-root``, so it stays accepted.
+    if not get_uri_scheme(validated) and not os.path.isabs(validated):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid value for 'default_artifact_root'. Expected a URI (for example "
+            "'s3://bucket/prefix' or 'mlflow-artifacts:/prefix') or an absolute path, got "
+            f"'{validated}'."
+        )
+    return validated
 
 
 def _validate_workspace_trace_archival_location(value: str | None) -> str | None:
@@ -1459,6 +1571,7 @@ def _get_workspace_request_message(
             proto_parsing_succeeded=None,
         )
 
+    _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     parse_dict(request_json, request_message)
     return request_message, request_json
 
@@ -2613,7 +2726,7 @@ def upload_artifact_handler():
             )
             path_to_log = _get_workspace_scoped_repo_path_if_enabled(path_to_log)
         else:
-            artifact_repo = get_artifact_repository(artifact_dir)
+            artifact_repo = _get_artifact_repository_for_uri(artifact_dir)
             path_to_log = dirname
 
         artifact_repo.log_artifact(file, path_to_log)
@@ -2662,9 +2775,8 @@ def _search_experiments():
     return response
 
 
-@catch_mlflow_exception
 def _get_artifact_repo(run):
-    return get_artifact_repository(run.info.artifact_uri)
+    return _get_artifact_repository_for_uri(run.info.artifact_uri)
 
 
 _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
@@ -3030,6 +3142,26 @@ def _validate_non_local_source_contains_relative_paths(source: str):
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
 
+def _validate_prompt_source(source: str) -> None:
+    """
+    Prompt versions never legitimately reference the tracking server's filesystem. A schemeless
+    source selects ``LocalArtifactRepository`` and becomes the directory that ``get-artifact``
+    later serves from, so any schemeless value other than the known client placeholders is
+    rejected outright; a separator-free name such as "mlflow" would still expose a directory
+    under the server's working directory. ``get_uri_scheme`` is used rather than ``urlparse`` so
+    that Windows drive letters ("C:/...") classify as local, exactly as the artifact layer does.
+    """
+    scheme = get_uri_scheme(source)
+    if scheme and scheme != "file":
+        _validate_non_local_source_contains_relative_paths(source)
+        return
+    if source not in _PROMPT_SOURCE_PLACEHOLDERS:
+        raise MlflowException(
+            f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_source_run(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
@@ -3107,26 +3239,13 @@ def _create_model_version():
 
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
-        # Prompt sources must not point to local filesystem paths.
-        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
-        # the legitimate schemeless placeholder sources used internally
-        # (e.g. "prompt-template", "dummy-source").
-        source = request_message.source
-        parsed = urllib.parse.urlparse(source)
-        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
-            raise MlflowException(
-                f"Invalid prompt source: '{source}'. "
-                "Local source paths are not allowed for prompts.",
-                INVALID_PARAMETER_VALUE,
-            )
-        # Only validate traversal for sources with a URL scheme (http, https, etc.)
-        if parsed.scheme:
-            _validate_non_local_source_contains_relative_paths(source)
+        _validate_prompt_source(request_message.source)
     else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
             _validate_source_run(request_message.source, request_message.run_id)
+    _validate_artifact_uri_scheme(request_message.source, "source")
 
     store = _get_model_registry_store()
     model_version = store.create_model_version(
@@ -3186,7 +3305,10 @@ def _create_model_version():
 
 
 def _is_prompt_request(request_message):
-    return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+    # Mirror ModelVersion._is_prompt: tags collapse by key with the last value winning, and only a
+    # true-valued tag selects the prompt code path.
+    tags = {tag.key: tag.value for tag in request_message.tags}
+    return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
 
 
 def _is_prompt(name: str) -> bool:
@@ -3210,7 +3332,7 @@ def get_model_version_artifact_handler():
         )
         artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
-        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
         artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
@@ -3874,32 +3996,47 @@ def _create_presigned_upload_url():
     """
     Handler for POST /api/2.0/mlflow/artifacts/presigned-upload-url.
     Generates a presigned URL for uploading an artifact directly to cloud storage.
+    Supports run artifacts (``run_id``) and logged model artifacts (``model_id``);
+    exactly one of the two must be provided.
 
     Client reference: https://github.com/aws/sagemaker-mlflow
     """
     request_message = _get_request_message(
         CreatePresignedUploadUrl(),
         schema={
-            "run_id": [_assert_required, _assert_string],
+            "run_id": [_assert_string],
+            "model_id": [_assert_string],
             "path": [_assert_required, _assert_string],
             "expiration": [_assert_intlike],
         },
     )
     run_id = request_message.run_id
+    model_id = request_message.model_id
+    if bool(run_id) == bool(model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     path = validate_path_is_safe(request_message.path)
     expiration = request_message.expiration if request_message.HasField("expiration") else 900
 
-    run = _get_tracking_store().get_run(run_id)
-    artifact_uri = run.info.artifact_uri
+    if run_id:
+        run = _get_tracking_store().get_run(run_id)
+        artifact_uri = run.info.artifact_uri
+    else:
+        logged_model = _get_tracking_store().get_logged_model(model_id)
+        artifact_uri = logged_model.artifact_location
     artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
     if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
         raise MlflowException(
-            "Presigned upload is not supported for runs with proxied artifact storage "
+            "Presigned upload is not supported for proxied artifact storage "
             f"(artifact URI scheme: {artifact_uri_scheme}). "
-            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            "This endpoint requires a direct cloud storage artifact URI.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    artifact_repo = _get_artifact_repo(run)
+    artifact_repo = (
+        _get_artifact_repo(run) if run_id else _get_artifact_repository_for_uri(artifact_uri)
+    )
     _validate_support_presigned_upload(artifact_repo)
 
     response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
@@ -4139,9 +4276,22 @@ def _batch_get_traces() -> Response:
     """
     request_message = _get_request_message(
         BatchGetTraces(),
-        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "experiment_ids": [_assert_array, _assert_item_type_string],
+        },
     )
-    traces = _get_tracking_store().batch_get_traces(request_message.trace_ids, None)
+    store = _get_tracking_store()
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if has_experiment_ids:
+        traces = store.batch_get_traces(
+            request_message.trace_ids,
+            None,
+            experiment_ids=list(request_message.experiment_ids),
+        )
+    else:
+        traces = store.batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
     return _wrap_response(response_message, pretty=False)
@@ -4152,9 +4302,20 @@ def _batch_get_traces() -> Response:
 def _batch_get_trace_infos() -> Response:
     request_message = _get_request_message(
         BatchGetTraceInfos(),
-        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "experiment_ids": [_assert_array, _assert_item_type_string],
+        },
     )
-    trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
+    store = _get_tracking_store()
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if has_experiment_ids:
+        trace_infos = store.batch_get_trace_infos(
+            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
+        )
+    else:
+        trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
     return _wrap_trace_info_response(response_message)
@@ -5181,6 +5342,41 @@ def _set_review_queue_item_status():
     return _wrap_response(SetReviewQueueItemStatus.Response(item=item.to_proto()))
 
 
+def _validate_trace_ids_in_experiment(
+    tracking_store: AbstractTrackingStore, trace_ids: list[str], experiment_id: str
+) -> None:
+    """
+    Reject the request if any requested trace that exists belongs to an experiment other
+    than ``experiment_id``. The route validators only check the caller's permission on the
+    request's ``experiment_id``, so this binds the caller-supplied ``trace_ids`` to that
+    authorized experiment. Missing traces are not rejected here; they are left to fail
+    downstream in the job, which preserves the existing contract for missing traces.
+    """
+    try:
+        # Deliberately not scoped with `experiment_ids`: scoping would hide foreign traces and
+        # make the ownership check below vacuous.
+        trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
+    except (MlflowNotImplementedException, NotImplementedError):
+        # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
+        # A missing trace is simply absent, matching the partial list the batch path returns.
+        # A store that implements neither lookup cannot prove ownership, so its error is
+        # left to propagate rather than letting the request through unchecked.
+        trace_infos = []
+        for trace_id in trace_ids:
+            try:
+                trace_infos.append(tracking_store.get_trace_info(trace_id))
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+
+    for trace_info in trace_infos:
+        if str(trace_info.experiment_id) != str(experiment_id):
+            raise MlflowException(
+                "Not all requested traces could be accessed.",
+                error_code=PERMISSION_DENIED,
+            )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -5197,7 +5393,7 @@ def _invoke_issue_detection_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
             "provider": [_assert_required, _assert_string],
             "model": [_assert_string],
@@ -5207,7 +5403,8 @@ def _invoke_issue_detection_handler():
     )
 
     experiment_id = request_json.get("experiment_id")
-    trace_ids = request_json.get("trace_ids", [])
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or analyzed twice.
+    trace_ids = list(dict.fromkeys(request_json.get("trace_ids", [])))
     categories = request_json.get("categories", [])
     provider = request_json.get("provider")
     model = request_json.get("model")
@@ -5215,6 +5412,11 @@ def _invoke_issue_detection_handler():
     endpoint_name = request_json.get("endpoint_name")
     provider_name = provider.lower() if provider else provider
 
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to analyze.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if not endpoint_name and not (provider and model):
         raise MlflowException(
             "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
@@ -5243,9 +5445,11 @@ def _invoke_issue_detection_handler():
                 f"AI Gateway, or set {env_var_hint} on the MLflow server."
             )
 
+    store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+
     # Fetch credentials required for executing the job
     if secret_id:
-        store = _get_tracking_store()
         credentials = _fetch_provider_credentials(store, provider_name, secret_id)
     else:
         credentials = None
@@ -5302,14 +5506,15 @@ def _invoke_genai_evaluate_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "serialized_scorers": [_assert_required, _assert_array],
             "scorer_versions": [_assert_array],
         }
     )
 
     experiment_id = request_json["experiment_id"]
-    trace_ids = request_json["trace_ids"]
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
+    trace_ids = list(dict.fromkeys(request_json["trace_ids"]))
     serialized_scorers = request_json["serialized_scorers"]
     scorer_versions = request_json.get("scorer_versions", [None] * len(serialized_scorers))
 
@@ -5329,6 +5534,7 @@ def _invoke_genai_evaluate_handler():
         )
 
     tracking_store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     for index, (serialized_scorer, scorer_version) in enumerate(
         zip(serialized_scorers, scorer_versions, strict=True)
     ):
@@ -5347,6 +5553,11 @@ def _invoke_genai_evaluate_handler():
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
         serialized_scorers[index] = registered_scorer.serialized_scorer
         scorer_versions[index] = registered_scorer.scorer_version
+
+    # The job deserializes and runs these scorers, so validate the final payloads (inline and
+    # resolved from the store) before a run is created.
+    for serialized_scorer in serialized_scorers:
+        _validate_serialized_scorer_payload(serialized_scorer)
 
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
@@ -5542,7 +5753,7 @@ def get_logged_model_artifact_handler(model_id: str):
         )
         artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
-        artifact_repo = get_artifact_repository(logged_model.artifact_location)
+        artifact_repo = _get_artifact_repository_for_uri(logged_model.artifact_location)
         artifact_path = artifact_file_path
 
     return _send_artifact(artifact_repo, artifact_path)
@@ -5737,7 +5948,7 @@ def _list_logged_model_artifacts_impl(
             relative_path=artifact_directory_path,
         )
     else:
-        artifacts = get_artifact_repository(logged_model.artifact_location).list_artifacts(
+        artifacts = _get_artifact_repository_for_uri(logged_model.artifact_location).list_artifacts(
             artifact_directory_path
         )
 
@@ -5751,6 +5962,28 @@ def _list_logged_model_artifacts_impl(
 # =============================================================================
 
 
+def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
+    """Reject serialized scorers the server must never reconstruct.
+
+    Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
+    is deserialized. The Python client blocks registering them via `_check_can_be_registered()`,
+    but that check is client-side only, so it is enforced here regardless of how the request
+    arrives or what the server's tracking URI is. Third-party scorer kwargs that would steer the
+    judge's outbound requests are rejected for the same reason. Applied to caller payloads and
+    to registered scorers fetched from the store, since rows written before these checks
+    existed can carry the same fields.
+    """
+    try:
+        serialized_data = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
+    if serialized_data.get("call_source") is not None:
+        raise MlflowException.invalid_parameter_value(
+            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
+    _validate_third_party_scorer_data(serialized_data)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _register_scorer():
@@ -5762,19 +5995,7 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    # Decorator scorers contain a `call_source` field that is executed via exec() during
-    # deserialization. The Python client blocks this via `_check_can_be_registered()`, but
-    # that check is client-side only and can be bypassed by calling the REST API directly.
-    # Enforce the same restriction here in the server handler so it applies regardless of
-    # how the request arrives.
-    try:
-        serialized_data = json.loads(request_message.serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
-        raise MlflowException.invalid_parameter_value(
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
-        )
+    _validate_serialized_scorer_payload(request_message.serialized_scorer)
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
@@ -5792,16 +6013,60 @@ def _register_scorer():
     return response
 
 
+def _search_active_experiment_ids(store):
+    """
+    Workspace-aware paginated walk of ALL ACTIVE experiments via the general
+    ``search_experiments`` search API. Use this only for genuine open-ended
+    enumeration where the result size is unknown ahead of time and must be
+    discovered by paging. For validating a bounded, caller-supplied ID list,
+    use ``store.filter_active_experiment_ids`` instead — stuffing an
+    arbitrarily large ID list into a ``search_experiments`` filter string
+    risks the SQLite bound-parameter limit that the narrow batch API avoids
+    by chunking.
+    """
+    experiment_ids: list[str] = []
+    page_token: str | None = None
+    while True:
+        page = store.search_experiments(
+            view_type=ViewType.ACTIVE_ONLY,
+            max_results=1000,
+            page_token=page_token,
+        )
+        experiment_ids.extend(e.experiment_id for e in page)
+        if not (page_token := page.token):
+            break
+    return experiment_ids
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_scorers():
     request_message = _get_request_message(
         ListScorers(),
-        schema={"experiment_id": [_assert_string]},
+        schema={
+            "experiment_id": [_assert_string],
+            "experiment_ids": [_assert_array, _assert_item_type_string],
+        },
     )
     response_message = ListScorers.Response()
     store = _get_tracking_store()
-    if request_message.experiment_id:
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if request_message.experiment_id and has_experiment_ids:
+        raise MlflowException(
+            "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "
+            "'experiment_ids' to scope the query to multiple experiments, or "
+            "'experiment_id' to scope it to a single experiment.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if has_experiment_ids:
+        requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
+        if requested_experiment_ids:
+            for eid in requested_experiment_ids:
+                _validate_experiment_id(eid)
+        valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+    elif request_message.experiment_id:
         scorers = store.list_scorers(request_message.experiment_id)
     else:
         # Cross-experiment listing: walk the active workspace's experiments
@@ -5809,18 +6074,7 @@ def _list_scorers():
         # batch the scorer fetch through ``list_scorers_across_experiments``.
         # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
         # the response.
-        experiment_ids: list[str] = []
-        page_token: str | None = None
-        while True:
-            page = store.search_experiments(
-                view_type=ViewType.ACTIVE_ONLY,
-                max_results=1000,
-                page_token=page_token,
-            )
-            experiment_ids.extend(e.experiment_id for e in page)
-            if not (page_token := page.token):
-                break
-        scorers = store.list_scorers_across_experiments(experiment_ids)
+        scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -5983,12 +6237,16 @@ def _create_gateway_secret():
             "created_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
-    auth_config = dict(request_message.auth_config) or None
+    # Empty map means no auth_config was provided. Unlike update, the store's create path
+    # persists {} and None identically (NULL), so a map that normalizes to empty is folded
+    # into None here.
+    auth_config = _validate_gateway_secret_auth_config(dict(request_message.auth_config)) or None
+    secret_value = dict(request_message.secret_value)
+    _validate_gateway_secret_value(secret_value)
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
-        secret_value=dict(request_message.secret_value),
+        secret_value=secret_value,
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
@@ -6025,11 +6283,14 @@ def _update_gateway_secret():
             "updated_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
-    auth_config = dict(request_message.auth_config) or None
+    # Empty map means no auth_config was provided. A map that normalizes to empty (e.g. only
+    # a blank api_base) is an explicit clear and is passed through as {}.
+    raw_auth_config = dict(request_message.auth_config)
+    auth_config = _validate_gateway_secret_auth_config(raw_auth_config) if raw_auth_config else None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
+    _validate_gateway_secret_value(secret_value)
 
     secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,
@@ -7082,6 +7343,9 @@ def _get_server_info():
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        # These advertise request-contract support; repository support is checked per resource.
+        SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
+        SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
@@ -7167,6 +7431,8 @@ def _invoke_scorer_handler():
             "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    if not isinstance(trace_ids, list) or not all(isinstance(t, str) for t in trace_ids):
+        raise MlflowException.invalid_parameter_value("trace_ids must be a list of strings")
     # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
     trace_ids = list(dict.fromkeys(trace_ids))
     if (scorer_name is None) != (scorer_version is None):
@@ -7182,18 +7448,7 @@ def _invoke_scorer_handler():
             "scorer_name must be a string and scorer_version must be an integer"
         )
 
-    # Decorator scorers carry a `call_source` field that is executed via exec() when the
-    # scorer is deserialized. Reject such payloads before deserialization so this endpoint
-    # never reconstructs attacker-supplied source code, regardless of the server's tracking
-    # URI. This mirrors the server-side guard in `_register_scorer`.
-    try:
-        serialized_data = json.loads(serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
-        raise MlflowException.invalid_parameter_value(
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
-        )
+    _validate_serialized_scorer_payload(serialized_scorer)
 
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
@@ -7203,39 +7458,11 @@ def _invoke_scorer_handler():
     if scorer_name is not None:
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
         serialized_scorer = registered_scorer.serialized_scorer
+        _validate_serialized_scorer_payload(serialized_scorer)
 
     scorer = Scorer.model_validate_json(serialized_scorer)
 
-    # Verify that any requested trace that exists belongs to the authorized experiment.
-    # This prevents users from scoring or writing assessments to traces in other experiments.
-    # Traces that do not exist are left to fail downstream in the scorer job (reported as
-    # "Traces not found"); only traces that resolve to a *different* experiment are rejected here.
-    try:
-        trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
-    except MlflowNotImplementedException:
-        # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
-        # Drop RESOURCE_DOES_NOT_EXIST (missing trace) so the fallback returns the same partial
-        # list the batch path would: a missing trace is simply absent and flows through to the
-        # job, rather than raising a 404 here.
-        trace_infos = []
-        for trace_id in trace_ids:
-            try:
-                trace_infos.append(tracking_store.get_trace_info(trace_id))
-            except MlflowException as e:
-                if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                    # Trace not found; treat as missing (do not re-raise)
-                    pass
-                else:
-                    # Re-raise any other exception (connection errors, permission errors, etc.)
-                    raise
-
-    for trace_info in trace_infos:
-        if str(trace_info.experiment_id) != str(experiment_id):
-            # Trace belongs to a different experiment than the one being scored
-            raise MlflowException(
-                "Not all requested traces could be accessed.",
-                error_code=PERMISSION_DENIED,
-            )
+    _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
     # Extract the authenticated username so that job subprocesses can make

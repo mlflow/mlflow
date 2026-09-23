@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import threading
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
@@ -172,6 +173,7 @@ from mlflow.protos.service_pb2 import (
     DetachModelFromGatewayEndpoint,
     EndTrace,
     FinalizeLoggedModel,
+    GatewayEndpointModelConfig,
     GetAssessmentRequest,
     GetDataset,
     GetDatasetExperimentIds,
@@ -376,6 +378,7 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
+from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
@@ -394,6 +397,7 @@ from mlflow.server.handlers import (
 from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
+from mlflow.server.job_api import search_jobs as _search_jobs_endpoint
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
@@ -938,10 +942,9 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_permission_from_run_id() -> Permission:
+def _get_run_permission(run_id: str) -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
-    run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = authenticate_request().username
@@ -955,6 +958,10 @@ def _get_permission_from_run_id() -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_permission_from_run_id() -> Permission:
+    return _get_run_permission(_get_request_param("run_id"))
 
 
 def _get_model_permission(model_id: str) -> Permission:
@@ -1086,8 +1093,7 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
-def _get_permission_from_gateway_secret_id() -> Permission:
-    secret_id = _get_request_param("secret_id")
+def _get_gateway_secret_permission(secret_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1101,8 +1107,11 @@ def _get_permission_from_gateway_secret_id() -> Permission:
     )
 
 
-def _get_permission_from_gateway_endpoint_id() -> Permission:
-    endpoint_id = _get_request_param("endpoint_id")
+def _get_permission_from_gateway_secret_id() -> Permission:
+    return _get_gateway_secret_permission(_get_request_param("secret_id"))
+
+
+def _get_gateway_endpoint_permission(endpoint_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1118,8 +1127,11 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
     )
 
 
-def _get_permission_from_gateway_model_definition_id() -> Permission:
-    model_definition_id = _get_request_param("model_definition_id")
+def _get_permission_from_gateway_endpoint_id() -> Permission:
+    return _get_gateway_endpoint_permission(_get_request_param("endpoint_id"))
+
+
+def _get_gateway_model_definition_permission(model_definition_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1133,6 +1145,10 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
             workspace_label="gateway model definition",
         ),
     )
+
+
+def _get_permission_from_gateway_model_definition_id() -> Permission:
+    return _get_gateway_model_definition_permission(_get_request_param("model_definition_id"))
 
 
 def _get_mcp_server_permission(name: str, username: str) -> Permission:
@@ -1171,6 +1187,14 @@ def validate_can_read_scorer_list():
     # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
     # per-row RBAC filtering, so the route itself is open to any authenticated
     # caller.
+    #
+    # NB: this validator does not look at the newer, plural ``experiment_ids``
+    # field (added for pre-request auth scoping, see #24964). A caller that
+    # sets only ``experiment_ids`` still falls through to the ``not
+    # args.get("experiment_id")`` branch below and relies on the
+    # post-response filtering in ``filter_list_scorers`` -- basic auth does
+    # not yet use ``experiment_ids`` to scope the query before it reaches
+    # the store.
     args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
     if not args.get("experiment_id"):
         return True
@@ -1290,6 +1314,25 @@ def validate_can_manage_logged_model():
     return _get_permission_from_model_id().can_manage
 
 
+def validate_can_update_run_or_logged_model():
+    # The presigned upload endpoint accepts exactly one of run_id / model_id. The
+    # handler enforces this with a 400, but this validator runs first — without the
+    # same check here, a malformed request carrying both IDs would resolve the
+    # model's permission and could surface 403/404 instead of the documented 400.
+    # Mirror the check before looking up either resource. Parse through the proto,
+    # exactly as the handler does, so the camelCase `runId` / `modelId` aliases the
+    # handler accepts are authorized against the same IDs it will act on.
+    msg = _get_request_message(CreatePresignedUploadUrl())
+    if bool(msg.run_id) == bool(msg.model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if msg.model_id:
+        return _get_model_permission(msg.model_id).can_update
+    return _get_run_permission(msg.run_id).can_update
+
+
 # Registered models
 def validate_can_read_registered_model():
     return _get_permission_from_registered_model_name().can_read
@@ -1370,16 +1413,36 @@ def validate_can_create_model_version():
     # on the source run/model to keep create-time access consistent with artifact-read gating.
     if not _validate_can_update_registered_model_or_prompt():
         return False
-    body = request.get_json(force=True, silent=True)
-    body = body if isinstance(body, dict) else {}
+    # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
+    # `modelId` aliases the handler accepts are authorized against the same IDs it will
+    # anchor the version to. A raw-body key check would miss the aliases and skip the READ
+    # check while the handler still binds the source run/model from them.
+    msg = _get_request_message(CreateModelVersion())
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
-    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
+    if msg.HasField("run_id") and not (
+        msg.run_id and _can_read_model_version_source(_get_run_permission, msg.run_id)
+    ):
         return False
-    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
+    if msg.HasField("model_id") and not (
+        msg.model_id and _can_read_model_version_source(_get_model_permission, msg.model_id)
+    ):
         return False
     return True
+
+
+def _can_read_model_version_source(
+    get_permission: Callable[[str], Permission], source_id: str
+) -> bool:
+    # Deny a nonexistent source id uniformly (403 rather than 404) so the response cannot
+    # be used as an oracle for which run/model ids exist.
+    try:
+        return get_permission(source_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
 
 
 def validate_can_create_experiment() -> bool:
@@ -1931,27 +1994,63 @@ def validate_can_delete_user():
 
 
 def validate_can_read_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_read
+    msg = _get_request_message(GetGatewaySecretInfo())
+    return _get_gateway_secret_permission(msg.secret_id).can_read
 
 
 def validate_can_update_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_update
+    msg = _get_request_message(UpdateGatewaySecret())
+    return _get_gateway_secret_permission(msg.secret_id).can_update
 
 
 def validate_can_delete_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_delete
+    msg = _get_request_message(DeleteGatewaySecret())
+    return _get_gateway_secret_permission(msg.secret_id).can_delete
 
 
 def validate_can_manage_gateway_secret():
     return _get_permission_from_gateway_secret_id().can_manage
 
 
+def validate_can_create_gateway_secret():
+    # Persisting a provider credential is a workspace-scoped create, like experiments and
+    # registered models. The after-request MANAGE grant only records ownership.
+    return _user_can_create_in_workspace()
+
+
 def validate_can_read_gateway_endpoint():
-    return _get_permission_from_gateway_endpoint_id().can_read
+    msg = _get_request_message(GetGatewayEndpoint())
+    endpoint_id = msg.endpoint_id
+    if not endpoint_id and msg.name:
+        endpoint_id = _get_tracking_store().get_gateway_endpoint(name=msg.name).endpoint_id
+    return _get_gateway_endpoint_permission(endpoint_id).can_read
 
 
 def validate_can_delete_gateway_endpoint():
-    return _get_permission_from_gateway_endpoint_id().can_delete
+    msg = _get_request_message(DeleteGatewayEndpoint())
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_delete
+
+
+def _validate_can_update_gateway_endpoint_from_request(request_message) -> bool:
+    msg = _get_request_message(request_message)
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_update
+
+
+def validate_can_add_guardrail_to_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(AddGuardrailToEndpoint())
+
+
+def validate_can_remove_guardrail_from_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(RemoveGuardrailFromEndpoint())
+
+
+def validate_can_update_gateway_endpoint_guardrail_config():
+    return _validate_can_update_gateway_endpoint_from_request(UpdateEndpointGuardrailConfig())
+
+
+def validate_can_read_gateway_endpoint_guardrail_configs():
+    msg = _get_request_message(ListEndpointGuardrailConfigs())
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_read
 
 
 def validate_can_manage_gateway_endpoint():
@@ -1959,11 +2058,13 @@ def validate_can_manage_gateway_endpoint():
 
 
 def validate_can_read_gateway_model_definition():
-    return _get_permission_from_gateway_model_definition_id().can_read
+    msg = _get_request_message(GetGatewayModelDefinition())
+    return _get_gateway_model_definition_permission(msg.model_definition_id).can_read
 
 
 def validate_can_delete_gateway_model_definition():
-    return _get_permission_from_gateway_model_definition_id().can_delete
+    msg = _get_request_message(DeleteGatewayModelDefinition())
+    return _get_gateway_model_definition_permission(msg.model_definition_id).can_delete
 
 
 def validate_can_manage_gateway_model_definition():
@@ -1975,24 +2076,13 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    msg = _get_request_message(CreateGatewayModelDefinition())
+    secret_id = msg.secret_id
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
         return True
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="gateway_secret",
-            resource_key=secret_id,
-            workspace_lookup_id=secret_id,
-            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            workspace_label="gateway secret",
-        ),
-    )
-    return permission.can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
 def validate_can_update_gateway_model_definition():
@@ -2001,32 +2091,39 @@ def validate_can_update_gateway_model_definition():
     This requires UPDATE permission on the model definition AND
     USE permission on any new secret being referenced.
     """
+    msg = _get_request_message(UpdateGatewayModelDefinition())
     # First check update permission on the model definition
-    if not _get_permission_from_gateway_model_definition_id().can_update:
+    if not _get_gateway_model_definition_permission(msg.model_definition_id).can_update:
         return False
 
     # If updating the secret, check USE permission on the new secret
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    secret_id = msg.secret_id
     if not secret_id:
         # No secret being changed, just return True
         return True
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="gateway_secret",
-            resource_key=secret_id,
-            workspace_lookup_id=secret_id,
-            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            workspace_label="gateway secret",
-        ),
-    )
-    return permission.can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
-def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
+def validate_can_invoke_issue_detection():
+    """
+    Issue detection creates a run in the request's experiment and, when ``secret_id`` is
+    given, decrypts that gateway secret into the job environment. Require UPDATE on the
+    experiment and USE on the secret, mirroring model-definition creation.
+    """
+    if not validate_can_update_experiment():
+        return False
+    body = request.get_json(silent=True)
+    secret_id = body.get("secret_id") if isinstance(body, dict) else None
+    # An absent or empty secret_id is also a no-op in the handler (no credentials fetched).
+    if not secret_id:
+        return True
+    return _get_gateway_secret_permission(secret_id).can_use
+
+
+def _validate_can_use_model_definitions(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Helper to validate USE permission on all model definitions in model_configs.
     Returns True if all model definitions have USE permission, False otherwise.
@@ -2035,40 +2132,27 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
         return True
 
     model_def_ids = [
-        config.get("model_definition_id")
-        for config in model_configs
-        if config.get("model_definition_id")
+        config.model_definition_id for config in model_configs if config.model_definition_id
     ]
 
     if not model_def_ids:
         return True
 
-    username = authenticate_request().username
     for model_def_id in model_def_ids:
-        permission = _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="gateway_model_definition",
-                resource_key=model_def_id,
-                workspace_lookup_id=model_def_id,
-                workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
-                    model_definition_id=mdid
-                ),
-                workspace_label="gateway model definition",
-            ),
-        )
-        if not permission.can_use:
+        if not _get_gateway_model_definition_permission(model_def_id).can_use:
             return False
 
     return True
 
 
-def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
+def _validate_can_use_model_definitions_for_create(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
     are provided, otherwise validates USE permission on referenced model definitions.
     """
-    if not model_configs or not any(config.get("model_definition_id") for config in model_configs):
+    if not model_configs or not any(config.model_definition_id for config in model_configs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return True
         workspace_name = workspace_context.get_request_workspace()
@@ -2096,9 +2180,8 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions_for_create(model_configs)
+    msg = _get_request_message(CreateGatewayEndpoint())
+    return _validate_can_use_model_definitions_for_create(msg.model_configs)
 
 
 def validate_can_update_gateway_endpoint():
@@ -2107,12 +2190,51 @@ def validate_can_update_gateway_endpoint():
     This requires UPDATE permission on the endpoint AND
     USE permission on any new model definitions being referenced.
     """
-    if not _get_permission_from_gateway_endpoint_id().can_update:
+    msg = _get_request_message(UpdateGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
         return False
 
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions(model_configs)
+    return _validate_can_use_model_definitions(msg.model_configs)
+
+
+def validate_can_attach_model_to_gateway_endpoint():
+    msg = _get_request_message(AttachModelToGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+
+    if not msg.HasField("model_config"):
+        return True
+    model_definition_id = msg.model_config.model_definition_id
+    if not model_definition_id:
+        return True
+    return _get_gateway_model_definition_permission(model_definition_id).can_use
+
+
+def validate_can_detach_model_from_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(DetachModelFromGatewayEndpoint())
+
+
+def validate_can_create_gateway_endpoint_binding():
+    return _validate_can_update_gateway_endpoint_from_request(CreateGatewayEndpointBinding())
+
+
+def validate_can_delete_gateway_endpoint_binding():
+    return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointBinding())
+
+
+def validate_can_list_gateway_endpoint_bindings():
+    msg = _get_request_message(ListGatewayEndpointBindings())
+    if not msg.endpoint_id:
+        return sender_is_admin()
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_read
+
+
+def validate_can_set_gateway_endpoint_tag():
+    return _validate_can_update_gateway_endpoint_from_request(SetGatewayEndpointTag())
+
+
+def validate_can_delete_gateway_endpoint_tag():
+    return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointTag())
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
@@ -2245,6 +2367,13 @@ def validate_can_search_traces_v3():
 
 
 def validate_can_batch_get_traces():
+    # Derives experiment ownership by reverse-looking-up each trace_id's
+    # experiment_id and requires read permission on all of them (all-or-
+    # nothing). This predates and is independent of the request's own
+    # ``experiment_ids`` field (added for pre-request auth scoping, see
+    # #24964): that field is currently wired through only as far as the
+    # store layer (proto -> handlers -> SqlAlchemyStore / RestStore), and
+    # this validator neither reads nor benefits from it yet.
     if request.method == "GET":
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
     else:
@@ -2747,8 +2876,10 @@ BEFORE_REQUEST_HANDLERS = {
     # artifacts, so it requires the same per-run READ permission as the
     # proxied artifact download paths.
     CreatePresignedDownloadUrl: validate_can_read_run,
-    # Presigned upload URL grants direct artifact write -> same per-run UPDATE as upload.
-    CreatePresignedUploadUrl: validate_can_update_run,
+    # Minting a presigned upload URL grants direct WRITE access to the owning
+    # resource's artifacts (a run's or a logged model's), so it requires the
+    # corresponding UPDATE permission.
+    CreatePresignedUploadUrl: validate_can_update_run_or_logged_model,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
@@ -2777,6 +2908,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
     # Routes for gateway secrets
+    CreateGatewaySecret: validate_can_create_gateway_secret,
     GetGatewaySecretInfo: validate_can_read_gateway_secret,
     UpdateGatewaySecret: validate_can_update_gateway_secret,
     DeleteGatewaySecret: validate_can_delete_gateway_secret,
@@ -2803,20 +2935,20 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayGuardrail: sender_is_admin,
     ListGatewayGuardrails: sender_is_admin,
     DeleteGatewayGuardrail: sender_is_admin,
-    AddGuardrailToEndpoint: validate_can_update_gateway_endpoint,
-    RemoveGuardrailFromEndpoint: validate_can_update_gateway_endpoint,
-    UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint,
-    ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint,
+    AddGuardrailToEndpoint: validate_can_add_guardrail_to_gateway_endpoint,
+    RemoveGuardrailFromEndpoint: validate_can_remove_guardrail_from_gateway_endpoint,
+    UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint_guardrail_config,
+    ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint_guardrail_configs,
     # Routes for gateway endpoint-model mappings
-    AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
-    DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
+    AttachModelToGatewayEndpoint: validate_can_attach_model_to_gateway_endpoint,
+    DetachModelFromGatewayEndpoint: validate_can_detach_model_from_gateway_endpoint,
     # Routes for gateway endpoint bindings
-    CreateGatewayEndpointBinding: validate_can_update_gateway_endpoint,
-    DeleteGatewayEndpointBinding: validate_can_update_gateway_endpoint,
-    ListGatewayEndpointBindings: validate_can_read_gateway_endpoint,
+    CreateGatewayEndpointBinding: validate_can_create_gateway_endpoint_binding,
+    DeleteGatewayEndpointBinding: validate_can_delete_gateway_endpoint_binding,
+    ListGatewayEndpointBindings: validate_can_list_gateway_endpoint_bindings,
     # Routes for gateway endpoint tags
-    SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
-    DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
+    SetGatewayEndpointTag: validate_can_set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: validate_can_delete_gateway_endpoint_tag,
     # Routes for prompt optimization jobs
     CreatePromptOptimizationJob: validate_can_update_experiment,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
@@ -2991,7 +3123,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     # Invoke endpoints create runs in an experiment -> require update on it.
     (INVOKE_SCORER, "POST"): validate_can_update_experiment,
-    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_update_experiment,
+    # Issue detection may also consume a gateway secret -> additionally require USE on it.
+    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
@@ -3546,11 +3679,14 @@ def _authorized_outside_before_request(req) -> bool:
         return True
     if _matches_route_suffix(unprefixed, _HANDLER_INTERNAL_AUTHZ_SUFFIXES):
         return True
-    if (path, method) in AFTER_REQUEST_HANDLERS:
+    # Only response filters authorize a route on their own. Ownership grants and
+    # permission cleanups run after an already-authorized write, so their presence must
+    # not exempt a route that lacks a before-request validator from the fail-closed net.
+    if AFTER_REQUEST_HANDLERS.get((path, method)) in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS:
         return True
     return any(
-        pat.fullmatch(path) and m == method
-        for (pat, m) in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS
+        pat.fullmatch(path) and m == method and handler in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS
+        for (pat, m), handler in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items()
     )
 
 
@@ -4184,8 +4320,8 @@ def set_can_manage_gateway_secret_permission(resp: Response):
 
 
 def delete_gateway_secret_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if secret_id := data.get("secret_id"):
+    msg = _get_request_message(DeleteGatewaySecret())
+    if secret_id := msg.secret_id:
         store.delete_grants_for_resource("gateway_secret", secret_id)
 
 
@@ -4198,8 +4334,8 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
 
 
 def delete_gateway_endpoint_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if endpoint_id := data.get("endpoint_id"):
+    msg = _get_request_message(DeleteGatewayEndpoint())
+    if endpoint_id := msg.endpoint_id:
         store.delete_grants_for_resource("gateway_endpoint", endpoint_id)
 
 
@@ -4214,8 +4350,8 @@ def set_can_manage_gateway_model_definition_permission(resp: Response):
 
 
 def delete_gateway_model_definition_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if model_definition_id := data.get("model_definition_id"):
+    msg = _get_request_message(DeleteGatewayModelDefinition())
+    if model_definition_id := msg.model_definition_id:
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
@@ -4332,6 +4468,23 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateWorkspace: _seed_default_workspace_roles,
     DeleteWorkspace: _cleanup_workspace_permissions,
 }
+
+# After-request handlers that make the authorization decision for their route by
+# filtering or redacting the response. Every other after-request handler is a side
+# effect of a write that a before-request validator must have already authorized.
+_SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
+    filter_search_experiments,
+    filter_search_logged_models,
+    filter_search_model_versions,
+    filter_search_registered_models,
+    filter_list_scorers,
+    filter_list_review_queues,
+    filter_list_gateway_endpoints,
+    filter_list_gateway_model_definitions,
+    filter_list_gateway_secrets,
+    filter_list_workspaces,
+    redact_secrets_config_for_non_admins,
+})
 
 
 def get_after_request_handler(request_class):
@@ -4995,6 +5148,12 @@ class GraphQLAuthorizationMiddleware:
         "mlflowSearchDatasets",
         "mlflowSearchModelVersions",
     }
+    # Nested fields, keyed by (parent GraphQL type, field name). ``run.modelVersions``
+    # (reachable via mlflowGetRun / mlflowSearchRuns) resolves through the unfiltered search
+    # implementation, so it needs the same per-model filter as the top-level search. Keying
+    # on the parent type keeps the same-named, already-filtered sub-field of
+    # ``MlflowSearchModelVersionsResponse`` out of the middleware.
+    PROTECTED_NESTED_FIELDS = {("MlflowRunExtension", "modelVersions")}
 
     def resolve(self, next, root, info, **args):
         """
@@ -5011,7 +5170,10 @@ class GraphQLAuthorizationMiddleware:
         """
         field_name = info.field_name
 
-        if field_name not in self.PROTECTED_FIELDS:
+        if (
+            field_name not in self.PROTECTED_FIELDS
+            and (info.parent_type.name, field_name) not in self.PROTECTED_NESTED_FIELDS
+        ):
             return next(root, info, **args)
 
         try:
@@ -5089,13 +5251,28 @@ class GraphQLAuthorizationMiddleware:
         """Apply post-resolution filtering on GraphQL results."""
         if field_name == "mlflowSearchModelVersions":
             return self._filter_model_versions_result(result, username)
+        # A bare field-name match is enough here: ``resolve`` only lets ``modelVersions``
+        # through when its parent type is listed in ``PROTECTED_NESTED_FIELDS``.
+        if field_name == "modelVersions":
+            can_read = self._model_version_read_predicate(username)
+            return [mv for mv in result if can_read(mv)]
         return result
+
+    def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
+        # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate
+        # costs a user lookup plus a grants query, so memoize it for the current request.
+        # Prompt-aware like the REST ``filter_search_model_versions`` so a prompt version is
+        # judged by prompt grants rather than registered-model grants.
+        predicates = g.setdefault("_graphql_model_version_read_predicates", {})
+        if username not in predicates:
+            predicates[username] = _rm_or_prompt_read_predicate(username)
+        return predicates[username]
 
     def _filter_model_versions_result(self, result, username: str):
         """Filter model versions the user doesn't have read access to."""
-        can_read = _role_based_read_predicate(username, "registered_model")
+        can_read = self._model_version_read_predicate(username)
         if hasattr(result, "model_versions") and result.model_versions is not None:
-            filtered = [mv for mv in result.model_versions if can_read(mv.name)]
+            filtered = [mv for mv in result.model_versions if can_read(mv)]
             del result.model_versions[:]
             result.model_versions.extend(filtered)
         return result
@@ -5123,6 +5300,7 @@ _ROUTES_NEEDING_BODY = frozenset((
     "/gateway/openai/v1/embeddings",
     "/gateway/openai/v1/responses",
     "/gateway/anthropic/v1/messages",
+    "/gateway/typesafe/v1/systemone",
 ))
 
 
@@ -5315,6 +5493,9 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
         An async validator function that takes (username, request) and returns
         True if authorized, or None if no validation is needed for this route.
     """
+
+    if path == "/gateway/mlflow/v1/models":
+        return _get_require_authentication_validator()
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         body = None
@@ -5576,8 +5757,8 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
 def _get_job_route_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth.
-    # NB: /jobs/search still returns all jobs — filtering to the caller is a tracked follow-up.
+    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
+    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
     job_id = _job_id_from_path(path)
 
     async def validator(username: str, request: StarletteRequest) -> bool:
@@ -5768,6 +5949,24 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     return json.dumps(data).encode()
 
 
+def _filter_search_jobs(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    # Jobs have no experiment scope, so ownership is the boundary (as on the per-id routes):
+    # non-admins only see jobs they created, and jobs with no recorded creator stay hidden.
+    data = json.loads(body)
+    data["jobs"] = [job for job in data.get("jobs", []) if job.get("creator") == username]
+    return json.dumps(data).encode()
+
+
+def _filter_list_gateway_models(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    # Model discovery is expected to be infrequent. Accept per-endpoint queries
+    # to keep authorization consistent with gateway invocation.
+    data["data"] = [
+        model for model in data["data"] if _validate_gateway_use_permission(model["id"], username)
+    ]
+    return json.dumps(data).encode()
+
+
 FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
@@ -5775,14 +5974,16 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
+    _search_jobs_endpoint: _filter_search_jobs,
+    _list_gateway_models_endpoint: _filter_list_gateway_models,
 }
 
 
 def _find_fastapi_response_filter(
-    request: StarletteRequest, method: str
+    request: StarletteRequest,
 ) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
-    if method != "GET":
-        return None
+    # Keyed on the resolved endpoint function, so only the registered collection routes
+    # (GET or POST) are filtered.
     endpoint = request.scope.get("endpoint")
     if endpoint is None:
         return None
@@ -5980,7 +6181,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
         # Response filters are RBAC-based; admins retain unfiltered full access.
         if not user.is_admin:
-            response_filter = _find_fastapi_response_filter(request, request.method)
+            response_filter = _find_fastapi_response_filter(request)
             if response_filter is not None and response.status_code < 400:
                 body = bytearray()
                 async for chunk in response.body_iterator:

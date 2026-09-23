@@ -46,6 +46,7 @@ env:
   COMMENT_MARKER: "<!-- ui-preview -->"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   notify:
