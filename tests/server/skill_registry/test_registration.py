@@ -435,6 +435,26 @@ def test_remote_registration(store, artifact_root, fields, expected_type, expect
 
 
 @pytest.mark.parametrize(
+    "source",
+    [
+        "mlflow-artifacts:/skills/reviewer/" + "a" * 32,
+        "mlflow-artifacts:/skills/@acme/reviewer/" + "a" * 32,
+        "runs:/" + "b" * 32 + "/skill",
+        "models:/example/1",
+    ],
+)
+def test_inferred_mlflow_source_is_rejected(store, no_artifact_serving, source):
+    # Without an explicit type the shared resolver would classify these as `mlflow`, which
+    # would commit a version with no uploaded or validated content and, for a path shaped like
+    # an upload, one the server would later treat as owned.
+    registration = SkillVersionRegistration(name="reviewer", organization="acme", source=source)
+    with pytest.raises(MlflowException, match="names content inside MLflow") as exc:
+        register_skill_version(registration)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+
+
+@pytest.mark.parametrize(
     ("fields", "message"),
     [
         ({"source": "https://example.com/acme/skills"}, "Cannot infer the source type"),

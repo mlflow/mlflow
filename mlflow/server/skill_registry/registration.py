@@ -156,6 +156,14 @@ def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
         )
     if (source_type := registration.source_type) is None:
         resolved = resolve_source_type(source, ref=registration.ref, subpath=registration.subpath)
+        if resolved.source_type.value not in _CLIENT_SOURCE_TYPES:
+            # The shared resolver also classifies MLflow artifact URIs, which the fetch side
+            # needs; registration must never record one it did not write itself, since that
+            # would commit a version without uploading or validating any content.
+            raise MlflowException.invalid_parameter_value(
+                f"'source' {source!r} names content inside MLflow; a remote source must be a "
+                "git, oci, or zip location. Upload local content instead of pointing at it."
+            )
     else:
         if source_type not in _CLIENT_SOURCE_TYPES:
             raise MlflowException.invalid_parameter_value(
