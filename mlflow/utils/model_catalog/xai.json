@@ -1850,11 +1850,16 @@
         "long_context": [
           {
             "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
             "input_per_million_tokens": 2.0,
-            "output_per_million_tokens": 4.0,
-            "cache_read_per_million_tokens": 0.4
+            "output_per_million_tokens": 4.0
           }
-        ]
+        ],
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1863,7 +1868,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-23"
     },
     "grok-code-fast-1": {
       "mode": "chat",
@@ -1879,11 +1884,16 @@
         "long_context": [
           {
             "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
             "input_per_million_tokens": 2.0,
-            "output_per_million_tokens": 4.0,
-            "cache_read_per_million_tokens": 0.4
+            "output_per_million_tokens": 4.0
           }
-        ]
+        ],
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1892,7 +1902,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-23"
     },
     "grok-code-fast-1-0825": {
       "mode": "chat",
@@ -1908,11 +1918,16 @@
         "long_context": [
           {
             "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
             "input_per_million_tokens": 2.0,
-            "output_per_million_tokens": 4.0,
-            "cache_read_per_million_tokens": 0.4
+            "output_per_million_tokens": 4.0
           }
-        ]
+        ],
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1921,7 +1936,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-23"
     },
     "grok-imagine-image": {
       "mode": "image_generation",
