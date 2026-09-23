@@ -22,7 +22,7 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
 
-_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "evaluation", None)
+_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "evaluation", "responses", None)
 
 _REMOTE_FETCH_MAX_RETRIES = 3
 _REMOTE_FETCH_TIMEOUT = 5
@@ -983,8 +983,8 @@ def get_models(provider: str | None = None) -> list[ModelDict]:
     """
     Get a list of models from LiteLLM, optionally filtered by provider.
 
-    Returns models that support chat, completion, embedding, or evaluation capabilities,
-    excluding image generation, audio, and other non-text services.
+    Returns models that support chat, completion, embedding, evaluation, or responses
+    capabilities, excluding image generation, audio, and other non-text services.
 
     Args:
         provider: Optional provider name to filter by (e.g., 'openai', 'anthropic').

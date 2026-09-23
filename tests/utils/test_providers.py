@@ -189,6 +189,23 @@ def test_get_models_filters_by_consolidated_provider():
         assert openai_models[0]["model"] == "gpt-4o"
 
 
+def test_get_models_includes_responses_mode_and_excludes_unsupported_modes():
+    data = {
+        "bedrock_mantle": {
+            "openai.gpt-5.6-sol": {"mode": "responses"},
+            "openai.gpt-oss-120b": {"mode": "chat"},
+            "some-audio-model": {"mode": "audio_transcription"},
+        },
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        models = get_models(provider="bedrock_mantle")
+        model_names = {m["model"] for m in models}
+
+        assert "openai.gpt-5.6-sol" in model_names
+        assert "openai.gpt-oss-120b" in model_names
+        assert "some-audio-model" not in model_names
+
+
 def test_get_models_does_not_modify_other_providers():
     data = {
         "openai": {"gpt-4o": {"mode": "chat", "supports_function_calling": True}},
