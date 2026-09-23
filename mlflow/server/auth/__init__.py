@@ -2001,8 +2001,31 @@ def validate_can_view_workspace() -> bool:
 
 
 # Scorers
+def _scorer_version_not_denied() -> bool:
+    # GetScorer and ListScorerVersions return ScorerVersion rows -- scorer_version,
+    # serialized_scorer and creation_time are all set unconditionally by
+    # ``ScorerVersion.to_proto`` -- so the version tier has to be consulted here for the same
+    # reason ``filter_list_scorers`` consults it. Veto only, and falling back to the named
+    # scorer, because the scorer tier remains the positive gate.
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            )
+        ],
+    )
+
+
 def validate_can_read_scorer():
-    return _get_permission_from_scorer_name().can_read
+    return _get_permission_from_scorer_name().can_read and _scorer_version_not_denied()
 
 
 def validate_can_update_scorer():
@@ -2010,7 +2033,7 @@ def validate_can_update_scorer():
 
 
 def validate_can_delete_scorer():
-    return _get_permission_from_scorer_name().can_delete
+    return _get_permission_from_scorer_name().can_delete and _scorer_version_not_denied()
 
 
 def validate_can_manage_scorer():
