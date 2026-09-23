@@ -4515,6 +4515,44 @@ def _run_list_filter(rows):
     return [q.queue_id for q in out.review_queues]
 
 
+def _run_trace_artifact(monkeypatch, experiment_id, request_id="tr-1"):
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow/get-trace-artifact", query_string={"request_id": request_id}
+    ):
+        monkeypatch.setattr(
+            auth_module._get_tracking_store(),
+            "get_trace_info",
+            lambda _tid: SimpleNamespace(experiment_id=experiment_id),
+            raising=False,
+        )
+        return auth_module.validate_can_read_trace_artifact()
+
+
+def test_trace_artifact_download_honors_a_trace_deny(workspace_permission_setup, monkeypatch):
+    """The artifact IS the trace payload. Resolving the experiment alone let (trace, *, DENY)
+    block GetTrace, batch, search and tags while this route still served the spans.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("trace", "*", DENY.name),
+    ])
+
+    assert _run_trace_artifact(monkeypatch, "exp-1") is False
+
+
+def test_trace_artifact_download_inherits_the_experiment(workspace_permission_setup, monkeypatch):
+    """No trace grant: the experiment tier still decides, as it always did."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert _run_trace_artifact(monkeypatch, "exp-1") is True
+
+
 def _run_scorer_point_route(validator_name, experiment_id, scorer_name):
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/scorers/get",

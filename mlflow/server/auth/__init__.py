@@ -2842,20 +2842,22 @@ def validate_can_read_model_version_artifact():
     return _get_permission_from_model_version().can_read
 
 
-def _get_permission_from_trace_request_id() -> Permission:
+def validate_can_read_trace_artifact():
+    """Checks READ permission on trace artifacts.
+
+    The artifact IS the trace payload -- spans, inputs and outputs -- so this resolves the
+    trace tier like every other trace read. Resolving the experiment alone left
+    ``(trace, *, DENY)`` blocking GetTrace, batch, search and tags while still serving the
+    same content through this alternate interface. A response filter cannot help here: the
+    body is an artifact stream, not a proto.
+    """
     request_id = request.args.get("request_id")
     if not request_id:
         raise MlflowException(
             "Request must specify request_id parameter",
             INVALID_PARAMETER_VALUE,
         )
-    trace = _get_tracking_store().get_trace_info(request_id)
-    return _get_experiment_permission(trace.experiment_id, authenticate_request().username)
-
-
-def validate_can_read_trace_artifact():
-    """Checks READ permission on trace artifacts."""
-    return _get_permission_from_trace_request_id().can_read
+    return _authorize_trace(request_id, "read")
 
 
 def validate_can_read_trace_by_request_id():
