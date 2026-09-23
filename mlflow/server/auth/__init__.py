@@ -5046,6 +5046,51 @@ def filter_list_gateway_model_definitions(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+def _assessments_readable(experiment_id: str, username: str) -> bool:
+    # The trace gate already established experiment READ and trace READ, so the assessment tier is
+    # all that is left to consult. Absent an assessment grant the experiment governs through the
+    # fallback, so this narrows only where an explicit grant -- including DENY -- exists.
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        username,
+        experiment,
+        [Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,))],
+    )
+
+
+def redact_trace_assessments(resp: Response) -> None:
+    """Withhold ``assessments[]`` from a trace read when the assessment tier denies them.
+
+    The trace itself stays readable -- the caller passed ``validate_can_read_trace_by_trace_id``
+    and only the assessments riding inside ``trace_info`` are withheld. Redaction rather than
+    denying the route, because working with traces while holding no access to their assessments is
+    a real configuration; and because the assessment requirement is wildcard-only and therefore
+    CONSTANT, denying the route would also block traces that carry no assessments at all.
+
+    NOT in ``_SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS``: the route's authorization decision stays
+    with its before-request validator. This only narrows what that decision returns.
+    """
+    if sender_is_admin():
+        return
+
+    response_message = GetTrace.Response()
+    parse_dict(resp.json, response_message)
+    trace_info = response_message.trace.trace_info
+    if not trace_info.assessments:
+        # Nothing to withhold, so no grants are loaded: the common case adds no query.
+        return
+
+    experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
+    if experiment_id and _assessments_readable(experiment_id, authenticate_request().username):
+        return
+
+    # A trace with no experiment location has no tier to inherit from, and the trace gate anchors
+    # on the experiment too, so such a trace could not have been read here at all. Withhold rather
+    # than guess at a tier.
+    trace_info.ClearField("assessments")
+    resp.data = message_to_json(response_message)
+
+
 def filter_list_gateway_secrets(resp: Response) -> None:
     """Filter ``ListGatewaySecretInfos`` responses to secrets the caller can read."""
     if sender_is_admin():
@@ -5079,6 +5124,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
+    GetTrace: redact_trace_assessments,
     SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
