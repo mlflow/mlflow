@@ -2522,6 +2522,30 @@ def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
     return can_read
 
 
+def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]:
+    """Same classification as ``_rm_or_prompt_read_predicate``, for rows that ARE versions.
+
+    Kept separate rather than folded into that helper because the helper also filters
+    registered-model and prompt rows, where a version DENY must not hide the parent. Each family
+    gets its own veto, so a prompt-version denial cannot withhold model versions or vice versa.
+    """
+    can_read_rm = _role_based_read_predicate(
+        username,
+        "registered_model",
+        also_require=[Requirement(RESOURCE_TYPE_REGISTERED_MODEL_VERSION, "*", ACTION_NOT_DENIED)],
+    )
+    can_read_prompt = _role_based_read_predicate(
+        username,
+        "prompt",
+        also_require=[Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED)],
+    )
+
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
+
+    return can_read
+
+
 def _role_based_read_predicate(
     username: str,
     resource_type: str,
@@ -5287,7 +5311,7 @@ def filter_search_model_versions(resp: Response):
     # Prompt versions and model versions share the same REST surface; classify
     # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
     # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
-    can_read = _rm_or_prompt_read_predicate(username)
+    can_read = _rm_or_prompt_version_read_predicate(username)
 
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
@@ -6351,7 +6375,14 @@ def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
 
 
 def _graphql_can_read_run(run_id: str, username: str) -> bool:
-    return _graphql_get_permission_for_run(run_id, username).can_read
+    # The run tier decides, exactly as on the REST routes: resolving only the run's experiment left
+    # (run, "*", DENY) unable to withhold a run over GraphQL while it withheld the same run over
+    # REST. Passes the middleware's username rather than re-authenticating.
+    resolved = _run_requirement(run_id, "read")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(username, anchor, requirements)
 
 
 def _graphql_can_read_model(model_name: str, username: str) -> bool:
@@ -6463,11 +6494,20 @@ class GraphQLAuthorizationMiddleware:
 
         elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
             if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
-                readable_ids = [
-                    exp_id
-                    for exp_id in experiment_ids
-                    if _graphql_can_read_experiment(exp_id, username)
-                ]
+                # The rows mlflowSearchRuns scopes are RUNS, so the run tier vetoes -- the same
+                # `also_require` the REST `filter_experiment_ids` carries, so the two transports
+                # answer alike. mlflowSearchDatasets scopes datasets, which are out of scope, so it
+                # keeps the experiment-only check.
+                can_read = _role_based_read_predicate(
+                    username,
+                    "experiment",
+                    also_require=(
+                        [Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)]
+                        if field_name == "mlflowSearchRuns"
+                        else []
+                    ),
+                )
+                readable_ids = [exp_id for exp_id in experiment_ids if can_read(exp_id)]
                 if not readable_ids:
                     return False
                 input_obj.experiment_ids = readable_ids
@@ -6492,7 +6532,7 @@ class GraphQLAuthorizationMiddleware:
         # judged by prompt grants rather than registered-model grants.
         predicates = g.setdefault("_graphql_model_version_read_predicates", {})
         if username not in predicates:
-            predicates[username] = _rm_or_prompt_read_predicate(username)
+            predicates[username] = _rm_or_prompt_version_read_predicate(username)
         return predicates[username]
 
     def _filter_model_versions_result(self, result, username: str):

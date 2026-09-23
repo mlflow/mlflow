@@ -2250,6 +2250,116 @@ def test_prompt_optimization_job_validators_denied_without_workspace_permission(
         assert not auth_module.validate_can_delete_prompt_optimization_job()
 
 
+def _version_row(name, is_prompt=False):
+    return SimpleNamespace(name=name, _is_prompt=lambda: is_prompt)
+
+
+def test_graphql_run_reads_honor_a_run_deny(workspace_permission_setup):
+    """GraphQL resolved only the run's EXPERIMENT, so (run, "*", DENY) withheld a run over REST
+    while the same run stayed readable over GraphQL. Both transports must answer alike.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("run", "*", DENY.name),
+    ])
+
+    assert auth_module._graphql_can_read_run("run-1", username) is False
+    with auth_module.app.test_request_context("/graphql", method="POST"):
+        assert auth_module._authorize_run_id("run-1", "read") is False
+    # The experiment itself is unaffected: the veto is on the run tier, not its parent.
+    assert auth_module._graphql_can_read_experiment("exp-1", username) is True
+
+
+def test_graphql_run_search_filter_honors_a_run_deny(workspace_permission_setup):
+    """mlflowSearchRuns scopes RUN rows, so it carries the same run veto REST's
+    filter_experiment_ids does. mlflowSearchDatasets scopes datasets (out of scope) and must not.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    # Workspace MANAGE is workspace-admin, which is deliberately not restrictable (it precedes
+    # DENY in resolve_permissions), so the tier is only observable below that level.
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("run", "*", DENY.name),
+    ])
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+
+    def _check(field_name):
+        with auth_module.app.test_request_context("/graphql", method="POST"):
+            return middleware._check_authorization(
+                field_name, {"input": SimpleNamespace(experiment_ids=["exp-1"])}, username
+            )
+
+    assert _check("mlflowSearchRuns") is False
+    assert _check("mlflowSearchDatasets") is True
+
+
+def _search_model_versions_names(rows):
+    payload = json.dumps({"model_versions": rows})
+    flask_resp = Response(payload, mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/search", method="GET"
+    ):
+        auth_module.filter_search_model_versions(flask_resp)
+    out = json.loads(flask_resp.get_data(as_text=True))
+    return [mv["name"] for mv in out.get("model_versions", [])]
+
+
+def _search_registered_models_names(rows):
+    payload = json.dumps({"registered_models": rows, "next_page_token": ""})
+    flask_resp = Response(payload, mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/search",
+        method="GET",
+        query_string={"max_results": "100"},
+    ):
+        auth_module.filter_search_registered_models(flask_resp)
+    out = json.loads(flask_resp.get_data(as_text=True))
+    return [rm["name"] for rm in out.get("registered_models", [])]
+
+
+def test_version_read_filters_honor_a_version_deny(workspace_permission_setup, monkeypatch):
+    """The version tier withholds VERSION rows without hiding their parents from a model list --
+    which is why the veto lives in a version-specific predicate rather than the shared one that
+    also filters registered-model rows.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+
+    assert _search_model_versions_names([{"name": "model-xyz", "tags": []}]) == []
+    # The parent list is untouched by a version denial.
+    assert _search_registered_models_names([{"name": "model-xyz", "tags": []}]) == ["model-xyz"]
+
+
+def test_version_deny_does_not_cross_families(workspace_permission_setup, monkeypatch):
+    """A prompt-version denial must not withhold model versions, and vice versa."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("prompt", "*", READ.name),
+        ("prompt_version", "*", DENY.name),
+    ])
+
+    names = _search_model_versions_names([
+        {"name": "model-xyz", "tags": []},
+        {"name": "my-prompt", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
+    ])
+    assert names == ["model-xyz"]
+
+
 def test_graphql_permission_functions_use_workspace_permissions(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
