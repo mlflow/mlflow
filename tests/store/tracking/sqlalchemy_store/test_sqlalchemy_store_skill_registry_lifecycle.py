@@ -1,3 +1,7 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
+
 import pytest
 import sqlalchemy
 
@@ -188,6 +192,135 @@ def test_update_skill_version_does_not_flush_duplicate_update(store):
         sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
 
     assert len(statements) == 1
+
+
+def test_concurrent_update_skill_version_returns_conflict(store):
+    _seed_skill(store, [(1, SkillStatus.ACTIVE)])
+    barrier = threading.Barrier(2, timeout=30)
+    original = store._get_skill_version_or_raise
+
+    def synchronized_read(*args, **kwargs):
+        result = original(*args, **kwargs)
+        barrier.wait()
+        return result
+
+    def update(status):
+        try:
+            store.update_skill_version("reviewer", 1, status=status)
+            return "SUCCESS"
+        except MlflowException as e:
+            return e.error_code
+
+    with mock.patch.object(store, "_get_skill_version_or_raise", side_effect=synchronized_read):
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="skill-update-race") as executor:
+            results = list(executor.map(update, [SkillStatus.DRAFT, SkillStatus.DEPRECATED]))
+
+    assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
+    assert _get_version_row(store, 1) in {
+        SkillStatus.DRAFT.value,
+        SkillStatus.DEPRECATED.value,
+    }
+
+
+def test_concurrent_delete_skill_version_returns_conflict(store):
+    _seed_skill(store, [(1, SkillStatus.DEPRECATED)])
+    barrier = threading.Barrier(2, timeout=30)
+    original = store._get_skill_version_or_raise
+
+    def synchronized_read(*args, **kwargs):
+        result = original(*args, **kwargs)
+        barrier.wait()
+        return result
+
+    def delete():
+        try:
+            store.delete_skill_version("reviewer", 1)
+            return "SUCCESS"
+        except MlflowException as e:
+            return e.error_code
+
+    with mock.patch.object(store, "_get_skill_version_or_raise", side_effect=synchronized_read):
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="skill-delete-race") as executor:
+            results = list(executor.map(lambda _: delete(), range(2)))
+
+    assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
+    assert _get_version_row(store, 1) == SkillStatus.DELETED.value
+
+
+def test_concurrent_set_skill_alias_and_delete_leave_no_deleted_alias(store):
+    _seed_skill(store, [(1, SkillStatus.DEPRECATED)])
+    barrier = threading.Barrier(2, timeout=30)
+    thread_state = threading.local()
+
+    def synchronize_first_version_read(conn, cursor, statement, parameters, context, executemany):
+        if (
+            getattr(thread_state, "wait_for_version_read", False)
+            and statement.lstrip().upper().startswith("SELECT")
+            and "FROM SKILL_VERSIONS" in statement.upper()
+        ):
+            thread_state.wait_for_version_read = False
+            barrier.wait()
+
+    def set_alias():
+        thread_state.wait_for_version_read = True
+        try:
+            store.set_skill_alias("reviewer", "production", 1)
+            return "SUCCESS"
+        except MlflowException as e:
+            return e.error_code
+
+    def delete():
+        thread_state.wait_for_version_read = True
+        try:
+            store.delete_skill_version("reviewer", 1)
+            return "SUCCESS"
+        except MlflowException as e:
+            return e.error_code
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", synchronize_first_version_read)
+    try:
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="skill-alias-race") as executor:
+            results = list(executor.map(lambda operation: operation(), [set_alias, delete]))
+    finally:
+        sqlalchemy.event.remove(
+            store.engine, "before_cursor_execute", synchronize_first_version_read
+        )
+
+    assert sorted(results) in (["RESOURCE_DOES_NOT_EXIST", "SUCCESS"], ["SUCCESS", "SUCCESS"])
+    assert _get_version_row(store, 1) == SkillStatus.DELETED.value
+    assert _get_alias_rows(store) == []
+
+
+def test_set_skill_alias_retries_integrity_error(store):
+    _seed_skill(store, [(1, SkillStatus.DRAFT)])
+    flushes = 0
+
+    def fail_first_flush(session, flush_context, instances):
+        nonlocal flushes
+        flushes += 1
+        if flushes == 1:
+            raise sqlalchemy.exc.IntegrityError("forced alias conflict", None, None)
+
+    sqlalchemy.event.listen(sqlalchemy.orm.Session, "before_flush", fail_first_flush)
+    try:
+        store.set_skill_alias("reviewer", "production", 1)
+    finally:
+        sqlalchemy.event.remove(sqlalchemy.orm.Session, "before_flush", fail_first_flush)
+
+    assert flushes == 2
+    with store.ManagedSessionMaker() as session:
+        aliases = (
+            store
+            ._get_query(session, SqlSkillAlias)
+            .filter(
+                SqlSkillAlias.name == "reviewer",
+                SqlSkillAlias.organization == "",
+            )
+            .all()
+        )
+        assert len(aliases) == 1
+        assert aliases[0].alias == "production"
+        assert aliases[0].version in {1, 2}
 
 
 def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
