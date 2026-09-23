@@ -3253,14 +3253,20 @@ def validate_can_start_trace():
 
 
 def validate_can_read_traces_by_experiment_ids():
-    # CalculateTraceFilterCorrelation: npmi and the four counts are computed over whatever the
-    # two filters select, so an assessment-backed filter makes those numbers assessment-derived.
-    body = request.json or {}
+    """CalculateTraceFilterCorrelation: npmi and the four counts are computed over whatever the
+    two filters select, so an assessment-backed filter makes those numbers assessment-derived.
+
+    Parsed as a proto rather than read off the raw JSON because the handler parses it with
+    ``ParseDict``, which accepts the lowerCamelCase aliases as well: a request spelling
+    ``filterString1`` would execute a filter this gate never saw. Reading the same message the
+    handler reads makes the two agree on every accepted spelling by construction.
+    """
+    message = _get_request_message(CalculateTraceFilterCorrelation())
     return _authorize_trace_search(
-        body.get("experiment_ids", []),
-        body.get("filter_string1", ""),
-        body.get("filter_string2", ""),
-        body.get("base_filter", ""),
+        list(message.experiment_ids),
+        message.filter_string1,
+        message.filter_string2,
+        message.base_filter,
     )
 
 
