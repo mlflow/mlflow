@@ -89,6 +89,12 @@ class SqlAlchemySkillRegistryLifecycleMixin:
 
         with self.ManagedSessionMaker(read_only=False) as session:
             skill_version = self._get_skill_version_or_raise(session, name, version, organization)
+            current_status = SkillStatus(skill_version.status)
+            if current_status is SkillStatus.DELETED:
+                raise MlflowException(
+                    f"Skill version '{name}' version '{version}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
             if status is NOT_SET:
                 return skill_version.to_mlflow_entity()
 
@@ -98,7 +104,6 @@ class SqlAlchemySkillRegistryLifecycleMixin:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid SkillVersion status: {status!r}"
                 ) from e
-            current_status = SkillStatus(skill_version.status)
             if new_status is current_status:
                 return skill_version.to_mlflow_entity()
             self._validate_skill_status_transition(current_status, new_status)
@@ -128,9 +133,10 @@ class SqlAlchemySkillRegistryLifecycleMixin:
                     error_code=RESOURCE_CONFLICT,
                 )
 
-            skill_version.status = new_status.value
-            skill_version.last_updated_by = last_updated_by
-            skill_version.last_updated_at = now
+            session.expire(
+                skill_version,
+                attribute_names=["status", "last_updated_by", "last_updated_at"],
+            )
             if new_status is SkillStatus.DELETED:
                 self._delete_skill_aliases_for_version(session, skill_version)
                 return skill_version.to_mlflow_entity(alias_names=[])
@@ -180,9 +186,6 @@ class SqlAlchemySkillRegistryLifecycleMixin:
                     error_code=RESOURCE_CONFLICT,
                 )
 
-            skill_version.status = SkillStatus.DELETED.value
-            skill_version.last_updated_by = last_updated_by
-            skill_version.last_updated_at = now
             self._delete_skill_aliases_for_version(session, skill_version)
 
     def _resolve_latest_skill_version(self, session, name: str, organization: str):

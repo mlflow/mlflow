@@ -1,4 +1,5 @@
 import pytest
+import sqlalchemy
 
 from mlflow.entities import SkillStatus
 from mlflow.entities.workspace import Workspace
@@ -157,11 +158,36 @@ def test_update_skill_version_allows_valid_lifecycle_transitions(store, current,
     assert updated.status == target
 
 
-def test_deleted_skill_version_is_terminal(store):
+def test_update_skill_version_of_deleted_version_is_not_found(store):
     _seed_skill(store, [(1, SkillStatus.DELETED)])
 
-    with pytest.raises(MlflowException, match="Invalid status transition"):
-        store.update_skill_version("reviewer", 1, status=SkillStatus.DRAFT)
+    for kwargs in ({}, {"status": SkillStatus.DELETED}, {"status": SkillStatus.DRAFT}):
+        with pytest.raises(
+            MlflowException, match="Skill version 'reviewer' version '1' not found"
+        ) as exc:
+            store.update_skill_version("reviewer", 1, **kwargs)
+
+        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_update_skill_version_does_not_flush_duplicate_update(store):
+    _seed_skill(store, [(1, SkillStatus.DRAFT)])
+    statements = []
+
+    def capture_statement(conn, cursor, statement, parameters, context, executemany):
+        if (
+            statement.lstrip().upper().startswith("UPDATE")
+            and "SKILL_VERSIONS" in statement.upper()
+        ):
+            statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(statements) == 1
 
 
 def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
