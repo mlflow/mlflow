@@ -69,6 +69,39 @@ def test_load_provider_returns_empty_for_unknown(monkeypatch):
     assert _load_provider("nonexistent_provider_xyz") == {}
 
 
+def test_typesafe_models_and_credentials(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    assert "typesafe" in get_all_providers()
+    models = get_models("typesafe")
+    assert {model["model"] for model in models} == {
+        "jev-latest",
+        "jev-preview",
+        "jev-1.13.0",
+    }
+    for model in models:
+        assert model["mode"] == "evaluation"
+        assert model["input_cost_per_token"] == pytest.approx(0.042 / 1_000_000)
+        assert model["output_cost_per_token"] == 0
+        assert model["supports_vision"] is False
+        assert model["supports_function_calling"] is False
+
+    config = get_provider_config_response("typesafe")
+    assert config["default_mode"] == "api_key"
+    assert config["auth_modes"][0]["secret_fields"] == [
+        {"name": "api_key", "type": "string", "description": "TypeSafe API Key", "required": True}
+    ]
+    assert config["auth_modes"][0]["config_fields"] == []
+
+    input_cost, output_cost = cost_per_token(
+        model="jev-preview",
+        prompt_tokens=1_000_000,
+        completion_tokens=0,
+        custom_llm_provider="typesafe",
+    )
+    assert input_cost == pytest.approx(0.042)
+    assert output_cost == 0
+
+
 def test_load_provider_flattens_pricing(monkeypatch):
     monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
     _load_bundled_provider.cache_clear()
