@@ -55,46 +55,49 @@ const removeInputMessagesPrefix = (
   return outputMessages;
 };
 
-const getInputChatMessages = (activeSpan: ModelTraceSpanNode | undefined): ModelTraceChatMessage[] => {
+const getInputChatMessages = (
+  activeSpan: ModelTraceSpanNode | undefined,
+): { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean } => {
   if (!activeSpan) {
-    return [];
+    return { messages: [], hasTopLevelChatPayload: false };
   }
 
   const inputMessages = normalizeConversation(activeSpan.inputs, activeSpan.chatMessageFormat) ?? [];
   if (inputMessages.length > 0) {
-    return inputMessages;
+    return { messages: inputMessages, hasTopLevelChatPayload: true };
   }
 
-  return activeSpan.chatMessages?.filter((message) => message.role === 'user' || message.role === 'system') ?? [];
+  return {
+    messages: activeSpan.chatMessages?.filter((message) => message.role === 'user' || message.role === 'system') ?? [],
+    hasTopLevelChatPayload: false,
+  };
 };
 
 const getOutputChatMessages = (
   activeSpan: ModelTraceSpanNode | undefined,
   inputChatMessages: ModelTraceChatMessage[],
-): ModelTraceChatMessage[] => {
+): { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean } => {
   if (!activeSpan) {
-    return [];
+    return { messages: [], hasTopLevelChatPayload: false };
   }
 
   const outputMessages = normalizeConversation(activeSpan.outputs, activeSpan.chatMessageFormat) ?? [];
   const outputOnlyMessages = removeInputMessagesPrefix(outputMessages, inputChatMessages);
   if (outputOnlyMessages.length > 0) {
-    return outputOnlyMessages;
+    return { messages: outputOnlyMessages, hasTopLevelChatPayload: true };
   }
 
   if (inputChatMessages.length > 0 && typeof activeSpan.outputs === 'string' && activeSpan.outputs.length > 0) {
-    return [{ role: 'assistant', content: activeSpan.outputs }];
+    return { messages: [{ role: 'assistant', content: activeSpan.outputs }], hasTopLevelChatPayload: true };
   }
 
-  return (
-    activeSpan.chatMessages?.filter(
-      (message) => message.role === 'assistant' || message.role === 'tool' || message.role === 'function',
-    ) ?? []
-  );
-};
-
-const hasTopLevelChatPayload = (data: unknown, messageFormat?: string): boolean => {
-  return (normalizeConversation(data, messageFormat)?.length ?? 0) > 0;
+  return {
+    messages:
+      activeSpan.chatMessages?.filter(
+        (message) => message.role === 'assistant' || message.role === 'tool' || message.role === 'function',
+      ) ?? [],
+    hasTopLevelChatPayload: false,
+  };
 };
 
 export function ModelTraceExplorerDefaultSpanView({
@@ -120,22 +123,15 @@ export function ModelTraceExplorerDefaultSpanView({
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
   const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
   const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
-  const inputChatMessages = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
-  const outputChatMessages = useMemo(
+  const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
+  const inputChatMessages = inputChatMessagesResult.messages;
+  const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
+  const outputChatMessagesResult = useMemo(
     () => getOutputChatMessages(activeSpan, inputChatMessages),
     [activeSpan, inputChatMessages],
   );
-  const inputHasTopLevelChatPayload = useMemo(
-    () => hasTopLevelChatPayload(activeSpan?.inputs, activeSpan?.chatMessageFormat),
-    [activeSpan],
-  );
-  const outputHasTopLevelChatPayload = useMemo(() => {
-    if (hasTopLevelChatPayload(activeSpan?.outputs, activeSpan?.chatMessageFormat)) {
-      return true;
-    }
-    const outputs = activeSpan?.outputs;
-    return inputChatMessages.length > 0 && typeof outputs === 'string' && outputs.length > 0;
-  }, [activeSpan, inputChatMessages.length]);
+  const outputChatMessages = outputChatMessagesResult.messages;
+  const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
 
   if (isNil(activeSpan)) {
     return null;
@@ -242,21 +238,41 @@ export function ModelTraceExplorerDefaultSpanView({
     </div>
   );
 
+  const filterSectionFields = (
+    section: 'inputs' | 'outputs',
+    fields: typeof inputList,
+    { skipAnonymousTopLevelField = false, skipChatFields = false } = {},
+  ) =>
+    fields.filter(
+      ({ key }) =>
+        !(skipAnonymousTopLevelField && key === '') &&
+        !(skipChatFields && CHAT_FIELD_KEYS[section].has(key.toLowerCase())),
+    );
+
   const renderNonChatFields = (
     section: 'inputs' | 'outputs',
     fields: typeof inputList,
     skipAnonymousTopLevelField = false,
   ) => {
-    const nonChatFields = fields.filter(
-      ({ key }) => !(skipAnonymousTopLevelField && key === '') && !CHAT_FIELD_KEYS[section].has(key.toLowerCase()),
-    );
+    const nonChatFields = filterSectionFields(section, fields, { skipAnonymousTopLevelField, skipChatFields: true });
     return nonChatFields.length > 0 ? renderPrettyFields(section, nonChatFields) : null;
   };
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
-      if (isActiveMatchSpan && activeMatch.section === section) {
-        return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
+      const sectionHasTopLevelChatPayload =
+        section === 'inputs' ? inputHasTopLevelChatPayload : outputHasTopLevelChatPayload;
+      if (
+        isActiveMatchSpan &&
+        activeMatch.section === section &&
+        !(sectionHasTopLevelChatPayload && activeMatch.key === '')
+      ) {
+        return renderPrettyFields(
+          section,
+          filterSectionFields(section, section === 'inputs' ? inputList : outputList, {
+            skipAnonymousTopLevelField: sectionHasTopLevelChatPayload,
+          }),
+        );
       }
 
       if (section === 'inputs' && inputChatMessages.length > 0) {
