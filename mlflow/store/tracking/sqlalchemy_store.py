@@ -3552,6 +3552,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
         has_creation_timestamp = False
+        has_model_id = False
         for ob in order_by or []:
             field_name = ob.get("field_name")
             ascending = ob.get("ascending", True)
@@ -3559,6 +3560,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 name = SqlLoggedModel.ALIASES.get(field_name, field_name)
                 if name == "creation_timestamp_ms":
                     has_creation_timestamp = True
+                if name == "model_id":
+                    has_model_id = True
                 try:
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
@@ -3595,7 +3598,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     SqlLoggedModelMetric.model_id,
                     SqlLoggedModelMetric.metric_value,
                     func
-                    .rank()
+                    .row_number()
                     .over(
                         partition_by=[
                             SqlLoggedModelMetric.model_id,
@@ -3604,9 +3607,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         order_by=[
                             SqlLoggedModelMetric.metric_timestamp_ms.desc(),
                             SqlLoggedModelMetric.metric_step.desc(),
+                            SqlLoggedModelMetric.run_id.asc(),
                         ],
                     )
-                    .label("rank"),
+                    .label("row_num"),
                 )
                 .filter(
                     SqlLoggedModelMetric.metric_name == name,
@@ -3614,7 +3618,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 .subquery()
             )
-            subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
+            subquery = select(subquery.c).where(subquery.c.row_num == 1).subquery()
 
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
@@ -3626,6 +3630,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
+        if not has_model_id:
+            order_by_clauses.append(SqlLoggedModel.model_id.asc())
 
         return models.order_by(*order_by_clauses)
 
@@ -8845,7 +8851,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             ._label_schema_query(session)
             .filter(
                 SqlLabelSchema.experiment_id == int(experiment_id),
-                SqlLabelSchema.is_default.is_(True),
+                SqlLabelSchema.is_default == sqlalchemy.true(),
             )
             .first()
         )
@@ -9617,6 +9623,16 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
                     entity.value, value
                 )
+                if entity is SqlLatestMetric:
+                    # NaN metrics are stored as value=0 with is_nan=True. Every comparison
+                    # against NaN is false except "!=", so the placeholder 0 must never
+                    # satisfy a numeric filter and a NaN metric always satisfies "!=".
+                    if comparator == "!=":
+                        val_filter = sqlalchemy.or_(val_filter, entity.is_nan == sqlalchemy.true())
+                    else:
+                        val_filter = sqlalchemy.and_(
+                            val_filter, entity.is_nan == sqlalchemy.false()
+                        )
                 non_attribute_filters.append(
                     session.query(entity).filter(key_filter, val_filter).subquery()
                 )
