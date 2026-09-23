@@ -5750,6 +5750,91 @@ def test_create_model_version_ignores_a_registry_source_uri(
         assert auth_module.validate_can_create_model_version() is True
 
 
+def test_get_run_withholds_model_links_on_a_logged_model_deny(
+    workspace_permission_setup, monkeypatch
+):
+    """GetLoggedModel applies the model tier to these ids, so a run must not hand them out."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
+    payload = {"run": {"info": {"run_id": "r-1", "experiment_id": "exp-1"},
+                       "inputs": {"model_inputs": [{"model_id": "m-1"}]},
+                       "outputs": {"model_outputs": [{"model_id": "m-2", "step": 1}]}}}
+
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/runs/get", method="GET",
+                                             query_string={"run_id": "r-1"}):
+        auth_module.redact_get_run_model_links(flask_resp)
+    run = json.loads(flask_resp.get_data(as_text=True))["run"]
+
+    assert "model_inputs" not in run.get("inputs", {})
+    assert "model_outputs" not in run.get("outputs", {})
+    # The run itself is the subject and survives.
+    assert run["info"]["run_id"] == "r-1"
+
+
+def test_get_run_keeps_model_links_without_a_deny(workspace_permission_setup, monkeypatch):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    payload = {"run": {"info": {"run_id": "r-1"},
+                       "inputs": {"model_inputs": [{"model_id": "m-1"}]}}}
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/runs/get", method="GET",
+                                             query_string={"run_id": "r-1"}):
+        auth_module.redact_get_run_model_links(flask_resp)
+    run = json.loads(flask_resp.get_data(as_text=True))["run"]
+    assert run["inputs"]["model_inputs"][0]["model_id"] == "m-1"
+
+
+def test_trace_metadata_strips_only_the_denied_sibling_tier(
+    workspace_permission_setup, monkeypatch
+):
+    """v2 already refuses FILTERING a trace search by metadata.mlflow.sourceRun on the run tier;
+    returning the value is the other half. Each key maps to its own tier, so a run DENY must not
+    strip the model id.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    payload = {"trace": {"trace_info": {"trace_id": "t-1", "trace_metadata": {
+        "mlflow.sourceRun": "r-1", "mlflow.modelId": "m-1", "other": "keep"}}}}
+
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/3.0/mlflow/traces", method="POST", json={}):
+        auth_module.redact_start_trace_v3_metadata(flask_resp)
+    md = json.loads(flask_resp.get_data(as_text=True))["trace"]["trace_info"]["trace_metadata"]
+
+    assert "mlflow.sourceRun" not in md
+    assert md["mlflow.modelId"] == "m-1"
+    assert md["other"] == "keep"
+
+
+def test_trace_metadata_handles_the_v2_repeated_spelling(workspace_permission_setup, monkeypatch):
+    """TraceInfo carries repeated request_metadata entries, not a map."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
+    payload = {"trace_info": {"request_id": "t-1", "request_metadata": [
+        {"key": "mlflow.modelId", "value": "m-1"}, {"key": "keep", "value": "v"}]}}
+
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/traces/t-1/info", method="GET"):
+        auth_module.redact_trace_info_metadata(flask_resp)
+    entries = json.loads(flask_resp.get_data(as_text=True))["trace_info"]["request_metadata"]
+    keys = [e["key"] for e in entries]
+
+    assert "mlflow.modelId" not in keys
+    assert "keep" in keys
+
+
 def _definition_payload(secret_id="sec-1"):
     return {"model_definition": {"model_definition_id": "md-1", "name": "md",
                                  "secret_id": secret_id, "secret_name": "my-secret",
