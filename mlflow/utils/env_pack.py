@@ -144,7 +144,7 @@ def pack_env_for_databricks_model_serving(
     from mlflow.telemetry.track import _record_event
 
     start_time = time.time()
-    event_params = {"install_dependencies": enforce_pip_requirements}
+    event_params = {"install_dependencies": bool(enforce_pip_requirements)}
     packed = False
     try:
         with _pack_env_for_databricks_model_serving(

@@ -364,7 +364,7 @@ def test_log_model(mock_requests, mock_telemetry_client: TelemetryClient):
         mock_telemetry_client,
         mock_requests,
         "log_model",
-        {"flavor": "pyfunc.CustomPythonModel", "registered": False},
+        {"flavor": "pyfunc", "registered": False},
     )
 
 

@@ -204,6 +204,22 @@ def test_pack_env_records_success_telemetry(tmp_path, mock_dbr_version):
     assert kwargs["duration_ms"] >= 0
 
 
+def test_pack_env_coerces_install_dependencies_telemetry_to_bool(tmp_path, mock_dbr_version):
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test/1", enforce_pip_requirements=[]
+        ):
+            pass
+
+    args, _ = mock_record.call_args
+    assert args[1] == {"install_dependencies": False}
+
+
 def test_pack_env_records_failure_telemetry(tmp_path, mock_dbr_version):
     artifacts_dir, _ = _make_packable_model(tmp_path)
     (artifacts_dir / "requirements.txt").write_text("invalid-package==1.0.0")
