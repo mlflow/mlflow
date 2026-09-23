@@ -7,7 +7,7 @@ function getSleepLength(iterationCount, numPendingJobs) {
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, core }) => {
   let rateLimitRemaining;
   github.hook.after("request", (response) => {
     rateLimitRemaining = response.headers["x-ratelimit-remaining"];
@@ -91,21 +91,30 @@ module.exports = async ({ github, context }) => {
     }));
 
     // Workflow runs (e.g., GitHub Actions)
-    const workflowRuns = (
-      await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
-        owner,
-        repo,
-        head_sha: ref,
-        per_page: 100,
-      })
-    ).filter(
-      ({ path, event }) =>
-        // Exclude this workflow to avoid self-checking
-        path !== ".github/workflows/protect.yml" &&
-        // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic" &&
-        !IGNORED_WORKFLOWS.has(path)
-    );
+    let workflowRuns;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      workflowRuns = (
+        await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+          owner,
+          repo,
+          head_sha: ref,
+          per_page: 100,
+        })
+      ).filter(
+        ({ path, event }) =>
+          // Exclude this workflow to avoid self-checking
+          path !== ".github/workflows/protect.yml" &&
+          // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
+          event !== "dynamic" &&
+          !IGNORED_WORKFLOWS.has(path)
+      );
+      if (workflowRuns.length > 0) break;
+      core.warning(`No workflow runs found (attempt ${attempt}/3)`);
+      if (attempt < 3) await sleep(5000);
+    }
+    if (workflowRuns.length === 0) {
+      throw new Error(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+    }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
