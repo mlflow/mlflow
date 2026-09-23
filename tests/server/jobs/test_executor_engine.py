@@ -1303,10 +1303,10 @@ def test_lease_renewer_survives_renew_error_and_keeps_renewing():
     assert store.renew_job_lease.call_count >= 2
 
 
-@pytest.mark.parametrize("lease_duration", [runner._MIN_LEASE_TTL, 60.0])
+@pytest.mark.parametrize("lease_duration", [runner._MIN_JOB_LEASE_TTL, 60.0])
 def test_lease_renewer_interval_below_ttl_and_at_or_above_floor(lease_duration):
-    # For any accepted TTL (>= _MIN_LEASE_TTL) the renewal interval fires before the lease expires
-    # (strictly below the TTL) while never dropping below the busy-loop floor.
+    # For any accepted TTL (>= _MIN_JOB_LEASE_TTL) the renewal interval fires before the lease
+    # expires (strictly below the TTL) while never dropping below the busy-loop floor.
     renewer = runner._LeaseRenewer(mock.MagicMock(), "job-1", lease_duration, workspace=None)
     assert runner._MIN_LEASE_RENEW_INTERVAL <= renewer._interval < lease_duration
 
@@ -1316,7 +1316,9 @@ def test_scheduler_rejects_lease_ttl_below_minimum():
     # busy-loop the store; the boundary value itself is accepted.
     with pytest.raises(MlflowException, match="job lease TTL must be at least"):
         runner._JobScheduler(mock.MagicMock(), mock.MagicMock(), lease_duration=0.1)
-    runner._JobScheduler(mock.MagicMock(), mock.MagicMock(), lease_duration=runner._MIN_LEASE_TTL)
+    runner._JobScheduler(
+        mock.MagicMock(), mock.MagicMock(), lease_duration=runner._MIN_JOB_LEASE_TTL
+    )
 
 
 def test_lease_renewed_during_submit_job(registered_jobs, job_store, monkeypatch):
@@ -1341,7 +1343,7 @@ def test_lease_renewed_during_submit_job(registered_jobs, job_store, monkeypatch
     executor.wait_for_job.return_value = JobResult(status=JobStatus.SUCCEEDED, result="ok")
 
     runner._execute_claimed_job(
-        job_store, executor, job, lease_duration=runner._MIN_LEASE_TTL, workspace=None
+        job_store, executor, job, lease_duration=runner._MIN_JOB_LEASE_TTL, workspace=None
     )
 
     executor.submit_job.assert_called_once()

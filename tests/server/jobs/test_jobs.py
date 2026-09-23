@@ -1096,6 +1096,8 @@ def test_update_status_details_raises_specific_exception_for_terminal_job(tmp_pa
     with pytest.raises(JobTerminalStateUpdateException, match="already finalized"):
         store.update_status_details(job.job_id, {"stage": "late-heartbeat"})
 
+    assert store.get_job(job.job_id).status_details is None
+
 
 def test_list_job_pagination(monkeypatch, tmp_path):
     monkeypatch.setattr(mlflow.store.jobs.sqlalchemy_store, "_LIST_JOB_PAGE_SIZE", 3)
@@ -1745,6 +1747,11 @@ def test_update_job_progress_rejects_finalized_job(tmp_path: Path):
 
     with pytest.raises(MlflowException, match="already finalized"):
         store.update_job_progress(job.job_id, message="should-fail")
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
 
 
 def test_delete_jobs_cascades_job_locks(tmp_path: Path):

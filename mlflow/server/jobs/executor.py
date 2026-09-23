@@ -5,7 +5,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from mlflow.entities._job_status import JobStatus
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _PythonEnv
+
+_MIN_JOB_LEASE_TTL = 0.6
 
 
 @dataclass
@@ -17,7 +20,6 @@ class JobExecutorConfig:
     max_retries: int = 3
     default_timeout: float = 3600.0
     job_lease_ttl: float = 60.0
-    completed_job_ttl: float = 86400.0
 
 
 @dataclass
@@ -50,6 +52,7 @@ class JobRecoveryResult:
     error_message: str | None = None
 
 
+@experimental(version="3.17.0")
 class AbstractJobExecutor(ABC):
     """Backend contract for job executor plugins."""
 

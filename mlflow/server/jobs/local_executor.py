@@ -62,6 +62,7 @@ class _BoundedStderrReader:
     """
 
     _POLL_INTERVAL = 0.5
+    _MAX_READS_AFTER_STOP = 4
 
     def __init__(self, stream: Any, max_bytes: int = _STDERR_TAIL_MAX_CHARS * 4) -> None:
         self._stream = stream
@@ -83,6 +84,7 @@ class _BoundedStderrReader:
         if not isinstance(fd, int):
             # A mocked stream (in tests) whose fileno() is not a real descriptor.
             return
+        reads_after_stop = 0
         try:
             while True:
                 try:
@@ -90,9 +92,8 @@ class _BoundedStderrReader:
                 except (OSError, ValueError):
                     break
                 if ready:
-                    # Drain everything currently available before honoring a stop
-                    # request, so stderr the job wrote right before exiting is not
-                    # dropped when close()/tail() races the final read.
+                    # Retain a bounded amount of stderr after a stop request so
+                    # close() cannot be kept alive by a continuously writing descendant.
                     try:
                         chunk = os.read(fd, 4096)
                     except (OSError, ValueError):
@@ -105,6 +106,10 @@ class _BoundedStderrReader:
                         if overflow > 0:
                             del self._buffer[:overflow]
                             self._truncated = True
+                    if self._stop.is_set():
+                        reads_after_stop += 1
+                        if reads_after_stop >= self._MAX_READS_AFTER_STOP:
+                            break
                     continue
                 # No data right now: stop if asked, otherwise keep polling.
                 if self._stop.is_set():

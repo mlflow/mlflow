@@ -1804,7 +1804,9 @@ MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
 #: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
 #: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally
 #: not settable to ``"huey"`` — unset it to use the default. Periodic tasks always run on Huey
-#: regardless of this setting.
+#: regardless of this setting. The executor engine currently supports only single-replica MLflow
+#: deployments; overlapping rolling restarts are also unsupported. Multi-replica coordination will
+#: be supported after scheduler leadership and stale-lease recovery are implemented.
 #: (default: unset, i.e. the default engine)
 MLFLOW_SERVER_JOB_EXECUTION_ENGINE = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_EXECUTION_ENGINE", str, None
@@ -1821,13 +1823,6 @@ MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT = _EnvironmentVariable(
 #: recovery logic.
 #: (default: ``60.0``)
 MLFLOW_SERVER_JOB_LEASE_TTL = _EnvironmentVariable("MLFLOW_SERVER_JOB_LEASE_TTL", float, 60.0)
-
-#: Retention window in seconds for terminal job rows managed by the executor
-#: framework.
-#: (default: ``86400.0``)
-MLFLOW_SERVER_COMPLETED_JOB_TTL = _EnvironmentVariable(
-    "MLFLOW_SERVER_COMPLETED_JOB_TTL", float, 86400.0
-)
 
 
 #: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
