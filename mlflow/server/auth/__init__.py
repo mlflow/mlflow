@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import threading
+import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
@@ -425,6 +426,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.uri import validate_path_is_safe
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -877,6 +879,39 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 # resolved in both layouts; otherwise the prefixed form fails to match and the
 # artifact-proxy validator falls back to the coarser workspace-tier grant.
 _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
+_WORKSPACE_PATH_PREFIX_PATTERN = re.compile(r"^workspaces/[^/]+/")
+
+
+def _get_experiment_id_from_run_artifact_path(artifact_path: str) -> str | None:
+    # Experiments created with a custom proxied ``artifact_location`` keep run artifacts under
+    # ``<artifact location path>/<run_id>/artifacts/...``, which carries no experiment ID.
+    # Resolve the run named in the path, and trust its experiment only when the requested path
+    # lies under that run's own artifact root, so that a run ID cannot authorize access to
+    # artifacts stored anywhere else.
+    try:
+        path = validate_path_is_safe(artifact_path).strip("/")
+    except MlflowException:
+        return None
+
+    candidate_paths = {path, _WORKSPACE_PATH_PREFIX_PATTERN.sub("", path, count=1)}
+    segments = path.split("/")
+    for index in range(1, len(segments)):
+        if segments[index] != "artifacts":
+            continue
+        try:
+            run = _get_tracking_store().get_run(segments[index - 1])
+        except MlflowException:
+            continue
+        parsed_artifact_uri = urllib.parse.urlparse(run.info.artifact_uri or "")
+        if parsed_artifact_uri.scheme != "mlflow-artifacts":
+            continue
+        run_artifact_root = parsed_artifact_uri.path.strip("/")
+        if run_artifact_root and any(
+            candidate == run_artifact_root or candidate.startswith(f"{run_artifact_root}/")
+            for candidate in candidate_paths
+        ):
+            return run.info.experiment_id
+    return None
 
 
 def _get_experiment_id_from_view_args():
@@ -885,6 +920,7 @@ def _get_experiment_id_from_view_args():
     if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
+        return _get_experiment_id_from_run_artifact_path(artifact_path)
     return None
 
 
@@ -5817,10 +5853,14 @@ def _extract_experiment_id_from_artifact_proxy_path(
         artifact_path = path.removeprefix(prefix)
         if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
             return m.group(1)
+        if experiment_id := _get_experiment_id_from_run_artifact_path(artifact_path):
+            return experiment_id
 
     # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
-    if query_path and (m := _EXPERIMENT_ID_PATTERN.match(query_path)):
-        return m.group(1)
+    if query_path:
+        if m := _EXPERIMENT_ID_PATTERN.match(query_path):
+            return m.group(1)
+        return _get_experiment_id_from_run_artifact_path(query_path)
     return None
 
 
