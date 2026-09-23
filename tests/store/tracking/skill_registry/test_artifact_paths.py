@@ -4,9 +4,11 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.skill_registry.artifact_paths import (
+    SkillArtifactIdentity,
     artifact_path_from_uri,
     new_skill_upload_path,
     owned_skill_upload_path,
+    parse_skill_upload_path,
     to_artifact_uri,
     validate_referenced_mlflow_source,
 )
@@ -145,3 +147,46 @@ def test_validate_referenced_mlflow_source(source, subpath, expected):
 def test_validate_referenced_mlflow_source_rejects(source, subpath, message):
     with pytest.raises(MlflowException, match=message):
         validate_referenced_mlflow_source(source, subpath)
+
+
+@pytest.mark.parametrize(
+    ("artifact_path", "expected"),
+    [
+        # A token path, its contents, and every ancestor a listing can address.
+        (f"skills/@acme/reviewer/{_TOKEN}/SKILL.md", SkillArtifactIdentity("acme", "reviewer")),
+        (
+            f"skills/@acme/reviewer/{_TOKEN}/scripts/run.py",
+            SkillArtifactIdentity("acme", "reviewer"),
+        ),
+        (f"skills/@acme/reviewer/{_TOKEN}", SkillArtifactIdentity("acme", "reviewer")),
+        ("skills/@acme/reviewer", SkillArtifactIdentity("acme", "reviewer")),
+        ("skills/@acme/reviewer/", SkillArtifactIdentity("acme", "reviewer")),
+        ("/skills/@acme/reviewer", SkillArtifactIdentity("acme", "reviewer")),
+        (f"skills/reviewer/{_TOKEN}/SKILL.md", SkillArtifactIdentity("", "reviewer")),
+        ("skills/reviewer", SkillArtifactIdentity("", "reviewer")),
+        # Paths that name no single skill.
+        ("skills", None),
+        ("skills/", None),
+        ("skills/@acme", None),
+        ("skills/@/reviewer", None),
+        # Outside the upload root, or a malformed identity.
+        (f"agent-plugins/@acme/toolkit/{_TOKEN}", None),
+        ("0/run/artifacts/model.pkl", None),
+        ("skillsX/reviewer", None),
+        ("skills/Reviewer", None),
+        ("skills/@Acme/reviewer", None),
+        ("skills/../reviewer", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_parse_skill_upload_path(artifact_path, expected):
+    assert parse_skill_upload_path(artifact_path) == expected
+
+
+def test_parse_skill_upload_path_round_trips_new_paths():
+    path = new_skill_upload_path("reviewer", "acme")
+    assert parse_skill_upload_path(path) == SkillArtifactIdentity("acme", "reviewer")
+    assert parse_skill_upload_path(new_skill_upload_path("linter")) == SkillArtifactIdentity(
+        "", "linter"
+    )

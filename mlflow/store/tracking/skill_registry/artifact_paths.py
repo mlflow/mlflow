@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import dataclass
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.paths import normalize_subpath
@@ -40,6 +41,47 @@ def _identity_prefix(root: str, name: str, organization: str) -> str:
     if organization:
         return f"{root}/@{organization}/{name}"
     return f"{root}/{name}"
+
+
+@dataclass(frozen=True)
+class SkillArtifactIdentity:
+    """The skill whose uploaded content an artifact path belongs to."""
+
+    organization: str
+    name: str
+
+
+def parse_skill_upload_path(artifact_path: str) -> SkillArtifactIdentity | None:
+    """
+    The skill identity an artifact path under the upload root belongs to, or ``None``.
+
+    Accepts a token path, anything beneath it, and the ancestor paths a listing can address
+    (``skills``, ``skills/@<organization>``, ``skills/[@<organization>/]<name>``), so a
+    permission check on any artifact request for skill content can resolve the skill to
+    check. ``skills`` alone and ``skills/@<organization>`` alone name no single skill and
+    return ``None``, as does anything outside the upload root or with a malformed identity.
+    """
+    if not isinstance(artifact_path, str):
+        return None
+    segments = artifact_path.strip("/").split("/")
+    if not segments or segments[0] != SKILL_UPLOAD_ROOT:
+        return None
+    rest = segments[1:]
+    organization = ""
+    if rest and rest[0].startswith("@"):
+        organization = rest[0][1:]
+        rest = rest[1:]
+        if not organization:
+            return None
+    if not rest or not rest[0]:
+        return None
+    name = rest[0]
+    try:
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+    except MlflowException:
+        return None
+    return SkillArtifactIdentity(organization=organization, name=name)
 
 
 def new_skill_upload_path(name: str, organization: str = "") -> str:
