@@ -5640,6 +5640,87 @@ def test_single_model_responses_redact_embedded_versions(
     assert out["registered_model"]["name"] == "model-xyz"
 
 
+def test_set_alias_requires_version_read_and_falls_back_to_the_model(
+    workspace_permission_setup, monkeypatch
+):
+    """The alias is what publishes a version under a friendly name, so a version DENY blocks it --
+    but with no version grant the parent governs, exactly as master did.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    def _set_alias():
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/alias",
+            method="POST",
+            json={"name": "model-xyz", "alias": "champion", "version": "3"},
+        ):
+            return auth_module.validate_can_set_model_or_prompt_version_alias()
+
+    # Parent EDIT, no version grant -> falls back to the parent, which master already required.
+    _grant(store, username, "team-a", [("registered_model", "model-xyz", EDIT.name)])
+    assert _set_alias() is True
+
+    # A version DENY blocks publishing even though the parent still permits the alias map update.
+    _grant(store, username, "team-a", [
+        ("registered_model", "model-xyz", EDIT.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+    assert _set_alias() is False
+
+
+def test_create_model_version_gates_a_model_id_hidden_in_the_source_uri(
+    workspace_permission_setup, monkeypatch
+):
+    """A `models:/m-<id>` source is dereferenced by the store to derive run_id, so it is a third way
+    to bind a version to another user's logged model -- naming neither run_id nor model_id.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("registered_model", "model-xyz", EDIT.name)])
+    seen = []
+
+    def _fake_logged_model_read(model_id, action):
+        seen.append((model_id, action))
+        return False
+
+    monkeypatch.setattr(auth_module, "_authorize_logged_model_id", _fake_logged_model_read)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "models:/m-someone-elses"},
+    ):
+        allowed = auth_module.validate_can_create_model_version()
+
+    assert allowed is False
+    assert seen == [("m-someone-elses", "read")]
+
+
+def test_create_model_version_ignores_a_registry_source_uri(
+    workspace_permission_setup, monkeypatch
+):
+    """`models:/<name>/<version>` names a registry entry, not a logged model, so it dereferences
+    nothing and must not be pushed through the logged-model check.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("registered_model", "model-xyz", EDIT.name)])
+    monkeypatch.setattr(
+        auth_module, "_authorize_logged_model_id",
+        lambda *a: pytest.fail("a registry source must not be treated as a logged model"),
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "models:/other-model/1"},
+    ):
+        assert auth_module.validate_can_create_model_version() is True
+
+
 def _endpoint_payload(definition_id="md-1", secret_id="sec-1"):
     return {
         "endpoint": {
