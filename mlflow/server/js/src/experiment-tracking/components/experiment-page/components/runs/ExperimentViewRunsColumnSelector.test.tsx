@@ -153,4 +153,36 @@ describe('ExperimentViewRunsColumnSelector', () => {
       expect(screen.queryByTestId('column-selector-tree')).not.toBeInTheDocument();
     });
   });
+
+  it('makes the desktop panel horizontally and vertically resizable', async () => {
+    renderComponent();
+    await userEvent.click(screen.getByTestId('column-selection-dropdown'));
+
+    const panel = await screen.findByTestId('column-selector-panel');
+    expect(panel).toHaveStyle({ resize: 'both', width: '400px' });
+  });
+
+  it('disables resizing on small (xs) viewports', async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }));
+
+    try {
+      renderComponent();
+      await userEvent.click(screen.getByTestId('column-selection-dropdown'));
+
+      const panel = await screen.findByTestId('column-selector-panel');
+      expect(panel).toHaveStyle({ resize: 'none', width: '100vw' });
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
 });

@@ -11,6 +11,7 @@ import {
 import { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
+import { useMediaQuery } from '@databricks/web-shared/hooks';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
@@ -116,6 +117,8 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     const experimentIds = useExperimentIds();
     const [filter, setFilter] = useState('');
     const { theme } = useDesignSystemTheme();
+    // Matches design-system `theme.responsive.mediaQueries.xs` (max-width: 575.98px).
+    const isXsViewport = useMediaQuery('(max-width: 575.98px)');
 
     const searchInputRef = useRef<any>(null);
     const scrollableContainerRef = useRef<HTMLDivElement>(null);
@@ -278,17 +281,46 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       }
     }, []);
 
+    // Default tree viewport matches ~15 Tree rows (32px each in the design system).
+    // Explicit panel height is required for CSS `resize: both` to work.
+    const defaultTreeHeight = 15 * 32;
+    const defaultInputHeight = 32;
+    const defaultButtonHeight = 32;
+    const defaultPanelHeight =
+      theme.spacing.md * 2 +
+      defaultInputHeight +
+      defaultTreeHeight +
+      theme.spacing.sm * 2 +
+      defaultButtonHeight +
+      theme.spacing.sm;
+
+    // Prefer the `style` prop over Emotion `css` for sizing so desktop `resize`
+    // is inspectable in tests and so xs can disable resize without !important.
+    const panelStyle: React.CSSProperties = isXsViewport
+      ? {
+          width: '100vw',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          resize: 'none',
+        }
+      : {
+          width: 400,
+          height: defaultPanelHeight,
+          minWidth: 320,
+          minHeight: 240,
+          maxWidth: 'min(90vw, 800px)',
+          maxHeight: 'min(85vh, 800px)',
+          resize: 'both',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        };
+
     // A JSX block containing the panel body rendered inside the popover.
     const columnListPanel = (
-      <div
-        css={{
-          width: 400,
-          [theme.responsive.mediaQueries.xs]: {
-            width: '100vw',
-          },
-        }}
-      >
-        <div css={(theme) => ({ padding: theme.spacing.md })}>
+      <div data-testid="column-selector-panel" style={panelStyle}>
+        <div css={(theme) => ({ padding: theme.spacing.md, flex: '0 0 auto' })}>
           <Input
             componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_300"
             value={filter}
@@ -305,10 +337,9 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         <div
           ref={scrollableContainerRef}
           css={{
-            // Maximum height of 15 elements times 32 pixels as defined in
-            // design-system/src/design-system/Tree/Tree.tsx
-            maxHeight: 15 * 32,
-            overflowY: 'scroll',
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowY: 'auto',
             overflowX: 'hidden',
             paddingBottom: theme.spacing.md,
             'span[title]': {
@@ -316,9 +347,11 @@ export const ExperimentViewRunsColumnSelector = React.memo(
               textOverflow: 'ellipsis',
               overflow: 'hidden',
             },
-            [theme.responsive.mediaQueries.xs]: {
-              maxHeight: 'calc(100vh - 100px)',
-            },
+            ...(isXsViewport
+              ? {
+                  maxHeight: 'calc(100vh - 100px)',
+                }
+              : {}),
           }}
         >
           <Tree
@@ -335,9 +368,13 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         <div
           css={{
             borderTop: `1px solid ${theme.colors.border}`,
+            // Extra bottom/right padding keeps the native CSS resize grip clickable.
             padding: theme.spacing.sm,
+            paddingRight: theme.spacing.lg,
+            paddingBottom: theme.spacing.md,
             display: 'flex',
             justifyContent: 'flex-end',
+            flex: '0 0 auto',
           }}
         >
           <Button
