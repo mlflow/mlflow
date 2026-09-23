@@ -5035,14 +5035,18 @@ def _run_search_traces(filter_string):
         return auth_module.validate_can_search_traces()
 
 
-def _run_filter_correlation(filter1):
-    with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/traces/calculate-filter-correlation",
-        json={
+def _run_filter_correlation(filter1, camel_case=False):
+    body = (
+        {"experimentIds": ["exp-1"], "filterString1": filter1, "filterString2": "name = 'x'"}
+        if camel_case
+        else {
             "experiment_ids": ["exp-1"],
             "filter_string1": filter1,
             "filter_string2": "name = 'x'",
-        },
+        }
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/calculate-filter-correlation", json=body
     ):
         return auth_module.validate_can_read_traces_by_experiment_ids()
 
@@ -5101,6 +5105,26 @@ def test_search_traces_assessment_filter_allowed_without_a_grant(workspace_permi
     _grant(store, username, "team-a", [("experiment", "*", READ.name)])
 
     assert _run_search_traces("feedback.safety = 'no'") is True
+
+
+@pytest.mark.parametrize("tier", ["assessment", "run", "logged_model"])
+def test_filter_correlation_gates_camel_case_filters(workspace_permission_setup, tier):
+    """The handler parses this request with ParseDict, which accepts lowerCamelCase aliases too, so
+    a gate reading raw snake_case keys never sees a filter spelled `filterString1` -- while the
+    handler executes it. Reading the same proto the handler reads closes every spelling at once.
+    """
+    _deny_tier(workspace_permission_setup, tier)
+    selector = {
+        "assessment": "feedback.safety = 'no'",
+        "run": "run_id = 'run-1'",
+        "logged_model": "metadata.`mlflow.modelId` = 'model-1'",
+    }[tier]
+
+    assert _run_filter_correlation(selector) is False
+    assert _run_filter_correlation(selector, camel_case=True) is False
+    # An unrelated filter stays allowed in both spellings.
+    assert _run_filter_correlation("status = 'OK'") is True
+    assert _run_filter_correlation("status = 'OK'", camel_case=True) is True
 
 
 def _deny_tier(workspace_permission_setup, tier):
