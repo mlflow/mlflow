@@ -26,16 +26,8 @@ jobs:
       && !github.event.pull_request.draft
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    permissions:
-      pull-requests: read
     steps:
-      - name: Fetch metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: >-
-          steps.metadata.outputs.update-type == 'version-update:semver-minor'
-          || steps.metadata.outputs.update-type == 'version-update:semver-patch'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -44,6 +36,11 @@ jobs:
           repositories: mlflow
           permission-contents: write
           permission-pull-requests: write
+      - name: Fetch metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
       - name: Enable auto-merge
         if: >-
           steps.metadata.outputs.update-type == 'version-update:semver-minor'
