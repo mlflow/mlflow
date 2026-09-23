@@ -274,6 +274,25 @@ def test_update_workspace_with_only_trace_archival_retention(app, mock_workspace
     assert args[0].trace_archival_retention == "14d"
 
 
+def test_create_workspace_rejects_conflicting_field_aliases(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={
+                "name": "team-a",
+                "default_artifact_root": "/a",
+                "defaultArtifactRoot": "/b",
+            },
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert "both 'default_artifact_root' and 'defaultArtifactRoot'" in payload["message"]
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
 def test_create_workspace_rejects_invalid_trace_archival_retention(
     app, mock_workspace_store, mock_tracking_store
 ):
@@ -307,6 +326,21 @@ def test_create_workspace_rejects_invalid_trace_archival_location(
     assert response.status_code == 400
     payload = _workspace_to_json(response.get_data(True))
     assert "trace_archival_config.location" in payload["message"]
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
+def test_create_workspace_rejects_host_addressed_default_artifact_root(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-ftp", "default_artifact_root": "ftp://internal-host:21/pub"},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert "'default_artifact_root' cannot use the 'ftp' scheme" in payload["message"]
     mock_workspace_store.create_workspace.assert_not_called()
 
 
@@ -490,3 +524,85 @@ def test_update_workspace_clear_artifact_root_fails_without_server_default(
     assert response.status_code == 400
     payload = _workspace_to_json(response.get_data(True))
     assert "artifact root" in payload["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "default_artifact_root", ["team-a", "relative/path", "./team-a", "C:team-a", "a:b"]
+)
+def test_create_workspace_rejects_non_uri_default_artifact_root(
+    app, mock_workspace_store, mock_tracking_store, default_artifact_root
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-local", "default_artifact_root": default_artifact_root},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'default_artifact_root'. Expected a URI (for example "
+        "'s3://bucket/prefix' or 'mlflow-artifacts:/prefix') or an absolute path, got "
+        f"'{default_artifact_root}'."
+    )
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
+@pytest.mark.parametrize("default_artifact_root", [" team-a ", "C:team-a", "a:b"])
+def test_update_workspace_rejects_non_uri_default_artifact_root(
+    app, mock_workspace_store, default_artifact_root
+):
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-local",
+            json={"default_artifact_root": default_artifact_root},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload["message"] == (
+        "Invalid value for 'default_artifact_root'. Expected a URI (for example "
+        "'s3://bucket/prefix' or 'mlflow-artifacts:/prefix') or an absolute path, got "
+        f"'{default_artifact_root.strip()}'."
+    )
+    mock_workspace_store.update_workspace.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "default_artifact_root",
+    ["s3://bucket/prefix", "mlflow-artifacts:/team-a", "file:///mnt/artifacts", "/mnt/artifacts"],
+)
+def test_create_workspace_accepts_uri_or_absolute_default_artifact_root(
+    app, mock_workspace_store, mock_tracking_store, default_artifact_root
+):
+    created = Workspace(name="team-uri", default_artifact_root=default_artifact_root)
+    mock_workspace_store.create_workspace.return_value = created
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-uri", "default_artifact_root": default_artifact_root},
+        )
+
+    assert response.status_code == 201
+    args, _ = mock_workspace_store.create_workspace.call_args
+    assert args[0].default_artifact_root == default_artifact_root
+
+
+@pytest.mark.parametrize(
+    "default_artifact_root",
+    ["s3://bucket/prefix", "mlflow-artifacts:/team-a", "file:///mnt/artifacts", "/mnt/artifacts"],
+)
+def test_update_workspace_accepts_uri_or_absolute_default_artifact_root(
+    app, mock_workspace_store, default_artifact_root
+):
+    updated = Workspace(name="team-uri", default_artifact_root=default_artifact_root)
+    mock_workspace_store.update_workspace.return_value = updated
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/3.0/mlflow/workspaces/team-uri",
+            json={"default_artifact_root": default_artifact_root},
+        )
+
+    assert response.status_code == 200
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert args[0].default_artifact_root == default_artifact_root
