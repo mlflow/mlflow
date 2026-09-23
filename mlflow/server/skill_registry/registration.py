@@ -11,6 +11,7 @@ from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, 
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.archive import extract_skill_archive, get_max_decompressed_size
+from mlflow.genai.skill_content.fetchers.oci import parse_image_reference
 from mlflow.genai.skill_content.paths import collect_tree
 from mlflow.genai.skill_content.sources import OCI_SCHEME, is_local_path, resolve_source_type
 from mlflow.protos.databricks_pb2 import (
@@ -149,12 +150,18 @@ def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
     source = registration.source
-    if not isinstance(source, str) or is_local_path(source.strip()):
+    source_type = registration.source_type
+    # A native OCI reference such as `ghcr.io/acme/skills:v1` has no scheme and would read as
+    # a local path; with an explicit `oci` type it is the reference itself, and OCISource
+    # validates its shape. Every other form is refused when it looks like a filesystem path.
+    if not isinstance(source, str) or (
+        source_type != SkillSourceType.OCI.value and is_local_path(source.strip())
+    ):
         raise MlflowException.invalid_parameter_value(
             f"'source' must be a remote git, oci, or zip location, got {source!r}. The server "
             "never reads a path on its own filesystem; local content is uploaded instead."
         )
-    if (source_type := registration.source_type) is None:
+    if source_type is None:
         resolved = resolve_source_type(source, ref=registration.ref, subpath=registration.subpath)
         if resolved.source_type.value not in _CLIENT_SOURCE_TYPES:
             # The shared resolver also classifies MLflow artifact URIs, which the fetch side
@@ -185,6 +192,10 @@ def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
             resolved = resolve_source_type(OCISource(image=source, **fields))
         else:
             resolved = resolve_source_type(ZipSource(url=source, **fields))
+    if resolved.source_type == SkillSourceType.OCI:
+        # The typed resolver only strips the scheme; the reference grammar is what makes the
+        # value an image at all, so a stray path or URL is refused here rather than at pull.
+        parse_image_reference(resolved.source)
     return _get_tracking_store().create_skill_version(
         name=registration.name,
         organization=registration.organization,

@@ -425,6 +425,17 @@ def test_remote_registration_does_not_need_artifact_serving(store, no_artifact_s
             SkillSourceType.OCI,
             OCISource(image="ghcr.io/acme/skills:v1"),
         ),
+        (
+            # The scheme is only a hint; a native reference with an explicit type is valid.
+            {"source": "ghcr.io/acme/skills:v1", "source_type": "oci"},
+            SkillSourceType.OCI,
+            OCISource(image="ghcr.io/acme/skills:v1"),
+        ),
+        (
+            {"source": "localhost:5000/skills:v1", "source_type": "oci", "subpath": "a"},
+            SkillSourceType.OCI,
+            OCISource(image="localhost:5000/skills:v1", subpath="a"),
+        ),
     ],
 )
 def test_remote_registration(store, artifact_root, fields, expected_type, expected_source):
@@ -468,6 +479,18 @@ def test_inferred_mlflow_source_is_rejected(store, no_artifact_serving, source):
         ),
         # The server never treats a source as a path on its own filesystem.
         ({"source": "/etc/skills/reviewer"}, "must be a remote git, oci, or zip location"),
+        (
+            {"source": "/etc/skills/reviewer", "source_type": "git"},
+            "must be a remote git, oci, or zip location",
+        ),
+        (
+            {"source": "./skills.zip", "source_type": "zip"},
+            "must be a remote git, oci, or zip location",
+        ),
+        # An oci type skips the path check but the reference itself is still validated.
+        ({"source": "/etc/skills/reviewer", "source_type": "oci"}, "OCI image reference"),
+        ({"source": "oci://ghcr.io/acme/skills:v1#x", "source_type": "oci"}, "invalid tag"),
+        ({"source": "oci://ghcr.io/Acme/skills:v1"}, "invalid repository component"),
         ({"source": "./reviewer"}, "must be a remote git, oci, or zip location"),
         ({"source": "C:\\skills\\reviewer"}, "must be a remote git, oci, or zip location"),
         ({"source": "https://user:pw@example.com/a.zip"}, "publicly accessible"),
