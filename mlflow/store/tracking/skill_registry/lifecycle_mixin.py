@@ -149,7 +149,10 @@ class SqlAlchemySkillRegistryLifecycleMixin:
             skill_version = self._get_skill_version_or_raise(session, name, version, organization)
             current_status = SkillStatus(skill_version.status)
             if current_status is SkillStatus.DELETED:
-                return
+                raise MlflowException(
+                    f"Skill version '{name}' version '{version}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
             self._validate_skill_status_transition(current_status, SkillStatus.DELETED)
 
             now = get_current_time_millis()

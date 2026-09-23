@@ -174,15 +174,20 @@ def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
     assert _get_alias_rows(store) == []
 
 
-def test_delete_skill_version_is_idempotent_and_records_last_updated_by(store):
+def test_delete_skill_version_of_deleted_version_is_not_found(store):
     _seed_skill(store, [(1, SkillStatus.DEPRECATED)])
 
     store.delete_skill_version("reviewer", 1, last_updated_by="alice")
     first_audit = _get_version_audit(store, 1)
-    store.delete_skill_version("reviewer", 1, last_updated_by="bob")
+
+    with pytest.raises(
+        MlflowException, match="Skill version 'reviewer' version '1' not found"
+    ) as exc:
+        store.delete_skill_version("reviewer", 1, last_updated_by="bob")
 
     assert _get_version_row(store, 1) == SkillStatus.DELETED.value
     assert _get_version_audit(store, 1) == first_audit
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
 def test_latest_skill_version_prefers_active_then_highest_non_deleted(store):
