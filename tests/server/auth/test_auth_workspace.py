@@ -5640,6 +5640,35 @@ def test_single_model_responses_redact_embedded_versions(
     assert out["registered_model"]["name"] == "model-xyz"
 
 
+def test_delete_alias_requires_version_read_and_falls_back_to_the_model(
+    workspace_permission_setup, monkeypatch
+):
+    """Removing an alias un-publishes whatever version it pointed at, so it carries the same version
+    requirement as setting one -- even though the request names no version field.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    def _delete_alias():
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/alias",
+            method="DELETE",
+            json={"name": "model-xyz", "alias": "champion"},
+        ):
+            return auth_module.validate_can_delete_model_or_prompt_version_alias()
+
+    # Parent MANAGE (delete needs it), no version grant -> falls back to the parent as master did.
+    _grant(store, username, "team-a", [("registered_model", "model-xyz", MANAGE.name)])
+    assert _delete_alias() is True
+
+    _grant(store, username, "team-a", [
+        ("registered_model", "model-xyz", MANAGE.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+    assert _delete_alias() is False
+
+
 def test_set_alias_requires_version_read_and_falls_back_to_the_model(
     workspace_permission_setup, monkeypatch
 ):

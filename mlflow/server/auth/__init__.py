@@ -2051,18 +2051,20 @@ def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
 
-def validate_can_set_model_or_prompt_version_alias() -> bool:
-    """``SetRegisteredModelAlias`` NAMES a version: the alias is what publishes that version under a
-    friendly name, so `models:/<name>@<alias>` resolves to it. Master gates the parent's alias map
-    at update level, which is kept; the version adds READ with the parent as fallback, so a version
-    DENY blocks publishing while no version grant leaves master's behaviour intact (the parent must
-    hold update for the route at all, which subsumes read).
+def _alias_version_requirement_met() -> bool:
+    """An alias is what publishes a version under a friendly name, so `models:/<name>@<alias>`
+    resolves to it -- both writing and removing one exercise authority over that version.
 
-    ``DeleteRegisteredModelAlias`` names only `name` and `alias`, so there is no version to gate --
-    it stays on the parent tier.
+    Master gates the parent's alias map (update to set, delete to remove), which is kept; the
+    version adds READ with the parent as fallback. So a version DENY blocks the alias while no
+    version grant leaves master's behaviour intact, since the parent level the route already
+    demands subsumes read.
+
+    `DeleteRegisteredModelAlias` names no `version` field -- only `name` and `alias` -- but removing
+    the alias un-publishes whatever version it pointed at, which is the same authority setting it
+    exercises. Version grain is wildcard-only, so the absent id costs nothing: both routes consult
+    the same `(version_type, "*")` key.
     """
-    if not _validate_can_update_registered_model_or_prompt():
-        return False
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -2078,6 +2080,14 @@ def validate_can_set_model_or_prompt_version_alias() -> bool:
         container,
         [Requirement(version_type, "*", "read", fallback_if_no_grant=(container,))],
     )
+
+
+def validate_can_set_model_or_prompt_version_alias() -> bool:
+    return _validate_can_update_registered_model_or_prompt() and _alias_version_requirement_met()
+
+
+def validate_can_delete_model_or_prompt_version_alias() -> bool:
+    return _validate_can_delete_registered_model_or_prompt() and _alias_version_requirement_met()
 
 
 def _authorize_version_action(action: str) -> bool:
@@ -4238,7 +4248,7 @@ BEFORE_REQUEST_HANDLERS = {
     SetModelVersionTag: validate_can_update_model_or_prompt_version,
     DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
     SetRegisteredModelAlias: validate_can_set_model_or_prompt_version_alias,
-    DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
+    DeleteRegisteredModelAlias: validate_can_delete_model_or_prompt_version_alias,
     GetModelVersionByAlias: validate_can_read_model_or_prompt_version,
     # Routes for scorers
     RegisterScorer: validate_can_register_scorer,
