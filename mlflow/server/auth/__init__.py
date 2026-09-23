@@ -2919,45 +2919,63 @@ def validate_can_read_trace_by_trace_id():
     return _authorize_trace(_get_request_param("trace_id"), "read")
 
 
-def _filter_reads_assessments(*filter_strings: str) -> bool:
-    """Whether a trace filter selects on assessment data, so the assessment tier must be consulted.
+def _filter_selects_on_tiers(*filter_strings: str) -> "frozenset[str]":
+    """Which sub-resource tiers a trace filter SELECTS on, so their tiers must be consulted.
 
-    Asks the grammar's OWNER rather than matching text: the store routes a comparison to the
-    assessments table on exactly this predicate (``_get_filter_clauses_for_search_traces``), so a
-    grammar change is inherited instead of drifting. ``issue.id`` is deliberately excluded -- the
-    store routes it through ``is_issue``, it matches on the assessment NAME rather than any value,
-    and ``issue`` is not a type this branch governs.
+    Asks the grammar's owner rather than matching text. Assessments: the store routes a comparison
+    to the assessments table on exactly ``SearchTraceUtils.is_assessment``
+    (``_get_filter_clauses_for_search_traces``), so a grammar change is inherited rather than
+    drifted from. Runs and logged models: the parser normalizes every spelling -- ``run_id``,
+    ``attributes.run_id`` and ``metadata.`mlflow.sourceRun``` all yield the same
+    ``request_metadata`` comparison -- so a two-key lookup covers them with no alias handling here.
 
-    An unparsable filter fails closed. The handler returns its own 400 for malformed input, so the
-    only cost is that a caller denied on assessments sees 403 instead.
+    Each of these tiers is wildcard-only grain, so one grant key decides the whole request: no name
+    binding, no operator awareness, and no resolving a referenced id to its own experiment.
+
+    ``issue.id`` is excluded -- the store routes it through ``is_issue``, it matches the assessment
+    NAME rather than any value, and ``issue`` is not a type this branch governs. The reserved
+    linked-prompts tag is excluded too: a trace tag is an unvalidated author assertion, not a link
+    to a prompt, so master's behaviour stands.
+
+    An unparsable filter returns every tier, so the most restrictive reading applies.
     """
+    from mlflow.tracing.constant import TraceMetadataKey
     from mlflow.utils.search_utils import SearchTraceUtils
 
+    metadata_tiers = {
+        TraceMetadataKey.SOURCE_RUN: RESOURCE_TYPE_RUN,
+        TraceMetadataKey.MODEL_ID: RESOURCE_TYPE_LOGGED_MODEL,
+    }
+    every_tier = frozenset({RESOURCE_TYPE_ASSESSMENT, *metadata_tiers.values()})
+    tiers = set()
     for filter_string in filter_strings:
         if not filter_string:
             continue
         try:
             parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
         except Exception:
-            return True
-        if any(
-            SearchTraceUtils.is_assessment(c.get("type"), c.get("key"), c.get("comparator"))
-            for c in parsed
-        ):
-            return True
-    return False
+            return every_tier
+        for comparison in parsed:
+            key_type, key_name = comparison.get("type"), comparison.get("key")
+            if SearchTraceUtils.is_assessment(key_type, key_name, comparison.get("comparator")):
+                tiers.add(RESOURCE_TYPE_ASSESSMENT)
+            elif key_type == "request_metadata" and key_name in metadata_tiers:
+                tiers.add(metadata_tiers[key_name])
+    return frozenset(tiers)
 
 
 def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
-    """Bulk trace read, plus the assessment tier when the filter selects on assessment data.
+    """Bulk trace read, plus any sub-resource tier the filter selects on.
 
-    Redaction cannot cover this: which rows MATCH is the disclosure, so stripping
-    ``assessments[]`` from the rows that come back still answers the caller's question.
+    Redaction cannot cover this: which rows MATCH is the disclosure, so a filter on a denied
+    resource still reveals its existence and its association with these traces even when the tier's
+    content is stripped from the rows that come back.
     """
     resolved = _bulk_requirements(experiment_ids, RESOURCE_TYPE_TRACE, "read")
     if resolved is None:
         return False
     anchor, requirements = resolved
+    tiers = _filter_selects_on_tiers(*filter_strings)
     return authorize(
         authenticate_request().username,
         anchor,
@@ -2965,13 +2983,13 @@ def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
             *requirements,
             *(
                 Requirement(
-                    RESOURCE_TYPE_ASSESSMENT,
+                    tier,
                     "*",
                     "read",
                     fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, experiment_id),),
                 )
                 for experiment_id in experiment_ids
-                if _filter_reads_assessments(*filter_strings)
+                for tier in tiers
             ),
         ],
     )
