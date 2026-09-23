@@ -161,6 +161,64 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.queryByText('Tells a joke')).toBeInTheDocument();
   });
 
+  it('does not duplicate top-level OTEL chat messages in pretty mode', () => {
+    const span = {
+      key: 'span-1',
+      inputs: [{ role: 'user', parts: [{ type: 'text', content: 'Gibt es klassifizierte Artikel?' }] }],
+      outputs: [
+        {
+          role: 'assistant',
+          parts: [{ type: 'text', content: 'Nein, es gibt aktuell keine klassifizierten Artikel im System.' }],
+        },
+      ],
+      attributes: {},
+      assessments: [],
+    } as any;
+
+    const { rerender } = render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getAllByText('Gibt es klassifizierte Artikel?')).toHaveLength(1);
+    expect(screen.getAllByText('Nein, es gibt aktuell keine klassifizierten Artikel im System.')).toHaveLength(1);
+    expect(screen.getAllByText('User')).toHaveLength(1);
+    expect(screen.getAllByText('Assistant')).toHaveLength(1);
+
+    rerender(
+      <ModelTraceExplorerContentTab
+        activeSpan={span}
+        searchFilter="Gibt"
+        activeMatch={{
+          span,
+          section: 'inputs',
+          key: '',
+          isKeyMatch: false,
+          matchIndex: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText('Gibt es klassifizierte Artikel?')).toHaveLength(1);
+    expect(screen.getAllByText('User')).toHaveLength(1);
+
+    rerender(
+      <ModelTraceExplorerContentTab
+        activeSpan={span}
+        searchFilter="Nein"
+        activeMatch={{
+          span,
+          section: 'outputs',
+          key: '',
+          isKeyMatch: false,
+          matchIndex: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText('Nein, es gibt aktuell keine klassifizierten Artikel im System.')).toHaveLength(1);
+    expect(screen.getAllByText('Assistant')).toHaveLength(1);
+  });
+
   it('shows raw input and output fields after switching render mode', async () => {
     render(<ModelTraceExplorerContentTab activeSpan={MOCK_CHAT_SPAN} searchFilter="" activeMatch={null} />, {
       wrapper: Wrapper,
