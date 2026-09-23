@@ -4612,6 +4612,42 @@ def test_scorer_list_filter_honors_a_scorer_deny(workspace_permission_setup):
     assert _run_scorer_list_filter(rows) == ["allowed"]
 
 
+def test_scorer_list_filter_honors_a_scorer_version_deny(workspace_permission_setup):
+    """Every listed row is a ScorerVersion, so a version-tier DENY empties the list.
+
+    The version tier is wildcard-only, so this is one constant decision for the whole response --
+    it cannot name a single row. Positive grants on the tiers above it do not lift it.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("scorer", "*", READ.name),
+        ("scorer_version", "*", DENY.name),
+    ])
+
+    rows = [
+        {"experiment_id": 1, "scorer_name": "s1"},
+        {"experiment_id": 2, "scorer_name": "s2"},
+    ]
+    assert _run_scorer_list_filter(rows) == []
+
+
+def test_scorer_list_filter_keeps_rows_without_a_scorer_version_grant(workspace_permission_setup):
+    """No version grant: the veto passes, so the tiers above decide. The compatibility case."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("scorer", "*", READ.name),
+    ])
+
+    rows = [{"experiment_id": 1, "scorer_name": "s1"}]
+    assert _run_scorer_list_filter(rows) == ["s1"]
+
+
 def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup):
     """The other tier: denying the experiment drops its scorers even with a scorer grant."""
     store = workspace_permission_setup["store"]
@@ -4708,7 +4744,7 @@ def test_trace_assessments_kept_on_explicit_assessment_read(workspace_permission
     assert kept == ["a1", "a2"]
 
 
-def test_retention_decisions_keeps_each_tier_separate(workspace_permission_setup):
+def test_retention_gate_keeps_each_tier_separate(workspace_permission_setup):
     """The contract: one call, one query, a boolean PER resource -- not a conjunction.
 
     This is what a response filter needs and ``authorize`` cannot give it: keep the trace, drop
@@ -4725,7 +4761,7 @@ def test_retention_decisions_keeps_each_tier_separate(workspace_permission_setup
 
     experiment = (auth_module.RESOURCE_TYPE_EXPERIMENT, "exp-1")
     with auth_module.app.test_request_context("/"):
-        decisions = auth_module.retention_decisions(
+        decisions = auth_module.retention_gate(
             username,
             experiment,
             [
@@ -4740,7 +4776,7 @@ def test_retention_decisions_keeps_each_tier_separate(workspace_permission_setup
     assert decisions.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
 
 
-def test_retention_decisions_collapses_repeats_and_fails_closed(workspace_permission_setup):
+def test_retention_gate_memoizes_and_fails_closed(workspace_permission_setup):
     """Repeated requirements over one resource collapse to a single entry.
 
     Item 9's duplicate-requirement concern costs nothing here. Separately: an unresolvable
@@ -4753,23 +4789,29 @@ def test_retention_decisions_collapses_repeats_and_fails_closed(workspace_permis
     _grant(store, username, "team-a", [("experiment", "exp-1", READ.name)])
 
     experiment = (auth_module.RESOURCE_TYPE_EXPERIMENT, "exp-1")
-    duplicate = Requirement(
+    template = Requirement(
         auth_module.RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,)
     )
     with auth_module.app.test_request_context("/"):
-        decisions = auth_module.retention_decisions(username, experiment, [duplicate, duplicate])
-    assert decisions.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is True
-    assert len(decisions) == 1  # both requirements collapsed to one entry
+        gate = auth_module.retention_gate(username, experiment, [template])
+        assert gate.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is True
+        # Asked again, answered from the memo rather than refolded.
+        assert gate.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is True
 
-    # A resource no requirement covered is a programming error, not a False.
-    with pytest.raises(KeyError, match="No retention decision"):
-        decisions.retains(auth_module.RESOURCE_TYPE_SCORER, "exp-1/x")
+        # A type no template covered is a programming error, not a False.
+        with pytest.raises(KeyError, match="No requirement template"):
+            gate.retains(auth_module.RESOURCE_TYPE_SCORER, "exp-1/x")
+
+    # Two templates on one type cannot be told apart by retains().
+    with auth_module.app.test_request_context("/"):
+        with pytest.raises(ValueError, match="Two requirement templates"):
+            auth_module.retention_gate(username, experiment, [template, template])
 
     # Unknown experiment -> the anchor workspace cannot be resolved -> everything withheld.
     with auth_module.app.test_request_context("/"):
-        closed = auth_module.retention_decisions(
+        closed = auth_module.retention_gate(
             username,
             (auth_module.RESOURCE_TYPE_EXPERIMENT, "does-not-exist"),
-            [duplicate],
+            [template],
         )
     assert closed.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False

@@ -318,6 +318,7 @@ from mlflow.server.auth.requirements import (
     governing_permission,
     is_workspace_admin_grant,
     requirement_met,
+    requirement_to_grant_load_keys,
     requirements_to_grant_load_keys,
 )
 from mlflow.server.auth.requirements import (
@@ -894,64 +895,99 @@ def authorize(
     )
 
 
-class RetentionDecisions:
-    """One retention decision per resource, asked by type and id rather than by dict key.
+class RetentionGate:
+    """Which resources a response may retain, decided on demand from ONE grants load.
 
-    ``retains(type)`` defaults the id to ``"*"``, which is the whole answer for a wildcard-only
-    tier -- every sub-resource tier in ``PATTERN_KINDS`` is wildcard-only, so a filter over them
-    reads as ``decisions.retains(RESOURCE_TYPE_ASSESSMENT)``. A per-id tier passes its id.
+    Built from requirement TEMPLATES, one per resource type. ``retains(type)`` uses the
+    template's own id, which is the whole answer for a wildcard-only tier; ``retains(type, id)``
+    substitutes a per-row id. Decisions and folds memoize, so a listing that repeats a resource
+    resolves it once.
 
-    Asking about a resource no requirement covered RAISES rather than returning False. It would
-    have been folded against grants that were never loaded, so the answer would be a guess; and a
-    mistyped type silently redacting an entire response is worse than a loud failure. The genuine
-    runtime condition -- an anchor workspace that cannot be resolved -- is already handled by
-    ``retention_decisions``, which returns False for every requirement so callers fail closed.
+    Asking about a type no template covered raises: its grants were never loaded, so any answer
+    would be a guess, and a mistyped type silently redacting a response is worse than a loud
+    failure.
     """
 
-    def __init__(self, by_resource: "dict[tuple[str, str], bool]") -> None:
-        self._by_resource = by_resource
+    def __init__(
+        self,
+        templates: "dict[str, Requirement]",
+        grants: "Sequence[Any]",
+        default_permission: str,
+        absent: Permission,
+        always: "bool | None" = None,
+    ) -> None:
+        self._templates = templates
+        self._grants = grants
+        self._default_permission = default_permission
+        self._absent = absent
+        self._always = always
+        self._decided: dict[tuple[str, str], bool] = {}
+        self._folded: dict[GrantLoadKey, Permission | None] = {}
 
-    def retains(self, resource_type: str, resource_id: str = "*") -> bool:
-        try:
-            return self._by_resource[(resource_type, resource_id)]
-        except KeyError:
+    def retains(self, resource_type: str, resource_id: "str | None" = None) -> bool:
+        template = self._templates.get(resource_type)
+        if template is None:
             raise KeyError(
-                f"No retention decision for ({resource_type!r}, {resource_id!r}). Pass a "
-                f"Requirement covering it to retention_decisions. Decided: "
-                f"{sorted(self._by_resource)}"
-            ) from None
-
-    def __len__(self) -> int:
-        return len(self._by_resource)
-
-
-def retention_decisions(
-    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
-) -> RetentionDecisions:
-    """Whether EACH requirement is met, keyed by the resource it speaks about.
-
-    ``authorize``'s sibling: the same single query and the same fold, but the results are kept
-    separate instead of collapsed with ``all``. A gate wants the conjunction; a response filter
-    wants one decision per thing it might withhold, so it can keep a trace and drop that trace's
-    assessments.
-
-    Keyed by ``(resource_type, resource_id)`` -- a wildcard tier answers under ``(type, "*")``, a
-    per-id tier under its own id. Requirements repeated over the same resource collapse to one
-    entry, and ``resolve_requirements`` already dedupes their grant keys, so asking about the same
-    resource twice costs nothing.
-
-    Every decision is False when the anchor workspace cannot be resolved, so a caller that
-    withholds on False fails closed without special-casing the unresolvable case.
-    """
-    permissions = resolve_requirements(username, anchor, requirements)
-    if permissions is None:
-        return RetentionDecisions({(r.resource_type, r.resource_id): False for r in requirements})
-    return RetentionDecisions({
-        (requirement.resource_type, requirement.resource_id): requirement_met(
-            requirement, permission
+                f"No requirement template for {resource_type!r}. Pass one to retention_gate. "
+                f"Declared: {sorted(self._templates)}"
+            )
+        if self._always is not None:
+            return self._always
+        requirement = (
+            template if resource_id is None else template._replace(resource_id=resource_id)
         )
-        for requirement, permission in zip(requirements, permissions)
-    })
+        cache_key = (requirement.resource_type, requirement.resource_id)
+        decided = self._decided.get(cache_key)
+        if decided is None:
+            permissions = {
+                key: self._fold(key) for key in requirement_to_grant_load_keys(requirement)
+            }
+            decided = requirement_met(
+                requirement,
+                governing_permission(
+                    requirement, permissions, self._default_permission, self._absent
+                ),
+            )
+            self._decided[cache_key] = decided
+        return decided
+
+    def _fold(self, key: GrantLoadKey) -> "Permission | None":
+        if key not in self._folded:
+            self._folded[key] = fold_grants_for_key(self._grants, key)
+        return self._folded[key]
+
+
+def retention_gate(
+    username: str, anchor: "tuple[str, str]", templates: "Sequence[Requirement]"
+) -> RetentionGate:
+    """A ``RetentionGate`` over ``templates``, from one grants query in the anchor's workspace.
+
+    ``authorize`` reduces its requirements with ``all``, which a response filter cannot use: it
+    needs to keep a trace AND drop that trace's assessments. This keeps the decisions separate and
+    defers them, so a caller names one template per tier and asks per row.
+    """
+    by_type: dict[str, Requirement] = {}
+    for template in templates:
+        if template.resource_type in by_type:
+            raise ValueError(
+                f"Two requirement templates for {template.resource_type!r}; retains() could not "
+                f"tell them apart"
+            )
+        by_type[template.resource_type] = template
+
+    workspace_name = get_anchor_workspace(*anchor)
+    if workspace_name is None:
+        return RetentionGate(by_type, (), auth_config.default_permission, NO_PERMISSIONS, False)
+    grants = store.list_grants(
+        store.get_user(username).id,
+        workspace_name,
+        {key.resource_type for key in requirements_to_grant_load_keys(templates)},
+    )
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        return RetentionGate(by_type, grants, auth_config.default_permission, NO_PERMISSIONS, True)
+    return RetentionGate(
+        by_type, grants, auth_config.default_permission, _absent_permission(workspace_name)
+    )
 
 
 def _get_permission_from_experiment_id() -> Permission:
@@ -2401,57 +2437,17 @@ def _role_based_read_predicate(
     experiments it cannot then read. Closing that would deny a caller master allows, so it is left
     alone and reported as design feedback.
     """
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    row_template = Requirement(
+        resource_type, "*", "read", fallback_if_no_grant=workspace_fallback
     )
-    if workspace_name is None:
-        return lambda _resource_id: False
-
-    # One query for every type any requirement can reach, fallback chains included. The row
-    # requirement's own key varies, but its TYPE does not, so the whole request loads here.
-    load_types = {resource_type} | {
-        key.resource_type for key in requirements_to_grant_load_keys(also_require)
-    }
-    grants = store.list_grants(store.get_user(username).id, workspace_name, load_types)
-    if any(is_workspace_admin_grant(grant) for grant in grants):
-        # Admins are not restrictable, so this precedes every other rule including DENY.
-        return lambda _resource_id: True
-
-    absent = _absent_permission(workspace_name)
-    default_permission = auth_config.default_permission
-
-    def met(requirement: Requirement) -> bool:
-        permissions = {
-            key: fold_grants_for_key(grants, key)
-            for key in requirement_to_grant_load_keys(requirement)
-        }
-        governing = governing_permission(requirement, permissions, default_permission, absent)
-        return requirement_met(requirement, governing)
-
-    if not all(met(requirement) for requirement in also_require):
-        return lambda _resource_id: False
-
-    # Memoized per distinct id: a listing repeats ids heavily, keeping this
-    # O(distinct ids x grants) rather than O(rows x grants).
-    decided: dict[str, bool] = {}
-
-    def predicate(resource_id: str) -> bool:
-        cached = decided.get(resource_id)
-        if cached is None:
-            cached = met(
-                Requirement(
-                    resource_type,
-                    resource_id,
-                    "read",
-                    fallback_if_no_grant=((RESOURCE_TYPE_WORKSPACE, "*"),),
-                )
-            )
-            decided[resource_id] = cached
-        return cached
-
-    return predicate
+    gate = retention_gate(
+        username, (RESOURCE_TYPE_WORKSPACE, "*"), [row_template, *also_require]
+    )
+    for requirement in also_require:
+        if not gate.retains(requirement.resource_type, requirement.resource_id):
+            return lambda _resource_id: False
+    return lambda resource_id: gate.retains(resource_type, resource_id)
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -5063,31 +5059,26 @@ def filter_list_scorers(resp: Response) -> None:
         return
 
     workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    requirements = [Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED)]
-    for scorer in response_message.scorers:
-        experiment_id, scorer_pattern = _scorer_row_keys(scorer)
-        requirements.append(
+    gate = retention_gate(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
             Requirement(
-                RESOURCE_TYPE_EXPERIMENT, experiment_id, "read",
-                fallback_if_no_grant=workspace_fallback,
-            )
-        )
-        requirements.append(
+                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
             Requirement(
-                RESOURCE_TYPE_SCORER, scorer_pattern, "read",
-                fallback_if_no_grant=workspace_fallback,
-            )
-        )
-    decisions = retention_decisions(
-        authenticate_request().username, (RESOURCE_TYPE_WORKSPACE, "*"), requirements
+                RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
+        ],
     )
     kept = []
     for scorer in response_message.scorers:
         experiment_id, scorer_pattern = _scorer_row_keys(scorer)
         if (
-            decisions.retains(RESOURCE_TYPE_SCORER_VERSION)
-            and decisions.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
-            and decisions.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
+            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
+            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
         ):
             kept.append(scorer)
     response_message.ClearField("scorers")
@@ -5161,12 +5152,12 @@ def redact_trace_assessments(resp: Response) -> None:
         RESOURCE_TYPE_EXPERIMENT,
         trace_info.trace_location.mlflow_experiment.experiment_id,
     )
-    decisions = retention_decisions(
+    gate = retention_gate(
         authenticate_request().username,
         experiment,
         [Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,))],
     )
-    if decisions.retains(RESOURCE_TYPE_ASSESSMENT):
+    if gate.retains(RESOURCE_TYPE_ASSESSMENT):
         return
 
     trace_info.ClearField("assessments")
