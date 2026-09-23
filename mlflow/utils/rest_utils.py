@@ -203,7 +203,10 @@ def http_request(
                     files=kwargs.get("files"),
                     data=kwargs.get("data"),
                 )
-                return raw_response["contents"]._response
+                response = raw_response["contents"]._response
+                if not kwargs.get("stream", False):
+                    _ = response.content
+                return response
 
         try:
             # We retry the SDK call with exponential backoff because the Databricks SDK default

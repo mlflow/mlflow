@@ -1296,6 +1296,7 @@ module.exports = {
   "mlflow.gateway.edit-endpoint.mutation-error": "",
   "mlflow.gateway.edit-endpoint.name-edit-button": "",
   "mlflow.gateway.edit-endpoint.name-edit-tooltip": "",
+  "mlflow.gateway.edit-endpoint.provider-compatibility-error": "",
   "mlflow.gateway.edit-endpoint.save": "",
   "mlflow.gateway.edit-endpoint.save-tooltip": "",
   "mlflow.gateway.edit-endpoint.starter-code.api": "",
@@ -1786,6 +1787,7 @@ module.exports = {
   "mlflow.model_registry.version_view.breadcrumb_model_link": "",
   "mlflow.model_registry.version_view.breadcrumb_registered_models_link": "",
   "mlflow.model_registry.version_view.copied_from_link": "",
+  "mlflow.model_registry.version_view.source_model_link": "",
   "mlflow.model_registry.version_view.source_run_link": "",
 
   // -- mlflow.model_trace_explorer --
@@ -1795,6 +1797,10 @@ module.exports = {
   "mlflow.model_trace_explorer.header_details.tag-session-id": "",
   "mlflow.model_trace_explorer.linked_prompts.prompt_link": "",
   "mlflow.model_trace_explorer.span_link": "",
+  "mlflow.model_trace_explorer.span_link.attributes_toggle": "",
+  "mlflow.model_trace_explorer.span_link.card": "",
+  "mlflow.model_trace_explorer.span_link.id": "",
+  "mlflow.model_trace_explorer.span_link.id_tooltip": "",
   "mlflow.model_trace_explorer.span_link.tooltip": "",
   "mlflow.model_trace_explorer.timeline.gateway_trace_link": "",
 
@@ -2351,6 +2357,7 @@ module.exports = {
   "shared.model-trace-explorer.span-cost-hovercard.input-cost.tag": "",
   "shared.model-trace-explorer.span-cost-hovercard.output-cost.tag": "",
   "shared.model-trace-explorer.span-cost-hovercard.total-cost.tag": "",
+  "shared.model-trace-explorer.span-link-count": "",
   "shared.model-trace-explorer.span-model-badge": "",
   "shared.model-trace-explorer.span-name-tag": "",
   "shared.model-trace-explorer.span-name-tooltip": "",

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.15.3.dev0"
+version = "3.16.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -35,6 +35,7 @@ dependencies = [
   "Flask<4",
   "aiohttp<4,>=3.7.0",
   "alembic<2,!=1.10.0",
+  "anyio<5,>=3.6.2,!=4.15.0",
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
@@ -214,6 +215,7 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
+protos = ["mypy-protobuf"]
 docs = [
   "sphinx==4.2.0",
   "sphinx-autobuild",
@@ -247,7 +249,7 @@ docs = [
 [tool.uv]
 exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
-required-version = ">=0.11.14"
+required-version = ">=0.12.16"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -566,6 +568,8 @@ filterwarnings = [
   "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
   # Prevent deprecated non-integer arguments to randrange() from being used
   "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
+  # Prevent deprecated Click CliRunner.isolated_filesystem from being used
+  "error:'isolated_filesystem' is deprecated:DeprecationWarning",
   # Prevent usage of deprecated Pydantic v2.0 features
   "error::pydantic.PydanticDeprecatedSince20:mlflow",
   "error::pydantic.PydanticDeprecatedSince20:tests",

@@ -22,6 +22,7 @@ from mlflow.assistant.custom_view import (
     is_custom_view_request,
     parse_custom_view_response,
 )
+from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -119,8 +120,7 @@ NEVER ask the user to do something manually that you can do for them.
 
 You MUST always try to minimize the number of steps the user has to take manually. The user
 is relying on you to accelerate their workflows. For example, if the user asks for a tutorial on
-how to do something, find the answer and then offer to do it for them using MLflow commands or code,
-rather than just telling them how to do it themselves.
+how to do something, find the answer and give them the shortest actionable response.
 
 ## CRITICAL: Stay In Scope and Refuse Harmful Requests
 
@@ -138,6 +138,8 @@ You are an MLflow assistant. Your remit is MLflow and the user's MLflow projects
 ## CRITICAL: Match Response Length to the Question
 
 Answer the specific question asked, then stop. Do NOT pad conceptual or how-to answers.
+Do not ask follow-up questions or offer additional help unless the request is ambiguous or
+you need information to answer it.
 
 - For a "how do I X" question, give the ONE canonical way to do X in a short code
   snippet, and stop. Do NOT enumerate alternative APIs, every configuration parameter,
@@ -344,11 +346,9 @@ the latest version URL (https://mlflow.org/docs/latest/...) instead of version-s
 
 ### CRITICAL: Presenting Documentation Results
 
-IMPORTANT: ALWAYS offer to complete tasks from the documentation results yourself, on behalf of the
-user. Since you are capable of executing code, debugging, logging data to MLflow, and much more, do
-NOT just return documentation links or excerpts for the user to read and act on themselves.
-Only ask the user to do something manually if you have tried and cannot do it yourself, or
-if you truly do not know how.
+IMPORTANT: Answer the user's request directly using the documentation results. If the user asked you
+to perform a task, complete it when possible; otherwise provide the relevant next step without
+offering additional help or asking whether they would like you to do more.
 
 IMPORTANT: When presenting information from documentation, you MUST adapt it to the user's
 context (see "User Context" section above). Before responding, thoroughly re-read the User Context
@@ -578,18 +578,10 @@ class ClaudeCodeProvider(AssistantProvider):
                 f.write(system_prompt)
             cmd.extend(["--append-system-prompt-file", system_prompt_path])
 
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            process = SubprocessLineStream(
+                cmd,
+                input_bytes=user_message.encode("utf-8"),
                 cwd=cwd,
-                # Increase buffer limit from default 64KB to handle large JSON responses
-                # from Claude Code CLI (e.g., tool results containing large file contents)
-                limit=100 * 1024 * 1024,  # 100 MB
-                # Specify tracking URI to let Claude Code CLI inherit it
-                # NB: `env` arg in `create_subprocess_exec` does not merge with the parent process's
-                # environment so we need to copy the parent process's environment explicitly.
                 env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
@@ -597,28 +589,8 @@ class ClaudeCodeProvider(AssistantProvider):
             if mlflow_session_id and process.pid:
                 save_process_pid(mlflow_session_id, process.pid)
 
-            # Send the user message via stdin to keep it off the command line.
-            # If the CLI has already exited (e.g. bad --resume, auth failure), the
-            # pipe is broken; swallow the write error so the read loop below
-            # surfaces the CLI's actual stderr instead of a bare "Broken pipe".
-            # BrokenPipeError/ConnectionResetError are OSError subclasses; catch
-            # OSError broadly to also cover the POSIX EPIPE variant. Any write
-            # failure means the process is gone, which is exactly the case the
-            # stderr-reading path below handles.
-            if process.stdin is not None:
-                try:
-                    process.stdin.write(user_message.encode("utf-8"))
-                    await process.stdin.drain()
-                    process.stdin.close()
-                    await process.stdin.wait_closed()
-                except OSError:
-                    pass
-
             try:
-                if process.stdout is None:
-                    raise RuntimeError("Claude CLI stdout pipe was not created")
-
-                async for line in process.stdout:
+                async for line in process.lines():
                     line_str = line.decode("utf-8").strip()
                     if not line_str:
                         continue
@@ -658,15 +630,12 @@ class ClaudeCodeProvider(AssistantProvider):
             # Wait for process to complete
             await process.wait()
 
-            # Check if killed by interrupt (SIGKILL = -9)
-            if process.returncode == -9:
+            if process.killed or process.returncode == -9:
                 yield Event.from_interrupted()
                 return
 
             if process.returncode != 0:
-                stderr = b""
-                if process.stderr is not None:
-                    stderr = await process.stderr.read()
+                stderr = await process.read_stderr()
                 error_msg = (
                     stderr.decode("utf-8").strip()
                     or f"Process exited with code {process.returncode}"

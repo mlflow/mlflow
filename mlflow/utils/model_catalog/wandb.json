@@ -4,7 +4,7 @@
     "JetBrains/Mellum2-12B-A2.5B-Instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 131000,
         "max_tokens": 131072
       },
       "pricing": {
@@ -18,7 +18,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "MiniMaxAI/MiniMax-M2.5": {
       "mode": "chat",
@@ -43,7 +44,7 @@
     "MiniMaxAI/MiniMax-M3": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -54,16 +55,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "OpenPipe/Qwen3-14B-Instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 32768,
+        "max_input": 32800,
         "max_tokens": 32768
       },
       "pricing": {
@@ -77,7 +78,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "Qwen/Qwen3-235B-A22B-Instruct-2507": {
       "mode": "chat",
@@ -87,8 +89,8 @@
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 10000.0,
-        "output_per_million_tokens": 10000.0
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": false,
@@ -97,7 +99,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "Qwen/Qwen3-235B-A22B-Thinking-2507": {
       "mode": "chat",
@@ -107,22 +109,22 @@
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 10000.0,
-        "output_per_million_tokens": 10000.0
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-14"
     },
     "Qwen/Qwen3-30B-A3B-Instruct-2507": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -136,7 +138,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "Qwen/Qwen3-Coder-480B-A35B-Instruct": {
       "mode": "chat",
@@ -161,7 +164,7 @@
     "Qwen/Qwen3.5-35B-A3B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -171,16 +174,17 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "Qwen/Qwen3.6-27B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -191,16 +195,17 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "Qwen/Qwen3.6-35B-A3B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -210,16 +215,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "Qwen/Qwen3.8-27B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -230,11 +235,11 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "deepseek-ai/DeepSeek-R1-0528": {
       "mode": "chat",
@@ -244,17 +249,17 @@
         "max_tokens": 161000
       },
       "pricing": {
-        "input_per_million_tokens": 135000.0,
-        "output_per_million_tokens": 540000.0
+        "input_per_million_tokens": 1.35,
+        "output_per_million_tokens": 5.4
       },
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-14"
     },
     "deepseek-ai/DeepSeek-V3-0324": {
       "mode": "chat",
@@ -264,8 +269,8 @@
         "max_tokens": 161000
       },
       "pricing": {
-        "input_per_million_tokens": 114000.0,
-        "output_per_million_tokens": 275000.0
+        "input_per_million_tokens": 1.14,
+        "output_per_million_tokens": 2.75
       },
       "capabilities": {
         "function_calling": false,
@@ -274,7 +279,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "deepseek-ai/DeepSeek-V3.1": {
       "mode": "chat",
@@ -290,16 +295,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-14"
     },
     "deepseek-ai/DeepSeek-V4-Flash": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1048576,
+        "max_input": 1049000,
         "max_tokens": 1048576
       },
       "pricing": {
@@ -310,16 +315,17 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "deepseek-ai/DeepSeek-V4-Flash-0731": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -330,16 +336,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "deepseek-ai/DeepSeek-V4-Pro": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1048576,
+        "max_input": 1049000,
         "max_tokens": 1048576
       },
       "pricing": {
@@ -350,16 +356,36 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
+    },
+    "deepseek-ai/DeepSeek-V4-Pro-0813": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1049000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.31,
+        "output_per_million_tokens": 3.96,
+        "cache_read_per_million_tokens": 0.044
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-18"
     },
     "google/gemma-4-31B-it": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -369,16 +395,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "ibm-granite/granite-4.1-8b": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 131000,
         "max_tokens": 131072
       },
       "pricing": {
@@ -392,12 +418,32 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
+    },
+    "ibm-granite/granite-4.2-8b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.15,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-18"
     },
     "meta-llama/Llama-3.1-70B-Instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 131000,
         "max_tokens": 128000
       },
       "pricing": {
@@ -411,12 +457,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-05",
+      "last_updated_at": "2026-09-18"
     },
     "meta-llama/Llama-3.1-8B-Instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 131000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -431,7 +478,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "meta-llama/Llama-3.3-70B-Instruct": {
       "mode": "chat",
@@ -461,8 +508,8 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 17000.0,
-        "output_per_million_tokens": 66000.0
+        "input_per_million_tokens": 0.17,
+        "output_per_million_tokens": 0.66
       },
       "capabilities": {
         "function_calling": false,
@@ -471,7 +518,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "microsoft/Phi-4-mini-instruct": {
       "mode": "chat",
@@ -537,7 +584,7 @@
     "moonshotai/Kimi-K2.6": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -548,16 +595,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "moonshotai/Kimi-K2.7-Code": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -568,56 +615,56 @@
       "capabilities": {
         "function_calling": false,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 0.75,
-        "output_per_million_tokens": 2.75,
-        "cache_read_per_million_tokens": 0.15
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 2.15,
+        "cache_read_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 262000,
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.25,
-        "cache_read_per_million_tokens": 0.05
+        "input_per_million_tokens": 0.07,
+        "output_per_million_tokens": 0.2,
+        "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "openai/gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 131000,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -628,16 +675,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "openai/gpt-oss-20b": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 131000,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -648,11 +695,11 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "zai-org/GLM-4.5": {
       "mode": "chat",
@@ -668,16 +715,16 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-14"
     },
     "zai-org/GLM-5.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
+        "max_input": 1049000,
         "max_tokens": 262144
       },
       "pricing": {
@@ -688,11 +735,30 @@
       "capabilities": {
         "function_calling": false,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
+    },
+    "zai-org/GLM-5.3-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1049000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-18"
     }
   }
 }

@@ -14,6 +14,7 @@ import { TagAssignmentModal } from '../../common/components/TagAssignmentModal';
 import { TagList } from '../../common/components/TagList';
 import { PromoteModelButton } from './PromoteModelButton';
 import { SchemaTable } from './SchemaTable';
+import { ModelVersionSourceModelLink } from './ModelVersionSourceModelLink';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Descriptions } from '../../common/components/Descriptions';
@@ -38,7 +39,7 @@ import { setModelVersionTagApi, deleteModelVersionTagApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { extractArtifactPathFromModelSource } from '../utils/VersionUtils';
+import { extractArtifactPathFromModelSource, extractLoggedModelIdFromModelSource } from '../utils/VersionUtils';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { shouldShowModelsNextUI, shouldUseSharedTaggingUI } from '../../common/utils/FeatureUtils';
@@ -387,6 +388,24 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     );
   }
 
+  renderSourceModelDescription() {
+    const loggedModelId = extractLoggedModelIdFromModelSource(this.props.modelVersion?.source);
+    if (!loggedModelId) {
+      return null;
+    }
+    return (
+      <Descriptions.Item
+        key="description-key-source-model"
+        label={this.props.intl.formatMessage({
+          defaultMessage: 'Source Model',
+          description: 'Label name for the source logged model metadata in model version page',
+        })}
+      >
+        <ModelVersionSourceModelLink loggedModelId={loggedModelId} />
+      </Descriptions.Item>
+    );
+  }
+
   renderCopiedFromLink() {
     const { source } = this.props.modelVersion;
     const modelUriRegex = /^models:\/[^/]+\/[^/]+$/;
@@ -458,6 +477,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       this.renderCreatorDescription(modelVersion.user_id),
       this.renderLastModifiedDescription(modelVersion.last_updated_timestamp),
       this.renderSourceRunDescription(),
+      this.renderSourceModelDescription(),
       this.renderCopiedFromLink(),
       usingNextModelsUI ? this.renderAliasEditor() : this.renderStageDropdown(modelVersion),
       usingNextModelsUI ? this.renderDisabledStage(modelVersion) : null,

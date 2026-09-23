@@ -115,6 +115,10 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: Enables AI Gateway endpoints and UI.
+#: (default: ``True``)
+MLFLOW_ENABLE_AI_GATEWAY = _BooleanEnvironmentVariable("MLFLOW_ENABLE_AI_GATEWAY", True)
+
 #: **Experimental** — subject to change or removal in a future release.
 #: Controls whether the MLflow Assistant API is reachable from non-localhost clients. When true,
 #: the server runs the work the assistant would otherwise run on the host — the ``Bash`` tool and
@@ -166,6 +170,14 @@ MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
 #: only containers left by a *previous* server generation, never one a sibling worker in the
 #: current generation just launched. Not intended to be set by users.
 _MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
+
+#: Internal. Set by ``mlflow server --app-name basic-auth`` for its worker processes once the
+#: admin user has been bootstrapped in the CLI process, so each worker skips the redundant
+#: bootstrap and legacy-password checks (each one a PBKDF2 hash comparison against the primary
+#: database). Not intended to be set by users.
+_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED = _BooleanEnvironmentVariable(
+    "_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED", False
+)
 
 #: **Experimental** — subject to change or removal in a future release.
 #: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
@@ -536,6 +548,22 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: Specified the path to the configuration file for MLflow Authentication.
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the username of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_username`` in the
+#: authentication configuration file.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_USERNAME = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_USERNAME", str, None)
+
+#: Specifies the password of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_password`` in the
+#: authentication configuration file. MLflow ships no default admin password, so this variable
+#: (or ``admin_password`` in the configuration file) must be set before the admin user exists.
+#: On upgraded deployments whose admin user still has the legacy default password
+#: ``password1234`` (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr), which the server no
+#: longer accepts, it is also used once at startup to replace that password.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_PASSWORD = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_PASSWORD", str, None)
 
 #: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
 #: (default: ``None``)
@@ -1514,6 +1542,33 @@ MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
 #: policy.
 MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
     "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
+
+#: Allowed URL schemes for an AI Gateway secret's ``api_base``. Set to ``http,https`` to
+#: allow plaintext upstreams. (default: ``https``)
+MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
+#: ``https``, ``mlflow-artifacts``, ``r2``, ``b2``, ``abfss``) that the tracking server connects
+#: to even when the URI points at a host other than the server's ``--default-artifact-root`` or
+#: ``--artifacts-destination``. The artifact repositories for these schemes connect to the host
+#: named in the URI, so inside a server process (and its job subprocesses) locations on other
+#: hosts are rejected, both when a client submits them and when a stored location is used.
+#: Locations on the server's own storage hosts are always accepted. Set to e.g. ``hdfs`` or
+#: ``http,https`` when clients legitimately store artifacts on another host. (default: none)
+MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
+)
+
+#: Whether an AI Gateway secret's ``api_base`` may target private, loopback or link-local
+#: addresses (e.g. cloud metadata at ``169.254.169.254``). When false, such values are
+#: rejected on write and again at connect time, on the raw proxy route as well. Set to true
+#: for private upstreams such as in-cluster vLLM or Private Link endpoints.
+#: (default: ``False``)
+MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", False
 )
 
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.

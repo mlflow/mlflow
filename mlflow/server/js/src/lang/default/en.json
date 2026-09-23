@@ -1179,6 +1179,10 @@
     "defaultMessage": "Group traces by session",
     "description": "Tooltip for the group by session button in the V4 traces table toolbar"
   },
+  "2p9R6I": {
+    "defaultMessage": "Run this from your project's Git repository to connect to MLflow and launch your coding agent to add tracing. Have Claude Code, Codex, or OpenCode installed first.",
+    "description": "Description above the MLflow setup wizard terminal command in the agent action card"
+  },
   "2pEWG3": {
     "defaultMessage": "Select a version to view details.",
     "description": "MCP server detail placeholder when no version is selected"
@@ -1286,6 +1290,10 @@
   "3Ld280": {
     "defaultMessage": "No traces yet",
     "description": "Title for the traces empty state"
+  },
+  "3LhJyC": {
+    "defaultMessage": "Loading source model",
+    "description": "Screen reader label shown while the source logged model of a model version is loading"
   },
   "3MZ6H+": {
     "defaultMessage": "Submit",
@@ -1578,10 +1586,6 @@
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
-  },
-  "4aEfUy": {
-    "defaultMessage": "Run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app.",
-    "description": "Description above the mlflow agent setup terminal command in the agent action card"
   },
   "4aoazH": {
     "defaultMessage": "Close",
@@ -2495,6 +2499,10 @@
     "defaultMessage": "None",
     "description": "Cell value when there's no content"
   },
+  "8GlhpA": {
+    "defaultMessage": "No attributes",
+    "description": "Empty state shown when a span link has no attributes"
+  },
   "8GmtjT": {
     "defaultMessage": "Clear the search",
     "description": "Link text to clear the search filter on the V2 dataset records list"
@@ -3334,10 +3342,6 @@
   "BUJfbQ": {
     "defaultMessage": "Inputs",
     "description": "Header for the dataset record inputs column"
-  },
-  "BUdrAE": {
-    "defaultMessage": "One-line setup",
-    "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
   "BWH8UR": {
     "defaultMessage": "API key name:",
@@ -4523,6 +4527,10 @@
     "defaultMessage": "Declined",
     "description": "Review queue status: declined"
   },
+  "GfrrrR": {
+    "defaultMessage": "Dataset ID",
+    "description": "Label for displaying the dataset ID"
+  },
   "Gg/vLZ": {
     "defaultMessage": "Delete Model",
     "description": "Title text for delete model modal on model view page"
@@ -4978,6 +4986,10 @@
   "INrdWe": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
+  },
+  "IQOP18": {
+    "defaultMessage": "Copy span ID",
+    "description": "Tooltip for copying a linked span ID"
   },
   "ISy30V": {
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
@@ -5630,6 +5642,10 @@
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"
+  },
+  "LEQdst": {
+    "defaultMessage": "Source Model",
+    "description": "Label name for the source logged model metadata in model version page"
   },
   "LEiN8m": {
     "defaultMessage": "Tags",
@@ -6578,6 +6594,10 @@
   "Op12zG": {
     "defaultMessage": "Assess trace",
     "description": "Accessible label and tooltip for assessing a trace"
+  },
+  "OpP4RM": {
+    "defaultMessage": "Attributes",
+    "description": "Label for the attributes section of a span link"
   },
   "Ortr1x": {
     "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
@@ -7923,6 +7943,10 @@
     "defaultMessage": "No questions defined for this experiment yet.",
     "description": "Manage review questions: empty state"
   },
+  "UW6FuF": {
+    "defaultMessage": "Copy trace ID",
+    "description": "Tooltip for copying a linked trace ID"
+  },
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
@@ -7986,6 +8010,10 @@
   "UlkINy": {
     "defaultMessage": "Admin",
     "description": "Roles table column flagging admin roles when workspaces are disabled"
+  },
+  "Ulp7ge": {
+    "defaultMessage": "TypeSafe endpoints require all primary and fallback models to use TypeSafe.",
+    "description": "Validation error for mixing TypeSafe evaluation models with other providers"
   },
   "UmwZQv": {
     "defaultMessage": "using Prompt Engineering",
@@ -11503,6 +11531,10 @@
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
   },
+  "ht/qId": {
+    "defaultMessage": "See more",
+    "description": "Button that expands the span link attributes to show all of them"
+  },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
     "description": "Add to review queue: destination dropdown label"
@@ -12042,6 +12074,10 @@
   "jkeYf8": {
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
+  },
+  "jlGW/p": {
+    "defaultMessage": "Linked span",
+    "description": "Label for the span referenced by a same-trace span link"
   },
   "jo4LfR": {
     "defaultMessage": "Pending",
@@ -13499,6 +13535,10 @@
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
   },
+  "pkhZzA": {
+    "defaultMessage": "Span ID",
+    "description": "Label for the span ID of a cross-trace span link"
+  },
   "pl1bdY": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to models page under the header on the model version\n             view page"
@@ -13867,6 +13907,10 @@
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
   },
+  "r7bY37": {
+    "defaultMessage": "Dataset id copied",
+    "description": "Tooltip displayed after dataset id was successfully copied to clipboard"
+  },
   "r91Gz/": {
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
@@ -14147,6 +14191,10 @@
     "defaultMessage": "Key Name",
     "description": "Key name label"
   },
+  "sFqnju": {
+    "defaultMessage": "Trace ID",
+    "description": "Label for the trace ID of a cross-trace span link"
+  },
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
@@ -14410,6 +14458,10 @@
   "tHrp+A": {
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
+  },
+  "tLJ0LB": {
+    "defaultMessage": "One-line setup",
+    "description": "Tab label for the MLflow setup wizard path in the agent action card"
   },
   "tLTTEX": {
     "defaultMessage": "Enter description",
@@ -14847,6 +14899,10 @@
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
   },
+  "vVsrrj": {
+    "defaultMessage": "See less",
+    "description": "Button that collapses the span link attributes back to the first few"
+  },
   "vWf6fP": {
     "defaultMessage": "Processing",
     "description": "Processing indicator while Assistant is streaming a response"
@@ -15211,6 +15267,10 @@
     "defaultMessage": "Select a provider and model to configure API key",
     "description": "Message when no provider selected for API key form"
   },
+  "wxlu/9": {
+    "defaultMessage": "Jump to linked span",
+    "description": "Button that navigates to the span referenced by a span link"
+  },
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
@@ -15486,6 +15546,10 @@
   "xw9qni": {
     "defaultMessage": "Duration",
     "description": "Column selector label for the duration column"
+  },
+  "xwW5nO": {
+    "defaultMessage": "Copy dataset id",
+    "description": "Copy tooltip to copy dataset id from dataset detail page header"
   },
   "xxWBKh": {
     "defaultMessage": "Created by",

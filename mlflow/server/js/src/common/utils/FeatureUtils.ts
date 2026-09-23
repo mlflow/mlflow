@@ -3,7 +3,11 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
-import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
+import {
+  getFeatureEnabledSync,
+  getWorkspacesEnabledSync,
+  SERVER_FEATURE_KEYS,
+} from '../../experiment-tracking/hooks/useServerInfo';
 
 // Returns the current workspaces enabled state from the cached server features.
 // This is synchronous and returns the cached value (false if not yet loaded).
@@ -48,13 +52,6 @@ export const isRunPageLoggedModelsTableEnabled = () => true;
 export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
-
-/**
- * Feature flag to enable Scorers UI tab in experiment page
- */
-export const enableScorersUI = () => {
-  return true;
-};
 
 /**
  * Determines if the new GenAI experiment creation modal with table prefix onboarding is enabled.
@@ -234,9 +231,11 @@ export const isScorerModelSelectionEnabled = () => {
 
 /**
  * Determines if issue detection feature is enabled in the traces table toolbar.
+ * Issue detection currently uses AI Gateway endpoints and stored secrets, so it is hidden with
+ * Gateway until those dependencies are decoupled.
  */
 export const shouldEnableIssueDetection = () => {
-  return true;
+  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY);
 };
 
 /**

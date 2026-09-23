@@ -17,6 +17,12 @@ describe('getModelCapabilities', () => {
     expect(getModelCapabilities(baseModel)).toEqual([]);
   });
 
+  it('identifies evaluation models without advertising chat capabilities', () => {
+    expect(
+      getModelCapabilities({ ...baseModel, model: 'jev-latest', provider: 'typesafe', mode: 'evaluation' }),
+    ).toEqual(['Evaluation']);
+  });
+
   it('returns all four capabilities when all are supported', () => {
     expect(
       getModelCapabilities({

@@ -48,7 +48,12 @@ def test_trim_whitespace():
 
 
 def test_json_escape():
-    result = run_shell('json_escape "$1"', 'a\\path"with-quote')
+    result = run_shell(
+        r"""
+value='a\path"with-quote'
+json_escape "$value"
+"""
+    )
 
     assert result.returncode == 0, result.stderr
     assert result.stdout == 'a\\\\path\\"with-quote'
@@ -210,6 +215,73 @@ printf '%s\n' '{
     assert result.stdout == "catalog.schema.prefix\n"
 
 
+@pytest.mark.parametrize(
+    "warehouse_json",
+    [
+        pytest.param(
+            """{
+  "warehouses": [
+    {
+      "id": "stopped-1",
+      "name": "Stopped Warehouse",
+      "state": "STOPPED"
+    },
+    {
+      "id": "running-1",
+      "name": "First Running Warehouse",
+      "state": "RUNNING"
+    },
+    {
+      "id": "running-2",
+      "name": "Second Running Warehouse",
+      "state": "RUNNING"
+    },
+    {
+      "id": "stopped-2",
+      "name": "Another Stopped Warehouse",
+      "state": "STOPPED"
+    }
+  ]
+}""",
+            id="pretty",
+        ),
+        pytest.param(
+            '{"warehouses": [{"id": "stopped-1", "name": "Stopped Warehouse", '
+            '"state": "STOPPED"}, {"id": "running-1", '
+            '"name": "First Running Warehouse", "state": "RUNNING"}, '
+            '{"id": "running-2", "name": "Second Running Warehouse", '
+            '"state": "RUNNING"}, {"id": "stopped-2", '
+            '"name": "Another Stopped Warehouse", "state": "STOPPED"}]}',
+            id="compact",
+        ),
+        pytest.param(
+            """{
+  "warehouses": [
+    {"state": "STOPPED", "name": "Stopped Warehouse", "id": "stopped-1"},
+    {"name": "First Running Warehouse", "state": "RUNNING", "id": "running-1"},
+    {"state": "RUNNING", "id": "running-2", "name": "Second Running Warehouse"},
+    {"name": "Another Stopped Warehouse", "id": "stopped-2", "state": "STOPPED"}
+  ]
+}""",
+            id="reordered-fields",
+        ),
+    ],
+)
+def test_json_warehouse_rows_lists_running_warehouses_first(warehouse_json: str):
+    result = run_shell(
+        """printf '%s\n' "$1" | json_warehouse_rows""",
+        warehouse_json,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "running-1|First Running Warehouse|RUNNING",
+        "running-2|Second Running Warehouse|RUNNING",
+        "stopped-1|Stopped Warehouse|STOPPED",
+        "stopped-2|Another Stopped Warehouse|STOPPED",
+    ]
+
+
 @pytest.mark.parametrize("value", ["catalog.schema.extra", ".schema", "catalog."])
 def test_validate_uc_schema_rejects_invalid_values(value: str):
     result = run_shell('validate_uc_schema "$1"', value)
@@ -296,18 +368,17 @@ validate_tracking_uri
     assert "Do not include credentials" in result.stderr
 
 
-def test_json_experiment_strings_fallback_handles_compact_response(tmp_path: Path):
-    for command in ("head", "sed"):
-        (tmp_path / command).symlink_to(Path("/usr/bin") / command)
+def test_json_experiment_strings_fallback_handles_compact_response():
     result = run_shell(
         """
-PATH=$1
+sed_bin=$(command -v sed)
+PATH=
+sed() { "$sed_bin" "$@"; }
 printf '%s%s\n' \
     '{"experiments":[{"experiment_id":"1","name":"one"},' \
     '{"experiment_id":"2","name":"two"}]}' |
     json_experiment_strings name
-""",
-        str(tmp_path),
+"""
     )
 
     assert result.returncode == 0, result.stderr
@@ -472,7 +543,7 @@ printf '%s\n' "$DATABRICKS_BIN"
 
     expected = tmp_path / "bin" / "databricks"
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == str(expected)
+    assert Path(result.stdout.strip()) == expected
     assert expected.exists()
 
 
@@ -497,20 +568,16 @@ cat "$setup_tmp_dir/experiments.json"
     assert '"name":"second"' in result.stdout
 
 
-def test_local_server_always_prints_mlflow_command(tmp_path: Path):
-    curl = tmp_path / "curl"
-    curl.write_text("#!/bin/sh\n")
-    curl.chmod(0o755)
-
+def test_local_server_always_prints_mlflow_command():
     result = run_shell(
         """
-PATH=$1
+PATH=
+curl() { :; }
 run_with_spinner() { :; }
 success() { :; }
 EXPERIMENT_NAME=test
 configure_local
-""",
-        str(tmp_path),
+"""
     )
 
     assert result.returncode == 0, result.stderr

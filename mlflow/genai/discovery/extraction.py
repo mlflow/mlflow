@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -18,6 +19,10 @@ _logger = logging.getLogger(__name__)
 
 # Span types that represent generic LLM plumbing, not meaningful execution steps.
 _GENERIC_SPAN_TYPES = {SpanType.LLM, SpanType.CHAT_MODEL, SpanType.EMBEDDING}
+
+# Trailing whitespace is required so a symptom that legitimately starts with a hyphen
+# (e.g. "-1 returned instead of an error") keeps it.
+_BULLET_PREFIX = re.compile(r"^\s*[-*+]\s+")
 
 
 def _has_error(span: Span) -> bool:
@@ -208,7 +213,9 @@ def extract_failure_labels(
             token_counter=token_counter,
         )
         content = response.choices[0].message.content.strip()
-        symptoms = [line.lstrip("- ").strip() for line in content.splitlines() if line.strip()]
+        symptoms = [
+            _BULLET_PREFIX.sub("", line).strip() for line in content.splitlines() if line.strip()
+        ]
         return [f"[{analysis.execution_path}] {symptom}" for symptom in (symptoms or [content])]
 
     # Generate labels in parallel — each analysis is an independent LLM call

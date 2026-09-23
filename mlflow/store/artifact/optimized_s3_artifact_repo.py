@@ -165,6 +165,18 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         else:
             return None
 
+    def _get_multipart_upload_encryption_args(self):
+        extra_args = dict(self._s3_upload_extra_args)
+        if environ_extra_args := self.get_s3_file_upload_extra_args():
+            extra_args.update(environ_extra_args)
+        encryption_arg_names = {
+            "BucketKeyEnabled",
+            "ServerSideEncryption",
+            "SSEKMSKeyId",
+            "SSEKMSEncryptionContext",
+        }
+        return {key: value for key, value in extra_args.items() if key in encryption_arg_names}
+
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
         extra_args.update(self._s3_upload_extra_args)
@@ -219,7 +231,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         # Create multipart upload
         s3_client = cloud_credential_info
         response = s3_client.create_multipart_upload(
-            Bucket=bucket, Key=key, **self._bucket_owner_params
+            Bucket=bucket,
+            Key=key,
+            **self._bucket_owner_params,
+            **self._get_multipart_upload_encryption_args(),
         )
         upload_id = response["UploadId"]
 

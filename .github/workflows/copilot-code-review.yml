@@ -1,3 +1,11 @@
+# This workflow configures the environment used by Copilot code review.
+# Find recent review runs with:
+#
+# gh api '/repos/mlflow/mlflow/actions/runs?event=dynamic&per_page=100' \
+#   --jq '.workflow_runs[]
+#     | select(.path == "dynamic/agents/copilot-pull-request-reviewer")
+#     | {id, name, created_at, conclusion, html_url}'
+
 name: copilot-code-review
 
 on:
@@ -6,11 +14,16 @@ on:
     paths:
       - .github/workflows/copilot-code-review.yml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Must be named `copilot-setup-steps` even in this file, otherwise Copilot
@@ -21,5 +34,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Complete setup
-        run: echo "No additional setup required."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+      - uses: ./.github/actions/setup-node

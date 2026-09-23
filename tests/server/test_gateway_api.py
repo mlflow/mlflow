@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities import (
     FallbackConfig,
     FallbackStrategy,
+    GatewayEndpoint,
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     RoutingStrategy,
@@ -33,6 +34,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     PortkeyConfig,
+    VertexAIConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.guardrails import _SANITIZE_BYPASS_HEADER, JudgeGuardrail
@@ -49,11 +51,13 @@ from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.portkey import PortkeyProvider
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.ssrf import assert_public_upstream_url, upstream_ssrf_protection
 from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _build_endpoint_config,
     _create_provider_from_endpoint_name,
     _decompress_zstd,
+    _enable_upstream_ssrf_protection,
     _get_request_username,
     anthropic_passthrough_messages,
     chat_completions,
@@ -136,6 +140,34 @@ def test_build_endpoint_config_allows_provider_when_no_filter():
         "test-ep", _make_model_config("openai"), EndpointType.LLM_V1_CHAT
     )
     assert config.name == "test-ep"
+
+
+@pytest.mark.parametrize(
+    ("betas", "expected"),
+    [
+        (
+            "web-search-2025-03-05, interleaved-thinking-2025-05-14",
+            ["web-search-2025-03-05", "interleaved-thinking-2025-05-14"],
+        ),
+        ("", []),
+    ],
+)
+def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(betas, expected):
+    # auth_config is map<string, string> in the proto, so the option arrives as a string.
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="vertex_ai",
+        model_name="claude-sonnet-4-5@20251101",
+        secret_value={"vertex_credentials": "{}"},
+        auth_config={
+            "vertex_project": "my-project",
+            "vertex_location": "us-east5",
+            "vertex_anthropic_betas": betas,
+        },
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, VertexAIConfig)
+    assert config.model.config.vertex_anthropic_betas == expected
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
@@ -509,6 +541,122 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
         == "https://custom-api.example.com"
     )
     assert provider.config.model.config.litellm_provider == "litellm"
+
+
+@pytest.fixture(autouse=True)
+def reset_upstream_ssrf_protection():
+    # Provider creation sets the request-scoped flag; tests share one context, so clear it.
+    yield
+    upstream_ssrf_protection.set(False)
+
+
+def _create_endpoint(store: SqlAlchemyStore, name: str, provider: str, auth_config=None):
+    secret = store.create_gateway_secret(
+        secret_name=f"{name}-key",
+        secret_value={"api_key": "k"},
+        provider=provider,
+        auth_config=auth_config,
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"{name}-model",
+        secret_id=secret.secret_id,
+        provider=provider,
+        model_name="m",
+    )
+    return store.create_gateway_endpoint(
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+
+def test_upstream_ssrf_protection_enabled_for_user_supplied_api_base(store: SqlAlchemyStore):
+    endpoint = _create_endpoint(
+        store, "custom-base", "openai", auth_config={"api_base": "https://llm.example.com/v1"}
+    )
+    assert upstream_ssrf_protection.get() is False
+
+    _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert upstream_ssrf_protection.get() is True
+    with pytest.raises(Exception, match="not a public IP address"):
+        assert_public_upstream_url("http://127.0.0.1:11434/v1")
+
+
+def test_upstream_ssrf_protection_enabled_for_stored_base_url_alias(store: SqlAlchemyStore):
+    # Rows written before base_url was rejected on write must still arm the guard, since the
+    # LiteLLM provider treats base_url as api_base.
+    endpoint = _create_endpoint(
+        store, "alias-base", "litellm", auth_config={"base_url": "https://llm.example.com/v1"}
+    )
+    assert upstream_ssrf_protection.get() is False
+
+    _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert upstream_ssrf_protection.get() is True
+
+
+def test_upstream_ssrf_protection_not_enabled_for_provider_default_on_typed_routes(
+    store: SqlAlchemyStore,
+):
+    # Ollama's built-in base URL is localhost; the typed routes must keep reaching it.
+    endpoint = _create_endpoint(store, "local-ollama", "ollama")
+
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert provider.config.model.config.api_base is None
+    assert upstream_ssrf_protection.get() is False
+    assert_public_upstream_url("http://127.0.0.1:11434/v1")
+
+    # The raw proxy also lets the caller choose the path, so it guards the default too.
+    _enable_upstream_ssrf_protection(endpoint_config, raw_proxy=True)
+    assert upstream_ssrf_protection.get() is True
+    with pytest.raises(Exception, match="not a public IP address"):
+        assert_public_upstream_url("http://127.0.0.1:11434/v1")
+
+
+def test_create_provider_from_endpoint_name_litellm_ignores_api_base_in_secret_value(
+    store: SqlAlchemyStore,
+):
+    # Simulates a row written before the handler rejected api_base inside secret_value: the
+    # encrypted map is never validated, so it must not override the validated auth_config.
+    secret = store.create_gateway_secret(
+        secret_name="litellm-smuggled-key",
+        secret_value={"api_key": "litellm-key", "api_base": "http://169.254.169.254/latest"},
+        provider="litellm",
+        auth_config={"api_base": "https://custom-api.example.com"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="litellm-smuggled-model",
+        secret_id=secret.secret_id,
+        provider="litellm",
+        model_name="custom-model",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-litellm-smuggled-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    auth_config = provider.config.model.config.litellm_auth_config
+    assert auth_config["api_base"] == "https://custom-api.example.com"
+    assert auth_config["api_key"] == "litellm-key"
 
 
 @pytest.mark.parametrize(
@@ -1488,6 +1636,42 @@ async def test_chat_completions_endpoint_missing_model_parameter(store: SqlAlche
         await chat_completions(mock_request)
 
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("endpoint_names", "expected_ids"),
+    [([], []), (["beta", "alpha", None], ["alpha", "beta"])],
+)
+def test_list_models_endpoint(store: SqlAlchemyStore, endpoint_names, expected_ids):
+    endpoints = [
+        GatewayEndpoint(
+            endpoint_id=f"endpoint-{index}",
+            name=name,
+            created_at=1234567890123,
+            last_updated_at=1234567890123,
+        )
+        for index, name in enumerate(endpoint_names)
+    ]
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch.object(
+            store, "list_gateway_endpoints", return_value=endpoints
+        ) as mock_list_gateway_endpoints,
+    ):
+        response = TestClient(app).get("/gateway/mlflow/v1/models")
+
+    mock_list_gateway_endpoints.assert_called_once_with()
+    assert response.status_code == 200
+    assert response.json() == {
+        "object": "list",
+        "data": [
+            {"id": name, "object": "model", "created": 1234567890, "owned_by": "mlflow"}
+            for name in expected_ids
+        ],
+    }
 
 
 @pytest.mark.asyncio
