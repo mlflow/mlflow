@@ -4844,6 +4844,163 @@ def _run_multi_trace_redaction(proto_name, handler_name, payload):
     return out
 
 
+def _guardrail_config_payload(experiment_id=1, scorer_name="safety"):
+    return {
+        "configs": [
+            {
+                "endpoint_id": "endpoint-1",
+                "guardrail_id": "g-1",
+                "guardrail": {
+                    "guardrail_id": "g-1",
+                    "name": "safety-guard",
+                    # ScorerVersion.experiment_id is int32 in this proto, so the gate keys on
+                    # its stringified form -- experiment "1" in the fixture's workspace map.
+                    "scorer": {
+                        "experiment_id": experiment_id,
+                        "scorer_name": scorer_name,
+                        "scorer_version": 2,
+                        "serialized_scorer": "SECRET-SCORER-BODY",
+                    },
+                },
+            }
+        ]
+    }
+
+
+def _run_guardrail_redaction(payload):
+    import json as _json
+
+    from mlflow.protos.service_pb2 import ListEndpointGuardrailConfigs
+    from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+
+    message = ListEndpointGuardrailConfigs.Response()
+    parse_dict(payload, message)
+    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/guardrails/list-for-endpoint",
+        query_string={"endpoint_id": "endpoint-1"},
+    ):
+        auth_module.redact_list_guardrail_config_scorers(resp)
+    out = ListEndpointGuardrailConfigs.Response()
+    parse_dict(_json.loads(resp.data) if resp.data is not None else resp.json, out)
+    return out
+
+
+def test_guardrail_configs_withhold_a_denied_scorer(workspace_permission_setup):
+    """Guardrail.scorer is a full ScorerVersion, serialized_scorer included, behind an
+    endpoint-only gate. The scorer is a PASSENGER -- the caller asked for the endpoint's guardrail
+    configs -- so the row stays and only the scorer is withheld.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("scorer", "*", DENY.name),
+    ])
+
+    out = _run_guardrail_redaction(_guardrail_config_payload())
+
+    assert len(out.configs) == 1, "the config row itself must survive"
+    assert out.configs[0].guardrail.guardrail_id == "g-1"
+    assert out.configs[0].guardrail.name == "safety-guard"
+    assert not out.configs[0].guardrail.HasField("scorer")
+
+
+def test_guardrail_configs_withhold_on_scorer_version_deny(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("scorer_version", "*", DENY.name),
+    ])
+
+    out = _run_guardrail_redaction(_guardrail_config_payload())
+
+    assert not out.configs[0].guardrail.HasField("scorer")
+
+
+def test_guardrail_configs_keep_a_permitted_scorer(workspace_permission_setup):
+    """Without a scorer denial nothing is withheld, so the endpoint UI is unchanged."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    out = _run_guardrail_redaction(_guardrail_config_payload())
+
+    assert out.configs[0].guardrail.scorer.serialized_scorer == "SECRET-SCORER-BODY"
+
+
+def _run_add_guardrail(monkeypatch, scorer_name="safety", experiment_id=1):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/guardrails/add-to-endpoint",
+        method="POST",
+        json={"endpoint_id": "endpoint-1", "guardrail_id": "g-1"},
+    ):
+        # Patch onto the real store instance: replacing _get_tracking_store wholesale breaks the
+        # workspace resolver, which reads other methods off the same object.
+        monkeypatch.setattr(
+            auth_module._get_tracking_store(),
+            "get_gateway_guardrail",
+            lambda guardrail_id: SimpleNamespace(
+                guardrail_id=guardrail_id,
+                scorer=SimpleNamespace(experiment_id=experiment_id, scorer_name=scorer_name),
+            ),
+            raising=False,
+        )
+        return auth_module.validate_can_add_guardrail_to_gateway_endpoint()
+
+
+def test_add_guardrail_vetoes_a_denied_scorer(workspace_permission_setup, monkeypatch):
+    """Attaching a guardrail puts its scorer on the endpoint's traffic and echoes the scorer back,
+    so the scorer vetoes -- the same treatment validate_can_invoke_scorer gives a scorer it runs.
+    The endpoint tier stays the positive gate.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("gateway_endpoint", "*", EDIT.name),
+        ("scorer", "*", DENY.name),
+    ])
+
+    assert _run_add_guardrail(monkeypatch) is False
+
+
+def test_add_guardrail_allowed_without_a_scorer_denial(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_endpoint", "*", EDIT.name)])
+
+    assert _run_add_guardrail(monkeypatch) is True
+
+
+def test_add_guardrail_denies_an_unresolvable_guardrail(workspace_permission_setup, monkeypatch):
+    """A guardrail id that does not resolve denies uniformly, so the response is not an oracle
+    for which guardrail ids exist -- the same reasoning _run_requirement applies to runs.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_endpoint", "*", EDIT.name)])
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/guardrails/add-to-endpoint",
+        method="POST",
+        json={"endpoint_id": "endpoint-1", "guardrail_id": "missing"},
+    ):
+        def _raise(guardrail_id):
+            raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+
+        monkeypatch.setattr(
+            auth_module._get_tracking_store(), "get_gateway_guardrail", _raise, raising=False
+        )
+        assert auth_module.validate_can_add_guardrail_to_gateway_endpoint() is False
+
+
 def _info_row(experiment_id, trace_id, names):
     return {
         "trace_id": trace_id,
