@@ -813,6 +813,21 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "typesafe": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use TypeSafe API Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "TypeSafe API Key",
+                    "secret": True,
+                    "required": True,
+                },
+            ],
+        },
+    },
 }
 
 _BEDROCK_PROVIDERS = {"bedrock", "bedrock_converse"}
