@@ -2863,8 +2863,34 @@ def _get_permission_from_model_version() -> Permission:
 
 
 def validate_can_read_model_version_artifact():
-    """Checks READ permission on model version artifacts."""
-    return _get_permission_from_model_version().can_read
+    """Checks READ permission on model version artifacts.
+
+    The artifact IS the version's content -- the handler resolves
+    ``get_model_version_download_uri(name, version)`` and streams it -- so the version tier is
+    consulted here for the same reason it is on the scorer point routes. Resolving the registered
+    model alone left ``(registered_model_version, *, DENY)`` unable to withhold anything, on the
+    route whose entire subject is a version. A response filter cannot help: the body is a byte
+    stream, not a proto.
+
+    Veto only, falling back to the named registered model, so the model tier stays the positive
+    gate and an absent version grant changes nothing.
+    """
+    if not _get_permission_from_model_version().can_read:
+        return False
+    name = request.args.get("name")
+    registered_model = (RESOURCE_TYPE_REGISTERED_MODEL, name)
+    return authorize(
+        authenticate_request().username,
+        registered_model,
+        [
+            Requirement(
+                RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(registered_model,),
+            )
+        ],
+    )
 
 
 def validate_can_read_trace_artifact():
