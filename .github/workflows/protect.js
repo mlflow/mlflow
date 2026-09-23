@@ -110,7 +110,7 @@ module.exports = async ({ github, context }) => {
       );
       if (workflowRuns.length > 0) break;
       console.log(`No workflow runs found (attempt ${attempt}/3)`);
-      if (attempt < 3) await sleep(1000);
+      if (attempt < 3) await sleep(5000);
     }
     if (workflowRuns.length === 0) {
       throw new Error(
