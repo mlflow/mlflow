@@ -4515,6 +4515,84 @@ def _run_list_filter(rows):
     return [q.queue_id for q in out.review_queues]
 
 
+def _run_queue_by_name(monkeypatch, experiment_id, queue_users):
+    queue = SimpleNamespace(
+        experiment_id=experiment_id, users=list(queue_users), created_by=None, queue_type="CUSTOM"
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/review-queues/get-by-name",
+        query_string={"experiment_id": experiment_id, "name": "Q"},
+    ):
+        # Extend the fixture's tracking store rather than replacing it: the workspace
+        # resolver reads get_experiment off the same object.
+        monkeypatch.setattr(
+            auth_module._get_tracking_store(),
+            "get_review_queue_by_name",
+            lambda _exp, name: queue,
+            raising=False,
+        )
+        return auth_module.validate_can_view_review_queue_by_name()
+
+
+def test_queue_by_name_honors_a_queue_deny(workspace_permission_setup, monkeypatch):
+    """GetReviewQueue 403s on a queue DENY; GetReviewQueueByName resolved the EXPERIMENT tier,
+    so the same queue opened by name was allowed. Assigned membership made it reachable.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("review_queue", "*", DENY.name),
+    ])
+
+    assert _run_queue_by_name(monkeypatch, "exp-1", [username]) is False
+
+
+def test_queue_by_name_inherits_the_experiment_without_a_queue_grant(
+    workspace_permission_setup, monkeypatch
+):
+    """No queue grant: the experiment tier still decides, so membership continues to open it."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    assert _run_queue_by_name(monkeypatch, "exp-1", [username]) is True
+
+
+def _run_get_or_create_queue(experiment_id):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/review-queues/get-or-create-user-queue",
+        query_string={"experiment_id": experiment_id},
+    ):
+        return auth_module.validate_can_get_or_create_user_queue()
+
+
+def test_get_or_create_user_queue_honors_a_queue_deny(workspace_permission_setup):
+    """Get-or-create was experiment UPDATE alone -- the one create path with no child veto, so a
+    queue DENY could still be made to create and return a personal queue.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("review_queue", "*", DENY.name),
+    ])
+
+    assert _run_get_or_create_queue("exp-1") is False
+
+
+def test_get_or_create_user_queue_allowed_without_a_queue_grant(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    assert _run_get_or_create_queue("exp-1") is True
+
+
 def test_review_queue_list_filter_honors_a_queue_deny(workspace_permission_setup):
     """``(review_queue, *, DENY)`` 403s the detail gate, but the list filter -- still on the
     experiment tier -- returned every row, leaking name, assigned users and created_by for

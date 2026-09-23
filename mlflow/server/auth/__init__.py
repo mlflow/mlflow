@@ -3417,7 +3417,9 @@ def validate_can_add_items_to_review_queue():
 
 
 def validate_can_get_or_create_user_queue():
-    return _get_permission_from_experiment_id().can_update
+    return _authorize_create_in_experiment(
+        _get_request_param("experiment_id"), RESOURCE_TYPE_REVIEW_QUEUE
+    )
 
 
 def validate_can_view_review_queue():
@@ -3436,9 +3438,12 @@ def validate_can_view_review_queue():
 
 
 def validate_can_view_review_queue_by_name():
+    # The by-id sibling resolves the queue tier; this path must too, or a queue DENY is
+    # bypassed by opening the same queue by name. Keyed on the experiment because
+    # review_queue grain is wildcard-only, so no queue fetch is needed to resolve it.
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
-    perm = _get_experiment_permission(experiment_id, username)
+    perm = _review_queue_permission_in_experiment(experiment_id, username)
     if not perm.can_read:
         return False
     if perm.can_manage:
