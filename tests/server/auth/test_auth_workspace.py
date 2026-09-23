@@ -5344,6 +5344,128 @@ def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup)
     assert _run({}) is False
 
 
+def _run_version_route(validator, name="model-xyz", method="POST"):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/update",
+        method=method,
+        json={"name": name, "version": "3", "description": "d"},
+    ):
+        return getattr(auth_module, validator)()
+
+
+def _use_prompt_registry(monkeypatch, prompt_names):
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _RegistryStore({"model-xyz": "team-a", "my-prompt": "team-a"}, prompt_names),
+    )
+
+
+def test_version_mutations_honor_a_version_deny(workspace_permission_setup):
+    """UpdateModelVersion, TransitionModelVersionStage, SetModelVersionTag, DeleteModelVersion and
+    DeleteModelVersionTag all name an existing version and mutate exactly that version, but each
+    resolved only the classified parent -- so the version tier could not restrict version writes.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "model-xyz", EDIT.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+
+    assert _run_version_route("validate_can_update_model_or_prompt_version") is False
+    assert _run_version_route("validate_can_delete_model_or_prompt_version") is False
+    # The parent's own routes are untouched by a version denial.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/update", method="POST", json={"name": "model-xyz"}
+    ):
+        assert auth_module._validate_can_update_registered_model_or_prompt() is True
+
+
+def test_version_tier_confers_authority_without_registry_management(workspace_permission_setup):
+    """The point of the tier: READ on the registry entry plus EDIT on the version tier allows
+    version work, matching how (experiment READ + run EDIT) authorizes run updates.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "model-xyz", READ.name),
+        ("registered_model_version", "*", EDIT.name),
+    ])
+
+    assert _run_version_route("validate_can_update_model_or_prompt_version") is True
+
+
+def test_version_mutations_still_inherit_from_the_parent(workspace_permission_setup):
+    """No version grant: the registry entry governs, exactly as before."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("registered_model", "model-xyz", EDIT.name)])
+
+    assert _run_version_route("validate_can_update_model_or_prompt_version") is True
+
+
+def test_version_grant_cannot_outrun_a_parent_deny(workspace_permission_setup):
+    """Version grain is wildcard-only, so without the parent READ baseline one version grant would
+    reach every version in the workspace -- and would end the fallback chain before the parent DENY
+    was consulted.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "model-xyz", DENY.name),
+        ("registered_model_version", "*", EDIT.name),
+    ])
+
+    assert _run_version_route("validate_can_update_model_or_prompt_version") is False
+
+
+def test_prompt_versions_resolve_to_the_prompt_version_tier(
+    workspace_permission_setup, monkeypatch
+):
+    """A prompt IS a registered model carrying a tag, so the tier is known only by fetching. A
+    prompt's versions must answer to prompt_version, and neither family may be mutated through the
+    other's tier.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _use_prompt_registry(monkeypatch, {"my-prompt"})
+    _grant(store, username, "team-a", [
+        ("prompt", "my-prompt", READ.name),
+        ("registered_model_version", "*", EDIT.name),
+    ])
+
+    # The model-version tier must NOT authorize a prompt version.
+    assert (
+        _run_version_route("validate_can_update_model_or_prompt_version", name="my-prompt") is False
+    )
+
+    _grant(store, username, "team-a", [("prompt_version", "*", EDIT.name)])
+    assert (
+        _run_version_route("validate_can_update_model_or_prompt_version", name="my-prompt") is True
+    )
+
+
+def test_prompt_version_deny_does_not_block_model_versions(
+    workspace_permission_setup, monkeypatch
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _use_prompt_registry(monkeypatch, {"my-prompt"})
+    _grant(store, username, "team-a", [
+        ("registered_model", "model-xyz", EDIT.name),
+        ("prompt_version", "*", DENY.name),
+    ])
+
+    assert _run_version_route("validate_can_update_model_or_prompt_version") is True
+
+
 def _deny_tier(workspace_permission_setup, tier):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
