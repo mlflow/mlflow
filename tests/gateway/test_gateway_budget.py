@@ -308,7 +308,7 @@ def test_maybe_refresh_keeps_other_workspaces_windows(tmp_path, db_uri, monkeypa
     assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
 
     # The refresh interval elapses and the next request happens to come from the other
-    # workspace, so the store hands the tracker only that workspace's policies.
+    # workspace.
     tracker.invalidate()
     with WorkspaceContext("budget-refresh-b"):
         maybe_refresh_budget_policies(store)
