@@ -238,15 +238,13 @@ export function ModelTraceExplorerDefaultSpanView({
     </div>
   );
 
-  const filterSectionFields = (
+  const filterNonChatFields = (
     section: 'inputs' | 'outputs',
     fields: typeof inputList,
-    { skipAnonymousTopLevelField = false, skipChatFields = false } = {},
+    skipAnonymousTopLevelField = false,
   ) =>
     fields.filter(
-      ({ key }) =>
-        !(skipAnonymousTopLevelField && key === '') &&
-        !(skipChatFields && CHAT_FIELD_KEYS[section].has(key.toLowerCase())),
+      ({ key }) => !(skipAnonymousTopLevelField && key === '') && !CHAT_FIELD_KEYS[section].has(key.toLowerCase()),
     );
 
   const renderNonChatFields = (
@@ -254,27 +252,12 @@ export function ModelTraceExplorerDefaultSpanView({
     fields: typeof inputList,
     skipAnonymousTopLevelField = false,
   ) => {
-    const nonChatFields = filterSectionFields(section, fields, { skipAnonymousTopLevelField, skipChatFields: true });
+    const nonChatFields = filterNonChatFields(section, fields, skipAnonymousTopLevelField);
     return nonChatFields.length > 0 ? renderPrettyFields(section, nonChatFields) : null;
   };
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
-      const sectionHasTopLevelChatPayload =
-        section === 'inputs' ? inputHasTopLevelChatPayload : outputHasTopLevelChatPayload;
-      if (
-        isActiveMatchSpan &&
-        activeMatch.section === section &&
-        !(sectionHasTopLevelChatPayload && activeMatch.key === '')
-      ) {
-        return renderPrettyFields(
-          section,
-          filterSectionFields(section, section === 'inputs' ? inputList : outputList, {
-            skipAnonymousTopLevelField: sectionHasTopLevelChatPayload,
-          }),
-        );
-      }
-
       if (section === 'inputs' && inputChatMessages.length > 0) {
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
