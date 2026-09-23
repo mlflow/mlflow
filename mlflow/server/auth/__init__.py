@@ -5039,6 +5039,11 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
+def _scorer_row_keys(scorer) -> "tuple[str, str]":
+    experiment_id = str(scorer.experiment_id)
+    return experiment_id, store._scorer_pattern(experiment_id, scorer.scorer_name)
+
+
 def filter_list_scorers(resp: Response) -> None:
     """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
 
@@ -5047,14 +5052,6 @@ def filter_list_scorers(resp: Response) -> None:
     (empty ``experiment_id``) skip that gate so the response can carry scorers from
     multiple experiments. This filter applies the experiment + scorer read
     predicates per row so the picker doesn't leak names the caller has no grant on.
-
-    NOT on the single-requirement shape the other listings use, and deliberately so: scorer grain
-    is per-id (``<experiment_id>/<name>``), not wildcard-only, so the scorer key VARIES BY ROW and
-    cannot be hoisted into ``also_require`` the way a wildcard-only tier can. Combining two
-    predicates with AND is also not tier override -- it is stricter, so a scorer grant cannot lift
-    a row whose experiment tier denies it, making this filter narrower than its own point route
-    (``_get_permission_from_scorer_name``). Fixing it needs a two-key predicate
-    ``p(experiment_id, scorer_pattern)``; tracked as follow-up item 2b.
     """
     if sender_is_admin():
         return
@@ -5062,16 +5059,39 @@ def filter_list_scorers(resp: Response) -> None:
     response_message = ListScorers.Response()
     parse_dict(resp.json, response_message)
 
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
-    for scorer in list(response_message.scorers):
-        exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
-            continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
-            response_message.scorers.remove(scorer)
+    if not response_message.scorers:
+        return
+
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    requirements = [Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED)]
+    for scorer in response_message.scorers:
+        experiment_id, scorer_pattern = _scorer_row_keys(scorer)
+        requirements.append(
+            Requirement(
+                RESOURCE_TYPE_EXPERIMENT, experiment_id, "read",
+                fallback_if_no_grant=workspace_fallback,
+            )
+        )
+        requirements.append(
+            Requirement(
+                RESOURCE_TYPE_SCORER, scorer_pattern, "read",
+                fallback_if_no_grant=workspace_fallback,
+            )
+        )
+    decisions = retention_decisions(
+        authenticate_request().username, (RESOURCE_TYPE_WORKSPACE, "*"), requirements
+    )
+    kept = []
+    for scorer in response_message.scorers:
+        experiment_id, scorer_pattern = _scorer_row_keys(scorer)
+        if (
+            decisions.retains(RESOURCE_TYPE_SCORER_VERSION)
+            and decisions.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            and decisions.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
+        ):
+            kept.append(scorer)
+    response_message.ClearField("scorers")
+    response_message.scorers.extend(kept)
     resp.data = message_to_json(response_message)
 
 
@@ -5128,28 +5148,25 @@ def redact_trace_assessments(resp: Response) -> None:
         # Nothing to withhold, so no grants are loaded: the common case adds no query.
         return
 
-    # A trace with no experiment location has no tier to inherit from, and the trace gate anchors
-    # on the experiment too, so such a trace could not have been read here at all. Withhold rather
-    # than guess at a tier.
-    keep = False
-    experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
-    if experiment_id:
-        experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
-        # The trace gate already established experiment READ and trace READ, so the assessment
-        # tier is all that is left to consult. The fallback is the compatibility guarantee: absent
-        # an assessment grant the experiment governs, so only an explicit grant -- including
-        # DENY -- narrows anything.
-        decisions = retention_decisions(
-            authenticate_request().username,
-            experiment,
-            [
-                Requirement(
-                    RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,)
-                )
-            ],
-        )
-        keep = decisions.retains(RESOURCE_TYPE_ASSESSMENT)
-    if keep:
+    # The trace gate already established experiment READ and trace READ, so the assessment tier is
+    # all that is left to consult. The fallback is the compatibility guarantee: absent an
+    # assessment grant the experiment governs, so only an explicit grant -- including DENY --
+    # narrows anything.
+    #
+    # A missing experiment location needs no branch. With workspaces enabled the anchor is then
+    # unresolvable, which makes every decision False and withholds; the fetch failure is swallowed
+    # by `_get_resource_workspace`, so this cannot raise. With workspaces disabled the anchor is
+    # the default workspace and `default_permission` governs, exactly as on every other route.
+    experiment = (
+        RESOURCE_TYPE_EXPERIMENT,
+        trace_info.trace_location.mlflow_experiment.experiment_id,
+    )
+    decisions = retention_decisions(
+        authenticate_request().username,
+        experiment,
+        [Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,))],
+    )
+    if decisions.retains(RESOURCE_TYPE_ASSESSMENT):
         return
 
     trace_info.ClearField("assessments")
