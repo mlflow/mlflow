@@ -99,7 +99,10 @@ from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
-from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    custom_scorer_execution_blocked,
+)
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -5597,7 +5600,11 @@ def _get_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
         "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress": (job.progress.to_dict() if job.progress is not None else None),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -5610,6 +5617,11 @@ def _cancel_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
+        "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress": (job.progress.to_dict() if job.progress is not None else None),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -5966,18 +5978,18 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     """Reject serialized scorers the server must never reconstruct.
 
     Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
-    is deserialized. The Python client blocks registering them via `_check_can_be_registered()`,
-    but that check is client-side only, so it is enforced here regardless of how the request
-    arrives or what the server's tracking URI is. Third-party scorer kwargs that would steer the
-    judge's outbound requests are rejected for the same reason. Applied to caller payloads and
-    to registered scorers fetched from the store, since rows written before these checks
-    existed can carry the same fields.
+    is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
+    `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
+    ensemble is caught too (see `custom_scorer_execution_blocked`). Third-party scorer kwargs that
+    would steer the judge's outbound requests are always rejected, independent of that flag.
+    Applied to caller payloads and to registered scorers fetched from the store, since rows
+    written before these checks existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
+    if custom_scorer_execution_blocked(serialized_data):
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
@@ -8242,11 +8254,20 @@ def _create_prompt_optimization_job():
 
 
 def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.entities._job_status import JobStatus as EntityJobStatus
     from mlflow.genai.optimize.job import OptimizerType
 
     optimization_job = PromptOptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
     optimization_job.state.status = job_entity.status.to_proto()
+    if job_entity.status_message is not None:
+        optimization_job.state.status_message = job_entity.status_message
+    if job_entity.progress is not None:
+        progress_dict = job_entity.progress.to_dict()
+        if progress_dict:
+            optimization_job.state.progress.CopyFrom(job_entity.progress.to_proto())
+    if job_entity.progress_updated_at is not None:
+        optimization_job.state.progress_updated_at = job_entity.progress_updated_at
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
     params = json.loads(job_entity.params)
@@ -8285,14 +8306,17 @@ def _build_prompt_optimization_job_from_entity(job_entity):
             config.optimizer_config_json = optimizer_config
 
     # Get optimized_prompt_uri from job result (only available when job succeeds)
-    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+    if job_entity.status == EntityJobStatus.SUCCEEDED and job_entity.parsed_result:
         result = job_entity.parsed_result
         if isinstance(result, dict) and result.get("optimized_prompt_uri"):
             optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
 
-    # If job failed, add error message to state
-    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
-        optimization_job.state.error_message = str(job_entity.parsed_result)
+    # Job.error_message already preserves the legacy fallback to terminal result text.
+    if (
+        job_entity.status in {EntityJobStatus.FAILED, EntityJobStatus.TIMEOUT}
+        and job_entity.error_message is not None
+    ):
+        optimization_job.state.error_message = job_entity.error_message
 
     return optimization_job
 
