@@ -7,7 +7,7 @@ function getSleepLength(iterationCount, numPendingJobs) {
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, core }) => {
   let rateLimitRemaining;
   github.hook.after("request", (response) => {
     rateLimitRemaining = response.headers["x-ratelimit-remaining"];
@@ -109,7 +109,7 @@ module.exports = async ({ github, context }) => {
           !IGNORED_WORKFLOWS.has(path)
       );
       if (workflowRuns.length > 0) break;
-      console.log(`No workflow runs found (attempt ${attempt}/3)`);
+      core.warning(`No workflow runs found (attempt ${attempt}/3)`);
       if (attempt < 3) await sleep(5000);
     }
     if (workflowRuns.length === 0) {
