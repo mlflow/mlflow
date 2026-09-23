@@ -2893,9 +2893,67 @@ def validate_can_read_trace_by_trace_id():
     return _authorize_trace(_get_request_param("trace_id"), "read")
 
 
+def _filter_reads_assessments(*filter_strings: str) -> bool:
+    """Whether a trace filter selects on assessment data, so the assessment tier must be consulted.
+
+    Asks the grammar's OWNER rather than matching text: the store routes a comparison to the
+    assessments table on exactly this predicate (``_get_filter_clauses_for_search_traces``), so a
+    grammar change is inherited instead of drifting. ``issue.id`` is deliberately excluded -- the
+    store routes it through ``is_issue``, it matches on the assessment NAME rather than any value,
+    and ``issue`` is not a type this branch governs.
+
+    An unparsable filter fails closed. The handler returns its own 400 for malformed input, so the
+    only cost is that a caller denied on assessments sees 403 instead.
+    """
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    for filter_string in filter_strings:
+        if not filter_string:
+            continue
+        try:
+            parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+        except Exception:
+            return True
+        if any(
+            SearchTraceUtils.is_assessment(c.get("type"), c.get("key"), c.get("comparator"))
+            for c in parsed
+        ):
+            return True
+    return False
+
+
+def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
+    """Bulk trace read, plus the assessment tier when the filter selects on assessment data.
+
+    Redaction cannot cover this: which rows MATCH is the disclosure, so stripping
+    ``assessments[]`` from the rows that come back still answers the caller's question.
+    """
+    resolved = _bulk_requirements(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [
+            *requirements,
+            *(
+                Requirement(
+                    RESOURCE_TYPE_ASSESSMENT,
+                    "*",
+                    "read",
+                    fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, experiment_id),),
+                )
+                for experiment_id in experiment_ids
+                if _filter_reads_assessments(*filter_strings)
+            ),
+        ],
+    )
+
+
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
-    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    return _authorize_trace_search(experiment_ids, request.args.get("filter", ""))
 
 
 def validate_can_search_traces_v3():
@@ -2911,7 +2969,7 @@ def validate_can_search_traces_v3():
         if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
         if (eid := ml_exp.get("experiment_id"))
     ]
-    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    return _authorize_trace_search(experiment_ids, (request.json or {}).get("filter", ""))
 
 
 def validate_can_batch_get_traces():
@@ -3151,8 +3209,15 @@ def validate_can_start_trace():
 
 
 def validate_can_read_traces_by_experiment_ids():
-    experiment_ids = (request.json or {}).get("experiment_ids", [])
-    return _authorize_bulk(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    # CalculateTraceFilterCorrelation: npmi and the four counts are computed over whatever the
+    # two filters select, so an assessment-backed filter makes those numbers assessment-derived.
+    body = request.json or {}
+    return _authorize_trace_search(
+        body.get("experiment_ids", []),
+        body.get("filter_string1", ""),
+        body.get("filter_string2", ""),
+        body.get("base_filter", ""),
+    )
 
 
 def validate_can_start_trace_v3():

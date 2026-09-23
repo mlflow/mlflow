@@ -4993,6 +4993,90 @@ def test_get_assessment_inherits_the_experiment(workspace_permission_setup, monk
     assert _run_get_assessment(monkeypatch, "exp-1") is True
 
 
+def _run_search_traces(filter_string):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces",
+        query_string={"experiment_ids": "exp-1", "filter": filter_string},
+    ):
+        return auth_module.validate_can_search_traces()
+
+
+def _run_filter_correlation(filter1):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/calculate-filter-correlation",
+        json={
+            "experiment_ids": ["exp-1"],
+            "filter_string1": filter1,
+            "filter_string2": "name = 'x'",
+        },
+    ):
+        return auth_module.validate_can_read_traces_by_experiment_ids()
+
+
+def _deny_assessments(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+
+def test_search_traces_refuses_an_assessment_backed_filter(workspace_permission_setup):
+    """Redaction cannot cover a filter: which rows MATCH is the disclosure, so stripping
+    assessments from the returned rows still answers "how many traces scored 'no'".
+    """
+    _deny_assessments(workspace_permission_setup)
+
+    assert _run_search_traces("feedback.safety = 'no'") is False
+    assert _run_search_traces("expectation.expected = 'x'") is False
+    # Numeric comparators reach the same table.
+    assert _run_search_traces("feedback.score > 0.5") is False
+
+
+def test_search_traces_unaffected_by_non_assessment_filters(workspace_permission_setup):
+    """The gate must land only on filters that actually reach the assessments table, or an
+    assessment DENY would cost the caller trace search entirely -- the case redaction exists for.
+    """
+    _deny_assessments(workspace_permission_setup)
+
+    assert _run_search_traces("") is True
+    assert _run_search_traces("status = 'OK'") is True
+    assert _run_search_traces("name = 'x' AND timestamp_ms > 0") is True
+    assert _run_search_traces("tags.foo = 'bar'") is True
+    # issue.id selects on the assessment NAME, not a value, and `issue` is not a type we govern.
+    assert _run_search_traces("issue.id = 'i1'") is True
+    # `prompt` maps to the linked-prompts tag: an unvalidated author assertion, not prompt
+    # content, so it stays ungated exactly as on master.
+    assert _run_search_traces("prompt = 'prompts:/p/1'") is True
+
+
+def test_search_traces_fails_closed_on_an_unparsable_filter(workspace_permission_setup):
+    """Only reachable for filters the handler would 400 anyway; the cost is 403 instead."""
+    _deny_assessments(workspace_permission_setup)
+
+    assert _run_search_traces("(((") is False
+
+
+def test_search_traces_assessment_filter_allowed_without_a_grant(workspace_permission_setup):
+    """No assessment grant: the experiment governs, so nothing master allowed is newly denied."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert _run_search_traces("feedback.safety = 'no'") is True
+
+
+def test_filter_correlation_refuses_an_assessment_backed_filter(workspace_permission_setup):
+    """npmi and the four counts are computed over whatever the filters select."""
+    _deny_assessments(workspace_permission_setup)
+
+    assert _run_filter_correlation("feedback.safety = 'no'") is False
+    assert _run_filter_correlation("status = 'OK'") is True
+
+
 def _run_query_trace_metrics(view_type):
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/traces/metrics",
