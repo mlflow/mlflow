@@ -4993,6 +4993,40 @@ def test_get_assessment_inherits_the_experiment(workspace_permission_setup, monk
     assert _run_get_assessment(monkeypatch, "exp-1") is True
 
 
+def _run_model_version_artifact(name="model-xyz", version="3"):
+    with auth_module.app.test_request_context(
+        "/model-versions/get-artifact",
+        query_string={"name": name, "version": version, "path": "MLmodel"},
+    ):
+        return auth_module.validate_can_read_model_version_artifact()
+
+
+def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup):
+    """The artifact IS the version's content -- the handler streams
+    get_model_version_download_uri(name, version) -- yet the route whose entire subject is a
+    version resolved only the registered model.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+
+    assert _run_model_version_artifact() is False
+
+
+def test_model_version_artifact_unchanged_without_a_version_grant(workspace_permission_setup):
+    """No version grant: the registered model tier decides, exactly as before."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
+
+    assert _run_model_version_artifact() is True
+
+
 def _run_search_traces(filter_string):
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/traces",
