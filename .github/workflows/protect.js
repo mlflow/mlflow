@@ -113,9 +113,7 @@ module.exports = async ({ github, context }) => {
       if (attempt < 3) await sleep(5000);
     }
     if (workflowRuns.length === 0) {
-      throw new Error(
-        `No workflow runs found for ${ref} after 3 attempts. Rerun this Protect job.`
-      );
+      throw new Error(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
     }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
