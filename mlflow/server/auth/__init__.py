@@ -2211,12 +2211,36 @@ def validate_can_create_model_version():
     return True
 
 
+def _workspace_create_not_denied(created_type: str) -> bool:
+    """The created type's veto on a workspace-scoped create -- §5d, applied at the workspace.
+
+    ``_can_create_in_workspace`` answers the container half (a workspace-wide grant carrying
+    ``can_use``). This is the other half the child creates already have via
+    ``_authorize_create_in_experiment``: the created type cannot confer create rights, but it can
+    refuse. Without it a ``(experiment, "*", DENY)`` holder kept creating experiments while being
+    refused every other operation on one.
+    """
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(created_type, "*", ACTION_NOT_DENIED)],
+    )
+
+
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace()
+    return _user_can_create_in_workspace() and _workspace_create_not_denied(
+        RESOURCE_TYPE_EXPERIMENT
+    )
 
 
 def validate_can_create_registered_model() -> bool:
-    return _user_can_create_in_workspace()
+    # A prompt is a registered model carrying a tag, and the create route is shared, so a DENY on
+    # either family refuses: the request cannot yet be classified, having created nothing.
+    return (
+        _user_can_create_in_workspace()
+        and _workspace_create_not_denied(RESOURCE_TYPE_REGISTERED_MODEL)
+        and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
+    )
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
@@ -2862,7 +2886,9 @@ def validate_can_manage_gateway_secret():
 def validate_can_create_gateway_secret():
     # Persisting a provider credential is a workspace-scoped create, like experiments and
     # registered models. The after-request MANAGE grant only records ownership.
-    return _user_can_create_in_workspace()
+    return _user_can_create_in_workspace() and _workspace_create_not_denied(
+        RESOURCE_TYPE_GATEWAY_SECRET
+    )
 
 
 def validate_can_read_gateway_endpoint():
@@ -5431,14 +5457,31 @@ def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
     return withheld
 
 
-def redact_get_registered_model_versions(resp: Response) -> None:
+def _redact_registered_model_response(resp: Response, response_message) -> None:
+    """Redact `latest_versions` from any response returning a single RegisteredModel.
+
+    Get, Update and Rename all return the model through ``to_mlflow_entity()``, which populates
+    ``latest_versions``, so each is a route to version data and each needs the same redaction.
+    Create is excluded: it returns a model that has no versions yet.
+    """
     if sender_is_admin():
         return
-    response_message = GetRegisteredModel.Response()
+    # Rename's handler also sweeps grants and is called on responses that carry no JSON body,
+    # so a missing or non-object body is nothing to redact rather than a parse error.
+    if not isinstance(resp.json, dict):
+        return
     parse_dict(resp.json, response_message)
     username = authenticate_request().username
     if _withhold_denied_latest_versions([response_message.registered_model], username):
         resp.data = message_to_json(response_message)
+
+
+def redact_get_registered_model_versions(resp: Response) -> None:
+    _redact_registered_model_response(resp, GetRegisteredModel.Response())
+
+
+def redact_update_registered_model_versions(resp: Response) -> None:
+    _redact_registered_model_response(resp, UpdateRegisteredModel.Response())
 
 
 def filter_search_registered_models(resp: Response):
@@ -5542,6 +5585,9 @@ def rename_registered_model_permission(resp: Response):
         )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
+    # The renamed model comes back through ``to_mlflow_entity()``, so it carries the same embedded
+    # versions Get and Update do.
+    _redact_registered_model_response(resp, RenameRegisteredModel.Response())
 
 
 def set_can_manage_scorer_permission(resp: Response):
@@ -5897,6 +5943,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchModelVersions: filter_search_model_versions,
     GetRegisteredModel: redact_get_registered_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
+    UpdateRegisteredModel: redact_update_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,

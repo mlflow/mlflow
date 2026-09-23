@@ -5564,6 +5564,82 @@ def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup)
     assert _run({}) is False
 
 
+@pytest.mark.parametrize(
+    ("validator", "tier", "path"),
+    [
+        ("validate_can_create_experiment", "experiment", "/api/2.0/mlflow/experiments/create"),
+        ("validate_can_create_registered_model", "registered_model",
+         "/api/2.0/mlflow/registered-models/create"),
+        ("validate_can_create_registered_model", "prompt",
+         "/api/2.0/mlflow/registered-models/create"),
+        ("validate_can_create_gateway_secret", "gateway_secret",
+         "/api/3.0/mlflow/gateway/secrets/create"),
+    ],
+)
+def test_workspace_creates_honor_a_created_type_deny(
+    workspace_permission_setup, validator, tier, path
+):
+    """§5d gives the created type a veto. The child creates had it via
+    `_authorize_create_in_experiment`; the workspace-scoped creates did not, so a DENY holder kept
+    creating resources while being refused every other operation on one.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [(tier, "*", DENY.name)])
+
+    with auth_module.app.test_request_context(path, method="POST", json={"name": "x"}):
+        assert getattr(auth_module, validator)() is False
+
+
+def test_workspace_creates_allowed_without_a_deny(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/create", method="POST", json={"name": "x"}
+    ):
+        assert auth_module.validate_can_create_experiment() is True
+
+
+@pytest.mark.parametrize(
+    ("handler", "path"),
+    [
+        ("redact_get_registered_model_versions", "/api/2.0/mlflow/registered-models/get"),
+        ("redact_update_registered_model_versions", "/api/2.0/mlflow/registered-models/update"),
+    ],
+)
+def test_single_model_responses_redact_embedded_versions(
+    workspace_permission_setup, monkeypatch, handler, path
+):
+    """Get, Update and Rename all return the model via to_mlflow_entity(), which populates
+    latest_versions -- so each is a route to version data, not just Get.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+    payload = json.dumps({
+        "registered_model": {
+            "name": "model-xyz", "tags": [], "latest_versions": [{"name": "model-xyz"}]
+        }
+    })
+    flask_resp = Response(payload, mimetype="application/json")
+    with auth_module.app.test_request_context(
+        path, method="POST", json={"name": "model-xyz"}
+    ):
+        getattr(auth_module, handler)(flask_resp)
+    out = json.loads(flask_resp.get_data(as_text=True))
+    # message_to_json omits an emptied repeated field rather than serialising [].
+    assert out["registered_model"].get("latest_versions", []) == []
+    assert out["registered_model"]["name"] == "model-xyz"
+
+
 def _get_registered_model_versions(rows, name="model-xyz", tags=None):
     payload = json.dumps({
         "registered_model": {"name": name, "tags": tags or [], "latest_versions": rows}
