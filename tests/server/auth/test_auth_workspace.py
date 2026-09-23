@@ -4515,6 +4515,47 @@ def _run_list_filter(rows):
     return [q.queue_id for q in out.review_queues]
 
 
+def _run_scorer_point_route(validator_name, experiment_id, scorer_name):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/get",
+        query_string={"experiment_id": experiment_id, "name": scorer_name},
+    ):
+        return getattr(auth_module, validator_name)()
+
+
+def test_scorer_point_routes_honor_a_scorer_version_deny(workspace_permission_setup):
+    """ListScorers withholds rows on a version DENY, but GetScorer / ListScorerVersions return the
+    same serialized_scorer while checking only the parent scorer. DeleteScorer likewise.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("scorer", "*", MANAGE.name),
+        ("scorer_version", "*", DENY.name),
+    ])
+
+    assert _run_scorer_point_route("validate_can_read_scorer", "1", "s1") is False
+    assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is False
+    # Update is not a disclosure surface and keeps the scorer tier alone.
+    assert _run_scorer_point_route("validate_can_update_scorer", "1", "s1") is True
+
+
+def test_scorer_point_routes_unchanged_without_a_version_grant(workspace_permission_setup):
+    """No version grant: the veto passes and the scorer tier decides, exactly as before."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", READ.name),
+        ("scorer", "*", MANAGE.name),
+    ])
+
+    assert _run_scorer_point_route("validate_can_read_scorer", "1", "s1") is True
+    assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is True
+
+
 def _run_queue_by_name(monkeypatch, experiment_id, queue_users):
     queue = SimpleNamespace(
         experiment_id=experiment_id, users=list(queue_users), created_by=None, queue_type="CUSTOM"
