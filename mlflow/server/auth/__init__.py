@@ -1357,6 +1357,29 @@ def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
     return sorted(registered)
 
 
+def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement]":
+    """Veto requirements for the prompt a submitted optimization job names.
+
+    `optimize_prompts` LOADS this prompt and REGISTERS a new version under it, in a worker with
+    no caller identity, so an experiment editor could otherwise append a version to a prompt they
+    cannot update. Grammar per ``PromptCacheKey.from_uri``: ``prompts:/name/version`` or
+    ``prompts:/name@alias``. Only the NAME is needed -- the prompt tier is keyed by name and the
+    version tier is wildcard-only, so authorization never has to resolve the version or alias.
+
+    Veto only, like every other type here: the experiment stays the sole positive gate. The two
+    types veto independently, as on any create, since the version does not yet exist.
+    """
+    if not prompt_uri.startswith("prompts:/"):
+        return []
+    name = prompt_uri[len("prompts:/") :].split("@", 1)[0].split("/", 1)[0]
+    if not name:
+        return []
+    return [
+        Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED),
+        Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED),
+    ]
+
+
 def validate_can_create_prompt_optimization_job():
     """Submitting hands work to a worker running with NO caller identity.
 
@@ -1377,6 +1400,7 @@ def validate_can_create_prompt_optimization_job():
         Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
         # The worker loads and executes stored scorer versions.
         Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+        *_source_prompt_requirements(message.source_prompt_uri),
         *(
             Requirement(
                 RESOURCE_TYPE_SCORER,
