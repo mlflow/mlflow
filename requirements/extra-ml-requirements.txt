@@ -90,6 +90,8 @@ google-genai
 groq
 # Required by mlflow.mistral
 mistralai
+# Required by mlflow.typesafe
+typesafe-sdk
 # Required by mlflow.autogen
 autogen-agentchat
 # Required by mlflow.semantic_kernel

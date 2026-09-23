@@ -112,6 +112,7 @@ tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
 # TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
 txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
+typesafe = LazyLoader("mlflow.typesafe", globals(), "mlflow.typesafe")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 if TYPE_CHECKING:
@@ -161,6 +162,7 @@ if TYPE_CHECKING:
         strands,
         tensorflow,
         transformers,
+        typesafe,
         xgboost,
     )
 

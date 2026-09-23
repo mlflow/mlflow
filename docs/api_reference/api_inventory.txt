@@ -2094,6 +2094,7 @@ mlflow.types.schema.Property.from_json_dict
 mlflow.types.schema.Property.to_dict
 mlflow.types.schema.Schema
 mlflow.types.schema.TensorSpec
+mlflow.typesafe.autolog
 mlflow.update_assessment
 mlflow.update_current_trace
 mlflow.update_workspace

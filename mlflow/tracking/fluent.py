@@ -3794,6 +3794,7 @@ def autolog(
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
         "pydantic_ai": "mlflow.pydantic_ai",
+        "typesafe_sdk": "mlflow.typesafe",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,
