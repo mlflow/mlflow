@@ -7519,6 +7519,61 @@ def test_mcp_server_version_create_on_existing_requires_update(fastapi_client, m
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_version_deny_applies_after_creation(fastapi_client, monkeypatch, prefix):
+    """A version DENY must survive creation.
+
+    The path validator consulted `mcp_server_version` only on POST /{name}/versions; every other
+    nested route fell through to the parent server's permission. So a caller holding
+    (mcp_server_version, *, DENY) could still list versions, read one, mutate or delete it, and
+    resolve an alias to a version -- the tier existed only at creation time.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/version-deny"
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+    # The owner keeps MANAGE on the server itself; only the version tier is denied.
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": owner,
+            "resource_type": "mcp_server_version",
+            "resource_id": "*",
+            "permission": "DENY",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(owner, owner_pw, monkeypatch):
+        version_routes = (
+            ("GET", f"{prefix}/{server_name}/versions"),
+            ("GET", f"{prefix}/{server_name}/versions/1"),
+            ("DELETE", f"{prefix}/{server_name}/versions/1"),
+            ("GET", f"{prefix}/{server_name}/aliases/prod"),
+        )
+        for method, route in version_routes:
+            resp = requests.request(
+                method, url=fastapi_client.tracking_uri + route, auth=(owner, owner_pw)
+            )
+            assert resp.status_code == 403, f"{method} {route} returned {resp.status_code}"
+
+        # The parent server itself is untouched: the veto is scoped to the version tier.
+        resp = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}", auth=(owner, owner_pw)
+        )
+        assert resp.status_code == 200
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_nested_post_does_not_escalate_existing_grant(
     fastapi_client, monkeypatch, prefix
 ):

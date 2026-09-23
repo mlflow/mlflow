@@ -1564,6 +1564,22 @@ def _authorize_create_mcp_server_version(username: str, name: str) -> bool:
     )
 
 
+def _mcp_server_version_not_denied(username: str, name: str) -> bool:
+    server = (RESOURCE_TYPE_MCP_SERVER, name)
+    return authorize(
+        username,
+        server,
+        [
+            Requirement(
+                RESOURCE_TYPE_MCP_SERVER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(server,),
+            )
+        ],
+    )
+
+
 def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
     # Posting a version to a server that does not exist creates BOTH, so both veto. The
     # workspace authorizes it (validate_can_create_mcp_server) and is also the anchor, there
@@ -6577,6 +6593,12 @@ def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
     return len(parts) == 3 and parts[2] == "versions"
 
 
+def _mcp_path_targets_a_version(parts: list[str]) -> bool:
+    # parts[0:2] is the server name; parts[2:] is the nested path. `aliases/<alias>` resolves to a
+    # version and returns it, so it discloses version content just as `versions/...` does.
+    return len(parts) > 2 and parts[2] in ("versions", "aliases")
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -6619,13 +6641,21 @@ def _get_mcp_server_validator(
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":
-                return perm.can_read
+                allowed = perm.can_read
             case "POST" | "PATCH":
-                return perm.can_update
+                allowed = perm.can_update
             case "DELETE":
-                return perm.can_delete
+                allowed = perm.can_delete
             case _:
                 return False
+        if not allowed:
+            return False
+        # The server tier stays the positive gate; the version tier only vetoes. Without this the
+        # independent version tier existed solely at creation: listing versions, reading, updating,
+        # deleting or tagging one, and resolving an alias all fell through to the parent server.
+        if _mcp_path_targets_a_version(parts):
+            return _mcp_server_version_not_denied(username, name)
+        return True
 
     return validator
 
