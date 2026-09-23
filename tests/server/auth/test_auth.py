@@ -2144,6 +2144,60 @@ def test_log_metric_model_id_requires_update(metric_model_authz):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize(
+    ("route", "extra"),
+    [("/api/2.0/mlflow/runs/log-inputs", {}), ("/api/2.0/mlflow/runs/outputs", {"step": 0})],
+)
+def test_log_inputs_outputs_model_id_requires_update(metric_model_authz, route, extra):
+    """Both routes link logged models to a run via models[].model_id, so they need the same
+    logged-model UPDATE the metric writers require. Gating on the run alone let a caller with
+    UPDATE on their own run attach another user's logged models to it.
+    """
+    a = metric_model_authz
+
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        route,
+        json_payload={"run_id": a.run_id, "models": [{"model_id": a.model_id1, **extra}]},
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # The camelCase `modelId` alias is covered too, since the handler accepts it.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        route,
+        json_payload={"run_id": a.run_id, "models": [{"modelId": a.model_id1, **extra}]},
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # A model in a third user's experiment is denied for the same reason.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        route,
+        json_payload={"run_id": a.run_id, "models": [{"model_id": a.model_id3, **extra}]},
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+
+    # With no models the run tier alone decides, so the actor -- who owns the run -- must NOT be
+    # denied. Asserting "not 403" rather than a specific code because the two routes disagree on
+    # the rest: log-inputs accepts a models-less body (200), while outputs requires models and
+    # returns the handler's own 400. Either way authorization let it through, which is the point.
+    models_absent = _send_rest_tracking_post_request(
+        a.tracking_uri, route, json_payload={"run_id": a.run_id}, auth=a.user2
+    )
+    assert models_absent.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_log_batch_model_id_requires_update(metric_model_authz):
     # LogBatch can route per-metric metrics to logged models via nested model_id; any
     # referenced model the caller lacks UPDATE on must deny the whole batch.

@@ -1799,6 +1799,20 @@ def validate_can_log_batch():
     return _validate_can_update_run_and_models(model_ids)
 
 
+def validate_can_log_inputs():
+    # LogInputs links logged models to the run via models[].model_id, so it needs the same
+    # logged-model UPDATE as the metric writers. Parsed through the proto to cover the
+    # camelCase `modelId` alias. `datasets` is not gated: dataset is out of scope for this
+    # branch (not in VALID_RESOURCE_TYPES).
+    msg = _get_request_message(LogInputs())
+    return _validate_can_update_run_and_models({m.model_id for m in msg.models if m.model_id})
+
+
+def validate_can_log_outputs():
+    msg = _get_request_message(LogOutputs())
+    return _validate_can_update_run_and_models({m.model_id for m in msg.models if m.model_id})
+
+
 def validate_can_delete_run():
     return _authorize_run("delete")
 
@@ -3783,9 +3797,9 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRun: validate_can_update_run,
     LogMetric: validate_can_log_metric,
     LogBatch: validate_can_log_batch,
-    LogInputs: validate_can_update_run,
+    LogInputs: validate_can_log_inputs,
     LogModel: validate_can_update_run,
-    LogOutputs: validate_can_update_run,
+    LogOutputs: validate_can_log_outputs,
     SetTag: validate_can_update_run,
     DeleteTag: validate_can_update_run,
     LogParam: validate_can_update_run,
