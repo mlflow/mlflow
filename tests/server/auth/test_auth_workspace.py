@@ -5721,6 +5721,120 @@ def test_create_model_version_ignores_a_registry_source_uri(
         assert auth_module.validate_can_create_model_version() is True
 
 
+def _definition_payload(secret_id="sec-1"):
+    return {"model_definition": {"model_definition_id": "md-1", "name": "md",
+                                 "secret_id": secret_id, "secret_name": "my-secret",
+                                 "provider": "openai"}}
+
+
+@pytest.mark.parametrize(
+    ("handler", "path"),
+    [
+        (
+            "redact_get_gateway_model_definition_secrets",
+            "/api/3.0/mlflow/gateway/model-definitions/get",
+        ),
+        (
+            "redact_update_gateway_model_definition_secrets",
+            "/api/3.0/mlflow/gateway/model-definitions/update",
+        ),
+    ],
+)
+def test_model_definition_responses_redact_a_denied_secret(
+    workspace_permission_setup, monkeypatch, handler, path
+):
+    """The definition is the SUBJECT here and is already gated by its own tier, so it survives; the
+    secret it names is a passenger of a different grantable type and is withheld.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_secret", "sec-1", DENY.name)])
+
+    flask_resp = Response(json.dumps(_definition_payload()), mimetype="application/json")
+    with auth_module.app.test_request_context(path, method="GET"):
+        getattr(auth_module, handler)(flask_resp)
+    definition = json.loads(flask_resp.get_data(as_text=True))["model_definition"]
+
+    assert "secret_id" not in definition
+    assert "secret_name" not in definition
+    # The definition itself is the subject, not a passenger: it is not withheld.
+    assert definition["model_definition_id"] == "md-1"
+    assert definition["provider"] == "openai"
+
+
+def test_list_model_definitions_redacts_secrets_in_rows_it_keeps(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("gateway_model_definition", "*", READ.name),
+        ("gateway_secret", "sec-1", DENY.name),
+    ])
+    payload = {"model_definitions": [
+        {"model_definition_id": "md-1", "secret_id": "sec-1", "secret_name": "a"},
+        {"model_definition_id": "md-2", "secret_id": "sec-2", "secret_name": "b"},
+    ]}
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/model-definitions/list", method="GET"
+    ):
+        auth_module.filter_list_gateway_model_definitions(flask_resp)
+    rows = json.loads(flask_resp.get_data(as_text=True))["model_definitions"]
+
+    assert len(rows) == 2
+    assert "secret_id" not in rows[0]
+    assert rows[1]["secret_id"] == "sec-2"
+
+
+def test_create_endpoint_vetoes_a_denied_experiment(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    monkeypatch.setattr(
+        auth_module, "_validate_can_use_model_definitions_for_create", lambda configs: True
+    )
+    _grant(store, username, "team-a", [("experiment", "exp-1", DENY.name)])
+
+    def _create(experiment_id):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/gateway/endpoints/create", method="POST",
+            json={"name": "ep", "experiment_id": experiment_id},
+        ):
+            return auth_module.validate_can_create_gateway_endpoint()
+
+    assert _create("exp-1") is False
+    assert _create("exp-2") is True
+
+
+def test_create_endpoint_response_redacts_denied_definitions(
+    workspace_permission_setup, monkeypatch
+):
+    """CreateGatewayEndpoint's only after-request handler is grant bookkeeping, so the redaction
+    composes there -- the endpoint is the caller's own but its definitions are not.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_model_definition", "md-1", DENY.name)])
+    monkeypatch.setattr(store, "grant_user_permission", lambda *a, **k: None, raising=False)
+
+    flask_resp = Response(json.dumps(_endpoint_payload()), mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/create", method="POST", json={"name": "ep"}
+    ):
+        auth_module.set_can_manage_gateway_endpoint_permission(flask_resp)
+    mapping = json.loads(flask_resp.get_data(as_text=True))["endpoint"]["model_mappings"][0]
+
+    assert "model_definition" not in mapping
+    assert "model_definition_id" not in mapping
+
+
 def _endpoint_payload(definition_id="md-1", secret_id="sec-1"):
     return {
         "endpoint": {

@@ -3115,7 +3115,13 @@ def validate_can_create_gateway_endpoint():
     This requires USE permission on all referenced model definitions.
     """
     msg = _get_request_message(CreateGatewayEndpoint())
-    return _validate_can_use_model_definitions_for_create(msg.model_configs)
+    if not _validate_can_use_model_definitions_for_create(msg.model_configs):
+        return False
+    if not msg.experiment_id:
+        return True
+    return _gateway_resources_not_denied(
+        [Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)]
+    )
 
 
 def validate_can_update_gateway_endpoint():
@@ -5722,6 +5728,12 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
     endpoint_id = response_message.endpoint.endpoint_id
     username = authenticate_request().username
     store.grant_user_permission(username, "gateway_endpoint", endpoint_id, MANAGE.name)
+    # A proto maps to one after-request handler, so the create response's redaction composes here.
+    # The endpoint is the caller's own, but the model definitions it embeds are not.
+    if sender_is_admin():
+        return
+    if _withhold_denied_endpoint_model_definitions([response_message.endpoint], username):
+        resp.data = message_to_json(response_message)
 
 
 def delete_gateway_endpoint_permissions_cascade(resp: Response):
@@ -5937,6 +5949,52 @@ def filter_list_gateway_endpoints(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+def _withhold_denied_definition_secrets(definitions, username: str) -> bool:
+    """Clear `secret_id`/`secret_name` from GatewayModelDefinition rows whose secret is denied.
+
+    On these routes the definition is the SUBJECT -- already gated by the
+    `gateway_model_definition` tier -- so it is not withheld; only the secret it names is a
+    passenger, and `gateway_secret` is its own grantable type.
+    """
+    named = [definition for definition in definitions if definition.secret_id]
+    if not named:
+        # No secret named, so no grants need loading.
+        return False
+    gate = retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_GATEWAY_SECRET, "*", ACTION_NOT_DENIED)],
+    )
+    withheld = False
+    for definition in named:
+        secret_id = definition.secret_id
+        if not gate.retains(RESOURCE_TYPE_GATEWAY_SECRET, secret_id):
+            definition.ClearField("secret_id")
+            definition.ClearField("secret_name")
+            withheld = True
+    return withheld
+
+
+def _redact_model_definition_response(resp: Response, response_message) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_definition_secrets(
+        [response_message.model_definition], authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_gateway_model_definition_secrets(resp: Response) -> None:
+    _redact_model_definition_response(resp, GetGatewayModelDefinition.Response())
+
+
+def redact_update_gateway_model_definition_secrets(resp: Response) -> None:
+    _redact_model_definition_response(resp, UpdateGatewayModelDefinition.Response())
+
+
 def filter_list_gateway_model_definitions(resp: Response) -> None:
     """Filter ``ListGatewayModelDefinitions`` responses to rows the caller can read."""
     if sender_is_admin():
@@ -5949,6 +6007,10 @@ def filter_list_gateway_model_definitions(resp: Response) -> None:
     kept = [row for row in response_message.model_definitions if can_read(row.model_definition_id)]
     response_message.ClearField("model_definitions")
     response_message.model_definitions.extend(kept)
+    # A row the caller may read can still name a secret it may not.
+    _withhold_denied_definition_secrets(
+        response_message.model_definitions, authenticate_request().username
+    )
     resp.data = message_to_json(response_message)
 
 
@@ -6121,6 +6183,8 @@ AFTER_REQUEST_PATH_HANDLERS = {
     GetGatewayEndpoint: redact_get_gateway_endpoint_model_definitions,
     UpdateGatewayEndpoint: redact_update_gateway_endpoint_model_definitions,
     ListGatewayEndpoints: filter_list_gateway_endpoints,
+    GetGatewayModelDefinition: redact_get_gateway_model_definition_secrets,
+    UpdateGatewayModelDefinition: redact_update_gateway_model_definition_secrets,
     ListGatewayModelDefinitions: filter_list_gateway_model_definitions,
     ListGatewaySecretInfos: filter_list_gateway_secrets,
     ListWorkspaces: filter_list_workspaces,
