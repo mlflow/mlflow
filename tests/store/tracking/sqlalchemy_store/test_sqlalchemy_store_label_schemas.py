@@ -439,15 +439,19 @@ def test_default_question_lookup_uses_mssql_compatible_boolean_predicate(store, 
                 )
             )
         )
-        return object()
+        return None
 
-    monkeypatch.setattr(Query, "first", capture_first)
-    with store.ManagedSessionMaker(read_only=False) as session:
-        store._ensure_default_label_schema(session, exp_id)
+    with monkeypatch.context() as mp:
+        mp.setattr(Query, "first", capture_first)
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store._ensure_default_label_schema(session, exp_id)
 
     assert len(statements) == 1
     assert "is_default = 1" in statements[0]
     assert "is_default IS 1" not in statements[0]
+
+    default = next(schema for schema in store.list_label_schemas(exp_id) if schema.is_default)
+    assert default.name == DEFAULT_LABEL_SCHEMA_NAME
 
 
 def test_default_question_seed_is_idempotent(store):
