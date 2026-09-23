@@ -22,6 +22,7 @@ import re
 import uuid
 from dataclasses import dataclass
 
+from mlflow.entities.skill_source import SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.paths import normalize_subpath
 from mlflow.utils.validation import (
@@ -124,7 +125,7 @@ def owned_skill_upload_path(
     Everything else (external pointers, references into a package tree, another identity's
     prefix, a shorter or longer path) is not owned, so it is never scheduled for cleanup.
     """
-    if source_type != "mlflow" or subpath is not None:
+    if source_type != SkillSourceType.MLFLOW.value or subpath is not None:
         return None
     if (path := artifact_path_from_uri(source)) is None:
         return None

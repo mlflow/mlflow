@@ -31,9 +31,10 @@ from mlflow.store.tracking.skill_registry.artifact_paths import (
     new_skill_upload_path,
     to_artifact_uri,
 )
+from mlflow.store.tracking.skill_registry.constants import SKILL_VERSION_DIGEST_LENGTH
 from mlflow.utils.validation import _validate_organization_name, _validate_skill_name
 
-_DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
+_DIGEST_PATTERN = re.compile(rf"[0-9a-f]{{{SKILL_VERSION_DIGEST_LENGTH}}}")
 # Names are addressed through the artifact HTTP API, which decodes percent-escapes in the path
 # and, like any URL, ends the path at ``?`` or ``#``. A name containing these cannot be pulled
 # back as the bytes that were stored.
@@ -142,7 +143,8 @@ def _validate_metadata(registration: SkillVersionRegistration) -> None:
         not isinstance(digest, str) or _DIGEST_PATTERN.fullmatch(digest) is None
     ):
         raise MlflowException.invalid_parameter_value(
-            "'digest' must be a SHA-256 digest of 64 lowercase hex characters."
+            f"'digest' must be a SHA-256 digest of {SKILL_VERSION_DIGEST_LENGTH} lowercase hex "
+            "characters."
         )
     if registration.source_type in (SkillSourceType.MLFLOW.value, SkillSourceType.ASSEMBLED.value):
         raise MlflowException.invalid_parameter_value(
