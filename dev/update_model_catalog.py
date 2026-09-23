@@ -23,8 +23,17 @@ from typing import Any
 
 SCHEMA_VERSION = "1.0"
 
-# Modes that MLflow catalogs from LiteLLM
-_SUPPORTED_MODES = {"chat", "completion", "embedding", "image_generation", "video_generation"}
+# Modes that MLflow catalogs from LiteLLM. "responses" covers models exposed via the
+# OpenAI Responses API (e.g. OpenAI-on-Bedrock GPT models); they also serve
+# /v1/chat/completions and carry the same pricing/capability fields we transform.
+_SUPPORTED_MODES = {
+    "chat",
+    "completion",
+    "embedding",
+    "image_generation",
+    "video_generation",
+    "responses",
+}
 
 # Providers that should be consolidated into a canonical name
 _PROVIDER_CONSOLIDATION = {

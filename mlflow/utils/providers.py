@@ -22,7 +22,7 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
 
-_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
+_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "responses", None)
 
 _REMOTE_FETCH_MAX_RETRIES = 3
 _REMOTE_FETCH_TIMEOUT = 5

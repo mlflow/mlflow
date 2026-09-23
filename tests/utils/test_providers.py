@@ -188,6 +188,23 @@ def test_get_models_dedupes_models_after_normalization():
         assert len(models) == 1
 
 
+def test_get_models_includes_responses_mode_and_filters_unsupported():
+    data = {
+        "bedrock_mantle": {
+            "openai.gpt-5.6-terra": {"mode": "responses", "supports_function_calling": True},
+            "some.audio-model": {"mode": "audio_transcription"},
+        }
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        models = get_models(provider="bedrock_mantle")
+
+        model_names = [m["model"] for m in models]
+        assert "openai.gpt-5.6-terra" in model_names
+        assert "some.audio-model" not in model_names
+        terra = next(m for m in models if m["model"] == "openai.gpt-5.6-terra")
+        assert terra["mode"] == "responses"
+
+
 def test_get_all_providers_with_allowed_filter(monkeypatch):
     data = {
         "openai": {"gpt-4o": {"mode": "chat"}},

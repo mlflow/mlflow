@@ -99,6 +99,27 @@ def test_transform_entry_includes_video_generation():
     assert result["mode"] == "video_generation"
 
 
+def test_transform_entry_includes_responses_mode():
+    # OpenAI-on-Bedrock GPT models are tagged mode="responses" upstream but are
+    # regular chat/pricing entries we should catalog.
+    info = {
+        "mode": "responses",
+        "input_cost_per_token": 2.2e-6,
+        "output_cost_per_token": 1.32e-5,
+        "supports_function_calling": True,
+        "supports_vision": True,
+    }
+    result = _transform_entry(info)
+    assert result is not None
+    assert result["mode"] == "responses"
+    assert result["pricing"]["input_per_million_tokens"] == 2.2
+    assert result["capabilities"]["function_calling"] is True
+
+
+def test_transform_entry_skips_unsupported_mode():
+    assert _transform_entry({"mode": "audio_transcription"}) is None
+
+
 def test_transform_entry_includes_future_deprecation_date():
     info = {
         "mode": "chat",
