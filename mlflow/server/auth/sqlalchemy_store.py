@@ -402,6 +402,10 @@ class SqlAlchemyStore:
         Upsert a ``permission`` grant on ``(resource_type, resource_pattern)`` for
         ``username`` via their synthetic role in the active workspace.
         """
+        # Grain is validated at every write boundary, not just the role API: a pattern the type
+        # does not declare would be stored and then silently ignored by the fold, so an operator
+        # would get a success for a per-id DENY that protects nothing.
+        _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
@@ -452,6 +456,7 @@ class SqlAlchemyStore:
         ``create_*_permission`` contract).
         """
         self._reject_workspace_resource_type(resource_type)
+        _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
         duplicate_message = (
             f"Permission for user={username} on "
