@@ -4905,6 +4905,58 @@ def test_batch_get_traces_redaction_reaches_nested_trace_info(workspace_permissi
     assert len(out.traces[0].trace_info.assessments) == 0
 
 
+def _run_submit_optimization(source_prompt_uri):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization-jobs/create",
+        json={
+            "experiment_id": "exp-1",
+            "source_prompt_uri": source_prompt_uri,
+            "config": {"scorers": []},
+        },
+    ):
+        return auth_module.validate_can_create_prompt_optimization_job()
+
+
+@pytest.mark.parametrize("uri", ["prompts:/other/3", "prompts:/other@prod", "prompts:/other"])
+def test_optimization_job_honors_a_prompt_deny(workspace_permission_setup, uri):
+    """The identity-less worker loads source_prompt_uri and registers a NEW version under it, so
+    an experiment editor could append a version to a prompt they cannot update. All three URI
+    spellings resolve to the same prompt name.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("prompt", "other", DENY.name),
+    ])
+
+    assert _run_submit_optimization(uri) is False
+
+
+def test_optimization_job_honors_a_prompt_version_deny(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", EDIT.name),
+        ("prompt_version", "*", DENY.name),
+    ])
+
+    assert _run_submit_optimization("prompts:/other/3") is False
+
+
+def test_optimization_job_unchanged_without_prompt_grants(workspace_permission_setup):
+    """No prompt grants, and a request naming no prompt at all: both behave as before."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    assert _run_submit_optimization("prompts:/other/3") is True
+    assert _run_submit_optimization("") is True
+
+
 def _run_get_assessment(monkeypatch, experiment_id):
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/traces/t1/assessments/a1",
