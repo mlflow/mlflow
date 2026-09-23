@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import threading
+import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
@@ -2050,6 +2051,35 @@ def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
 
+def validate_can_set_model_or_prompt_version_alias() -> bool:
+    """``SetRegisteredModelAlias`` NAMES a version: the alias is what publishes that version under a
+    friendly name, so `models:/<name>@<alias>` resolves to it. Master gates the parent's alias map
+    at update level, which is kept; the version adds READ with the parent as fallback, so a version
+    DENY blocks publishing while no version grant leaves master's behaviour intact (the parent must
+    hold update for the route at all, which subsumes read).
+
+    ``DeleteRegisteredModelAlias`` names only `name` and `alias`, so there is no version to gate --
+    it stays on the parent tier.
+    """
+    if not _validate_can_update_registered_model_or_prompt():
+        return False
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [Requirement(version_type, "*", "read", fallback_if_no_grant=(container,))],
+    )
+
+
 def _authorize_version_action(action: str) -> bool:
     """Mutations of an EXISTING model or prompt version.
 
@@ -2179,6 +2209,21 @@ def _authorize_create_version(target: "tuple[str, str]") -> bool:
     )
 
 
+def _model_id_from_source_uri(source: str) -> str | None:
+    """The logged-model id a `models:/m-<id>` source resolves to, or None.
+
+    Mirrors the store: only a `models:` URI naming an id dereferences a logged model. A
+    `models:/<name>/<version>` or `models:/<name>@<alias>` source names a registry entry instead and
+    yields no id, and anything unparseable yields None -- the store would raise on it anyway.
+    """
+    if not source or urllib.parse.urlparse(source).scheme != "models":
+        return None
+    try:
+        return _parse_model_uri(source).model_id
+    except Exception:
+        return None
+
+
 def validate_can_create_model_version():
     # Downstream artifact reads are gated on the destination registered model. Require read on
     # the resource that owns the source so creating a version cannot grant access to artifacts
@@ -2207,6 +2252,13 @@ def validate_can_create_model_version():
     if msg.HasField("model_id") and not (
         msg.model_id and _authorize_logged_model_id(msg.model_id, "read")
     ):
+        return False
+    # `source` is the third way in. For a `models:/m-<id>` URI the store parses the id out and
+    # fetches THAT logged model to derive `run_id` from its `source_run_id`, so a request naming
+    # neither `run_id` nor `model_id` still binds the version to someone else's model -- the very
+    # substitution the READ checks above exist to stop. Gate the id the store will dereference.
+    source_model_id = _model_id_from_source_uri(msg.source)
+    if source_model_id and not _authorize_logged_model_id(source_model_id, "read"):
         return False
     return True
 
@@ -4176,7 +4228,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     SetModelVersionTag: validate_can_update_model_or_prompt_version,
     DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
-    SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
+    SetRegisteredModelAlias: validate_can_set_model_or_prompt_version_alias,
     DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
     GetModelVersionByAlias: validate_can_read_model_or_prompt_version,
     # Routes for scorers
