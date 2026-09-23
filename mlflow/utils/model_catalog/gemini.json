@@ -260,7 +260,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.15,
-            "output_per_million_tokens": 1.25
+            "output_per_million_tokens": 1.25,
+            "cache_read_per_million_tokens": 0.03
           },
           "flex": {
             "input_per_million_tokens": 0.15,
@@ -294,7 +295,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-2.5-flash-image": {
       "mode": "image_generation",
@@ -358,7 +359,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.05,
-            "output_per_million_tokens": 0.2
+            "output_per_million_tokens": 0.2,
+            "cache_read_per_million_tokens": 0.01
           },
           "flex": {
             "input_per_million_tokens": 0.05,
@@ -392,7 +394,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-2.5-flash-lite-preview-06-17": {
       "mode": "chat",
@@ -579,7 +581,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.625,
-            "output_per_million_tokens": 5.0
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.125
           },
           "flex": {
             "input_per_million_tokens": 0.625,
@@ -615,7 +618,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-2.5-pro-preview-tts": {
       "mode": "chat",
@@ -670,7 +673,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.25,
-            "output_per_million_tokens": 1.5
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.05
           },
           "flex": {
             "input_per_million_tokens": 0.25,
@@ -704,7 +708,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3-pro-image": {
       "mode": "image_generation",
@@ -921,7 +925,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.125,
-            "output_per_million_tokens": 0.75
+            "output_per_million_tokens": 0.75,
+            "cache_read_per_million_tokens": 0.0125
           },
           "flex": {
             "input_per_million_tokens": 0.125,
@@ -956,7 +961,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-05-07",
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.1-flash-lite-image": {
       "mode": "image_generation",
@@ -1068,7 +1073,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.2
           },
           "flex": {
             "input_per_million_tokens": 1.0,
@@ -1104,7 +1110,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.1-pro-preview-customtools": {
       "mode": "chat",
@@ -1120,7 +1126,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.2
           },
           "flex": {
             "input_per_million_tokens": 1.0,
@@ -1156,7 +1163,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.5-flash": {
       "mode": "chat",
@@ -1172,7 +1179,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.75,
-            "output_per_million_tokens": 4.5
+            "output_per_million_tokens": 4.5,
+            "cache_read_per_million_tokens": 0.075
           },
           "flex": {
             "input_per_million_tokens": 0.75,
@@ -1205,7 +1213,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.5-flash-lite": {
       "mode": "chat",
@@ -1221,7 +1229,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.15,
-            "output_per_million_tokens": 1.25
+            "output_per_million_tokens": 1.25,
+            "cache_read_per_million_tokens": 0.02
           },
           "flex": {
             "input_per_million_tokens": 0.15,
@@ -1249,7 +1258,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-22"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.5-live-translate-preview": {
       "mode": "chat",
@@ -1286,7 +1295,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.375,
-            "output_per_million_tokens": 1.875
+            "output_per_million_tokens": 1.875,
+            "cache_read_per_million_tokens": 0.0375
           },
           "flex": {
             "input_per_million_tokens": 0.375,
@@ -1314,7 +1324,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-20"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.7-flash": {
       "mode": "chat",
@@ -1330,7 +1340,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.375,
-            "output_per_million_tokens": 1.875
+            "output_per_million_tokens": 1.875,
+            "cache_read_per_million_tokens": 0.0375
           },
           "flex": {
             "input_per_million_tokens": 0.375,
@@ -1358,7 +1369,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-14"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-3.8-flash": {
       "mode": "chat",
@@ -1374,7 +1385,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.375,
-            "output_per_million_tokens": 1.875
+            "output_per_million_tokens": 1.875,
+            "cache_read_per_million_tokens": 0.0375
           },
           "flex": {
             "input_per_million_tokens": 0.375,
@@ -1402,7 +1414,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-04"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-embedding-001": {
       "mode": "embedding",
@@ -1855,7 +1867,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.5,
-            "output_per_million_tokens": 2.5
+            "output_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.05
           }
         },
         "modality": {
@@ -1878,7 +1891,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-23"
     },
     "gemini-robotics-er-2-streaming-preview": {
       "mode": "chat",

@@ -15,6 +15,10 @@ updates:
       interval: cron
       cronjob: "0 9 1,15 * *"
       timezone: Asia/Tokyo
+    labels:
+      - dependencies
+      - github-actions
+      - auto-rerun
     # Match the 7-day package cooldown used for Python (exclude-newer) and
     # JavaScript (min-release-age) dependencies.
     cooldown:

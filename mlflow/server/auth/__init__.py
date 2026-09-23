@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import threading
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
@@ -173,6 +174,7 @@ from mlflow.protos.service_pb2 import (
     DetachModelFromGatewayEndpoint,
     EndTrace,
     FinalizeLoggedModel,
+    GatewayEndpointModelConfig,
     GetAssessmentRequest,
     GetDataset,
     GetDatasetExperimentIds,
@@ -1110,8 +1112,7 @@ def _get_permission_from_gateway_secret_id() -> Permission:
     return _get_gateway_secret_permission(_get_request_param("secret_id"))
 
 
-def _get_permission_from_gateway_endpoint_id() -> Permission:
-    endpoint_id = _get_request_param("endpoint_id")
+def _get_gateway_endpoint_permission(endpoint_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1127,8 +1128,11 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
     )
 
 
-def _get_permission_from_gateway_model_definition_id() -> Permission:
-    model_definition_id = _get_request_param("model_definition_id")
+def _get_permission_from_gateway_endpoint_id() -> Permission:
+    return _get_gateway_endpoint_permission(_get_request_param("endpoint_id"))
+
+
+def _get_gateway_model_definition_permission(model_definition_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1142,6 +1146,10 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
             workspace_label="gateway model definition",
         ),
     )
+
+
+def _get_permission_from_gateway_model_definition_id() -> Permission:
+    return _get_gateway_model_definition_permission(_get_request_param("model_definition_id"))
 
 
 def _get_mcp_server_permission(name: str, username: str) -> Permission:
@@ -1987,15 +1995,18 @@ def validate_can_delete_user():
 
 
 def validate_can_read_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_read
+    msg = _get_request_message(GetGatewaySecretInfo())
+    return _get_gateway_secret_permission(msg.secret_id).can_read
 
 
 def validate_can_update_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_update
+    msg = _get_request_message(UpdateGatewaySecret())
+    return _get_gateway_secret_permission(msg.secret_id).can_update
 
 
 def validate_can_delete_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_delete
+    msg = _get_request_message(DeleteGatewaySecret())
+    return _get_gateway_secret_permission(msg.secret_id).can_delete
 
 
 def validate_can_manage_gateway_secret():
@@ -2009,11 +2020,38 @@ def validate_can_create_gateway_secret():
 
 
 def validate_can_read_gateway_endpoint():
-    return _get_permission_from_gateway_endpoint_id().can_read
+    msg = _get_request_message(GetGatewayEndpoint())
+    endpoint_id = msg.endpoint_id
+    if not endpoint_id and msg.name:
+        endpoint_id = _get_tracking_store().get_gateway_endpoint(name=msg.name).endpoint_id
+    return _get_gateway_endpoint_permission(endpoint_id).can_read
 
 
 def validate_can_delete_gateway_endpoint():
-    return _get_permission_from_gateway_endpoint_id().can_delete
+    msg = _get_request_message(DeleteGatewayEndpoint())
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_delete
+
+
+def _validate_can_update_gateway_endpoint_from_request(request_message) -> bool:
+    msg = _get_request_message(request_message)
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_update
+
+
+def validate_can_add_guardrail_to_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(AddGuardrailToEndpoint())
+
+
+def validate_can_remove_guardrail_from_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(RemoveGuardrailFromEndpoint())
+
+
+def validate_can_update_gateway_endpoint_guardrail_config():
+    return _validate_can_update_gateway_endpoint_from_request(UpdateEndpointGuardrailConfig())
+
+
+def validate_can_read_gateway_endpoint_guardrail_configs():
+    msg = _get_request_message(ListEndpointGuardrailConfigs())
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_read
 
 
 def validate_can_manage_gateway_endpoint():
@@ -2021,11 +2059,13 @@ def validate_can_manage_gateway_endpoint():
 
 
 def validate_can_read_gateway_model_definition():
-    return _get_permission_from_gateway_model_definition_id().can_read
+    msg = _get_request_message(GetGatewayModelDefinition())
+    return _get_gateway_model_definition_permission(msg.model_definition_id).can_read
 
 
 def validate_can_delete_gateway_model_definition():
-    return _get_permission_from_gateway_model_definition_id().can_delete
+    msg = _get_request_message(DeleteGatewayModelDefinition())
+    return _get_gateway_model_definition_permission(msg.model_definition_id).can_delete
 
 
 def validate_can_manage_gateway_model_definition():
@@ -2037,25 +2077,13 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
-    # Parse through the proto so the camelCase `secretId` alias resolves to the same
-    # secret the handler will use; a raw-key read would miss it.
-    secret_id = _get_request_message(CreateGatewayModelDefinition()).secret_id
+    msg = _get_request_message(CreateGatewayModelDefinition())
+    secret_id = msg.secret_id
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
         return True
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="gateway_secret",
-            resource_key=secret_id,
-            workspace_lookup_id=secret_id,
-            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            workspace_label="gateway secret",
-        ),
-    )
-    return permission.can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
 def validate_can_update_gateway_model_definition():
@@ -2064,29 +2092,18 @@ def validate_can_update_gateway_model_definition():
     This requires UPDATE permission on the model definition AND
     USE permission on any new secret being referenced.
     """
+    msg = _get_request_message(UpdateGatewayModelDefinition())
     # First check update permission on the model definition
-    if not _get_permission_from_gateway_model_definition_id().can_update:
+    if not _get_gateway_model_definition_permission(msg.model_definition_id).can_update:
         return False
 
-    # If updating the secret, check USE permission on the new secret. Parse through the
-    # proto so the camelCase `secretId` alias is covered.
-    secret_id = _get_request_message(UpdateGatewayModelDefinition()).secret_id
+    # If updating the secret, check USE permission on the new secret
+    secret_id = msg.secret_id
     if not secret_id:
         # No secret being changed, just return True
         return True
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="gateway_secret",
-            resource_key=secret_id,
-            workspace_lookup_id=secret_id,
-            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            workspace_label="gateway secret",
-        ),
-    )
-    return permission.can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
 def validate_can_invoke_issue_detection():
@@ -2105,7 +2122,9 @@ def validate_can_invoke_issue_detection():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
-def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
+def _validate_can_use_model_definitions(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Helper to validate USE permission on all model definitions in model_configs.
     Returns True if all model definitions have USE permission, False otherwise.
@@ -2114,47 +2133,27 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
         return True
 
     model_def_ids = [
-        config.get("model_definition_id")
-        for config in model_configs
-        if config.get("model_definition_id")
+        config.model_definition_id for config in model_configs if config.model_definition_id
     ]
 
     if not model_def_ids:
         return True
 
-    username = authenticate_request().username
     for model_def_id in model_def_ids:
-        permission = _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="gateway_model_definition",
-                resource_key=model_def_id,
-                workspace_lookup_id=model_def_id,
-                workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
-                    model_definition_id=mdid
-                ),
-                workspace_label="gateway model definition",
-            ),
-        )
-        if not permission.can_use:
+        if not _get_gateway_model_definition_permission(model_def_id).can_use:
             return False
 
     return True
 
 
-def _model_configs_from_request(request_message) -> list[dict[str, Any]]:
-    # Parse through the proto so the camelCase `modelConfigs` / `modelDefinitionId`
-    # aliases resolve to the same model definitions the handler will link.
-    msg = _get_request_message(request_message)
-    return [{"model_definition_id": mc.model_definition_id} for mc in msg.model_configs]
-
-
-def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
+def _validate_can_use_model_definitions_for_create(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
     are provided, otherwise validates USE permission on referenced model definitions.
     """
-    if not model_configs or not any(config.get("model_definition_id") for config in model_configs):
+    if not model_configs or not any(config.model_definition_id for config in model_configs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return True
         workspace_name = workspace_context.get_request_workspace()
@@ -2182,9 +2181,8 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    return _validate_can_use_model_definitions_for_create(
-        _model_configs_from_request(CreateGatewayEndpoint())
-    )
+    msg = _get_request_message(CreateGatewayEndpoint())
+    return _validate_can_use_model_definitions_for_create(msg.model_configs)
 
 
 def validate_can_update_gateway_endpoint():
@@ -2193,25 +2191,51 @@ def validate_can_update_gateway_endpoint():
     This requires UPDATE permission on the endpoint AND
     USE permission on any new model definitions being referenced.
     """
-    if not _get_permission_from_gateway_endpoint_id().can_update:
+    msg = _get_request_message(UpdateGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
         return False
 
-    return _validate_can_use_model_definitions(_model_configs_from_request(UpdateGatewayEndpoint()))
+    return _validate_can_use_model_definitions(msg.model_configs)
 
 
 def validate_can_attach_model_to_gateway_endpoint():
-    """
-    Attaching a model links a model definition to an endpoint, so require UPDATE on the
-    endpoint and USE on the model definition. The attach body carries a singular
-    ``model_config``, which ``UpdateGatewayEndpoint`` does not define, so it is parsed
-    through its own proto.
-    """
-    if not _get_permission_from_gateway_endpoint_id().can_update:
+    msg = _get_request_message(AttachModelToGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
         return False
-    model_config = _get_request_message(AttachModelToGatewayEndpoint()).model_config
-    return _validate_can_use_model_definitions([
-        {"model_definition_id": model_config.model_definition_id}
-    ])
+
+    if not msg.HasField("model_config"):
+        return True
+    model_definition_id = msg.model_config.model_definition_id
+    if not model_definition_id:
+        return True
+    return _get_gateway_model_definition_permission(model_definition_id).can_use
+
+
+def validate_can_detach_model_from_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(DetachModelFromGatewayEndpoint())
+
+
+def validate_can_create_gateway_endpoint_binding():
+    return _validate_can_update_gateway_endpoint_from_request(CreateGatewayEndpointBinding())
+
+
+def validate_can_delete_gateway_endpoint_binding():
+    return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointBinding())
+
+
+def validate_can_list_gateway_endpoint_bindings():
+    msg = _get_request_message(ListGatewayEndpointBindings())
+    if not msg.endpoint_id:
+        return sender_is_admin()
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_read
+
+
+def validate_can_set_gateway_endpoint_tag():
+    return _validate_can_update_gateway_endpoint_from_request(SetGatewayEndpointTag())
+
+
+def validate_can_delete_gateway_endpoint_tag():
+    return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointTag())
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
@@ -2913,20 +2937,20 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayGuardrail: sender_is_admin,
     ListGatewayGuardrails: sender_is_admin,
     DeleteGatewayGuardrail: sender_is_admin,
-    AddGuardrailToEndpoint: validate_can_update_gateway_endpoint,
-    RemoveGuardrailFromEndpoint: validate_can_update_gateway_endpoint,
-    UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint,
-    ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint,
+    AddGuardrailToEndpoint: validate_can_add_guardrail_to_gateway_endpoint,
+    RemoveGuardrailFromEndpoint: validate_can_remove_guardrail_from_gateway_endpoint,
+    UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint_guardrail_config,
+    ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint_guardrail_configs,
     # Routes for gateway endpoint-model mappings
     AttachModelToGatewayEndpoint: validate_can_attach_model_to_gateway_endpoint,
-    DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
+    DetachModelFromGatewayEndpoint: validate_can_detach_model_from_gateway_endpoint,
     # Routes for gateway endpoint bindings
-    CreateGatewayEndpointBinding: validate_can_update_gateway_endpoint,
-    DeleteGatewayEndpointBinding: validate_can_update_gateway_endpoint,
-    ListGatewayEndpointBindings: validate_can_read_gateway_endpoint,
+    CreateGatewayEndpointBinding: validate_can_create_gateway_endpoint_binding,
+    DeleteGatewayEndpointBinding: validate_can_delete_gateway_endpoint_binding,
+    ListGatewayEndpointBindings: validate_can_list_gateway_endpoint_bindings,
     # Routes for gateway endpoint tags
-    SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
-    DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
+    SetGatewayEndpointTag: validate_can_set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: validate_can_delete_gateway_endpoint_tag,
     # Routes for prompt optimization jobs
     CreatePromptOptimizationJob: validate_can_update_experiment,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
@@ -4298,8 +4322,8 @@ def set_can_manage_gateway_secret_permission(resp: Response):
 
 
 def delete_gateway_secret_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if secret_id := data.get("secret_id"):
+    msg = _get_request_message(DeleteGatewaySecret())
+    if secret_id := msg.secret_id:
         store.delete_grants_for_resource("gateway_secret", secret_id)
 
 
@@ -4312,8 +4336,8 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
 
 
 def delete_gateway_endpoint_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if endpoint_id := data.get("endpoint_id"):
+    msg = _get_request_message(DeleteGatewayEndpoint())
+    if endpoint_id := msg.endpoint_id:
         store.delete_grants_for_resource("gateway_endpoint", endpoint_id)
 
 
@@ -4328,8 +4352,8 @@ def set_can_manage_gateway_model_definition_permission(resp: Response):
 
 
 def delete_gateway_model_definition_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if model_definition_id := data.get("model_definition_id"):
+    msg = _get_request_message(DeleteGatewayModelDefinition())
+    if model_definition_id := msg.model_definition_id:
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
@@ -5278,6 +5302,7 @@ _ROUTES_NEEDING_BODY = frozenset((
     "/gateway/openai/v1/embeddings",
     "/gateway/openai/v1/responses",
     "/gateway/anthropic/v1/messages",
+    "/gateway/typesafe/v1/systemone",
 ))
 
 

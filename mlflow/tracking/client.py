@@ -834,7 +834,7 @@ class MlflowClient:
         prompt_tags = registry_client.get_registered_model(name)._tags
 
         # Invalidate "latest" cache entry since we just created a new version
-        PromptCache.get_instance().delete(name, alias="latest")
+        PromptCache.get_instance().delete(name, alias="latest", registry_uri=self._registry_uri)
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
@@ -921,6 +921,7 @@ class MlflowClient:
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: str | None = None,
+        order_by: list[str] | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
@@ -940,6 +941,9 @@ class MlflowClient:
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
+            order_by (Optional[list[str]]):
+                List of column names with ASC|DESC annotation to order the results by.
+                Not honored by Unity Catalog registries. Defaults to `None`.
 
         Returns:
             A pageable list of :py:class:`Prompt <mlflow.entities.Prompt>` objects
@@ -966,6 +970,9 @@ class MlflowClient:
                 # Get prompts by experiment
                 prompts = client.search_prompts(filter_string='experiment_id = "1"')
 
+                # Get prompts ordered by name
+                prompts = client.search_prompts(order_by=["name ASC"])
+
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
@@ -979,6 +986,7 @@ class MlflowClient:
         return registry_client.search_prompts(
             filter_string=filter_string,
             max_results=max_results,
+            order_by=order_by,
             page_token=page_token,
         )
 
@@ -1038,7 +1046,7 @@ class MlflowClient:
         # Check cache if cache_ttl_seconds > 0 (0 means no caching)
         if cache_ttl_seconds > 0:
             cache = PromptCache.get_instance()
-            cache_key = PromptCacheKey.from_uri(prompt_uri)
+            cache_key = PromptCacheKey.from_uri(prompt_uri, registry_uri=self._registry_uri)
             if cached_prompt := cache.get(cache_key):
                 return cached_prompt
 
@@ -1269,7 +1277,7 @@ class MlflowClient:
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
         # Invalidate cache for this alias since it now points to a different version
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1284,7 +1292,7 @@ class MlflowClient:
         self._get_registry_client().delete_prompt_alias(name, alias)
 
         # Invalidate cache for this alias
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1300,7 +1308,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1315,7 +1323,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -6270,7 +6278,7 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         registry_client.delete_prompt_version(name, version)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6436,7 +6444,7 @@ class MlflowClient:
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
             registry_client.delete_prompt(name)
-            PromptCache.get_instance().delete_all(name)
+            PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
             return
 
     @_disable_in_databricks()

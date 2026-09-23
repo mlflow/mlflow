@@ -757,6 +757,20 @@ def test_builtin_cost_fallback_when_litellm_unavailable():
     assert result["total_cost"] == pytest.approx(0.0075)
 
 
+def test_builtin_cost_fallback_for_typesafe_preview_model():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "jev-preview",
+            {"input_tokens": 1_000_000, "output_tokens": 0},
+            model_provider="typesafe",
+        )
+    assert result == {
+        "input_cost": pytest.approx(0.042),
+        "output_cost": 0,
+        "total_cost": pytest.approx(0.042),
+    }
+
+
 def test_builtin_cost_fallback_returns_none_for_unknown_model():
     with mock.patch.dict("sys.modules", {"litellm": None}):
         result = calculate_cost_by_model_and_token_usage(

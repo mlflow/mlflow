@@ -8830,7 +8830,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             ._label_schema_query(session)
             .filter(
                 SqlLabelSchema.experiment_id == int(experiment_id),
-                SqlLabelSchema.is_default.is_(True),
+                SqlLabelSchema.is_default == sqlalchemy.true(),
             )
             .first()
         )
