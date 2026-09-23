@@ -4706,3 +4706,70 @@ def test_trace_assessments_kept_on_explicit_assessment_read(workspace_permission
 
     kept, _ = _run_trace_redaction()
     assert kept == ["a1", "a2"]
+
+
+def test_retention_decisions_keeps_each_tier_separate(workspace_permission_setup):
+    """The contract: one call, one query, a boolean PER resource -- not a conjunction.
+
+    This is what a response filter needs and ``authorize`` cannot give it: keep the trace, drop
+    the assessments. Mixing a permitted tier with a denied one in a single call must return both
+    answers rather than collapsing to False.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "exp-1", READ.name),
+        ("assessment", "*", DENY.name),
+    ])
+
+    experiment = (auth_module.RESOURCE_TYPE_EXPERIMENT, "exp-1")
+    with auth_module.app.test_request_context("/"):
+        decisions = auth_module.retention_decisions(
+            username,
+            experiment,
+            [
+                Requirement(auth_module.RESOURCE_TYPE_TRACE, "*", "read",
+                            fallback_if_no_grant=(experiment,)),
+                Requirement(auth_module.RESOURCE_TYPE_ASSESSMENT, "*", "read",
+                            fallback_if_no_grant=(experiment,)),
+            ],
+        )
+
+    assert decisions.retains(auth_module.RESOURCE_TYPE_TRACE) is True
+    assert decisions.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
+
+
+def test_retention_decisions_collapses_repeats_and_fails_closed(workspace_permission_setup):
+    """Repeated requirements over one resource collapse to a single entry.
+
+    Item 9's duplicate-requirement concern costs nothing here. Separately: an unresolvable
+    workspace yields False for every requirement, so a caller that withholds on False fails
+    closed with no special case.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", READ.name)])
+
+    experiment = (auth_module.RESOURCE_TYPE_EXPERIMENT, "exp-1")
+    duplicate = Requirement(
+        auth_module.RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,)
+    )
+    with auth_module.app.test_request_context("/"):
+        decisions = auth_module.retention_decisions(username, experiment, [duplicate, duplicate])
+    assert decisions.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is True
+    assert len(decisions) == 1  # both requirements collapsed to one entry
+
+    # A resource no requirement covered is a programming error, not a False.
+    with pytest.raises(KeyError, match="No retention decision"):
+        decisions.retains(auth_module.RESOURCE_TYPE_SCORER, "exp-1/x")
+
+    # Unknown experiment -> the anchor workspace cannot be resolved -> everything withheld.
+    with auth_module.app.test_request_context("/"):
+        closed = auth_module.retention_decisions(
+            username,
+            (auth_module.RESOURCE_TYPE_EXPERIMENT, "does-not-exist"),
+            [duplicate],
+        )
+    assert closed.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
