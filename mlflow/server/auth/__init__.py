@@ -5583,7 +5583,13 @@ def _redact_registered_model_response(resp: Response, response_message) -> None:
         return
     parse_dict(resp.json, response_message)
     username = authenticate_request().username
-    if _withhold_denied_latest_versions([response_message.registered_model], username):
+    models = [response_message.registered_model]
+    withheld = _withhold_denied_latest_versions(models, username)
+    # A version row that survives can still carry a denied run's or logged model's content.
+    withheld |= _withhold_denied_version_siblings(
+        [version for model in models for version in model.latest_versions], username
+    )
+    if withheld:
         resp.data = message_to_json(response_message)
 
 
@@ -5671,6 +5677,10 @@ def filter_search_model_versions(resp: Response):
         if not can_read(mv):
             response_message.model_versions.remove(mv)
 
+    # A version the caller may read can still carry a denied run's or model's content.
+    _withhold_denied_version_siblings(
+        response_message.model_versions, authenticate_request().username
+    )
     resp.data = message_to_json(response_message)
 
 
@@ -6056,6 +6066,48 @@ def _denied_sibling_tiers(username: str, resource_types) -> "set[str]":
     }
 
 
+_MODEL_VERSION_SIBLING_FIELDS = {
+    RESOURCE_TYPE_RUN: ("run_id", "run_link"),
+    RESOURCE_TYPE_LOGGED_MODEL: ("model_id", "model_params", "model_metrics"),
+}
+
+
+def _withhold_denied_version_siblings(versions, username: str) -> bool:
+    """Clear the run and logged-model content a ModelVersion carries when that tier is denied.
+
+    A `ModelVersion` names the run that produced it (`run_id`, and `run_link`, which is a URL to
+    that run) and the logged model it was promoted from (`model_id`, plus `model_params` and
+    `model_metrics`, which are that model's own values surfacing on the version). So a version
+    response is a route to both tiers, exactly as a run or trace response is.
+
+    `source` is deliberately NOT cleared: it is the version's own artifact location -- its content,
+    not a sibling's -- and `validate_can_create_model_version` already gates the model id a
+    `models:/m-<id>` source dereferences.
+    """
+    watched = [
+        version
+        for version in versions
+        if any(
+            getattr(version, field)
+            for fields in _MODEL_VERSION_SIBLING_FIELDS.values()
+            for field in fields
+        )
+    ]
+    if not watched:
+        return False
+    denied = _denied_sibling_tiers(username, tuple(_MODEL_VERSION_SIBLING_FIELDS))
+    if not denied:
+        return False
+    withheld = False
+    for version in watched:
+        for tier in denied:
+            for field in _MODEL_VERSION_SIBLING_FIELDS[tier]:
+                if getattr(version, field):
+                    version.ClearField(field)
+                    withheld = True
+    return withheld
+
+
 def _withhold_denied_run_model_links(runs, username: str) -> bool:
     """Clear a run's logged-model input/output links when the caller is denied the model tier.
 
@@ -6117,6 +6169,44 @@ def _redact_run_response(resp: Response, response_message, runs_of) -> None:
     parse_dict(resp.json, response_message)
     if _withhold_denied_run_model_links(runs_of(response_message), authenticate_request().username):
         resp.data = message_to_json(response_message)
+
+
+def _redact_version_response(resp: Response, response_message, versions_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_version_siblings(
+        versions_of(response_message), authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(resp, GetModelVersion.Response(), lambda m: [m.model_version])
+
+
+def redact_created_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(resp, CreateModelVersion.Response(), lambda m: [m.model_version])
+
+
+def redact_updated_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(resp, UpdateModelVersion.Response(), lambda m: [m.model_version])
+
+
+def redact_transitioned_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(
+        resp, TransitionModelVersionStage.Response(), lambda m: [m.model_version]
+    )
+
+
+def redact_model_version_by_alias_siblings(resp: Response) -> None:
+    _redact_version_response(resp, GetModelVersionByAlias.Response(), lambda m: [m.model_version])
+
+
+def redact_latest_versions_siblings(resp: Response) -> None:
+    _redact_version_response(resp, GetLatestVersions.Response(), lambda m: m.model_versions)
 
 
 def redact_get_run_model_links(resp: Response) -> None:
@@ -6316,6 +6406,12 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
+    GetModelVersion: redact_model_version_siblings,
+    GetModelVersionByAlias: redact_model_version_by_alias_siblings,
+    GetLatestVersions: redact_latest_versions_siblings,
+    CreateModelVersion: redact_created_model_version_siblings,
+    UpdateModelVersion: redact_updated_model_version_siblings,
+    TransitionModelVersionStage: redact_transitioned_model_version_siblings,
     GetRun: redact_get_run_model_links,
     SearchRuns: redact_search_runs_model_links,
     StartTraceV3: redact_start_trace_v3_metadata,

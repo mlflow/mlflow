@@ -5750,6 +5750,81 @@ def test_create_model_version_ignores_a_registry_source_uri(
         assert auth_module.validate_can_create_model_version() is True
 
 
+def _version_payload():
+    return {"model_version": {"name": "model-xyz", "version": "3", "run_id": "r-1",
+                              "run_link": "http://host/#/experiments/1/runs/r-1",
+                              "model_id": "m-1",
+                              "model_metrics": [{"key": "acc", "value": 0.9}],
+                              "source": "models:/m-1"}}
+
+
+def test_model_version_withholds_run_content_on_a_run_deny(
+    workspace_permission_setup, monkeypatch
+):
+    """A ModelVersion names the run that produced it (run_id, and run_link which is a URL to it)."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+
+    flask_resp = Response(json.dumps(_version_payload()), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/model-versions/get", method="GET",
+                                             query_string={"name": "model-xyz", "version": "3"}):
+        auth_module.redact_model_version_siblings(flask_resp)
+    version = json.loads(flask_resp.get_data(as_text=True))["model_version"]
+
+    assert "run_id" not in version
+    assert "run_link" not in version
+    # The logged-model tier is separate and untouched.
+    assert version["model_id"] == "m-1"
+    # `source` is the version's OWN artifact location, not a sibling's, and is gated at create.
+    assert version["source"] == "models:/m-1"
+
+
+def test_model_version_withholds_model_content_on_a_logged_model_deny(
+    workspace_permission_setup, monkeypatch
+):
+    """model_params / model_metrics are the logged model's own values surfacing on the version."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
+
+    flask_resp = Response(json.dumps(_version_payload()), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/model-versions/get", method="GET",
+                                             query_string={"name": "model-xyz", "version": "3"}):
+        auth_module.redact_model_version_siblings(flask_resp)
+    version = json.loads(flask_resp.get_data(as_text=True))["model_version"]
+
+    assert "model_id" not in version
+    assert "model_metrics" not in version
+    assert version["run_id"] == "r-1"
+
+
+def test_registered_model_latest_versions_also_lose_denied_siblings(
+    workspace_permission_setup, monkeypatch
+):
+    """A latest_versions row the caller may read still carried the denied run's id."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    payload = {"registered_model": {"name": "model-xyz", "latest_versions": [
+        {"name": "model-xyz", "version": "3", "run_id": "r-1"}]}}
+
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/registered-models/get", method="GET",
+                                             query_string={"name": "model-xyz"}):
+        auth_module.redact_get_registered_model_versions(flask_resp)
+    model = json.loads(flask_resp.get_data(as_text=True))["registered_model"]
+
+    assert model["latest_versions"][0]["version"] == "3"
+    assert "run_id" not in model["latest_versions"][0]
+
+
 def test_get_run_withholds_model_links_on_a_logged_model_deny(
     workspace_permission_setup, monkeypatch
 ):
