@@ -120,7 +120,8 @@ jobs:
         run: |
           uv run --no-project dev/check_whitespace_only.py \
             --repo $REPO \
-            --pr $PR_NUMBER
+            --pr $PR_NUMBER \
+            --base-revision HEAD^1
 
       - name: Check uv.lock changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'

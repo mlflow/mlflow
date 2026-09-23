@@ -22,7 +22,7 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
 
-_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "responses", None)
+_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "evaluation", "responses", None)
 
 _REMOTE_FETCH_MAX_RETRIES = 3
 _REMOTE_FETCH_TIMEOUT = 5
@@ -813,6 +813,21 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "typesafe": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use TypeSafe API Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "TypeSafe API Key",
+                    "secret": True,
+                    "required": True,
+                },
+            ],
+        },
+    },
 }
 
 _BEDROCK_PROVIDERS = {"bedrock", "bedrock_converse"}
@@ -968,7 +983,7 @@ def get_models(provider: str | None = None) -> list[ModelDict]:
     """
     Get a list of models from LiteLLM, optionally filtered by provider.
 
-    Returns models that support chat, completion, embedding, or responses
+    Returns models that support chat, completion, embedding, evaluation, or responses
     capabilities, excluding image generation, audio, and other non-text services.
 
     Args:
@@ -980,7 +995,7 @@ def get_models(provider: str | None = None) -> list[ModelDict]:
         List of model dictionaries with keys:
             - model: Model name
             - provider: Provider name (normalized, e.g., vertex_ai instead of vertex_ai-anthropic)
-            - mode: Model mode (e.g., 'chat', 'completion', 'embedding')
+            - mode: Model mode (e.g., 'chat', 'completion', 'embedding', 'evaluation')
             - supports_function_calling: Whether model supports tool/function calling
             - supports_vision: Whether model supports image/vision input
             - supports_reasoning: Whether model supports extended thinking (o1-style)
@@ -1096,6 +1111,7 @@ _CORE_PROVIDER_ENV_VARS = {
     "xai": "XAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "togetherai": "TOGETHERAI_API_KEY",
+    "typesafe": "TYPESAFE_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
