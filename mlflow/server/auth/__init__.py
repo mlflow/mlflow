@@ -2648,7 +2648,12 @@ def _validate_can_update_gateway_endpoint_from_request(request_message) -> bool:
 
 
 def validate_can_add_guardrail_to_gateway_endpoint():
-    return _validate_can_update_gateway_endpoint_from_request(AddGuardrailToEndpoint())
+    # A Guardrail carries a full ScorerVersion, so attaching one exposes that scorer's definition
+    # through the endpoint. The endpoint tier stays the positive gate; the scorer tier vetoes.
+    msg = _get_request_message(AddGuardrailToEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+    return _guardrail_scorer_not_denied(msg.guardrail_id)
 
 
 def validate_can_remove_guardrail_from_gateway_endpoint():
@@ -2656,7 +2661,11 @@ def validate_can_remove_guardrail_from_gateway_endpoint():
 
 
 def validate_can_update_gateway_endpoint_guardrail_config():
-    return _validate_can_update_gateway_endpoint_from_request(UpdateEndpointGuardrailConfig())
+    # Same exposure as attaching: the config names the guardrail whose scorer is served.
+    msg = _get_request_message(UpdateEndpointGuardrailConfig())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+    return _guardrail_scorer_not_denied(msg.guardrail_id)
 
 
 def validate_can_read_gateway_endpoint_guardrail_configs():
@@ -2806,6 +2815,39 @@ def validate_can_update_gateway_endpoint():
         return False
 
     return _validate_can_use_model_definitions(msg.model_configs)
+
+
+def _guardrail_scorer_not_denied(guardrail_id: str) -> bool:
+    """Veto on the scorer a guardrail runs, mirroring ``validate_can_invoke_scorer``.
+
+    Attaching a guardrail puts that scorer on the endpoint's traffic and echoes its
+    ``ScorerVersion`` -- ``serialized_scorer`` included -- back in the response. The endpoint tier
+    remains the positive gate; the scorer only vetoes, and the version falls back to its scorer
+    because a version is an existing sub-resource of it.
+
+    A guardrail id that does not resolve denies uniformly, so the response cannot be used as an
+    oracle for which guardrail ids exist.
+    """
+    guardrail = _fetch_or_none(_get_tracking_store().get_gateway_guardrail, guardrail_id)
+    if guardrail is None:
+        return False
+    experiment_id, scorer_pattern = _scorer_row_keys(guardrail.scorer)
+    scorer = (RESOURCE_TYPE_SCORER, scorer_pattern)
+    return authorize(
+        authenticate_request().username,
+        # Anchored on the scorer's experiment, as ``_scorer_version_not_denied`` is: the anchor only
+        # names the workspace whose grants apply, and cross-workspace requests are unreachable.
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(*scorer, ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            ),
+        ],
+    )
 
 
 def validate_can_attach_model_to_gateway_endpoint():
@@ -5302,6 +5344,62 @@ def _scorer_row_keys(scorer) -> "tuple[str, str]":
     return experiment_id, store._scorer_pattern(experiment_id, scorer.scorer_name)
 
 
+def _withhold_denied_guardrail_scorers(configs) -> bool:
+    """Clear the embedded ``ScorerVersion`` from guardrail configs the scorer tier withholds.
+
+    The scorer is a PASSENGER here -- the caller asked for an endpoint's guardrail configs, not for
+    scorer content -- so the row stays and only the scorer is withheld, leaving guardrail_id, name,
+    stage and action intact. The whole submessage goes rather than just ``serialized_scorer``,
+    because ``filter_list_scorers`` withholds a denied scorer's NAME too and the two must agree.
+    """
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    gate = retention_gate(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
+            Requirement(
+                RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
+        ],
+    )
+    withheld = False
+    for config in configs:
+        if not config.guardrail.HasField("scorer"):
+            continue
+        experiment_id, scorer_pattern = _scorer_row_keys(config.guardrail.scorer)
+        if (
+            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
+            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
+        ):
+            continue
+        config.guardrail.ClearField("scorer")
+        withheld = True
+    return withheld
+
+
+def redact_list_guardrail_config_scorers(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = ListEndpointGuardrailConfigs.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_guardrail_scorers(response_message.configs):
+        resp.data = message_to_json(response_message)
+
+
+def redact_guardrail_config_scorer(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = AddGuardrailToEndpoint.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_guardrail_scorers([response_message.config]):
+        resp.data = message_to_json(response_message)
+
+
 def filter_list_scorers(resp: Response) -> None:
     """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
 
@@ -5531,6 +5629,9 @@ AFTER_REQUEST_PATH_HANDLERS = {
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,
+    ListEndpointGuardrailConfigs: redact_list_guardrail_config_scorers,
+    AddGuardrailToEndpoint: redact_guardrail_config_scorer,
+    UpdateEndpointGuardrailConfig: redact_guardrail_config_scorer,
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
