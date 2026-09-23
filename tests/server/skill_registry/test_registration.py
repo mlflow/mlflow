@@ -1,10 +1,13 @@
+import gzip
 import io
 import re
 import tarfile
 import threading
 from unittest import mock
+from urllib.parse import quote
 
 import pytest
+from flask import Flask
 
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import GitSource, MlflowSource, OCISource, SkillSourceType
@@ -14,6 +17,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS
+from mlflow.server import handlers
 from mlflow.server.skill_registry import SkillVersionRegistration, register_skill_version
 from mlflow.server.skill_registry import registration as registration_module
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -221,6 +225,83 @@ def test_malformed_content_is_rejected_without_a_version(store, artifact_root, c
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
     assert version_rows(store) == 0
     assert stored_files(artifact_root) == []
+
+
+def _stored_gzip(payload: bytes) -> bytes:
+    # compresslevel=0 emits stored DEFLATE blocks, so the bytes can be edited in place.
+    return gzip.compress(payload, compresslevel=0)
+
+
+def test_missing_gzip_trailer_is_rejected(store, artifact_root):
+    content = _stored_gzip(gzip.decompress(skill_archive().getvalue()))[:-8]
+    with pytest.raises(EOFError, match="end-of-stream marker"):
+        gzip.decompress(content)
+    with pytest.raises(MlflowException, match="not a readable tar archive") as exc:
+        register_skill_version(_UPLOAD, content=io.BytesIO(content), multipart=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+def test_tampered_gzip_payload_is_rejected(store, artifact_root):
+    # Change file bytes inside the stored block while keeping the original trailer: the tar
+    # still parses, but the CRC no longer matches, which is what the trailer check catches.
+    tar_bytes = gzip.decompress(skill_archive().getvalue())
+    content = bytearray(_stored_gzip(tar_bytes))
+    marker = SKILL_FILES["SKILL.md"]
+    index = content.find(marker)
+    assert index > 0
+    content[index] = ord("X")
+    with pytest.raises(gzip.BadGzipFile, match="CRC"):
+        gzip.decompress(bytes(content))
+    with pytest.raises(MlflowException, match="not a readable tar archive"):
+        register_skill_version(_UPLOAD, content=io.BytesIO(bytes(content)), multipart=True)
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [
+        ("%53KILL.md", "cannot be downloaded back"),
+        ("reference#1.md", "cannot be downloaded back"),
+        ("docs%2Fnotes.md", "cannot be downloaded back"),
+        ("a#b/SKILL.md", "cannot be downloaded back"),
+        # `?` never gets this far: the shared archive rules already refuse it as a name
+        # Windows cannot store, which is the same outcome.
+        ("what?.md", "Windows does not allow"),
+        ("q?/x.md", "Windows does not allow"),
+    ],
+)
+def test_names_that_cannot_be_downloaded_are_rejected(store, artifact_root, name, message):
+    files = {"SKILL.md": b"entry point", name: b"other"}
+    with pytest.raises(MlflowException, match=message) as exc:
+        register_skill_version(_UPLOAD, content=skill_archive(files), multipart=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+def test_accepted_names_download_their_own_bytes(store, artifact_root):
+    # Registration to download through the real artifact handler, for names that are unusual
+    # but survive the artifact API: spaces, unicode, plus signs, and nested directories.
+    files = {
+        "SKILL.md": b"entry point",
+        "notes with spaces.md": b"spaces",
+        "r\u00e9sum\u00e9.md": b"unicode",
+        "a+b.md": b"plus",
+        "scripts/run (1).py": b"nested",
+    }
+    version = register_skill_version(_UPLOAD, content=skill_archive(files), multipart=True)
+    path = version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    app = Flask(__name__)
+    prefix = "/api/2.0/mlflow-artifacts/artifacts"
+    app.add_url_rule(prefix + "/<path:artifact_path>", view_func=handlers._download_artifact)
+    with app.test_client() as client:
+        for name, expected in files.items():
+            response = client.get(f"{prefix}/{path}/{quote(name)}")
+            assert (name, response.status_code) == (name, 200)
+            assert response.data == expected
 
 
 def test_oversize_content_is_rejected_without_a_version(store, artifact_root, monkeypatch):

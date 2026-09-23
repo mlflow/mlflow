@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import tempfile
 from dataclasses import dataclass
@@ -33,6 +34,10 @@ from mlflow.store.tracking.skill_registry.artifact_paths import (
 from mlflow.utils.validation import _validate_organization_name, _validate_skill_name
 
 _DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
+# Names are addressed through the artifact HTTP API, which decodes percent-escapes in the path
+# and, like any URL, ends the path at ``?`` or ``#``. A name containing these cannot be pulled
+# back as the bytes that were stored.
+_UNDOWNLOADABLE_CHARACTERS = "%?#"
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
 # Gzip framing and tar headers can make an archive of incompressible content slightly larger
 # than the content itself.
@@ -240,6 +245,7 @@ def _register_uploaded(registration: SkillVersionRegistration, content: BinaryIO
             raise MlflowException.invalid_parameter_value(
                 "The uploaded skill content contains no files."
             )
+        _reject_undownloadable_names(tree)
         # A path no other upload can have, so the bytes of a failed or crashed attempt are
         # never picked up by another version.
         artifact_path = new_skill_upload_path(registration.name, registration.organization)
@@ -266,6 +272,25 @@ def _register_uploaded(registration: SkillVersionRegistration, content: BinaryIO
         if e.error_code in _DEFINITE_REJECTIONS:
             delete_artifact_tree_best_effort(artifact_path)
         raise
+
+
+def _reject_undownloadable_names(tree: Path) -> None:
+    """
+    Refuse an uploaded tree whose file or directory names would not survive the artifact API.
+
+    The archive rules accept any name that is safe on a filesystem, but stored content is
+    pulled back through the artifact download and listing routes, so a version is only
+    complete if every name comes back as itself.
+    """
+    for dirpath, dirnames, filenames in os.walk(tree):
+        for name in (*dirnames, *filenames):
+            if any(character in name for character in _UNDOWNLOADABLE_CHARACTERS):
+                relative = (Path(dirpath) / name).relative_to(tree).as_posix()
+                raise MlflowException.invalid_parameter_value(
+                    f"Uploaded skill content contains a name that cannot be downloaded back "
+                    f"through the artifact API: '{relative}'. Names must not contain "
+                    f"{', '.join(repr(c) for c in _UNDOWNLOADABLE_CHARACTERS)}."
+                )
 
 
 def _spool(content: BinaryIO, target: Path, *, max_bytes: int) -> None:
