@@ -5564,6 +5564,149 @@ def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup)
     assert _run({}) is False
 
 
+def _get_registered_model_versions(rows, name="model-xyz", tags=None):
+    payload = json.dumps({
+        "registered_model": {"name": name, "tags": tags or [], "latest_versions": rows}
+    })
+    flask_resp = Response(payload, mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/get", method="GET", query_string={"name": name}
+    ):
+        auth_module.redact_get_registered_model_versions(flask_resp)
+    out = json.loads(flask_resp.get_data(as_text=True))
+    return out.get("registered_model", {}).get("latest_versions", [])
+
+
+def test_latest_versions_are_redacted_by_a_version_deny(workspace_permission_setup, monkeypatch):
+    """RegisteredModel embeds ModelVersion rows, so a registered-model response is a second route to
+    version data that SearchModelVersions and GetModelVersion already gate. The versions are
+    passengers on a model the caller may read, so they are redacted and the row survives.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+
+    assert _get_registered_model_versions([{"name": "model-xyz", "version": "3"}]) == []
+    # The model row itself is still returned -- only the embedded versions are withheld.
+    payload = json.dumps({"registered_model": {"name": "model-xyz", "tags": [],
+                                               "latest_versions": [{"name": "model-xyz"}]}})
+    flask_resp = Response(payload, mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/get", method="GET", query_string={"name": "model-xyz"}
+    ):
+        auth_module.redact_get_registered_model_versions(flask_resp)
+    assert json.loads(flask_resp.get_data(as_text=True))["registered_model"]["name"] == "model-xyz"
+
+
+def test_latest_versions_survive_without_a_version_deny(workspace_permission_setup, monkeypatch):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
+
+    assert len(_get_registered_model_versions([{"name": "model-xyz", "version": "3"}])) == 1
+
+
+def test_search_registered_models_redacts_embedded_versions(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", READ.name),
+        ("registered_model_version", "*", DENY.name),
+    ])
+    payload = json.dumps({
+        "registered_models": [
+            {"name": "model-xyz", "tags": [], "latest_versions": [{"name": "model-xyz"}]}
+        ],
+        "next_page_token": "",
+    })
+    flask_resp = Response(payload, mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/search",
+        method="GET",
+        query_string={"max_results": "100"},
+    ):
+        auth_module.filter_search_registered_models(flask_resp)
+    out = json.loads(flask_resp.get_data(as_text=True))
+    assert [rm["name"] for rm in out["registered_models"]] == ["model-xyz"]
+    assert out["registered_models"][0].get("latest_versions", []) == []
+
+
+def _run_delete_experiment(experiment_id="exp-1"):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/delete", method="POST", json={"experiment_id": experiment_id}
+    ):
+        return auth_module.validate_can_delete_experiment()
+
+
+@pytest.mark.parametrize(
+    "tier", ["run", "trace", "logged_model", "assessment", "review_queue"]
+)
+def test_experiment_delete_requires_delete_on_what_it_contains(workspace_permission_setup, tier):
+    """Deleting an experiment withdraws its contents, so each contained tier carries `delete`. A
+    child grant that cannot delete withholds the cascade even from an experiment MANAGE holder --
+    tier override means the narrower grant decides, which is the intended reading.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", MANAGE.name),
+        (tier, "*", EDIT.name),
+    ])
+
+    assert _run_delete_experiment() is False
+
+
+def test_experiment_delete_allowed_when_children_are_deletable(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", MANAGE.name),
+        ("run", "*", MANAGE.name),
+    ])
+
+    assert _run_delete_experiment() is True
+
+
+def test_experiment_delete_falls_back_to_the_parent(workspace_permission_setup):
+    """No child grant at all: the experiment decides, exactly as master does."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
+
+    assert _run_delete_experiment() is True
+
+
+def test_registered_model_delete_requires_delete_on_its_versions(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("registered_model", "*", MANAGE.name),
+        ("registered_model_version", "*", EDIT.name),
+    ])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/delete", method="POST", json={"name": "model-xyz"}
+    ):
+        assert auth_module.validate_can_delete_registered_model_or_prompt_cascade() is False
+        # The alias route destroys no version and keeps the plain parent check.
+        assert auth_module._validate_can_delete_registered_model_or_prompt() is True
+
+
 def _run_version_route(validator, name="model-xyz", method="POST"):
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/update",
