@@ -1956,6 +1956,51 @@ def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
 
+def _authorize_version_action(action: str) -> bool:
+    """Mutations of an EXISTING model or prompt version.
+
+    Same shape the experiment's children use (``_run_requirement`` and friends): the version tier
+    carries the action with its parent as fallback, plus the parent READ baseline of §5e. So a
+    caller holding READ on the registry entry and EDIT on the version tier can work on versions
+    without registry management, and absent a version grant the parent governs exactly as before.
+
+    The parent READ requirement is not decoration. Version grain is wildcard-only, so one
+    ``(registered_model_version, "*", …)`` grant otherwise reaches every version in the workspace;
+    and because a fallback chain stops at the first key holding a grant, a sufficient version grant
+    would end the chain before a parent DENY was consulted.
+
+    Which tier applies is discovered by fetching, since a prompt IS a registered model carrying a
+    tag -- so a prompt's versions resolve to ``prompt_version`` and a model's to
+    ``registered_model_version``, and neither family can be mutated through the other's tier.
+    """
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [
+            Requirement(container_type, name, "read"),
+            Requirement(version_type, "*", action, fallback_if_no_grant=(container,)),
+        ],
+    )
+
+
+def validate_can_update_model_or_prompt_version():
+    return _authorize_version_action("update")
+
+
+def validate_can_delete_model_or_prompt_version():
+    return _authorize_version_action("delete")
+
+
 def _validate_can_manage_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_manage
 
@@ -3867,14 +3912,14 @@ BEFORE_REQUEST_HANDLERS = {
     GetLatestVersions: _validate_can_read_registered_model_or_prompt,
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: _validate_can_read_registered_model_or_prompt,
-    DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
-    UpdateModelVersion: _validate_can_update_registered_model_or_prompt,
-    TransitionModelVersionStage: _validate_can_update_registered_model_or_prompt,
+    DeleteModelVersion: validate_can_delete_model_or_prompt_version,
+    UpdateModelVersion: validate_can_update_model_or_prompt_version,
+    TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
     GetModelVersionDownloadUri: _validate_can_read_registered_model_or_prompt,
     SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
-    SetModelVersionTag: _validate_can_update_registered_model_or_prompt,
-    DeleteModelVersionTag: _validate_can_delete_registered_model_or_prompt,
+    SetModelVersionTag: validate_can_update_model_or_prompt_version,
+    DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
     SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
     DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
     GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
