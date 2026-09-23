@@ -5744,7 +5744,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
-                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+                # Keep non-ASCII text unescaped so `trace.text` / `span.content` LIKE filters
+                # can match it: stored as a \uXXXX escape, it never matches the text users type.
+                # MSSQL keeps the escaped form: its `spans.content` column is a non-Unicode
+                # VARCHAR, which would replace characters outside its code page with "?".
+                content_json = json.dumps(
+                    span_dict, cls=TraceJSONEncoder, ensure_ascii=self.db_type == MSSQL
+                )
 
                 model_name = bounded_model_dimension(
                     _try_parse_json_string(span_attributes.get(SpanAttributeKey.MODEL))
