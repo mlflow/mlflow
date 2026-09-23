@@ -832,15 +832,20 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker(read_only=False) as session:
             job = self._get_sql_job(session, job_id)
-
-            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
-                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
-
-            # Merge new status details with existing
-            current_details = job.status_details or {}
+            current_details = dict(job.status_details or {})
             current_details.update(status_details)
-            job.status_details = current_details
-            job.last_update_time = get_current_time_millis()
+            status = self._conditional_status_update(
+                session,
+                job_id,
+                (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY),
+                {
+                    SqlJob.status_details: current_details,
+                    SqlJob.last_update_time: get_current_time_millis(),
+                },
+            )
+            if status != JobUpdateStatus.APPLIED:
+                job = self._get_sql_job(session, job_id, populate_existing=True)
+                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
 
     def update_job_progress(
         self,
@@ -862,15 +867,22 @@ class SqlAlchemyJobStore(AbstractJobStore):
             return
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            job = self._get_sql_job(session, job_id)
-
-            if JobStatus.is_finalized(JobStatus.from_int(job.status)):
-                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
-
             update_time = get_current_time_millis()
+            values = {
+                SqlJob.progress_updated_at: update_time,
+                SqlJob.last_update_time: update_time,
+            }
             if message is not None:
-                job.status_message = message
+                values[SqlJob.status_message] = message
             if progress is not None:
-                job.progress = progress.to_dict()
-            job.progress_updated_at = update_time
-            job.last_update_time = update_time
+                values[SqlJob.progress] = progress.to_dict()
+
+            status = self._conditional_status_update(
+                session,
+                job_id,
+                (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY),
+                values,
+            )
+            if status != JobUpdateStatus.APPLIED:
+                job = self._get_sql_job(session, job_id, populate_existing=True)
+                raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))

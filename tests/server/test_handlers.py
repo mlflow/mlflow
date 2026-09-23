@@ -6282,8 +6282,10 @@ def test_invoke_scorer_allows_decorator_scorer_when_flag_enabled(mock_tracking_s
         "instructions_judge_pydantic_data": None,
     })
     with (
-        mock.patch("mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]),
-        mock.patch("mlflow.server.jobs.submit_job"),
+        mock.patch(
+            "mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]
+        ) as mock_get_batches,
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
     ):
         with app.test_client() as c:
             response = c.post(
@@ -6296,6 +6298,8 @@ def test_invoke_scorer_allows_decorator_scorer_when_flag_enabled(mock_tracking_s
             )
         # Flag on: the request gets past the gate instead of being rejected as a decorator scorer.
         assert response.status_code == 200
+        mock_get_batches.assert_called_once_with(["trace1"], mock.ANY, mock_tracking_store)
+        mock_submit.assert_not_called()
 
 
 def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracking_store):

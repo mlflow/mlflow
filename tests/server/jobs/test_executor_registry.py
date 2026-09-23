@@ -13,6 +13,7 @@ from mlflow.server.jobs.executor import (
     JobResult,
 )
 from mlflow.server.jobs.executor_registry import (
+    ENTRY_POINT_GROUP,
     JobExecutorRegistry,
     _build_executor_config_from_env,
     _register_default_executors,
@@ -184,9 +185,13 @@ def test_discover_and_register_from_entry_points():
     ep = _make_entry_point("remote", StubExecutor)
 
     registry = JobExecutorRegistry()
-    with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]):
+    with mock.patch(
+        "mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]
+    ) as mock_get_entry_points:
         registry.discover_and_register()
 
+    mock_get_entry_points.assert_called_once_with(ENTRY_POINT_GROUP)
+    ep.load.assert_called_once_with()
     assert "remote" in registry.get_registered_names()
     assert isinstance(registry.get("remote"), StubExecutor)
 
@@ -197,18 +202,27 @@ def test_discover_entry_point_conflicting_with_builtin_raises():
     registry = JobExecutorRegistry()
     _register_default_executors(registry)
 
-    with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]):
+    with mock.patch(
+        "mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]
+    ) as mock_get_entry_points:
         with pytest.raises(MlflowException, match="conflicts with an already-registered"):
             registry.discover_and_register()
+
+    mock_get_entry_points.assert_called_once_with(ENTRY_POINT_GROUP)
+    ep.load.assert_not_called()
 
 
 def test_discover_non_executor_class_skips_with_warning():
     ep = _make_entry_point("bad", dict)
 
     registry = JobExecutorRegistry()
-    with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]):
+    with mock.patch(
+        "mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]
+    ) as mock_get_entry_points:
         registry.discover_and_register()
 
+    mock_get_entry_points.assert_called_once_with(ENTRY_POINT_GROUP)
+    ep.load.assert_called_once_with()
     assert "bad" not in registry.get_registered_names()
 
 
@@ -219,9 +233,13 @@ def test_discover_import_failure_skips_with_warning():
     ep.load.side_effect = ImportError("No module named 'nonexistent'")
 
     registry = JobExecutorRegistry()
-    with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]):
+    with mock.patch(
+        "mlflow.server.jobs.executor_registry.get_entry_points", return_value=[ep]
+    ) as mock_get_entry_points:
         registry.discover_and_register()
 
+    mock_get_entry_points.assert_called_once_with(ENTRY_POINT_GROUP)
+    ep.load.assert_called_once_with()
     assert "broken" not in registry.get_registered_names()
 
 
@@ -236,7 +254,6 @@ def test_build_executor_config_from_env(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "7")
     monkeypatch.setenv("MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT", "120")
     monkeypatch.setenv("MLFLOW_SERVER_JOB_LEASE_TTL", "45")
-    monkeypatch.setenv("MLFLOW_SERVER_COMPLETED_JOB_TTL", "600")
 
     config = _build_executor_config_from_env()
 
@@ -245,7 +262,20 @@ def test_build_executor_config_from_env(monkeypatch):
     assert config.max_retries == 7
     assert config.default_timeout == 120
     assert config.job_lease_ttl == 45
-    assert config.completed_job_ttl == 600
+
+
+@pytest.mark.parametrize("lease_ttl", ["0.59", "nan", "inf"])
+def test_build_executor_config_rejects_invalid_lease_ttl(monkeypatch, lease_ttl):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_LEASE_TTL", lease_ttl)
+
+    with pytest.raises(MlflowException, match="must be finite and at least 0.6 seconds"):
+        _build_executor_config_from_env()
+
+
+def test_build_executor_config_accepts_minimum_lease_ttl(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_LEASE_TTL", "0.6")
+
+    assert _build_executor_config_from_env().job_lease_ttl == 0.6
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +324,13 @@ def test_validate_executor_config_succeeds(monkeypatch):
     )
 
     with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[]):
+        validate_executor_config()
+
+
+def test_validate_executor_config_rejects_invalid_lease_ttl(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_LEASE_TTL", "nan")
+
+    with pytest.raises(MlflowException, match="must be finite and at least 0.6 seconds"):
         validate_executor_config()
 
 

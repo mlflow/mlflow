@@ -1,11 +1,16 @@
 """Executor plugin discovery, registration, and validation."""
 
 import logging
+import math
 import threading
 import warnings
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+from mlflow.server.jobs.executor import (
+    _MIN_JOB_LEASE_TTL,
+    AbstractJobExecutor,
+    JobExecutorConfig,
+)
 from mlflow.utils.plugins import get_entry_points
 
 _logger = logging.getLogger(__name__)
@@ -201,7 +206,6 @@ def validate_executor_config() -> None:
 def _build_executor_config_from_env() -> JobExecutorConfig:
     """Build ``JobExecutorConfig`` from the current environment variables."""
     from mlflow.environment_variables import (
-        MLFLOW_SERVER_COMPLETED_JOB_TTL,
         MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT,
         MLFLOW_SERVER_JOB_LEASE_TTL,
         MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES,
@@ -209,13 +213,19 @@ def _build_executor_config_from_env() -> JobExecutorConfig:
         MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
     )
 
+    job_lease_ttl = MLFLOW_SERVER_JOB_LEASE_TTL.get()
+    if not math.isfinite(job_lease_ttl) or job_lease_ttl < _MIN_JOB_LEASE_TTL:
+        raise MlflowException.invalid_parameter_value(
+            f"MLFLOW_SERVER_JOB_LEASE_TTL must be finite and at least "
+            f"{_MIN_JOB_LEASE_TTL} seconds, but got {job_lease_ttl}."
+        )
+
     return JobExecutorConfig(
         retry_base_delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get(),
         retry_max_delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.get(),
         max_retries=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES.get(),
         default_timeout=MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT.get(),
-        job_lease_ttl=MLFLOW_SERVER_JOB_LEASE_TTL.get(),
-        completed_job_ttl=MLFLOW_SERVER_COMPLETED_JOB_TTL.get(),
+        job_lease_ttl=job_lease_ttl,
     )
 
 

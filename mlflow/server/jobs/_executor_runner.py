@@ -35,7 +35,12 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR, MLFLOW_SERVER_UP_TIME
-from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
+from mlflow.server.jobs.executor import (
+    _MIN_JOB_LEASE_TTL,
+    AbstractJobExecutor,
+    JobExecutionContext,
+    JobResult,
+)
 from mlflow.server.jobs.executor_registry import get_executor_registry
 from mlflow.server.jobs.lock_manager import JobLock, JobLockManager
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
@@ -62,7 +67,6 @@ _MIN_LEASE_RENEW_INTERVAL = 0.2
 # TTL below this at startup, so the renew interval is always strictly below the TTL (the floor
 # never reaches it) — no near-zero busy loop and no renewal that first fires after the lease has
 # already expired.
-_MIN_LEASE_TTL = 0.6
 
 
 class _UnschedulableJob(Exception):
@@ -98,8 +102,8 @@ class _LeaseRenewer:
         # without it renew_job_lease would raise "Active workspace is required" on every tick.
         self._workspace = workspace
         # Renew at TTL/N, floored so a short TTL cannot drive a busy loop. The scheduler validates
-        # the configured TTL is >= _MIN_LEASE_TTL at startup, so this interval is always strictly
-        # below the lease (the floor never reaches the TTL) and fires before it expires.
+        # the configured TTL is >= _MIN_JOB_LEASE_TTL at startup, so this interval is always
+        # strictly below the lease (the floor never reaches the TTL) and fires before it expires.
         self._interval = max(lease_duration / _LEASE_RENEWALS_PER_TTL, _MIN_LEASE_RENEW_INTERVAL)
         self._stop = threading.Event()
         self._thread = threading.Thread(
@@ -359,9 +363,10 @@ class _JobScheduler:
         executor: AbstractJobExecutor,
         lease_duration: float | None,
     ) -> None:
-        if lease_duration is not None and lease_duration < _MIN_LEASE_TTL:
+        if lease_duration is not None and lease_duration < _MIN_JOB_LEASE_TTL:
             raise MlflowException(
-                f"The job lease TTL must be at least {_MIN_LEASE_TTL} seconds so a running job's "
+                f"The job lease TTL must be at least {_MIN_JOB_LEASE_TTL} seconds so a running "
+                "job's "
                 f"lease can be renewed before it expires, but got {lease_duration}. Set "
                 f"MLFLOW_SERVER_JOB_LEASE_TTL to a larger value."
             )
