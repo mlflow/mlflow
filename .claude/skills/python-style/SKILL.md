@@ -307,9 +307,8 @@ def test_server_request():
     start_server()
     time.sleep(5)
     send_request_to_server()  # May fail without revealing that the server is still starting.
-```
 
-```python
+
 # Good
 def test_server_request():
     start_server()
