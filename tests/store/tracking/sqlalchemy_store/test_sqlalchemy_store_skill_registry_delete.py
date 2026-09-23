@@ -1,3 +1,4 @@
+import threading
 from unittest import mock
 
 import pytest
@@ -12,6 +13,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     new_skill_upload_path,
+    owned_skill_upload_path,
     to_artifact_uri,
 )
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -209,6 +211,41 @@ def test_delete_skill_reports_a_bounded_number_of_references(store):
 
     with pytest.raises(MlflowException, match="and 2 more"):
         store.delete_skill("reviewer", organization="acme")
+
+
+def test_delete_skill_holds_out_a_concurrent_version_until_it_commits(store):
+    # Runs against every backend in the database matrix: the lock taken before the version
+    # snapshot must be strong enough to block the foreign-key lock a concurrent version insert
+    # takes on the parent, or that version would be cascaded away with its artifact path never
+    # captured. The insert waits, then recreates the skill from version 1 after the delete.
+    _, path = _upload(store)
+    committed = threading.Event()
+    outcome = {}
+
+    def register():
+        outcome["version"] = store.create_skill_version(
+            "reviewer", organization="acme", source_type="git", source="https://h/r.git"
+        )
+        committed.set()
+
+    thread = threading.Thread(target=register, name="concurrent-registration")
+
+    def classify_in_the_window(**kwargs):
+        thread.start()
+        assert not committed.wait(timeout=2)
+        return owned_skill_upload_path(**kwargs)
+
+    with mock.patch(
+        "mlflow.store.tracking.skill_registry.sqlalchemy_mixin.owned_skill_upload_path",
+        side_effect=classify_in_the_window,
+    ) as classify:
+        owned = store.delete_skill_and_collect_artifacts("reviewer", organization="acme")
+    classify.assert_called_once()
+    thread.join(timeout=30)
+    assert committed.is_set()
+    assert owned == [path]
+    assert outcome["version"].version == 1
+    assert _version_rows(store) == 1
 
 
 def test_delete_skill_leaves_other_identities_alone(store):
