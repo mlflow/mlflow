@@ -112,7 +112,11 @@ module.exports = async ({ github, context }) => {
       console.log(`No workflow runs found (attempt ${attempt}/3)`);
       if (attempt < 3) await sleep(1000);
     }
-    if (workflowRuns.length === 0) return null;
+    if (workflowRuns.length === 0) {
+      throw new Error(
+        `No workflow runs found for ${ref} after 3 attempts. Rerun this Protect job.`
+      );
+    }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -175,11 +179,6 @@ module.exports = async ({ github, context }) => {
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
-    if (checks === null) {
-      console.log("Workflow discovery is still empty; retrying on the next poll");
-      await sleep(getSleepLength(iterationCount, 1));
-      continue;
-    }
     if (rateLimitRemaining !== undefined) {
       console.log(`Rate limit remaining: ${rateLimitRemaining}`);
     }
