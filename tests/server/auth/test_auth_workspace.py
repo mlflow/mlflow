@@ -2406,6 +2406,58 @@ def test_artifact_proxy_honors_child_tier_deny(workspace_permission_setup, tier,
     ) is False
 
 
+@pytest.mark.parametrize(
+    ("tier", "artifact_path"),
+    [
+        ("trace", "1/%2Ftraces%2Ftr-1%2Fartifacts%2Fspans.json"),
+        ("trace", "1/%252Ftraces%252Ftr-1%252Fartifacts%252Fspans.json"),
+        ("run", "1/%2Fabc123%2Fartifacts%2Fmodel.pkl"),
+        ("logged_model", "1/%2Fmodels%2Fm-abc%2Fartifacts%2Fdata.bin"),
+    ],
+    ids=["trace-encoded", "trace-double-encoded", "run-encoded", "logged_model-encoded"],
+)
+def test_artifact_proxy_child_tier_survives_path_encoding(
+    workspace_permission_setup, tier, artifact_path
+):
+    """The auth layer and the handler must classify the same string. Flask decodes view_args once,
+    then every proxy handler calls validate_path_is_safe, which decodes AGAIN -- so an encoded path
+    reached the child classifier as one opaque segment naming no tier, while the handler resolved it
+    to the real child path and served the content.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [
+        ("experiment", "*", MANAGE.name),
+        (tier, "*", DENY.name),
+    ])
+    assert (
+        _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", artifact_path) is False
+    )
+    assert _run_artifact_proxy(
+        "validate_can_delete_experiment_artifact_proxy", artifact_path, method="DELETE"
+    ) is False
+    # FastAPI dispatch must not be the softer path.
+    assert auth_module._authorize_fastapi_artifact_proxy_child(
+        f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
+    ) is False
+
+
+def test_artifact_proxy_fails_closed_on_a_path_the_handler_would_reject(
+    workspace_permission_setup,
+):
+    """Traversal never reaches a child decision. Refusing costs nothing -- validate_path_is_safe
+    raises on exactly these paths in the handler too.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
+    assert _run_artifact_proxy(
+        "validate_can_read_experiment_artifact_proxy", "1/../../etc/passwd"
+    ) is False
+
+
 def test_artifact_proxy_child_deny_does_not_cross_tiers(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]

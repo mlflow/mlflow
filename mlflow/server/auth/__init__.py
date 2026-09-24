@@ -462,7 +462,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
-from mlflow.utils.uri import is_models_uri
+from mlflow.utils.uri import is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -1156,6 +1156,23 @@ def _artifact_proxy_child_type(artifact_path: str) -> "str | None":
     return RESOURCE_TYPE_RUN if len(segments) > 1 and segments[1] == "artifacts" else None
 
 
+def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
+    """The path the HANDLER will act on, or None if it will refuse the request.
+
+    The auth layer and the handler must classify the SAME string. Flask decodes `view_args` once,
+    but every proxy handler then passes the value through `validate_path_is_safe`, which decodes
+    again ("We must decode path before validating it"). So `0/%2Ftraces%2Ftid%2Fartifacts%2Ff`
+    reaches the child classifier as one opaque segment -- naming no child tier, hence no veto --
+    while the handler resolves it to `0//traces/tid/artifacts/f` and serves trace content.
+
+    Fails closed on rejection, which costs nothing: the handler raises on exactly these paths.
+    """
+    try:
+        return validate_path_is_safe(artifact_path)
+    except MlflowException:
+        return None
+
+
 def _authorize_artifact_proxy_child(artifact_path: "str | None", action: str) -> bool:
     """The child half of an artifact-proxy decision; the caller supplies the parent half.
 
@@ -1166,8 +1183,11 @@ def _authorize_artifact_proxy_child(artifact_path: "str | None", action: str) ->
     """
     if not artifact_path:
         return True
-    match = _EXPERIMENT_ID_PATTERN.match(f"{artifact_path.lstrip('/')}/")
-    child_type = _artifact_proxy_child_type(artifact_path) if match else None
+    canonical = _canonical_artifact_proxy_path(artifact_path)
+    if canonical is None:
+        return False
+    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
+    child_type = _artifact_proxy_child_type(canonical) if match else None
     if child_type is None:
         return True
     experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
@@ -8079,8 +8099,11 @@ def _authorize_fastapi_artifact_proxy_child(
     artifact_path = _artifact_proxy_path_from_request_path(path, query_path)
     if not artifact_path:
         return True
-    match = _EXPERIMENT_ID_PATTERN.match(f"{artifact_path.lstrip('/')}/")
-    child_type = _artifact_proxy_child_type(artifact_path) if match else None
+    canonical = _canonical_artifact_proxy_path(artifact_path)
+    if canonical is None:
+        return False
+    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
+    child_type = _artifact_proxy_child_type(canonical) if match else None
     if child_type is None:
         return True
     experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
