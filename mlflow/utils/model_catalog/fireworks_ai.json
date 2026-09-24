@@ -1068,7 +1068,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/deepseek-v4-flash-vision-exp": {
       "mode": "chat",
@@ -1088,7 +1089,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/deepseek-v4-pro": {
       "mode": "chat",
@@ -1144,7 +1146,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/deepseek-v4p1-flash": {
       "mode": "chat",
@@ -1821,7 +1824,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/glm-5p3": {
       "mode": "chat",
@@ -2254,7 +2258,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/kimi-k2p7-code": {
       "mode": "chat",
@@ -2282,7 +2287,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/kimi-k3": {
       "mode": "chat",
@@ -3408,7 +3414,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/mythomax-l2-13b": {
       "mode": "chat",
@@ -5679,7 +5686,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/routers/glm-5p2-fast-us": {
       "mode": "chat",
@@ -5700,7 +5708,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/routers/glm-5p3-fast": {
       "mode": "chat",
@@ -5793,9 +5802,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33
+        "input_per_million_tokens": 4.5,
+        "output_per_million_tokens": 22.5,
+        "cache_read_per_million_tokens": 0.45
       },
       "capabilities": {
         "function_calling": true,
@@ -5804,7 +5813,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4-flash": {
       "mode": "chat",
@@ -5853,7 +5862,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4-flash-vision-exp": {
       "mode": "chat",
@@ -5873,7 +5883,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -5929,7 +5940,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-22"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4p1-flash": {
       "mode": "chat",
@@ -6048,7 +6060,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "glm-5p2-fast": {
       "mode": "chat",
@@ -6069,7 +6082,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "glm-5p2-fast-us": {
       "mode": "chat",
@@ -6090,7 +6104,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "glm-5p3": {
       "mode": "chat",
@@ -6263,7 +6278,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "kimi-k2p6-fast": {
       "mode": "chat",
@@ -6312,7 +6328,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "kimi-k2p7-code-fast": {
       "mode": "chat",
@@ -6392,9 +6409,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33
+        "input_per_million_tokens": 4.5,
+        "output_per_million_tokens": 22.5,
+        "cache_read_per_million_tokens": 0.45
       },
       "capabilities": {
         "function_calling": true,
@@ -6403,7 +6420,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-24"
     },
     "minimax-m2p1": {
       "mode": "chat",
@@ -6501,7 +6518,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "nemotron-3-ultra-nvfp4": {
       "mode": "chat",

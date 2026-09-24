@@ -1393,7 +1393,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "deprecation_date": "2028-01-11",
+      "last_updated_at": "2026-09-24"
     },
     "eu/gpt-6-luna": {
       "mode": "chat",
@@ -1431,6 +1432,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "eu/gpt-6-sol": {
@@ -1469,6 +1471,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "eu/o1-2024-12-17": {
@@ -4554,7 +4557,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "deprecation_date": "2028-01-11",
+      "last_updated_at": "2026-09-24"
     },
     "gpt-6-astra-2026-09-03": {
       "mode": "chat",
@@ -4592,7 +4596,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "deprecation_date": "2028-01-11",
+      "last_updated_at": "2026-09-24"
     },
     "gpt-6-luna": {
       "mode": "chat",
@@ -4630,6 +4635,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "gpt-6-luna-2026-09-22": {
@@ -4668,6 +4674,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "gpt-6-sol": {
@@ -4706,6 +4713,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "gpt-6-sol-2026-09-22": {
@@ -4744,6 +4752,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "gpt-audio-1.5-2026-02-23": {
@@ -7446,7 +7455,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "deprecation_date": "2028-01-11",
+      "last_updated_at": "2026-09-24"
     },
     "us/gpt-6-luna": {
       "mode": "chat",
@@ -7484,6 +7494,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "us/gpt-6-sol": {
@@ -7522,6 +7533,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
+      "deprecation_date": "2028-03-11",
       "last_updated_at": "2026-09-24"
     },
     "us/gpt-chat-latest": {
