@@ -204,3 +204,34 @@ def test_resolve_source_type_host_only_scp_is_git():
     resolved = resolve_source_type("github.com:acme/skills.git")
     assert resolved.source_type == SkillSourceType.GIT
     assert resolved.is_local is False
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://token@github.com/acme/skills.git",
+        "https://user:pw@github.com/acme/skills.git",
+        "http://user@example.com/skills.git",
+        "ssh://git:pw@github.com/acme/skills.git",
+        "git://user:pw@host/repo",
+    ],
+)
+def test_git_urls_with_credentials_are_rejected(url):
+    with pytest.raises(MlflowException, match="must not contain credentials"):
+        resolve_source_type(GitSource(url=url))
+    if url.endswith(".git") or url.startswith("git://"):
+        with pytest.raises(MlflowException, match="must not contain credentials"):
+            resolve_source_type(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "ssh://git@github.com/acme/skills.git",
+        "git@github.com:acme/skills.git",
+        "https://github.com/acme/skills.git",
+        "git://host/repo",
+    ],
+)
+def test_git_urls_with_a_login_name_but_no_credentials_are_accepted(url):
+    assert resolve_source_type(GitSource(url=url)).source == url
