@@ -17,11 +17,7 @@ class Permission:
 
     @property
     def denied(self) -> bool:
-        """An explicit ``DENY``, distinct from merely lacking a capability.
-
-        A low positive grant and the legacy ``NO_PERMISSIONS`` sentinel also lack
-        capabilities, but neither is an operator's opt-in veto.
-        """
+        """An explicit ``DENY``, distinct from merely lacking a capability."""
         return self.name == DENY.name
 
 
@@ -268,11 +264,7 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
 
 
 def matches(resource_pattern: str, resource_type: str, resource_id: str | None) -> bool:
-    """Does a grant's ``resource_pattern`` on ``resource_type`` apply to ``resource_id``?
-
-    Honours the grain the type declares: a wildcard-only sub-resource matches only ``"*"``,
-    a top-level type matches ``"*"`` or its exact id. An unknown type matches nothing.
-    """
+    """Does a grant's ``resource_pattern`` on ``resource_type`` apply to ``resource_id``?"""
     patterns = TYPE.get(resource_type)
     if patterns is None:
         return False
@@ -282,11 +274,6 @@ def matches(resource_pattern: str, resource_type: str, resource_id: str | None) 
 
 
 def _validate_resource_pattern(resource_pattern: str, resource_type: str) -> None:
-    """Reject a grant whose pattern is a grain the type does not declare.
-
-    This is what keeps a per-id sub-resource grant (e.g. ``(run, <run_id>, EDIT)``) from
-    being written at all, rather than being written and then silently ignored by the fold.
-    """
     _validate_resource_type(resource_type)
     if resource_pattern == "*":
         return

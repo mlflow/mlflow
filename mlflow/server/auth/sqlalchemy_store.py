@@ -2208,15 +2208,9 @@ class SqlAlchemyStore:
     def list_grants(
         self, user_id: int, workspace: str, resource_types: "Collection[str]"
     ) -> list["RoleGrantRow"]:
-        """The user's role-based grants in ``workspace`` for ``resource_types``, plus the
+        """
+        The user's role-based grants in ``workspace`` for ``resource_types``, plus the
         workspace-wide grants (which can apply to any type).
-
-        Loading only: no fold, no precedence, no parent/child notion. The caller decides
-        what the rows mean — see ``resolve_permissions`` in ``mlflow.server.auth``.
-
-        Direct per-resource grants (e.g. ``experiment_permissions`` rows) are deliberately
-        excluded, as in ``list_role_grants_for_user_in_workspace``; callers that need the
-        full picture fold those in separately.
         """
         types = set(resource_types)
         for resource_type in types:

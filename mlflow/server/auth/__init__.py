@@ -810,14 +810,6 @@ def _get_resource_workspace(
     return workspace_name
 
 
-# The requirement model itself lives in ``requirements``; what remains here is the wiring
-# it cannot have: loading the rows, resolving the anchor's workspace, and deciding what an
-# absent grant means.
-
-
-# Resource type -> how to find the resource's workspace. Only types that own a workspace
-# appear: a sub-resource is attributed through the resource it hangs off, which is why an
-# operation resolves ONE workspace (its anchor's) and loads every key there.
 _WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" = {
     RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
     # A prompt IS a registered model (distinguished by a tag), so both read the same store
@@ -835,13 +827,7 @@ _WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" 
 
 
 def get_anchor_workspace(resource_type: str, resource_id: str) -> str | None:
-    """The workspace an operation's grants are resolved in, read from its anchor resource.
-
-    ``None`` means the lookup failed and the caller must fail closed. Deriving the workspace
-    from the resource (rather than the ambient request workspace) is what the point path
-    does, and what makes one batched query correct: everything the operation touches lives
-    in the anchor's workspace.
-    """
+    """The workspace an operation's grants are resolved in, read from its anchor resource."""
     if not MLFLOW_ENABLE_WORKSPACES.get():
         # Every resource lives in the default workspace, which is where grants are stored.
         # Skipping the tracking-store lookup keeps an artifacts-only server working.
@@ -881,13 +867,9 @@ def resolve_permissions(
 def resolve_requirements(
     username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
 ) -> "list[Permission] | None":
-    """The permission that governs each requirement, from one grants query in the anchor's
+    """
+    The permission that governs each requirement, from one grants query in the anchor's
     workspace. ``None`` when the anchor workspace cannot be resolved (callers deny).
-
-    Stops before comparing, for routes whose decision is not a plain conjunction -- review
-    queues fold in queue membership and ownership, which are resource state rather than
-    grants, so no requirement can express them. Prefer ``authorize``; a caller here should
-    say why it cannot use it.
     """
     workspace_name = get_anchor_workspace(*anchor)
     if workspace_name is None:
@@ -979,12 +961,7 @@ class RetentionGate:
 def retention_gate(
     username: str, anchor: "tuple[str, str]", templates: "Sequence[Requirement]"
 ) -> RetentionGate:
-    """A ``RetentionGate`` over ``templates``, from one grants query in the anchor's workspace.
-
-    ``authorize`` reduces its requirements with ``all``, which a response filter cannot use: it
-    needs to keep a trace AND drop that trace's assessments. This keeps the decisions separate and
-    defers them, so a caller names one template per tier and asks per row.
-    """
+    """A ``RetentionGate`` over ``templates``, from one grants query in the anchor's workspace."""
     by_type: dict[str, Requirement] = {}
     for template in templates:
         if template.resource_type in by_type:
@@ -1018,13 +995,6 @@ def _get_permission_from_experiment_id() -> Permission:
 def _role_grant_for_resource(
     user_id: int, resource_type: str, resource_key: str, workspace_name: str
 ) -> Permission | None:
-    # One loader, one fold, shared with the requirement model -- so DENY means the same thing
-    # on every route. The store's own fold combined grants with `max`, and DENY has the lowest
-    # priority, so a DENY alongside a positive grant in the same role was silently discarded.
-    #
-    # The workspace-admin bypass must be applied here: fold_grants_for_key deliberately ignores
-    # rows of a different resource_type, so a workspace-wide MANAGE would otherwise stop
-    # folding into resource queries and admins would lose access.
     grants = store.list_grants(user_id, workspace_name, {resource_type})
     if any(is_workspace_admin_grant(grant) for grant in grants):
         return MANAGE
@@ -1147,24 +1117,10 @@ _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
 def _experiment_id_from_canonical_proxy_path(canonical: str) -> "str | None":
-    """The experiment id a canonical artifact-proxy path names, or None.
-
-    Normalizes to exactly one trailing slash first. The pattern requires a separator after the id,
-    but an EXACT experiment root -- `1`, or `workspaces/<workspace>/1` -- carries none, and that is
-    precisely what list-artifacts asks for. An unparsed id is not a denial: the caller falls through
-    to the workspace or default permission, so the experiment tier was skipped on the very request
-    that enumerates an experiment's artifacts.
-    """
     match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.strip('/')}/")
     return match.group(1) if match else None
 
 
-# The segment AFTER the experiment id names the child whose artifacts these are, mirroring the
-# store's own layout: a run is ``<experiment_id>/<run_id>/artifacts/...``, a logged model
-# ``<experiment_id>/models/<model_id>/artifacts/...`` and a trace
-# ``<experiment_id>/traces/<trace_id>/artifacts/...``. All three tiers are wildcard-only grain, so
-# the TYPE is the whole answer and the child id never has to be resolved -- no store lookup, and no
-# response that reveals which ids exist.
 _ARTIFACT_PROXY_CHILD_FOLDERS = {
     "models": RESOURCE_TYPE_LOGGED_MODEL,
     "traces": RESOURCE_TYPE_TRACE,
@@ -1172,7 +1128,6 @@ _ARTIFACT_PROXY_CHILD_FOLDERS = {
 
 
 def _artifact_proxy_child_type(artifact_path: str) -> "str | None":
-    """The child tier a proxy path names, or None for an experiment-level path."""
     remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
     segments = [segment for segment in remainder.split("/") if segment]
     if not segments:
@@ -1185,16 +1140,6 @@ def _artifact_proxy_child_type(artifact_path: str) -> "str | None":
 
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
-    """The path the HANDLER will act on, or None if it will refuse the request.
-
-    The auth layer and the handler must classify the SAME string. Flask decodes `view_args` once,
-    but every proxy handler then passes the value through `validate_path_is_safe`, which decodes
-    again ("We must decode path before validating it"). So `0/%2Ftraces%2Ftid%2Fartifacts%2Ff`
-    reaches the child classifier as one opaque segment -- naming no child tier, hence no veto --
-    while the handler resolves it to `0//traces/tid/artifacts/f` and serves trace content.
-
-    Fails closed on rejection, which costs nothing: the handler raises on exactly these paths.
-    """
     try:
         return validate_path_is_safe(artifact_path)
     except MlflowException:
@@ -1202,13 +1147,6 @@ def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
 
 
 def _authorize_artifact_proxy_child(artifact_path: "str | None", action: str) -> bool:
-    """The child half of an artifact-proxy decision; the caller supplies the parent half.
-
-    The proxy serves a repository path directly, so the same run, trace or logged-model content the
-    point artifact routes gate was reachable by its concrete proxy path with only the leading
-    experiment id checked. Shaped like ``_run_requirement``: the child tier carries the action with
-    the experiment as fallback, so a caller holding no child grant is judged exactly as before.
-    """
     if not artifact_path:
         return True
     canonical = _canonical_artifact_proxy_path(artifact_path)
@@ -1410,13 +1348,7 @@ def _get_permission_from_registered_model_or_prompt_name() -> Permission:
 
 
 def validate_can_register_scorer():
-    """Registering adds a version, creating the scorer if it does not yet exist.
-
-    The experiment authorizes it, as it did before: a scorer's MANAGE grant is handed to the
-    creator afterwards, so it cannot be the thing that permits creation. Both created types
-    veto -- named for the scorer, since a scorer grant addresses one by
-    ``<experiment_id>/<name>``, and wildcard for the version, whose id is not yet known.
-    """
+    """Registering adds a version, creating the scorer if it does not yet exist."""
     experiment_id = _get_request_param("experiment_id")
     scorer = store._scorer_pattern(experiment_id, _get_request_param("name"))
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
@@ -1432,9 +1364,6 @@ def validate_can_register_scorer():
 
 
 def _optimizer_gateway_endpoint(optimizer_config_json: str) -> str | None:
-    # The gateway endpoint named by an optimizer config's ``reflection_model``, or None when
-    # it names none. Malformed JSON yields None: the handler rejects it before the worker
-    # runs, so there is nothing to authorize.
     if not optimizer_config_json:
         return None
     try:
@@ -1467,24 +1396,9 @@ def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
 
 
 def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
-    """Veto requirements for the prompt a submitted optimization job names.
-
-    `optimize_prompts` LOADS this prompt and REGISTERS a new version under it, in a worker with
-    no caller identity, so an experiment editor could otherwise append a version to a prompt they
-    cannot update. Grammar per ``PromptCacheKey.from_uri``: ``prompts:/name/version`` or
-    ``prompts:/name@alias``. Only the NAME is needed -- the prompt tier is keyed by name and the
-    version tier is wildcard-only, so authorization never has to resolve the version or alias.
-
-    Veto only, like every other type here: the experiment stays the sole positive gate. The two
-    types veto independently, as on any create, since the version does not yet exist.
-    """
     if not prompt_uri:
         return []
-    # `load_prompt` normalizes through `parse_prompt_name_or_uri`, which treats ANY non-`prompts:/`
-    # string as a bare NAME and resolves it to `prompts:/<name>@latest`. So `source_prompt_uri`
-    # reaches the registry as a prompt either way, and matching only the URI form let a bare name
-    # skip both vetoes. A prompt name admits only alphanumerics, hyphens, underscores and dots
-    # (`validate_prompt_name`), so splitting on `@` and `/` cannot truncate a legal name.
+    # `load_prompt` treats any non-`prompts:` URI as a bare name, so a name is the only form.
     remainder = prompt_uri.removeprefix("prompts:/")
     name = remainder.split("@", 1)[0].split("/", 1)[0]
     if not name:
@@ -1498,16 +1412,7 @@ def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
 
 
 def validate_can_create_prompt_optimization_job():
-    """Submitting hands work to a worker running with NO caller identity.
-
-    ``optimize_prompts_job`` takes no username, so nothing downstream can re-check the
-    caller: everything the request names has to be authorized here, at submit time.
-
-    The experiment remains the only positive gate, as before. Every other type is
-    veto-only, so no caller the pre-existing check allowed is denied -- but an operator's
-    DENY on a scorer, a gateway endpoint or the run tier is honoured rather than bypassed by
-    handing the work to a worker.
-    """
+    """Submitting hands work to a worker running with NO caller identity."""
     message = _get_request_message(CreatePromptOptimizationJob())
     experiment_id = message.experiment_id
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
@@ -1530,9 +1435,6 @@ def validate_can_create_prompt_optimization_job():
             for name in _registered_scorer_names(message.config.scorers)
         ),
     ]
-    # optimizer_config_json reaches the worker verbatim, and its reflection_model is
-    # dispatched by llm_utils._call_llm, which routes a "gateway:/" URI to that gateway
-    # endpoint. Caller-authored input naming a resource, so it is gated here.
     endpoint_name = _optimizer_gateway_endpoint(message.config.optimizer_config_json)
     if endpoint_name is not None:
         requirements.append(
@@ -1542,14 +1444,7 @@ def validate_can_create_prompt_optimization_job():
 
 
 def validate_can_invoke_scorer():
-    """Applying a scorer to EXISTING traces. It creates no run.
-
-    The experiment stays the only positive gate. The traces are read and assessments may be
-    written, and a named scorer's stored version is loaded and executed, so each of those
-    types vetoes. The scorer_version requirement falls back to the named scorer, since a
-    version is an existing sub-resource of it -- unlike a create, where the two types are
-    independent things coming into existence and so veto independently.
-    """
+    """Applying a scorer to EXISTING traces. It creates no run."""
     experiment_id = _get_request_param("experiment_id")
     body = request.get_json(silent=True)
     body = body if isinstance(body, dict) else {}
@@ -1563,9 +1458,6 @@ def validate_can_invoke_scorer():
     scorer_name = body.get("scorer_name")
     if isinstance(scorer_name, str) and scorer_name:
         scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, scorer_name))
-        # The named scorer vetoes in its own right: the chain below stops at the first key
-        # holding a grant, so a scorer_version grant would otherwise end it before this
-        # scorer's DENY was consulted.
         requirements.append(Requirement(*scorer, ACTION_NOT_DENIED))
         requirements.append(
             Requirement(
@@ -1701,13 +1593,6 @@ def _mcp_server_version_action_allowed(username: str, name: str, action: str) ->
 
 
 def _mcp_version_action(parts: list[str], method: str) -> str:
-    # The alias routes mutate the server's ALIAS MAP and only read the version they name, which
-    # is the shape the registry alias routes take, so they ask for `read` rather than the
-    # method's level. Every other nested route follows the method, which is the level master
-    # required on the server for that same route -- notably a version tag DELETE is delete-level
-    # there, so the version tier follows master rather than re-deciding it. `POST
-    # /{name}/versions` never reaches here: it is a create, intercepted earlier so the container
-    # gates it and the version tier only vetoes.
     if parts[2] == "aliases":
         return "read"
     if method == "DELETE":
@@ -1724,9 +1609,6 @@ def _mcp_server_version_not_denied(username: str, name: str) -> bool:
 
 
 def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
-    # Posting a version to a server that does not exist creates BOTH, so both veto. The
-    # workspace authorizes it (validate_can_create_mcp_server) and is also the anchor, there
-    # being no parent resource to read a workspace from yet.
     workspace = (RESOURCE_TYPE_WORKSPACE, "*")
     return authorize(
         username,
@@ -1807,10 +1689,6 @@ def validate_can_update_experiment():
     return _get_permission_from_experiment_id().can_update
 
 
-# Deleting an experiment withdraws everything it contains, so the tiers governing that content
-# each get a say. The store's soft delete only re-stages the runs, but the experiment's traces,
-# logged models, assessments and review queues all become inaccessible with it, so authority over
-# them is authority this operation exercises.
 _EXPERIMENT_CASCADE_TIERS = (
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_TRACE,
@@ -1894,11 +1772,6 @@ def _run_requirement(
     if run is None:
         return None
     experiment = (RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id)
-    # The experiment READ baseline (§5e). Run grain is wildcard-only, so without it one
-    # (run, "*", …) grant reaches every run in the workspace; and because a chain stops at the
-    # first key holding a grant, a sufficient run grant would end it before an experiment DENY
-    # was ever consulted. Free: the key is already loaded for the fallback, and every level with
-    # update/delete/manage also carries read, so it denies no one the experiment tier allowed.
     return experiment, [
         Requirement(RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id, "read"),
         Requirement(RESOURCE_TYPE_RUN, "*", action, fallback_if_no_grant=(experiment,)),
@@ -1922,9 +1795,6 @@ def validate_can_update_run():
 
 
 def _authorize_create_in_experiment(experiment_id: str, created_type: str) -> bool:
-    # The experiment authorizes creation; the created type only VETOES. Child grants are
-    # wildcard-only grain, so a positive requirement on created_type would let one grant
-    # confer create rights in every experiment in the workspace.
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     return authorize(
         authenticate_request().username,
@@ -1959,10 +1829,6 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
         model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
         if model is None:
             return False
-        # A metric may target a model in a DIFFERENT experiment, hence its own fallback.
-        # That experiment is assumed to share the run's workspace: the workspace is the
-        # permission boundary and no cross-workspace API exists, so every key in this batch
-        # resolves in the anchor's workspace.
         model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
         requirements.append(Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read"))
         requirements.append(
@@ -1994,10 +1860,6 @@ def validate_can_log_batch():
 
 
 def validate_can_log_inputs():
-    # LogInputs links logged models to the run via models[].model_id, so it needs the same
-    # logged-model UPDATE as the metric writers. Parsed through the proto to cover the
-    # camelCase `modelId` alias. `datasets` is not gated: dataset is out of scope for this
-    # branch (not in VALID_RESOURCE_TYPES).
     msg = _get_request_message(LogInputs())
     return _validate_can_update_run_and_models({m.model_id for m in msg.models if m.model_id})
 
@@ -2021,9 +1883,6 @@ def validate_can_read_prompt_optimization_job():
 
 
 def _authorize_prompt_optimization_job(action: str) -> bool:
-    # Cancel terminates the job's MLflow run (update_run_info -> KILLED) and delete removes it
-    # (delete_run), so both touch a run exactly as create does. Veto-only on the run tier, to
-    # match the experiment-only gate these routes had before.
     experiment_id = _prompt_optimization_job_experiment_id()
     if experiment_id is None:
         return False
@@ -2151,19 +2010,6 @@ def _validate_can_delete_registered_model_or_prompt():
 
 
 def _alias_version_requirement_met() -> bool:
-    """An alias is what publishes a version under a friendly name, so `models:/<name>@<alias>`
-    resolves to it -- both writing and removing one exercise authority over that version.
-
-    Master gates the parent's alias map (update to set, delete to remove), which is kept; the
-    version adds READ with the parent as fallback. So a version DENY blocks the alias while no
-    version grant leaves master's behaviour intact, since the parent level the route already
-    demands subsumes read.
-
-    `DeleteRegisteredModelAlias` names no `version` field -- only `name` and `alias` -- but removing
-    the alias un-publishes whatever version it pointed at, which is the same authority setting it
-    exercises. Version grain is wildcard-only, so the absent id costs nothing: both routes consult
-    the same `(version_type, "*")` key.
-    """
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -2190,22 +2036,6 @@ def validate_can_delete_model_or_prompt_version_alias() -> bool:
 
 
 def _authorize_version_action(action: str) -> bool:
-    """Mutations of an EXISTING model or prompt version.
-
-    Same shape the experiment's children use (``_run_requirement`` and friends): the version tier
-    carries the action with its parent as fallback, plus the parent READ baseline of §5e. So a
-    caller holding READ on the registry entry and EDIT on the version tier can work on versions
-    without registry management, and absent a version grant the parent governs exactly as before.
-
-    The parent READ requirement is not decoration. Version grain is wildcard-only, so one
-    ``(registered_model_version, "*", …)`` grant otherwise reaches every version in the workspace;
-    and because a fallback chain stops at the first key holding a grant, a sufficient version grant
-    would end the chain before a parent DENY was consulted.
-
-    Which tier applies is discovered by fetching, since a prompt IS a registered model carrying a
-    tag -- so a prompt's versions resolve to ``prompt_version`` and a model's to
-    ``registered_model_version``, and neither family can be mutated through the other's tier.
-    """
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -2254,17 +2084,6 @@ def validate_can_delete_registered_model_or_prompt_cascade():
 def _filter_selects_attribute(
     filter_string: str, parser: "Callable[[str], Any]", attribute: str
 ) -> bool:
-    """Whether a search filter SELECTS on ``attribute``, asked of the grammar's own parser.
-
-    WHICH ROWS MATCH is itself the disclosure, so redaction cannot cover a selector: filtering on a
-    denied resource's id confirms its association with the rows that come back even when the field
-    is stripped from them. Same reasoning as `_authorize_trace_search`.
-
-    Asking the grammar's owner means a spelling change is inherited rather than drifted from -- each
-    parser normalizes its own aliases, so one check covers every way the field can be written. An
-    unparsable filter counts as selecting, the most restrictive reading; the handler still returns
-    its own 400 when no denial makes that moot.
-    """
     if not filter_string:
         return False
     try:
@@ -2285,12 +2104,6 @@ def _run_tier_not_denied_in_workspace(username: str) -> bool:
 
 
 def _model_version_filter_selects_run(filter_string: str) -> bool:
-    """Whether a `SearchModelVersions` filter SELECTS on the run tier.
-
-    `_withhold_denied_version_siblings` strips `run_id` and `run_link` from the rows, but which rows
-    match is the disclosure: `run_id = '<id>'` confirms that a version was produced by that run even
-    when the field comes back empty.
-    """
     from mlflow.utils.search_utils import SearchModelVersionUtils
 
     return _filter_selects_attribute(
@@ -2299,11 +2112,6 @@ def _model_version_filter_selects_run(filter_string: str) -> bool:
 
 
 def _logged_model_filter_selects_run(filter_string: str) -> bool:
-    """Whether a `SearchLoggedModels` filter SELECTS on the run tier.
-
-    `source_run_id` names the run that produced the model, so filtering on it confirms whether a
-    denied run produced any logged model -- the same oracle `run_id` gives on `SearchModelVersions`.
-    """
     from mlflow.utils.search_utils import SearchLoggedModelsUtils
 
     return _filter_selects_attribute(
@@ -2312,11 +2120,6 @@ def _logged_model_filter_selects_run(filter_string: str) -> bool:
 
 
 def _issue_filter_selects_run(filter_string: str) -> bool:
-    """Whether a `SearchIssues` filter SELECTS on the run tier.
-
-    `issue` is not a grantable type here, but the run named by `source_run_id` is, and the oracle
-    does not care which surface exposes it.
-    """
     from mlflow.utils.search_utils import SearchIssuesUtils
 
     return _filter_selects_attribute(
@@ -2325,11 +2128,7 @@ def _issue_filter_selects_run(filter_string: str) -> bool:
 
 
 def validate_can_search_logged_models():
-    """The rows are filtered after the fact, so this gates only what redaction cannot hide.
-
-    Veto-only and scoped to the selector: a search that does not name a run passes untouched, which
-    is every request master could make. `filter_search_logged_models` remains the row-level gate.
-    """
+    """The rows are filtered after the fact, so this gates only what redaction cannot hide."""
     filter_string = _get_request_message(SearchLoggedModels()).filter
     if not _logged_model_filter_selects_run(filter_string):
         return True
@@ -2337,11 +2136,7 @@ def validate_can_search_logged_models():
 
 
 def validate_can_search_model_versions():
-    """The rows are filtered after the fact, so this gates only what redaction cannot hide.
-
-    Veto-only and scoped to the selector: a search that does not name a run is unaffected, which is
-    every request master could make.
-    """
+    """The rows are filtered after the fact, so this gates only what redaction cannot hide."""
     # Read it the way the handler does: this route accepts both GET query args and a POST body.
     filter_string = _get_request_message(SearchModelVersions()).filter
     if not _model_version_filter_selects_run(filter_string):
@@ -2349,30 +2144,12 @@ def validate_can_search_model_versions():
     return _run_tier_not_denied_in_workspace(authenticate_request().username)
 
 
-# Routes declaring a `secret_id` the handler never forwards to the store, so gating the selector
-# would deny a request that is not actually filtered. Guarded by the authorization coverage tests:
-# wiring one of these makes the selector real and the route needs
-# `_gateway_secret_selector_not_denied`.
+# The handler drops this `secret_id`, so gating it would refuse an unfiltered listing; the coverage
+# test fails if it is ever wired.
 _GATEWAY_SECRET_SELECTOR_INERT_ROUTES = ("_list_gateway_endpoints",)
 
 
 def _gateway_secret_selector_not_denied(message) -> bool:
-    """A `secret_id` selector on a gateway list route names a secret, so it gates on that secret.
-
-    `_withhold_denied_definition_secrets` clears `secret_id`/`secret_name` from the rows, and
-    `_withhold_denied_model_mappings` does the same inside an endpoint's mappings -- but filtering
-    ON `secret_id` still reveals which endpoints and definitions use that secret, because which
-    rows match is the disclosure. Same reasoning as `_authorize_trace_search`.
-
-    Unlike the run and version tiers, `gateway_secret` is id grain, so this names the exact secret
-    the request named rather than vetoing the whole type: a DENY on one secret must not refuse a
-    listing filtered on a different one.
-
-    `ListGatewayEndpoints` is deliberately NOT gated even though it declares `secret_id` and the
-    store accepts it, because `_list_gateway_endpoints` passes only `provider=` and drops the field:
-    the selector is inert, so there is no oracle to close and a gate would refuse a request that
-    returns an unfiltered listing today. `_GATEWAY_SECRET_SELECTOR_INERT_ROUTES` guards the premise.
-    """
     secret_id = message.secret_id
     if not secret_id:
         return True
@@ -2388,13 +2165,7 @@ def validate_can_list_gateway_model_definitions():
 
 
 def validate_can_read_model_or_prompt_version():
-    """Point reads of a version: the parent must be readable and the version tier may veto.
-
-    Matches the shape `_rm_or_prompt_version_read_predicate` applies to the search responses, so a
-    version DENY withholds a version whether it is fetched by name or found by searching. Separate
-    from `_validate_can_read_registered_model_or_prompt` because that also serves
-    `GetRegisteredModel`, where a version denial must not hide the parent.
-    """
+    """Point reads of a version: the parent must be readable and the version tier may veto."""
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -2427,9 +2198,6 @@ def _validate_can_manage_registered_model_or_prompt():
 
 
 def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
-    # A prompt is a registered model carrying a tag, so the family is only known by fetching.
-    # None when the name does not exist: creating a version under it would fail anyway, and
-    # denying keeps the response from reporting which names exist.
     name = _get_request_param("name")
     rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
     if rm is None:
@@ -2455,12 +2223,6 @@ def _authorize_create_version(target: "tuple[str, str]") -> bool:
 
 
 def _model_id_from_source_uri(source: str) -> str | None:
-    """The logged-model id a `models:/m-<id>` source resolves to, or None.
-
-    Mirrors the store: only a `models:` URI naming an id dereferences a logged model. A
-    `models:/<name>/<version>` or `models:/<name>@<alias>` source names a registry entry instead and
-    yields no id, and anything unparsable yields None -- the store would raise on it anyway.
-    """
     if not source or urllib.parse.urlparse(source).scheme != "models":
         return None
     try:
@@ -2483,19 +2245,6 @@ def _can_read_model_version_source(
 
 
 def _version_type_asserted_against_parent(msg, container_type: str) -> "str | None":
-    """The version tier the REQUEST asserts, when that differs from the parent's family.
-
-    The parent normally decides the version's family, but the store persists the request's own
-    `mlflow.prompt.is_prompt` marker on the version regardless of the parent. Measured: a plain
-    registered model accepts a version marked `true` (200), and `_entity_is_prompt` then classifies
-    that row as a PROMPT version on every later read. Authorizing only the parent's tier therefore
-    gated `registered_model_version` while creating something read as a prompt version -- a
-    `(prompt_version, "*", DENY)` holder created one anyway.
-
-    Vetoing both is strictly narrower than either alone and never wider, which is the same fallback
-    `validate_can_create_registered_model` takes when it cannot classify. None when the request
-    carries no marker or agrees with the parent, so an ordinary create pays no extra query.
-    """
     asserted = _prompt_marker_in_tags(msg.tags)
     if asserted is None:
         return None
@@ -2511,16 +2260,9 @@ def _version_type_asserted_against_parent(msg, container_type: str) -> "str | No
 
 
 def validate_can_create_model_version():
-    # Downstream artifact reads are gated on the destination registered model. Require read on
-    # the resource that owns the source so creating a version cannot grant access to artifacts
-    # the caller could not already read.
     target = _registered_model_or_prompt_target()
     if target is None or not _authorize_create_version(target):
         return False
-    # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
-    # `modelId` aliases the handler accepts are authorized against the same IDs it will
-    # anchor the version to. A raw-body key check would miss the aliases and skip the READ
-    # check while the handler still binds the source run/model from them.
     msg = _get_request_message(CreateModelVersion())
     # Before the source branches: a marker disagreeing with the parent means the OTHER version tier
     # governs the row that gets created, so it vetoes too.
@@ -2548,10 +2290,6 @@ def validate_can_create_model_version():
         msg.model_id and _authorize_logged_model_id(msg.model_id, "read")
     ):
         return False
-    # `source` is the third way in. For a `models:/m-<id>` URI the store parses the id out and
-    # fetches THAT logged model to derive `run_id` from its `source_run_id`, so a request naming
-    # neither `run_id` nor `model_id` still binds the version to someone else's model -- the very
-    # substitution the READ checks above exist to stop. Gate the id the store will dereference.
     source_model_id = _model_id_from_source_uri(msg.source)
     if source_model_id and not _authorize_logged_model_id(source_model_id, "read"):
         return False
@@ -2567,20 +2305,6 @@ def _create_not_denied(username: str, created_type: str, resource_id: str = "*")
 
 
 def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> bool:
-    """The created type's veto on a workspace-scoped create -- §5d, applied at the workspace.
-
-    ``_can_create_in_workspace`` answers the container half (a workspace-wide grant carrying
-    ``can_use``). This is the other half the child creates already have via
-    ``_authorize_create_in_experiment``: the created type cannot confer create rights, but it can
-    refuse. Without it a ``(experiment, "*", DENY)`` holder kept creating experiments while being
-    refused every other operation on one.
-
-    ``resource_id`` names the resource when the request already knows its grant key -- a registered
-    model or prompt name, an MCP server name. Passing it is strictly broader than ``"*"``: an id key
-    matches wildcard grant rows as well as exact ones, so the wildcard veto still fires and an exact
-    ``DENY`` on that name now fires too. Creates whose id the store generates (experiment, gateway
-    secret, model definition, endpoint) have no key to name and stay on ``"*"``.
-    """
     return _create_not_denied(authenticate_request().username, created_type, resource_id)
 
 
@@ -2651,11 +2375,6 @@ def validate_can_view_workspace() -> bool:
 
 # Scorers
 def _scorer_version_not_denied() -> bool:
-    # GetScorer and ListScorerVersions return ScorerVersion rows -- scorer_version,
-    # serialized_scorer and creation_time are all set unconditionally by
-    # ``ScorerVersion.to_proto`` -- so the version tier has to be consulted here for the same
-    # reason ``filter_list_scorers`` consults it. Veto only, and falling back to the named
-    # scorer, because the scorer tier remains the positive gate.
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
     scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
@@ -2682,9 +2401,6 @@ def validate_can_update_scorer():
 
 
 def _scorer_version_delete_allowed() -> bool:
-    # DeleteScorer removes every version, so the version tier carries `delete` rather than only
-    # vetoing as it does on the read routes. Falls back to the named scorer, so a caller with no
-    # version grant is unaffected.
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
     scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
@@ -3065,15 +2781,6 @@ def validate_can_get_user_permission() -> bool:
 
 
 def _prompt_marker_in_tags(tags) -> "bool | None":
-    """The prompt marker a tag list carries, or None when it carries none.
-
-    Duplicate keys are legal on the wire and the store keeps the LAST, so fold the same way before
-    reading the marker: `any(... == "true")` called a `[true, false]` body a prompt while a
-    registered model was what got created.
-
-    `None` is not `False`. An absent marker inherits the parent's family; a marker present and false
-    ASSERTS the model family, which is a different statement and gates differently.
-    """
     value = None
     for tag in tags:
         if tag.key == IS_PROMPT_TAG_KEY:
@@ -3110,12 +2817,6 @@ def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
 
 
 def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]:
-    """Same classification as ``_rm_or_prompt_read_predicate``, for rows that ARE versions.
-
-    Kept separate rather than folded into that helper because the helper also filters
-    registered-model and prompt rows, where a version DENY must not hide the parent. Each family
-    gets its own veto, so a prompt-version denial cannot withhold model versions or vice versa.
-    """
     can_read_rm = _role_based_read_predicate(
         username,
         "registered_model",
@@ -3204,9 +2905,6 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
         predicate = _role_based_read_predicate(
             authenticate_request().username,
             "experiment",
-            # The rows this scopes are RUNS (the only caller is search_runs_impl), so the run tier
-            # vetoes: without it (run, "*", DENY) still searched every run in every readable
-            # experiment.
             also_require=[Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
         )
         return [exp_id for exp_id in experiment_ids if predicate(exp_id)]
@@ -3399,11 +3097,7 @@ def validate_can_invoke_issue_detection():
 
 
 def validate_can_invoke_genai_evaluate():
-    """UPDATE on the experiment, vetoed by the run tier.
-
-    The handler creates a run up front to hold the evaluation results, so this is a run create
-    even though the route reads as an invoke.
-    """
+    """UPDATE on the experiment, vetoed by the run tier."""
     return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
 
 
@@ -3460,13 +3154,6 @@ def _validate_can_use_model_definitions_for_create(
 
 
 def _gateway_endpoint_experiment_not_denied(experiment_id: str) -> bool:
-    """Veto on the experiment a gateway endpoint traces into, named or auto-created.
-
-    A named experiment vetoes exactly. With usage tracking on and none named, the store calls
-    `_get_or_create_experiment_id`, so the veto falls to the wildcard: there is no id to name yet,
-    and a `(experiment, "*", DENY)` holder must not get an experiment created by the side door --
-    the same hole `_workspace_create_not_denied` closes on `CreateExperiment` itself.
-    """
     return _gateway_resources_not_denied([
         Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id or "*", ACTION_NOT_DENIED)
     ])
@@ -3516,16 +3203,6 @@ def validate_can_update_gateway_endpoint():
 
 
 def _guardrail_scorer_not_denied(guardrail_id: str) -> bool:
-    """Veto on the scorer a guardrail runs, mirroring ``validate_can_invoke_scorer``.
-
-    Attaching a guardrail puts that scorer on the endpoint's traffic and echoes its
-    ``ScorerVersion`` -- ``serialized_scorer`` included -- back in the response. The endpoint tier
-    remains the positive gate; the scorer only vetoes, and the version falls back to its scorer
-    because a version is an existing sub-resource of it.
-
-    A guardrail id that does not resolve denies uniformly, so the response cannot be used as an
-    oracle for which guardrail ids exist.
-    """
     guardrail = _fetch_or_none(_get_tracking_store().get_gateway_guardrail, guardrail_id)
     if guardrail is None:
         return False
@@ -3562,13 +3239,6 @@ def validate_can_attach_model_to_gateway_endpoint():
 
 
 def _gateway_resources_not_denied(requirements) -> bool:
-    """Veto-only check for resources a gateway route NAMES but does not gate.
-
-    Anchored on the workspace because ``gateway_endpoint`` is not in ``_WORKSPACE_FETCHER``, so an
-    endpoint anchor would resolve no workspace and deny every request. Veto rather than a positive
-    level, since master gates these routes on the endpoint alone and requiring more would refuse
-    callers master allows.
-    """
     if not requirements:
         return True
     return authorize(
@@ -3577,9 +3247,6 @@ def _gateway_resources_not_denied(requirements) -> bool:
 
 
 def validate_can_detach_model_from_gateway_endpoint():
-    # Detaching NAMES a model definition but neither uses nor destroys it, so unlike
-    # `validate_can_attach_model_to_gateway_endpoint` -- which requires `can_use` because attaching
-    # puts the model into service -- the definition only vetoes here.
     msg = _get_request_message(DetachModelFromGatewayEndpoint())
     if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
         return False
@@ -3736,25 +3403,6 @@ def validate_can_read_trace_by_trace_id():
 
 
 def _filter_selects_on_tiers(*filter_strings: str) -> "frozenset[str]":
-    """Which sub-resource tiers a trace filter SELECTS on, so their tiers must be consulted.
-
-    Asks the grammar's owner rather than matching text. Assessments: the store routes a comparison
-    to the assessments table on exactly ``SearchTraceUtils.is_assessment``
-    (``_get_filter_clauses_for_search_traces``), so a grammar change is inherited rather than
-    drifted from. Runs and logged models: the parser normalizes every spelling -- ``run_id``,
-    ``attributes.run_id`` and ``metadata.`mlflow.sourceRun``` all yield the same
-    ``request_metadata`` comparison -- so a two-key lookup covers them with no alias handling here.
-
-    Each of these tiers is wildcard-only grain, so one grant key decides the whole request: no name
-    binding, no operator awareness, and no resolving a referenced id to its own experiment.
-
-    ``issue.id`` is excluded -- the store routes it through ``is_issue``, it matches the assessment
-    NAME rather than any value, and ``issue`` is not a type this branch governs. The reserved
-    linked-prompts tag is excluded too: a trace tag is an unvalidated author assertion, not a link
-    to a prompt, so master's behaviour stands.
-
-    An unparsable filter returns every tier, so the most restrictive reading applies.
-    """
     from mlflow.tracing.constant import TraceMetadataKey
     from mlflow.utils.search_utils import SearchTraceUtils
 
@@ -3782,12 +3430,6 @@ def _filter_selects_on_tiers(*filter_strings: str) -> "frozenset[str]":
 
 
 def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
-    """Bulk trace read, plus any sub-resource tier the filter selects on.
-
-    Redaction cannot cover this: which rows MATCH is the disclosure, so a filter on a denied
-    resource still reveals its existence and its association with these traces even when the tier's
-    content is stripped from the rows that come back.
-    """
     resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
     if resolved is None:
         return False
@@ -3862,9 +3504,6 @@ def validate_can_batch_get_traces():
 
 
 def validate_can_delete_traces():
-    # Keyed on the experiment, not on trace ids, so there is no trace to resolve positively --
-    # the trace tier can only veto. Without it, (trace, "*", DENY) would block editing a trace
-    # but not deleting every trace in the experiment.
     experiment_id = _get_request_param("experiment_id")
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     return authorize(
@@ -3904,19 +3543,6 @@ def validate_can_update_trace_by_request_id():
 def _bulk_requirements_in_experiments(
     experiment_ids: "Sequence[str]", child_type: str, action: str
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
-    # One requirement PAIR per distinct parent, combined with AND by authorize. All-or-nothing
-    # holds on both axes for different reasons: on the parent it is master's behaviour here,
-    # preserved; on the child it is inherent, since child grain is wildcard-only so every item
-    # consults the same (child, "*") key and no per-item variation is expressible. Keys
-    # deduplicate to one per distinct parent plus one child, so this is ONE grants query
-    # whatever the item count.
-    #
-    # Anchored on the WORKSPACE, so no id is fetched: the question here is whether a grant permits
-    # the action on each named id, not whether that id exists. An id with no grant is denied by
-    # _absent_permission; an id a wildcard grant covers is authorized whether or not it resolves,
-    # and the workspace-scoped tracking store is what keeps the response to this workspace. That
-    # also makes every id uniform -- anchoring on one of them would have existence-checked that one
-    # and not the rest.
     distinct = list(dict.fromkeys(str(experiment_id) for experiment_id in experiment_ids))
     if not distinct:
         # An unscoped bulk request denies, as each of these routes already did.
@@ -3942,13 +3568,7 @@ def _authorize_bulk_in_experiments(
 
 
 def validate_can_create_logged_model():
-    """The experiment authorizes the create; a named ``source_run_id`` additionally needs run READ.
-
-    Same reasoning as ``validate_can_create_model_version``: the new model's artifacts are read
-    through the model itself, so binding it to another user's run at create time would launder
-    access to that run. Read, not use -- it mirrors the run-read check the version create already
-    performs, and the run is being referenced rather than put into service.
-    """
+    """The experiment authorizes the create; a named ``source_run_id`` also needs run READ."""
     msg = _get_request_message(CreateLoggedModel())
     if not _authorize_create_in_experiment(msg.experiment_id, RESOURCE_TYPE_LOGGED_MODEL):
         return False
@@ -3963,12 +3583,9 @@ def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | N
 
 
 def validate_can_get_assessment():
-    """Reading one assessment directly. The assessment IS the subject, so a denied assessment
+    """
+    Reading one assessment directly. The assessment IS the subject, so a denied assessment
     tier refuses the route rather than redacting -- redaction would leave nothing to return.
-
-    Deliberately NOT folded into ``validate_can_read_trace_by_trace_id``, which also gates
-    GetTrace: adding an assessment requirement there would convert GetTrace from redaction to
-    denial and block traces that carry no assessments at all.
     """
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
@@ -3986,19 +3603,7 @@ def validate_can_get_assessment():
 
 
 def validate_can_query_trace_metrics():
-    """Aggregate trace metrics. ``view_type=ASSESSMENTS`` additionally requires the assessment tier.
-
-    That view returns numbers DERIVED from assessments: ``assessment_count`` groups by
-    assessment_name AND assessment_value -- a verdict histogram -- and ``assessment_value``
-    averages `_get_assessment_numeric_value_column`, which maps true/"yes" to 1.0 and
-    false/"no" to 0.0, so for a boolean judge the average IS the pass rate. There is no field to
-    redact and no row to drop (one row already aggregates every assessment in scope), so the
-    tier refuses the route.
-
-    Checking ``view_type`` alone is sufficient: assessment data is reachable only through this
-    view, because the filter grammar raises INVALID_PARAMETER_VALUE for an assessment key under
-    any other view_type, and no TRACES or SPANS metric touches the assessments table.
-    """
+    """Aggregate trace metrics. ``view_type=ASSESSMENTS`` also requires the assessment tier."""
     message = _get_request_message(QueryTraceMetrics())
     experiment_ids = list(message.experiment_ids)
     resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
@@ -4025,13 +3630,7 @@ def validate_can_query_trace_metrics():
 
 
 def validate_can_create_assessment():
-    """An assessment is created inside a trace, so the TRACE authorizes it.
-
-    The trace requirement is itself re-pointed (trace tier, experiment fallback), which is
-    how "may write to this trace" is now expressed. The assessment tier carries only a
-    veto, so ``(assessment, "*", DENY)`` prevents assessment creation without a wildcard
-    assessment grant conferring it workspace-wide.
-    """
+    """An assessment is created inside a trace, so the TRACE authorizes it."""
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
@@ -4050,17 +3649,7 @@ def validate_can_create_assessment():
 
 
 def validate_can_update_assessment():
-    """Update/delete act on an EXISTING assessment, so the assessment tier decides.
-
-    Three levels: assessment -> trace -> experiment. An operator can permit assessment
-    edits without granting trace edits, or deny assessments on traces a caller may
-    otherwise edit.
-
-    The intermediate trace tier carries its OWN veto. A chain stops at the first key holding a
-    grant, so a sufficient assessment grant would otherwise end it before a trace DENY was
-    consulted -- and unlike the terminal experiment key, whose positive READ requirement already
-    subsumes a veto, nothing else here would ever look at the trace.
-    """
+    """Update/delete act on an EXISTING assessment, so the assessment tier decides."""
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
@@ -4117,10 +3706,6 @@ def validate_can_start_trace_v3():
 def validate_can_link_traces_to_run():
     tracking_store = _get_tracking_store()
     run_id = _get_request_param("run_id")
-    # Two tiers, so two decisions: linking WRITES the run and READS each trace. The run half
-    # reuses the run-tier chain, which fetches the run itself -- a missing one denies there, as
-    # this route's own lookup used to -- and carries the experiment READ baseline. The trace half
-    # is the bulk shape over the traces' own experiments, which need not be the run's.
     if not _authorize_run_id(run_id, "update"):
         return False
     trace_ids = (request.json or {}).get("trace_ids", [])
@@ -4151,9 +3736,7 @@ def validate_can_read_metric_history_bulk(run_ids=None):
         )
 
     tracking_store = _get_tracking_store()
-    # A missing run still RAISES here rather than denying, as it always has on this route -- the
-    # 403-not-404 reasoning applies to routes that resolve a single named resource, not to a bulk
-    # read whose ids the caller already holds.
+    # A missing run RAISES here rather than denying, as it always has on this route.
     experiment_ids = [tracking_store.get_run(run_id).info.experiment_id for run_id in run_ids]
     return _authorize_bulk_in_experiments(experiment_ids, RESOURCE_TYPE_RUN, "read")
 
@@ -4239,22 +3822,6 @@ def validate_gateway_proxy():
 # pool; reads require experiment READ, with per-queue visibility narrowed by
 # ``filter_list_review_queues``.
 def _review_queue_permission_in_experiment(experiment_id: str, username: str) -> Permission:
-    """The permission governing queues in one experiment: the queue tier's grant, else the
-    experiment's own.
-
-    Returns the permission rather than a decision, because these routes blend it with queue
-    membership and ownership -- resource state, which no grant can express. The requirement
-    is therefore only ACTION_NOT_DENIED: a queue DENY resolves here and fails every branch
-    downstream, while nothing positive is demanded of a tier the caller may not use.
-
-    The experiment READ baseline cannot be folded into the returned permission, so it gates it:
-    failing the baseline yields NO_PERMISSIONS, which fails every branch downstream exactly as a
-    queue DENY does.
-
-    Keyed on the experiment id rather than a queue object, because ``review_queue`` grain is
-    wildcard-only: every queue in an experiment resolves to the SAME permission. That is what lets
-    ``filter_list_review_queues`` resolve once for a whole response instead of once per row.
-    """
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     baseline = Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read")
     permissions = resolve_requirements(
@@ -4474,10 +4041,6 @@ def validate_can_get_or_create_user_queue():
 
 
 def validate_can_view_review_queue():
-    # Detail-tier read: experiment READ plus MANAGE, owner, or membership. NOT a mirror of
-    # ``filter_list_review_queues`` -- that list tier is deliberately broader (it lists rows an
-    # EDITor cannot open, matching upstream). Both resolve the same queue tier, so a queue-tier
-    # grant reaches both surfaces.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     perm = _review_queue_permission(queue, username)
@@ -4489,9 +4052,6 @@ def validate_can_view_review_queue():
 
 
 def validate_can_view_review_queue_by_name():
-    # The by-id sibling resolves the queue tier; this path must too, or a queue DENY is
-    # bypassed by opening the same queue by name. Keyed on the experiment because
-    # review_queue grain is wildcard-only, so no queue fetch is needed to resolve it.
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
     perm = _review_queue_permission_in_experiment(experiment_id, username)
@@ -4560,9 +4120,6 @@ def filter_list_review_queues(resp: Response) -> None:
     if perm.can_read and perm.can_update:
         return
 
-    # can_read is checked first, exactly as the detail gate checks it: a DENY (or a failed
-    # experiment baseline) must beat membership, which would otherwise expose a row whose queue
-    # the caller cannot open.
     visible = (
         [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
         if perm.can_read
@@ -5872,10 +5429,6 @@ def filter_search_logged_models(resp: Response) -> None:
     parse_dict(resp.json, response_proto)
 
     username = authenticate_request().username
-    # Rows are logged models keyed on their experiment, so the logged-model tier vetoes here or
-    # nowhere: SearchLoggedModels is authorized ONLY by this filter (it is in neither
-    # BEFORE_REQUEST_HANDLERS nor AFTER_REQUEST_HANDLERS by proto), which is how
-    # (logged_model, "*", DENY) was bypassable via POST /logged-models/search.
     can_read = _role_based_read_predicate(
         username,
         "experiment",
@@ -5943,16 +5496,6 @@ def filter_search_logged_models(resp: Response) -> None:
 
 
 def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
-    """Drop embedded ``latest_versions`` when the version tier withholds them.
-
-    ``RegisteredModel`` embeds ModelVersion rows, so a registered-model response is a second route
-    to version data that ``SearchModelVersions`` and ``GetModelVersion`` already gate. The versions
-    ride as passengers on a model the caller may legitimately read, so they are redacted and the row
-    survives.
-
-    One decision per model, not per version: a ModelVersion's ``name`` IS its registered model's
-    name, so every embedded version shares the parent's grant identity and classification.
-    """
     can_read = _rm_or_prompt_version_read_predicate(username)
     withheld = False
     for registered_model in registered_models:
@@ -5963,12 +5506,6 @@ def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
 
 
 def _redact_registered_model_response(resp: Response, response_message) -> None:
-    """Redact `latest_versions` from any response returning a single RegisteredModel.
-
-    Get, Update and Rename all return the model through ``to_mlflow_entity()``, which populates
-    ``latest_versions``, so each is a route to version data and each needs the same redaction.
-    Create is excluded: it returns a model that has no versions yet.
-    """
     if sender_is_admin():
         return
     # Rename's handler also sweeps grants and is called on responses that carry no JSON body,
@@ -6003,10 +5540,6 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # The registered-model REST surface is shared with prompts; classify each
-    # row by its ``mlflow.prompt.is_prompt`` tag and check the correct grant
-    # namespace. Without this, a user holding only a ``(prompt, foo, READ)``
-    # grant would have prompt ``foo`` silently filtered out of the response.
     can_read = _rm_or_prompt_read_predicate(username)
 
     # filter out unreadable
@@ -6035,9 +5568,6 @@ def filter_search_registered_models(resp: Response):
             response_message.next_page_token = ""
             break
 
-        # ``can_read`` accepts both protos and ORM entities; reuse it here so
-        # refetched ORM rows go through the same classification as the initial
-        # JSON-parsed proto rows above.
         refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
         response_message.registered_models.extend(refetched_readable_proto)
 
@@ -6071,9 +5601,6 @@ def filter_search_model_versions(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # Prompt versions and model versions share the same REST surface; classify
-    # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
-    # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
     can_read = _rm_or_prompt_version_read_predicate(username)
 
     # filter out model versions whose parent model is unreadable
@@ -6097,9 +5624,6 @@ def rename_registered_model_permission(resp: Response):
     ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
     so exactly one of the two renames applies and the other is a no-op.
     """
-    # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
-    # {}`` plus the explicit value checks below prevent ``None`` from
-    # propagating to ``resource_pattern`` and silently rewriting rows.
     data = request.get_json(force=True, silent=True) or {}
     old_name = data.get("name")
     new_name = data.get("new_name")
@@ -6192,13 +5716,6 @@ def _scorer_row_keys(scorer) -> "tuple[str, str]":
 
 
 def _withhold_denied_guardrail_scorers(configs) -> bool:
-    """Clear the embedded ``ScorerVersion`` from guardrail configs the scorer tier withholds.
-
-    The scorer is a PASSENGER here -- the caller asked for an endpoint's guardrail configs, not for
-    scorer content -- so the row stays and only the scorer is withheld, leaving guardrail_id, name,
-    stage and action intact. The whole submessage goes rather than just ``serialized_scorer``,
-    because ``filter_list_scorers`` withholds a denied scorer's NAME too and the two must agree.
-    """
     workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
     gate = retention_gate(
         authenticate_request().username,
@@ -6289,21 +5806,7 @@ def filter_list_scorers(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
-# The list endpoints reach the handler behind the gateway-proxy validator (authenticated);
-# these after-request filters are the row-level access control, dropping rows the caller
-# cannot read. Keep them registered in AFTER_REQUEST_PATH_HANDLERS.
 def _withhold_denied_model_mappings(mappings, username: str) -> bool:
-    """Redact denied model definitions, and denied secrets within them, from GatewayEndpoint rows.
-
-    ``GatewayEndpoint.model_mappings[]`` embeds a whole ``GatewayModelDefinition`` -- not just an id
-    -- and that message carries ``secret_id`` and ``secret_name``. So an endpoint response is a
-    route to two further grantable types, and Get, Update and List all return the same message.
-
-    The definitions are passengers on an endpoint the caller may legitimately read, so they are
-    redacted and the mapping row survives. A denied definition takes its id with it, since the id
-    alone still names the resource; a readable definition whose SECRET is denied keeps everything
-    except the two secret fields.
-    """
     mappings = list(mappings)
     if not mappings:
         # Nothing embedded, so no grants need loading -- an endpoint listing that carries no
@@ -6388,12 +5891,6 @@ def filter_list_gateway_endpoints(resp: Response) -> None:
 
 
 def _withhold_denied_definition_secrets(definitions, username: str) -> bool:
-    """Clear `secret_id`/`secret_name` from GatewayModelDefinition rows whose secret is denied.
-
-    On these routes the definition is the SUBJECT -- already gated by the
-    `gateway_model_definition` tier -- so it is not withheld; only the secret it names is a
-    passenger, and `gateway_secret` is its own grantable type.
-    """
     named = [definition for definition in definitions if definition.secret_id]
     if not named:
         # No secret named, so no grants need loading.
@@ -6459,17 +5956,6 @@ _TRACE_METADATA_SIBLING_TIERS = {
 
 
 def _denied_sibling_tiers(username: str, resource_types) -> "set[str]":
-    """Which of `resource_types` the caller is explicitly DENIED, as one constant answer.
-
-    These tiers are wildcard-only grain, so a `(type, "*", DENY)` holds for every resource of that
-    type in the workspace -- the decision cannot vary by row, and no id needs resolving. That is
-    what keeps this to a single grants query on a response of any size.
-
-    It therefore honours only an EXPLICIT deny. A caller with no grant on the tier should fall back
-    to the referenced resource's OWN experiment, which is not in the response;
-    `_authorize_logged_model_id` / `_authorize_run_id` do exactly that per id, and using them here
-    would cost one store fetch per distinct reference. Left as a residual (description.md §6).
-    """
     gate = retention_gate(
         username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
@@ -6485,17 +5971,6 @@ _MODEL_VERSION_SIBLING_FIELDS = {
 
 
 def _withhold_denied_version_siblings(versions, username: str) -> bool:
-    """Clear the run and logged-model content a ModelVersion carries when that tier is denied.
-
-    A `ModelVersion` names the run that produced it (`run_id`, and `run_link`, which is a URL to
-    that run) and the logged model it was promoted from (`model_id`, plus `model_params` and
-    `model_metrics`, which are that model's own values surfacing on the version). So a version
-    response is a route to both tiers, exactly as a run or trace response is.
-
-    `source` is deliberately NOT cleared: it is the version's own artifact location -- its content,
-    not a sibling's -- and `validate_can_create_model_version` already gates the model id a
-    `models:/m-<id>` source dereferences.
-    """
     watched = [
         version
         for version in versions
@@ -6520,9 +5995,6 @@ def _withhold_denied_version_siblings(versions, username: str) -> bool:
     return withheld
 
 
-# A metric is dual-homed -- it names both the run it belongs to and, when logged against one, the
-# logged model. Which field is a SIBLING therefore depends on the route: on a run response the
-# model is the sibling, on a logged-model response the run is.
 _METRIC_SIBLING_FIELD = {
     RESOURCE_TYPE_LOGGED_MODEL: "model_id",
     RESOURCE_TYPE_RUN: "run_id",
@@ -6542,16 +6014,6 @@ def _withhold_denied_metric_references(metrics, username: str, tier: str) -> boo
 
 
 def _withhold_denied_run_model_links(runs, username: str) -> bool:
-    """Clear a run's references to logged models when the caller is denied the model tier.
-
-    `GetRun` and `SearchRuns` echo `inputs.model_inputs[]` / `outputs.model_outputs[]`, which name
-    logged models by id. `GetLoggedModel` applies the model tier to exactly those ids, so without
-    this a `(logged_model, "*", DENY)` holder is refused the model and handed its id by the run.
-
-    `data.metrics[].model_id` is the same disclosure by a different field, so it clears here too --
-    one grants query covers both, and the run's own `metrics[].run_id` stays: the run is the
-    route's subject and the caller passed its read check.
-    """
     linked = [run for run in runs if run.inputs.model_inputs or run.outputs.model_outputs]
     metrics = [metric for run in runs for metric in run.data.metrics if metric.model_id]
     if not linked and not metrics:
@@ -6569,15 +6031,6 @@ def _withhold_denied_run_model_links(runs, username: str) -> bool:
 
 
 def _withhold_denied_trace_metadata_siblings(metadata_fields, username: str) -> bool:
-    """Strip `mlflow.sourceRun` / `mlflow.modelId` from trace metadata on a denied tier.
-
-    A trace carries the ids of the run that produced it and the model it scored, so the trace
-    response is a route to both tiers. v2 already refuses FILTERING a trace search by
-    `metadata.mlflow.sourceRun` on the run tier; returning the same value is the other half.
-
-    `metadata_fields` accepts both spellings: TraceInfoV3's `trace_metadata` map and TraceInfo's
-    repeated `request_metadata` key/value entries.
-    """
     present = [field for field in metadata_fields if len(field)]
     if not present:
         return False
@@ -6624,10 +6077,6 @@ def redact_metric_history_model_ids(resp: Response) -> None:
 
 
 def _redact_logged_model_response(resp: Response, response_message, models_of) -> None:
-    """The mirror of the run case: here the logged model is the route's subject, so
-    `metrics[].model_id` is its own id and stays, while `metrics[].run_id` names a run the caller
-    may be denied.
-    """
     if sender_is_admin():
         return
     if not isinstance(resp.json, dict):
@@ -6741,25 +6190,6 @@ def redact_search_traces_metadata(resp: Response) -> None:
 
 
 def _withhold_denied_assessments(trace_infos) -> bool:
-    """Clear ``assessments[]`` from each TraceInfoV3 whose experiment denies the assessment tier.
-
-    Returns whether anything was cleared, so a caller only re-serializes when it must.
-
-    Redaction rather than denying the route: working with traces while holding no access to their
-    assessments is a real configuration, and because the assessment requirement is wildcard-only
-    and therefore CONSTANT, denying would also block traces carrying no assessments at all.
-
-    One gate per DISTINCT experiment, memoized. The assessment tier is wildcard-only, so within an
-    experiment the decision cannot vary by row; a single-experiment response -- every point read,
-    and the usual search -- therefore costs one gate no matter how many rows it carries.
-
-    The memo key must stay the EXPERIMENT, not its workspace. The requirement's
-    ``fallback_if_no_grant`` names this one experiment, so absent an assessment grant two
-    experiments in the same workspace legitimately differ, and sharing a gate between them would
-    disclose a denied experiment's assessments. Each gate costs two auth-DB queries, so a batch
-    spanning N experiments costs 2N; the request-side validator already pays the same 2N on these
-    routes (see description §6.2 for the shared-load consolidation, deferred).
-    """
     username = authenticate_request().username
     gates: dict[str, RetentionGate] = {}
     withheld = False
@@ -6769,10 +6199,6 @@ def _withhold_denied_assessments(trace_infos) -> bool:
         experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
         gate = gates.get(experiment_id)
         if gate is None:
-            # A missing experiment location needs no branch. With workspaces enabled the anchor is
-            # then unresolvable, which makes every decision False and withholds; the fetch failure
-            # is swallowed by `_get_resource_workspace`, so this cannot raise. With workspaces
-            # disabled the anchor is the default workspace and `default_permission` governs.
             experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
             # The fallback is the compatibility guarantee: absent an assessment grant the
             # experiment governs, so only an explicit grant -- including DENY -- narrows anything.
@@ -6796,14 +6222,7 @@ def _withhold_denied_assessments(trace_infos) -> bool:
 
 
 def redact_trace_assessments(resp: Response) -> None:
-    """Withhold ``assessments[]`` from GetTrace / GetTraceInfoV3.
-
-    The trace itself stays readable -- the caller passed the route's own trace-read validator and
-    only the assessments riding inside ``trace_info`` are withheld.
-
-    NOT in ``_SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS``: the route's authorization decision stays
-    with its before-request validator. This only narrows what that decision returns.
-    """
+    """Withhold ``assessments[]`` from GetTrace / GetTraceInfoV3."""
     if sender_is_admin():
         return
     response_message = GetTrace.Response()
@@ -6865,11 +6284,7 @@ def redact_batch_trace_info_assessments(resp: Response) -> None:
 
 
 def redact_search_traces_v3_assessments(resp: Response) -> None:
-    """SearchTracesV3 returns ``traces[]`` of TraceInfoV3.
-
-    The V2 SearchTraces and GetTraceInfo need no counterpart: they return ``TraceInfo``, which has
-    no assessments field at all.
-    """
+    """SearchTracesV3 returns ``traces[]`` of TraceInfoV3."""
     if sender_is_admin():
         return
     response_message = SearchTracesV3.Response()
@@ -7625,9 +7040,6 @@ def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
 
 
 def _graphql_can_read_run(run_id: str, username: str) -> bool:
-    # The run tier decides, exactly as on the REST routes: resolving only the run's experiment left
-    # (run, "*", DENY) unable to withhold a run over GraphQL while it withheld the same run over
-    # REST. Passes the middleware's username rather than re-authenticating.
     resolved = _run_requirement(run_id, "read")
     if resolved is None:
         return False
@@ -7744,10 +7156,6 @@ class GraphQLAuthorizationMiddleware:
 
         elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
             if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
-                # The rows mlflowSearchRuns scopes are RUNS, so the run tier vetoes -- the same
-                # `also_require` the REST `filter_experiment_ids` carries, so the two transports
-                # answer alike. mlflowSearchDatasets scopes datasets, which are out of scope, so it
-                # keeps the experiment-only check.
                 can_read = _role_based_read_predicate(
                     username,
                     "experiment",
@@ -8050,9 +7458,6 @@ def _mcp_path_targets_an_access_endpoint(parts: list[str]) -> bool:
 
 
 def _mcp_endpoint_filter_selects_version_status(filter_string: str) -> bool:
-    # Asks the grammar's owner, like `_filter_selects_on_tiers`: the store routes exactly `status`
-    # to the version table (`_apply_mcp_access_endpoint_filters`). An unparsable filter counts as
-    # selecting, so the most restrictive reading applies; the handler still raises its own 400.
     if not filter_string:
         return False
     from mlflow.utils.search_utils import SearchMCPAccessEndpointUtils
@@ -8065,19 +7470,10 @@ def _mcp_endpoint_filter_selects_version_status(filter_string: str) -> bool:
 
 
 async def _mcp_request_selects_a_version(request: StarletteRequest) -> bool:
-    """True if the request names a specific server version, by number or by alias.
-
-    An access endpoint resolves to a version and serves its content, so a request that selects one
-    is operating on the version tier even though the path says `endpoints`. Query params carry the
-    selector on the searches; the create and update bodies carry it on the writes.
-    """
     params = request.query_params
     if params.get("server_version") or params.get("server_alias"):
         return True
-    # `filter_string=status = '...'` resolves against `SqlMCPServerVersion.status`, not the endpoint
-    # -- an endpoint response carries no status of its own. So it selects rows by version state,
-    # which the passenger redaction cannot hide: WHICH rows match is the disclosure. (Contrast
-    # `SearchMCPServers`'s `status`, which is a propagated property this PR deliberately exposes.)
+    # The store resolves this `status` against `SqlMCPServerVersion`, not the endpoint.
     if _mcp_endpoint_filter_selects_version_status(params.get("filter_string") or ""):
         return True
     if request.method not in ("POST", "PATCH"):
@@ -8170,28 +7566,14 @@ def _get_mcp_server_validator(
                 return False
         if not allowed:
             return False
-        # The version tier takes the route's OWN action, with the server as fallback, so a
-        # positive version grant decides these routes rather than being inert: with
-        # `(mcp_server, *, MANAGE)` and `(mcp_server_version, *, READ)` a version delete is now
-        # refused, exactly as the parent cascade below already refused it. A caller with no
-        # version grant falls back to the server and is unaffected.
         if _mcp_path_targets_a_version(parts):
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
-        # An access endpoint that names a version resolves it and serves its content, so selecting
-        # one is a version-tier operation. The server tier stays the positive gate; the version tier
-        # only vetoes, as on the nested version routes.
         if _mcp_path_targets_an_access_endpoint(parts) and await _mcp_request_selects_a_version(
             request
         ):
             return _mcp_server_version_not_denied(username, name)
-        # Deleting the server destroys its versions with it -- the ORM pairs `ondelete="CASCADE"`
-        # with `delete-orphan` -- so the cascade takes the same version-tier delete that the
-        # experiment and registered-model cascades take. Without it the version tier was reachable
-        # only through the nested routes, and `DELETE /{name}` achieved the same destruction that
-        # `DELETE /{name}/versions/{v}` refuses. `fallback_if_no_grant` keeps a caller with no
-        # version grant working, since they have already passed the server's own delete gate.
         if request.method == "DELETE":
             return _mcp_server_version_action_allowed(username, name, "delete")
         return True
@@ -8320,19 +7702,12 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     return json.dumps(data).encode()
 
 
-# An access endpoint carries its resolved version's content: `resolved_version` is the version
-# object, `tools` is copied out of it, and `server_version`/`server_alias` name the passenger. They
-# are withheld together, because leaving the selector behind still discloses which version a denied
-# caller's endpoint resolves to.
 _MCP_VERSION_PASSENGER_FIELDS = ("resolved_version", "tools", "server_version", "server_alias")
 
 
 def _withhold_denied_mcp_version_passengers(
     endpoints: "list[dict[str, Any]]", username: str
 ) -> None:
-    # The endpoint row is the subject of its own route, so a denied version is redacted out of the
-    # row rather than removing the row. Memoized on the server name, which is what the veto resolves
-    # a workspace from -- the cross-server search mixes servers in one response.
     denied: dict[str, bool] = {}
     for endpoint in endpoints:
         server_name = endpoint.get("server_name")
@@ -8690,9 +8065,6 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
-    # A server response embeds `access_endpoints`, each carrying its resolved version, so the update
-    # response needs the same pass the read does. Server CREATE is excluded: a new server has no
-    # endpoints yet, so wiring it would be dead code.
     _update_mcp_server_endpoint: _filter_get_mcp_server,
     _get_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
     _create_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
