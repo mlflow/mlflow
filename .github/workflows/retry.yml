@@ -74,7 +74,7 @@ jobs:
           result=0
           while IFS=$'\t' read -r number sha; do
             [[ -n "$number" ]] || continue
-            echo "::group::PR #$number"
+            echo "::group::https://github.com/$GH_REPO/pull/$number"
             if ! bash "$RUNNER_TEMP/retry.sh" "${args[@]}" "$GH_REPO" "$sha"; then
               result=1
             fi
