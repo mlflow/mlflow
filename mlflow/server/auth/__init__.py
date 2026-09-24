@@ -1934,9 +1934,7 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
         # permission boundary and no cross-workspace API exists, so every key in this batch
         # resolves in the anchor's workspace.
         model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
-        requirements.append(
-            Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read")
-        )
+        requirements.append(Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read"))
         requirements.append(
             Requirement(
                 RESOURCE_TYPE_LOGGED_MODEL,
@@ -2930,12 +2928,8 @@ def _role_based_read_predicate(
     alone and reported as design feedback.
     """
     workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    row_template = Requirement(
-        resource_type, "*", "read", fallback_if_no_grant=workspace_fallback
-    )
-    gate = retention_gate(
-        username, (RESOURCE_TYPE_WORKSPACE, "*"), [row_template, *also_require]
-    )
+    row_template = Requirement(resource_type, "*", "read", fallback_if_no_grant=workspace_fallback)
+    gate = retention_gate(username, (RESOURCE_TYPE_WORKSPACE, "*"), [row_template, *also_require])
     for requirement in also_require:
         if not gate.retains(requirement.resource_type, requirement.resource_id):
             return lambda _resource_id: False
@@ -3221,9 +3215,9 @@ def validate_can_create_gateway_endpoint():
         return False
     if not msg.experiment_id:
         return True
-    return _gateway_resources_not_denied(
-        [Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)]
-    )
+    return _gateway_resources_not_denied([
+        Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)
+    ])
 
 
 def validate_can_update_gateway_endpoint():
@@ -3242,9 +3236,9 @@ def validate_can_update_gateway_endpoint():
     # experiment vetoes rather than carrying a positive level.
     if not msg.experiment_id:
         return True
-    return _gateway_resources_not_denied(
-        [Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)]
-    )
+    return _gateway_resources_not_denied([
+        Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)
+    ])
 
 
 def _guardrail_scorer_not_denied(guardrail_id: str) -> bool:
@@ -3317,15 +3311,13 @@ def validate_can_detach_model_from_gateway_endpoint():
         return False
     if not msg.model_definition_id:
         return True
-    return _gateway_resources_not_denied(
-        [
-            Requirement(
-                RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
-                msg.model_definition_id,
-                ACTION_NOT_DENIED,
-            )
-        ]
-    )
+    return _gateway_resources_not_denied([
+        Requirement(
+            RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+            msg.model_definition_id,
+            ACTION_NOT_DENIED,
+        )
+    ])
 
 
 def validate_can_create_gateway_endpoint_binding():
@@ -5935,9 +5927,7 @@ def _withhold_denied_guardrail_scorers(configs) -> bool:
             Requirement(
                 RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
             ),
-            Requirement(
-                RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback
-            ),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
         ],
     )
     withheld = False
@@ -6001,9 +5991,7 @@ def filter_list_scorers(resp: Response) -> None:
             Requirement(
                 RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
             ),
-            Requirement(
-                RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback
-            ),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
         ],
     )
     kept = []
@@ -6050,9 +6038,7 @@ def _withhold_denied_model_mappings(mappings, username: str) -> bool:
     )
     withheld = False
     for mapping in mappings:
-        definition_id = (
-            mapping.model_definition_id or mapping.model_definition.model_definition_id
-        )
+        definition_id = mapping.model_definition_id or mapping.model_definition.model_definition_id
         if definition_id and not gate.retains(
             RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION, definition_id
         ):
@@ -6208,9 +6194,7 @@ def _denied_sibling_tiers(username: str, resource_types) -> "set[str]":
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [Requirement(resource_type, "*", ACTION_NOT_DENIED) for resource_type in resource_types],
     )
-    return {
-        resource_type for resource_type in resource_types if not gate.retains(resource_type)
-    }
+    return {resource_type for resource_type in resource_types if not gate.retains(resource_type)}
 
 
 _MODEL_VERSION_SIBLING_FIELDS = {
@@ -6287,9 +6271,7 @@ def _withhold_denied_run_model_links(runs, username: str) -> bool:
     one grants query covers both, and the run's own `metrics[].run_id` stays: the run is the
     route's subject and the caller passed its read check.
     """
-    linked = [
-        run for run in runs if run.inputs.model_inputs or run.outputs.model_outputs
-    ]
+    linked = [run for run in runs if run.inputs.model_inputs or run.outputs.model_outputs]
     metrics = [metric for run in runs for metric in run.data.metrics if metric.model_id]
     if not linked and not metrics:
         return False
@@ -6370,9 +6352,7 @@ def _redact_logged_model_response(resp: Response, response_message, models_of) -
     if not isinstance(resp.json, dict):
         return
     parse_dict(resp.json, response_message)
-    metrics = [
-        metric for model in models_of(response_message) for metric in model.data.metrics
-    ]
+    metrics = [metric for model in models_of(response_message) for metric in model.data.metrics]
     if _withhold_denied_metric_references(
         metrics, authenticate_request().username, RESOURCE_TYPE_RUN
     ):
