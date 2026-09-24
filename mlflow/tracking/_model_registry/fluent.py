@@ -136,7 +136,12 @@ def register_model(
             rfr = RandomForestRegressor(**params).fit(X, y)
             signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(
+                rfr,
+                name="sklearn-model",
+                signature=signature,
+                skops_trusted_types=["sklearn.tree._tree.Tree"],
+            )
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print(f"Name: {mv.name}")
