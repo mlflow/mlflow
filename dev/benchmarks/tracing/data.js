@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790213602091,
+  "lastUpdate": 1790221417591,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "31463517+B-Step62@users.noreply.github.com",
-            "name": "Yuki Watanabe",
-            "username": "B-Step62"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b37b43800472db5f2e203e7d17073da3276a19de",
-          "message": "Reword `FileStore` maintenance-mode error and document escape hatch (#23637)\n\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-05-28T22:55:54Z",
-          "tree_id": "98f395f976a91bf61a9ae7cf763c012e77a246a8",
-          "url": "https://github.com/mlflow/mlflow/commit/b37b43800472db5f2e203e7d17073da3276a19de"
-        },
-        "date": 1780009176193,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.30657405000062,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.406777028569895,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 23.063972095237148,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.625168232142556,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 21.70111390163766,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 47.38954100000399,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.479263250000031,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tomu.hirata@gmail.com",
+            "name": "Tomu Hirata",
+            "username": "TomeHirata"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8328f505c82dda30ef6d3cec9c9a79fa0129f86f",
+          "message": "Add `DatabricksUCModelService` resource type (#26137)\n\nSigned-off-by: Tomu Hirata <tomu.hirata@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-09-24T03:39:56Z",
+          "tree_id": "c833bd76310417516d0a1b62aa5b06f2ac324578",
+          "url": "https://github.com/mlflow/mlflow/commit/8328f505c82dda30ef6d3cec9c9a79fa0129f86f"
+        },
+        "date": 1790221413734,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.948619300000644,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.195620692308125,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.383657907802008,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.465159700679733,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.655260000000518,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.748289166668068,
             "unit": "ms"
           }
         ]
