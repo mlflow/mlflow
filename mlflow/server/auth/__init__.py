@@ -2433,15 +2433,15 @@ def validate_can_create_model_version():
     return True
 
 
-def _create_not_denied(username: str, created_type: str) -> bool:
+def _create_not_denied(username: str, created_type: str, resource_id: str = "*") -> bool:
     return authorize(
         username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
-        [Requirement(created_type, "*", ACTION_NOT_DENIED)],
+        [Requirement(created_type, resource_id or "*", ACTION_NOT_DENIED)],
     )
 
 
-def _workspace_create_not_denied(created_type: str) -> bool:
+def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> bool:
     """The created type's veto on a workspace-scoped create -- §5d, applied at the workspace.
 
     ``_can_create_in_workspace`` answers the container half (a workspace-wide grant carrying
@@ -2449,8 +2449,14 @@ def _workspace_create_not_denied(created_type: str) -> bool:
     ``_authorize_create_in_experiment``: the created type cannot confer create rights, but it can
     refuse. Without it a ``(experiment, "*", DENY)`` holder kept creating experiments while being
     refused every other operation on one.
+
+    ``resource_id`` names the resource when the request already knows its grant key -- a registered
+    model or prompt name, an MCP server name. Passing it is strictly broader than ``"*"``: an id key
+    matches wildcard grant rows as well as exact ones, so the wildcard veto still fires and an exact
+    ``DENY`` on that name now fires too. Creates whose id the store generates (experiment, gateway
+    secret, model definition, endpoint) have no key to name and stay on ``"*"``.
     """
-    return _create_not_denied(authenticate_request().username, created_type)
+    return _create_not_denied(authenticate_request().username, created_type, resource_id)
 
 
 def validate_can_create_experiment() -> bool:
@@ -2482,17 +2488,16 @@ def validate_can_create_registered_model() -> bool:
         return _workspace_create_not_denied(
             RESOURCE_TYPE_REGISTERED_MODEL
         ) and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
+    msg = _get_request_message(CreateRegisteredModel())
     created_type = (
-        RESOURCE_TYPE_PROMPT
-        if _entity_is_prompt(_get_request_message(CreateRegisteredModel()))
-        else RESOURCE_TYPE_REGISTERED_MODEL
+        RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
-    return _workspace_create_not_denied(created_type)
+    return _workspace_create_not_denied(created_type, msg.name)
 
 
-def validate_can_create_mcp_server(username: str) -> bool:
+def validate_can_create_mcp_server(username: str, name: str = "*") -> bool:
     return _can_create_in_workspace(username) and _create_not_denied(
-        username, RESOURCE_TYPE_MCP_SERVER
+        username, RESOURCE_TYPE_MCP_SERVER, name
     )
 
 
@@ -7932,6 +7937,19 @@ async def _mcp_request_selects_a_version(request: StarletteRequest) -> bool:
     return isinstance(body, dict) and bool(body.get("server_version") or body.get("server_alias"))
 
 
+async def _mcp_create_body_name(request: StarletteRequest) -> str:
+    # `"*"` when the body carries no usable name: the veto then covers wildcard grants only, which
+    # is all a create with no name to deny can be held to. The handler rejects the body itself.
+    try:
+        body = await request.json()
+    except Exception:
+        return "*"
+    # Starlette caches the read, so the route handler still parses its own body.
+    request.state.cached_body = body
+    name = body.get("name") if isinstance(body, dict) else None
+    return name if isinstance(name, str) and name else "*"
+
+
 def _mcp_path_targets_a_version(parts: list[str]) -> bool:
     # parts[0:2] is the server name; parts[2:] is the nested path. `aliases/<alias>` resolves to a
     # version and returns it, so it discloses version content just as `versions/...` does.
@@ -7948,7 +7966,11 @@ def _get_mcp_server_validator(
 
         async def root_validator(username: str, request: StarletteRequest) -> bool:
             if request.method == "POST":
-                return validate_can_create_mcp_server(username)
+                # The nested auto-create path already vetoes on the exact server name; the root
+                # create carries it in the body, so name it here too rather than only the wildcard.
+                return validate_can_create_mcp_server(
+                    username, await _mcp_create_body_name(request)
+                )
             # The cross-server endpoint search accepts the same version selectors as the per-server
             # one, so it vetoes on the same tier; it just has no server to anchor on.
             if parts[:1] == ["endpoints"] and await _mcp_request_selects_a_version(request):
