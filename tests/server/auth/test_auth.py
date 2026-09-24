@@ -3457,6 +3457,36 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         response.raise_for_status()
 
 
+def test_duplicate_prompt_tags_do_not_escape_a_model_deny(client, monkeypatch):
+    """The store keeps the LAST duplicate tag value, so `[true, false]` creates a registered model.
+
+    Classifying on `any(... == "true")` sent the veto to the prompt tier instead, letting a caller
+    under a `registered_model` DENY create one anyway.
+    """
+    base = client.tracking_uri
+    owner, pw = create_user(base)
+    grant_role_permission(base, owner, "registered_model", "*", "DENY")
+    tags = [
+        {"key": "mlflow.prompt.is_prompt", "value": "true"},
+        {"key": "mlflow.prompt.is_prompt", "value": "false"},
+    ]
+    with User(owner, pw, monkeypatch):
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/registered-models/create",
+            json={"name": f"m_{uuid.uuid4().hex[:8]}", "tags": tags},
+            auth=(owner, pw),
+        )
+    assert resp.status_code == 403
+    # Reversing the order really does create a prompt, so the DENY above was tier-specific.
+    with User(owner, pw, monkeypatch):
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/registered-models/create",
+            json={"name": f"p_{uuid.uuid4().hex[:8]}", "tags": list(reversed(tags))},
+            auth=(owner, pw),
+        )
+    assert resp.status_code == 200
+
+
 def test_create_gateway_endpoint_refuses_an_auto_created_experiment(client, monkeypatch):
     """Usage tracking defaults ON, and the store then auto-creates an experiment.
 
