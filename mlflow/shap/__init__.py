@@ -324,7 +324,11 @@ def log_explainer(
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of
-            'sklearn' or 'pytorch' flavors.
+            'sklearn' or 'pytorch' flavors. SHAP explainer state uses pickle-based serialization
+            regardless of this setting. For scikit-learn-backed explainers, MLflow also serializes
+            the extracted model with cloudpickle because skops cannot make the complete SHAP
+            artifact pickle-free. This does not affect models saved directly with
+            :py:mod:`mlflow.sklearn`.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under ``registered_model_name``,
@@ -407,7 +411,11 @@ def save_explainer(
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of
-            'sklearn' or 'pytorch' flavors.
+            'sklearn' or 'pytorch' flavors. SHAP explainer state uses pickle-based serialization
+            regardless of this setting. For scikit-learn-backed explainers, MLflow also serializes
+            the extracted model with cloudpickle because skops cannot make the complete SHAP
+            artifact pickle-free. This does not affect models saved directly with
+            :py:mod:`mlflow.sklearn`.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -609,6 +617,10 @@ def _merge_environments(shap_environment, model_environment):
 def load_explainer(model_uri):
     """
     Load a SHAP explainer from a local file or a run.
+
+    .. warning::
+
+        SHAP explainer artifacts contain pickle-based state. Load them only from sources you trust.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
