@@ -1663,7 +1663,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models",
+            "source": "s3://bucket/models",
             "run_id": run.info.run_id,
         },
     )
@@ -1674,7 +1674,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models/",
+            "source": "s3://bucket/models/",
             "run_id": run.info.run_id,
         },
     )
@@ -1685,7 +1685,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models///",
+            "source": "s3://bucket/models///",
             "run_id": run.info.run_id,
         },
     )
@@ -1696,12 +1696,14 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models/foo///bar",
+            "source": "s3://bucket/models/foo///bar",
             "run_id": run.info.run_id,
         },
     )
     assert response.status_code == 200
 
+    # A remote source on a host other than the server's own artifact storage is refused, since
+    # the server would connect to that host when serving the model version's artifacts.
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
@@ -1710,7 +1712,8 @@ def test_create_model_version_with_non_local_source(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     # Multiple dots
     response = requests.post(
@@ -1721,7 +1724,8 @@ def test_create_model_version_with_non_local_source(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     # Test that invalid remote uri's cannot be created
     response = requests.post(
@@ -1733,7 +1737,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1744,7 +1748,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'http' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1755,7 +1759,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'https' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1777,7 +1781,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'ftp' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1788,7 +1792,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1799,7 +1803,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -2534,7 +2538,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment(name)
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    mlflow_client.create_model_version("GraphqlTest", "runs:/graphql_test/model", run_id)
+    mlflow_client.create_model_version("GraphqlTest", f"runs:/{run_id}/model", run_id)
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
         json={

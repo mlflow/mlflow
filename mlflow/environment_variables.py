@@ -1550,6 +1550,18 @@ MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
 
+#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
+#: ``https``, ``mlflow-artifacts``, ``r2``, ``b2``, ``abfss``) that the tracking server connects
+#: to even when the URI points at a host other than the server's ``--default-artifact-root`` or
+#: ``--artifacts-destination``. The artifact repositories for these schemes connect to the host
+#: named in the URI, so inside a server process (and its job subprocesses) locations on other
+#: hosts are rejected, both when a client submits them and when a stored location is used.
+#: Locations on the server's own storage hosts are always accepted. Set to e.g. ``hdfs`` or
+#: ``http,https`` when clients legitimately store artifacts on another host. (default: none)
+MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
+)
+
 #: Whether an AI Gateway secret's ``api_base`` may target private, loopback or link-local
 #: addresses (e.g. cloud metadata at ``169.254.169.254``). When false, such values are
 #: rejected on write and again at connect time, on the raw proxy route as well. Set to true
@@ -1689,6 +1701,35 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: Specifies the path to the YAML config file for MLflow server-owned trace archival.
 #: (default: ``None``)
 MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
+
+#: Enables opt-in SQL daily rollups for trace analytics. When ``true``, the query planner serves
+#: eligible daily aggregate requests from precomputed rollup tables, falling back to the raw path
+#: for any day that is not covered. When ``false`` (the default), all trace analytics queries use
+#: the raw path. Before disabling an active deployment, remove existing derived rows with
+#: ``mlflow db delete-trace-rollups``.
+#: (default: ``False``)
+MLFLOW_SQL_TRACE_ROLLUPS_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", False
+)
+
+#: Five-field UTC cron expression for the server-owned SQL trace rollup scheduler.
+#: (default: ``"0 2 * * *"``)
+MLFLOW_TRACE_ROLLUPS_SCHEDULE = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_SCHEDULE", str, "0 2 * * *"
+)
+
+#: Caps the number of ``(experiment_id, rollup_day, family)`` partitions successfully built or
+#: emptied in one maintenance pass. Deferred partitions (for example, partitions with active traces
+#: that are not yet eligible) do not consume this publication budget.
+#: (default: ``1000``)
+MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, 1000
+)
+
+#: Maximum number of distinct SQL trace rollup partitions maintained concurrently in a single
+#: maintenance pass. SQLite always uses one worker because it permits only one concurrent writer.
+#: (default: ``4``)
+MLFLOW_TRACE_ROLLUPS_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_ROLLUPS_MAX_WORKERS", int, 4)
 
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)

@@ -1,0 +1,83 @@
+name: Retry
+
+on:
+  schedule:
+    # Weekdays, 09:00–17:40 JST.
+    - cron: "0,20,40 9-17 * * 1-5"
+      timezone: Asia/Tokyo
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print eligible reruns without submitting them
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  rerun:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    permissions:
+      pull-requests: read # to find candidate PRs
+      actions: write # to rerun workflows
+    steps:
+      - name: Fetch rerun script
+        run: |
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: %{time_total}s\n' \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.github/workflows/retry.sh" \
+            -o "$RUNNER_TEMP/retry.sh"
+
+      - name: rerun
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MAX_RETRIES: "3"
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          cutoff=$(jq -nr 'now - 3 * 24 * 60 * 60 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+          candidates=$(gh api graphql --paginate \
+            -f search="repo:$GH_REPO is:pr is:open draft:false label:auto-rerun created:>=$cutoff" \
+            -f query='
+              query($search: String!, $endCursor: String) {
+                search(query: $search, type: ISSUE, first: 100, after: $endCursor) {
+                  nodes {
+                    ... on PullRequest {
+                      number
+                      mergeable
+                      headRefOid
+                    }
+                  }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }' \
+            --jq '.data.search.nodes[] |
+              select(.mergeable != "CONFLICTING") |
+              [.number, .headRefOid] | @tsv')
+
+          args=()
+          if [[ "$DRY_RUN" == true ]]; then
+            args+=(--dry-run)
+          fi
+
+          result=0
+          while IFS=$'\t' read -r number sha; do
+            [[ -n "$number" ]] || continue
+            echo "::group::https://github.com/$GH_REPO/pull/$number"
+            if ! bash "$RUNNER_TEMP/retry.sh" "${args[@]}" "$GH_REPO" "$sha"; then
+              result=1
+            fi
+            echo "::endgroup::"
+          done <<< "$candidates"
+          exit "$result"

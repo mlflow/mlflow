@@ -1371,14 +1371,18 @@ Request Structure
 
 
 
-List all scorers, optionally scoped to a single experiment.
+List all scorers, optionally scoped to one or more experiments.
 
 
-+---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
-|  Field Name   |    Type    |                                                            Description                                                            |
-+===============+============+===================================================================================================================================+
-| experiment_id | ``STRING`` | The experiment ID. If empty, returns scorers across all experiments in the active workspace (used by the admin-UI scorer picker). |
-+---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| experiment_id  | ``STRING``             | A single experiment ID. Kept for backward compatibility; prefer ``experiment_ids`` for multi-experiment queries. Mutually exclusive with                   |
+|                |                        | ``experiment_ids`` -- specifying both is an error.                                                                                                         |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only scorers from these experiments are returned. Mutually exclusive with               |
+|                |                        | ``experiment_id`` -- specifying both is an error. Not supported against a Databricks-hosted backend.                                                       |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
 
@@ -2983,10 +2987,14 @@ Create Presigned Upload URL
 
 Generate a presigned URL for uploading an artifact directly to cloud storage.
 The server uses its own credentials to sign the URL, enabling clients to upload
-artifacts without needing direct cloud storage write permissions.
+artifacts without needing direct cloud storage write permissions. Supports both
+run artifacts (run_id) and logged model artifacts (model_id).
 
 Consumed by external artifact repository plugins
 (e.g. https://github.com/aws/sagemaker-mlflow).
+
+Logged-model uploads require a client that sends model_id and a server that
+supports it. Upgrading only one side does not enable this flow.
 
 
 
@@ -3001,15 +3009,19 @@ Request Structure
 
 
 
-+------------+------------+------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                          Description                                           |
-+============+============+================================================================================================+
-| run_id     | ``STRING`` | Run ID that owns the artifact. Must be provided.                                               |
-+------------+------------+------------------------------------------------------------------------------------------------+
-| path       | ``STRING`` | Relative path within the run's artifact directory (e.g. "models/model.pkl"). Must be provided. |
-+------------+------------+------------------------------------------------------------------------------------------------+
-| expiration | ``INT64``  | URL expiration time in seconds (default: 900).                                                 |
-+------------+------------+------------------------------------------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                                Description                                                                                 |
++============+============+============================================================================================================================================================================+
+| run_id     | ``STRING`` | ID of the run that owns the artifact. Exactly one of run_id and model_id must be provided.                                                                                 |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| path       | ``STRING`` | Relative path within the owning resource's artifact directory (e.g. "models/model.pkl"). Must be provided.                                                                 |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| expiration | ``INT64``  | URL expiration time in seconds (default: 900).                                                                                                                             |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| model_id   | ``STRING`` | ID of the logged model that owns the artifact, for artifacts stored under a logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts") rather than |
+|            |            | a run's. Exactly one of run_id and model_id must be provided. Clients must populate model_id for logged-model artifacts; sending a logged model ID through run_id is not   |
+|            |            | supported.                                                                                                                                                                 |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreatePresignedUploadUrlResponse:
 
@@ -5643,6 +5655,24 @@ Example::
 
 
 
+.. _fastapiGETgatewaymlflowv1models:
+
+List Models
+-----------
+
++-------------------------------+-------------+
+|           Endpoint            | HTTP Method |
++===============================+=============+
+| ``/gateway/mlflow/v1/models`` | ``GET``     |
++-------------------------------+-------------+
+
+OpenAI-compatible models listing endpoint.
+
+The returned model ``id`` is the MLflow gateway endpoint name expected by
+``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+
+
+
 .. _fastapiPOSTgatewayopenaiv1chatcompletions:
 
 OpenAI Passthrough Chat
@@ -5698,6 +5728,24 @@ Example::
         "model": "my-openai-endpoint",
         "input": "The food was delicious and the waiter..."
     }
+
+
+
+.. _fastapiPOSTgatewaytypesafev1systemone:
+
+Typesafe Passthrough System One
+-------------------------------
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``/gateway/typesafe/v1/systemone`` | ``POST``    |
++------------------------------------+-------------+
+
+Evaluate TypeSafe questions using the credentials and model of a gateway endpoint.
+
+The request uses TypeSafe's native ``state`` and ``questions`` fields. The ``model``
+field selects an MLflow gateway endpoint, whose configured model is sent to TypeSafe.
 
 
 
@@ -7432,11 +7480,14 @@ BatchGetTraceInfos
 
 
 
-+------------+------------------------+-----------------------------------------------+
-| Field Name |          Type          |                  Description                  |
-+============+========================+===============================================+
-| trace_ids  | An array of ``STRING`` | IDs of the traces to fetch. Must be provided. |
-+------------+------------------------+-----------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| trace_ids      | An array of ``STRING`` | IDs of the traces to fetch. Must be provided.                                                                                                              |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. Not supported when proxying to |
+|                |                        | a Databricks-hosted backend, since that API has no corresponding field.                                                                                    |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowBatchGetTraces:
 
@@ -7448,11 +7499,14 @@ BatchGetTraces
 
 
 
-+------------+------------------------+----------------------------------------------+
-| Field Name |          Type          |                 Description                  |
-+============+========================+==============================================+
-| trace_ids  | An array of ``STRING`` | ID of the traces to fetch. Must be provided. |
-+------------+------------------------+----------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| trace_ids      | An array of ``STRING`` | ID of the traces to fetch. Must be provided.                                                                                                               |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. Not supported when proxying to |
+|                |                        | a Databricks-hosted backend, since that API has no corresponding field.                                                                                    |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowBudgetDuration:
 
