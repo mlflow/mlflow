@@ -14,7 +14,13 @@ from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
 from mlflow.store.artifact.host_policy import _SERVER_ARTIFACT_ROOT_ENV_VAR
 
 
-def test_standard_artifact_registry():
+def test_standard_artifact_registry(monkeypatch):
+    # Restore the original registry after the reload replaces this module global.
+    monkeypatch.setattr(
+        artifact_repository_registry,
+        "_artifact_repository_registry",
+        artifact_repository_registry._artifact_repository_registry,
+    )
     mock_entrypoint = mock.Mock()
     mock_entrypoint.name = "mock-scheme"
 

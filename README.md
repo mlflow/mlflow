@@ -308,7 +308,7 @@ MLflow can be used in a variety of environments, including your local environmen
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 - For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-  or join us on [Slack](https://mlflow.org/slack).
+  or join us on [Slack](https://go.mlflow.org/slack).
 
 ## 🤝 Contributing
 

@@ -262,6 +262,7 @@ from mlflow.server.handlers import (
     _update_workspace_handler,
     _upload_artifact,
     _upsert_dataset_records_handler,
+    _validate_source_model,
     _validate_source_run,
     _validate_trace_ids_in_experiment,
     catch_mlflow_exception,
@@ -308,7 +309,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE, MAX_CUSTOM_VIEWS_PER_EXPERIMENT
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
@@ -337,6 +338,7 @@ def mock_model_registry_store():
     with mock.patch("mlflow.server.handlers._get_model_registry_store") as m:
         mock_store = mock.MagicMock()
         mock_store.list_webhooks_by_event.return_value = PagedList([], None)
+        mock_store.get_registered_model.return_value._is_prompt.return_value = False
         m.return_value = mock_store
         yield mock_store
 
@@ -1148,6 +1150,204 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
 @pytest.mark.parametrize(
     "source",
     [
+        "models:/source-model/7",
+        "models:/source-model@champion",
+        "models:/source-model/Staging",
+        "models:/source-model/latest",
+    ],
+)
+def test_create_model_version_accepts_registered_model_source_with_matching_lineage(
+    mock_get_request_message, mock_model_registry_store, mock_tracking_store, source
+):
+    run_id = uuid.uuid4().hex
+    model_id = f"m-{uuid.uuid4().hex}"
+    source_model_version = ModelVersion(
+        name="source-model",
+        version="7",
+        creation_timestamp=123,
+        run_id=run_id,
+        model_id=model_id,
+    )
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model", source=source, run_id=run_id, model_id=model_id
+    )
+    mock_model_registry_store.get_model_version.return_value = source_model_version
+    mock_model_registry_store.get_model_version_by_alias.return_value = source_model_version
+    mock_model_registry_store.get_latest_versions.return_value = [source_model_version]
+    mock_model_registry_store.create_model_version.return_value = ModelVersion(
+        name="destination-model", version="1", creation_timestamp=456
+    )
+
+    assert _create_model_version().status_code == 200
+    mock_model_registry_store.create_model_version.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "models:/source-model/7",
+        "models:/source-model@champion",
+        "models:/source-model/Staging",
+    ],
+)
+@pytest.mark.parametrize(
+    "request_lineage",
+    [
+        {},
+        {"run_id": "source-run"},
+        {"model_id": "m-source"},
+    ],
+)
+def test_create_model_version_inherits_omitted_registered_model_lineage(
+    mock_get_request_message,
+    mock_model_registry_store,
+    mock_tracking_store,
+    source,
+    request_lineage,
+):
+    source_model_version = ModelVersion(
+        name="source-model",
+        version="7",
+        creation_timestamp=123,
+        run_id="source-run",
+        model_id="m-source",
+    )
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model", source=source, **request_lineage
+    )
+    mock_model_registry_store.get_model_version.return_value = source_model_version
+    mock_model_registry_store.get_model_version_by_alias.return_value = source_model_version
+    mock_model_registry_store.get_latest_versions.return_value = [source_model_version]
+    mock_model_registry_store.create_model_version.return_value = ModelVersion(
+        name="destination-model", version="1", creation_timestamp=456
+    )
+
+    with mock.patch("mlflow.server.handlers.deliver_webhook") as mock_deliver_webhook:
+        assert _create_model_version().status_code == 200
+    _, create_args = mock_model_registry_store.create_model_version.call_args
+    assert create_args["source"] == "models:/source-model/7"
+    assert create_args["run_id"] == "source-run"
+    assert create_args["model_id"] == "m-source"
+    assert mock_deliver_webhook.call_args.kwargs["payload"]["run_id"] == "source-run"
+    mock_tracking_store.set_model_versions_tags.assert_called_once_with(
+        name="destination-model", version="1", model_id="m-source"
+    )
+
+
+@pytest.mark.parametrize(
+    ("request_run_id", "request_model_id", "source_run_id", "source_model_id"),
+    [
+        ("request-run", "m-source", "source-run", "m-source"),
+        ("source-run", "m-request", "source-run", "m-source"),
+        ("", "", "source-run", "m-source"),
+    ],
+)
+def test_create_model_version_rejects_registered_model_source_with_mismatched_lineage(
+    mock_get_request_message,
+    mock_model_registry_store,
+    request_run_id,
+    request_model_id,
+    source_run_id,
+    source_model_id,
+):
+    source = "models:/source-model/7"
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model",
+        source=source,
+        run_id=request_run_id,
+        model_id=request_model_id,
+    )
+    mock_model_registry_store.get_model_version.return_value = ModelVersion(
+        name="source-model",
+        version="7",
+        creation_timestamp=123,
+        run_id=source_run_id,
+        model_id=source_model_id,
+    )
+
+    response = _create_model_version()
+
+    assert response.status_code == 400
+    assert "must match the referenced model version" in response.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+def test_create_model_version_accepts_missing_registered_model_lineage(
+    mock_get_request_message, mock_model_registry_store
+):
+    source = "models:/source-model/7"
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model", source=source
+    )
+    mock_model_registry_store.get_model_version.return_value = ModelVersion(
+        name="source-model", version="7", creation_timestamp=123
+    )
+    mock_model_registry_store.create_model_version.return_value = ModelVersion(
+        name="destination-model", version="1", creation_timestamp=456
+    )
+
+    assert _create_model_version().status_code == 200
+
+
+@pytest.mark.parametrize("source", ["models:/source-prompt/7", "models:/source-prompt@champion"])
+def test_create_model_version_rejects_prompt_source(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model", source=source
+    )
+    mock_model_registry_store.get_registered_model.return_value = RegisteredModel(
+        name="source-prompt",
+        tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
+    )
+
+    response = _create_model_version()
+
+    assert response.status_code == 400
+    assert (
+        "Prompt versions cannot be used as model version sources" in response.get_json()["message"]
+    )
+    mock_model_registry_store.get_model_version.assert_not_called()
+    mock_model_registry_store.get_model_version_by_alias.assert_not_called()
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+def test_create_model_version_rejects_registered_model_source_with_authority(
+    mock_get_request_message, mock_model_registry_store
+):
+    source = "models://profile@databricks/source-model/7"
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model", source=source
+    )
+
+    response = _create_model_version()
+
+    assert response.status_code == 400
+    assert "must use the active model registry" in response.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+@pytest.mark.parametrize("source", ["models:///", "models:/a/b/c"])
+def test_create_model_version_rejects_malformed_model_source_consistently(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="destination-model", source=source
+    )
+
+    response = _create_model_version()
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == (
+        f"Invalid model version source: '{source}'. The model_id request parameter must identify "
+        "the resource that contains the source."
+    )
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
         "file:///etc/passwd",
         "file:///",
         "/etc/passwd",
@@ -1186,7 +1386,8 @@ def test_create_model_version_rejects_traversal_source_for_prompts(
     )
     resp = _create_model_version()
     assert resp.status_code == 400
-    assert "Invalid model version source" in resp.get_json()["message"]
+    assert "Invalid prompt source" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -1233,8 +1434,6 @@ def test_create_model_version_rejects_schemeless_path_source_for_prompts(
     [
         "prompt-template",
         "dummy-source",
-        "mlflow-artifacts:/prompts/1",
-        "s3://bucket/prompts/1",
     ],
 )
 def test_create_model_version_accepts_placeholder_source_for_prompts(
@@ -1252,6 +1451,31 @@ def test_create_model_version_accepts_placeholder_source_for_prompts(
     assert resp.status_code == 200
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args["source"] == source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "mlflow-artifacts:/prompts/1",
+        "mlflow-artifacts://localhost/prompts/1",
+        "s3://bucket/prompts/1",
+        "https://example.com/prompts/1",
+    ],
+)
+def test_create_model_version_rejects_uri_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+
+    resp = _create_model_version()
+
+    assert resp.status_code == 400
+    assert "Invalid prompt source" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -2758,7 +2982,7 @@ def test_create_model_version_rejects_host_addressed_source_for_prompts(
     )
     resp = _create_model_version()
     assert resp.status_code == 400
-    assert "'source' cannot use the 'ftp' scheme" in resp.get_json()["message"]
+    assert "Invalid prompt source" in resp.get_json()["message"]
     mock_model_registry_store.create_model_version.assert_not_called()
 
 
@@ -2803,6 +3027,162 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
             ),
         ):
             _validate_source_run("/local/path/xyz", run_id)
+
+
+@pytest.mark.parametrize(
+    ("root", "source"),
+    [
+        ("mlflow-artifacts:/1/run/artifacts", "mlflow-artifacts:/1/run/artifacts"),
+        ("mlflow-artifacts:/1/run/artifacts", "mlflow-artifacts:/1/run/artifacts/model"),
+        (
+            "https://mlflow.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts",
+            "https://mlflow.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model",
+        ),
+        (
+            "https://mlflow.example/prefix/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts",
+            "https://mlflow.example/prefix/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model",
+        ),
+    ],
+)
+def test_validate_source_run_accepts_matching_proxied_source(root, source):
+    run_id = uuid.uuid4().hex
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.return_value.info.artifact_uri = root
+        _validate_source_run(source, run_id)
+        get_store.return_value.get_run.assert_called_once_with(run_id)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "mlflow-artifacts:/1/run/artifacts-sibling/model",
+        "mlflow-artifacts:/1/run/artifacts-sibling%252fmodel",
+        "mlflow-artifacts:/1/run/artifacts%2Fother",
+        "mlflow-artifacts:/1/run/artifacts%252Fother",
+        "mlflow-artifacts:/1/run/a+b/model",
+        "mlflow-artifacts://other-host/1/run/artifacts/model",
+        "https://other.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts/model",
+    ],
+)
+def test_validate_source_run_rejects_unrelated_proxied_source(source):
+    root = "mlflow-artifacts:/1/run/artifacts"
+    if source == "mlflow-artifacts:/1/run/a+b/model":
+        root = "mlflow-artifacts:/1/run/a%20b"
+    if source.startswith("https:"):
+        root = "https://mlflow.example/api/2.0/mlflow-artifacts/artifacts/1/run/artifacts"
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.return_value.info.artifact_uri = root
+        with pytest.raises(
+            MlflowException, match="must identify the resource that contains the source"
+        ):
+            _validate_source_run(source, uuid.uuid4().hex)
+
+
+def test_validate_source_run_rejects_proxied_source_without_run_id():
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_store,
+        pytest.raises(MlflowException, match="run_id request parameter"),
+    ):
+        _validate_source_run("mlflow-artifacts:/1/run/artifacts/model", "")
+    get_store.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("validator", "source", "source_id"),
+    [
+        (_validate_source_run, "mlflow-artifacts:/1/run/artifacts/model", "missing-run"),
+        (
+            _validate_source_model,
+            "mlflow-artifacts:/1/models/m-missing/artifacts/model",
+            "m-missing",
+        ),
+    ],
+)
+def test_validate_source_rejects_missing_resource_consistently(validator, source, source_id):
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.side_effect = MlflowException(
+            "Run not found", RESOURCE_DOES_NOT_EXIST
+        )
+        get_store.return_value.get_logged_model.side_effect = MlflowException(
+            "Model not found", RESOURCE_DOES_NOT_EXIST
+        )
+        with pytest.raises(MlflowException, match="must identify the resource") as exc_info:
+            validator(source, source_id)
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_validate_source_run_requires_matching_runs_uri_id():
+    run_id = uuid.uuid4().hex
+    _validate_source_run(f"runs:/{run_id}/model", run_id)
+    with pytest.raises(MlflowException, match="run_id request parameter"):
+        _validate_source_run(f"runs:/{uuid.uuid4().hex}/model", run_id)
+
+
+def test_validate_source_run_rejects_runs_uri_with_authority():
+    run_id = uuid.uuid4().hex
+    with pytest.raises(MlflowException, match="run_id request parameter"):
+        _validate_source_run(f"runs://profile@databricks/{run_id}/model", run_id)
+
+
+def test_validate_source_model_requires_matching_logged_model_uri_id():
+    model_id = f"m-{uuid.uuid4().hex}"
+    _validate_source_model(f"models:/{model_id}", model_id)
+    with pytest.raises(MlflowException, match="model_id request parameter"):
+        _validate_source_model(f"models:/m-{uuid.uuid4().hex}", model_id)
+
+
+def test_validate_source_model_rejects_runs_uri_with_model_id_error():
+    with pytest.raises(MlflowException, match="model_id request parameter"):
+        _validate_source_model(f"runs:/{uuid.uuid4().hex}/model", f"m-{uuid.uuid4().hex}")
+
+
+@pytest.mark.parametrize(
+    "source", ["models:/registered/1", "models:/registered@champion", "models:/registered/Staging"]
+)
+@pytest.mark.parametrize("validator", [_validate_source_run, _validate_source_model])
+def test_validate_source_allows_registered_model_uri(source, validator):
+    validator(source, uuid.uuid4().hex)
+
+
+@pytest.mark.parametrize("validator", [_validate_source_run, _validate_source_model])
+def test_validate_source_rejects_models_uri_with_authority(validator):
+    source = "models://profile@databricks/registered/1"
+    with pytest.raises(MlflowException, match="request parameter"):
+        validator(source, uuid.uuid4().hex)
+
+
+def test_validate_source_model_accepts_matching_proxied_source():
+    model_id = f"m-{uuid.uuid4().hex}"
+    root = f"mlflow-artifacts:/1/models/{model_id}/artifacts"
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_logged_model.return_value.artifact_location = root
+        _validate_source_model(f"{root}/model", model_id)
+        get_store.return_value.get_logged_model.assert_called_once_with(model_id)
+
+
+@pytest.mark.parametrize("source", ["s3://bucket/model", "gs://bucket/model", "wasbs://c@a/model"])
+def test_validate_source_run_preserves_external_sources(source):
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        _validate_source_run(source, uuid.uuid4().hex)
+    get_store.assert_not_called()
+
+
+def test_validate_source_run_uses_active_workspace_for_source_lookup():
+    run_id = uuid.uuid4().hex
+    root = f"mlflow-artifacts:/1/{run_id}/artifacts"
+    run = mock.MagicMock()
+    run.info.artifact_uri = root
+
+    def get_run(requested_run_id):
+        assert get_request_workspace() == "team-blue"
+        assert requested_run_id == run_id
+        return run
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.side_effect = get_run
+        with WorkspaceContext("team-blue"):
+            _validate_source_run(f"{root}/model", run_id)
 
 
 @pytest.mark.parametrize(
