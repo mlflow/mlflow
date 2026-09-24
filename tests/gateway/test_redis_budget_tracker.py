@@ -257,6 +257,32 @@ def test_backfill_spend_stays_quiet_when_record_cost_already_reported():
     assert tracker.backfill_spend({"bp-test": 150.0}) == []
 
 
+def test_backfill_spend_uses_max_to_protect_in_process_spend():
+    # The window hash is the shared counter record_cost bumps, and the trace history the
+    # seed comes from lags behind it. Seeding the lower value would regress the counter.
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    assert len(tracker.record_cost(120.0)) == 1
+
+    assert tracker.backfill_spend({"bp-test": 50.0}) == []  # DB is behind
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 120.0
+    assert window.exceeded is True
+
+    # A regressed counter would re-cross the limit here and alert a second time.
+    assert tracker.record_cost(60.0) == []
+
+
+def test_backfill_spend_keeps_a_reject_policy_rejecting():
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
+    tracker.record_cost(120.0)
+    assert tracker.should_reject_request()[0] is True
+
+    tracker.backfill_spend({"bp-test": 50.0})  # DB is behind
+    assert tracker.should_reject_request()[0] is True
+
+
 def test_refresh_policies_returns_new_windows():
     tracker = _make_tracker()
     policy1 = _make_policy(budget_policy_id="bp-1")

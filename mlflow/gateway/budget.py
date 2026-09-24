@@ -110,9 +110,21 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
             if newly_exceeded := tracker.backfill_spend(existing_spend):
+                # The flag is committed by the time we get here, so delivery is
+                # best-effort: if it fails the window stays muted. This is the tradeoff
+                # ``record_cost`` already makes, where the flag flips atomically and
+                # ``on_complete`` then delivers. Making delivery recoverable needs
+                # "already alerted" persisted apart from "currently exceeded", which is
+                # a larger change than this fix.
                 if registry_store := _get_registry_store():
                     # No request workspace here: the payload falls back to the policy's own.
                     fire_budget_exceeded_webhooks(newly_exceeded, None, registry_store)
+                else:
+                    _logger.debug(
+                        "%d budget window(s) crossed their limit during refresh, but no "
+                        "model registry store is available to deliver the webhook",
+                        len(newly_exceeded),
+                    )
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
