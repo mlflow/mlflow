@@ -3336,22 +3336,39 @@ def validate_can_read_model_version_artifact():
     route whose entire subject is a version. A response filter cannot help: the body is a byte
     stream, not a proto.
 
-    Veto only, falling back to the named registered model, so the model tier stays the positive
-    gate and an absent version grant changes nothing.
+    Veto only, falling back to the named container, so the parent tier stays the positive gate and
+    an absent version grant changes nothing.
+
+    The container is CLASSIFIED rather than assumed: a prompt is a registered model carrying a tag
+    and `_get_sql_model_version` has no prompt guard, so a prompt version reaches this route and its
+    artifact must be vetoed by `prompt_version`, not `registered_model_version`. Same classification
+    `validate_can_read_model_or_prompt_version` makes for the point read of the same object.
+
+    The positive gate is left as master's, which resolves the `registered_model` tier for a prompt's
+    name too; correcting THAT would change which grant admits a prompt artifact at all, which is
+    parent-tier work outside this PR (description.md §6.2).
     """
     if not _get_permission_from_model_version().can_read:
         return False
-    name = request.args.get("name")
-    registered_model = (RESOURCE_TYPE_REGISTERED_MODEL, name)
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
     return authorize(
         authenticate_request().username,
-        registered_model,
+        container,
         [
             Requirement(
-                RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+                version_type,
                 "*",
                 ACTION_NOT_DENIED,
-                fallback_if_no_grant=(registered_model,),
+                fallback_if_no_grant=(container,),
             )
         ],
     )
