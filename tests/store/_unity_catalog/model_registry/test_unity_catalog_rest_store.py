@@ -366,6 +366,10 @@ def langchain_local_model_dir_with_resources(request, tmp_path):
                         {"name": "test.schema.test_table"},
                         {"name": "test.schema.test_table_2"},
                     ],
+                    "uc_model_service": [
+                        {"name": "test.schema.test_model_service"},
+                        {"name": "test.schema.test_model_service_2"},
+                    ],
                 }
             },
         }
@@ -393,6 +397,10 @@ def langchain_local_model_dir_with_resources(request, tmp_path):
                                 {"name": "test.schema.test_table"},
                                 {"name": "test.schema.test_table_2"},
                             ],
+                            "uc_model_service": [
+                                {"name": "test.schema.test_model_service"},
+                                {"name": "test.schema.test_model_service_2"},
+                            ],
                         }
                     },
                 },
@@ -417,6 +425,8 @@ def langchain_local_model_dir_with_resources(request, tmp_path):
         {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
         {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table"},
         {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "test.schema.test_model_service"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "test.schema.test_model_service_2"},
     ]
 
     return (tmp_path, model_version_dependencies)
@@ -451,6 +461,10 @@ def langchain_local_model_dir_with_invoker_resources(tmp_path):
                     {"name": "test.schema.test_table", "on_behalf_of_user": True},
                     {"name": "test.schema.test_table_2"},
                 ],
+                "uc_model_service": [
+                    {"name": "test.schema.test_model_service", "on_behalf_of_user": True},
+                    {"name": "test.schema.test_model_service_2"},
+                ],
             }
         },
     }
@@ -466,6 +480,7 @@ def langchain_local_model_dir_with_invoker_resources(tmp_path):
         {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
         {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
         {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "test.schema.test_model_service_2"},
     ]
 
     return (tmp_path, model_version_dependencies)
