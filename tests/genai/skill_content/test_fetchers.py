@@ -17,7 +17,7 @@ from mlflow.entities.skill_source import GitSource, SkillSourceType, ZipSource
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers import fetch_source
-from mlflow.genai.skill_content.fetchers.git import _error_code_for_git
+from mlflow.genai.skill_content.fetchers.git import _error_code_for_git, fetch_git
 from mlflow.genai.skill_content.fetchers.zip import download_with_budget
 from mlflow.protos.databricks_pb2 import ErrorCode
 
@@ -156,11 +156,20 @@ def test_fetch_git_rejects_option_like_ref(git_repo):
             pass
 
 
-def test_fetch_git_redacts_credentials_and_reports_availability(closed_port):
+def test_fetch_source_rejects_git_urls_with_credentials(closed_port):
+    # Refused before any fetch: the URL would be persisted as the version's source.
     url = f"https://user:s3cret-token@127.0.0.1:{closed_port}/skills.git"
-    with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc_info:
+    with pytest.raises(MlflowException, match="must not contain credentials") as exc_info:
         with fetch_source(url):
             pass
+    assert "s3cret-token" not in str(exc_info.value)
+
+
+def test_fetch_git_redacts_credentials_and_reports_availability(tmp_path, closed_port):
+    # The fetcher itself still redacts, for callers that reach it with a credentialed URL.
+    url = f"https://user:s3cret-token@127.0.0.1:{closed_port}/skills.git"
+    with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc_info:
+        fetch_git(url, None, tmp_path / "content", scratch=tmp_path / "scratch", max_bytes=10_000)
     message = str(exc_info.value)
     assert "s3cret-token" not in message
     assert "***@127.0.0.1" in message

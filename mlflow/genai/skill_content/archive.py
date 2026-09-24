@@ -230,6 +230,13 @@ def _open_tar(
         try:
             with tarfile.open(fileobj=bounded, mode="r|") as tar:
                 yield tar, bounded
+            if compressed:
+                # The tar parser stops at the end-of-archive marker, before gzip's trailer.
+                # Reading on to end of stream makes GzipFile verify the CRC and length, so a
+                # truncated or tampered stream is refused like any other malformed archive.
+                # The bytes left are record padding, and anything larger trips the allowance.
+                while bounded.read(_COPY_CHUNK_SIZE):
+                    pass
         except _TAR_FAILURES as e:
             raise invalid_content(f"'{archive.name}' is not a readable tar archive: {e}")
 

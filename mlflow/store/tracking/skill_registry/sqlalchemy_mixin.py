@@ -13,13 +13,20 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_CONFLICT,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillVersion
+from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    SqlSkill,
+    SqlSkillVersion,
+)
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
+from mlflow.store.tracking.skill_registry.artifact_paths import owned_skill_upload_path
 from mlflow.store.tracking.skill_registry.constants import (
     SKILL_VERSION_DIGEST_LENGTH,
     SKILL_VERSION_SOURCE_MAX_LENGTH,
@@ -40,6 +47,7 @@ class SqlAlchemySkillRegistryMixin:
     """SQLAlchemy implementation of the Skill Registry store interface."""
 
     CREATE_SKILL_VERSION_RETRIES = 3
+    MAX_REPORTED_BLOCKING_REFERENCES = 10
 
     def _skill_query(self, session):
         return SqlSkill.with_resolved_latest(
@@ -112,6 +120,50 @@ class SqlAlchemySkillRegistryMixin:
             )
         return parsed_status.value
 
+    def _assert_name_not_a_packaged_member(self, session, name: str, organization: str) -> None:
+        """
+        Refuse standalone creation for a name held by a member of a packaged agent plugin.
+
+        A skill name is unique within its workspace and organization whether the skill was
+        registered standalone or created by importing a package. A packaged plugin's members
+        take their source from the package, so a standalone version registered onto one would
+        break that binding; the RFC has standalone creation fail instead. Members of assembled
+        plugins are ordinary standalone skills pinned by reference and stay unaffected.
+        """
+        workspace = self._with_workspace_field(SqlSkill(name=name, organization=organization))
+        member = SqlAgentPluginVersionMember
+        plugin_version = SqlAgentPluginVersion
+        held_by = (
+            session
+            .query(plugin_version.organization, plugin_version.name, plugin_version.version)
+            .join(
+                member,
+                (plugin_version.workspace == member.plugin_workspace)
+                & (plugin_version.organization == member.plugin_organization)
+                & (plugin_version.name == member.plugin_name)
+                & (plugin_version.version == member.plugin_version),
+            )
+            .filter(
+                member.plugin_workspace == workspace.workspace,
+                member.member_organization == organization,
+                member.member_name == name,
+                plugin_version.source_type.isnot(None),
+                plugin_version.source_type != SkillSourceType.ASSEMBLED.value,
+            )
+            .order_by(plugin_version.organization, plugin_version.name, plugin_version.version)
+            .first()
+        )
+        if held_by is not None:
+            plugin_organization, plugin_name, version = held_by
+            plugin = (f"@{plugin_organization}/" if plugin_organization else "") + plugin_name
+            raise MlflowException(
+                f"Skill '{name}' in organization '{organization}' is a member of the packaged "
+                f"agent plugin '{plugin}' (version {version}) and cannot receive standalone "
+                "versions; re-import the plugin to update it, or register under a different "
+                "name or organization.",
+                error_code=RESOURCE_ALREADY_EXISTS,
+            )
+
     def create_skill(
         self,
         name: str,
@@ -123,6 +175,7 @@ class SqlAlchemySkillRegistryMixin:
         self._validate_skill_identity(name, organization)
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
+            self._assert_name_not_a_packaged_member(session, name, organization)
             skill = self._with_workspace_field(
                 SqlSkill(
                     name=name,
@@ -196,6 +249,117 @@ class SqlAlchemySkillRegistryMixin:
                 .one()
             )
             return skill.to_mlflow_entity()
+
+    def delete_skill(self, name: str, organization: str = "") -> None:
+        self.delete_skill_and_collect_artifacts(name, organization)
+
+    def delete_skill_and_collect_artifacts(self, name: str, organization: str = "") -> list[str]:
+        self._validate_skill_identity(name, organization)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            # Lock the parent row before reading anything, so the versions captured below are
+            # exactly the ones the cascade will remove: a concurrent registration's version
+            # insert takes a key-share lock on this row and waits until the delete commits,
+            # then either fails or recreates the skill from version 1. ``FOR UPDATE`` is the
+            # lock strength that conflicts with that foreign-key lock on PostgreSQL (a plain
+            # non-key update only takes ``FOR NO KEY UPDATE``, which does not) and on MySQL.
+            skill = (
+                self
+                ._get_query(session, SqlSkill)
+                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                .with_for_update()
+                .one_or_none()
+            )
+            if skill is None:
+                raise MlflowException(
+                    f"Skill '{name}' not found in organization '{organization}'",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            # SQLite ignores ``FOR UPDATE``; a no-op write starts its write transaction, which
+            # serializes writers. On SQL Server the update's exclusive lock is what blocks the
+            # insert's shared lock, since ``UPDLOCK`` alone would not.
+            self._get_query(session, SqlSkill).filter(
+                SqlSkill.name == name, SqlSkill.organization == organization
+            ).update(
+                {SqlSkill.last_updated_at: SqlSkill.last_updated_at}, synchronize_session=False
+            )
+            self._purge_stale_skill_memberships(session, skill)
+            owned_paths = [
+                path
+                for version in skill.skill_versions
+                if (
+                    path := owned_skill_upload_path(
+                        name=version.name,
+                        organization=version.organization,
+                        source_type=version.source_type,
+                        source=version.source,
+                        subpath=version.subpath,
+                    )
+                )
+            ]
+            session.delete(skill)
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # A plugin version that started referencing the skill after the check above
+                # is caught by the membership foreign key instead.
+                raise MlflowException(
+                    f"Skill '{name}' became referenced by an agent plugin version while it was "
+                    "being deleted; nothing was removed. Retry the delete.",
+                    error_code=RESOURCE_CONFLICT,
+                ) from e
+            # The session commits when this block exits; the paths are only handed back
+            # once the rows are gone, so a rolled-back delete never reclaims anything.
+        return owned_paths
+
+    def _purge_stale_skill_memberships(self, session, skill: SqlSkill) -> None:
+        """
+        Fail if a live agent plugin version still contains one of the skill's versions, and
+        otherwise remove the membership rows held only by soft-deleted plugin versions.
+
+        Both steps run before anything else is removed. The stale rows have to go first
+        because the membership foreign key blocks deletion of a referenced skill version.
+        """
+        member = SqlAgentPluginVersionMember
+        plugin_version = SqlAgentPluginVersion
+        memberships = (
+            session
+            .query(member, plugin_version.status)
+            .join(
+                plugin_version,
+                (plugin_version.workspace == member.plugin_workspace)
+                & (plugin_version.organization == member.plugin_organization)
+                & (plugin_version.name == member.plugin_name)
+                & (plugin_version.version == member.plugin_version),
+            )
+            .filter(
+                member.plugin_workspace == skill.workspace,
+                member.member_organization == skill.organization,
+                member.member_name == skill.name,
+            )
+            .order_by(
+                member.plugin_organization,
+                member.plugin_name,
+                member.plugin_version,
+                member.member_version,
+            )
+            .all()
+        )
+        if live := [row for row, status in memberships if status != SkillStatus.DELETED.value]:
+            shown = ", ".join(
+                (f"@{row.plugin_organization}/" if row.plugin_organization else "")
+                + f"{row.plugin_name}/{row.plugin_version} (skill version {row.member_version})"
+                for row in live[: self.MAX_REPORTED_BLOCKING_REFERENCES]
+            )
+            remaining = len(live) - self.MAX_REPORTED_BLOCKING_REFERENCES
+            more = f", and {remaining} more" if remaining > 0 else ""
+            raise MlflowException(
+                f"Skill '{skill.name}' cannot be deleted while live agent plugin versions "
+                f"contain it: {shown}{more}. Delete or re-version those plugins first.",
+                error_code=RESOURCE_CONFLICT,
+            )
+        for row, _ in memberships:
+            session.delete(row)
+        session.flush()
 
     def search_skills(
         self,
@@ -320,6 +484,10 @@ class SqlAlchemySkillRegistryMixin:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
         self._validate_skill_version_status(status)
+        # Checked once, ahead of the retry loop: the loop treats RESOURCE_ALREADY_EXISTS as a
+        # version-number collision, and a bound name is not something a retry can resolve.
+        with self.ManagedSessionMaker() as session:
+            self._assert_name_not_a_packaged_member(session, name, organization)
         for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
             try:
                 with self.ManagedSessionMaker(read_only=False) as session:
