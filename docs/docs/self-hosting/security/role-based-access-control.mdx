@@ -39,7 +39,10 @@ flowchart LR
 - **Resource** - a target entity in MLflow that permissions are
   managed on, such as an experiment, a registered model, a prompt,
   a scorer, or an AI Gateway resource (a secret, an endpoint,
-  or a model definition).
+  or a model definition). Some resources live **inside** another one - a
+  run inside an experiment, a version inside a registered model - and are
+  granted on their own tier; see
+  [Sub-resource tiers](#sub-resource-tiers).
 - **Role** - a named bundle of permissions on resources.
 
 ## Roles
@@ -61,6 +64,7 @@ The grantable permission levels for resource-scoped permissions are:
 | `USE`      | Yes      | Yes     | No         | No         | No         |
 | `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
 | `MANAGE`   | Yes      | Yes     | Yes        | Yes        | Yes        |
+| `DENY`     | No       | No      | No         | No         | No         |
 
 `USE` is for consuming a resource without modifying it (invoking a gateway
 endpoint, referencing a model definition, creating new experiments /
@@ -74,12 +78,22 @@ it. The effective permission when no role grant matches is the server's
 `default_permission` (`READ` by default; see
 [Permission resolution](#permission-resolution)).
 
-Because grants are folded via a max (see
-[Permission resolution](#permission-resolution)), RBAC has no
-explicit-deny override. To restrict access to a
-specific resource, grant access more narrowly (per-resource or
-resource-type wildcard) rather than holding a broad workspace-level grant
-and trying to except the resource.
+`DENY` is an explicit-deny override. Unlike the levels above it is not a
+point on the capability ladder: it carries no capabilities, and it wins over
+any positive grant that applies to the same resource, so it can carve an
+exception out of a broad grant. `(experiment, *, EDIT)` together with
+`(experiment, 42, DENY)` edits every experiment except 42.
+
+Two limits are worth knowing before relying on it:
+
+- A **workspace administrator is not restrictable**. A
+  `(workspace, *, MANAGE)` grant short-circuits resolution to `MANAGE`
+  before `DENY` is considered, so it cannot be excepted this way. Remove the
+  workspace grant instead.
+- `DENY` applies at the tier it is granted on. It does not cascade from a
+  parent to an unrelated resource type; see
+  [Permission resolution](#permission-resolution) for how a grant on one
+  tier overrides another.
 
 #### Permission resolution
 
@@ -88,20 +102,63 @@ permission as follows:
 
 1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
 2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Grants that apply to the resource fold via a max, and the
-   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`).
+   contribute. Grants that apply to the same resource fold via a max, and the
+   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`) -
+   except that a matching `DENY` wins outright, whatever it is folded with.
    `(workspace, *, MANAGE)` folds into every per-resource check - it grants
-   management of every resource in the workspace. `(workspace, *, USE)`
-   does **not** fold into per-resource checks; it confers workspace
-   membership and create rights only (see
-   [Workspace isolation](#workspace-isolation)).
+   management of every resource in the workspace, and takes effect before
+   `DENY` is considered. `(workspace, *, USE)` does **not** fold into
+   per-resource checks; it confers workspace membership and create rights
+   only (see [Workspace isolation](#workspace-isolation)).
+
+   When a check consults more than one tier - a sub-resource and the parent
+   it inherits from - the tiers are **not** max'd together. The most
+   specific tier holding **any** grant decides, and the tiers behind it are
+   not consulted. So a `run` grant overrides the experiment it belongs to
+   whether it is higher or lower, and a `(run, *, DENY)` is not rescued by
+   `(experiment, 42, MANAGE)`. A tier with no grant at all is silent, and
+   the next tier speaks.
 3. **Server `default_permission`** (defaults to `READ`): a floor max'd
    into the resolution result. When no role grant matches at all, the
    floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
    when the resolver returns it for a workspace-boundary reason (no
    workspace membership, missing workspace, lookup error), that deny
-   stands. See [Workspace isolation](#workspace-isolation) for when the
-   floor applies in multi-workspace mode.
+   stands - and it does not lift `DENY` either, since flooring an explicit
+   deny would void it. See [Workspace isolation](#workspace-isolation) for
+   when the floor applies in multi-workspace mode.
+
+### Sub-resource tiers
+
+A resource that lives inside another can be granted on separately, so access
+to the container and access to its contents are not the same decision. The
+sub-resource types are:
+
+| Tier                       | Inside                     |
+| -------------------------- | -------------------------- |
+| `run`                      | `experiment`               |
+| `trace`                    | `experiment`               |
+| `assessment`               | `experiment` (via a trace) |
+| `logged_model`             | `experiment`               |
+| `review_queue`             | `experiment`               |
+| `registered_model_version` | `registered_model`         |
+| `prompt_version`           | `prompt`                   |
+| `scorer_version`           | `scorer`                   |
+| `mcp_server_version`       | `mcp_server`               |
+
+Two rules apply to all of them.
+
+**They are wildcard grain only.** A grant must use the `*` pattern -
+`(run, *, DENY)` is valid, `(run, r-abc123, READ)` is rejected with a 400.
+A per-id grant on these tiers could be honoured on a point route but not in
+a search, and a grant that holds in one place and silently lapses in another
+is worse than no grant, so the server refuses it at the source rather than
+dropping it later.
+
+**A grant is optional.** With no grant on the tier, the container decides
+exactly as before - an `(experiment, 42, EDIT)` grant still edits the runs
+inside experiment 42. The tier only matters once you grant on it, to widen
+access without widening the container's grant, or to carve contents out of
+it with `DENY`.
 
 ## Workspace isolation
 
