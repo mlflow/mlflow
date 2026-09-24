@@ -1454,7 +1454,7 @@ def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
     return sorted(registered)
 
 
-def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement]":
+def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
     """Veto requirements for the prompt a submitted optimization job names.
 
     `optimize_prompts` LOADS this prompt and REGISTERS a new version under it, in a worker with
@@ -1466,11 +1466,19 @@ def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement]":
     Veto only, like every other type here: the experiment stays the sole positive gate. The two
     types veto independently, as on any create, since the version does not yet exist.
     """
-    if not prompt_uri.startswith("prompts:/"):
+    if not prompt_uri:
         return []
-    name = prompt_uri[len("prompts:/") :].split("@", 1)[0].split("/", 1)[0]
+    # `load_prompt` normalizes through `parse_prompt_name_or_uri`, which treats ANY non-`prompts:/`
+    # string as a bare NAME and resolves it to `prompts:/<name>@latest`. So `source_prompt_uri`
+    # reaches the registry as a prompt either way, and matching only the URI form let a bare name
+    # skip both vetoes. A prompt name admits only alphanumerics, hyphens, underscores and dots
+    # (`validate_prompt_name`), so splitting on `@` and `/` cannot truncate a legal name.
+    remainder = prompt_uri.removeprefix("prompts:/")
+    name = remainder.split("@", 1)[0].split("/", 1)[0]
     if not name:
-        return []
+        # Non-empty but unclassifiable (`prompts:/`, `@prod`). The worker still has to resolve it
+        # somehow, so refuse rather than authorize a name we could not read.
+        return None
     return [
         Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED),
         Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED),
@@ -1491,13 +1499,16 @@ def validate_can_create_prompt_optimization_job():
     message = _get_request_message(CreatePromptOptimizationJob())
     experiment_id = message.experiment_id
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    source_prompt_requirements = _source_prompt_requirements(message.source_prompt_uri)
+    if source_prompt_requirements is None:
+        return False
     requirements = [
         Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
         # The handler creates a run in the experiment to track the optimization.
         Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
         # The worker loads and executes stored scorer versions.
         Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
-        *_source_prompt_requirements(message.source_prompt_uri),
+        *source_prompt_requirements,
         *(
             Requirement(
                 RESOURCE_TYPE_SCORER,

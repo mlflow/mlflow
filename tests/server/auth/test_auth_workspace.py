@@ -2230,6 +2230,76 @@ def test_workspace_permission_required_for_gateway_creation(workspace_permission
         assert auth_module.validate_can_create_gateway_endpoint()
 
 
+@pytest.mark.parametrize(
+    "source_prompt_uri",
+    ["prompts:/other/1", "prompts:/other@prod", "other", "other@latest"],
+    ids=["uri-version", "uri-alias", "bare-name", "bare-name-alias"],
+)
+@pytest.mark.parametrize("denied_tier", ["prompt", "prompt_version"])
+def test_create_prompt_optimization_job_vetoes_a_bare_source_prompt_name(
+    workspace_permission_setup, monkeypatch, source_prompt_uri, denied_tier
+):
+    """`load_prompt` normalizes through `parse_prompt_name_or_uri`, which resolves ANY
+    non-`prompts:/` string to `prompts:/<name>@latest`. So a bare name reaches the registry exactly
+    as a URI does, but the veto matched only the URI form and returned NO requirements for a bare
+    name -- skipping both the prompt and prompt_version tiers on a job that loads that prompt and
+    registers a new version under it, in a worker with no caller identity.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    rows = [
+        ("experiment", "exp-1", EDIT.name),
+        (denied_tier, "*" if denied_tier == "prompt_version" else "other", DENY.name),
+    ]
+    _grant(store, username, "team-a", rows)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs",
+        method="POST",
+        json={"experiment_id": "exp-1", "source_prompt_uri": source_prompt_uri},
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is False
+
+
+@pytest.mark.parametrize("source_prompt_uri", ["prompts:/", "@prod"])
+def test_create_prompt_optimization_job_fails_closed_on_an_unreadable_source_prompt(
+    workspace_permission_setup, monkeypatch, source_prompt_uri
+):
+    """Non-empty but no name could be read. The worker still resolves it somehow, so refuse rather
+    than authorize a prompt the auth layer could not identify.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, MANAGE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", MANAGE.name)])
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs",
+        method="POST",
+        json={"experiment_id": "exp-1", "source_prompt_uri": source_prompt_uri},
+    ):
+        assert auth_module.validate_can_create_prompt_optimization_job() is False
+
+
+def test_create_prompt_optimization_job_allows_a_source_prompt_with_no_denial(
+    workspace_permission_setup, monkeypatch
+):
+    """The veto must not turn into a positive requirement: no prompt grant still passes."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", EDIT.name)])
+    for uri in ("prompts:/other/1", "other", ""):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/prompt-optimization/jobs",
+            method="POST",
+            json={"experiment_id": "exp-1", "source_prompt_uri": uri},
+        ):
+            assert auth_module.validate_can_create_prompt_optimization_job() is True, uri
+
+
 def test_prompt_optimization_job_validators_use_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):
