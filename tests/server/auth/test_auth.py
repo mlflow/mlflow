@@ -1428,11 +1428,6 @@ def test_search_registered_models(client, monkeypatch):
         assert names == [f"rm{i}" for i in readable]
 
 
-@pytest.mark.parametrize(
-    "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
-    indirect=True,
-)
 def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatch):
     """A `run_id` filter is a membership oracle that row redaction cannot close.
 
@@ -1460,6 +1455,11 @@ def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatc
         assert not versions[0].run_id
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_search_model_versions(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
