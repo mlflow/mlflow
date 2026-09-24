@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
 
 # Every concrete resource type the resolver accepts, excluding the special
 # ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
@@ -489,6 +489,30 @@ def test_get_role_permission_specific_match(store, user):
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == READ
+
+
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        # DENY is priority -1, so a max fold would lift it to the positive grant beside it.
+        ([("experiment", "1", "DENY"), ("experiment", "1", "MANAGE")], DENY),
+        ([("experiment", "1", "MANAGE"), ("experiment", "1", "DENY")], DENY),
+        ([("experiment", "*", "DENY"), ("experiment", "1", "READ")], DENY),
+        ([("experiment", "1", "DENY")], DENY),
+        # A workspace admin is not restrictable, so that precedes DENY -- matching
+        # `resolve_permissions`, which short-circuits to MANAGE before consulting DENY.
+        ([("experiment", "1", "DENY"), ("workspace", "*", "MANAGE")], MANAGE),
+        # A DENY on a different resource type must not reach this key.
+        ([("registered_model", "m1", "DENY"), ("experiment", "1", "READ")], READ),
+    ],
+)
+def test_get_role_permission_deny_is_not_lifted_by_a_positive_grant(store, user, rows, expected):
+    for index, (resource_type, pattern, permission) in enumerate(rows):
+        role = store.create_role(name=f"role-{index}", workspace="ws1")
+        store.add_role_permission(role.id, resource_type, pattern, permission)
+        store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == expected
 
 
 def test_get_role_permission_no_match(store, user):
