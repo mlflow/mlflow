@@ -6296,7 +6296,14 @@ def _withhold_denied_assessments(trace_infos) -> bool:
 
     One gate per DISTINCT experiment, memoized. The assessment tier is wildcard-only, so within an
     experiment the decision cannot vary by row; a single-experiment response -- every point read,
-    and the usual search -- therefore costs one query no matter how many rows it carries.
+    and the usual search -- therefore costs one gate no matter how many rows it carries.
+
+    The memo key must stay the EXPERIMENT, not its workspace. The requirement's
+    ``fallback_if_no_grant`` names this one experiment, so absent an assessment grant two
+    experiments in the same workspace legitimately differ, and sharing a gate between them would
+    disclose a denied experiment's assessments. Each gate costs two auth-DB queries, so a batch
+    spanning N experiments costs 2N; the request-side validator already pays the same 2N on these
+    routes (see description §6.2 for the shared-load consolidation, deferred).
     """
     username = authenticate_request().username
     gates: dict[str, RetentionGate] = {}
