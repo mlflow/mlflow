@@ -4899,8 +4899,8 @@ def test_user_can_create_in_default_workspace_via_autogrant(monkeypatch):
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def get_role_permission_for_resource(self, *args, **kwargs):
-            return None
+        def list_grants(self, *args, **kwargs):
+            return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
@@ -4944,8 +4944,8 @@ def test_user_cannot_create_via_autogrant_when_default_permission_lacks_use(monk
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def get_role_permission_for_resource(self, *args, **kwargs):
-            return None
+        def list_grants(self, *args, **kwargs):
+            return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
