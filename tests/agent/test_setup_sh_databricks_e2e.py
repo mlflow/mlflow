@@ -30,7 +30,8 @@ def _write_mock_databricks_cli(path: Path) -> None:
     """
     path.write_text(
         f"#!{sys.executable}\n"
-        + r"""import json
+        + r"""import fcntl
+import json
 import os
 import sys
 from pathlib import Path
@@ -50,7 +51,6 @@ if "--host" in args and args[:2] != ["auth", "login"]:
 
 routes = json.loads(Path(os.environ["DATABRICKS_TEST_ROUTES"]).read_text())
 state_path = Path(os.environ["DATABRICKS_TEST_STATE"])
-state = json.loads(state_path.read_text()) if state_path.exists() else {}
 
 for index, route in enumerate(routes):
     prefix = route["args"]
@@ -58,9 +58,17 @@ for index, route in enumerate(routes):
         continue
 
     responses = route.get("responses", [route])
-    response_index = state.get(str(index), 0)
-    state[str(index)] = response_index + 1
-    state_path.write_text(json.dumps(state))
+    # Killing a background loader in setup.sh stops only its subshell, so a previous mock
+    # can still be updating the state when the next one starts. Serialize the update and
+    # replace the file atomically so a reader never sees it truncated.
+    with open(f"{state_path}.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        state = json.loads(state_path.read_text()) if state_path.exists() else {}
+        response_index = state.get(str(index), 0)
+        state[str(index)] = response_index + 1
+        tmp_path = state_path.with_name(f"{state_path.name}.tmp")
+        tmp_path.write_text(json.dumps(state))
+        tmp_path.replace(state_path)
     response = responses[min(response_index, len(responses) - 1)]
 
     if stdout := response.get("stdout"):
