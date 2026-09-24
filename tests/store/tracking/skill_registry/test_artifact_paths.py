@@ -176,6 +176,26 @@ def test_validate_referenced_mlflow_source_rejects(source, subpath, message):
         ("skills/Reviewer", None),
         ("skills/@Acme/reviewer", None),
         ("skills/../reviewer", None),
+        # Non-canonical or traversal segments, raw or percent-encoded, fail closed rather
+        # than resolve to the identity the path started with.
+        (f"skills/@acme/reviewer/../../@victim/secret/{_TOKEN}", None),
+        ("skills/@acme/reviewer/./../../@victim/secret", None),
+        ("skills/@acme/reviewer//../../@victim/secret", None),
+        ("skills/@acme/reviewer/..", None),
+        ("skills/@acme/reviewer/.", None),
+        ("skills/@acme/reviewer/%2e%2e/%2e%2e/@victim/secret", None),
+        ("skills/@acme/reviewer/%2E%2E/%2E%2E/@victim/secret", None),
+        ("skills/@acme/reviewer/.%2e/.%2e/@victim/secret", None),
+        ("skills/@acme/reviewer/%252e%252e/%252e%252e/@victim/secret", None),
+        ("skills/@acme/reviewer%2f..%2f..%2f@victim/secret", None),
+        # Encoded characters resolve to the identity the artifact handlers serve.
+        (f"skills/%40acme/reviewer/{_TOKEN}", SkillArtifactIdentity("acme", "reviewer")),
+        (f"skills/%2540acme/reviewer/{_TOKEN}", SkillArtifactIdentity("acme", "reviewer")),
+        (
+            f"skills/@acme/reviewer/{_TOKEN}/notes%20v2.md",
+            SkillArtifactIdentity("acme", "reviewer"),
+        ),
+        ("skills%2F%40acme%2Freviewer", SkillArtifactIdentity("acme", "reviewer")),
         ("", None),
         (None, None),
     ],

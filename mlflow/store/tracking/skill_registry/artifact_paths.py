@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from mlflow.entities.skill_source import SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.paths import normalize_subpath
+from mlflow.utils.uri import _decode
 from mlflow.utils.validation import (
     _validate_agent_plugin_name,
     _validate_organization_name,
@@ -61,11 +62,22 @@ def parse_skill_upload_path(artifact_path: str) -> SkillArtifactIdentity | None:
     permission check on any artifact request for skill content can resolve the skill to
     check. ``skills`` alone and ``skills/@<organization>`` alone name no single skill and
     return ``None``, as does anything outside the upload root or with a malformed identity.
+
+    The path is resolved the way the artifact handlers will serve it: percent-escapes are
+    decoded repeatedly, as ``validate_path_is_safe`` does, so an encoded segment cannot hide
+    from the check, and any ``..``, ``.`` or empty segment fails closed instead of resolving
+    past it to the identity the path started with.
     """
     if not isinstance(artifact_path, str):
         return None
+    try:
+        artifact_path = _decode(artifact_path)
+    except ValueError:
+        return None
     segments = artifact_path.strip("/").split("/")
-    if not segments or segments[0] != SKILL_UPLOAD_ROOT:
+    if any(segment in ("", ".", "..") for segment in segments):
+        return None
+    if segments[0] != SKILL_UPLOAD_ROOT:
         return None
     rest = segments[1:]
     organization = ""
