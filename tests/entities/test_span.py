@@ -1535,3 +1535,106 @@ def test_span_is_not_iterable():
         iter(span)
     with pytest.raises(TypeError, match="not iterable"):
         _ = "name" in span
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_pattern"),
+    [
+        ("inputs", r"Use attribute access instead, e\.g\. `span\.inputs`\."),
+        ("name", r"Use attribute access instead, e\.g\. `span\.name`\."),
+        (
+            "custom_key",
+            r"To access span attributes, use `span\.get_attribute\('custom_key'\)` "
+            r"or `span\.attributes\['custom_key'\]`\.",
+        ),
+        (
+            "mlflow.spanType",
+            r"To access span attributes, use `span\.get_attribute\('mlflow\.spanType'\)` "
+            r"or `span\.attributes\['mlflow\.spanType'\]`\.",
+        ),
+        (
+            "non_existent",
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+        (
+            "_span",
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+        (
+            "get",
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+        (
+            0,
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+    ],
+)
+def test_span_get_raises_helpful_attribute_error(key, expected_pattern):
+    with mlflow.start_span("test_span") as live_span:
+        live_span.set_inputs({"input": 1})
+        live_span.set_attributes({"custom_key": "val", "mlflow.spanType": "LLM"})
+        with pytest.raises(AttributeError, match=expected_pattern):
+            live_span.get(key)
+
+    span = live_span.to_immutable_span()
+    with pytest.raises(AttributeError, match=expected_pattern):
+        span.get(key)
+
+
+def test_span_get_variants_and_span_types():
+    with mlflow.start_span("test_span") as live_span:
+        live_span.set_inputs({"input": 1})
+        live_span.set_attributes({"custom_key": "val"})
+
+    span = live_span.to_immutable_span()
+
+    # Call with no arguments
+    with pytest.raises(
+        AttributeError,
+        match=(
+            r"Use attribute access instead, e\.g\. `span\.inputs`, "
+            r"`span\.outputs`, or `span\.attributes`\."
+        ),
+    ):
+        span.get()
+
+    # Call with keyword argument
+    with pytest.raises(
+        AttributeError, match=r"Use attribute access instead, e\.g\. `span\.name`\."
+    ):
+        span.get(key="name")
+
+    # Call with default argument
+    with pytest.raises(
+        AttributeError, match=r"Use attribute access instead, e\.g\. `span\.name`\."
+    ):
+        span.get("name", None)
+
+    # LazySpan
+    from mlflow.entities.span import LazySpan, NoOpSpan
+
+    lazy_span = LazySpan(span.to_dict())
+    with pytest.raises(
+        AttributeError, match=r"Use attribute access instead, e\.g\. `span\.name`\."
+    ):
+        lazy_span.get("name")
+    with pytest.raises(
+        AttributeError,
+        match=(
+            r"To access span attributes, use `span\.get_attribute\('custom_key'\)` "
+            r"or `span\.attributes\['custom_key'\]`\."
+        ),
+    ):
+        lazy_span.get("custom_key")
+
+    # NoOpSpan
+    noop_span = NoOpSpan()
+    with pytest.raises(
+        AttributeError, match=r"Use attribute access instead, e\.g\. `span\.name`\."
+    ):
+        noop_span.get("name")

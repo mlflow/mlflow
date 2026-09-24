@@ -330,6 +330,37 @@ class Span:
 
         raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
 
+    def get(self, *args: Any, **kwargs: Any) -> NoReturn:
+        """Span objects do not support dict-style `.get()` access."""
+        item = args[0] if args else (kwargs.get("key") or kwargs.get("item"))
+        hint = ""
+        if isinstance(item, str):
+            if (
+                item.isidentifier()
+                and not item.startswith("_")
+                and item != "get"
+                and item in dir(self)
+            ):
+                hint = f" Use attribute access instead, e.g. `span.{item}`."
+            else:
+                try:
+                    attrs = getattr(self, "attributes", None)
+                    if isinstance(attrs, dict) and item in attrs:
+                        hint = (
+                            f" To access span attributes, use `span.get_attribute({item!r})` "
+                            f"or `span.attributes[{item!r}]`."
+                        )
+                except Exception:
+                    pass
+
+        if not hint:
+            hint = (
+                " Use attribute access instead, e.g. `span.inputs`, `span.outputs`, "
+                "or `span.attributes`."
+            )
+
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute 'get'.{hint}")
+
     def get_attribute(self, key: str) -> Any | None:
         """
         Get a single attribute value from the span.
