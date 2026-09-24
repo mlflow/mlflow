@@ -3537,9 +3537,10 @@ _MCP_NESTED_ROUTES = [
     ("/versions/1", "GET", "read"),
     ("/versions/1", "PATCH", "update"),
     ("/versions/1", "DELETE", "delete"),
-    # Removing a version TAG updates the version; it does not delete it.
     ("/versions/1/tags", "POST", "update"),
-    ("/versions/1/tags/k", "DELETE", "update"),
+    # Master required server-level delete for a version tag DELETE, so the version tier follows
+    # it rather than re-deciding that a tag removal is "really" an update.
+    ("/versions/1/tags/k", "DELETE", "delete"),
     # The alias routes mutate the server's alias map and only READ the version they name --
     # the shape the registry alias routes take.
     ("/aliases", "POST", "read"),
@@ -3570,8 +3571,9 @@ def test_nested_mcp_version_routes_take_the_route_action(
     the parent cascade -- which destroys the same versions -- correctly refused. The narrow
     operation was less protected than the broad one that subsumes it.
 
-    The action is not the HTTP method: a version tag DELETE updates the version, and the alias
-    routes only read the version they point at. No version grant falls back to the server, so a
+    The action is not always the HTTP method: the alias routes mutate the server's alias map and
+    only read the version they name. Everything else follows the method, which is the level master
+    required on the server for the same route. No version grant falls back to the server, so a
     caller without one is unaffected.
     """
     store = workspace_permission_setup["store"]

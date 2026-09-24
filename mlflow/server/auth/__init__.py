@@ -1701,15 +1701,15 @@ def _mcp_server_version_action_allowed(username: str, name: str, action: str) ->
 
 
 def _mcp_version_action(parts: list[str], method: str) -> str:
-    # The version's own action, which is not simply the HTTP method. Removing a version TAG is
-    # an UPDATE of the version, not a delete of it; and the alias routes mutate the server's
-    # alias map while only READING the version they name -- the shape the registry alias routes
-    # already take. `POST /{name}/versions` never reaches here: it is a create, intercepted
-    # earlier so the container gates it and the version tier only vetoes.
+    # The alias routes mutate the server's ALIAS MAP and only read the version they name, which
+    # is the shape the registry alias routes take, so they ask for `read` rather than the
+    # method's level. Every other nested route follows the method, which is the level master
+    # required on the server for that same route -- notably a version tag DELETE is delete-level
+    # there, so the version tier follows master rather than re-deciding it. `POST
+    # /{name}/versions` never reaches here: it is a create, intercepted earlier so the container
+    # gates it and the version tier only vetoes.
     if parts[2] == "aliases":
         return "read"
-    if len(parts) > 4 and parts[4] == "tags":
-        return "update"
     if method == "DELETE":
         return "delete"
     if method in ("POST", "PATCH"):
