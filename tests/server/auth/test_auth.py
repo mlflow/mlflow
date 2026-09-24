@@ -7627,6 +7627,89 @@ def test_mcp_server_version_deny_applies_after_creation(fastapi_client, monkeypa
         assert resp.status_code == 200
 
 
+def _mcp_version_content_in(blob: str) -> list[str]:
+    present = [
+        field
+        for field in ("resolved_version", "server_version", "server_alias")
+        if f'"{field}"' in blob and f'"{field}": null' not in blob
+    ]
+    # A populated list, not the redacted `null`.
+    if '"tools": [' in blob:
+        present.append("tools")
+    return present
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_access_endpoint_withholds_a_denied_version(fastapi_client, monkeypatch, prefix):
+    """An access endpoint embeds the version it resolves to, so the version tier must reach it.
+
+    `MCPAccessEndpointResponse` carries `resolved_version` (the whole version object, tools and all)
+    plus a `tools` copy and the `server_version`/`server_alias` that name it, and
+    `MCPServerResponse.access_endpoints` carries the same as a nested summary. Four of these routes
+    had no response filter registered at all, so `(mcp_server_version, "*", DENY)` did not stop any
+    of them.
+
+    The endpoint row is the subject of its own route, so the denied version is redacted out of the
+    row and the row itself survives -- read redacts the passenger, it does not deny the subject.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    base = fastapi_client.tracking_uri
+    server_name = f"com.test/endpoint-redact{prefix.count('ajax')}"
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=base + prefix, json={"name": server_name}, auth=(owner, owner_pw)
+        ).raise_for_status()
+        requests.post(
+            url=f"{base}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        created = requests.post(
+            url=f"{base}{prefix}/{server_name}/endpoints",
+            json={"url": "https://endpoint.example.com", "server_version": "1.0.0"},
+            auth=(owner, owner_pw),
+        )
+        created.raise_for_status()
+        endpoint_id = created.json()["id"]
+
+    carriers = (
+        ("GET", f"{prefix}/{server_name}/endpoints/{endpoint_id}", None),
+        ("GET", f"{prefix}/{server_name}/endpoints", None),
+        ("GET", f"{prefix}/endpoints", None),
+        ("GET", f"{prefix}/{server_name}", None),
+        ("GET", prefix, None),
+        ("PATCH", f"{prefix}/{server_name}", {"description": "d"}),
+    )
+    # Without the veto the content is there to withhold -- otherwise the assertions below would pass
+    # against an empty response and prove nothing.
+    with User(owner, owner_pw, monkeypatch):
+        for method, route, body in carriers:
+            resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
+            assert resp.status_code == 200, f"{method} {route}"
+            carried = _mcp_version_content_in(resp.text)
+            assert carried, f"{method} {route} carried no version content"
+
+    requests.post(
+        url=f"{base}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": owner,
+            "resource_type": "mcp_server_version",
+            "resource_id": "*",
+            "permission": "DENY",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+    with User(owner, owner_pw, monkeypatch):
+        for method, route, body in carriers:
+            resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
+            # The row survives; only the version passenger is withheld.
+            assert resp.status_code == 200, f"{method} {route} returned {resp.status_code}"
+            assert endpoint_id in resp.text or method == "PATCH", f"{method} {route} lost the row"
+            leaked = _mcp_version_content_in(resp.text)
+            assert not leaked, f"{method} {route} disclosed {leaked}"
+
+
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_access_endpoint_version_selectors_honor_the_version_tier(
     fastapi_client, monkeypatch, prefix
