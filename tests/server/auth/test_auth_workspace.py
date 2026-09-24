@@ -22,6 +22,8 @@ from mlflow.server.auth.routes import (
     GET_MODEL_VERSION_ARTIFACT,
     GET_TRACE_ARTIFACT,
     GET_TRACE_ARTIFACT_V3,
+    INVOKE_GENAI_EVALUATE,
+    INVOKE_ISSUE_DETECTION,
     SEARCH_DATASETS,
     UPLOAD_ARTIFACT,
 )
@@ -2415,6 +2417,36 @@ def test_create_classification_folds_duplicate_prompt_tags_last_wins(
         "/api/2.0/mlflow/registered-models/create", method="POST", json=body
     ):
         assert auth_module.validate_can_create_registered_model() is allowed
+
+
+@pytest.mark.parametrize(
+    ("path", "validator"),
+    [
+        (CREATE_PROMPTLAB_RUN, "validate_can_create_promptlab_run"),
+        (INVOKE_ISSUE_DETECTION, "validate_can_invoke_issue_detection"),
+        (INVOKE_GENAI_EVALUATE, "validate_can_invoke_genai_evaluate"),
+    ],
+)
+@pytest.mark.parametrize("run_denied", [True, False])
+def test_alternate_run_creation_paths_carry_the_run_veto(
+    workspace_permission_setup, monkeypatch, path, validator, run_denied
+):
+    """Three routes create a run without saying so in their name.
+
+    Each checked only the experiment, so `(run, *, DENY)` was bypassed on every run-creation path
+    except `CreateRun` itself. `run_denied=False` pins the veto-only half: with no run grant these
+    still pass, so the tier refuses rather than becoming a positive requirement.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("experiment", "*", EDIT.name)]
+    if run_denied:
+        rows.append(("run", "*", DENY.name))
+    _grant(store, username, "team-a", rows)
+    with auth_module.app.test_request_context(path, method="POST", json={"experiment_id": "exp-2"}):
+        assert getattr(auth_module, validator)() is not run_denied
 
 
 @pytest.mark.parametrize(
