@@ -2443,6 +2443,58 @@ def test_artifact_proxy_child_tier_survives_path_encoding(
     ) is False
 
 
+@pytest.mark.parametrize(
+    ("experiment_grant", "allowed"),
+    [(None, False), ("DENY", False), ("READ", True)],
+    ids=["no-experiment-grant", "experiment-deny", "experiment-read"],
+)
+def test_artifact_proxy_parent_gate_survives_an_encoded_experiment_id(
+    workspace_permission_setup, monkeypatch, experiment_grant, allowed
+):
+    """An unparsed experiment id is not a denial -- it falls through to the workspace grant (or
+    `default_permission` with workspaces off), so failing to canonicalize here substituted a
+    workspace-wide answer for a per-experiment one. `%31/...` reached the parser as an opaque
+    segment while the handler resolved experiment 1.
+
+    The encoded path must now answer exactly as the plain one does, for every grant state.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    # Workspace USE is what the parent gate used to fall back on.
+    _set_workspace_permission(store, username, USE.name)
+    if experiment_grant:
+        _grant(store, username, "team-a", [("experiment", "1", experiment_grant)])
+
+    for path in ("1/plain.txt", "%31/plain.txt"):
+        assert (
+            _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", path) is allowed
+        ), path
+    # FastAPI resolves the parent from the URL rather than view_args, so it needs its own proof.
+    for path in ("1/plain.txt", "%31/plain.txt"):
+        permission = auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/artifacts/{path}", username, None
+        )
+        assert permission.can_read is allowed, path
+
+
+def test_artifact_proxy_parent_gate_canonicalizes_the_list_query_path(
+    workspace_permission_setup, monkeypatch
+):
+    """List-artifacts carries the path as ?path=, a separate branch of the FastAPI extractor."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "1", DENY.name)])
+
+    for query_path in ("1/plain.txt", "%31/plain.txt"):
+        permission = auth_module._get_proxy_artifact_permission(
+            "/api/2.0/mlflow-artifacts/artifacts", username, query_path
+        )
+        assert permission.can_read is False, query_path
+
+
 def test_artifact_proxy_fails_closed_on_a_path_the_handler_would_reject(
     workspace_permission_setup,
 ):
