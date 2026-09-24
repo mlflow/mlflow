@@ -2746,6 +2746,47 @@ def _run_artifact_proxy(validator, artifact_path, method="GET"):
 
 
 @pytest.mark.parametrize(
+    "artifact_path",
+    ["1", "1/", "workspaces/team-a/1", "%31", "1/plain.txt"],
+    ids=["bare-root", "root-slash", "workspace-prefixed-root", "encoded-root", "child-file"],
+)
+def test_artifact_proxy_root_listing_honors_an_experiment_deny(
+    workspace_permission_setup, monkeypatch, artifact_path
+):
+    """`?path=1` names the experiment root and carries no separator after the id.
+
+    The pattern requires one, so the id went unparsed -- and an unparsed id is not a denial: the
+    caller fell through to the workspace grant. So list-artifacts on an experiment's root skipped
+    the experiment tier, which is the one request that enumerates everything in it.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "1", DENY.name)])
+    assert (
+        _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", artifact_path) is False
+    )
+
+
+@pytest.mark.parametrize(
+    "query_path",
+    ["1", "1/", "workspaces/team-a/1", "%31"],
+    ids=["bare-root", "root-slash", "workspace-prefixed-root", "encoded-root"],
+)
+def test_fastapi_artifact_proxy_root_listing_resolves_the_experiment(query_path):
+    """The FastAPI query-path branch had the same gap as Flask, while the direct path branch
+    three lines above it already appended the separator.
+    """
+    assert (
+        auth_module._extract_experiment_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow-artifacts/artifacts", query_path=query_path
+        )
+        == "1"
+    )
+
+
+@pytest.mark.parametrize(
     ("tier", "artifact_path"),
     [
         ("run", "1/abc123/artifacts/model.pkl"),
