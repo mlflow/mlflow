@@ -283,7 +283,7 @@ class DatabricksUCModelService(DatabricksResource):
     Args:
         model_service_name (str): The name of the UC model service used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
-        with the permission of the invoker of the model in the serving endpoint. If set to
+        the permission of the invoker of the model in the serving endpoint. If set to
         None or False, the resource is accessed with the permissions of the creator
     """
 
