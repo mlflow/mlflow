@@ -83,12 +83,7 @@ class Requirement(NamedTuple):
 
 
 def requirement_to_grant_load_keys(requirement: Requirement) -> list[GrantLoadKey]:
-    """The keys that could decide ``requirement``: its own first, then each fallback.
-
-    Keys are flat addresses, never (child, parent) pairs, so each is answered independently
-    and ``None`` means exactly "no grant on this type" -- the distinction a pre-folded view
-    destroys by substituting ``default_permission`` for an absent grant.
-    """
+    """The keys that could decide ``requirement``: its own first, then each fallback."""
     return [
         GrantLoadKey(requirement.resource_type, requirement.resource_id or "*"),
         *(GrantLoadKey(t, i) for t, i in requirement.fallback_if_no_grant),
@@ -146,16 +141,7 @@ def governing_permission(
     default_permission: str,
     absent: Permission,
 ) -> Permission:
-    """Which key's grant governs ``requirement`` -- RFC 0000's tier override.
-
-    The first key holding ANY grant decides; the keys behind it are not consulted ("not a
-    cross-tier max"). So a ``DENY`` is never rescued by a more permissive ancestor, and
-    equally a narrower positive grant overrides a broader one.
-
-    ``absent`` is what no grant anywhere resolves to, which the caller supplies because it
-    depends on the workspace. No capability comparison happens here, so a route whose
-    decision is not a plain conjunction can apply its own logic to the result.
-    """
+    """Which key's grant governs ``requirement`` -- RFC 0000's tier override."""
     for key in requirement_to_grant_load_keys(requirement):
         grant = grants[key]
         if grant is not None:
