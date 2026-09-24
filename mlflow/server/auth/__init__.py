@@ -2274,6 +2274,36 @@ def validate_can_search_model_versions():
     )
 
 
+def _gateway_secret_selector_not_denied(message) -> bool:
+    """A `secret_id` selector on a gateway list route names a secret, so it gates on that secret.
+
+    `_withhold_denied_definition_secrets` clears `secret_id`/`secret_name` from the rows, and
+    `_withhold_denied_model_mappings` does the same inside an endpoint's mappings -- but filtering
+    ON `secret_id` still reveals which endpoints and definitions use that secret, because which
+    rows match is the disclosure. Same reasoning as `_authorize_trace_search`.
+
+    Unlike the run and version tiers, `gateway_secret` is id grain, so this names the exact secret
+    the request named rather than vetoing the whole type: a DENY on one secret must not refuse a
+    listing filtered on a different one.
+    """
+    secret_id = message.secret_id
+    if not secret_id:
+        return True
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_GATEWAY_SECRET, secret_id, ACTION_NOT_DENIED)],
+    )
+
+
+def validate_can_list_gateway_endpoints():
+    return _gateway_secret_selector_not_denied(_get_request_message(ListGatewayEndpoints()))
+
+
+def validate_can_list_gateway_model_definitions():
+    return _gateway_secret_selector_not_denied(_get_request_message(ListGatewayModelDefinitions()))
+
+
 def validate_can_read_model_or_prompt_version():
     """Point reads of a version: the parent must be readable and the version tier may veto.
 
@@ -4402,6 +4432,8 @@ BEFORE_REQUEST_HANDLERS = {
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
     SearchModelVersions: validate_can_search_model_versions,
+    ListGatewayEndpoints: validate_can_list_gateway_endpoints,
+    ListGatewayModelDefinitions: validate_can_list_gateway_model_definitions,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
     TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
