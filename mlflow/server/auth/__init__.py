@@ -1693,6 +1693,17 @@ def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
     )
 
 
+def _mcp_version_tier_not_denied_in_workspace(username: str) -> bool:
+    # The cross-server endpoint search names no server, so the workspace is the anchor. The version
+    # tier is wildcard grain only, so a constant veto is exact -- there is no per-id grant to miss.
+    workspace = (RESOURCE_TYPE_WORKSPACE, "*")
+    return authorize(
+        username,
+        workspace,
+        [Requirement(RESOURCE_TYPE_MCP_SERVER_VERSION, "*", ACTION_NOT_DENIED)],
+    )
+
+
 def _get_mcp_server_permission(name: str, username: str) -> Permission:
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -7758,6 +7769,32 @@ def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
     return len(parts) == 3 and parts[2] == "versions"
 
 
+def _mcp_path_targets_an_access_endpoint(parts: list[str]) -> bool:
+    return len(parts) > 2 and parts[2] == "endpoints"
+
+
+async def _mcp_request_selects_a_version(request: StarletteRequest) -> bool:
+    """True if the request names a specific server version, by number or by alias.
+
+    An access endpoint resolves to a version and serves its content, so a request that selects one
+    is operating on the version tier even though the path says `endpoints`. Query params carry the
+    selector on the searches; the create and update bodies carry it on the writes.
+    """
+    params = request.query_params
+    if params.get("server_version") or params.get("server_alias"):
+        return True
+    if request.method not in ("POST", "PATCH"):
+        return False
+    try:
+        body = await request.json()
+    except Exception:
+        # A malformed or absent body selects nothing; the handler will reject it on its own terms.
+        return False
+    # Starlette caches the read, so the route handler still parses its own body.
+    request.state.cached_body = body
+    return isinstance(body, dict) and bool(body.get("server_version") or body.get("server_alias"))
+
+
 def _mcp_path_targets_a_version(parts: list[str]) -> bool:
     # parts[0:2] is the server name; parts[2:] is the nested path. `aliases/<alias>` resolves to a
     # version and returns it, so it discloses version content just as `versions/...` does.
@@ -7775,6 +7812,10 @@ def _get_mcp_server_validator(
         async def root_validator(username: str, request: StarletteRequest) -> bool:
             if request.method == "POST":
                 return validate_can_create_mcp_server(username)
+            # The cross-server endpoint search accepts the same version selectors as the per-server
+            # one, so it vetoes on the same tier; it just has no server to anchor on.
+            if parts[:1] == ["endpoints"] and await _mcp_request_selects_a_version(request):
+                return _mcp_version_tier_not_denied_in_workspace(username)
             return True
 
         return root_validator
@@ -7819,6 +7860,13 @@ def _get_mcp_server_validator(
         # independent version tier existed solely at creation: listing versions, reading, updating,
         # deleting or tagging one, and resolving an alias all fell through to the parent server.
         if _mcp_path_targets_a_version(parts):
+            return _mcp_server_version_not_denied(username, name)
+        # An access endpoint that names a version resolves it and serves its content, so selecting
+        # one is a version-tier operation. The server tier stays the positive gate; the version tier
+        # only vetoes, as on the nested version routes.
+        if _mcp_path_targets_an_access_endpoint(parts) and await _mcp_request_selects_a_version(
+            request
+        ):
             return _mcp_server_version_not_denied(username, name)
         # Deleting the server destroys its versions with it -- the ORM pairs `ondelete="CASCADE"`
         # with `delete-orphan` -- so the cascade takes the same version-tier delete that the
