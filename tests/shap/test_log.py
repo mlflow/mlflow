@@ -26,8 +26,6 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 
-_SKOPS_TREE_TRUSTED_TYPES = ["sklearn.tree._tree.Tree"]
-
 
 @pytest.fixture(scope="module")
 def shap_model():
@@ -58,11 +56,7 @@ def test_sklearn_log_explainer():
         explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
         shap_values_original = explainer_original(X[:5])
 
-        mlflow.shap.log_explainer(
-            explainer_original,
-            "test_explainer",
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        mlflow.shap.log_explainer(explainer_original, "test_explainer")
 
         explainer_uri = "runs:/" + run_id + "/test_explainer"
 
@@ -80,24 +74,14 @@ def test_sklearn_log_explainer():
             model_path=Path(explainer_path, "underlying_model"),
             flavor_name=mlflow.sklearn.FLAVOR_NAME,
         )
-        assert sklearn_conf["skops_trusted_types"] == _SKOPS_TREE_TRUSTED_TYPES
+        assert sklearn_conf["serialization_format"] == (
+            mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+        )
+        assert sklearn_conf["skops_trusted_types"] is None
         np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
         np.testing.assert_allclose(
             shap_values_original.values, shap_values_new.values, rtol=100, atol=100
         )
-
-
-def test_sklearn_log_explainer_requires_explicit_trust(shap_model, tmp_path):
-    with (
-        mock.patch("mlflow.sklearn._save_model", wraps=mlflow.sklearn._save_model) as save_model,
-        pytest.raises(MlflowException, match="references untrusted types"),
-    ):
-        mlflow.shap.save_explainer(shap_model, tmp_path / "model")
-
-    assert (
-        save_model.call_args.kwargs["serialization_format"]
-        == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
-    )
 
 
 def test_sklearn_log_explainer_self_serialization():
@@ -116,13 +100,9 @@ def test_sklearn_log_explainer_self_serialization():
         explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
         shap_values_original = explainer_original(X[:5])
 
-        with pytest.warns(UserWarning, match="`skops_trusted_types` is ignored"):
-            mlflow.shap.log_explainer(
-                explainer_original,
-                "test_explainer",
-                serialize_model_using_mlflow=False,
-                skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-            )
+        mlflow.shap.log_explainer(
+            explainer_original, "test_explainer", serialize_model_using_mlflow=False
+        )
 
         explainer_uri = "runs:/" + run_id + "/test_explainer"
 
@@ -159,11 +139,7 @@ def test_sklearn_log_explainer_pyfunc():
         explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
         shap_values_original = explainer_original(X[:2])
 
-        mlflow.shap.log_explainer(
-            explainer_original,
-            "test_explainer",
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        mlflow.shap.log_explainer(explainer_original, "test_explainer")
 
         explainer_pyfunc = mlflow.pyfunc.load_model("runs:/" + run_id + "/test_explainer")
         shap_values_new = explainer_pyfunc.predict(X[:2])
@@ -204,11 +180,7 @@ def test_load_pyfunc(tmp_path):
     explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
     shap_values_original = explainer_original(X[:2])
     path = str(tmp_path.joinpath("pyfunc_test"))
-    mlflow.shap.save_explainer(
-        explainer_original,
-        path,
-        skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-    )
+    mlflow.shap.save_explainer(explainer_original, path)
 
     explainer_pyfunc = mlflow.shap._load_pyfunc(path)
     shap_values_new = explainer_pyfunc.predict(X[:2])
@@ -332,17 +304,12 @@ def test_merge_environment_with_duplicates():
 
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        model_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            pip_requirements=str(req_file),
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        model_info = mlflow.shap.log_explainer(shap_model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             model_info.model_uri,
             [expected_mlflow_version, "a", *sklearn_default_reqs],
@@ -352,10 +319,7 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            pip_requirements=[f"-r {req_file}", "b"],
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            shap_model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -366,10 +330,7 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            pip_requirements=[f"-c {req_file}", "b"],
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            shap_model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -382,17 +343,14 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
 def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         log_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            extra_pip_requirements=str(req_file),
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            shap_model, "model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             log_info.model_uri,
@@ -402,10 +360,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     # List of requirements
     with mlflow.start_run():
         log_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            extra_pip_requirements=[f"-r {req_file}", "b"],
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            shap_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             log_info.model_uri,
@@ -415,10 +370,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         log_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            extra_pip_requirements=[f"-c {req_file}", "b"],
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            shap_model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             log_info.model_uri,
@@ -433,17 +385,11 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
         )
 
 
-def test_log_model_serializes_underlying_model_with_skops(shap_model):
-    # Guard that the underlying sklearn model is serialized with skops (not cloudpickle) by
-    # default. The serialization artifact is the only discriminating signal: both skops and
-    # cloudpickle appear in the auto-inferred pip requirements regardless of format, so the
-    # requirements can't guard this default.
+def test_log_model_serializes_underlying_model_with_cloudpickle(shap_model):
+    # A SHAP explainer is already pickle-serialized, so its nested sklearn model stays on the same
+    # trust boundary instead of auto-trusting model types that skops deliberately rejects.
     with mlflow.start_run():
-        model_info = mlflow.shap.log_explainer(
-            shap_model,
-            "model",
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        model_info = mlflow.shap.log_explainer(shap_model, "model")
 
     underlying_model_path = Path(
         _download_artifact_from_uri(model_info.model_uri), "underlying_model"
@@ -451,8 +397,9 @@ def test_log_model_serializes_underlying_model_with_skops(shap_model):
     sklearn_conf = _get_flavor_configuration(
         model_path=underlying_model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
-    assert (underlying_model_path / "model.skops").exists()
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["skops_trusted_types"] is None
+    assert (underlying_model_path / "model.pkl").exists()
 
 
 def create_identity_function():
@@ -494,11 +441,7 @@ def test_pyfunc_serve_and_score_njit():
     )
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.shap.log_explainer(
-            model,
-            artifact_path,
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        model_info = mlflow.shap.log_explainer(model, artifact_path)
 
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -533,11 +476,7 @@ def test_pyfunc_serve_and_score():
     )
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.shap.log_explainer(
-            model,
-            artifact_path,
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        model_info = mlflow.shap.log_explainer(model, artifact_path)
 
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -555,12 +494,7 @@ def test_log_model_with_code_paths(shap_model):
         mlflow.start_run(),
         mock.patch("mlflow.shap._add_code_from_conf_to_system_path") as add_mock,
     ):
-        model_info = mlflow.shap.log_explainer(
-            shap_model,
-            artifact_path,
-            code_paths=[__file__],
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
-        )
+        model_info = mlflow.shap.log_explainer(shap_model, artifact_path, code_paths=[__file__])
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.shap.FLAVOR_NAME)
         mlflow.shap.load_explainer(model_info.model_uri)
         add_mock.assert_called()
@@ -569,10 +503,7 @@ def test_log_model_with_code_paths(shap_model):
 def test_model_save_load_with_metadata(shap_model, tmp_path):
     model_path = str(tmp_path.joinpath("pyfunc_test"))
     mlflow.shap.save_explainer(
-        shap_model,
-        path=model_path,
-        metadata={"metadata_key": "metadata_value"},
-        skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+        shap_model, path=model_path, metadata={"metadata_key": "metadata_value"}
     )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
@@ -584,10 +515,7 @@ def test_model_log_with_metadata(shap_model):
 
     with mlflow.start_run():
         model_info = mlflow.shap.log_explainer(
-            shap_model,
-            artifact_path=artifact_path,
-            metadata={"metadata_key": "metadata_value"},
-            skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            shap_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
         )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
