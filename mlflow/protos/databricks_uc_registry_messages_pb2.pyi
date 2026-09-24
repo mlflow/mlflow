@@ -41,6 +41,7 @@ class DependencyType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DATABRICKS_UC_FUNCTION: _ClassVar[DependencyType]
     DATABRICKS_UC_CONNECTION: _ClassVar[DependencyType]
     DATABRICKS_TABLE: _ClassVar[DependencyType]
+    DATABRICKS_UC_MODEL_SERVICE: _ClassVar[DependencyType]
 
 class TableType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -74,6 +75,7 @@ DATABRICKS_MODEL_ENDPOINT: DependencyType
 DATABRICKS_UC_FUNCTION: DependencyType
 DATABRICKS_UC_CONNECTION: DependencyType
 DATABRICKS_TABLE: DependencyType
+DATABRICKS_UC_MODEL_SERVICE: DependencyType
 TABLE: TableType
 PERSISTED_VIEW: TableType
 TEMP_VIEW: TableType
