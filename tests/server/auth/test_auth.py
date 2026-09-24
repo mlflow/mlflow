@@ -7756,12 +7756,21 @@ def test_mcp_access_endpoint_version_selectors_honor_the_version_tier(
     ).raise_for_status()
     with User(owner, owner_pw, monkeypatch):
         selecting = (
-            ("POST", f"{prefix}/{server_name}/endpoints",
-             {"url": "https://other.example.com", "server_version": "1.0.0"}),
-            ("POST", f"{prefix}/{server_name}/endpoints",
-             {"url": "https://other.example.com", "server_alias": "prod"}),
-            ("PATCH", f"{prefix}/{server_name}/endpoints/{endpoint_id}",
-             {"server_version": "1.0.0"}),
+            (
+                "POST",
+                f"{prefix}/{server_name}/endpoints",
+                {"url": "https://other.example.com", "server_version": "1.0.0"},
+            ),
+            (
+                "POST",
+                f"{prefix}/{server_name}/endpoints",
+                {"url": "https://other.example.com", "server_alias": "prod"},
+            ),
+            (
+                "PATCH",
+                f"{prefix}/{server_name}/endpoints/{endpoint_id}",
+                {"server_version": "1.0.0"},
+            ),
             ("GET", f"{prefix}/{server_name}/endpoints?server_version=1.0.0", None),
             ("GET", f"{prefix}/{server_name}/endpoints?server_alias=prod", None),
             # The cross-server search names no server, so it anchors on the workspace instead.
@@ -7771,9 +7780,7 @@ def test_mcp_access_endpoint_version_selectors_honor_the_version_tier(
             resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
             assert resp.status_code == 403, f"{method} {route} returned {resp.status_code}"
         # A request that selects no version is untouched: the veto is scoped to the selector.
-        resp = requests.get(
-            url=f"{base}{prefix}/{server_name}/endpoints", auth=(owner, owner_pw)
-        )
+        resp = requests.get(url=f"{base}{prefix}/{server_name}/endpoints", auth=(owner, owner_pw))
         assert resp.status_code == 200
 
 
