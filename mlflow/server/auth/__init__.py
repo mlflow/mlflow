@@ -2274,6 +2274,13 @@ def validate_can_search_model_versions():
     )
 
 
+# Routes declaring a `secret_id` the handler never forwards to the store, so gating the selector
+# would deny a request that is not actually filtered. Guarded by the authorization coverage tests:
+# wiring one of these makes the selector real and the route needs
+# `_gateway_secret_selector_not_denied`.
+_GATEWAY_SECRET_SELECTOR_INERT_ROUTES = ("_list_gateway_endpoints",)
+
+
 def _gateway_secret_selector_not_denied(message) -> bool:
     """A `secret_id` selector on a gateway list route names a secret, so it gates on that secret.
 
@@ -2285,6 +2292,11 @@ def _gateway_secret_selector_not_denied(message) -> bool:
     Unlike the run and version tiers, `gateway_secret` is id grain, so this names the exact secret
     the request named rather than vetoing the whole type: a DENY on one secret must not refuse a
     listing filtered on a different one.
+
+    `ListGatewayEndpoints` is deliberately NOT gated even though it declares `secret_id` and the
+    store accepts it, because `_list_gateway_endpoints` passes only `provider=` and drops the field:
+    the selector is inert, so there is no oracle to close and a gate would refuse a request that
+    returns an unfiltered listing today. `_GATEWAY_SECRET_SELECTOR_INERT_ROUTES` guards the premise.
     """
     secret_id = message.secret_id
     if not secret_id:
@@ -2294,10 +2306,6 @@ def _gateway_secret_selector_not_denied(message) -> bool:
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [Requirement(RESOURCE_TYPE_GATEWAY_SECRET, secret_id, ACTION_NOT_DENIED)],
     )
-
-
-def validate_can_list_gateway_endpoints():
-    return _gateway_secret_selector_not_denied(_get_request_message(ListGatewayEndpoints()))
 
 
 def validate_can_list_gateway_model_definitions():
@@ -4432,7 +4440,6 @@ BEFORE_REQUEST_HANDLERS = {
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
     SearchModelVersions: validate_can_search_model_versions,
-    ListGatewayEndpoints: validate_can_list_gateway_endpoints,
     ListGatewayModelDefinitions: validate_can_list_gateway_model_definitions,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
