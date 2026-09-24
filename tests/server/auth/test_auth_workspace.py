@@ -1344,6 +1344,45 @@ def test_registered_model_grant_does_not_satisfy_prompt_request(
             assert not auth_module.validate_can_read_prompt()
 
 
+@pytest.mark.parametrize(
+    ("is_prompt", "deny_tier", "allowed"),
+    [
+        (True, "prompt_version", False),
+        (True, "registered_model_version", True),
+        (False, "registered_model_version", False),
+        (False, "prompt_version", True),
+    ],
+    ids=["prompt-denied-by-prompt-version", "prompt-unaffected-by-model-version",
+         "model-denied-by-model-version", "model-unaffected-by-prompt-version"],
+)
+def test_model_version_artifact_vetoes_on_the_persisted_family(
+    workspace_permission_setup, monkeypatch, is_prompt, deny_tier, allowed
+):
+    """A prompt is a registered model carrying a tag and `_get_sql_model_version` has no prompt
+    guard, so a prompt version reaches the artifact route. The veto must consult the family the
+    entity actually belongs to, or a prompt_version DENY is unenforceable there while a
+    registered_model_version DENY over-blocks.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    registry_store = _RegistryStore(
+        {"foo": "team-a"}, prompts={"foo"} if is_prompt else set()
+    )
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+    _set_workspace_permission(store, username, USE.name)
+    # The positive gate is master's and resolves the registered_model tier for either family.
+    _grant(store, username, "team-a",
+           [("registered_model", "foo", MANAGE.name), (deny_tier, "*", DENY.name)])
+
+    with workspace_context.WorkspaceContext("team-a"):
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow-artifacts/model-version/artifact",
+            method="GET",
+            query_string={"name": "foo", "version": "3", "path": "MLmodel"},
+        ):
+            assert auth_module.validate_can_read_model_version_artifact() is allowed
+
+
 def test_request_targets_prompt_is_registry_driven_not_body_driven(
     workspace_permission_setup, monkeypatch
 ):
