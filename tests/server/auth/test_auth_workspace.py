@@ -2337,6 +2337,95 @@ def test_search_model_versions_gates_a_filter_that_selects_a_run(
         assert auth_module.validate_can_search_model_versions() is not run_denied_blocks
 
 
+@pytest.mark.parametrize(
+    ("route", "validator", "body", "filter_string", "run_denied_blocks"),
+    [
+        (r, v, b, f, blocks)
+        for r, v, b in (
+            (
+                "/api/2.0/mlflow/logged-models/search",
+                "validate_can_search_logged_models",
+                {"experiment_ids": ["exp-2"]},
+            ),
+            (
+                "/api/3.0/mlflow/issues/search",
+                "validate_can_search_issues",
+                {"experiment_id": "exp-2"},
+            ),
+        )
+        for f, blocks in (
+            ("", False),
+            ("status = 'OPEN'", False),
+            ("source_run_id = 'run-1'", True),
+            ("source_run_id != 'run-1'", True),
+            ("garbage((", True),
+        )
+    ],
+)
+def test_source_run_id_selectors_consult_the_run_tier(
+    workspace_permission_setup,
+    monkeypatch,
+    route,
+    validator,
+    body,
+    filter_string,
+    run_denied_blocks,
+):
+    """`source_run_id` names a run, so filtering on it is a run-membership oracle.
+
+    Redaction cannot close it: which rows MATCH confirms whether a denied run produced any logged
+    model or issue, however thoroughly the run reference is stripped from the rows. `SearchIssues`
+    is included because `issue` not being a grantable type does not make the RUN it names
+    unprotected.
+
+    An unparsable filter counts as selecting, the most restrictive reading.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", MANAGE.name), ("run", "*", DENY.name)],
+    )
+    with auth_module.app.test_request_context(
+        route, method="POST", json={**body, "filter": filter_string}
+    ):
+        assert getattr(auth_module, validator)() is not run_denied_blocks
+
+
+@pytest.mark.parametrize(
+    ("route", "validator", "body"),
+    [
+        (
+            "/api/2.0/mlflow/logged-models/search",
+            "validate_can_search_logged_models",
+            {"experiment_ids": ["exp-2"]},
+        ),
+        (
+            "/api/3.0/mlflow/issues/search",
+            "validate_can_search_issues",
+            {"experiment_id": "exp-2"},
+        ),
+    ],
+)
+def test_source_run_id_selectors_are_veto_only(
+    workspace_permission_setup, monkeypatch, route, validator, body
+):
+    # No run grant at all still passes: the tier refuses, it does not become a positive gate.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
+    with auth_module.app.test_request_context(
+        route, method="POST", json={**body, "filter": "source_run_id = 'run-1'"}
+    ):
+        assert getattr(auth_module, validator)() is True
+
+
 @pytest.mark.parametrize("filter_string", ["run_id = 'run-1'", "garbage(("])
 def test_search_model_versions_run_filter_is_veto_only(
     workspace_permission_setup, monkeypatch, filter_string

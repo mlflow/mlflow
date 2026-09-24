@@ -1455,6 +1455,33 @@ def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatc
         assert not versions[0].run_id
 
 
+def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monkeypatch):
+    """`SearchLoggedModels` had no before-request validator at all, so `filter_search_logged_models`
+    was its only authorization -- and that filter drops rows by EXPERIMENT, never inspecting the
+    request's `source_run_id`. Filtering on it therefore confirmed whether a denied run produced any
+    logged model. This asserts the gate is WIRED, which a direct validator call cannot show.
+    """
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("lm_run_filter_exp")
+        run_id = client.create_run(experiment_id).info.run_id
+        client.create_logged_model(experiment_id=experiment_id, name="lm_run_filter_model")
+        # Before the DENY the selector is accepted.
+        client.search_logged_models(
+            experiment_ids=[experiment_id], filter_string=f"source_run_id = '{run_id}'"
+        )
+    grant_role_permission(client.tracking_uri, owner, "run", "*", "DENY")
+    with User(owner, owner_pw, monkeypatch):
+        with pytest.raises(MlflowException, match=r"(?i)permission|denied"):
+            client.search_logged_models(
+                experiment_ids=[experiment_id], filter_string=f"source_run_id = '{run_id}'"
+            )
+        # A filter naming no run is untouched.
+        assert client.search_logged_models(
+            experiment_ids=[experiment_id], filter_string="name = 'lm_run_filter_model'"
+        )
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],

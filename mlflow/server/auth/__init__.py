@@ -2251,27 +2251,89 @@ def validate_can_delete_registered_model_or_prompt_cascade():
     )
 
 
-def _model_version_filter_selects_run(filter_string: str) -> bool:
-    """Whether a `SearchModelVersions` filter SELECTS on the run tier.
+def _filter_selects_attribute(
+    filter_string: str, parser: "Callable[[str], Any]", attribute: str
+) -> bool:
+    """Whether a search filter SELECTS on ``attribute``, asked of the grammar's own parser.
 
-    `_withhold_denied_version_siblings` strips `run_id` and `run_link` from the rows, but WHICH ROWS
-    MATCH is itself the disclosure: `run_id = '<id>'` confirms that a version was produced by that
-    run even when the field comes back empty. Same reasoning as `_authorize_trace_search`.
+    WHICH ROWS MATCH is itself the disclosure, so redaction cannot cover a selector: filtering on a
+    denied resource's id confirms its association with the rows that come back even when the field
+    is stripped from them. Same reasoning as `_authorize_trace_search`.
 
-    Asks the grammar's owner so a spelling change is inherited rather than drifted from -- the
-    parser normalizes to a single `attribute`/`run_id` comparison and rejects an `attributes.`
-    prefix outright. An unparsable filter counts as selecting, so the most restrictive reading
-    applies; the handler still returns its own 400 when no run denial makes that moot.
+    Asking the grammar's owner means a spelling change is inherited rather than drifted from -- each
+    parser normalizes its own aliases, so one check covers every way the field can be written. An
+    unparsable filter counts as selecting, the most restrictive reading; the handler still returns
+    its own 400 when no denial makes that moot.
     """
     if not filter_string:
         return False
-    from mlflow.utils.search_utils import SearchModelVersionUtils
-
     try:
-        parsed = SearchModelVersionUtils.parse_search_filter(filter_string)
+        parsed = parser(filter_string)
     except Exception:
         return True
-    return any(c.get("type") == "attribute" and c.get("key") == "run_id" for c in parsed)
+    return any(c.get("type") == "attribute" and c.get("key") == attribute for c in parsed)
+
+
+def _run_tier_not_denied_in_workspace(username: str) -> bool:
+    # The run tier is wildcard grain only, so one key decides the request -- there is no per-run
+    # grant to resolve, and a cross-parent search has no parent to read a workspace from.
+    return authorize(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
+    )
+
+
+def _model_version_filter_selects_run(filter_string: str) -> bool:
+    """Whether a `SearchModelVersions` filter SELECTS on the run tier.
+
+    `_withhold_denied_version_siblings` strips `run_id` and `run_link` from the rows, but which rows
+    match is the disclosure: `run_id = '<id>'` confirms that a version was produced by that run even
+    when the field comes back empty.
+    """
+    from mlflow.utils.search_utils import SearchModelVersionUtils
+
+    return _filter_selects_attribute(
+        filter_string, SearchModelVersionUtils.parse_search_filter, "run_id"
+    )
+
+
+def _logged_model_filter_selects_run(filter_string: str) -> bool:
+    """Whether a `SearchLoggedModels` filter SELECTS on the run tier.
+
+    `source_run_id` names the run that produced the model, so filtering on it confirms whether a
+    denied run produced any logged model -- the same oracle `run_id` gives on `SearchModelVersions`.
+    """
+    from mlflow.utils.search_utils import SearchLoggedModelsUtils
+
+    return _filter_selects_attribute(
+        filter_string, SearchLoggedModelsUtils.parse_search_filter, "source_run_id"
+    )
+
+
+def _issue_filter_selects_run(filter_string: str) -> bool:
+    """Whether a `SearchIssues` filter SELECTS on the run tier.
+
+    `issue` is not a grantable type here, but the run named by `source_run_id` is, and the oracle
+    does not care which surface exposes it.
+    """
+    from mlflow.utils.search_utils import SearchIssuesUtils
+
+    return _filter_selects_attribute(
+        filter_string, SearchIssuesUtils.parse_search_filter, "source_run_id"
+    )
+
+
+def validate_can_search_logged_models():
+    """The rows are filtered after the fact, so this gates only what redaction cannot hide.
+
+    Veto-only and scoped to the selector: a search that does not name a run passes untouched, which
+    is every request master could make. `filter_search_logged_models` remains the row-level gate.
+    """
+    filter_string = _get_request_message(SearchLoggedModels()).filter
+    if not _logged_model_filter_selects_run(filter_string):
+        return True
+    return _run_tier_not_denied_in_workspace(authenticate_request().username)
 
 
 def validate_can_search_model_versions():
@@ -2284,13 +2346,7 @@ def validate_can_search_model_versions():
     filter_string = _get_request_message(SearchModelVersions()).filter
     if not _model_version_filter_selects_run(filter_string):
         return True
-    # The run tier is wildcard grain only, so one key decides the request -- there is no per-run
-    # grant to resolve, and no parent to read a workspace from on a cross-model search.
-    return authorize(
-        authenticate_request().username,
-        (RESOURCE_TYPE_WORKSPACE, "*"),
-        [Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
-    )
+    return _run_tier_not_denied_in_workspace(authenticate_request().username)
 
 
 # Routes declaring a `secret_id` the handler never forwards to the store, so gating the selector
@@ -4842,6 +4898,9 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_create_logged_model,
+    # Row-level authorization is `filter_search_logged_models`; this gates only the
+    # `source_run_id` selector, which redaction cannot cover.
+    SearchLoggedModels: validate_can_search_logged_models,
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
@@ -5047,11 +5106,18 @@ def validate_can_create_issue():
 
 
 def validate_can_search_issues():
-    experiment_id = _get_normalized_request_json().get("experiment_id")
+    body = _get_normalized_request_json()
+    experiment_id = body.get("experiment_id")
     if not experiment_id:
         return False
     username = authenticate_request().username
-    return _get_experiment_permission(experiment_id, username).can_read
+    if not _get_experiment_permission(experiment_id, username).can_read:
+        return False
+    # `source_run_id` names a run, so filtering on it is a run-membership oracle regardless of
+    # whether `issue` is itself a grantable type.
+    if not _issue_filter_selects_run(body.get("filter") or ""):
+        return True
+    return _run_tier_not_denied_in_workspace(username)
 
 
 ISSUE_BEFORE_REQUEST_HANDLERS = {
