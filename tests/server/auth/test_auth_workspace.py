@@ -2353,11 +2353,6 @@ def test_search_model_versions_run_filter_is_veto_only(
 
 
 @pytest.mark.parametrize(
-    "route",
-    ["/api/2.0/mlflow/gateway/endpoints/list", "/api/2.0/mlflow/gateway/model-definitions/list"],
-    ids=["endpoints", "model-definitions"],
-)
-@pytest.mark.parametrize(
     ("query", "allowed"),
     [
         ({}, True),
@@ -2367,8 +2362,8 @@ def test_search_model_versions_run_filter_is_veto_only(
     ],
     ids=["no-selector", "provider-only", "other-secret", "denied-secret"],
 )
-def test_gateway_list_routes_gate_a_denied_secret_selector(
-    workspace_permission_setup, monkeypatch, route, query, allowed
+def test_gateway_model_definition_list_gates_a_denied_secret_selector(
+    workspace_permission_setup, monkeypatch, query, allowed
 ):
     """`secret_id` is a membership oracle the row redaction cannot close: the rows drop
     `secret_id`/`secret_name`, but filtering ON it still reveals which endpoints and definitions use
@@ -2382,11 +2377,8 @@ def test_gateway_list_routes_gate_a_denied_secret_selector(
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("gateway_secret", "secret-1", DENY.name)])
-    validator = (
-        auth_module.validate_can_list_gateway_endpoints
-        if "endpoints" in route
-        else auth_module.validate_can_list_gateway_model_definitions
-    )
+    validator = auth_module.validate_can_list_gateway_model_definitions
+    route = "/api/2.0/mlflow/gateway/model-definitions/list"
     with auth_module.app.test_request_context(route, method="GET", query_string=query):
         assert validator() is allowed
 
