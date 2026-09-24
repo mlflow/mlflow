@@ -211,10 +211,13 @@ def test_concurrent_update_skill_version_returns_conflict(store):
         except MlflowException as e:
             return e.error_code
 
-    with mock.patch.object(store, "_get_skill_version_or_raise", side_effect=synchronized_read):
+    with mock.patch.object(
+        store, "_get_skill_version_or_raise", side_effect=synchronized_read
+    ) as get_version_mock:
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="skill-update-race") as executor:
             results = list(executor.map(update, [SkillStatus.DRAFT, SkillStatus.DEPRECATED]))
 
+    assert get_version_mock.call_count == 2
     assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
     assert _get_version_row(store, 1) in {
         SkillStatus.DRAFT.value,
@@ -239,10 +242,13 @@ def test_concurrent_delete_skill_version_returns_conflict(store):
         except MlflowException as e:
             return e.error_code
 
-    with mock.patch.object(store, "_get_skill_version_or_raise", side_effect=synchronized_read):
+    with mock.patch.object(
+        store, "_get_skill_version_or_raise", side_effect=synchronized_read
+    ) as get_version_mock:
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="skill-delete-race") as executor:
             results = list(executor.map(lambda _: delete(), range(2)))
 
+    assert get_version_mock.call_count == 2
     assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
     assert _get_version_row(store, 1) == SkillStatus.DELETED.value
 
@@ -320,7 +326,7 @@ def test_set_skill_alias_retries_integrity_error(store):
         )
         assert len(aliases) == 1
         assert aliases[0].alias == "production"
-        assert aliases[0].version in {1, 2}
+        assert aliases[0].version == 1
 
 
 def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
@@ -365,6 +371,26 @@ def test_latest_skill_version_prefers_active_then_highest_non_deleted(store):
     store.delete_skill_version("reviewer", 2)
 
     assert store.get_latest_skill_version("reviewer").version == 3
+
+
+def test_latest_skill_version_does_not_return_concurrently_deleted_version(store):
+    _seed_skill(store, [(1, SkillStatus.ACTIVE)])
+    original_skill_version_query = store._skill_version_query
+
+    def delete_version_before_lookup(session):
+        with store.ManagedSessionMaker(read_only=False) as delete_session:
+            delete_session.query(SqlSkillVersion).filter(
+                SqlSkillVersion.name == "reviewer",
+                SqlSkillVersion.organization == "",
+                SqlSkillVersion.version == 1,
+            ).update({SqlSkillVersion.status: SkillStatus.DELETED.value})
+        return original_skill_version_query(session)
+
+    with mock.patch.object(store, "_skill_version_query", side_effect=delete_version_before_lookup):
+        with pytest.raises(MlflowException, match="No resolved latest version") as exc:
+            store.get_latest_skill_version("reviewer")
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
 def test_skill_lifecycle_is_workspace_scoped(store, workspaces_enabled):

@@ -214,6 +214,7 @@ class SqlAlchemySkillRegistryLifecycleMixin:
                 SqlSkillVersion.name == name,
                 SqlSkillVersion.organization == organization,
                 SqlSkillVersion.version == skill.resolved_latest_version,
+                SqlSkillVersion.status != SkillStatus.DELETED.value,
             )
             .one_or_none()
         )
