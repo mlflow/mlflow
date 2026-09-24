@@ -356,9 +356,9 @@ def log_explainer(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
-        skops_trusted_types: A list of trusted types when saving the explainer's underlying
-            scikit-learn model in the ``skops`` format. Only include types that you have reviewed
-            and trust.
+        skops_trusted_types: A list of trusted types when loading the explainer's underlying
+            scikit-learn model that is saved in the ``skops`` format. Only include types that you
+            have reviewed and trust.
     """
 
     return Model.log(
@@ -434,9 +434,9 @@ def save_explainer(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        skops_trusted_types: A list of trusted types when saving the explainer's underlying
-            scikit-learn model in the ``skops`` format. Only include types that you have reviewed
-            and trust.
+        skops_trusted_types: A list of trusted types when loading the explainer's underlying
+            scikit-learn model that is saved in the ``skops`` format. Only include types that you
+            have reviewed and trust.
     """
     import shap
 
@@ -466,9 +466,12 @@ def save_explainer(
             serializable_by_mlflow = True  # prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
         else:
-            warnings.warn(
+            warning = (
                 "Unable to serialize underlying model using MLflow, will use SHAP serialization"
             )
+            if skops_trusted_types is not None:
+                warning += "; `skops_trusted_types` will be ignored"
+            warnings.warn(warning)
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
             mlflow.sklearn.save_model(
@@ -477,7 +480,17 @@ def save_explainer(
                 skops_trusted_types=skops_trusted_types,
             )
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
+            if skops_trusted_types is not None:
+                warnings.warn(
+                    "`skops_trusted_types` is ignored because it only applies to an underlying "
+                    "scikit-learn model"
+                )
             mlflow.pytorch.save_model(explainer.model.inner_model, underlying_model_path)
+
+    elif skops_trusted_types is not None:
+        warnings.warn(
+            "`skops_trusted_types` is ignored because `serialize_model_using_mlflow` is False"
+        )
 
     # saving the explainer object
     explainer_data_subpath = "explainer.shap"

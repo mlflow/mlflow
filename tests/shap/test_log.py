@@ -87,6 +87,11 @@ def test_sklearn_log_explainer():
         )
 
 
+def test_sklearn_log_explainer_requires_explicit_trust(shap_model, tmp_path):
+    with pytest.raises(MlflowException, match="references untrusted types"):
+        mlflow.shap.save_explainer(shap_model, tmp_path / "model")
+
+
 def test_sklearn_log_explainer_self_serialization():
     """
     Tests mlflow.shap log_explainer with SHAP internal serialization of the underlying model
@@ -103,9 +108,13 @@ def test_sklearn_log_explainer_self_serialization():
         explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
         shap_values_original = explainer_original(X[:5])
 
-        mlflow.shap.log_explainer(
-            explainer_original, "test_explainer", serialize_model_using_mlflow=False
-        )
+        with pytest.warns(UserWarning, match="`skops_trusted_types` is ignored"):
+            mlflow.shap.log_explainer(
+                explainer_original,
+                "test_explainer",
+                serialize_model_using_mlflow=False,
+                skops_trusted_types=_SKOPS_TREE_TRUSTED_TYPES,
+            )
 
         explainer_uri = "runs:/" + run_id + "/test_explainer"
 
