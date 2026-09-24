@@ -1662,6 +1662,22 @@ def _mcp_server_version_not_denied(username: str, name: str) -> bool:
     )
 
 
+def _mcp_server_version_cascade_delete_allowed(username: str, name: str) -> bool:
+    server = (RESOURCE_TYPE_MCP_SERVER, name)
+    return authorize(
+        username,
+        server,
+        [
+            Requirement(
+                RESOURCE_TYPE_MCP_SERVER_VERSION,
+                "*",
+                "delete",
+                fallback_if_no_grant=(server,),
+            )
+        ],
+    )
+
+
 def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
     # Posting a version to a server that does not exist creates BOTH, so both veto. The
     # workspace authorizes it (validate_can_create_mcp_server) and is also the anchor, there
@@ -7804,6 +7820,14 @@ def _get_mcp_server_validator(
         # deleting or tagging one, and resolving an alias all fell through to the parent server.
         if _mcp_path_targets_a_version(parts):
             return _mcp_server_version_not_denied(username, name)
+        # Deleting the server destroys its versions with it -- the ORM pairs `ondelete="CASCADE"`
+        # with `delete-orphan` -- so the cascade takes the same version-tier delete that the
+        # experiment and registered-model cascades take. Without it the version tier was reachable
+        # only through the nested routes, and `DELETE /{name}` achieved the same destruction that
+        # `DELETE /{name}/versions/{v}` refuses. `fallback_if_no_grant` keeps a caller with no
+        # version grant working, since they have already passed the server's own delete gate.
+        if request.method == "DELETE":
+            return _mcp_server_version_cascade_delete_allowed(username, name)
         return True
 
     return validator
