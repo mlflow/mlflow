@@ -5691,6 +5691,16 @@ def filter_search_registered_models(resp: Response):
 
     # A row the caller may read can still embed versions the version tier withholds.
     _withhold_denied_latest_versions(response_message.registered_models, username)
+    # And a version row that survives can still carry a denied run's or logged model's content --
+    # the same second pass the point routes make in _redact_registered_model_response.
+    _withhold_denied_version_siblings(
+        [
+            version
+            for model in response_message.registered_models
+            for version in model.latest_versions
+        ],
+        username,
+    )
     resp.data = message_to_json(response_message)
 
 
