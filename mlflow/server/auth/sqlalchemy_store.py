@@ -38,6 +38,7 @@ from mlflow.server.auth.entities import (
     WorkspacePermission,
 )
 from mlflow.server.auth.permissions import (
+    DENY,
     MANAGE,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
@@ -2109,6 +2110,8 @@ class SqlAlchemyStore:
                 return None
 
             best_permission_name: str | None = None
+            denied = False
+            workspace_admin = False
             for role in roles:
                 for rp in role.permissions:
                     # (workspace, *) folds into resource-type queries only for
@@ -2116,6 +2119,7 @@ class SqlAlchemyStore:
                     # create" signal and folds only for workspace-tier queries.
                     if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
                         if resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name:
+                            workspace_admin = workspace_admin or rp.permission == MANAGE.name
                             best_permission_name = (
                                 max_permission(best_permission_name, rp.permission)
                                 if best_permission_name is not None
@@ -2126,12 +2130,22 @@ class SqlAlchemyStore:
                     if rp.resource_type != resource_type:
                         continue
                     if rp.resource_pattern in ("*", resource_id):
+                        # DENY is below every positive level, so folding it with
+                        # ``max_permission`` would silently lift it to the positive grant
+                        # beside it. Track it separately, as ``fold_grants_for_key`` does.
+                        if rp.permission == DENY.name:
+                            denied = True
+                            continue
                         best_permission_name = (
                             max_permission(best_permission_name, rp.permission)
                             if best_permission_name is not None
                             else rp.permission
                         )
 
+            # A workspace admin is not restrictable, so that precedes DENY -- the same
+            # ordering ``resolve_permissions`` applies.
+            if denied and not workspace_admin:
+                return DENY
             if best_permission_name is None:
                 return None
             return get_permission(best_permission_name)
