@@ -2285,7 +2285,7 @@ def test_create_prompt_optimization_job_fails_closed_on_an_unreadable_source_pro
 def test_create_prompt_optimization_job_allows_a_source_prompt_with_no_denial(
     workspace_permission_setup, monkeypatch
 ):
-    """The veto must not turn into a positive requirement: no prompt grant still passes."""
+    # The veto must not turn into a positive requirement: no prompt grant still passes.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -2339,7 +2339,7 @@ def test_search_model_versions_gates_a_filter_that_selects_a_run(
 def test_search_model_versions_run_filter_is_veto_only(
     workspace_permission_setup, monkeypatch, filter_string
 ):
-    """No run grant at all still passes: the tier vetoes, it does not become a positive gate."""
+    # No run grant at all still passes: the tier vetoes, it does not become a positive gate.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -2459,7 +2459,7 @@ def test_create_registered_model_vetoes_the_exact_name(
 def test_create_mcp_server_vetoes_the_exact_name_from_the_body(
     workspace_permission_setup, monkeypatch, grant, allowed
 ):
-    """The nested auto-create path already vetoes the exact name; the root create must match it."""
+    # The nested auto-create path already vetoes the exact name; the root create must match it.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -2501,7 +2501,7 @@ def test_create_gateway_model_definition_honors_the_created_type_veto(
 def test_create_mcp_server_honors_the_created_type_veto(
     workspace_permission_setup, monkeypatch, denied_type, allowed
 ):
-    """FastAPI hands the validator an identity, so the veto uses it, not a re-authentication."""
+    # FastAPI hands the validator an identity, so the veto uses it, not a re-authentication.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -2922,7 +2922,7 @@ def test_artifact_proxy_parent_gate_survives_an_encoded_experiment_id(
 def test_artifact_proxy_parent_gate_canonicalizes_the_list_query_path(
     workspace_permission_setup, monkeypatch
 ):
-    """List-artifacts carries the path as ?path=, a separate branch of the FastAPI extractor."""
+    # List-artifacts carries the path as ?path=, a separate branch of the FastAPI extractor.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -2980,7 +2980,7 @@ def test_artifact_proxy_child_deny_does_not_cross_tiers(workspace_permission_set
 
 
 def test_artifact_proxy_still_inherits_from_the_experiment(workspace_permission_setup):
-    """No child grant: the experiment decides, exactly as before."""
+    # No child grant: the experiment decides, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -3059,7 +3059,7 @@ def test_version_read_filters_honor_a_version_deny(workspace_permission_setup, m
 
 
 def test_version_deny_does_not_cross_families(workspace_permission_setup, monkeypatch):
-    """A prompt-version denial must not withhold model versions, and vice versa."""
+    # A prompt-version denial must not withhold model versions, and vice versa.
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -4226,7 +4226,7 @@ def test_child_wildcard_alone_does_not_confer_access(workspace_permission_setup)
 
 
 def test_parent_grant_still_inherits_to_the_child_tier(workspace_permission_setup):
-    """The baseline must not deny anyone the parent tier allowed -- inheritance keeps working."""
+    # The baseline must not deny anyone the parent tier allowed -- inheritance keeps working.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -4266,7 +4266,7 @@ def test_trace_deny_is_not_bypassed_by_an_assessment_grant(workspace_permission_
 
 
 def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_setup):
-    """The trace veto must cost nothing when the operator has not denied the trace tier."""
+    # The trace veto must cost nothing when the operator has not denied the trace tier.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -4446,7 +4446,7 @@ def test_bulk_trace_read_honors_a_trace_deny(workspace_permission_setup):
 
 
 def test_bulk_trace_read_inherits_from_the_experiment(workspace_permission_setup):
-    """No trace grant: the experiment tier still governs, for every id."""
+    # No trace grant: the experiment tier still governs, for every id.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -4476,7 +4476,7 @@ def test_bulk_trace_read_is_all_or_nothing_on_the_parent(workspace_permission_se
 
 
 def test_bulk_metric_history_honors_a_run_deny(workspace_permission_setup):
-    """The same shape one tier over: bulk metric history resolves RUNS, so the run tier vetoes."""
+    # The same shape one tier over: bulk metric history resolves RUNS, so the run tier vetoes.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5422,19 +5422,15 @@ def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkey
 
 
 def _list_review_queues_response(rows):
-    import json as _json
-
     from mlflow.protos.review_queues_pb2 import ListReviewQueues
     from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
     message = ListReviewQueues.Response()
     parse_dict({"review_queues": rows}, message)
-    return SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    return SimpleNamespace(json=json.loads(message_to_json(message)), data=None)
 
 
 def _run_list_filter(rows):
-    import json as _json
-
     from mlflow.protos.review_queues_pb2 import ListReviewQueues
     from mlflow.utils.proto_json_utils import parse_dict
 
@@ -5447,7 +5443,7 @@ def _run_list_filter(rows):
         # The filter returned without narrowing: every row stayed visible.
         return [q["queue_id"] for q in rows]
     out = ListReviewQueues.Response()
-    parse_dict(_json.loads(resp.data), out)
+    parse_dict(json.loads(resp.data), out)
     return [q.queue_id for q in out.review_queues]
 
 
@@ -5485,7 +5481,7 @@ def test_trace_artifact_download_honors_a_trace_deny(workspace_permission_setup,
 
 
 def test_trace_artifact_download_inherits_the_experiment(workspace_permission_setup, monkeypatch):
-    """No trace grant: the experiment tier still decides, as it always did."""
+    # No trace grant: the experiment tier still decides, as it always did.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5527,7 +5523,7 @@ def test_scorer_point_routes_honor_a_scorer_version_deny(workspace_permission_se
 
 
 def test_scorer_point_routes_unchanged_without_a_version_grant(workspace_permission_setup):
-    """No version grant: the veto passes and the scorer tier decides, exactly as before."""
+    # No version grant: the veto passes and the scorer tier decides, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5587,7 +5583,7 @@ def test_queue_by_name_honors_a_queue_deny(workspace_permission_setup, monkeypat
 def test_queue_by_name_inherits_the_experiment_without_a_queue_grant(
     workspace_permission_setup, monkeypatch
 ):
-    """No queue grant: the experiment tier still decides, so membership continues to open it."""
+    # No queue grant: the experiment tier still decides, so membership continues to open it.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5669,7 +5665,7 @@ def test_review_queue_list_filter_unchanged_without_a_queue_grant(workspace_perm
 
 
 def test_review_queue_list_filter_read_only_still_sees_only_assigned(workspace_permission_setup):
-    """The other half of no-regression: a READ-only caller keeps seeing only their own rows."""
+    # The other half of no-regression: a READ-only caller keeps seeing only their own rows.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5701,20 +5697,18 @@ def test_review_queue_list_filter_honors_a_queue_manage_grant(workspace_permissi
 
 
 def _run_scorer_list_filter(rows):
-    import json as _json
-
     from mlflow.protos.service_pb2 import ListScorers
     from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
     message = ListScorers.Response()
     parse_dict({"scorers": rows}, message)
-    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    resp = SimpleNamespace(json=json.loads(message_to_json(message)), data=None)
     with auth_module.app.test_request_context("/api/2.0/mlflow/scorers/list"):
         auth_module.filter_list_scorers(resp)
     if resp.data is None:
         return [r["scorer_name"] for r in rows]
     out = ListScorers.Response()
-    parse_dict(_json.loads(resp.data), out)
+    parse_dict(json.loads(resp.data), out)
     return [s.scorer_name for s in out.scorers]
 
 
@@ -5773,7 +5767,7 @@ def test_scorer_list_filter_honors_a_scorer_version_deny(workspace_permission_se
 
 
 def test_scorer_list_filter_keeps_rows_without_a_scorer_version_grant(workspace_permission_setup):
-    """No version grant: the veto passes, so the tiers above decide. The compatibility case."""
+    # No version grant: the veto passes, so the tiers above decide. The compatibility case.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5792,7 +5786,7 @@ def test_scorer_list_filter_keeps_rows_without_a_scorer_version_grant(workspace_
 
 
 def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup):
-    """The other tier: denying the experiment drops its scorers even with a scorer grant."""
+    # The other tier: denying the experiment drops its scorers even with a scorer grant.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -5820,18 +5814,16 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
 
 
 def _run_multi_trace_redaction(proto_name, handler_name, payload):
-    import json as _json
-
     from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
     proto = getattr(__import__("mlflow.protos.service_pb2", fromlist=[proto_name]), proto_name)
     message = proto.Response()
     parse_dict(payload, message)
-    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    resp = SimpleNamespace(json=json.loads(message_to_json(message)), data=None)
     with auth_module.app.test_request_context("/api/3.0/mlflow/traces"):
         getattr(auth_module, handler_name)(resp)
     out = proto.Response()
-    parse_dict(_json.loads(resp.data) if resp.data is not None else resp.json, out)
+    parse_dict(json.loads(resp.data) if resp.data is not None else resp.json, out)
     return out
 
 
@@ -5859,21 +5851,19 @@ def _guardrail_config_payload(experiment_id=1, scorer_name="safety"):
 
 
 def _run_guardrail_redaction(payload):
-    import json as _json
-
     from mlflow.protos.service_pb2 import ListEndpointGuardrailConfigs
     from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
     message = ListEndpointGuardrailConfigs.Response()
     parse_dict(payload, message)
-    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    resp = SimpleNamespace(json=json.loads(message_to_json(message)), data=None)
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/gateway/guardrails/list-for-endpoint",
         query_string={"endpoint_id": "endpoint-1"},
     ):
         auth_module.redact_list_guardrail_config_scorers(resp)
     out = ListEndpointGuardrailConfigs.Response()
-    parse_dict(_json.loads(resp.data) if resp.data is not None else resp.json, out)
+    parse_dict(json.loads(resp.data) if resp.data is not None else resp.json, out)
     return out
 
 
@@ -5923,7 +5913,7 @@ def test_guardrail_configs_withhold_on_scorer_version_deny(workspace_permission_
 
 
 def test_guardrail_configs_keep_a_permitted_scorer(workspace_permission_setup):
-    """Without a scorer denial nothing is withheld, so the endpoint UI is unchanged."""
+    # Without a scorer denial nothing is withheld, so the endpoint UI is unchanged.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6017,7 +6007,7 @@ def _info_row(experiment_id, trace_id, names):
 
 
 def test_batch_trace_infos_redaction_honors_assessment_deny(workspace_permission_setup):
-    """BatchGetTraceInfos returns trace_infos[] of TraceInfoV3 directly, assessments always set."""
+    # BatchGetTraceInfos returns trace_infos[] of TraceInfoV3 directly, assessments always set.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6042,7 +6032,7 @@ def test_batch_trace_infos_redaction_honors_assessment_deny(workspace_permission
 
 
 def test_search_traces_v3_redaction_inherits_the_experiment(workspace_permission_setup):
-    """No assessment grant: the experiment governs, so assessments stay. The compatibility case."""
+    # No assessment grant: the experiment governs, so assessments stay. The compatibility case.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6057,7 +6047,7 @@ def test_search_traces_v3_redaction_inherits_the_experiment(workspace_permission
 
 
 def test_batch_get_traces_redaction_reaches_nested_trace_info(workspace_permission_setup):
-    """BatchGetTraces wraps each TraceInfoV3 in a Trace, so the assessments sit one level down."""
+    # BatchGetTraces wraps each TraceInfoV3 in a Trace, so the assessments sit one level down.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6131,7 +6121,7 @@ def test_optimization_job_honors_a_prompt_version_deny(workspace_permission_setu
 
 
 def test_optimization_job_unchanged_without_prompt_grants(workspace_permission_setup):
-    """No prompt grants, and a request naming no prompt at all: both behave as before."""
+    # No prompt grants, and a request naming no prompt at all: both behave as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6156,7 +6146,7 @@ def _run_get_assessment(monkeypatch, experiment_id):
 
 
 def test_get_assessment_denies_rather_than_redacts(workspace_permission_setup, monkeypatch):
-    """The assessment is the SUBJECT of this route, so a DENY refuses it outright."""
+    # The assessment is the SUBJECT of this route, so a DENY refuses it outright.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6212,7 +6202,7 @@ def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup
 
 
 def test_model_version_artifact_unchanged_without_a_version_grant(workspace_permission_setup):
-    """No version grant: the registered model tier decides, exactly as before."""
+    # No version grant: the registered model tier decides, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6290,14 +6280,14 @@ def test_search_traces_unaffected_by_non_assessment_filters(workspace_permission
 
 
 def test_search_traces_fails_closed_on_an_unparsable_filter(workspace_permission_setup):
-    """Only reachable for filters the handler would 400 anyway; the cost is 403 instead."""
+    # Only reachable for filters the handler would 400 anyway; the cost is 403 instead.
     _deny_assessments(workspace_permission_setup)
 
     assert _run_search_traces("(((") is False
 
 
 def test_search_traces_assessment_filter_allowed_without_a_grant(workspace_permission_setup):
-    """No assessment grant: the experiment governs, so nothing master allowed is newly denied."""
+    # No assessment grant: the experiment governs, so nothing master allowed is newly denied.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6371,7 +6361,7 @@ def test_search_traces_v3_sees_mixed_alias_locations(workspace_permission_setup)
 
 
 def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup):
-    """A structural match on raw JSON refused the lowerCamelCase spelling the handler accepts."""
+    # A structural match on raw JSON refused the lowerCamelCase spelling the handler accepts.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -6726,7 +6716,7 @@ def _version_payload():
 
 
 def test_model_version_withholds_run_content_on_a_run_deny(workspace_permission_setup, monkeypatch):
-    """A ModelVersion names the run that produced it (run_id, and run_link which is a URL to it)."""
+    # A ModelVersion names the run that produced it (run_id, and run_link which is a URL to it).
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -6753,7 +6743,7 @@ def test_model_version_withholds_run_content_on_a_run_deny(workspace_permission_
 def test_model_version_withholds_model_content_on_a_logged_model_deny(
     workspace_permission_setup, monkeypatch
 ):
-    """model_params / model_metrics are the logged model's own values surfacing on the version."""
+    # model_params / model_metrics are the logged model's own values surfacing on the version.
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -6828,7 +6818,7 @@ def test_search_registered_models_latest_versions_lose_denied_siblings(
 def test_registered_model_latest_versions_also_lose_denied_siblings(
     workspace_permission_setup, monkeypatch
 ):
-    """A latest_versions row the caller may read still carried the denied run's id."""
+    # A latest_versions row the caller may read still carried the denied run's id.
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -6855,7 +6845,7 @@ def test_registered_model_latest_versions_also_lose_denied_siblings(
 def test_get_run_withholds_model_links_on_a_logged_model_deny(
     workspace_permission_setup, monkeypatch
 ):
-    """GetLoggedModel applies the model tier to these ids, so a run must not hand them out."""
+    # GetLoggedModel applies the model tier to these ids, so a run must not hand them out.
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -7073,7 +7063,7 @@ def test_trace_metadata_strips_only_the_denied_sibling_tier(
 
 
 def test_trace_metadata_handles_the_v2_repeated_spelling(workspace_permission_setup, monkeypatch):
-    """TraceInfo carries repeated request_metadata entries, not a map."""
+    # TraceInfo carries repeated request_metadata entries, not a map.
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -7100,7 +7090,7 @@ def test_trace_metadata_handles_the_v2_repeated_spelling(workspace_permission_se
 
 
 def test_attach_model_response_redacts_a_denied_secret(workspace_permission_setup, monkeypatch):
-    """Attach requires can_use on the DEFINITION, which says nothing about the secret it names."""
+    # Attach requires can_use on the DEFINITION, which says nothing about the secret it names.
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -7796,7 +7786,7 @@ def test_experiment_delete_allowed_when_children_are_deletable(workspace_permiss
 
 
 def test_experiment_delete_falls_back_to_the_parent(workspace_permission_setup):
-    """No child grant at all: the experiment decides, exactly as master does."""
+    # No child grant at all: the experiment decides, exactly as master does.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -7892,7 +7882,7 @@ def test_version_tier_confers_authority_without_registry_management(workspace_pe
 
 
 def test_version_mutations_still_inherit_from_the_parent(workspace_permission_setup):
-    """No version grant: the registry entry governs, exactly as before."""
+    # No version grant: the registry entry governs, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
@@ -8012,7 +8002,7 @@ def test_search_traces_refuses_a_logged_model_backed_filter(workspace_permission
 
 
 def test_search_traces_run_filter_allowed_without_a_run_grant(workspace_permission_setup):
-    """No run grant: the experiment governs, so nothing master allowed is newly denied."""
+    # No run grant: the experiment governs, so nothing master allowed is newly denied.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -8022,7 +8012,7 @@ def test_search_traces_run_filter_allowed_without_a_run_grant(workspace_permissi
 
 
 def test_filter_correlation_refuses_an_assessment_backed_filter(workspace_permission_setup):
-    """npmi and the four counts are computed over whatever the filters select."""
+    # npmi and the four counts are computed over whatever the filters select.
     _deny_assessments(workspace_permission_setup)
 
     assert _run_filter_correlation("feedback.safety = 'no'") is False
@@ -8076,8 +8066,6 @@ def test_query_trace_metrics_assessments_view_allowed_without_a_grant(workspace_
 
 def _run_trace_redaction(experiment_id="exp-1", assessment_names=("a1", "a2")):
     """Run ``redact_trace_assessments`` over a GetTrace response and return the names kept."""
-    import json as _json
-
     from mlflow.protos.service_pb2 import GetTrace
     from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
@@ -8094,16 +8082,16 @@ def _run_trace_redaction(experiment_id="exp-1", assessment_names=("a1", "a2")):
         },
         message,
     )
-    resp = SimpleNamespace(json=_json.loads(message_to_json(message)), data=None)
+    resp = SimpleNamespace(json=json.loads(message_to_json(message)), data=None)
     with auth_module.app.test_request_context("/api/2.0/mlflow/traces/trace-1"):
         auth_module.redact_trace_assessments(resp)
     out = GetTrace.Response()
-    parse_dict(_json.loads(resp.data) if resp.data is not None else resp.json, out)
+    parse_dict(json.loads(resp.data) if resp.data is not None else resp.json, out)
     return [a.assessment_name for a in out.trace.trace_info.assessments], out
 
 
 def test_trace_assessments_redacted_on_assessment_deny(workspace_permission_setup):
-    """A DENY on the assessment tier withholds the assessments but keeps the trace."""
+    # A DENY on the assessment tier withholds the assessments but keeps the trace.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -8139,7 +8127,7 @@ def test_trace_assessments_kept_when_inherited_from_the_experiment(workspace_per
 
 
 def test_trace_assessments_kept_on_explicit_assessment_read(workspace_permission_setup):
-    """An explicit positive grant on the assessment tier keeps them."""
+    # An explicit positive grant on the assessment tier keeps them.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)

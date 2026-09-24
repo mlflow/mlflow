@@ -1,10 +1,7 @@
-"""Unit tests for the requirement model's two folds.
-
-These are pure: a grant row is a plain tuple, so both folds are exercised without a
-store, a session, or a Flask request. That is the point of resolving permissions outside
-the store -- the precedence rules are the security-critical part and they should be
-testable directly.
-"""
+# Unit tests for the requirement model's two folds. These are pure: a grant row is a plain tuple, so
+# both folds are exercised without a store, a session, or a Flask request. That is the point of
+# resolving permissions outside the store -- the precedence rules are the security-critical part and
+# they should be testable directly.
 
 import pytest
 
@@ -83,7 +80,7 @@ def test_keys_are_own_type_then_each_fallback_in_order():
 
 
 def test_action_is_not_part_of_the_key():
-    """A veto and a positive requirement on the same resource load once, not twice."""
+    # A veto and a positive requirement on the same resource load once, not twice.
     veto = Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)
     positive = Requirement(RESOURCE_TYPE_RUN, "*", "update")
     assert requirement_to_grant_load_keys(veto) == requirement_to_grant_load_keys(positive)
@@ -127,7 +124,7 @@ def test_a_grant_on_a_different_resource_of_the_same_type_does_not_fold_in():
 
 
 def test_a_per_id_grant_never_matches_a_wildcard_only_type():
-    """Grant validation rejects these at the source; the fold must ignore them too."""
+    # Grant validation rejects these at the source; the fold must ignore them too.
     rows = [grant(RESOURCE_TYPE_RUN, "some-run-id", MANAGE.name)]
     assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_RUN, "*")) is None
 
@@ -290,7 +287,7 @@ def test_workspace_admin_is_not_restrictable_by_a_deny():
 
 
 def test_workspace_use_alone_confers_no_resource_access():
-    """Pre-RFC behaviour: workspace USE is membership, not resource access."""
+    # Pre-RFC behaviour: workspace USE is membership, not resource access.
     rows = [grant(RESOURCE_TYPE_WORKSPACE, "*", USE.name)]
     assert not any(is_workspace_admin_grant(row) for row in rows)
     assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) is None
