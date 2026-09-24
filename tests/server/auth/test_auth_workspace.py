@@ -5834,6 +5834,44 @@ def test_model_version_withholds_model_content_on_a_logged_model_deny(
     assert version["run_id"] == "r-1"
 
 
+@pytest.mark.parametrize(
+    ("tier", "gone", "kept"),
+    [("run", ("run_id", "run_link"), "model_id"),
+     ("logged_model", ("model_id",), "run_id")],
+    ids=["run-deny", "logged_model-deny"],
+)
+def test_search_registered_models_latest_versions_lose_denied_siblings(
+    workspace_permission_setup, monkeypatch, tier, gone, kept
+):
+    """The search filter withheld whole latest_versions rows on a version DENY but never made the
+    second pass the point routes make, so a surviving row still carried the denied sibling's ids.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a",
+           [("registered_model", "*", MANAGE.name), (tier, "*", DENY.name)])
+
+    payload = {"registered_models": [{"name": "model-xyz", "latest_versions": [
+        {"name": "model-xyz", "version": "3", "run_id": "r-1",
+         "run_link": "http://x/r-1", "model_id": "m-1"}]}]}
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/search", method="GET"
+    ):
+        with workspace_context.WorkspaceContext("team-a"):
+            auth_module.filter_search_registered_models(flask_resp)
+    body = json.loads(flask_resp.get_data(as_text=True))
+    version = body["registered_models"][0]["latest_versions"][0]
+
+    assert version["version"] == "3"
+    for field in gone:
+        assert field not in version
+    # Each tier owns its own fields, so one DENY must not strip the other's.
+    assert version[kept] is not None
+
+
 def test_registered_model_latest_versions_also_lose_denied_siblings(
     workspace_permission_setup, monkeypatch
 ):
