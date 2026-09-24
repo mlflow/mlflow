@@ -1814,6 +1814,48 @@ def test_create_model_version_requires_read_on_source_registered_model(
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_create_model_version_prompt_source_uses_prompt_permissions(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    owner, owner_password = create_user(client.tracking_uri)
+    copier, copier_password = create_user(client.tracking_uri)
+    prompt_name = f"source-prompt-authz-{random_str()}"
+
+    with User(owner, owner_password, monkeypatch):
+        prompt = client.register_prompt(prompt_name, "Hello, {{name}}!")
+
+    with User(copier, copier_password, monkeypatch):
+        destination_rm = client.create_registered_model(
+            f"source-prompt-authz-destination-{random_str()}"
+        )
+
+    source = f"models:/{prompt_name}/{prompt.version}"
+    grant_role_permission(client.tracking_uri, copier, "registered_model", prompt_name, "READ")
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": destination_rm.name, "source": source},
+        auth=(copier, copier_password),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    grant_role_permission(client.tracking_uri, copier, "prompt", prompt_name, "READ")
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": destination_rm.name, "source": source},
+        auth=(copier, copier_password),
+    )
+    assert response.status_code == 400
+    assert "Prompt versions cannot be used as model version sources" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_create_model_version_from_own_source_succeeds(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch
 ):

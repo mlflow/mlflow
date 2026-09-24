@@ -1041,26 +1041,28 @@ def _get_permission_from_prompt_name() -> Permission:
     )
 
 
-def _get_permission_from_registered_model_or_prompt_name() -> Permission:
-    """Resolve permission for a shared model-registry route in a single DB round-trip.
-
-    Fetches the ``RegisteredModel`` once, classifies it as prompt or model via
-    ``._is_prompt()``, and resolves the workspace from the same object — avoiding
-    the separate classify fetch that ``_request_targets_prompt`` would add.
-    """
-    name = _get_request_param("name")
+def _get_registered_model_or_prompt_permission(name: str) -> Permission:
+    """Resolve a persisted registry entity's permission in its actual namespace."""
     username = authenticate_request().username
-    workspace_name = None
-    resource_type = "registered_model"
+    rm = _get_model_registry_store().get_registered_model(name)
+    resource_type = "prompt" if rm._is_prompt() else "registered_model"
+    workspace_name = getattr(rm, "workspace", None)
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+    )
+
+
+def _get_permission_from_registered_model_or_prompt_name() -> Permission:
+    """Resolve permission for a shared model-registry route in a single DB round-trip."""
+    name = _get_request_param("name")
     try:
-        rm = _get_model_registry_store().get_registered_model(name)
-        resource_type = "prompt" if rm._is_prompt() else "registered_model"
-        workspace_name = getattr(rm, "workspace", None)
+        return _get_registered_model_or_prompt_permission(name)
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
+    username = authenticate_request().username
     return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+        _role_permission_for_known_workspace(username, "registered_model", name, None)
     )
 
 
@@ -1419,7 +1421,7 @@ def validate_can_create_model_version():
             # A registered model is itself the artifact access boundary. The copied version's
             # lineage IDs are metadata and do not require separate run/logged-model access.
             return _can_read_model_version_source(
-                _get_registered_model_permission, parsed_source.name
+                _get_registered_model_or_prompt_permission, parsed_source.name
             )
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is

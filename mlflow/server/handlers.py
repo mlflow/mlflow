@@ -3323,6 +3323,13 @@ def _resolve_registered_model_source_lineage(
         return source, run_id, model_id
 
     store = _get_model_registry_store()
+    source_registered_model = store.get_registered_model(parsed_model_uri.name)
+    if source_registered_model._is_prompt():
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. Prompt versions cannot be used as "
+            "model version sources.",
+            INVALID_PARAMETER_VALUE,
+        )
     name, version = get_model_name_and_version(store, source)
     source_model_version = store.get_model_version(name, version)
     if (has_run_id and (run_id or "") != (source_model_version.run_id or "")) or (
