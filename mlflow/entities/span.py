@@ -305,7 +305,7 @@ class Span:
         """Span objects do not support indexing via subscript syntax."""
         hint = ""
         if isinstance(item, str):
-            if item.isidentifier() and not item.startswith("_") and hasattr(self, item):
+            if item.isidentifier() and not item.startswith("_") and item in dir(self):
                 hint = f" Use attribute access instead, e.g. `span.{item}`."
             else:
                 try:

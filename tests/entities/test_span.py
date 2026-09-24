@@ -1514,3 +1514,14 @@ def test_span_subscript_raises_helpful_type_error(key, expected_pattern):
     span = live_span.to_immutable_span()
     with pytest.raises(TypeError, match=expected_pattern):
         _ = span[key]
+
+
+def test_span_subscript_with_malformed_property_raises_type_error():
+    with mlflow.start_span("test_span") as live_span:
+        live_span.set_attributes({"mlflow.spanLogLevel": 999})
+    span = live_span.to_immutable_span()
+    with pytest.raises(
+        TypeError,
+        match=r"Use attribute access instead, e\.g\. `span\.log_level`\.",
+    ):
+        _ = span["log_level"]
