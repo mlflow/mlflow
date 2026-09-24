@@ -161,6 +161,13 @@ inside experiment 42. The tier only matters once you grant on it, to widen
 access without widening the container's grant, or to carve contents out of
 it with `DENY`.
 
+:::note
+Sub-resource tiers and `DENY` are granted through the REST API only. The
+[admin UI](#admin-ui) does not yet offer them in its resource-type or
+permission pickers, so grant them with the role endpoints in the
+[API reference](#api-reference).
+:::
+
 ## Workspace isolation
 
 A [workspace](https://mlflow.org/docs/latest/self-hosting/workspaces/) is an
@@ -426,8 +433,9 @@ for member in ("alice", "bob", "carol"):
 
 ## Admin UI
 
-The admin UI is the operator-facing surface for everything above. It's
-reached from two entry points:
+The admin UI is the operator-facing surface for the permission model above,
+with one exception: the sub-resource tiers and `DENY` are API-only for now,
+and its pickers offer neither. It's reached from two entry points:
 
 - **Platform Admins** (`is_admin = true`) navigate to `/admin` via the
   sidebar `Manage` entry. The page renders cross-workspace: every user in
