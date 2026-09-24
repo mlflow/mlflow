@@ -5941,6 +5941,112 @@ def test_trace_metadata_handles_the_v2_repeated_spelling(workspace_permission_se
     assert "keep" in keys
 
 
+def test_attach_model_response_redacts_a_denied_secret(workspace_permission_setup, monkeypatch):
+    """Attach requires can_use on the DEFINITION, which says nothing about the secret it names."""
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("gateway_secret", "sec-1", DENY.name)])
+    payload = {"mapping": {"mapping_id": "map-1", "endpoint_id": "ep-1",
+                           "model_definition_id": "md-1",
+                           "model_definition": {"model_definition_id": "md-1", "name": "md",
+                                                "secret_id": "sec-1", "secret_name": "s",
+                                                "provider": "openai"}}}
+
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/gateway/endpoints/models/attach", method="POST", json={}
+    ):
+        auth_module.redact_attached_model_mapping(flask_resp)
+    mapping = json.loads(flask_resp.get_data(as_text=True))["mapping"]
+
+    assert "secret_id" not in mapping["model_definition"]
+    assert "secret_name" not in mapping["model_definition"]
+    # The definition itself was authorized by can_use and survives.
+    assert mapping["model_definition"]["provider"] == "openai"
+
+
+_ID_GRAIN_TYPES = [
+    "experiment",
+    "registered_model",
+    "prompt",
+    "scorer",
+    "gateway_secret",
+    "gateway_endpoint",
+    "gateway_model_definition",
+    "mcp_server",
+]
+
+
+@pytest.mark.parametrize("resource_type", _ID_GRAIN_TYPES)
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # A per-id DENY, and a per-id DENY that must beat a wildcard positive grant.
+        [("{t}", "res-1", "DENY")],
+        [("{t}", "*", "MANAGE"), ("{t}", "res-1", "DENY")],
+        [("{t}", "*", "DENY")],
+    ],
+    ids=["id-deny", "id-deny-beats-wildcard-manage", "wildcard-deny"],
+)
+def test_id_grain_types_honor_deny_in_response_filtering(
+    workspace_permission_setup, monkeypatch, resource_type, rows
+):
+    """Every WILDCARD_AND_ID type must honor DENY on the read predicate each list filter uses.
+
+    `_role_based_read_predicate` is what `filter_search_experiments`,
+    `filter_list_gateway_model_definitions`, `filter_list_gateway_endpoints`,
+    `filter_list_gateway_secrets`, `filter_search_registered_models`, `filter_list_scorers` and the
+    MCP filters all build their per-row decision from, so one assertion covers the response side
+    for the whole family.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [(r[0].format(t=resource_type), r[1], r[2]) for r in rows])
+
+    with auth_module.app.test_request_context("/api/2.0/mlflow/experiments/get", method="GET"):
+        with workspace_context.WorkspaceContext("team-a"):
+            predicate = auth_module._role_based_read_predicate(username, resource_type)
+            assert predicate("res-1") is False
+
+
+@pytest.mark.parametrize(
+    ("validator", "path", "body", "action"),
+    [
+        ("validate_can_read_gateway_model_definition",
+         "/api/3.0/mlflow/gateway/model-definitions/get", {"model_definition_id": "res-1"}, "read"),
+        ("validate_can_delete_gateway_model_definition",
+         "/api/3.0/mlflow/gateway/model-definitions/delete",
+         {"model_definition_id": "res-1"}, "delete"),
+        ("validate_can_read_gateway_endpoint",
+         "/api/3.0/mlflow/gateway/endpoints/get", {"endpoint_id": "res-1"}, "read"),
+        ("validate_can_read_gateway_secret",
+         "/api/3.0/mlflow/gateway/secrets/get", {"secret_id": "res-1"}, "read"),
+    ],
+)
+def test_gateway_point_validators_honor_a_per_id_deny(
+    workspace_permission_setup, monkeypatch, validator, path, body, action
+):
+    """The gateway validators resolve through the legacy `Permission` path, which shares
+    `fold_grants_for_key` with the requirement model -- so a per-id DENY beats a wildcard MANAGE
+    there exactly as it does on a framework route.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    tier = {"model_definition": "gateway_model_definition", "endpoint": "gateway_endpoint",
+            "secret": "gateway_secret"}[next(k for k in
+            ("model_definition", "endpoint", "secret") if f"{k}_id" in body)]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [(tier, "*", MANAGE.name), (tier, "res-1", DENY.name)])
+
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert getattr(auth_module, validator)() is False
+
+
 def _definition_payload(secret_id="sec-1"):
     return {"model_definition": {"model_definition_id": "md-1", "name": "md",
                                  "secret_id": secret_id, "secret_name": "my-secret",

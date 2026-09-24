@@ -5778,7 +5778,7 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
     # The endpoint is the caller's own, but the model definitions it embeds are not.
     if sender_is_admin():
         return
-    if _withhold_denied_endpoint_model_definitions([response_message.endpoint], username):
+    if _withhold_denied_model_mappings(response_message.endpoint.model_mappings, username):
         resp.data = message_to_json(response_message)
 
 
@@ -5914,7 +5914,7 @@ def filter_list_scorers(resp: Response) -> None:
 # The list endpoints reach the handler behind the gateway-proxy validator (authenticated);
 # these after-request filters are the row-level access control, dropping rows the caller
 # cannot read. Keep them registered in AFTER_REQUEST_PATH_HANDLERS.
-def _withhold_denied_endpoint_model_definitions(endpoints, username: str) -> bool:
+def _withhold_denied_model_mappings(mappings, username: str) -> bool:
     """Redact denied model definitions, and denied secrets within them, from GatewayEndpoint rows.
 
     ``GatewayEndpoint.model_mappings[]`` embeds a whole ``GatewayModelDefinition`` -- not just an id
@@ -5926,7 +5926,7 @@ def _withhold_denied_endpoint_model_definitions(endpoints, username: str) -> boo
     alone still names the resource; a readable definition whose SECRET is denied keeps everything
     except the two secret fields.
     """
-    mappings = [mapping for endpoint in endpoints for mapping in endpoint.model_mappings]
+    mappings = list(mappings)
     if not mappings:
         # Nothing embedded, so no grants need loading -- an endpoint listing that carries no
         # mappings costs no extra query.
@@ -5966,7 +5966,22 @@ def _redact_gateway_endpoint_response(resp: Response, response_message) -> None:
         return
     parse_dict(resp.json, response_message)
     username = authenticate_request().username
-    if _withhold_denied_endpoint_model_definitions([response_message.endpoint], username):
+    if _withhold_denied_model_mappings(response_message.endpoint.model_mappings, username):
+        resp.data = message_to_json(response_message)
+
+
+def redact_attached_model_mapping(resp: Response) -> None:
+    """`AttachModelToGatewayEndpoint` echoes the mapping it created, and the mapping embeds the
+    definition's `secret_id`/`secret_name`. The caller needed `can_use` on the DEFINITION to get
+    here, which says nothing about the secret it references.
+    """
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    response_message = AttachModelToGatewayEndpoint.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_model_mappings([response_message.mapping], authenticate_request().username):
         resp.data = message_to_json(response_message)
 
 
@@ -5989,8 +6004,9 @@ def filter_list_gateway_endpoints(resp: Response) -> None:
     response_message.ClearField("endpoints")
     response_message.endpoints.extend(kept)
     # A row the caller may read can still embed a denied model definition or secret.
-    _withhold_denied_endpoint_model_definitions(
-        response_message.endpoints, authenticate_request().username
+    _withhold_denied_model_mappings(
+        [m for endpoint in response_message.endpoints for m in endpoint.model_mappings],
+        authenticate_request().username,
     )
     resp.data = message_to_json(response_message)
 
@@ -6463,6 +6479,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
     DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
     # Cross-resource gateway list endpoints: filter rows to what the caller can read.
+    AttachModelToGatewayEndpoint: redact_attached_model_mapping,
     GetGatewayEndpoint: redact_get_gateway_endpoint_model_definitions,
     UpdateGatewayEndpoint: redact_update_gateway_endpoint_model_definitions,
     ListGatewayEndpoints: filter_list_gateway_endpoints,
