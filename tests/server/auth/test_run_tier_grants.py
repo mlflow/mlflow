@@ -1,15 +1,13 @@
-"""End-to-end tests for the run tier (RFC 0000 re-pointing).
-
-``UpdateRun`` was gated on the run's experiment. It is now gated on the run tier with the
-experiment as fallback, which adds three behaviours over master:
-
-* escalation  -- a run grant authorizes with no experiment grant at all
-* restriction -- a run DENY refuses even with experiment MANAGE
-* override    -- a run grant decides outright, so a lower one refuses
-
-Inheritance (no run grant -> the experiment decides) must be unchanged, and the existing
-run tests in ``test_auth.py`` cover that side.
-"""
+# End-to-end tests for the run tier (RFC 0000 re-pointing).
+#
+# `UpdateRun` was gated on the run's experiment. It is now gated on the run tier with the experiment
+# as fallback, which adds three behaviours over master:
+#   * escalation  -- a run grant authorizes with no experiment grant at all
+#   * restriction -- a run DENY refuses even with experiment MANAGE
+#   * override    -- a run grant decides outright, so a lower one refuses
+#
+# Inheritance (no run grant -> the experiment decides) must be unchanged, and the existing run tests
+# in `test_auth.py` cover that side.
 
 import pytest
 import requests
@@ -86,7 +84,7 @@ def run_fixture(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
 def test_a_run_grant_authorizes_without_any_experiment_grant(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
 ):
-    """Escalation: the run tier is authoritative when present, so it stands alone."""
+    # Escalation: the run tier is authoritative when present, so it stands alone.
     experiment_id, run_id = run_fixture
     user, password = create_user(client.tracking_uri)
     grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_RUN, "*", EDIT.name)
@@ -97,7 +95,7 @@ def test_a_run_grant_authorizes_without_any_experiment_grant(
 def test_a_run_deny_refuses_despite_experiment_manage(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
 ):
-    """Restriction: a DENY is absolute within its tier and is never rescued upward."""
+    # Restriction: a DENY is absolute within its tier and is never rescued upward.
     experiment_id, run_id = run_fixture
     user, password = create_user(client.tracking_uri)
     grant_role_permission(
@@ -129,7 +127,7 @@ def test_a_lower_run_grant_overrides_the_experiment_downward(
 def test_an_absent_run_grant_still_inherits_the_experiment(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
 ):
-    """Master parity: with no run grant the experiment decides, exactly as before."""
+    # Master parity: with no run grant the experiment decides, exactly as before.
     experiment_id, run_id = run_fixture
     user, password = create_user(client.tracking_uri)
     grant_role_permission(
@@ -142,7 +140,7 @@ def test_an_absent_run_grant_still_inherits_the_experiment(
 def test_a_nonexistent_run_is_denied_not_defaulted(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch
 ):
-    """Fail closed: an unresolvable run must not fall through to default_permission."""
+    # Fail closed: an unresolvable run must not fall through to default_permission.
     user, password = create_user(client.tracking_uri)
     grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_RUN, "*", MANAGE.name)
 
@@ -246,7 +244,7 @@ def test_start_trace_is_gated_on_the_trace_tier(
 def test_a_trace_grant_alone_does_not_confer_trace_creation(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch, run_fixture
 ):
-    """StartTrace is a create: the experiment authorizes it, the trace tier only vetoes."""
+    # StartTrace is a create: the experiment authorizes it, the trace tier only vetoes.
     experiment_id, _ = run_fixture
     user, password = create_user(client.tracking_uri)
     grant_role_permission(client.tracking_uri, user, RESOURCE_TYPE_TRACE, "*", EDIT.name)

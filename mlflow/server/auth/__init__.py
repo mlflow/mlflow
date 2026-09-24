@@ -1241,8 +1241,7 @@ def _get_experiment_id_from_view_args():
     # id is not a denial -- the caller falls through to the workspace or default permission below --
     # so failing to canonicalize here is a privilege escalation, not a broken request.
     if artifact_path := _artifact_proxy_path():
-        canonical = _canonical_artifact_proxy_path(artifact_path)
-        if canonical:
+        if canonical := _canonical_artifact_proxy_path(artifact_path):
             return _experiment_id_from_canonical_proxy_path(canonical)
     return None
 
@@ -3702,7 +3701,8 @@ def _filter_selects_on_tiers(*filter_strings: str) -> "frozenset[str]":
         except Exception:
             return every_tier
         for comparison in parsed:
-            key_type, key_name = comparison.get("type"), comparison.get("key")
+            key_type = comparison.get("type")
+            key_name = comparison.get("key")
             if SearchTraceUtils.is_assessment(key_type, key_name, comparison.get("comparator")):
                 tiers.add(RESOURCE_TYPE_ASSESSMENT)
             elif key_type == "request_metadata" and key_name in metadata_tiers:
@@ -8248,7 +8248,9 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
 _MCP_VERSION_PASSENGER_FIELDS = ("resolved_version", "tools", "server_version", "server_alias")
 
 
-def _withhold_denied_mcp_version_passengers(endpoints: list[dict], username: str) -> None:
+def _withhold_denied_mcp_version_passengers(
+    endpoints: "list[dict[str, Any]]", username: str
+) -> None:
     # The endpoint row is the subject of its own route, so a denied version is redacted out of the
     # row rather than removing the row. Memoized on the server name, which is what the veto resolves
     # a workspace from -- the cross-server search mixes servers in one response.
@@ -8266,7 +8268,9 @@ def _withhold_denied_mcp_version_passengers(endpoints: list[dict], username: str
                 endpoint[field] = None
 
 
-def _withhold_denied_mcp_version_passengers_on_servers(servers: list[dict], username: str) -> None:
+def _withhold_denied_mcp_version_passengers_on_servers(
+    servers: "list[dict[str, Any]]", username: str
+) -> None:
     for server in servers:
         _withhold_denied_mcp_version_passengers(server.get("access_endpoints", []), username)
 
@@ -8388,13 +8392,11 @@ def _extract_experiment_id_from_artifact_proxy_path(
     )
     prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
     if prefix is not None:
-        artifact_path = _canonical_artifact_proxy_path(path.removeprefix(prefix))
-        if artifact_path:
+        if artifact_path := _canonical_artifact_proxy_path(path.removeprefix(prefix)):
             return _experiment_id_from_canonical_proxy_path(artifact_path)
 
     # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
-    canonical_query_path = _canonical_artifact_proxy_path(query_path) if query_path else None
-    if canonical_query_path:
+    if canonical_query_path := (_canonical_artifact_proxy_path(query_path) if query_path else None):
         return _experiment_id_from_canonical_proxy_path(canonical_query_path)
     return None
 
