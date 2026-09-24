@@ -216,7 +216,6 @@ from mlflow.server.handlers import (
     _get_model_version_download_uri,
     _get_or_create_user_queue,
     _get_presigned_download_url,
-    _get_readable_resource_ids_for_request,
     _get_registered_model,
     _get_request_message,
     _get_rest_path,
@@ -3420,64 +3419,6 @@ def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_t
     assert resp.status_code == 200
 
 
-def test_list_scorers_uses_readable_experiment_scope_for_collection(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = ListScorers()
-    mock_tracking_store.filter_active_experiment_ids.return_value = ["1", "2"]
-    mock_tracking_store.list_scorers_across_experiments.return_value = []
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"2", "1"}
-    ):
-        response = _list_scorers()
-
-    mock_tracking_store.search_experiments.assert_not_called()
-    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["1", "2"])
-    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["1", "2"])
-    assert response.status_code == 200
-
-
-def test_list_scorers_intersects_requested_and_readable_experiment_ids(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = ListScorers(experiment_ids=["1", "2"])
-    mock_tracking_store.filter_active_experiment_ids.return_value = ["2"]
-    mock_tracking_store.list_scorers_across_experiments.return_value = []
-
-    with (
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
-        mock.patch(
-            "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"2"}
-        ),
-    ):
-        response = _list_scorers()
-
-    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["2"])
-    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["2"])
-    assert response.status_code == 200
-
-
-def test_list_scorers_skips_store_when_all_experiment_ids_filtered_by_auth(
-    mock_get_request_message, mock_tracking_store
-):
-    # When every requested experiment ID is outside the caller's readable set,
-    # the handler must return empty without touching the store.
-    mock_get_request_message.return_value = ListScorers(experiment_ids=["1", "2"])
-
-    with (
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
-        mock.patch(
-            "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"3"}
-        ),
-    ):
-        response = _list_scorers()
-
-    mock_tracking_store.filter_active_experiment_ids.assert_not_called()
-    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
-    assert response.status_code == 200
-
-
 def test_list_scorers_with_experiment_ids_batches_validation(
     mock_get_request_message, mock_tracking_store
 ):
@@ -3908,133 +3849,6 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
     assert call_kwargs.get("max_results") == 10
 
 
-def test_request_scope_is_unrestricted_when_basic_auth_is_disabled(monkeypatch):
-    from mlflow.server import auth
-
-    resolver = mock.Mock()
-    monkeypatch.setattr(auth, "is_auth_enabled", lambda: False)
-    monkeypatch.setattr(auth, "get_readable_resource_ids", resolver)
-
-    with app.test_request_context("/api/2.0/mlflow/experiments/search"):
-        assert _get_readable_resource_ids_for_request("experiment") is None
-
-    resolver.assert_not_called()
-
-
-def test_search_experiments_scopes_store_query_to_readable_ids(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = SearchExperiments(filter="name LIKE 'prod%'")
-    mock_tracking_store.search_experiments.return_value = PagedList([], None)
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"2", "1"}
-    ):
-        _search_experiments()
-
-    call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
-    # Caller filter is forwarded unchanged; scoping is done via the store parameter.
-    assert call_kwargs["filter_string"] == "name LIKE 'prod%'"
-    assert call_kwargs["allowed_experiment_ids"] == ["1", "2"]
-
-
-def test_search_experiments_page2_uses_current_grants_not_stale_page1_grants(
-    mock_get_request_message, mock_tracking_store
-):
-    # Offset-based pagination is stateless: each page request recomputes the caller's
-    # current grant set independently. If grants change between page 1 and page 2,
-    # page 2 uses the current allowed_experiment_ids, not the stale page-1 set. This
-    # is the same behaviour as a row deletion or insertion between pages — a known
-    # limitation of offset pagination, not a bug.
-    page_token = SearchExperiments(page_token="dummytoken").page_token
-    mock_get_request_message.return_value = SearchExperiments(page_token=page_token)
-    mock_tracking_store.search_experiments.return_value = PagedList([], None)
-
-    # Simulate page 2: exp2 grant was revoked since page 1; current grants are {1,3,4,5}.
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request",
-        return_value={"1", "3", "4", "5"},
-    ):
-        _search_experiments()
-
-    call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
-    # Store receives current grants, not the stale page-1 grant set.
-    assert call_kwargs["allowed_experiment_ids"] == ["1", "3", "4", "5"]
-    # Page token is forwarded unchanged so the store applies the stored offset.
-    assert call_kwargs["page_token"] == page_token
-
-
-def test_search_experiments_skips_store_for_empty_auth_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = SearchExperiments()
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=set()
-    ):
-        response = _search_experiments()
-
-    mock_tracking_store.search_experiments.assert_not_called()
-    assert response.status_code == 200
-
-
-def test_search_experiments_large_grant_set_passes_all_ids_to_store(
-    mock_get_request_message, mock_tracking_store
-):
-    # More than _MAX_REQUEST_AUTH_FILTER_VALUES grants are forwarded to the store
-    # as allowed_experiment_ids; the store applies OR-chunked IN clauses internally.
-    large_grant_set = {str(i) for i in range(600)}
-    mock_get_request_message.return_value = SearchExperiments()
-    mock_tracking_store.search_experiments.return_value = PagedList([], None)
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request",
-        return_value=large_grant_set,
-    ):
-        response = _search_experiments()
-
-    assert response.status_code == 200
-    call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
-    ids = call_kwargs["allowed_experiment_ids"]
-    assert set(ids) == large_grant_set
-    # IDs must be sorted for a stable, predictable list.
-    assert ids == sorted(ids)
-
-
-def test_search_experiments_sqlite_guard_raises_for_oversized_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    # The SQLAlchemy store raises MlflowException for >900 experiment grants on SQLite.
-    # Simulate that by having the store itself raise when called with a large scope.
-    oversized_grant_set = {str(i) for i in range(901)}
-    mock_get_request_message.return_value = SearchExperiments()
-    mock_tracking_store.search_experiments.side_effect = MlflowException.invalid_parameter_value(
-        "Experiment grant scope (901) exceeds the maximum supported for SQLite-backed servers."
-    )
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request",
-        return_value=oversized_grant_set,
-    ):
-        response = _search_experiments()
-
-    assert response.status_code == 400
-
-
-def test_list_scorers_skips_store_for_empty_auth_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = ListScorers()
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=set()
-    ):
-        response = _list_scorers()
-
-    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
-    assert response.status_code == 200
-
-
 def test_search_registered_models_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
@@ -4057,23 +3871,6 @@ def test_search_registered_models_empty_page_token(
     assert call_kwargs.get("max_results") == 10
 
 
-def test_search_registered_models_scopes_enumerable_model_and_prompt_grants(
-    mock_get_request_message, mock_model_registry_store
-):
-    mock_get_request_message.return_value = SearchRegisteredModels(filter="name LIKE 'prod%'")
-    mock_model_registry_store.search_registered_models.return_value = PagedList([], None)
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request",
-        side_effect=[{"model"}, {"prompt"}],
-    ):
-        _search_registered_models()
-
-    assert mock_model_registry_store.search_registered_models.call_args.kwargs["filter_string"] == (
-        "name LIKE 'prod%' AND name IN ('model', 'prompt')"
-    )
-
-
 def test_search_model_versions_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
@@ -4094,23 +3891,6 @@ def test_search_model_versions_empty_page_token(
     call_kwargs = mock_model_registry_store.search_model_versions.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
-
-
-def test_search_model_versions_scopes_enumerable_model_and_prompt_grants(
-    mock_get_request_message, mock_model_registry_store
-):
-    mock_get_request_message.return_value = SearchModelVersions(filter="version > 1")
-    mock_model_registry_store.search_model_versions.return_value = PagedList([], None)
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request",
-        side_effect=[{"model"}, {"prompt"}],
-    ):
-        _search_model_versions()
-
-    assert mock_model_registry_store.search_model_versions.call_args.kwargs["filter_string"] == (
-        "version > 1 AND name IN ('model', 'prompt')"
-    )
 
 
 def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
@@ -4177,34 +3957,6 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
-
-
-def test_search_logged_models_intersects_requested_and_readable_experiment_ids(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = SearchLoggedModels(experiment_ids=["1", "2"])
-    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"2", "3"}
-    ):
-        _search_logged_models()
-
-    assert mock_tracking_store.search_logged_models.call_args.kwargs["experiment_ids"] == ["2"]
-
-
-def test_search_logged_models_skips_store_for_empty_auth_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = SearchLoggedModels(experiment_ids=["1"])
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=set()
-    ):
-        response = _search_logged_models()
-
-    mock_tracking_store.search_logged_models.assert_not_called()
-    assert response.status_code == 200
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
@@ -4337,79 +4089,6 @@ def test_batch_get_traces_handler_with_experiment_ids(
     assert response.status_code == 200
 
 
-def test_batch_get_traces_adds_readable_scope_when_request_omits_it(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
-    mock_tracking_store.batch_get_traces.return_value = []
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"exp-1"}
-    ):
-        response = _batch_get_traces()
-
-    mock_tracking_store.batch_get_traces.assert_called_once_with(
-        ["t1"], None, experiment_ids=["exp-1"]
-    )
-    assert response.status_code == 200
-
-
-def test_batch_get_traces_denies_empty_auth_scope(mock_get_request_message, mock_tracking_store):
-    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=set()
-    ):
-        response = _batch_get_traces()
-
-    mock_tracking_store.batch_get_traces.assert_not_called()
-    assert response.status_code == 403
-
-
-def test_batch_get_traces_intersects_client_experiment_ids_with_readable_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraces(
-        trace_ids=["t1"], experiment_ids=["exp1", "exp2"]
-    )
-    mock_tracking_store.batch_get_traces.return_value = []
-
-    with (
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
-        mock.patch(
-            "mlflow.server.handlers._get_readable_resource_ids_for_request",
-            return_value={"exp1"},
-        ),
-    ):
-        response = _batch_get_traces()
-
-    # exp2 is outside the readable scope and must be filtered out before the store call.
-    mock_tracking_store.batch_get_traces.assert_called_once_with(
-        ["t1"], None, experiment_ids=["exp1"]
-    )
-    assert response.status_code == 200
-
-
-def test_batch_get_traces_denies_when_requested_ids_are_all_unreadable(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraces(
-        trace_ids=["t1"], experiment_ids=["exp2"]
-    )
-
-    with (
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
-        mock.patch(
-            "mlflow.server.handlers._get_readable_resource_ids_for_request",
-            return_value={"exp1"},
-        ),
-    ):
-        response = _batch_get_traces()
-
-    mock_tracking_store.batch_get_traces.assert_not_called()
-    assert response.status_code == 403
-
-
 def test_batch_get_traces_handler_with_empty_experiment_ids(
     mock_get_request_message, mock_tracking_store
 ):
@@ -4514,81 +4193,6 @@ def test_batch_get_trace_infos_handler_with_experiment_ids(
     assert response.status_code == 200
 
 
-def test_batch_get_trace_infos_adds_readable_scope_when_request_omits_it(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
-    mock_tracking_store.batch_get_trace_infos.return_value = []
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value={"exp-1"}
-    ):
-        response = _batch_get_trace_infos()
-
-    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(
-        ["t1"], experiment_ids=["exp-1"]
-    )
-    assert response.status_code == 200
-
-
-def test_batch_get_trace_infos_denies_empty_auth_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
-
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=set()
-    ):
-        response = _batch_get_trace_infos()
-
-    mock_tracking_store.batch_get_trace_infos.assert_not_called()
-    assert response.status_code == 403
-
-
-def test_batch_get_trace_infos_intersects_client_experiment_ids_with_readable_scope(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraceInfos(
-        trace_ids=["t1"], experiment_ids=["exp1", "exp2"]
-    )
-    mock_tracking_store.batch_get_trace_infos.return_value = []
-
-    with (
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
-        mock.patch(
-            "mlflow.server.handlers._get_readable_resource_ids_for_request",
-            return_value={"exp1"},
-        ),
-    ):
-        response = _batch_get_trace_infos()
-
-    # exp2 is outside the readable scope and must be filtered out before the store call.
-    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(
-        ["t1"], experiment_ids=["exp1"]
-    )
-    assert response.status_code == 200
-
-
-def test_batch_get_trace_infos_denies_when_requested_ids_are_all_unreadable(
-    mock_get_request_message, mock_tracking_store
-):
-    mock_get_request_message.return_value = BatchGetTraceInfos(
-        trace_ids=["t1"], experiment_ids=["exp2"]
-    )
-
-    with (
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
-        mock.patch(
-            "mlflow.server.handlers._get_readable_resource_ids_for_request",
-            return_value={"exp1"},
-        ),
-    ):
-        response = _batch_get_trace_infos()
-
-    mock_tracking_store.batch_get_trace_infos.assert_not_called()
-    assert response.status_code == 403
-
-
 def test_batch_get_trace_infos_handler_with_empty_experiment_ids(
     mock_get_request_message, mock_tracking_store
 ):
@@ -4605,15 +4209,12 @@ def test_batch_get_trace_infos_handler_with_empty_experiment_ids(
 def test_batch_get_trace_infos_handler_with_camel_case_empty_experiment_ids(mock_tracking_store):
     mock_tracking_store.batch_get_trace_infos.return_value = []
 
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=None
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"trace_ids": ["t1"], "experimentIds": []}),
     ):
-        with app.test_request_context(
-            method="POST",
-            content_type="application/json",
-            data=json.dumps({"trace_ids": ["t1"], "experimentIds": []}),
-        ):
-            response = _batch_get_trace_infos()
+        response = _batch_get_trace_infos()
 
     mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["t1"], experiment_ids=[])
     assert response.status_code == 200
@@ -4685,27 +4286,21 @@ def test_batch_get_traces_handler_experiment_ids_field_detection_not_mocked(
     mock_tracking_store.batch_get_traces.return_value = []
 
     mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"], experiment_ids=[])
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=None
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"trace_ids": ["t1"], "experiment_ids": []}),
     ):
-        with app.test_request_context(
-            method="POST",
-            content_type="application/json",
-            data=json.dumps({"trace_ids": ["t1"], "experiment_ids": []}),
-        ):
-            response = _batch_get_traces()
+        response = _batch_get_traces()
     mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None, experiment_ids=[])
     assert response.status_code == 200
 
     mock_tracking_store.batch_get_traces.reset_mock()
     mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
-    with mock.patch(
-        "mlflow.server.handlers._get_readable_resource_ids_for_request", return_value=None
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["t1"]})
     ):
-        with app.test_request_context(
-            method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["t1"]})
-        ):
-            response = _batch_get_traces()
+        response = _batch_get_traces()
     mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None)
     assert response.status_code == 200
 

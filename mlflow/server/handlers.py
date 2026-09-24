@@ -24,7 +24,7 @@ from flask import (
     Response,
     current_app,
     g,
-    has_request_context,
+    has_app_context,
     jsonify,
     request,
     send_file,
@@ -469,7 +469,6 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
-_MAX_REQUEST_AUTH_FILTER_VALUES = 500
 
 
 def _is_custom_view_tag(key: str) -> bool:
@@ -1061,7 +1060,9 @@ def _get_normalized_request_json(flask_request: Request = request) -> dict[str, 
     Returns:
         The request data as a dictionary (empty dict if no body).
     """
-    request_json = _get_request_json(flask_request)
+    request_json = g.get("mlflow_scoped_request_json") if has_app_context() else None
+    if request_json is None:
+        request_json = _get_request_json(flask_request)
 
     # Older clients may post their JSON double-encoded as strings, so the get_json
     # above actually converts it to a string. Therefore, we check this condition
@@ -1151,7 +1152,16 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     JSON body for POST) to distinguish the two cases.
     """
     try:
+        scoped_request_json = g.get("mlflow_scoped_request_json")
+        if scoped_request_json is not None:
+            return field.name in scoped_request_json or field.json_name in scoped_request_json
         if request.method == "GET":
+            scoped_request_overrides = g.get("mlflow_scoped_request_overrides")
+            if scoped_request_overrides is not None:
+                return (
+                    field.name in scoped_request_overrides
+                    or field.json_name in scoped_request_overrides
+                )
             return field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
@@ -1159,74 +1169,11 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
         return False
 
 
-def _get_readable_resource_ids_for_request(resource_type: str) -> set[str] | None:
-    """Return the basic-auth scope for a collection request when auth is enabled."""
-    if not has_request_context():
-        return None
-    # Importing auth at module level would introduce a circular dependency.
-    from mlflow.server import auth
-
-    return auth.get_readable_resource_ids(resource_type) if auth.is_auth_enabled() else None
-
-
-def _scope_experiment_ids_for_auth(
-    experiment_ids: list[str], has_experiment_ids: bool
-) -> tuple[list[str], bool] | None:
-    """Intersect request experiment IDs with the caller's readable scope.
-
-    Returns ``(scoped_ids, has_experiment_ids)`` when the request should proceed,
-    or ``None`` when the scope is empty and the caller should return an empty response.
-    """
-    readable = _get_readable_resource_ids_for_request("experiment")
-    if readable is None:
-        return experiment_ids, has_experiment_ids
-    if not readable:
-        return None
-    scoped = (
-        [eid for eid in experiment_ids if eid in readable]
-        if has_experiment_ids
-        else sorted(readable)
-    )
-    if not scoped:
-        return None
-    return scoped, True
-
-
-def _quote_filter_values(values: set[str]) -> str:
-    # Search filters use quoted string literals. Resource IDs can be user-controlled
-    # (for example registered-model names), so quote backslashes before single quotes.
-    def quote(value: str) -> str:
-        return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-    return ", ".join(quote(value) for value in sorted(values))
-
-
-def _add_registered_model_request_auth_filter(filter_string: str) -> tuple[str, bool]:
-    """Scope shared model/prompt searches when both grant namespaces are enumerable.
-
-    Prompts and registered models share a storage surface but use separate RBAC
-    namespaces. If either namespace has a wildcard/default grant, a name-only
-    filter cannot distinguish its rows from rows in the other namespace, so the
-    existing response filter remains the safe authority in that case.
-    When either namespace has more than ``_MAX_REQUEST_AUTH_FILTER_VALUES`` grants,
-    the IN clause is skipped and the response filter handles correctness alone.
-    """
-    model_ids = _get_readable_resource_ids_for_request("registered_model")
-    prompt_ids = _get_readable_resource_ids_for_request("prompt")
-    if model_ids is None or prompt_ids is None:
-        return filter_string, False
-    readable_ids = model_ids | prompt_ids
-    if not readable_ids:
-        return filter_string, True
-    if len(readable_ids) > _MAX_REQUEST_AUTH_FILTER_VALUES:
-        # Too many grants to embed in an IN clause; fall back to the response filter.
-        return filter_string, False
-    auth_filter = f"name IN ({_quote_filter_values(readable_ids)})"
-    return (f"{filter_string} AND {auth_filter}" if filter_string else auth_filter), False
-
-
 def _get_request_message(request_message, flask_request=request, schema=None):
-    if flask_request.method == "GET" and flask_request.args:
+    scoped_request_overrides = (
+        g.get("mlflow_scoped_request_overrides") if has_app_context() else None
+    )
+    if flask_request.method == "GET" and (flask_request.args or scoped_request_overrides):
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
         # protobuf does not know how to read the query parameters directly. The query parser above
@@ -1255,6 +1202,8 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                         )
                     value = value.lower() == "true"
                 request_json[field.name] = value
+        if scoped_request_overrides:
+            request_json.update(scoped_request_overrides)
     else:
         request_json = _get_normalized_request_json(flask_request)
 
@@ -2835,20 +2784,12 @@ def _search_experiments():
         },
     )
 
-    readable_ids = _get_readable_resource_ids_for_request("experiment")
-    if readable_ids is not None and not readable_ids:
-        return _wrap_response(SearchExperiments.Response())
-
-    kwargs = {}
-    if readable_ids is not None:
-        kwargs["allowed_experiment_ids"] = sorted(readable_ids)
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         filter_string=request_message.filter,
         page_token=request_message.page_token or None,
-        **kwargs,
     )
     response_message = SearchExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
@@ -3100,11 +3041,8 @@ def _search_registered_models():
         },
     )
     store = _get_model_registry_store()
-    filter_string, empty_scope = _add_registered_model_request_auth_filter(request_message.filter)
-    if empty_scope:
-        return _wrap_response(SearchRegisteredModels.Response())
     registered_models = store.search_registered_models(
-        filter_string=filter_string,
+        filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         page_token=request_message.page_token or None,
@@ -3536,11 +3474,8 @@ def _search_model_versions():
 
 def search_model_versions_impl(request_message):
     store = _get_model_registry_store()
-    filter_string, empty_scope = _add_registered_model_request_auth_filter(request_message.filter)
-    if empty_scope:
-        return SearchModelVersions.Response()
     model_versions = store.search_model_versions(
-        filter_string=filter_string,
+        filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         page_token=request_message.page_token or None,
@@ -4374,12 +4309,7 @@ def _batch_get_traces() -> Response:
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
-    scoped = _scope_experiment_ids_for_auth(
-        list(request_message.experiment_ids), has_experiment_ids
-    )
-    if scoped is None:
-        return Response("Permission denied", status=403)
-    experiment_ids, has_experiment_ids = scoped
+    experiment_ids = list(request_message.experiment_ids)
     if has_experiment_ids:
         traces = store.batch_get_traces(
             request_message.trace_ids,
@@ -4406,12 +4336,7 @@ def _batch_get_trace_infos() -> Response:
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
-    scoped = _scope_experiment_ids_for_auth(
-        list(request_message.experiment_ids), has_experiment_ids
-    )
-    if scoped is None:
-        return Response("Permission denied", status=403)
-    experiment_ids, has_experiment_ids = scoped
+    experiment_ids = list(request_message.experiment_ids)
     if has_experiment_ids:
         trace_infos = store.batch_get_trace_infos(
             request_message.trace_ids, experiment_ids=experiment_ids
@@ -5985,12 +5910,7 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
-    readable_experiment_ids = _get_readable_resource_ids_for_request("experiment")
     experiment_ids = list(request_message.experiment_ids)
-    if readable_experiment_ids is not None:
-        experiment_ids = [eid for eid in experiment_ids if eid in readable_experiment_ids]
-        if not experiment_ids:
-            return _wrap_response(SearchLoggedModels.Response())
 
     models = _get_tracking_store().search_logged_models(
         # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
@@ -6170,16 +6090,6 @@ def _list_scorers():
         )
     if has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        readable_experiment_ids = _get_readable_resource_ids_for_request("experiment")
-        if readable_experiment_ids is not None:
-            requested_experiment_ids = [
-                eid for eid in requested_experiment_ids if eid in readable_experiment_ids
-            ]
-        if not requested_experiment_ids and readable_experiment_ids is not None:
-            # Auth scoping filtered out all requested IDs — return empty without querying storage.
-            response = Response(mimetype="application/json")
-            response.set_data(message_to_json(response_message))
-            return response
         for eid in requested_experiment_ids:
             _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
@@ -6190,18 +6100,7 @@ def _list_scorers():
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
-        readable_experiment_ids = _get_readable_resource_ids_for_request("experiment")
-        if readable_experiment_ids is not None and not readable_experiment_ids:
-            response = Response(mimetype="application/json")
-            response.set_data(message_to_json(response_message))
-            return response
-        if readable_experiment_ids is None:
-            experiment_ids = _search_active_experiment_ids(store)
-        else:
-            experiment_ids = store.filter_active_experiment_ids(sorted(readable_experiment_ids))
-        scorers = store.list_scorers_across_experiments(experiment_ids)
+        scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

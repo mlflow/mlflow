@@ -621,7 +621,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         filter_string,
         order_by,
         page_token,
-        allowed_experiment_ids: list[str] | None = None,
     ):
         effective_retention_context = (
             self._get_effective_experiment_trace_archival_retention_context()
@@ -651,22 +650,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 SqlExperiment.lifecycle_stage.in_(lifecycle_stages),
                 *self._experiment_where_clauses(),
             ]
-            if allowed_experiment_ids is not None:
-                if not allowed_experiment_ids:
-                    return [], None
-                parsed_ids = [self._parse_experiment_id(e) for e in allowed_experiment_ids]
-                CHUNK = self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE
-                MAX_IN = self._SQLITE_MAX_FILTER_IN_SIZE
-                if self._get_dialect() == "sqlite" and len(parsed_ids) > MAX_IN:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Experiment grant scope ({len(parsed_ids)}) exceeds the maximum "
-                        f"supported for SQLite-backed servers ({MAX_IN}). "
-                        "Reduce per-experiment grants or migrate to a PostgreSQL backend."
-                    )
-                chunks = [parsed_ids[i : i + CHUNK] for i in range(0, len(parsed_ids), CHUNK)]
-                experiment_filters.append(
-                    or_(*[SqlExperiment.experiment_id.in_(chunk) for chunk in chunks])
-                )
             stmt = (
                 reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlExperiment))
                 .options(*self._get_eager_experiment_query_options())
@@ -690,7 +673,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         filter_string=None,
         order_by=None,
         page_token=None,
-        allowed_experiment_ids: list[str] | None = None,
     ):
         experiments, next_page_token = self._search_experiments(
             view_type,
@@ -698,7 +680,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             filter_string,
             order_by,
             page_token,
-            allowed_experiment_ids=allowed_experiment_ids,
         )
         return PagedList(experiments, next_page_token)
 

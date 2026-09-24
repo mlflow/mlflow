@@ -604,21 +604,10 @@ def search_mcp_servers(
     order_by: list[str] | None = Query(None),
     page_token: str | None = Query(None),
 ) -> SearchMCPServersResponse:
-    from mlflow.server.handlers import _get_tracking_store, _quote_filter_values
+    from mlflow.server.handlers import _get_tracking_store
 
     username = getattr(request.state, "username", None)
     is_admin = getattr(request.state, "is_admin", False)
-
-    readable_names = None
-    if username:
-        from mlflow.server.auth import get_readable_resource_ids_for_user
-
-        readable_names = get_readable_resource_ids_for_user(username, "mcp_server")
-    if readable_names is not None:
-        if not readable_names:
-            return SearchMCPServersResponse(mcp_servers=[])
-        auth_filter = f"name IN ({_quote_filter_values(readable_names)})"
-        filter_string = f"{filter_string} AND {auth_filter}" if filter_string else auth_filter
 
     results = _get_tracking_store().search_mcp_servers(
         filter_string=filter_string,

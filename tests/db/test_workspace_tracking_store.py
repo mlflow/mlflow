@@ -81,10 +81,7 @@ def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
             psycopg3_store.search_experiments(filter_string="experiment_id = 'not-a-number'")
 
 
-def test_allowed_experiment_ids_respects_workspace_boundary(tmp_path, monkeypatch):
-    """Workspace filter and allowed_experiment_ids are combined: a grant to an experiment
-    in another workspace must not leak that experiment into the current workspace results.
-    """
+def test_search_experiments_filter_respects_workspace_boundary(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
     artifact_dir = tmp_path / "artifacts"
@@ -101,9 +98,9 @@ def test_allowed_experiment_ids_respects_workspace_boundary(tmp_path, monkeypatc
         exp_b1 = store.create_experiment("exp-b1")
 
     with WorkspaceContext("team-a"):
-        # Grant set includes one experiment from team-a and one from team-b.
-        results = store.search_experiments(allowed_experiment_ids=[exp_a1, exp_b1])
-        # team-b experiment must not appear even though it is in the allowed set.
+        results = store.search_experiments(
+            filter_string=f"experiment_id IN ('{exp_a1}', '{exp_b1}')"
+        )
         result_ids = {e.experiment_id for e in results}
         assert result_ids == {exp_a1}
         assert exp_b1 not in result_ids
