@@ -84,7 +84,6 @@ runs=$(jq '
       attempt: .workflowRun.runAttempt,
       rerun: (.workflowRun.workflow.resourcePath |
               endswith("/rerun.yml") or endswith("/retry.yml") | not),
-      protect: (.workflowRun.workflow.resourcePath | endswith("/protect.yml")),
       workflow: (.workflowRun.workflow.resourcePath | split("/")[-1])}]
 ' <<< "$suites")
 
@@ -94,7 +93,7 @@ if jq -e --argjson limit "$max_retries" \
   exit 0
 fi
 
-rows=$(jq -r '.[] | select(.rerun) | [.id, .protect, .workflow] | @tsv' <<< "$runs")
+rows=$(jq -r '.[] | select(.rerun) | [.id, .workflow] | @tsv' <<< "$runs")
 if [[ -z "$rows" ]]; then
   echo "No eligible failed workflows for $sha."
   exit 0
@@ -111,8 +110,8 @@ rerun() {
 
 protect_id=""
 protect_workflow=""
-while IFS=$'\t' read -r run_id protect workflow; do
-  if [[ "$protect" == true ]]; then
+while IFS=$'\t' read -r run_id workflow; do
+  if [[ "$workflow" == protect.yml ]]; then
     protect_id=$run_id
     protect_workflow=$workflow
   else
