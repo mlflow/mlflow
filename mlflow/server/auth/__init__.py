@@ -1146,6 +1146,19 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
+def _experiment_id_from_canonical_proxy_path(canonical: str) -> "str | None":
+    """The experiment id a canonical artifact-proxy path names, or None.
+
+    Normalizes to exactly one trailing slash first. The pattern requires a separator after the id,
+    but an EXACT experiment root -- `1`, or `workspaces/<workspace>/1` -- carries none, and that is
+    precisely what list-artifacts asks for. An unparsed id is not a denial: the caller falls through
+    to the workspace or default permission, so the experiment tier was skipped on the very request
+    that enumerates an experiment's artifacts.
+    """
+    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.strip('/')}/")
+    return match.group(1) if match else None
+
+
 # The segment AFTER the experiment id names the child whose artifacts these are, mirroring the
 # store's own layout: a run is ``<experiment_id>/<run_id>/artifacts/...``, a logged model
 # ``<experiment_id>/models/<model_id>/artifacts/...`` and a trace
@@ -1229,8 +1242,8 @@ def _get_experiment_id_from_view_args():
     # so failing to canonicalize here is a privilege escalation, not a broken request.
     if artifact_path := _artifact_proxy_path():
         canonical = _canonical_artifact_proxy_path(artifact_path)
-        if canonical and (m := _EXPERIMENT_ID_PATTERN.match(canonical)):
-            return m.group(1)
+        if canonical:
+            return _experiment_id_from_canonical_proxy_path(canonical)
     return None
 
 
@@ -8316,13 +8329,13 @@ def _extract_experiment_id_from_artifact_proxy_path(
     prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
     if prefix is not None:
         artifact_path = _canonical_artifact_proxy_path(path.removeprefix(prefix))
-        if artifact_path and (m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/")):
-            return m.group(1)
+        if artifact_path:
+            return _experiment_id_from_canonical_proxy_path(artifact_path)
 
     # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
     canonical_query_path = _canonical_artifact_proxy_path(query_path) if query_path else None
-    if canonical_query_path and (m := _EXPERIMENT_ID_PATTERN.match(canonical_query_path)):
-        return m.group(1)
+    if canonical_query_path:
+        return _experiment_id_from_canonical_proxy_path(canonical_query_path)
     return None
 
 
