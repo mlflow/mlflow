@@ -2396,7 +2396,7 @@ def _model_id_from_source_uri(source: str) -> str | None:
 
     Mirrors the store: only a `models:` URI naming an id dereferences a logged model. A
     `models:/<name>/<version>` or `models:/<name>@<alias>` source names a registry entry instead and
-    yields no id, and anything unparseable yields None -- the store would raise on it anyway.
+    yields no id, and anything unparsable yields None -- the store would raise on it anyway.
     """
     if not source or urllib.parse.urlparse(source).scheme != "models":
         return None
@@ -3322,9 +3322,10 @@ def validate_can_invoke_issue_detection():
     """
     Issue detection creates a run in the request's experiment and, when ``secret_id`` is
     given, decrypts that gateway secret into the job environment. Require UPDATE on the
-    experiment and USE on the secret, mirroring model-definition creation.
+    experiment and USE on the secret, mirroring model-definition creation. The run it
+    creates puts this on the same create shape as ``validate_can_create_run``.
     """
-    if not validate_can_update_experiment():
+    if not _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN):
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -3332,6 +3333,15 @@ def validate_can_invoke_issue_detection():
     if not secret_id:
         return True
     return _get_gateway_secret_permission(secret_id).can_use
+
+
+def validate_can_invoke_genai_evaluate():
+    """UPDATE on the experiment, vetoed by the run tier.
+
+    The handler creates a run up front to hold the evaluation results, so this is a run create
+    even though the route reads as an invoke.
+    """
+    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
 
 
 def _validate_can_use_model_definitions(
@@ -3833,11 +3843,12 @@ def validate_can_update_trace_by_request_id():
 def _bulk_requirements_in_experiments(
     experiment_ids: "Sequence[str]", child_type: str, action: str
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
-    # One requirement PAIR per distinct parent, ANDed by authorize. All-or-nothing holds on both
-    # axes for different reasons: on the parent it is master's behaviour here, preserved; on the
-    # child it is inherent, since child grain is wildcard-only so every item consults the same
-    # (child, "*") key and no per-item variation is expressible. Keys deduplicate to one per
-    # distinct parent plus one child, so this is ONE grants query whatever the item count.
+    # One requirement PAIR per distinct parent, combined with AND by authorize. All-or-nothing
+    # holds on both axes for different reasons: on the parent it is master's behaviour here,
+    # preserved; on the child it is inherent, since child grain is wildcard-only so every item
+    # consults the same (child, "*") key and no per-item variation is expressible. Keys
+    # deduplicate to one per distinct parent plus one child, so this is ONE grants query
+    # whatever the item count.
     #
     # Anchored on the WORKSPACE, so no id is fetched: the question here is whether a grant permits
     # the action on each named id, not whether that id exists. An id with no grant is denied by
@@ -4132,7 +4143,11 @@ def validate_can_search_datasets():
 
 
 def validate_can_create_promptlab_run():
-    """Checks UPDATE permission on the experiment."""
+    """UPDATE on the experiment, vetoed by the run tier.
+
+    The route name does not say so, but the handler creates a run, so this is a run create and
+    takes the same shape as ``validate_can_create_run``.
+    """
     data = request.json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
@@ -4141,18 +4156,7 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
-    return permission.can_update
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_RUN)
 
 
 def validate_gateway_proxy():
@@ -4790,7 +4794,7 @@ BEFORE_REQUEST_VALIDATORS.update({
     (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
-    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
     (DEMO_DELETE, "POST"): sender_is_admin,
