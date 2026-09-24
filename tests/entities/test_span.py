@@ -1525,3 +1525,13 @@ def test_span_subscript_with_malformed_property_raises_type_error():
         match=r"Use attribute access instead, e\.g\. `span\.log_level`\.",
     ):
         _ = span["log_level"]
+
+
+def test_span_is_not_iterable():
+    with mlflow.start_span("test_span") as live_span:
+        span = live_span.to_immutable_span()
+
+    with pytest.raises(TypeError, match="not iterable"):
+        iter(span)
+    with pytest.raises(TypeError, match="not iterable"):
+        _ = "name" in span

@@ -3,7 +3,7 @@ import base64
 import json
 import logging
 from functools import cached_property
-from typing import Any, Union
+from typing import Any, NoReturn, Union
 
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -301,7 +301,11 @@ class Span:
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
-    def __getitem__(self, item: Any) -> None:
+    # `__getitem__` alone would enable the legacy sequence protocol, making
+    # `iter(span)` and `"x" in span` appear to work and then fail confusingly.
+    __iter__ = None
+
+    def __getitem__(self, item: Any) -> NoReturn:
         """Span objects do not support indexing via subscript syntax."""
         hint = ""
         if isinstance(item, str):
