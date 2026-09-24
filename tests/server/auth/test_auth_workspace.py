@@ -3524,12 +3524,71 @@ def test_deleting_an_mcp_server_takes_the_version_tier_along(
     validator = auth_module._get_mcp_server_validator("/api/3.0/mlflow/mcp-servers/com.test/srv")
     request = SimpleNamespace(method="DELETE", state=SimpleNamespace(), query_params={})
     assert asyncio.run(validator(username, request)) is allowed
-    # A nested version route is unaffected: it still answers via the veto, not the delete gate.
+    # The nested version route now answers identically: both require version-tier delete, so the
+    # narrow operation is no longer more permissive than the cascade that subsumes it.
     nested = auth_module._get_mcp_server_validator(
         "/api/3.0/mlflow/mcp-servers/com.test/srv/versions/1"
     )
-    nested_expected = version_grant != DENY.name
-    assert asyncio.run(nested(username, request)) is nested_expected
+    assert asyncio.run(nested(username, request)) is allowed
+
+
+_MCP_NESTED_ROUTES = [
+    ("/versions", "GET", "read"),
+    ("/versions/1", "GET", "read"),
+    ("/versions/1", "PATCH", "update"),
+    ("/versions/1", "DELETE", "delete"),
+    # Removing a version TAG updates the version; it does not delete it.
+    ("/versions/1/tags", "POST", "update"),
+    ("/versions/1/tags/k", "DELETE", "update"),
+    # The alias routes mutate the server's alias map and only READ the version they name --
+    # the shape the registry alias routes take.
+    ("/aliases", "POST", "read"),
+    ("/aliases/prod", "GET", "read"),
+    ("/aliases/prod", "DELETE", "read"),
+]
+
+
+@pytest.mark.parametrize(
+    ("version_grant", "capabilities"),
+    [
+        (None, {"read", "update", "delete"}),
+        (READ.name, {"read"}),
+        (EDIT.name, {"read", "update"}),
+        (MANAGE.name, {"read", "update", "delete"}),
+        (DENY.name, set()),
+    ],
+    ids=["no-grant", "read", "edit", "manage", "deny"],
+)
+@pytest.mark.parametrize(("suffix", "method", "action"), _MCP_NESTED_ROUTES)
+def test_nested_mcp_version_routes_take_the_route_action(
+    workspace_permission_setup, monkeypatch, version_grant, capabilities, suffix, method, action
+):
+    """A positive version grant must decide these routes, not merely fail to deny them.
+
+    They used to resolve the tier with `ACTION_NOT_DENIED`, so every positive grant was inert:
+    `(mcp_server, *, MANAGE)` plus `(mcp_server_version, *, READ)` could delete a version, while
+    the parent cascade -- which destroys the same versions -- correctly refused. The narrow
+    operation was less protected than the broad one that subsumes it.
+
+    The action is not the HTTP method: a version tag DELETE updates the version, and the alias
+    routes only read the version they point at. No version grant falls back to the server, so a
+    caller without one is unaffected.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    auth_module._get_tracking_store()._mcp_server_workspaces["com.test/srv"] = "team-a"
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("mcp_server", "com.test/srv", MANAGE.name)]
+    if version_grant:
+        rows.append(("mcp_server_version", "*", version_grant))
+    _grant(store, username, "team-a", rows)
+
+    validator = auth_module._get_mcp_server_validator(
+        f"/api/3.0/mlflow/mcp-servers/com.test/srv{suffix}"
+    )
+    request = SimpleNamespace(method=method, state=SimpleNamespace(), query_params={})
+    assert asyncio.run(validator(username, request)) is (action in capabilities)
 
 
 def test_role_in_other_workspace_does_not_grant_mcp_server_access(workspace_permission_setup):
