@@ -5730,6 +5730,24 @@ Example::
 
 
 
+.. _fastapiPOSTgatewaytypesafev1systemone:
+
+Typesafe Passthrough System One
+-------------------------------
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``/gateway/typesafe/v1/systemone`` | ``POST``    |
++------------------------------------+-------------+
+
+Evaluate TypeSafe questions using the credentials and model of a gateway endpoint.
+
+The request uses TypeSafe's native ``state`` and ``questions`` fields. The ``model``
+field selects an MLflow gateway endpoint, whose configured model is sent to TypeSafe.
+
+
+
 .. _fastapiPOSTgatewayopenaiv1responses:
 
 OpenAI Passthrough Responses
