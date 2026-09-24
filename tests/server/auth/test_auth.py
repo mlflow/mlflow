@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -3454,6 +3455,64 @@ def test_gateway_secrets_permissions(client, monkeypatch):
             auth=(user1, password1),
         )
         response.raise_for_status()
+
+
+def test_create_gateway_endpoint_refuses_an_auto_created_experiment(client, monkeypatch):
+    """Usage tracking defaults ON, and the store then auto-creates an experiment.
+
+    So a plain create -- no `experiment_id`, no `usage_tracking` -- reaches
+    `_get_or_create_experiment_id`. Under `(experiment, "*", DENY)` that is an experiment appearing
+    for a caller refused every other experiment operation, which is the hole
+    `_workspace_create_not_denied` closes on `CreateExperiment` itself.
+    """
+    base = client.tracking_uri
+    owner, pw = create_user(base)
+
+    def make_definition():
+        with User(owner, pw, monkeypatch):
+            r = requests.post(
+                url=base + "/api/3.0/mlflow/gateway/secrets/create",
+                json={
+                    "secret_name": f"sec_{uuid.uuid4().hex[:8]}",
+                    "secret_value": {"api_key": "k"},
+                    "provider": "openai",
+                },
+                auth=(owner, pw),
+            )
+            r.raise_for_status()
+            r = requests.post(
+                url=base + "/api/3.0/mlflow/gateway/model-definitions/create",
+                json={
+                    "name": f"def_{uuid.uuid4().hex[:8]}",
+                    "secret_id": r.json()["secret"]["secret_id"],
+                    "provider": "openai",
+                    "model_name": "m",
+                },
+                auth=(owner, pw),
+            )
+            r.raise_for_status()
+            return r.json()["model_definition"]["model_definition_id"]
+
+    def create_endpoint():
+        with User(owner, pw, monkeypatch):
+            return requests.post(
+                url=base + "/api/3.0/mlflow/gateway/endpoints/create",
+                json={
+                    "name": f"ep_{uuid.uuid4().hex[:8]}",
+                    "model_configs": [
+                        {"model_definition_id": make_definition(), "linkage_type": "PRIMARY"}
+                    ],
+                },
+                auth=(owner, pw),
+            )
+
+    # The premise: with no denial the plain create really does attach an auto-created experiment.
+    resp = create_endpoint()
+    resp.raise_for_status()
+    assert resp.json()["endpoint"]["experiment_id"]
+
+    grant_role_permission(base, owner, "experiment", "*", "DENY")
+    assert create_endpoint().status_code == 403
 
 
 def test_gateway_endpoints_permissions(client, monkeypatch):
@@ -7115,11 +7174,20 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
 
 
 def test_validate_can_create_mcp_server_delegates_to_shared_helper():
-    with mock.patch.object(
-        auth_module, "_can_create_in_workspace", return_value=True
-    ) as mock_helper:
+    """Both halves take the identity FastAPI supplied -- neither may re-authenticate.
+
+    The container check is `_can_create_in_workspace`; the created type's §5d veto is
+    `_create_not_denied`. This validator is called from the FastAPI middleware, which has already
+    resolved the caller, so a Flask `authenticate_request()` inside either half would read the wrong
+    request state.
+    """
+    with (
+        mock.patch.object(auth_module, "_can_create_in_workspace", return_value=True) as container,
+        mock.patch.object(auth_module, "_create_not_denied", return_value=True) as veto,
+    ):
         result = auth_module.validate_can_create_mcp_server("alice")
-        mock_helper.assert_called_once_with("alice")
+        container.assert_called_once_with("alice")
+        veto.assert_called_once_with("alice", auth_module.RESOURCE_TYPE_MCP_SERVER)
         assert result is True
 
 

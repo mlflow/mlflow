@@ -2433,6 +2433,14 @@ def validate_can_create_model_version():
     return True
 
 
+def _create_not_denied(username: str, created_type: str) -> bool:
+    return authorize(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(created_type, "*", ACTION_NOT_DENIED)],
+    )
+
+
 def _workspace_create_not_denied(created_type: str) -> bool:
     """The created type's veto on a workspace-scoped create -- §5d, applied at the workspace.
 
@@ -2442,11 +2450,7 @@ def _workspace_create_not_denied(created_type: str) -> bool:
     refuse. Without it a ``(experiment, "*", DENY)`` holder kept creating experiments while being
     refused every other operation on one.
     """
-    return authorize(
-        authenticate_request().username,
-        (RESOURCE_TYPE_WORKSPACE, "*"),
-        [Requirement(created_type, "*", ACTION_NOT_DENIED)],
-    )
+    return _create_not_denied(authenticate_request().username, created_type)
 
 
 def validate_can_create_experiment() -> bool:
@@ -2487,7 +2491,9 @@ def validate_can_create_registered_model() -> bool:
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
-    return _can_create_in_workspace(username)
+    return _can_create_in_workspace(username) and _create_not_denied(
+        username, RESOURCE_TYPE_MCP_SERVER
+    )
 
 
 def validate_can_view_workspace() -> bool:
@@ -3197,6 +3203,8 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
+    if not _workspace_create_not_denied(RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION):
+        return False
     msg = _get_request_message(CreateGatewayModelDefinition())
     secret_id = msg.secret_id
     if not secret_id:
@@ -3296,6 +3304,19 @@ def _validate_can_use_model_definitions_for_create(
     return _validate_can_use_model_definitions(model_configs)
 
 
+def _gateway_endpoint_experiment_not_denied(experiment_id: str) -> bool:
+    """Veto on the experiment a gateway endpoint traces into, named or auto-created.
+
+    A named experiment vetoes exactly. With usage tracking on and none named, the store calls
+    `_get_or_create_experiment_id`, so the veto falls to the wildcard: there is no id to name yet,
+    and a `(experiment, "*", DENY)` holder must not get an experiment created by the side door --
+    the same hole `_workspace_create_not_denied` closes on `CreateExperiment` itself.
+    """
+    return _gateway_resources_not_denied([
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id or "*", ACTION_NOT_DENIED)
+    ])
+
+
 def validate_can_create_gateway_endpoint():
     """
     Validate that the user can create a gateway endpoint.
@@ -3304,11 +3325,13 @@ def validate_can_create_gateway_endpoint():
     msg = _get_request_message(CreateGatewayEndpoint())
     if not _validate_can_use_model_definitions_for_create(msg.model_configs):
         return False
-    if not msg.experiment_id:
+    if not _workspace_create_not_denied(RESOURCE_TYPE_GATEWAY_ENDPOINT):
+        return False
+    # Usage tracking defaults ON, so an omitted field still reaches the auto-create.
+    tracking_on = msg.usage_tracking if msg.HasField("usage_tracking") else True
+    if not msg.experiment_id and not tracking_on:
         return True
-    return _gateway_resources_not_denied([
-        Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)
-    ])
+    return _gateway_endpoint_experiment_not_denied(msg.experiment_id)
 
 
 def validate_can_update_gateway_endpoint():
@@ -3325,11 +3348,16 @@ def validate_can_update_gateway_endpoint():
         return False
     # The body can also re-point the endpoint at an experiment, which master does not gate, so the
     # experiment vetoes rather than carrying a positive level.
-    if not msg.experiment_id:
+    if msg.experiment_id:
+        return _gateway_endpoint_experiment_not_denied(msg.experiment_id)
+    # Turning tracking on without naming one auto-creates an experiment, but only while the endpoint
+    # has none attached -- so the fetch is confined to exactly that case.
+    if not (msg.HasField("usage_tracking") and msg.usage_tracking):
         return True
-    return _gateway_resources_not_denied([
-        Requirement(RESOURCE_TYPE_EXPERIMENT, msg.experiment_id, ACTION_NOT_DENIED)
-    ])
+    endpoint = _fetch_or_none(_get_tracking_store().get_gateway_endpoint, msg.endpoint_id)
+    if endpoint is not None and endpoint.experiment_id:
+        return True
+    return _gateway_endpoint_experiment_not_denied("")
 
 
 def _guardrail_scorer_not_denied(guardrail_id: str) -> bool:
