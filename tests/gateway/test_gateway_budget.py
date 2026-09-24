@@ -364,6 +364,10 @@ def test_refresh_fires_webhook_when_backfill_crosses_the_limit():
         maybe_refresh_budget_policies(store)
 
     mock_deliver.assert_called_once()
+    payload = mock_deliver.call_args.kwargs["payload"]
+    assert payload["budget_policy_id"] == "bp-test"
+    assert payload["budget_amount"] == 100.0
+    assert payload["current_spend"] == 150.0
     assert get_budget_tracker()._get_window_info("bp-test").exceeded is True
 
 
