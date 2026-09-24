@@ -94,7 +94,6 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         filter_string=None,
         order_by=None,
         page_token=None,
-        allowed_experiment_ids: list[str] | None = None,
     ):
         """
         Search for experiments that match the specified search query.
@@ -145,10 +144,6 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
 
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_experiments`` call.
-            allowed_experiment_ids: When set, restricts results to experiments whose IDs are
-                in this collection. ``None`` means unrestricted (all readable). An empty list
-                returns no results without querying storage. Used by the auth layer for
-                request-side RBAC scoping.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
