@@ -5654,6 +5654,24 @@ Example::
 
 
 
+.. _fastapiGETgatewaymlflowv1models:
+
+List Models
+-----------
+
++-------------------------------+-------------+
+|           Endpoint            | HTTP Method |
++===============================+=============+
+| ``/gateway/mlflow/v1/models`` | ``GET``     |
++-------------------------------+-------------+
+
+OpenAI-compatible models listing endpoint.
+
+The returned model ``id`` is the MLflow gateway endpoint name expected by
+``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+
+
+
 .. _fastapiPOSTgatewayopenaiv1chatcompletions:
 
 OpenAI Passthrough Chat
@@ -5709,6 +5727,24 @@ Example::
         "model": "my-openai-endpoint",
         "input": "The food was delicious and the waiter..."
     }
+
+
+
+.. _fastapiPOSTgatewaytypesafev1systemone:
+
+Typesafe Passthrough System One
+-------------------------------
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``/gateway/typesafe/v1/systemone`` | ``POST``    |
++------------------------------------+-------------+
+
+Evaluate TypeSafe questions using the credentials and model of a gateway endpoint.
+
+The request uses TypeSafe's native ``state`` and ``questions`` fields. The ``model``
+field selects an MLflow gateway endpoint, whose configured model is sent to TypeSafe.
 
 
 

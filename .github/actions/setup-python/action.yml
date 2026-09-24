@@ -66,6 +66,17 @@ runs:
         resolution-strategy: lowest
         # Caching disabled to avoid cache-poisoning exposure across CI workflows.
         enable-cache: false
+    - name: Check uv Python support
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ steps.get-python-version.outputs.version }}
+      run: |
+        downloads=$(uv python list "$PYTHON_VERSION" --all-versions --only-downloads)
+        if [[ -z "$downloads" ]]; then
+          echo "::error::$(uv --version) cannot download Python $PYTHON_VERSION for this platform. Update required-version in pyproject.toml."
+          exit 1
+        fi
+        echo "$downloads"
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
