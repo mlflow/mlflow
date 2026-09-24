@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import subqueryload
 
@@ -207,16 +208,20 @@ class SqlAlchemySkillRegistryLifecycleMixin:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
+        status_priority = sa.case(
+            (SqlSkillVersion.status == SkillStatus.ACTIVE.value, 0),
+            else_=1,
+        )
         skill_version = (
             self
             ._skill_version_query(session)
             .filter(
                 SqlSkillVersion.name == name,
                 SqlSkillVersion.organization == organization,
-                SqlSkillVersion.version == skill.resolved_latest_version,
                 SqlSkillVersion.status != SkillStatus.DELETED.value,
             )
-            .one_or_none()
+            .order_by(status_priority.asc(), SqlSkillVersion.version.desc())
+            .first()
         )
         if skill_version is None:
             raise MlflowException(

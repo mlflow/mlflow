@@ -393,6 +393,27 @@ def test_latest_skill_version_does_not_return_concurrently_deleted_version(store
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_latest_skill_version_recomputes_after_status_change(store):
+    _seed_skill(store, [(1, SkillStatus.ACTIVE), (2, SkillStatus.DRAFT)])
+    original_skill_version_query = store._skill_version_query
+
+    def deprecate_version_before_lookup(session):
+        with store.ManagedSessionMaker(read_only=False) as update_session:
+            update_session.query(SqlSkillVersion).filter(
+                SqlSkillVersion.name == "reviewer",
+                SqlSkillVersion.organization == "",
+                SqlSkillVersion.version == 1,
+            ).update({SqlSkillVersion.status: SkillStatus.DEPRECATED.value})
+        return original_skill_version_query(session)
+
+    with mock.patch.object(
+        store, "_skill_version_query", side_effect=deprecate_version_before_lookup
+    ) as skill_version_query_mock:
+        assert store.get_latest_skill_version("reviewer").version == 2
+
+    assert skill_version_query_mock.call_count == 1
+
+
 def test_skill_lifecycle_is_workspace_scoped(store, workspaces_enabled):
     if not workspaces_enabled:
         pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
