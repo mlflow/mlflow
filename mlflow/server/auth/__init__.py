@@ -1206,8 +1206,15 @@ def _artifact_proxy_path() -> "str | None":
 def _get_experiment_id_from_view_args():
     # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
     # For the list-artifacts endpoint, the path is a query parameter named "path".
+    #
+    # Matched against the CANONICAL path for the same reason the child half is: the handler applies
+    # `validate_path_is_safe`, which decodes again, so `%2531/plain.txt` arrives here as
+    # `%31/plain.txt` and names no experiment while naming experiment 1 to the handler. An unparsed
+    # id is not a denial -- the caller falls through to the workspace or default permission below --
+    # so failing to canonicalize here is a privilege escalation, not a broken request.
     if artifact_path := _artifact_proxy_path():
-        if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
+        canonical = _canonical_artifact_proxy_path(artifact_path)
+        if canonical and (m := _EXPERIMENT_ID_PATTERN.match(canonical)):
             return m.group(1)
     return None
 
@@ -8038,12 +8045,13 @@ def _extract_experiment_id_from_artifact_proxy_path(
     )
     prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
     if prefix is not None:
-        artifact_path = path.removeprefix(prefix)
-        if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
+        artifact_path = _canonical_artifact_proxy_path(path.removeprefix(prefix))
+        if artifact_path and (m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/")):
             return m.group(1)
 
     # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
-    if query_path and (m := _EXPERIMENT_ID_PATTERN.match(query_path)):
+    canonical_query_path = _canonical_artifact_proxy_path(query_path) if query_path else None
+    if canonical_query_path and (m := _EXPERIMENT_ID_PATTERN.match(canonical_query_path)):
         return m.group(1)
     return None
 
