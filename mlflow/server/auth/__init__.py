@@ -38,6 +38,7 @@ from flask import (
     Response,
     flash,
     g,
+    has_request_context,
     jsonify,
     make_response,
     render_template_string,
@@ -2297,13 +2298,34 @@ def validate_can_create_experiment() -> bool:
 
 
 def validate_can_create_registered_model() -> bool:
-    # A prompt is a registered model carrying a tag, and the create route is shared, so a DENY on
-    # either family refuses: the request cannot yet be classified, having created nothing.
-    return (
-        _user_can_create_in_workspace()
-        and _workspace_create_not_denied(RESOURCE_TYPE_REGISTERED_MODEL)
-        and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
+    """The created type's veto (§5d), on whichever family the request is creating.
+
+    The route is shared: a prompt IS a registered model carrying `mlflow.prompt.is_prompt`. Unlike
+    every other shared route -- where `_request_targets_prompt` reads the tag from the PERSISTED
+    entity because a body could contradict it -- CREATE has no persisted entity to contradict, and
+    the request's `tags` are the very tags the handler will store. So here the body is the truth
+    about what will exist, and the veto applies to that family alone rather than to both.
+
+    Note this authorizes the create only. `mlflow.prompt.is_prompt` stays an ordinary tag that
+    set-tag and delete-tag can change afterwards, moving an object between families; guarding that
+    belongs to the registry store and is out of scope (description.md §6.1).
+    """
+    # The container check first: it needs no request body, and keeping it ahead of the parse
+    # preserves the short-circuit callers rely on.
+    if not _user_can_create_in_workspace():
+        return False
+    if not has_request_context():
+        # No body to classify from (a non-HTTP caller), so fall back to demanding both families --
+        # strictly narrower than either alone, never wider.
+        return _workspace_create_not_denied(
+            RESOURCE_TYPE_REGISTERED_MODEL
+        ) and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
+    created_type = (
+        RESOURCE_TYPE_PROMPT
+        if _entity_is_prompt(_get_request_message(CreateRegisteredModel()))
+        else RESOURCE_TYPE_REGISTERED_MODEL
     )
+    return _workspace_create_not_denied(created_type)
 
 
 def validate_can_create_mcp_server(username: str) -> bool:

@@ -5564,20 +5564,25 @@ def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup)
     assert _run({}) is False
 
 
+_PROMPT_TAGS = [{"key": "mlflow.prompt.is_prompt", "value": "true"}]
+
+
 @pytest.mark.parametrize(
-    ("validator", "tier", "path"),
+    ("validator", "tier", "path", "body"),
     [
-        ("validate_can_create_experiment", "experiment", "/api/2.0/mlflow/experiments/create"),
+        ("validate_can_create_experiment", "experiment", "/api/2.0/mlflow/experiments/create",
+         {"name": "x"}),
         ("validate_can_create_registered_model", "registered_model",
-         "/api/2.0/mlflow/registered-models/create"),
+         "/api/2.0/mlflow/registered-models/create", {"name": "x"}),
+        # The route is shared; the request's own tags decide which family is created.
         ("validate_can_create_registered_model", "prompt",
-         "/api/2.0/mlflow/registered-models/create"),
+         "/api/2.0/mlflow/registered-models/create", {"name": "x", "tags": _PROMPT_TAGS}),
         ("validate_can_create_gateway_secret", "gateway_secret",
-         "/api/3.0/mlflow/gateway/secrets/create"),
+         "/api/3.0/mlflow/gateway/secrets/create", {"name": "x"}),
     ],
 )
 def test_workspace_creates_honor_a_created_type_deny(
-    workspace_permission_setup, validator, tier, path
+    workspace_permission_setup, validator, tier, path, body
 ):
     """§5d gives the created type a veto. The child creates had it via
     `_authorize_create_in_experiment`; the workspace-scoped creates did not, so a DENY holder kept
@@ -5588,8 +5593,34 @@ def test_workspace_creates_honor_a_created_type_deny(
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [(tier, "*", DENY.name)])
 
-    with auth_module.app.test_request_context(path, method="POST", json={"name": "x"}):
+    with auth_module.app.test_request_context(path, method="POST", json=body):
         assert getattr(auth_module, validator)() is False
+
+
+@pytest.mark.parametrize(
+    ("denied_tier", "body"),
+    [
+        # A prompt DENY must not block creating a plain registered model...
+        ("prompt", {"name": "x"}),
+        # ...nor a registered_model DENY block creating a prompt.
+        ("registered_model", {"name": "x", "tags": _PROMPT_TAGS}),
+    ],
+)
+def test_registered_model_create_vetoes_only_the_family_it_creates(
+    workspace_permission_setup, denied_tier, body
+):
+    """CREATE is the one shared route where the body IS the truth: these tags are the tags the
+    handler persists, so there is nothing for them to contradict. Vetoing both families would
+    refuse a caller denied only the family they are not creating.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [(denied_tier, "*", DENY.name)])
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/create", method="POST", json=body
+    ):
+        assert auth_module.validate_can_create_registered_model() is True
 
 
 def test_workspace_creates_allowed_without_a_deny(workspace_permission_setup):
