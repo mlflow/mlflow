@@ -7628,6 +7628,73 @@ def test_mcp_server_version_deny_applies_after_creation(fastapi_client, monkeypa
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_access_endpoint_version_selectors_honor_the_version_tier(
+    fastapi_client, monkeypatch, prefix
+):
+    """An access endpoint resolves a version and serves its content, so selecting one is a
+    version-tier operation even though the path says `endpoints`.
+
+    The path validator consulted `mcp_server_version` only for `versions/` and `aliases/`, so
+    `server_version`/`server_alias` -- accepted in the create and update bodies and as query
+    selectors on both endpoint searches -- reached the version tier with only the parent server's
+    permission checked.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    base = fastapi_client.tracking_uri
+    server_name = f"com.test/endpoint-selectors{prefix.count('ajax')}"
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=base + prefix, json={"name": server_name}, auth=(owner, owner_pw)
+        ).raise_for_status()
+        requests.post(
+            url=f"{base}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        created = requests.post(
+            url=f"{base}{prefix}/{server_name}/endpoints",
+            json={"url": "https://endpoint.example.com", "server_version": "1.0.0"},
+            auth=(owner, owner_pw),
+        )
+        # Selecting a version is allowed before the veto exists, and the handler still parses the
+        # body the validator now reads ahead of it.
+        assert created.status_code == 200, created.text
+        endpoint_id = created.json()["id"]
+    requests.post(
+        url=f"{base}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": owner,
+            "resource_type": "mcp_server_version",
+            "resource_id": "*",
+            "permission": "DENY",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+    with User(owner, owner_pw, monkeypatch):
+        selecting = (
+            ("POST", f"{prefix}/{server_name}/endpoints",
+             {"url": "https://other.example.com", "server_version": "1.0.0"}),
+            ("POST", f"{prefix}/{server_name}/endpoints",
+             {"url": "https://other.example.com", "server_alias": "prod"}),
+            ("PATCH", f"{prefix}/{server_name}/endpoints/{endpoint_id}",
+             {"server_version": "1.0.0"}),
+            ("GET", f"{prefix}/{server_name}/endpoints?server_version=1.0.0", None),
+            ("GET", f"{prefix}/{server_name}/endpoints?server_alias=prod", None),
+            # The cross-server search names no server, so it anchors on the workspace instead.
+            ("GET", f"{prefix}/endpoints?server_version=1.0.0", None),
+        )
+        for method, route, body in selecting:
+            resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
+            assert resp.status_code == 403, f"{method} {route} returned {resp.status_code}"
+        # A request that selects no version is untouched: the veto is scoped to the selector.
+        resp = requests.get(
+            url=f"{base}{prefix}/{server_name}/endpoints", auth=(owner, owner_pw)
+        )
+        assert resp.status_code == 200
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_nested_post_does_not_escalate_existing_grant(
     fastapi_client, monkeypatch, prefix
 ):
