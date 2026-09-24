@@ -7177,7 +7177,8 @@ def test_validate_can_create_mcp_server_delegates_to_shared_helper():
     """Both halves take the identity FastAPI supplied -- neither may re-authenticate.
 
     The container check is `_can_create_in_workspace`; the created type's §5d veto is
-    `_create_not_denied`. This validator is called from the FastAPI middleware, which has already
+    `_create_not_denied`, which defaults to the wildcard when no name is supplied; the root
+    create route passes the name from the body instead. This validator is called from the FastAPI middleware, which has already
     resolved the caller, so a Flask `authenticate_request()` inside either half would read the wrong
     request state.
     """
@@ -7187,7 +7188,7 @@ def test_validate_can_create_mcp_server_delegates_to_shared_helper():
     ):
         result = auth_module.validate_can_create_mcp_server("alice")
         container.assert_called_once_with("alice")
-        veto.assert_called_once_with("alice", auth_module.RESOURCE_TYPE_MCP_SERVER)
+        veto.assert_called_once_with("alice", auth_module.RESOURCE_TYPE_MCP_SERVER, "*")
         assert result is True
 
 

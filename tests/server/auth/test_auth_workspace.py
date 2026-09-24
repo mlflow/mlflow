@@ -2384,6 +2384,62 @@ def test_gateway_model_definition_list_gates_a_denied_secret_selector(
 
 
 @pytest.mark.parametrize(
+    ("grant", "created", "allowed"),
+    [
+        (("registered_model", "m-1", DENY.name), "m-1", False),
+        (("registered_model", "*", DENY.name), "m-1", False),
+        (("registered_model", "m-2", DENY.name), "m-1", True),
+        (("registered_model", "m-1", READ.name), "m-1", True),
+        (("prompt", "m-1", DENY.name), "m-1", True),
+    ],
+    ids=["exact-deny", "wildcard-deny", "other-name-deny", "positive-grant", "other-type-deny"],
+)
+def test_create_registered_model_vetoes_the_exact_name(
+    workspace_permission_setup, monkeypatch, grant, created, allowed
+):
+    """The veto names the model being created, because a grant key for it already exists.
+
+    An id key matches wildcard rows too, so naming it is strictly broader than `"*"`: the wildcard
+    veto still fires and an exact DENY on that one name now fires as well.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [grant])
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/create", method="POST", json={"name": created}
+    ):
+        assert auth_module.validate_can_create_registered_model() is allowed
+
+
+@pytest.mark.parametrize(
+    ("grant", "allowed"),
+    [
+        (("mcp_server", "com.test/srv", DENY.name), False),
+        (("mcp_server", "*", DENY.name), False),
+        (("mcp_server", "com.test/other", DENY.name), True),
+    ],
+    ids=["exact-deny", "wildcard-deny", "other-name-deny"],
+)
+def test_create_mcp_server_vetoes_the_exact_name_from_the_body(
+    workspace_permission_setup, monkeypatch, grant, allowed
+):
+    """The nested auto-create path already vetoes the exact name; the root create must match it."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [grant])
+    validator = auth_module._get_mcp_server_validator("/api/3.0/mlflow/mcp-servers")
+
+    async def body():
+        return {"name": "com.test/srv"}
+
+    request = SimpleNamespace(method="POST", json=body, state=SimpleNamespace(), query_params={})
+    assert asyncio.run(validator(username, request)) is allowed
+
+
+@pytest.mark.parametrize(
     ("denied_type", "allowed"),
     [(None, True), ("gateway_model_definition", False), ("gateway_endpoint", True)],
     ids=["no-deny", "created-type-deny", "unrelated-type-deny"],
