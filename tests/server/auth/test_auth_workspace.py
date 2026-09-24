@@ -6020,6 +6020,63 @@ def test_create_logged_model_without_a_source_run_is_unaffected(
             assert auth_module.validate_can_create_logged_model() is True
 
 
+def _metric_row(model_id="m-1", run_id="run-1"):
+    return {"key": "acc", "value": 0.9, "timestamp": 1, "step": 0,
+            "model_id": model_id, "run_id": run_id}
+
+
+@pytest.mark.parametrize(
+    ("model_grant", "model_id_kept"),
+    [(None, True), ("READ", True), ("DENY", False)],
+    ids=["no-model-grant", "model-read", "model-deny"],
+)
+def test_get_run_metrics_withhold_a_denied_models_id(
+    workspace_permission_setup, monkeypatch, model_grant, model_id_kept
+):
+    """A metric is dual-homed: it belongs to the run AND names the logged model it was logged
+    against, so it is a second route to a model id beyond model_inputs/model_outputs.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    if model_grant:
+        _grant(store, username, "team-a", [("logged_model", "*", model_grant)])
+
+    payload = {"run": {"info": {"run_id": "run-1", "experiment_id": "exp-1"},
+                       "data": {"metrics": [_metric_row()]}}}
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/runs/get", method="GET"):
+        with workspace_context.WorkspaceContext("team-a"):
+            auth_module.redact_get_run_model_links(flask_resp)
+    metric = json.loads(flask_resp.get_data(as_text=True))["run"]["data"]["metrics"][0]
+
+    assert bool(metric.get("model_id")) is model_id_kept
+    # The run is the route's subject and the caller passed its read check, so its own id stays.
+    assert metric["run_id"] == "run-1"
+    assert metric["value"] == 0.9
+
+
+def test_metric_history_withholds_a_denied_models_id(workspace_permission_setup, monkeypatch):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
+
+    flask_resp = Response(json.dumps({"metrics": [_metric_row(), _metric_row(model_id="")]}),
+                          mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/metrics/get-history", method="GET"):
+        with workspace_context.WorkspaceContext("team-a"):
+            auth_module.redact_metric_history_model_ids(flask_resp)
+    metrics = json.loads(flask_resp.get_data(as_text=True))["metrics"]
+
+    # The invariant is that no row discloses a model id. A row that named none serializes as an
+    # empty string rather than being dropped, which is equally non-disclosing.
+    assert not any(m.get("model_id") for m in metrics)
+    assert [m["key"] for m in metrics] == ["acc", "acc"]
+
+
 _ID_GRAIN_TYPES = [
     "experiment",
     "registered_model",

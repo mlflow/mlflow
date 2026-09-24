@@ -6154,17 +6154,41 @@ def _withhold_denied_version_siblings(versions, username: str) -> bool:
     return withheld
 
 
+def _withhold_denied_metric_model_ids(metrics, username: str) -> bool:
+    """Clear `Metric.model_id` when the caller is denied the logged-model tier.
+
+    A metric is dual-homed: it belongs to a run AND, when logged against a logged model, names that
+    model. So a metric row is a second route to a model id, independent of a run's
+    `model_inputs`/`model_outputs` links.
+    """
+    named = [metric for metric in metrics if metric.model_id]
+    if not named:
+        return False
+    if RESOURCE_TYPE_LOGGED_MODEL not in _denied_sibling_tiers(
+        username, (RESOURCE_TYPE_LOGGED_MODEL,)
+    ):
+        return False
+    for metric in named:
+        metric.ClearField("model_id")
+    return True
+
+
 def _withhold_denied_run_model_links(runs, username: str) -> bool:
-    """Clear a run's logged-model input/output links when the caller is denied the model tier.
+    """Clear a run's references to logged models when the caller is denied the model tier.
 
     `GetRun` and `SearchRuns` echo `inputs.model_inputs[]` / `outputs.model_outputs[]`, which name
     logged models by id. `GetLoggedModel` applies the model tier to exactly those ids, so without
     this a `(logged_model, "*", DENY)` holder is refused the model and handed its id by the run.
+
+    `data.metrics[].model_id` is the same disclosure by a different field, so it clears here too --
+    one grants query covers both, and the run's own `metrics[].run_id` stays: the run is the
+    route's subject and the caller passed its read check.
     """
     linked = [
         run for run in runs if run.inputs.model_inputs or run.outputs.model_outputs
     ]
-    if not linked:
+    metrics = [metric for run in runs for metric in run.data.metrics if metric.model_id]
+    if not linked and not metrics:
         return False
     if RESOURCE_TYPE_LOGGED_MODEL not in _denied_sibling_tiers(
         username, (RESOURCE_TYPE_LOGGED_MODEL,)
@@ -6173,6 +6197,8 @@ def _withhold_denied_run_model_links(runs, username: str) -> bool:
     for run in linked:
         run.inputs.ClearField("model_inputs")
         run.outputs.ClearField("model_outputs")
+    for metric in metrics:
+        metric.ClearField("model_id")
     return True
 
 
@@ -6214,6 +6240,20 @@ def _redact_run_response(resp: Response, response_message, runs_of) -> None:
         return
     parse_dict(resp.json, response_message)
     if _withhold_denied_run_model_links(runs_of(response_message), authenticate_request().username):
+        resp.data = message_to_json(response_message)
+
+
+def redact_metric_history_model_ids(resp: Response) -> None:
+    """`GetMetricHistory` returns bare metric rows, each of which may name a logged model."""
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    response_message = GetMetricHistory.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_metric_model_ids(
+        response_message.metrics, authenticate_request().username
+    ):
         resp.data = message_to_json(response_message)
 
 
@@ -6465,6 +6505,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateModelVersion: redact_created_model_version_siblings,
     UpdateModelVersion: redact_updated_model_version_siblings,
     TransitionModelVersionStage: redact_transitioned_model_version_siblings,
+    GetMetricHistory: redact_metric_history_model_ids,
     GetRun: redact_get_run_model_links,
     SearchRuns: redact_search_runs_model_links,
     StartTraceV3: redact_start_trace_v3_metadata,
