@@ -466,12 +466,14 @@ def save_explainer(
             serializable_by_mlflow = True  # prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
         else:
-            warning = (
+            warnings.warn(
                 "Unable to serialize underlying model using MLflow, will use SHAP serialization"
             )
             if skops_trusted_types is not None:
-                warning += "; `skops_trusted_types` will be ignored"
-            warnings.warn(warning)
+                warnings.warn(
+                    "`skops_trusted_types` is ignored because MLflow cannot serialize the "
+                    "underlying model"
+                )
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
             mlflow.sklearn.save_model(

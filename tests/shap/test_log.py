@@ -88,8 +88,16 @@ def test_sklearn_log_explainer():
 
 
 def test_sklearn_log_explainer_requires_explicit_trust(shap_model, tmp_path):
-    with pytest.raises(MlflowException, match="references untrusted types"):
+    with (
+        mock.patch("mlflow.sklearn._save_model", wraps=mlflow.sklearn._save_model) as save_model,
+        pytest.raises(MlflowException, match="references untrusted types"),
+    ):
         mlflow.shap.save_explainer(shap_model, tmp_path / "model")
+
+    assert (
+        save_model.call_args.kwargs["serialization_format"]
+        == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
+    )
 
 
 def test_sklearn_log_explainer_self_serialization():
