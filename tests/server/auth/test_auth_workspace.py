@@ -2300,6 +2300,58 @@ def test_create_prompt_optimization_job_allows_a_source_prompt_with_no_denial(
             assert auth_module.validate_can_create_prompt_optimization_job() is True, uri
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "run_denied_blocks"),
+    [
+        ("", False),
+        ("name = 'm'", False),
+        ("source_path LIKE 'x%'", False),
+        ("tags.k = 'v'", False),
+        ("run_id = 'run-1'", True),
+        ("run_id IN ('run-1','run-2')", True),
+        ("run_id != 'run-1'", True),
+        ("garbage((", True),
+    ],
+)
+def test_search_model_versions_gates_a_filter_that_selects_a_run(
+    workspace_permission_setup, monkeypatch, filter_string, run_denied_blocks
+):
+    """`_withhold_denied_version_siblings` strips `run_id`/`run_link` from the rows, but which rows
+    MATCH is itself the disclosure: `run_id = '<id>'` confirms a version came from that run even
+    when the field comes back empty. Same reasoning as `_authorize_trace_search`.
+
+    An unparsable filter counts as selecting, so the most restrictive reading applies.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/search",
+        method="GET",
+        query_string={"filter": filter_string} if filter_string else {},
+    ):
+        assert auth_module.validate_can_search_model_versions() is not run_denied_blocks
+
+
+@pytest.mark.parametrize("filter_string", ["run_id = 'run-1'", "garbage(("])
+def test_search_model_versions_run_filter_is_veto_only(
+    workspace_permission_setup, monkeypatch, filter_string
+):
+    """No run grant at all still passes: the tier vetoes, it does not become a positive gate."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/search",
+        method="GET",
+        query_string={"filter": filter_string},
+    ):
+        assert auth_module.validate_can_search_model_versions() is True
+
+
 def test_prompt_optimization_job_validators_use_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):

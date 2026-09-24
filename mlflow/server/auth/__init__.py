@@ -2232,6 +2232,48 @@ def validate_can_delete_registered_model_or_prompt_cascade():
     )
 
 
+def _model_version_filter_selects_run(filter_string: str) -> bool:
+    """Whether a `SearchModelVersions` filter SELECTS on the run tier.
+
+    `_withhold_denied_version_siblings` strips `run_id` and `run_link` from the rows, but WHICH ROWS
+    MATCH is itself the disclosure: `run_id = '<id>'` confirms that a version was produced by that
+    run even when the field comes back empty. Same reasoning as `_authorize_trace_search`.
+
+    Asks the grammar's owner so a spelling change is inherited rather than drifted from -- the
+    parser normalizes to a single `attribute`/`run_id` comparison and rejects an `attributes.`
+    prefix outright. An unparsable filter counts as selecting, so the most restrictive reading
+    applies; the handler still returns its own 400 when no run denial makes that moot.
+    """
+    if not filter_string:
+        return False
+    from mlflow.utils.search_utils import SearchModelVersionUtils
+
+    try:
+        parsed = SearchModelVersionUtils.parse_search_filter(filter_string)
+    except Exception:
+        return True
+    return any(c.get("type") == "attribute" and c.get("key") == "run_id" for c in parsed)
+
+
+def validate_can_search_model_versions():
+    """The rows are filtered after the fact, so this gates only what redaction cannot hide.
+
+    Veto-only and scoped to the selector: a search that does not name a run is unaffected, which is
+    every request master could make.
+    """
+    # Read it the way the handler does: this route accepts both GET query args and a POST body.
+    filter_string = _get_request_message(SearchModelVersions()).filter
+    if not _model_version_filter_selects_run(filter_string):
+        return True
+    # The run tier is wildcard grain only, so one key decides the request -- there is no per-run
+    # grant to resolve, and no parent to read a workspace from on a cross-model search.
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
+    )
+
+
 def validate_can_read_model_or_prompt_version():
     """Point reads of a version: the parent must be readable and the version tier may veto.
 
@@ -4359,6 +4401,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
+    SearchModelVersions: validate_can_search_model_versions,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
     TransitionModelVersionStage: validate_can_update_model_or_prompt_version,

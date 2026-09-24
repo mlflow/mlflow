@@ -1432,6 +1432,33 @@ def test_search_registered_models(client, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatch):
+    """A `run_id` filter is a membership oracle that row redaction cannot close.
+
+    `filter_search_model_versions` strips `run_id`/`run_link` from the rows it returns, so filtering
+    ON `run_id` still confirms which versions a denied run produced. This asserts the gate is WIRED,
+    which a direct call to the validator cannot show.
+    """
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("mv_run_filter_exp")
+        run_id = client.create_run(experiment_id).info.run_id
+        rm = client.create_registered_model("mv_run_filter_model")
+        client.create_model_version(rm.name, f"runs:/{run_id}/model", run_id=run_id)
+        # Before the DENY the filter works and the row comes back.
+        assert client.search_model_versions(filter_string=f"run_id = '{run_id}'")
+    grant_role_permission(client.tracking_uri, owner, "run", "*", "DENY")
+    with User(owner, owner_pw, monkeypatch):
+        # Selecting on the denied tier is refused...
+        for filter_string in (f"run_id = '{run_id}'", f"run_id IN ('{run_id}')"):
+            with pytest.raises(MlflowException, match=r"(?i)permission|denied"):
+                client.search_model_versions(filter_string=filter_string)
+        # ...while a filter that names no run is untouched, and its rows are still redacted.
+        versions = client.search_model_versions(filter_string="name = 'mv_run_filter_model'")
+        assert [mv.name for mv in versions] == ["mv_run_filter_model"]
+        assert not versions[0].run_id
+
+
 def test_search_model_versions(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
