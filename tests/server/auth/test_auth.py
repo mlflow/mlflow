@@ -3457,6 +3457,44 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         response.raise_for_status()
 
 
+def test_model_version_prompt_marker_cannot_escape_the_prompt_version_tier(client, monkeypatch):
+    """A version's own prompt marker persists regardless of its parent's family.
+
+    So a plain registered model accepts a version marked `is_prompt=true`, which every later read
+    classifies as a prompt version. Authorizing only the parent's tier gated
+    `registered_model_version` while creating a prompt version.
+    """
+    base = client.tracking_uri
+    owner, pw = create_user(base)
+    marked = [{"key": "mlflow.prompt.is_prompt", "value": "true"}]
+    with User(owner, pw, monkeypatch):
+        for name in ("rm-escape-a", "rm-escape-b"):
+            requests.post(
+                url=base + "/api/2.0/mlflow/registered-models/create",
+                json={"name": name},
+                auth=(owner, pw),
+            ).raise_for_status()
+        # The premise: a prompt-marked version really is accepted under a plain registered model.
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/model-versions/create",
+            json={"name": "rm-escape-a", "source": "dummy-source", "tags": marked},
+            auth=(owner, pw),
+        )
+        assert resp.status_code == 200
+        assert any(
+            t["key"] == "mlflow.prompt.is_prompt" for t in resp.json()["model_version"]["tags"]
+        )
+
+    grant_role_permission(base, owner, "prompt_version", "*", "DENY")
+    with User(owner, pw, monkeypatch):
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/model-versions/create",
+            json={"name": "rm-escape-b", "source": "dummy-source", "tags": marked},
+            auth=(owner, pw),
+        )
+        assert resp.status_code == 403
+
+
 def test_duplicate_prompt_tags_do_not_escape_a_model_deny(client, monkeypatch):
     """The store keeps the LAST duplicate tag value, so `[true, false]` creates a registered model.
 
