@@ -592,7 +592,7 @@ def test_trace_from_dict_load_old_trace():
     assert trace.data.spans[0].end_time_ns == 1761106494584860000
 
 
-def test_trace_repr_and_trace_id_properties():
+def test_trace_repr_and_trace_id():
     trace_info = create_test_trace_info("tr-12345")
     trace = Trace(info=trace_info, data=TraceData())
 
@@ -602,9 +602,6 @@ def test_trace_repr_and_trace_id_properties():
     # Verify trace_id property matches trace.info.trace_id
     assert trace.trace_id == "tr-12345"
     assert trace.trace_id == trace.info.trace_id
-
-    # Verify deprecated request_id property matches trace_id
-    assert trace.request_id == "tr-12345"
 
     # Verify defensive repr when info is None
     trace_no_info = Trace(info=None, data=TraceData())

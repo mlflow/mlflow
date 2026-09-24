@@ -47,11 +47,6 @@ class Trace(_MlflowObject):
         """The primary identifier for the trace."""
         return self.info.trace_id
 
-    @property
-    def request_id(self) -> str:
-        """Deprecated. Use `trace_id` instead."""
-        return self.info.request_id
-
     def to_dict(self) -> dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}
 
