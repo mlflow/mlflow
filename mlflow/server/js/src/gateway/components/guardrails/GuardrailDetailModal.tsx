@@ -304,6 +304,7 @@ export const GuardrailDetailModal = ({
               <FormattedMessage defaultMessage="Guardrail Model" description="Guardrail model label" />
             </Typography.Text>
             <EndpointSelector
+              excludeProviders={['typesafe']}
               componentIdPrefix="mlflow.gateway.guardrails.detail-model"
               currentEndpointName={modelEndpoint}
               onEndpointSelect={setModelEndpoint}

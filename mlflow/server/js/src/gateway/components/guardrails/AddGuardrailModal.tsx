@@ -25,6 +25,7 @@ import { registerScorer } from '../../../experiment-tracking/pages/experiment-sc
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
 import { LLM_TEMPLATE } from '../../../experiment-tracking/pages/experiment-scorers/types';
 import { EndpointSelector } from '../../../experiment-tracking/components/EndpointSelector';
+import { endpointUsesAnyProvider } from '../../utils/gatewayUtils';
 import { STAGE_HINTS, validateStageInstructions } from './guardrailValidation';
 import { PipelineStagePicker } from './PipelineStagePicker';
 import { ActionPicker } from './ActionPicker';
@@ -300,7 +301,10 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
   const isStep2Valid = name.trim().length > 0 && instructionsError === null;
   const endpointsLoaded = !isEndpointsLoading && !endpointsError;
   const hasAvailableGuardrailModelEndpoint =
-    !endpointsLoaded || endpoints.some((endpoint) => endpoint.endpoint_id !== endpointId);
+    !endpointsLoaded ||
+    endpoints.some(
+      (endpoint) => endpoint.endpoint_id !== endpointId && !endpointUsesAnyProvider(endpoint, ['typesafe']),
+    );
   const createButtonTooltip = !hasAvailableGuardrailModelEndpoint
     ? intl.formatMessage({
         defaultMessage: 'You need another endpoint to use guardrails.',
@@ -439,6 +443,7 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                 <FormattedMessage defaultMessage="Guardrail Model" description="Guardrail model label" />
               </Typography.Text>
               <EndpointSelector
+                excludeProviders={['typesafe']}
                 componentIdPrefix="mlflow.gateway.guardrails.config-model"
                 currentEndpointName={modelEndpoint}
                 onEndpointSelect={setModelEndpoint}

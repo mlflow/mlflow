@@ -409,9 +409,10 @@ const RunJudgeModalImpl = ({
               <FormattedMessage defaultMessage="Endpoint:" description="Label for endpoint selection" />
             </Typography.Text>
             <EndpointSelector
+              excludeProviders={['typesafe']}
               currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointName)}
               onEndpointSelect={(endpointName) => {
-                const modelValue = formatGatewayModelFromEndpoint(endpointName);
+                const modelValue = endpointName ? formatGatewayModelFromEndpoint(endpointName) : undefined;
                 setCurrentEndpointName(modelValue);
               }}
               autoSelectFirstEndpoint

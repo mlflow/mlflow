@@ -133,9 +133,10 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
         render={({ field }) => (
           <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
             <EndpointSelector
+              excludeProviders={['typesafe']}
               currentEndpointName={currentEndpointName}
               onEndpointSelect={(endpointName) => {
-                const modelValue = formatGatewayModelFromEndpoint(endpointName);
+                const modelValue = endpointName ? formatGatewayModelFromEndpoint(endpointName) : '';
                 setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
                 onUserSelect?.('model', modelValue);
               }}
