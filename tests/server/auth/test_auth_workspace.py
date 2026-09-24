@@ -5896,6 +5896,120 @@ def test_get_run_keeps_model_links_without_a_deny(workspace_permission_setup, mo
     assert run["inputs"]["model_inputs"][0]["model_id"] == "m-1"
 
 
+def test_every_metadata_bearing_trace_response_is_registered_for_redaction():
+    """Coverage invariant, not a behaviour test: the per-handler tests call the function directly,
+    so they stay green if a route is never wired. Asserted over the protos rather than a fixed list
+    so a new trace response carrying metadata fails here instead of silently leaking.
+    """
+    from mlflow.protos import service_pb2
+
+    def names_metadata(descriptor, depth=0, seen=None):
+        seen = seen or set()
+        if descriptor.full_name in seen or depth > 3:
+            return False
+        seen = seen | {descriptor.full_name}
+        for field in descriptor.fields:
+            if field.name in ("request_metadata", "trace_metadata"):
+                return True
+            if field.message_type and names_metadata(field.message_type, depth + 1, seen):
+                return True
+        return False
+
+    # A proto whose route is served by `_not_implemented` returns 501 and never emits a body, so
+    # it has nothing to redact -- SearchUnifiedTraces is declared as an rpc and routed, but only to
+    # that stub, which is also why the auth layer maps its path to a None validator.
+    from mlflow.protos import databricks_pb2
+    from mlflow.server import handlers
+
+    stubbed = {
+        path
+        for path, handler, _ in handlers.get_endpoints()
+        if handler.__name__ == "_not_implemented"
+    }
+
+    def is_stubbed(proto_name):
+        for service in service_pb2.DESCRIPTOR.services_by_name.values():
+            for method in service.methods:
+                if method.input_type.name != proto_name:
+                    continue
+                declared = [
+                    f"/api/2.0{endpoint.path}".replace("{", "<").replace("}", ">")
+                    for endpoint in method.GetOptions()
+                    .Extensions[databricks_pb2.rpc]
+                    .endpoints
+                ]
+                return bool(declared) and all(path in stubbed for path in declared)
+        return False
+
+    unwired = []
+    for name in dir(service_pb2):
+        proto = getattr(service_pb2, name)
+        response = getattr(proto, "Response", None)
+        if response is None or not names_metadata(response.DESCRIPTOR):
+            continue
+        if proto in auth_module.AFTER_REQUEST_PATH_HANDLERS or is_stubbed(name):
+            continue
+        unwired.append(name)
+
+    assert unwired == []
+    assert is_stubbed("SearchUnifiedTraces")
+
+
+@pytest.mark.parametrize(
+    ("handler", "payload", "metadata_at"),
+    [
+        (
+            "redact_batch_trace_assessments",
+            {"traces": [{"trace_info": {"trace_id": "t-1", "trace_metadata": {
+                "mlflow.sourceRun": "r-1", "other": "keep"}}}]},
+            lambda body: body["traces"][0]["trace_info"]["trace_metadata"],
+        ),
+        (
+            "redact_batch_trace_info_assessments",
+            {"trace_infos": [{"trace_id": "t-1", "trace_metadata": {
+                "mlflow.sourceRun": "r-1", "other": "keep"}}]},
+            lambda body: body["trace_infos"][0]["trace_metadata"],
+        ),
+        (
+            "redact_start_trace_metadata",
+            {"trace_info": {"request_id": "t-1", "request_metadata": [
+                {"key": "mlflow.sourceRun", "value": "r-1"}, {"key": "other", "value": "keep"}]}},
+            lambda body: {e["key"]: e["value"]
+                          for e in body["trace_info"]["request_metadata"]},
+        ),
+        (
+            "redact_end_trace_metadata",
+            {"trace_info": {"request_id": "t-1", "request_metadata": [
+                {"key": "mlflow.sourceRun", "value": "r-1"}, {"key": "other", "value": "keep"}]}},
+            lambda body: {e["key"]: e["value"]
+                          for e in body["trace_info"]["request_metadata"]},
+        ),
+    ],
+    ids=["batch-get-traces", "batch-get-trace-infos", "start-trace-v2", "end-trace"],
+)
+def test_every_trace_route_strips_a_denied_runs_id_from_metadata(
+    workspace_permission_setup, monkeypatch, handler, payload, metadata_at
+):
+    """The sibling strip was composed into three of the five assessment handlers and neither V2
+    write route, so BatchGetTraces/BatchGetTraceInfos/StartTrace/EndTrace still returned
+    `mlflow.sourceRun` under a run DENY that GetTrace withheld.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/3.0/mlflow/traces", method="POST", json={}):
+        with workspace_context.WorkspaceContext("team-a"):
+            getattr(auth_module, handler)(flask_resp)
+    md = metadata_at(json.loads(flask_resp.get_data(as_text=True)))
+
+    assert "mlflow.sourceRun" not in md
+    assert md["other"] == "keep"
+
+
 def test_trace_metadata_strips_only_the_denied_sibling_tier(
     workspace_permission_setup, monkeypatch
 ):

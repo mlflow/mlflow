@@ -6365,6 +6365,18 @@ def redact_trace_info_metadata(resp: Response) -> None:
     )
 
 
+def redact_start_trace_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, StartTrace.Response(), lambda m: [m.trace_info.request_metadata]
+    )
+
+
+def redact_end_trace_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, EndTrace.Response(), lambda m: [m.trace_info.request_metadata]
+    )
+
+
 def redact_search_traces_metadata(resp: Response) -> None:
     _redact_trace_metadata_response(
         resp, SearchTraces.Response(), lambda m: [t.request_metadata for t in m.traces]
@@ -6471,7 +6483,12 @@ def redact_batch_trace_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraces.Response()
     parse_dict(resp.json, response_message)
-    if _withhold_denied_assessments([t.trace_info for t in response_message.traces]):
+    trace_infos = [t.trace_info for t in response_message.traces]
+    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in trace_infos], authenticate_request().username
+    )
+    if withheld:
         resp.data = message_to_json(response_message)
 
 
@@ -6481,7 +6498,12 @@ def redact_batch_trace_info_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraceInfos.Response()
     parse_dict(resp.json, response_message)
-    if _withhold_denied_assessments(response_message.trace_infos):
+    withheld = _withhold_denied_assessments(response_message.trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in response_message.trace_infos],
+        authenticate_request().username,
+    )
+    if withheld:
         resp.data = message_to_json(response_message)
 
 
@@ -6549,7 +6571,9 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SetLoggedModelTags: redact_set_logged_model_tags_run_ids,
     GetRun: redact_get_run_model_links,
     SearchRuns: redact_search_runs_model_links,
+    StartTrace: redact_start_trace_metadata,
     StartTraceV3: redact_start_trace_v3_metadata,
+    EndTrace: redact_end_trace_metadata,
     GetTraceInfo: redact_trace_info_metadata,
     SearchTraces: redact_search_traces_metadata,
     GetTrace: redact_trace_assessments,
