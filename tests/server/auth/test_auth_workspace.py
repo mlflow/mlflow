@@ -1,3 +1,4 @@
+import asyncio
 import json
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -2985,6 +2986,52 @@ def test_role_grant_on_mcp_server_gates_capabilities(
     assert perm.can_update is expected_update
     assert perm.can_delete is expected_delete
     assert perm.can_manage is expected_manage
+
+
+@pytest.mark.parametrize(
+    ("version_grant", "allowed"),
+    [
+        (None, True),
+        (MANAGE.name, True),
+        (READ.name, False),
+        (DENY.name, False),
+    ],
+    ids=["no-version-grant", "version-manage", "version-read", "version-deny"],
+)
+def test_deleting_an_mcp_server_takes_the_version_tier_along(
+    workspace_permission_setup, monkeypatch, version_grant, allowed
+):
+    """`DELETE /{name}` destroys the server's versions with it -- the ORM pairs `ondelete="CASCADE"`
+    with `delete-orphan` -- so it needs the same version-tier delete the experiment and
+    registered-model cascades take. `_mcp_path_targets_a_version` is False for the bare server path,
+    so the cascade previously ran on the server's `can_delete` alone: a holder of
+    `(mcp_server_version, *, DENY)` could destroy through the parent exactly what
+    `DELETE /{name}/versions/{v}` refuses.
+
+    No version grant falls back to the server, which the caller already passed `can_delete` on.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    # MCP server names are namespace/slug, which the fixture's single-segment entries cannot express.
+    auth_module._get_tracking_store()._mcp_server_workspaces["com.test/srv"] = "team-a"
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("mcp_server", "com.test/srv", MANAGE.name)]
+    if version_grant:
+        rows.append(("mcp_server_version", "*", version_grant))
+    _grant(store, username, "team-a", rows)
+
+    validator = auth_module._get_mcp_server_validator(
+        "/api/3.0/mlflow/mcp-servers/com.test/srv"
+    )
+    request = SimpleNamespace(method="DELETE", state=SimpleNamespace(), query_params={})
+    assert asyncio.run(validator(username, request)) is allowed
+    # A nested version route is unaffected: it still answers via the veto, not the delete gate.
+    nested = auth_module._get_mcp_server_validator(
+        "/api/3.0/mlflow/mcp-servers/com.test/srv/versions/1"
+    )
+    nested_expected = version_grant != DENY.name
+    assert asyncio.run(nested(username, request)) is nested_expected
 
 
 def test_role_in_other_workspace_does_not_grant_mcp_server_access(workspace_permission_setup):
