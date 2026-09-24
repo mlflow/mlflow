@@ -146,27 +146,50 @@ sub-resource types are:
 | `scorer_version`           | `scorer`                   |
 | `mcp_server_version`       | `mcp_server`               |
 
-Two rules apply to all of them.
-
-**They are wildcard grain only.** A grant must use the `*` pattern -
-`(run, *, DENY)` is valid, `(run, r-abc123, READ)` is rejected with a 400.
-A per-id grant on these tiers could be honoured on a point route but not in
-a search, and a grant that holds in one place and silently lapses in another
-is worse than no grant, so the server refuses it at the source rather than
-dropping it later.
-
-**A grant is optional.** With no grant on the tier, the container decides
-exactly as before - an `(experiment, 42, EDIT)` grant still edits the runs
-inside experiment 42. The tier only matters once you grant on it, to widen
-access without widening the container's grant, or to carve contents out of
-it with `DENY`.
-
 :::note
-Sub-resource tiers and `DENY` are granted through the REST API only. The
-[admin UI](#admin-ui) does not yet offer them in its resource-type or
-permission pickers, so grant them with the role endpoints in the
-[API reference](#api-reference).
+Sub-resource tiers are **wildcard grain only**. A grant must use the `*`
+pattern - `(run, *, DENY)` is valid, while `(run, r-abc123, READ)` is
+rejected with a 400. A per-id grant here could be honoured on a point route
+but not in a search, and a grant that holds in one place and silently lapses
+in another is worse than no grant, so the server refuses it at the source
+rather than dropping it later.
 :::
+
+#### Order of evaluation
+
+An operation on a sub-resource is authorized against the tier **and** its
+container, in this order:
+
+1. **Platform Admin bypass** - `is_admin = true` allows the request outright.
+2. **Workspace admin** - a `(workspace, *, MANAGE)` grant resolves every
+   resource to `MANAGE`, ahead of every rule below including `DENY`.
+3. **Container READ** - the caller must be able to read the container. A tier
+   grant alone does not reach inside a container the caller cannot read.
+4. **Grants on the same tier fold together** - a matching `DENY` wins,
+   otherwise the most permissive grant applies.
+5. **The tier decides, then the container** - the sub-resource tier is
+   consulted first, and if it holds **any** grant that grant decides. Only
+   when the tier holds no grant at all does the container decide. Tiers are
+   **not** max'd together, so a tier grant overrides its container whether it
+   is more or less permissive.
+6. **`default_permission`** applies when neither holds a grant.
+
+Steps 5 and 6 are what make a tier grant optional: with no grant on the tier,
+the container decides exactly as it did before these types existed.
+
+Editing a run in experiment 42, with workspace `USE`:
+
+| Grants                                        | Read run | Edit run | Why                                    |
+| --------------------------------------------- | -------- | -------- | -------------------------------------- |
+| `(experiment, 42, EDIT)`                      | yes      | yes      | no run grant, so the container decides |
+| `(experiment, 42, EDIT)` + `(run, *, READ)`   | yes      | no       | the run tier decides, and it is lower  |
+| `(experiment, 42, READ)` + `(run, *, EDIT)`   | yes      | yes      | the run tier decides, and it is higher |
+| `(experiment, 42, MANAGE)` + `(run, *, DENY)` | no       | no       | `DENY` on the tier is not rescued      |
+| `(run, *, EDIT)` alone                        | no       | no       | step 3: no read on the container       |
+
+The last row is the one to watch: a tier grant widens what a caller may do
+**inside** a container they can already read, and does not by itself grant
+entry to one they cannot.
 
 ## Workspace isolation
 
@@ -485,16 +508,10 @@ auth_client.assign_role(username="dave", role_id=role.id)
 Dave can update runs and log to them, but renaming or deleting the experiment is refused —
 the run tier decides run operations outright rather than being max'd against its parent.
 
-:::note
-These two scenarios have no Admin UI tab because the sub-resource tiers and `DENY` are not
-offered in its pickers yet. Grant them through the role API shown above.
-:::
-
 ## Admin UI
 
-The admin UI is the operator-facing surface for the permission model above,
-with one exception: the sub-resource tiers and `DENY` are API-only for now,
-and its pickers offer neither. It's reached from two entry points:
+The admin UI is the operator-facing surface for everything above. It's
+reached from two entry points:
 
 - **Platform Admins** (`is_admin = true`) navigate to `/admin` via the
   sidebar `Manage` entry. The page renders cross-workspace: every user in
