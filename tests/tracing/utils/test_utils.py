@@ -803,9 +803,13 @@ def test_builtin_cost_prices_1hr_cache_creation_higher():
         "cache_creation_input_tokens": 300,
     }
     with mock.patch.dict("sys.modules", {"litellm": None}):
-        without_1hr = calculate_cost_by_model_and_token_usage(model, base_usage)
+        without_1hr = calculate_cost_by_model_and_token_usage(
+            model, base_usage, model_provider="anthropic"
+        )
         with_1hr = calculate_cost_by_model_and_token_usage(
-            model, {**base_usage, "cache_creation_input_tokens_above_1hr": 300}
+            model,
+            {**base_usage, "cache_creation_input_tokens_above_1hr": 300},
+            model_provider="anthropic",
         )
     assert without_1hr is not None
     assert with_1hr is not None
