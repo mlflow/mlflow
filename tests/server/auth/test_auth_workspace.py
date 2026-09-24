@@ -2383,6 +2383,121 @@ def test_gateway_model_definition_list_gates_a_denied_secret_selector(
         assert validator() is allowed
 
 
+@pytest.mark.parametrize(
+    ("denied_type", "allowed"),
+    [(None, True), ("gateway_model_definition", False), ("gateway_endpoint", True)],
+    ids=["no-deny", "created-type-deny", "unrelated-type-deny"],
+)
+def test_create_gateway_model_definition_honors_the_created_type_veto(
+    workspace_permission_setup, monkeypatch, denied_type, allowed
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    if denied_type:
+        _grant(store, username, "team-a", [(denied_type, "*", DENY.name)])
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/gateway/model-definitions/create", method="POST", json={"name": "d"}
+    ):
+        assert auth_module.validate_can_create_gateway_model_definition() is allowed
+
+
+@pytest.mark.parametrize(
+    ("denied_type", "allowed"),
+    [(None, True), ("mcp_server", False), ("mcp_server_version", True)],
+    ids=["no-deny", "created-type-deny", "unrelated-type-deny"],
+)
+def test_create_mcp_server_honors_the_created_type_veto(
+    workspace_permission_setup, monkeypatch, denied_type, allowed
+):
+    """FastAPI hands the validator an identity, so the veto uses it, not a re-authentication."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    if denied_type:
+        _grant(store, username, "team-a", [(denied_type, "*", DENY.name)])
+    assert auth_module.validate_can_create_mcp_server(username) is allowed
+
+
+@pytest.mark.parametrize(
+    ("body", "denied_type", "allowed"),
+    [
+        ({}, None, True),
+        # Usage tracking defaults ON, so an omitted field still auto-creates an experiment.
+        ({}, "experiment", False),
+        ({"usage_tracking": False}, "experiment", True),
+        ({"experiment_id": "7"}, "experiment", False),
+        ({}, "gateway_endpoint", False),
+        ({}, "run", True),
+    ],
+    ids=[
+        "no-deny",
+        "default-tracking-auto-creates",
+        "tracking-off",
+        "named-experiment",
+        "created-type-deny",
+        "unrelated-type-deny",
+    ],
+)
+def test_create_gateway_endpoint_vetoes_the_experiment_it_will_trace_into(
+    workspace_permission_setup, monkeypatch, body, denied_type, allowed
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module, "_validate_can_use_model_definitions_for_create", lambda configs: True
+    )
+    _set_workspace_permission(store, username, USE.name)
+    if denied_type:
+        _grant(store, username, "team-a", [(denied_type, "*", DENY.name)])
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/gateway/endpoints/create", method="POST", json={"name": "e", **body}
+    ):
+        assert auth_module.validate_can_create_gateway_endpoint() is allowed
+
+
+@pytest.mark.parametrize(
+    ("body", "attached_experiment", "allowed"),
+    [
+        ({"usage_tracking": True}, None, False),
+        # Already attached, so nothing is auto-created and the veto does not apply.
+        ({"usage_tracking": True}, "7", True),
+        # An omitted flag never reaches the store's auto-create branch.
+        ({}, None, True),
+        ({"usage_tracking": False}, None, True),
+    ],
+    ids=["enable-auto-creates", "already-attached", "flag-omitted", "disable"],
+)
+def test_update_gateway_endpoint_vetoes_an_auto_created_experiment(
+    workspace_permission_setup, monkeypatch, body, attached_experiment, allowed
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "_validate_can_use_model_definitions", lambda configs: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_gateway_endpoint_permission",
+        lambda endpoint_id: auth_module.get_permission(MANAGE.name),
+    )
+    monkeypatch.setattr(
+        auth_module._get_tracking_store(),
+        "get_gateway_endpoint",
+        lambda endpoint_id=None, name=None: SimpleNamespace(experiment_id=attached_experiment),
+        raising=False,
+    )
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", DENY.name)])
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/gateway/endpoints/update",
+        method="POST",
+        json={"endpoint_id": "ep-1", **body},
+    ):
+        assert auth_module.validate_can_update_gateway_endpoint() is allowed
+
+
 def test_prompt_optimization_job_validators_use_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):
