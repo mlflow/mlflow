@@ -3,12 +3,14 @@ from pathlib import Path
 
 import pytest
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
@@ -396,7 +398,7 @@ def test_create_and_query_model_version_flow(client):
     name = "CreateMVTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
     client.create_registered_model(name)
-    mv1 = client.create_model_version(name, "runs:/run_id/model", "run_id_1", tags)
+    mv1 = client.create_model_version(name, "runs:/run_id_1/model", "run_id_1", tags)
     assert mv1.version == "1"
     assert mv1.name == name
     assert mv1.tags == {"key": "value", "another key": "some other value", "numeric value": "12345"}
@@ -409,7 +411,7 @@ def test_create_and_query_model_version_flow(client):
     assert [rm.latest_versions for rm in client.search_registered_models() if rm.name == name] == [
         [mvd1]
     ]
-    mv2 = client.create_model_version(name, "runs:/run_id/another_model", "run_id_1")
+    mv2 = client.create_model_version(name, "runs:/run_id_1/another_model", "run_id_1")
     assert mv2.version == "2"
     assert mv2.name == name
     mvd2 = client.get_model_version(name, "2")
@@ -420,18 +422,18 @@ def test_create_and_query_model_version_flow(client):
     assert {mv.version for mv in model_versions_by_name} == {"1", "2"}
     assert {mv.name for mv in model_versions_by_name} == {name}
 
-    mv3 = client.create_model_version(name, "runs:/run_id/another_model", "run_id_2")
+    mv3 = client.create_model_version(name, "runs:/run_id_2/another_model", "run_id_2")
     assert mv3.version == "3"
-    assert client.search_model_versions("source_path = 'runs:/run_id/model'") == [mvd1]
+    assert client.search_model_versions("source_path = 'runs:/run_id_1/model'") == [mvd1]
     assert client.search_model_versions("run_id = 'run_id_1'") == [mvd2, mvd1]
 
-    assert client.get_model_version_download_uri(name, "1") == "runs:/run_id/model"
+    assert client.get_model_version_download_uri(name, "1") == "runs:/run_id_1/model"
 
 
 def test_get_model_version(client):
     name = "GetModelVersionTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    client.create_model_version(name, "runs:/run_id_1/model", "run_id_1")
     model_version = client.get_model_version(name, "1")
     assert model_version.name == name
     assert model_version.version == "1"
@@ -454,7 +456,7 @@ def test_update_model_version_flow(client):
     assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
 
     start_time_1 = get_current_time_millis()
-    mv1 = client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    mv1 = client.create_model_version(name, "runs:/run_id_1/model", "run_id_1")
     end_time_1 = get_current_time_millis()
     assert mv1.version == "1"
     assert mv1.name == name
@@ -471,7 +473,7 @@ def test_update_model_version_flow(client):
     assert [rm.latest_versions for rm in client.search_registered_models() if rm.name == name] == [
         [mvd1]
     ]
-    mv2 = client.create_model_version(name, "runs:/run_id/another_model", "run_id_1")
+    mv2 = client.create_model_version(name, "runs:/run_id_1/another_model", "run_id_1")
     assert mv2.version == "2"
     assert mv2.name == name
     mvd2 = client.get_model_version(name, "2")
@@ -558,7 +560,7 @@ def test_delete_model_version_flow(client):
     assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
 
     start_time_1 = get_current_time_millis()
-    mv1 = client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    mv1 = client.create_model_version(name, "runs:/run_id_1/model", "run_id_1")
     end_time_1 = get_current_time_millis()
     assert mv1.version == "1"
     assert mv1.name == name
@@ -571,7 +573,7 @@ def test_delete_model_version_flow(client):
     assert_is_between(start_time_0, end_time_0, rmd2.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, rmd2.last_updated_timestamp)
 
-    mv2 = client.create_model_version(name, "runs:/run_id/another_model", "run_id_1")
+    mv2 = client.create_model_version(name, "runs:/run_id_1/another_model", "run_id_1")
     assert mv2.version == "2"
     assert mv2.name == name
     mv3 = client.create_model_version(name, "runs:/run_id_2/a/b/c", "run_id_2")
@@ -626,7 +628,7 @@ def test_delete_model_version_flow(client):
 def test_set_delete_model_version_tag_flow(client):
     name = "SetDeleteMVTagTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    client.create_model_version(name, "runs:/run_id_1/model", "run_id_1")
     model_version_detailed = client.get_model_version(name, "1")
     assert model_version_detailed.tags == {}
     tags = {"key": "value", "numeric value": 12345}
@@ -642,7 +644,7 @@ def test_set_delete_model_version_tag_flow(client):
 def test_set_model_version_tag_with_empty_string_as_value(client):
     name = "SetMVTagEmptyValueTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    client.create_model_version(name, "runs:/run_id_1/model", "run_id_1")
     client.set_model_version_tag(name, "1", "tag_key", "")
     assert {"tag_key": ""}.items() <= client.get_model_version(name, "1").tags.items()
 
@@ -650,7 +652,7 @@ def test_set_model_version_tag_with_empty_string_as_value(client):
 def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(client):
     name = "SetDeleteGetRMAliasTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    client.create_model_version(name, "runs:/run_id_1/model", "run_id_1")
     model = client.get_registered_model(name)
     assert model.aliases == {}
     mv = client.get_model_version(name, "1")
@@ -673,7 +675,7 @@ def test_copy_model_version_flow(client):
     name = "CopyMVTest"
     client.create_registered_model(name)
     src_mv = client.create_model_version(
-        name, "runs:/run_id/model", "run_id_1", description="dummy", tags={"hello": "world"}
+        name, "runs:/run_id_1/model", "run_id_1", description="dummy", tags={"hello": "world"}
     )
     client.set_registered_model_alias(name, "test_alias", "1")
     copy_mv = client.copy_model_version(f"models:/{name}@test_alias", name)
@@ -688,3 +690,32 @@ def test_copy_model_version_flow(client):
 
     copy_download_uri = client.get_model_version_download_uri(name, 2)
     assert copy_download_uri == src_mv.source
+
+
+@pytest.mark.parametrize("source_kind", ["version", "alias", "stage", "latest"])
+def test_register_model_from_registered_model_uri_preserves_lineage(client, source_kind):
+    source_name = "PromotionSource"
+    destination_name = "PromotionDestination"
+    run_id = "source-run"
+    client.create_registered_model(source_name)
+    source_version = client.create_model_version(
+        source_name, f"runs:/{run_id}/model", run_id=run_id
+    )
+    source_uris = {
+        "version": f"models:/{source_name}/{source_version.version}",
+        "alias": f"models:/{source_name}@champion",
+        "stage": f"models:/{source_name}/Production",
+        "latest": f"models:/{source_name}/latest",
+    }
+    client.set_registered_model_alias(source_name, "champion", source_version.version)
+    client.transition_model_version_stage(source_name, source_version.version, "Production")
+
+    with _use_tracking_uri(client.tracking_uri):
+        promoted_version = mlflow.register_model(
+            source_uris[source_kind],
+            destination_name,
+            await_registration_for=0,
+        )
+
+    assert promoted_version.run_id == run_id
+    assert promoted_version.source == f"models:/{source_name}/{source_version.version}"

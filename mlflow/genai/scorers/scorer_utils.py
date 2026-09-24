@@ -41,12 +41,26 @@ THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
     "`mlflow.genai.evaluate(..., scorers=[...])` without calling `.register()`."
 )
 
-# Restricts dynamic imports during third-party scorer deserialization to this
-# closed set so a malicious payload can't turn `model_validate` into arbitrary import.
+# Restricts dynamic imports during third-party scorer deserialization to this closed set
+# of the modules that define the supported scorer classes, so a malicious payload can't
+# turn `model_validate` into arbitrary import. Matched verbatim, never by package prefix:
+# a caller who can place a file below one of these packages (for example through a
+# `file://` experiment artifact root) must not be able to have the server import it as
+# `mlflow.genai.scorers.<pkg>.<run_id>.artifacts.<module>`.
 THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
     "mlflow.genai.scorers.ragas",
+    "mlflow.genai.scorers.ragas.scorers",
+    "mlflow.genai.scorers.ragas.scorers.agentic_metrics",
+    "mlflow.genai.scorers.ragas.scorers.comparison_metrics",
+    "mlflow.genai.scorers.ragas.scorers.rag_metrics",
     "mlflow.genai.scorers.deepeval",
+    "mlflow.genai.scorers.deepeval.scorers",
+    "mlflow.genai.scorers.deepeval.scorers.agentic_metrics",
+    "mlflow.genai.scorers.deepeval.scorers.conversational_metrics",
+    "mlflow.genai.scorers.deepeval.scorers.rag_metrics",
+    "mlflow.genai.scorers.deepeval.scorers.safety_metrics",
     "mlflow.genai.scorers.trulens",
+    "mlflow.genai.scorers.trulens.scorers.agent_trace",
     "mlflow.genai.scorers.phoenix",
 })
 

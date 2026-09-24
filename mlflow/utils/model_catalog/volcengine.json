@@ -180,6 +180,48 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "doubao-seed-2-1-pro-260628": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000,
+        "max_tokens": 256000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.8625,
+        "output_per_million_tokens": 4.3125,
+        "cache_read_per_million_tokens": 0.1725
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-17"
+    },
+    "doubao-seed-2-1-turbo-260628": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000,
+        "max_tokens": 256000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.43125,
+        "output_per_million_tokens": 2.15625,
+        "cache_read_per_million_tokens": 0.08625
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-17"
+    },
     "glm-4-7-251222": {
       "mode": "chat",
       "context_window": {

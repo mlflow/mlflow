@@ -13,6 +13,10 @@ def test_gateway_endpoints_return_501_when_disabled(monkeypatch):
     app.include_router(gateway_router)
     client = TestClient(app)
 
+    response = client.get("/gateway/mlflow/v1/models")
+    assert response.status_code == 501
+    assert response.json()["detail"] == GATEWAY_DISABLED_MESSAGE
+
     response = client.post(
         "/gateway/test-endpoint/mlflow/invocations",
         json={"messages": [{"role": "user", "content": "Hello"}]},

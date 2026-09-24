@@ -177,6 +177,29 @@ def test_gateway_discovery_config_budget_gating():
     assert vname("/api/3.0/mlflow/gateway/budgets/delete", "DELETE") == "sender_is_admin"
 
 
+def test_create_gateway_secret_requires_workspace_create_validator():
+    v = a._find_validator(_Req("/api/3.0/mlflow/gateway/secrets/create", "POST"))
+    assert v is a.validate_can_create_gateway_secret
+
+
+def test_every_ownership_grant_route_has_a_before_request_validator():
+    # An after-request MANAGE grant only records ownership; the create itself must be
+    # authorized up front, or the grant would mask the missing check. Scanning
+    # AFTER_REQUEST_HANDLERS alone is sufficient because
+    # WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS is derived from it.
+    grants = {
+        h
+        for h in a.AFTER_REQUEST_PATH_HANDLERS.values()
+        if h.__name__.startswith("set_can_manage_")
+    }
+    ungated = sorted(
+        f"{method:6} {path}"
+        for (path, method), handler in a.AFTER_REQUEST_HANDLERS.items()
+        if handler in grants and a._find_validator(_Req(path, method)) is None
+    )
+    assert not ungated
+
+
 def test_gateway_guardrail_gating():
     def vname(path, method):
         v = a._find_validator(_Req(path, method))
@@ -189,10 +212,21 @@ def test_gateway_guardrail_gating():
     assert vname(f"{base}/list", "GET") == "sender_is_admin"
     assert vname(f"{base}/delete", "DELETE") == "sender_is_admin"
     # Endpoint-attached routes gate on the owning gateway endpoint.
-    assert vname(f"{base}/add-to-endpoint", "POST") == "validate_can_update_gateway_endpoint"
-    assert vname(f"{base}/remove-from-endpoint", "DELETE") == "validate_can_update_gateway_endpoint"
-    assert vname(f"{base}/update-config", "PATCH") == "validate_can_update_gateway_endpoint"
-    assert vname(f"{base}/list-for-endpoint", "GET") == "validate_can_read_gateway_endpoint"
+    assert (
+        vname(f"{base}/add-to-endpoint", "POST") == "validate_can_add_guardrail_to_gateway_endpoint"
+    )
+    assert (
+        vname(f"{base}/remove-from-endpoint", "DELETE")
+        == "validate_can_remove_guardrail_from_gateway_endpoint"
+    )
+    assert (
+        vname(f"{base}/update-config", "PATCH")
+        == "validate_can_update_gateway_endpoint_guardrail_config"
+    )
+    assert (
+        vname(f"{base}/list-for-endpoint", "GET")
+        == "validate_can_read_gateway_endpoint_guardrail_configs"
+    )
 
 
 def test_filter_list_gateway_endpoints_drops_unreadable(monkeypatch):

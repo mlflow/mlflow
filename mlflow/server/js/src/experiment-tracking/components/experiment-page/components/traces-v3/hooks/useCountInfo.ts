@@ -33,6 +33,7 @@ const getUniqueSessionCount = (traceInfos: ModelTraceInfoV3[] | undefined) =>
 export function useCountInfo({
   experimentIds,
   runUuid,
+  loggedModelId,
   timeRange,
   traceInfos,
   traceInfosCount,
@@ -44,6 +45,7 @@ export function useCountInfo({
 }: {
   experimentIds: string[];
   runUuid?: string;
+  loggedModelId?: string;
   timeRange?: { startTime?: string; endTime?: string };
   traceInfos?: ModelTraceInfoV3[];
   traceInfosCount?: number;
@@ -54,10 +56,16 @@ export function useCountInfo({
   countSessions?: boolean;
 }) {
   const usingInfinitePagination = shouldUseInfinitePaginatedTraces();
-  const filters = useMemo(
-    () => (runUuid ? [createTraceMetadataFilter('mlflow.sourceRun', runUuid)] : undefined),
-    [runUuid],
-  );
+  const filters = useMemo(() => {
+    const nextFilters = [];
+    if (runUuid) {
+      nextFilters.push(createTraceMetadataFilter('mlflow.sourceRun', runUuid));
+    }
+    if (loggedModelId) {
+      nextFilters.push(createTraceMetadataFilter('mlflow.modelId', loggedModelId));
+    }
+    return nextFilters.length > 0 ? nextFilters : undefined;
+  }, [runUuid, loggedModelId]);
 
   const startTimeMs = timeRange?.startTime ? Number(timeRange.startTime) : undefined;
   const endTimeMs = timeRange?.endTime ? Number(timeRange.endTime) : undefined;

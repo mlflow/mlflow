@@ -348,6 +348,22 @@ describe('processTranscript', () => {
       expect(tokenUsage).not.toHaveProperty('cache_read_input_tokens');
       expect(tokenUsage).not.toHaveProperty('cache_creation_input_tokens');
     });
+
+    it('records usage and cost for tool, thinking, and split assistant messages', async () => {
+      await processTranscript(resolve(FIXTURES_DIR, 'usage-gaps.jsonl'), 'usage-gaps-session');
+      const llms = getSpansByType('LLM');
+      expect(llms).toHaveLength(3);
+      const usageKey = 'mlflow.chat.tokenUsage';
+      const usageField = (field: string) =>
+        llms.map((llm) => Number(llm.attributes[usageKey][field]));
+      expect(usageField('input_tokens')).toEqual(Array(3).fill(10));
+      expect(usageField('output_tokens')).toEqual(Array(3).fill(25));
+      expect(llms[2].endTimeNs! - llms[2].startTimeNs!).toBe(2_500_000_000);
+      const root = getSpansByName('claude_code_conversation')[0];
+      expect(root.endTimeNs).toBeGreaterThanOrEqual(Math.max(...llms.map((llm) => llm.endTimeNs!)));
+      const traceCost = JSON.parse(mockTraceInfo.traceMetadata['mlflow.trace.cost']);
+      expect(traceCost.total_cost).toBeCloseTo(0.000792 * 3, 9);
+    });
   });
 
   // --------------------------------------------------------------------------

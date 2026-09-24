@@ -1,4 +1,4 @@
-python: "3.10.20"
+python: "3.10.21"
 build_dependencies:
   - pip
 dependencies:

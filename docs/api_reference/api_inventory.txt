@@ -879,6 +879,8 @@ mlflow.gateway.config.RouteDestinationConfig
 mlflow.gateway.config.TogetherAIConfig
 mlflow.gateway.config.TogetherAIConfig.validate_togetherai_api_key
 mlflow.gateway.config.TrafficRouteConfig
+mlflow.gateway.config.TypeSafeConfig
+mlflow.gateway.config.TypeSafeConfig.validate_typesafe_api_key
 mlflow.gateway.config.VertexAIConfig
 mlflow.gateway.config.VertexAIConfig.validate_vertex_anthropic_betas
 mlflow.gateway.get_gateway_uri

@@ -349,7 +349,7 @@ recommend installing MLflow in its own conda environment by running the
 following from your checkout of MLflow:
 
 ```bash
-conda create --name mlflow-dev-env python=3.8
+conda create --name mlflow-dev-env python=3.10
 conda activate mlflow-dev-env
 pip install -e '.[extras]' # installs mlflow from current checkout with some useful extra utilities
 ```

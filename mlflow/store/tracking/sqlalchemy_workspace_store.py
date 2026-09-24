@@ -19,6 +19,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
     SqlAssessments,
     SqlEvaluationDataset,
     SqlExperiment,
@@ -46,7 +47,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlSpanCostDailyRollup,
     SqlTraceInfo,
+    SqlTraceMetricDailyRollup,
+    SqlTraceRollupRebuild,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
@@ -120,6 +124,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if model is SqlEvaluationDataset:
             return query.filter(SqlEvaluationDataset.workspace == workspace)
+
+        if model in (
+            SqlTraceMetricDailyRollup,
+            SqlSpanCostDailyRollup,
+            SqlAssessmentDailyRollup,
+            SqlTraceRollupRebuild,
+        ):
+            return query.join(
+                SqlExperiment, model.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
 
         if model is SqlLabelSchema:
             return query.join(
@@ -231,18 +245,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def _experiment_where_clauses(self):
         return [SqlExperiment.workspace == self._get_active_workspace()]
 
-    def _filter_experiment_ids(self, session, experiment_ids):
+    def _filter_experiment_ids(self, session, experiment_ids, lifecycle_stage: str | None = None):
         workspace = self._get_active_workspace()
         experiment_ids = [int(e) for e in experiment_ids]
-        rows = (
-            session
-            .query(SqlExperiment.experiment_id)
-            .filter(
-                SqlExperiment.experiment_id.in_(experiment_ids),
-                SqlExperiment.workspace == workspace,
-            )
-            .all()
+        query = session.query(SqlExperiment.experiment_id).filter(
+            SqlExperiment.experiment_id.in_(experiment_ids),
+            SqlExperiment.workspace == workspace,
         )
+        if lifecycle_stage is not None:
+            query = query.filter(SqlExperiment.lifecycle_stage == lifecycle_stage)
+        rows = query.all()
         return [row[0] for row in rows]
 
     def _filter_entity_ids(

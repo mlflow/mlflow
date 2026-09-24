@@ -576,10 +576,10 @@ class Scorer(BaseModel):
             module_path = data.get("module") or ""
             class_name = data.get("class")
             metric_name = data.get("metric_name")
-            if not any(
-                module_path == m or module_path.startswith(m + ".")
-                for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
-            ):
+            # Exact match only: a dotted descendant of an allow-listed package can be a
+            # caller-placed file (e.g. a run artifact under a `file://` experiment root),
+            # and `import_module` would execute it before the class check below.
+            if module_path not in THIRD_PARTY_SCORER_ALLOWED_MODULES:
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': module '{module_path}' is not "
                     f"in the allow-list {sorted(THIRD_PARTY_SCORER_ALLOWED_MODULES)}."
@@ -588,6 +588,21 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': missing required fields in "
                     f"third_party_scorer_data (class, metric_name)."
+                )
+            # The wrappers resolve unknown metric names by splicing them into an import
+            # path (`ragas.metrics.collections.<metric_name>`, `deepeval.metrics.<metric_name>`),
+            # so a dotted name would reach a caller-placed module the same way.
+            if not metric_name.isidentifier():
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': metric_name '{metric_name}' "
+                    "must be a plain identifier."
+                )
+            # Concrete subclasses pin `metric_name` via ClassVar and inherit the wrapper's
+            # `__init__`, so a `metric_name` kwarg would override the validated value above.
+            if "metric_name" in (data.get("kwargs") or {}):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': kwargs must not contain "
+                    "'metric_name'; set it at the top level of third_party_scorer_data."
                 )
             try:
                 module = importlib.import_module(module_path)
@@ -601,6 +616,11 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': class '{class_name}' not "
                     f"found in module '{module_path}'."
+                )
+            if not (inspect.isclass(scorer_class) and issubclass(scorer_class, Scorer)):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': '{module_path}.{class_name}' "
+                    "is not a Scorer subclass."
                 )
             init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
             # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)

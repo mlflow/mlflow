@@ -176,6 +176,7 @@ def test_job_submit(client: Client):
         "result": {"a": 7, "b": 12},
         "retry_count": 0,
         "status_details": None,
+        "creator": None,
     }
 
 
@@ -209,6 +210,7 @@ def test_job_cancel(client: Client):
         "result": None,
         "retry_count": 0,
         "status_details": None,
+        "creator": None,
     }
 
 

@@ -7,7 +7,7 @@ function getSleepLength(iterationCount, numPendingJobs) {
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, core }) => {
   let rateLimitRemaining;
   github.hook.after("request", (response) => {
     rateLimitRemaining = response.headers["x-ratelimit-remaining"];
@@ -19,26 +19,15 @@ module.exports = async ({ github, context }) => {
   const pullRequest = context.payload.pull_request;
   const { sha } = pullRequest.head;
 
-  // TODO: Remove this once stacked PRs support force-merging.
-  // The `unprotect` label bypasses this check on stacked PRs, which can't be
-  // force-merged like regular PRs (`gh pr merge --admin`). The `stack` property
-  // is only present while the PR belongs to a stack.
-  if (pullRequest.labels.some(({ name }) => name === "unprotect")) {
-    if (pullRequest.stack) {
-      console.log("The `unprotect` label is present on a stacked PR. Skipping this check.");
-      return;
-    }
-    console.log("Ignoring the `unprotect` label: it is only valid on stacked PRs.");
-  }
-
   const STATE = {
+    failure: "failure",
     pending: "pending",
     success: "success",
     skipped: "skipped",
-    failure: "failure",
   };
+  const STATUS_ORDER = Object.values(STATE);
 
-  const IGNORED_WORKFLOWS = new Set([".github/workflows/rerun.yml"]);
+  const IGNORED_WORKFLOWS = new Set([".github/workflows/trigger-rerun.yml"]);
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -102,21 +91,30 @@ module.exports = async ({ github, context }) => {
     }));
 
     // Workflow runs (e.g., GitHub Actions)
-    const workflowRuns = (
-      await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
-        owner,
-        repo,
-        head_sha: ref,
-        per_page: 100,
-      })
-    ).filter(
-      ({ path, event }) =>
-        // Exclude this workflow to avoid self-checking
-        path !== ".github/workflows/protect.yml" &&
-        // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic" &&
-        !IGNORED_WORKFLOWS.has(path)
-    );
+    let workflowRuns;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      workflowRuns = (
+        await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+          owner,
+          repo,
+          head_sha: ref,
+          per_page: 100,
+        })
+      ).filter(
+        ({ path, event }) =>
+          // Exclude this workflow to avoid self-checking
+          path !== ".github/workflows/protect.yml" &&
+          // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
+          event !== "dynamic" &&
+          !IGNORED_WORKFLOWS.has(path)
+      );
+      if (workflowRuns.length > 0) break;
+      core.warning(`No workflow runs found (attempt ${attempt}/3)`);
+      if (attempt < 3) await sleep(5000);
+    }
+    if (workflowRuns.length === 0) {
+      throw new Error(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+    }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -134,7 +132,7 @@ module.exports = async ({ github, context }) => {
         // Use run-level status directly (0 extra API calls).
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
-          url: `${run.html_url}/attempts/${run.run_attempt}`,
+          url: `${run.html_url}/attempts/${run.run_attempt}?pr=${pullRequest.number}`,
           pendingJobs: 0,
           status:
             run.conclusion === "cancelled"
@@ -163,7 +161,7 @@ module.exports = async ({ github, context }) => {
         }
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
-          url: `${run.html_url}/attempts/${run.run_attempt}`,
+          url: `${run.html_url}/attempts/${run.run_attempt}?pr=${pullRequest.number}`,
           pendingJobs: failed ? 0 : pendingJobs,
           status: failed ? STATE.failure : STATE.pending,
         });
@@ -182,6 +180,7 @@ module.exports = async ({ github, context }) => {
     if (rateLimitRemaining !== undefined) {
       console.log(`Rate limit remaining: ${rateLimitRemaining}`);
     }
+    checks.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status, url }) => {
       const icon =

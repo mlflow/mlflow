@@ -2,7 +2,7 @@ name: Copilot Agent
 
 on:
   pull_request_target:
-    types: [review_requested]
+    types: [opened, review_requested]
 
 concurrency:
   group: ${{ github.run_id }}
@@ -16,14 +16,15 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  # The coding agent signals it is done by requesting a review on its own PR
-  # while that PR is still a draft.
+  # A PR opened with changes is ready to publish. When Copilot opens an empty
+  # draft, wait until it requests a review after finishing the task.
   publish-draft:
     if: >-
       github.event.pull_request.draft == true
       && github.event.pull_request.user.login == 'Copilot'
       && github.event.pull_request.user.type == 'Bot'
-      && github.event.sender.login == 'Copilot'
+      && ((github.event.action == 'opened' && github.event.pull_request.changed_files > 0)
+      || (github.event.action == 'review_requested' && github.event.sender.login == 'Copilot'))
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:

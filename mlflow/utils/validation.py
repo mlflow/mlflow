@@ -12,7 +12,7 @@ import socket
 import threading
 import urllib.parse
 from fnmatch import fnmatch
-from typing import Any
+from typing import Any, Iterator
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
@@ -1117,6 +1117,69 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
             "choose where the gateway sends requests. Set the upstream with 'api_base' in "
             "auth_config, where it is validated."
         )
+
+
+def _find_destination_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = GATEWAY_DESTINATION_KEYS & set(value)
+        for nested in value.values():
+            found |= _find_destination_keys(nested)
+        return found
+    if isinstance(value, list):
+        found: set[str] = set()
+        for nested in value:
+            # `dict()` also accepts a list of two-item pairs, which is how nested option maps
+            # such as trulens' `completion_kwargs` are materialized.
+            if isinstance(nested, list) and len(nested) == 2 and isinstance(nested[0], str):
+                found |= GATEWAY_DESTINATION_KEYS & {nested[0]}
+            found |= _find_destination_keys(nested)
+        return found
+    return set()
+
+
+def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
+    """Yield every ``third_party_scorer_data`` mapping nested anywhere in a serialized scorer.
+
+    Containers such as ensembles (``ensemble_scorer_data.scorers``) and MemAlign judges
+    (``memory_augmented_judge_data.base_judge``) embed whole serialized scorers that
+    ``Scorer.model_validate`` rebuilds recursively, so the walk does not assume a fixed shape.
+    """
+    if isinstance(value, dict):
+        data = value.get("third_party_scorer_data")
+        if isinstance(data, dict):
+            yield data
+        for nested in value.values():
+            yield from _iter_third_party_scorer_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_third_party_scorer_data(nested)
+
+
+def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None:
+    """Reject third-party scorer ``kwargs`` that would steer the judge's outbound requests.
+
+    ``third_party_scorer_data`` is rebuilt by reflective instantiation and its ``kwargs`` reach
+    the wrapped library's LLM client unchanged: the TruLens LiteLLM fallback forwards them into
+    every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
+    host the server connects to. The server is the trust boundary for these payloads, so the
+    gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
+    ``model_kwargs``, ...) and inside any wrapping scorer.
+    """
+    for data in _iter_third_party_scorer_data(serialized_scorer):
+        kwargs = data.get("kwargs")
+        # Deserialization runs `dict(kwargs or {})`, so only a mapping (or null) is a valid shape.
+        if kwargs is not None and not isinstance(kwargs, dict):
+            raise MlflowException.invalid_parameter_value(
+                "third_party_scorer_data.kwargs must be a JSON object, got "
+                f"{type(kwargs).__name__}."
+            )
+        if found := sorted(_find_destination_keys(kwargs)):
+            raise MlflowException.invalid_parameter_value(
+                f"third_party_scorer_data.kwargs must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the scorer's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
 
 
 def _validate_mcp_icon_url(url: str) -> None:

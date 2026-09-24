@@ -666,6 +666,7 @@ def run(
     predict_fn=None,
     scorers=None,
     run_id: str | None = None,
+    dataset: Any | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -765,7 +766,7 @@ def run(
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
-    mlflow.log_metrics(aggregated_metrics)
+    mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
     try:
         emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)

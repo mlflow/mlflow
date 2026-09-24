@@ -204,6 +204,28 @@ def _graphql_search_model_versions(
     return payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
 
 
+def _graphql_get_run_model_versions(
+    tracking_uri: str, workspace_name: str, auth: tuple[str, str], run_id: str
+):
+    query = """
+    query GetRun($runId: String!){
+      mlflowGetRun(input: {runId: $runId}){
+        run { modelVersions { name version } }
+      }
+    }
+    """
+    resp = requests.post(
+        f"{tracking_uri}/graphql",
+        json={"query": query, "variables": {"runId": run_id}},
+        auth=auth,
+        headers={WORKSPACE_HEADER_NAME: workspace_name},
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    assert payload.get("errors") in (None, [])
+    return payload["data"]["mlflowGetRun"]["run"]["modelVersions"]
+
+
 def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
     # The workspace_client fixture forces ``MLFLOW_RBAC_SEED_DEFAULT_ROLES=true`` in
     # the server subprocess so this test is deterministic regardless of the caller's
@@ -343,3 +365,43 @@ def test_registered_model_access_controls_across_workspaces(workspace_setup, mon
     )
     assert resp.status_code == 403
     assert "Permission denied" in resp.text
+
+
+def test_nested_run_model_versions_use_requested_workspace_grants(workspace_setup):
+    client, tracking_uri, workspace_a, username, password = workspace_setup
+    workspace_b = f"team-{random_str()}"
+    _create_workspace(tracking_uri, workspace_b)
+
+    # In workspace A, a run has versions of two models; the same model name also exists
+    # in workspace B so a grant there must not leak into A.
+    shared_model = f"shared-{random_str()}"
+    granted_model = f"granted-{random_str()}"
+    exp_a = _create_experiment(tracking_uri, workspace_a)
+    run_a = _create_run(tracking_uri, workspace_a, exp_a)
+    for name in (shared_model, granted_model):
+        _create_registered_model(tracking_uri, workspace_a, name)
+        _create_model_version(tracking_uri, workspace_a, name, run_a)
+    _create_registered_model(tracking_uri, workspace_b, shared_model)
+
+    # Run access comes from the experiment grant alone; no workspace-wide grant, since
+    # those fold into every resource type and would mask the per-model check.
+    grant_role_permission(
+        tracking_uri, username, "experiment", exp_a, "READ", workspace=workspace_a
+    )
+    grant_role_permission(
+        tracking_uri, username, "registered_model", granted_model, "READ", workspace=workspace_a
+    )
+    grant_role_permission(
+        tracking_uri, username, "registered_model", shared_model, "READ", workspace=workspace_b
+    )
+
+    nested = _graphql_get_run_model_versions(
+        tracking_uri, workspace_a, auth=(username, password), run_id=run_a
+    )
+    assert {v["name"] for v in nested} == {granted_model}
+
+    # The nested field agrees with the top-level search in the same workspace.
+    top_level = _graphql_search_model_versions(
+        tracking_uri, workspace_a, auth=(username, password), filter_string=f"run_id='{run_a}'"
+    )
+    assert {v["name"] for v in top_level} == {granted_model}

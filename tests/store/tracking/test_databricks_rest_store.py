@@ -497,6 +497,26 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         assert result[1].info.trace_id == trace2.info.trace_id
 
 
+def test_batch_get_traces_experiment_ids_not_supported():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(
+        MlflowException,
+        match="experiment_ids.*not supported",
+    ):
+        store.batch_get_traces(["trace_id"], experiment_ids=["123"])
+
+
+@pytest.mark.parametrize("experiment_ids", [[], ["123"]])
+def test_filter_active_experiment_ids_not_supported(experiment_ids):
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(MlflowException, match="experiment_ids.*not supported"):
+        store.filter_active_experiment_ids(experiment_ids)
+
+
 def test_search_traces_uc_schema(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
 

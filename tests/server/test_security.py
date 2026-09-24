@@ -8,7 +8,11 @@ from werkzeug.test import Client
 
 from mlflow.server import security
 from mlflow.server.fastapi_security import init_fastapi_security
-from mlflow.server.security_utils import is_allowed_host_header, is_api_endpoint
+from mlflow.server.security_utils import (
+    is_allowed_host_header,
+    is_api_endpoint,
+    is_health_endpoint,
+)
 
 
 def test_default_allowed_hosts():
@@ -270,6 +274,77 @@ def test_endpoint_security_bypass(
     client = Client(test_app)
 
     response = client.get(endpoint, headers={"Host": host_header})
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize("endpoint", ["/health", "/version"])
+def test_is_health_endpoint_handles_static_prefix(endpoint, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("_MLFLOW_STATIC_PREFIX", raising=False)
+    assert is_health_endpoint(endpoint)
+    assert not is_health_endpoint(f"/myprefix{endpoint}")
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    # Only the registered (prefixed) route is exempt: the bare path has no route
+    # behind it under a prefix, so it must not waive host validation.
+    assert is_health_endpoint(f"/myprefix{endpoint}")
+    assert not is_health_endpoint(endpoint)
+    assert not is_health_endpoint(f"/otherprefix{endpoint}")
+    assert not is_health_endpoint(f"/myprefix{endpoint}z")
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "expected_status"),
+    [
+        ("/myprefix/health", 200),
+        ("/myprefix/version", 200),
+        ("/myprefix/test", 403),
+        # No route exists here under a prefix, so it must not skip host validation.
+        ("/health", 403),
+    ],
+)
+def test_flask_health_exempt_from_host_validation_with_static_prefix(
+    endpoint, expected_status, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    monkeypatch.setenv("MLFLOW_SERVER_ALLOWED_HOSTS", "localhost")
+
+    app = Flask(__name__)
+    for route in ("/myprefix/health", "/myprefix/version", "/myprefix/test"):
+        app.add_url_rule(route, route, lambda: "OK")
+    security.init_security_middleware(app)
+
+    response = Client(app).get(endpoint, headers={"Host": "evil.com"})
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "expected_status"),
+    [
+        ("/myprefix/health", 200),
+        ("/myprefix/version", 200),
+        ("/myprefix/api/2.0/mlflow/experiments/list", 403),
+        ("/health", 403),
+    ],
+)
+def test_fastapi_health_exempt_from_host_validation_with_static_prefix(
+    endpoint, expected_status, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    monkeypatch.setenv("MLFLOW_SERVER_ALLOWED_HOSTS", "localhost")
+
+    app = FastAPI()
+
+    @app.get("/myprefix/health")
+    @app.get("/myprefix/version")
+    @app.get("/myprefix/api/2.0/mlflow/experiments/list")
+    async def endpoints():
+        return {"ok": True}
+
+    init_fastapi_security(app)
+
+    response = TestClient(app, raise_server_exceptions=False).get(
+        endpoint, headers={"Host": "evil.com"}
+    )
     assert response.status_code == expected_status
 
 

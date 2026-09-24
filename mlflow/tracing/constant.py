@@ -61,6 +61,10 @@ class TokenUsageKey:
     TOTAL_TOKENS = "total_tokens"
     CACHE_READ_INPUT_TOKENS = "cache_read_input_tokens"
     CACHE_CREATION_INPUT_TOKENS = "cache_creation_input_tokens"
+    # Subset of CACHE_CREATION_INPUT_TOKENS written with the extended 1-hour cache TTL
+    # (Anthropic's usage.cache_creation.ephemeral_1h_input_tokens). Tracked separately so
+    # cost can price these tokens at the model's 1-hour cache-creation rate.
+    CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR = "cache_creation_input_tokens_above_1hr"
 
     @classmethod
     def all_keys(cls):
@@ -70,11 +74,16 @@ class TokenUsageKey:
             cls.TOTAL_TOKENS,
             cls.CACHE_READ_INPUT_TOKENS,
             cls.CACHE_CREATION_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR,
         ]
 
     @classmethod
     def cache_keys(cls):
-        return [cls.CACHE_READ_INPUT_TOKENS, cls.CACHE_CREATION_INPUT_TOKENS]
+        return [
+            cls.CACHE_READ_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR,
+        ]
 
 
 class CostKey:
@@ -110,7 +119,9 @@ class SpanAttributeKey:
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
     # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int,
-    #   "cache_read_input_tokens"?: int, "cache_creation_input_tokens"?: int} format.
+    #   "cache_read_input_tokens"?: int, "cache_creation_input_tokens"?: int,
+    #   "cache_creation_input_tokens_above_1hr"?: int} format. The last is a subset of
+    #   cache_creation_input_tokens written with the 1-hour cache TTL (used for cost pricing).
     CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).

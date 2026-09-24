@@ -1,9 +1,7 @@
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Float, and_, case, distinct, exists, func, literal_column, true
-from sqlalchemy.orm import aliased
+from sqlalchemy import Column, and_, case, distinct, exists, false, func, literal_column, or_, true
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.entity_type import EntityAssociationType
@@ -19,17 +17,21 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlEntityAssociation,
     SqlSpan,
-    SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
-    SqlTraceMetrics,
     SqlTraceTag,
+)
+from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
+    _apply_postgres_trace_first_span_query,
+)
+from mlflow.store.tracking.utils.trace_analytics import (
+    TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY,
+    get_trace_analytics_metadata_filter,
 )
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
     AssessmentMetricSearchKey,
-    SpanAttributeKey,
     SpanMetricDimensionKey,
     SpanMetricKey,
     SpanMetricSearchKey,
@@ -67,27 +69,62 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
         dimensions=set(),
     ),
     TraceMetricKey.LATENCY: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.INPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.OUTPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.TOTAL_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.CACHE_READ_INPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
     TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
 }
@@ -105,25 +142,48 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_STATUS},
     ),
     SpanMetricKey.INPUT_COST: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
         },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
         },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
-        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.SUM,
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
@@ -140,7 +200,12 @@ ASSESSMENTS_METRICS_CONFIGS: dict[str, TraceMetricsConfig] = {
         },
     ),
     AssessmentMetricKey.ASSESSMENT_VALUE: TraceMetricsConfig(
-        aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        aggregation_types={
+            AggregationType.AVG,
+            AggregationType.MIN,
+            AggregationType.MAX,
+            AggregationType.PERCENTILE,
+        },
         dimensions={AssessmentMetricDimensionKey.ASSESSMENT_NAME},
     ),
 }
@@ -152,7 +217,22 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
-_SESSION_TRACE_METADATA = aliased(SqlTraceMetadata)
+_SQL_BIGINT_MIN = -(2**63)
+_SQL_BIGINT_MAX = 2**63 - 1
+_NANOSECONDS_PER_MILLISECOND = 1_000_000
+
+_TRACE_METRIC_COLUMNS = {
+    TraceMetricKey.INPUT_TOKENS: SqlTraceInfo.input_tokens,
+    TraceMetricKey.OUTPUT_TOKENS: SqlTraceInfo.output_tokens,
+    TraceMetricKey.TOTAL_TOKENS: SqlTraceInfo.total_tokens,
+    TraceMetricKey.CACHE_READ_INPUT_TOKENS: SqlTraceInfo.cache_read_input_tokens,
+    TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: SqlTraceInfo.cache_creation_input_tokens,
+}
+_SPAN_COST_COLUMNS = {
+    SpanMetricKey.INPUT_COST: SqlSpan.input_cost,
+    SpanMetricKey.OUTPUT_COST: SqlSpan.output_cost,
+    SpanMetricKey.TOTAL_COST: SqlSpan.total_cost,
+}
 
 
 def get_percentile_aggregation(
@@ -238,7 +318,7 @@ def get_time_bucket_expression(
                 # rather than a simple column. Build the complete expression inline.
                 column_name = "start_time_unix_nano / 1000000"
             case MetricViewType.ASSESSMENTS:
-                column_name = "created_timestamp"
+                column_name = "trace_timestamp_ms"
         expr_str = f"floor({column_name} / {bucket_size_ms}) * {bucket_size_ms}"
         return literal_column(expr_str)
     else:
@@ -250,7 +330,7 @@ def get_time_bucket_expression(
                 # Convert nanoseconds to milliseconds
                 timestamp_column = SqlSpan.start_time_unix_nano / 1000000
             case MetricViewType.ASSESSMENTS:
-                timestamp_column = SqlAssessments.created_timestamp
+                timestamp_column = SqlAssessments.trace_timestamp_ms
         # This floors the timestamp to the nearest bucket boundary
         return func.floor(timestamp_column / bucket_size_ms) * bucket_size_ms
 
@@ -280,6 +360,10 @@ def _get_aggregation_expression(
             return func.sum(column)
         case AggregationType.AVG:
             return func.avg(column)
+        case AggregationType.MIN:
+            return func.min(column)
+        case AggregationType.MAX:
+            return func.max(column)
         case AggregationType.PERCENTILE:
             return get_percentile_aggregation(
                 db_type, aggregation.percentile_value, column, partition_by_columns
@@ -288,34 +372,6 @@ def _get_aggregation_expression(
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported aggregation type: {aggregation.aggregation_type}",
             )
-
-
-def _get_assessment_numeric_value_column(json_column: Column) -> Column:
-    """
-    Extract numeric value from JSON-encoded assessment value.
-
-    Handles conversion of JSON primitives to numeric values:
-    - JSON true/false -> 1/0
-    - JSON numbers -> numeric value
-    - other JSON-encoded values -> NULL
-
-    Args:
-        json_column: Column containing JSON-encoded value
-
-    Returns:
-        Column expression that extracts numeric value or NULL for non-numeric values
-    """
-    return case(
-        # yes / no -> 1.0 / 0.0 to support mlflow.genai.judges.CategoricalRating
-        # that is used by builtin judges
-        (json_column.in_([json.dumps(True), json.dumps("yes")]), 1.0),
-        (json_column.in_([json.dumps(False), json.dumps("no")]), 0.0),
-        # Skip null, strings, lists, and dicts (JSON null/objects/arrays)
-        (json_column == "null", None),
-        (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
-        # For numbers, cast to float
-        else_=func.cast(json_column, Float),
-    )
 
 
 def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Column:
@@ -335,11 +391,11 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
                 case TraceMetricKey.TRACE_COUNT:
                     return SqlTraceInfo.request_id
                 case TraceMetricKey.SESSION_COUNT:
-                    return distinct(_SESSION_TRACE_METADATA.value)
+                    return distinct(SqlTraceInfo.session_id)
                 case TraceMetricKey.LATENCY:
                     return SqlTraceInfo.execution_time_ms
-                case metric_name if metric_name in TraceMetricKey.token_usage_keys():
-                    return SqlTraceMetrics.value
+                case metric_name if metric_name in _TRACE_METRIC_COLUMNS:
+                    return _TRACE_METRIC_COLUMNS[metric_name]
         case MetricViewType.SPANS:
             match metric_name:
                 case SpanMetricKey.SPAN_COUNT:
@@ -347,49 +403,18 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
                 case SpanMetricKey.LATENCY:
                     # Span latency in milliseconds (nanoseconds converted to ms)
                     return (SqlSpan.end_time_unix_nano - SqlSpan.start_time_unix_nano) // 1000000
-                case metric_name if metric_name in SpanMetricKey.cost_keys():
-                    return SqlSpanMetrics.value
+                case metric_name if metric_name in _SPAN_COST_COLUMNS:
+                    return _SPAN_COST_COLUMNS[metric_name]
         case MetricViewType.ASSESSMENTS:
             match metric_name:
                 case AssessmentMetricKey.ASSESSMENT_COUNT:
                     return SqlAssessments.assessment_id
                 case "assessment_value":
-                    return _get_assessment_numeric_value_column(SqlAssessments.value)
+                    return SqlAssessments.aggregate_value
 
     raise MlflowException.invalid_parameter_value(
         f"Unsupported metric name: {metric_name} for view type {view_type}",
     )
-
-
-def _get_json_dimension_column(db_type: str, json_key: str, label: str) -> Column:
-    """
-    Extract JSON dimension column with database-specific handling.
-
-    Args:
-        db_type: Database type
-        json_key: JSON key to extract from dimension_attributes
-        label: Label for the dimension column
-
-    Returns:
-        Column expression for the JSON dimension
-    """
-    match db_type:
-        case db_types.MSSQL:
-            # Use CASE with ISJSON to handle JSON null values stored as 'null' string
-            # SQLAlchemy stores Python None as JSON 'null', which JSON_VALUE can't handle
-            # ISJSON returns 1 for valid JSON objects, 0 for 'null' string
-            return literal_column(
-                f"CASE WHEN ISJSON(spans.dimension_attributes) = 1 "
-                f"AND spans.dimension_attributes != 'null' "
-                f"THEN JSON_VALUE(spans.dimension_attributes, '$.\"{json_key}\"') "
-                f"ELSE NULL END"
-            ).label(label)
-        case db_types.POSTGRES:
-            # Use ->> operator to extract as text without JSON quotes
-            # Use literal_column to ensure identical SQL for consistent GROUP BY
-            return literal_column(f"spans.dimension_attributes ->> '{json_key}'").label(label)
-        case _:
-            return SqlSpan.dimension_attributes[json_key].label(label)
 
 
 def _apply_dimension_to_query(
@@ -411,15 +436,7 @@ def _apply_dimension_to_query(
         case MetricViewType.TRACES:
             match dimension:
                 case TraceMetricDimensionKey.TRACE_NAME:
-                    # Join with SqlTraceTag to get trace name
-                    query = query.join(
-                        SqlTraceTag,
-                        and_(
-                            SqlTraceInfo.request_id == SqlTraceTag.request_id,
-                            SqlTraceTag.key == TraceTagKey.TRACE_NAME,
-                        ),
-                    )
-                    return query, SqlTraceTag.value.label(TraceMetricDimensionKey.TRACE_NAME)
+                    return query, SqlTraceInfo.trace_name.label(TraceMetricDimensionKey.TRACE_NAME)
                 case TraceMetricDimensionKey.TRACE_STATUS:
                     return query, SqlTraceInfo.status.label(TraceMetricDimensionKey.TRACE_STATUS)
         case MetricViewType.SPANS:
@@ -431,14 +448,10 @@ def _apply_dimension_to_query(
                 case SpanMetricDimensionKey.SPAN_STATUS:
                     return query, SqlSpan.status.label(SpanMetricDimensionKey.SPAN_STATUS)
                 case SpanMetricDimensionKey.SPAN_MODEL_NAME:
-                    return query, _get_json_dimension_column(
-                        db_type, SpanAttributeKey.MODEL, SpanMetricDimensionKey.SPAN_MODEL_NAME
-                    )
+                    return query, SqlSpan.model_name.label(SpanMetricDimensionKey.SPAN_MODEL_NAME)
                 case SpanMetricDimensionKey.SPAN_MODEL_PROVIDER:
-                    return query, _get_json_dimension_column(
-                        db_type,
-                        SpanAttributeKey.MODEL_PROVIDER,
-                        SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+                    return query, SqlSpan.model_provider.label(
+                        SpanMetricDimensionKey.SPAN_MODEL_PROVIDER
                     )
         case MetricViewType.ASSESSMENTS:
             match dimension:
@@ -473,62 +486,24 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
             # Only aggregate valid assessments. When an assessment is overridden via
             # mlflow.override_feedback(), the superseded assessment is marked valid=False,
             # and should be excluded from counts/values so override chains aren't double-counted.
-            query = query.join(
-                SqlAssessments,
-                and_(
-                    SqlAssessments.trace_id == SqlTraceInfo.request_id,
-                    SqlAssessments.valid == true(),
-                ),
-            )
+            query = query.filter(SqlAssessments.valid == true())
     return query
 
 
-def _apply_metric_specific_joins(
-    query: Query, metric_name: str, view_type: MetricViewType
-) -> Query:
-    """
-    Apply metric-specific joins to the query.
-
-    Args:
-        query: SQLAlchemy query to modify
-        metric_name: Name of the metric being queried
-        view_type: Type of metrics view (e.g., TRACES, SPANS)
-
-    Returns:
-        Modified query with necessary joins
-    """
-    match view_type:
-        case MetricViewType.TRACES:
-            # Join with SqlTraceMetrics for token usage metrics
-            if metric_name in TraceMetricKey.token_usage_keys():
-                query = query.join(
-                    SqlTraceMetrics,
-                    and_(
-                        SqlTraceInfo.request_id == SqlTraceMetrics.request_id,
-                        SqlTraceMetrics.key == metric_name,
-                    ),
-                )
-            elif metric_name == TraceMetricKey.SESSION_COUNT:
-                # Join with SqlTraceMetadata to access session IDs for unique session counting.
-                query = query.join(
-                    _SESSION_TRACE_METADATA,
-                    and_(
-                        SqlTraceInfo.request_id == _SESSION_TRACE_METADATA.request_id,
-                        _SESSION_TRACE_METADATA.key == TraceMetadataKey.TRACE_SESSION,
-                    ),
-                )
-        case MetricViewType.SPANS:
-            # Join with SqlSpanMetrics for cost metrics
-            if metric_name in SpanMetricKey.cost_keys():
-                query = query.join(
-                    SqlSpanMetrics,
-                    and_(
-                        SqlSpan.trace_id == SqlSpanMetrics.trace_id,
-                        SqlSpan.span_id == SqlSpanMetrics.span_id,
-                        SqlSpanMetrics.key == metric_name,
-                    ),
-                )
-    return query
+def _partition_span_metric_filters(
+    filters: list[str] | None,
+) -> tuple[list[str], list[str]]:
+    trace_filters = []
+    span_filters = []
+    for filter_string in filters or []:
+        parsed_filter = SearchTraceMetricsUtils.parse_search_filter(filter_string)
+        target = (
+            span_filters
+            if parsed_filter.view_type == SpanMetricSearchKey.VIEW_TYPE
+            else trace_filters
+        )
+        target.append(filter_string)
+    return trace_filters, span_filters
 
 
 def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) -> Query:
@@ -548,15 +523,53 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
 
     for filter_string in filters:
         parsed_filter = SearchTraceMetricsUtils.parse_search_filter(filter_string)
+        trace_id_column = (
+            SqlAssessments.trace_id
+            if view_type == MetricViewType.ASSESSMENTS
+            else SqlTraceInfo.request_id
+        )
         match parsed_filter.view_type:
             case TraceMetricSearchKey.VIEW_TYPE:
                 match parsed_filter.entity:
                     case TraceMetricSearchKey.STATUS:
-                        query = query.filter(SqlTraceInfo.status == parsed_filter.value)
+                        if view_type == MetricViewType.ASSESSMENTS:
+                            query = query.filter(
+                                exists().where(
+                                    SqlTraceInfo.request_id == SqlAssessments.trace_id,
+                                    SqlTraceInfo.status == parsed_filter.value,
+                                )
+                            )
+                        else:
+                            query = query.filter(SqlTraceInfo.status == parsed_filter.value)
                     case TraceMetricSearchKey.METADATA:
+                        if parsed_filter.key == TraceMetadataKey.TRACE_SESSION:
+                            if view_type == MetricViewType.ASSESSMENTS:
+                                query = query.filter(
+                                    exists().where(
+                                        SqlTraceInfo.request_id == trace_id_column,
+                                        SqlTraceInfo.session_id == parsed_filter.value,
+                                    )
+                                )
+                            else:
+                                query = query.filter(SqlTraceInfo.session_id == parsed_filter.value)
+                            continue
+                        if parsed_filter.key in TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY:
+                            predicate = get_trace_analytics_metadata_filter(
+                                parsed_filter.key,
+                                parsed_filter.comparator,
+                                parsed_filter.value,
+                                SqlTraceInfo,
+                            )
+                            if view_type == MetricViewType.ASSESSMENTS:
+                                predicate = exists().where(
+                                    SqlTraceInfo.request_id == trace_id_column,
+                                    predicate,
+                                )
+                            query = query.filter(predicate)
+                            continue
                         metadata_filter = exists().where(
                             and_(
-                                SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                                SqlTraceMetadata.request_id == trace_id_column,
                                 SqlTraceMetadata.key == parsed_filter.key,
                                 SqlTraceMetadata.value == parsed_filter.value,
                             )
@@ -570,7 +583,7 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                             dst_type = EntityAssociationType.RUN
                             association_filter = exists().where(
                                 and_(
-                                    SqlEntityAssociation.source_id == SqlTraceInfo.request_id,
+                                    SqlEntityAssociation.source_id == trace_id_column,
                                     SqlEntityAssociation.source_type == src_type,
                                     SqlEntityAssociation.destination_type == dst_type,
                                     SqlEntityAssociation.destination_id == parsed_filter.value,
@@ -580,9 +593,20 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                         else:
                             query = query.filter(metadata_filter)
                     case TraceMetricSearchKey.TAG:
+                        if parsed_filter.key == TraceTagKey.TRACE_NAME:
+                            if view_type == MetricViewType.ASSESSMENTS:
+                                query = query.filter(
+                                    exists().where(
+                                        SqlTraceInfo.request_id == trace_id_column,
+                                        SqlTraceInfo.trace_name == parsed_filter.value,
+                                    )
+                                )
+                            else:
+                                query = query.filter(SqlTraceInfo.trace_name == parsed_filter.value)
+                            continue
                         tag_filter = exists().where(
                             and_(
-                                SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                                SqlTraceTag.request_id == trace_id_column,
                                 SqlTraceTag.key == parsed_filter.key,
                                 SqlTraceTag.value == parsed_filter.value,
                             )
@@ -727,6 +751,46 @@ def _build_query_with_percentile_subquery(
     return outer_query, select_columns
 
 
+def _build_time_range_predicate(
+    timestamp_column: Column,
+    time_ranges_ms: list[tuple[int | None, int | None]],
+    *,
+    nanosecond_column: bool = False,
+):
+    range_predicates = []
+    for range_start_ms, range_end_ms in time_ranges_ms:
+        predicates = []
+        if nanosecond_column:
+            # Include every nanosecond in the caller's inclusive end millisecond while keeping the
+            # indexed span timestamp column bare. Bounds outside BIGINT become constant predicates
+            # instead of overflowing a DBAPI integer bind.
+            if range_start_ms is not None:
+                start_ns = range_start_ms * _NANOSECONDS_PER_MILLISECOND
+                if start_ns > _SQL_BIGINT_MAX:
+                    predicates.append(false())
+                elif start_ns > _SQL_BIGINT_MIN:
+                    predicates.append(timestamp_column >= start_ns)
+            if range_end_ms is not None:
+                end_ns_exclusive = (range_end_ms + 1) * _NANOSECONDS_PER_MILLISECOND
+                if end_ns_exclusive <= _SQL_BIGINT_MIN:
+                    predicates.append(false())
+                elif end_ns_exclusive <= _SQL_BIGINT_MAX:
+                    predicates.append(timestamp_column < end_ns_exclusive)
+        else:
+            if range_start_ms is not None:
+                if range_start_ms > _SQL_BIGINT_MAX:
+                    predicates.append(false())
+                elif range_start_ms > _SQL_BIGINT_MIN:
+                    predicates.append(timestamp_column >= range_start_ms)
+            if range_end_ms is not None:
+                if range_end_ms < _SQL_BIGINT_MIN:
+                    predicates.append(false())
+                elif range_end_ms < _SQL_BIGINT_MAX:
+                    predicates.append(timestamp_column <= range_end_ms)
+        range_predicates.append(and_(*predicates) if predicates else true())
+    return or_(*range_predicates) if range_predicates else false()
+
+
 def query_metrics(
     view_type: MetricViewType,
     db_type: str,
@@ -737,6 +801,8 @@ def query_metrics(
     filters: list[str] | None,
     time_interval_seconds: int | None,
     max_results: int,
+    time_ranges_ms: list[tuple[int | None, int | None]] | None = None,
+    accessible_experiment_ids: list[int] | None = None,
 ) -> list[MetricDataPoint]:
     """Unified query metrics function for all view types.
 
@@ -750,19 +816,77 @@ def query_metrics(
         filters: List of filter strings (each parsed by SearchTraceUtils), combined with AND
         time_interval_seconds: Time interval in seconds for time bucketing
         max_results: Maximum number of results to return
+        time_ranges_ms: Optional inclusive timestamp ranges to query. Multiple ranges are combined
+            into one SQL predicate. Span-cost ranges use span start time, preserving their rollup
+            day assignment. Span count and latency preserve the existing parent-trace timestamp
+            behavior. Trace and assessment ranges use their respective trace timestamps.
+        accessible_experiment_ids: Experiment IDs already filtered through the store's workspace
+            access checks. PostgreSQL span-cost queries without trace-level filters use these IDs
+            to query the denormalized span columns directly.
 
     Returns:
         List of MetricDataPoint objects
     """
-    # Apply view-specific initial join
-    query = _apply_view_initial_join(query, view_type)
+    span_uses_trace_time = (
+        view_type == MetricViewType.SPANS and metric_name not in _SPAN_COST_COLUMNS
+    )
+    if time_ranges_ms is not None and span_uses_trace_time:
+        # Apply trace-time bounds before PostgreSQL materializes trace IDs. This preserves the
+        # pre-rollup span count/latency behavior without adding trace_info back to the span query.
+        query = query.filter(_build_time_range_predicate(SqlTraceInfo.timestamp_ms, time_ranges_ms))
 
-    query = _apply_filters(query, filters, view_type)
+    if view_type == MetricViewType.SPANS and db_type == db_types.POSTGRES:
+        trace_filters, span_filters = _partition_span_metric_filters(filters)
+        if (
+            metric_name in _SPAN_COST_COLUMNS
+            and not trace_filters
+            and accessible_experiment_ids is not None
+        ):
+            # Span cost, model, provider, experiment, and start time are denormalized and indexed
+            # on SqlSpan. Avoid materializing every trace ID when no trace-level predicate needs
+            # trace_info; the caller supplies only workspace-authorized experiment IDs.
+            query = query.session.query(SqlSpan).filter(
+                SqlSpan.experiment_id.in_(accessible_experiment_ids)
+            )
+            query = _apply_filters(query, span_filters, view_type)
+        else:
+            query = _apply_filters(query, trace_filters, view_type)
+            query = _apply_postgres_trace_first_span_query(query)
+            query = _apply_filters(query, span_filters, view_type)
+    else:
+        # Apply view-specific initial join
+        query = _apply_view_initial_join(query, view_type)
+        query = _apply_filters(query, filters, view_type)
 
-    # Apply metric-specific joins first, before dimensions
-    # This ensures tables like SqlSpanMetrics are available for dimension extraction
-    query = _apply_metric_specific_joins(query, metric_name, view_type)
+    if time_ranges_ms is not None and not span_uses_trace_time:
+        match view_type:
+            case MetricViewType.TRACES:
+                timestamp_column = SqlTraceInfo.timestamp_ms
+                nanosecond_column = False
+            case MetricViewType.SPANS:
+                timestamp_column = SqlSpan.start_time_unix_nano
+                nanosecond_column = True
+            case MetricViewType.ASSESSMENTS:
+                timestamp_column = SqlAssessments.trace_timestamp_ms
+                nanosecond_column = False
+        query = query.filter(
+            _build_time_range_predicate(
+                timestamp_column,
+                time_ranges_ms,
+                nanosecond_column=nanosecond_column,
+            )
+        )
+
+    if view_type == MetricViewType.TRACES and metric_name == TraceMetricKey.SESSION_COUNT:
+        query = query.filter(SqlTraceInfo.session_id.isnot(None))
+
     agg_column = _get_column_to_aggregate(view_type, metric_name)
+    # SQL aggregate functions ignore null inputs. Filtering them before grouping is equivalent for
+    # aggregate values, but prevents an all-null group from consuming SQL LIMIT and then being
+    # discarded by conversion. This keeps max_results semantics stable when raw and rollup rows
+    # are merged.
+    if not (view_type == MetricViewType.TRACES and metric_name == TraceMetricKey.SESSION_COUNT):
+        query = query.filter(agg_column.isnot(None))
 
     # Group by dimension columns, labeled for SELECT
     dimension_columns = []
@@ -773,6 +897,9 @@ def query_metrics(
 
     for dimension in dimensions or []:
         query, dimension_column = _apply_dimension_to_query(query, dimension, view_type, db_type)
+        # Result conversion omits null dimensions. Exclude them before ORDER BY/LIMIT so they
+        # cannot consume result slots and make raw and rollup-backed queries return different rows.
+        query = query.filter(dimension_column.isnot(None))
         dimension_columns.append(dimension_column)
 
     # MSSQL and MySQL with percentile need special handling (window function requires subquery)

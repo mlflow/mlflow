@@ -28,6 +28,7 @@ import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
+import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
@@ -555,6 +556,7 @@ describe('TracesV3Logs', () => {
       expect(useCountInfoSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           countSessions: false,
+          loggedModelId: undefined,
         }),
       );
 
@@ -567,10 +569,27 @@ describe('TracesV3Logs', () => {
       expect(useCountInfoSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           countSessions: true,
+          loggedModelId: undefined,
         }),
       );
 
+      useCountInfoSpy.mockClear();
+      jest.mocked(useAssessmentCountMetrics).mockClear();
+
+      const loggedModelView = renderComponent({ loggedModelId: 'model-123' });
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          loggedModelId: 'model-123',
+        }),
+      );
+      expect(jest.mocked(useAssessmentCountMetrics)).toHaveBeenCalledWith(
+        expect.objectContaining({ loggedModelId: 'model-123' }),
+      );
+
       chatSessionsView.unmount();
+      loggedModelView.unmount();
       useCountInfoSpy.mockRestore();
     });
   });

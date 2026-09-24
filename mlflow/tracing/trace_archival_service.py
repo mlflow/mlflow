@@ -87,9 +87,27 @@ def run_trace_archival_scheduler() -> int:
     if settings is None or not _should_run_trace_archival_scheduler(settings.interval_seconds):
         return 0
 
-    from mlflow.server.handlers import _get_tracking_store
+    # Keep store construction out of module import and disabled/no-op polls. A transient startup
+    # failure is retried by the next Huey poll because the store is initialized on demand.
+    from mlflow.server.jobs.utils import initialize_periodic_tasks_tracking_store
 
-    tracking_store = _get_tracking_store()
+    return _run_trace_archival_scheduler(
+        initialize_periodic_tasks_tracking_store(),
+        settings=settings,
+    )
+
+
+def _run_trace_archival_scheduler(
+    tracking_store,
+    *,
+    settings: _TraceArchivalSchedulerSettings | None = None,
+) -> int:
+    """Run one archival poll with an injected store (used by the periodic worker and tests)."""
+    if settings is None:
+        settings = _get_trace_archival_scheduler_settings()
+        if settings is None or not _should_run_trace_archival_scheduler(settings.interval_seconds):
+            return 0
+
     archived_total = 0
     remaining_traces_per_pass = settings.max_traces_per_pass
     # Count processed scheduler scopes (workspace contexts, or the single default scope).

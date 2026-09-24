@@ -280,9 +280,14 @@ async def test_chat_tool_calling_preserves_thought_signature():
     ) as mock_post:
         await provider.chat(chat.RequestPayload(**payload))
 
-    function_call = _find_part(mock_post.call_args[1]["json"]["contents"], "functionCall")
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_call = _find_part(contents, "functionCall")
+    part = next(
+        part for content in contents for part in content.get("parts", []) if "functionCall" in part
+    )
     assert "id" not in function_call
-    assert function_call["thoughtSignature"] == "opaque_thought_sig_token"
+    assert "thoughtSignature" not in function_call
+    assert part["thoughtSignature"] == "opaque_thought_sig_token"
 
 
 @pytest.mark.asyncio
