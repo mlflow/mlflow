@@ -81,6 +81,9 @@ const currentUserResult = (username?: string) =>
   ({ data: username ? { user: { username } } : undefined, isLoading: false }) as unknown as ReturnType<
     typeof useCurrentUserQuery
   >;
+// The current-user query before it resolves: no data yet and still loading.
+const loadingUserResult = () =>
+  ({ data: undefined, isLoading: true }) as unknown as ReturnType<typeof useCurrentUserQuery>;
 
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
@@ -1234,6 +1237,59 @@ describe('AssistantContext — localStorage chat persistence', () => {
     expect(
       localStorage.getItem(buildStorageKey(`${CHAT_STORAGE_KEY_BASE}.alice`, CHAT_STORAGE_VERSION)),
     ).not.toBeNull();
+  });
+
+  it('resets the backend session boundary on a live identity switch', async () => {
+    // Alice starts a conversation on a mounted panel: a backend session id and an active stream.
+    mockUseCurrentUserQuery.mockReturnValue(currentUserResult('alice'));
+    const { result, rerender } = renderHook(() => useAssistant(), { wrapper });
+    await act(async () => {});
+    await act(async () => {
+      result.current.sendMessage('alice message');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('alice-session');
+    });
+    expect(result.current.sessionId).toBe('alice-session');
+    expect(fakeEventSource.close).not.toHaveBeenCalled();
+
+    // Bob becomes the active user without a reload (same mounted provider).
+    mockUseCurrentUserQuery.mockReturnValue(currentUserResult('bob'));
+    await act(async () => {
+      rerender();
+    });
+
+    // Bob's next send must not continue Alice's backend session: the session id is cleared and
+    // Alice's stream is torn down, while Bob's (empty) transcript is seeded in place of hers.
+    expect(result.current.sessionId).toBeNull();
+    expect(fakeEventSource.close).toHaveBeenCalled();
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it('does not tear down a session started before the identity resolves', async () => {
+    // The current-user query is still loading on the first render.
+    mockUseCurrentUserQuery.mockReturnValue(loadingUserResult());
+    const { result, rerender } = renderHook(() => useAssistant(), { wrapper });
+    await act(async () => {});
+    // A session and stream are established during the identity-loading window.
+    await act(async () => {
+      result.current.sendMessage('early message');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('early-session');
+    });
+    expect(result.current.sessionId).toBe('early-session');
+
+    // Identity now resolves to a real user. This is the first resolved identity, not a switch, so
+    // the in-flight session must survive rather than being torn down.
+    mockUseCurrentUserQuery.mockReturnValue(currentUserResult('alice'));
+    await act(async () => {
+      rerender();
+    });
+
+    expect(result.current.sessionId).toBe('early-session');
+    expect(fakeEventSource.close).not.toHaveBeenCalled();
   });
 
   it('restores messages from localStorage on mount', async () => {
