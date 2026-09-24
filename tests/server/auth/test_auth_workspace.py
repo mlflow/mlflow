@@ -6622,6 +6622,11 @@ def test_create_model_version_ignores_a_registry_source_uri(
 ):
     """`models:/<name>/<version>` names a registry entry, not a logged model, so it dereferences
     nothing and must not be pushed through the logged-model check.
+
+    Upstream #26037 gates such a source on READ of the SOURCE registered model, which is a
+    parent-tier check and stays as upstream wrote it (parent-tier conversion is a separate PR). That
+    check is stubbed readable here so this test isolates the one thing it is about: the logged-model
+    tier must not see a registry URI.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -6631,6 +6636,11 @@ def test_create_model_version_ignores_a_registry_source_uri(
         auth_module,
         "_authorize_logged_model_id",
         lambda *a: pytest.fail("a registry source must not be treated as a logged model"),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_registered_model_or_prompt_permission",
+        lambda name: auth_module.get_permission(READ.name),
     )
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/create",
