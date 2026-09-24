@@ -1353,8 +1353,12 @@ def test_registered_model_grant_does_not_satisfy_prompt_request(
         (False, "registered_model_version", False),
         (False, "prompt_version", True),
     ],
-    ids=["prompt-denied-by-prompt-version", "prompt-unaffected-by-model-version",
-         "model-denied-by-model-version", "model-unaffected-by-prompt-version"],
+    ids=[
+        "prompt-denied-by-prompt-version",
+        "prompt-unaffected-by-model-version",
+        "model-denied-by-model-version",
+        "model-unaffected-by-prompt-version",
+    ],
 )
 def test_model_version_artifact_vetoes_on_the_persisted_family(
     workspace_permission_setup, monkeypatch, is_prompt, deny_tier, allowed
@@ -1366,14 +1370,16 @@ def test_model_version_artifact_vetoes_on_the_persisted_family(
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    registry_store = _RegistryStore(
-        {"foo": "team-a"}, prompts={"foo"} if is_prompt else set()
-    )
+    registry_store = _RegistryStore({"foo": "team-a"}, prompts={"foo"} if is_prompt else set())
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
     _set_workspace_permission(store, username, USE.name)
     # The positive gate is master's and resolves the registered_model tier for either family.
-    _grant(store, username, "team-a",
-           [("registered_model", "foo", MANAGE.name), (deny_tier, "*", DENY.name)])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "foo", MANAGE.name), (deny_tier, "*", DENY.name)],
+    )
 
     with workspace_context.WorkspaceContext("team-a"):
         with auth_module.app.test_request_context(
@@ -2301,10 +2307,15 @@ def test_graphql_run_reads_honor_a_run_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("run", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("run", "*", DENY.name),
+        ],
+    )
 
     assert auth_module._graphql_can_read_run("run-1", username) is False
     with auth_module.app.test_request_context("/graphql", method="POST"):
@@ -2322,10 +2333,15 @@ def test_graphql_run_search_filter_honors_a_run_deny(workspace_permission_setup)
     # Workspace MANAGE is workspace-admin, which is deliberately not restrictable (it precedes
     # DENY in resolve_permissions), so the tier is only observable below that level.
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("run", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("run", "*", DENY.name),
+        ],
+    )
     middleware = auth_module.GraphQLAuthorizationMiddleware()
 
     def _check(field_name):
@@ -2387,24 +2403,38 @@ def test_artifact_proxy_honors_child_tier_deny(workspace_permission_setup, tier,
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", MANAGE.name),
-        (tier, "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", MANAGE.name),
+            (tier, "*", DENY.name),
+        ],
+    )
 
     assert (
         _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", artifact_path) is False
     )
-    assert _run_artifact_proxy(
-        "validate_can_update_experiment_artifact_proxy", artifact_path, method="PUT"
-    ) is False
-    assert _run_artifact_proxy(
-        "validate_can_delete_experiment_artifact_proxy", artifact_path, method="DELETE"
-    ) is False
+    assert (
+        _run_artifact_proxy(
+            "validate_can_update_experiment_artifact_proxy", artifact_path, method="PUT"
+        )
+        is False
+    )
+    assert (
+        _run_artifact_proxy(
+            "validate_can_delete_experiment_artifact_proxy", artifact_path, method="DELETE"
+        )
+        is False
+    )
     # FastAPI dispatch must not be the softer path.
-    assert auth_module._authorize_fastapi_artifact_proxy_child(
-        f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
-    ) is False
+    assert (
+        auth_module._authorize_fastapi_artifact_proxy_child(
+            f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
+        )
+        is False
+    )
 
 
 @pytest.mark.parametrize(
@@ -2428,20 +2458,31 @@ def test_artifact_proxy_child_tier_survives_path_encoding(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", MANAGE.name),
-        (tier, "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", MANAGE.name),
+            (tier, "*", DENY.name),
+        ],
+    )
     assert (
         _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", artifact_path) is False
     )
-    assert _run_artifact_proxy(
-        "validate_can_delete_experiment_artifact_proxy", artifact_path, method="DELETE"
-    ) is False
+    assert (
+        _run_artifact_proxy(
+            "validate_can_delete_experiment_artifact_proxy", artifact_path, method="DELETE"
+        )
+        is False
+    )
     # FastAPI dispatch must not be the softer path.
-    assert auth_module._authorize_fastapi_artifact_proxy_child(
-        f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
-    ) is False
+    assert (
+        auth_module._authorize_fastapi_artifact_proxy_child(
+            f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
+        )
+        is False
+    )
 
 
 @pytest.mark.parametrize(
@@ -2506,27 +2547,37 @@ def test_artifact_proxy_fails_closed_on_a_path_the_handler_would_reject(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
-    assert _run_artifact_proxy(
-        "validate_can_read_experiment_artifact_proxy", "1/../../etc/passwd"
-    ) is False
+    assert (
+        _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", "1/../../etc/passwd")
+        is False
+    )
 
 
 def test_artifact_proxy_child_deny_does_not_cross_tiers(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", MANAGE.name),
-        ("run", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", MANAGE.name),
+            ("run", "*", DENY.name),
+        ],
+    )
 
-    assert _run_artifact_proxy(
-        "validate_can_read_experiment_artifact_proxy", "1/traces/tr-1/artifacts/f"
-    ) is True
+    assert (
+        _run_artifact_proxy(
+            "validate_can_read_experiment_artifact_proxy", "1/traces/tr-1/artifacts/f"
+        )
+        is True
+    )
     # An experiment-level path names no child, so the experiment alone governs it.
-    assert _run_artifact_proxy(
-        "validate_can_read_experiment_artifact_proxy", "1/plain-file.txt"
-    ) is True
+    assert (
+        _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", "1/plain-file.txt")
+        is True
+    )
 
 
 def test_artifact_proxy_still_inherits_from_the_experiment(workspace_permission_setup):
@@ -2536,9 +2587,12 @@ def test_artifact_proxy_still_inherits_from_the_experiment(workspace_permission_
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
 
-    assert _run_artifact_proxy(
-        "validate_can_read_experiment_artifact_proxy", "1/abc123/artifacts/model.pkl"
-    ) is True
+    assert (
+        _run_artifact_proxy(
+            "validate_can_read_experiment_artifact_proxy", "1/abc123/artifacts/model.pkl"
+        )
+        is True
+    )
 
 
 def test_version_point_reads_honor_a_version_deny(workspace_permission_setup):
@@ -2549,10 +2603,15 @@ def test_version_point_reads_honor_a_version_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/get", query_string={"name": "model-xyz", "version": "3"}
@@ -2585,10 +2644,15 @@ def test_version_read_filters_honor_a_version_deny(workspace_permission_setup, m
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
 
     assert _search_model_versions_names([{"name": "model-xyz", "tags": []}]) == []
     # The parent list is untouched by a version denial.
@@ -2601,11 +2665,16 @@ def test_version_deny_does_not_cross_families(workspace_permission_setup, monkey
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("prompt", "*", READ.name),
-        ("prompt_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("prompt", "*", READ.name),
+            ("prompt_version", "*", DENY.name),
+        ],
+    )
 
     names = _search_model_versions_names([
         {"name": "model-xyz", "tags": []},
@@ -3013,7 +3082,7 @@ def test_deleting_an_mcp_server_takes_the_version_tier_along(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    # MCP server names are namespace/slug, which the fixture's single-segment entries cannot express.
+    # MCP server names are namespace/slug; the fixture's entries are single-segment.
     auth_module._get_tracking_store()._mcp_server_workspaces["com.test/srv"] = "team-a"
     _set_workspace_permission(store, username, USE.name)
     rows = [("mcp_server", "com.test/srv", MANAGE.name)]
@@ -3021,9 +3090,7 @@ def test_deleting_an_mcp_server_takes_the_version_tier_along(
         rows.append(("mcp_server_version", "*", version_grant))
     _grant(store, username, "team-a", rows)
 
-    validator = auth_module._get_mcp_server_validator(
-        "/api/3.0/mlflow/mcp-servers/com.test/srv"
-    )
+    validator = auth_module._get_mcp_server_validator("/api/3.0/mlflow/mcp-servers/com.test/srv")
     request = SimpleNamespace(method="DELETE", state=SimpleNamespace(), query_params={})
     assert asyncio.run(validator(username, request)) is allowed
     # A nested version route is unaffected: it still answers via the veto, not the delete gate.
@@ -3651,10 +3718,15 @@ def test_legacy_resolver_lets_deny_beat_a_positive_grant(workspace_permission_se
     # role grant and triggers the admin bypass. Drop to the member tier so the experiment rows are
     # what decide.
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("experiment", "exp-1", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("experiment", "exp-1", DENY.name),
+        ],
+    )
 
     denied = auth_module._get_experiment_permission("exp-1", username)
     assert denied.name == DENY.name
@@ -3673,10 +3745,15 @@ def test_legacy_resolver_keeps_the_workspace_admin_bypass(workspace_permission_s
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("workspace", "*", MANAGE.name),
-        ("experiment", "exp-1", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("workspace", "*", MANAGE.name),
+            ("experiment", "exp-1", DENY.name),
+        ],
+    )
 
     permission = auth_module._get_experiment_permission("exp-1", username)
     assert permission.name == MANAGE.name
@@ -3695,10 +3772,15 @@ def test_legacy_resolver_never_loads_a_child_deny(workspace_permission_setup):
     # Without this the fixture's workspace MANAGE would grant read on its own, and the assertion
     # below would hold whether or not the run DENY was loaded.
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("run", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("run", "*", DENY.name),
+        ],
+    )
 
     assert auth_module._get_experiment_permission("exp-1", username).can_read
 
@@ -3717,10 +3799,15 @@ def test_parent_deny_is_not_bypassed_by_a_child_grant(workspace_permission_setup
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", DENY.name),
-        ("run", "*", MANAGE.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", DENY.name),
+            ("run", "*", MANAGE.name),
+        ],
+    )
 
     assert not auth_module._authorize_run_id("run-1", "delete")
     assert not auth_module._authorize_run_id("run-1", "read")
@@ -3760,11 +3847,16 @@ def test_trace_deny_is_not_bypassed_by_an_assessment_grant(workspace_permission_
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", EDIT.name),
-        ("trace", "*", DENY.name),
-        ("assessment", "*", MANAGE.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", EDIT.name),
+            ("trace", "*", DENY.name),
+            ("assessment", "*", MANAGE.name),
+        ],
+    )
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
@@ -3779,10 +3871,15 @@ def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", READ.name),
-        ("assessment", "*", MANAGE.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", READ.name),
+            ("assessment", "*", MANAGE.name),
+        ],
+    )
 
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
@@ -3816,10 +3913,15 @@ def test_read_predicate_lets_a_specific_deny_override_a_wildcard_read(workspace_
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("experiment", "exp-1", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("experiment", "exp-1", DENY.name),
+        ],
+    )
 
     predicate = auth_module._role_based_read_predicate(username, "experiment")
     assert not predicate("exp-1")
@@ -3833,10 +3935,15 @@ def test_read_predicate_agrees_with_the_point_route(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("experiment", "exp-1", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("experiment", "exp-1", DENY.name),
+        ],
+    )
 
     predicate = auth_module._role_based_read_predicate(username, "experiment")
     for experiment_id in ("exp-1", "exp-2"):
@@ -3852,10 +3959,15 @@ def test_read_predicate_child_deny_hides_every_row(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("logged_model", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("logged_model", "*", DENY.name),
+        ],
+    )
 
     predicate = auth_module._role_based_read_predicate(
         username,
@@ -3891,10 +4003,15 @@ def test_read_predicate_child_grant_is_never_positive(workspace_permission_setup
 def test_read_predicate_keeps_the_workspace_admin_bypass(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    _grant(store, username, "team-a", [
-        ("workspace", "*", MANAGE.name),
-        ("experiment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("workspace", "*", MANAGE.name),
+            ("experiment", "*", DENY.name),
+        ],
+    )
 
     predicate = auth_module._role_based_read_predicate(username, "experiment")
     assert predicate("exp-1")
@@ -3913,10 +4030,15 @@ def test_bulk_trace_read_honors_a_trace_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("trace", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("trace", "*", DENY.name),
+        ],
+    )
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/traces", query_string=[("experiment_ids", "exp-1")]
@@ -3959,10 +4081,15 @@ def test_bulk_metric_history_honors_a_run_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("run", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("run", "*", DENY.name),
+        ],
+    )
 
     with auth_module.app.test_request_context(
         "/ajax-api/2.0/mlflow/metrics/get-history-bulk", query_string=[("run_id", "run-1")]
@@ -4945,10 +5072,15 @@ def test_trace_artifact_download_honors_a_trace_deny(workspace_permission_setup,
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("trace", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("trace", "*", DENY.name),
+        ],
+    )
 
     assert _run_trace_artifact(monkeypatch, "exp-1") is False
 
@@ -4978,11 +5110,16 @@ def test_scorer_point_routes_honor_a_scorer_version_deny(workspace_permission_se
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("scorer", "*", MANAGE.name),
-        ("scorer_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", "*", MANAGE.name),
+            ("scorer_version", "*", DENY.name),
+        ],
+    )
 
     assert _run_scorer_point_route("validate_can_read_scorer", "1", "s1") is False
     assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is False
@@ -4995,10 +5132,15 @@ def test_scorer_point_routes_unchanged_without_a_version_grant(workspace_permiss
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("scorer", "*", MANAGE.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", "*", MANAGE.name),
+        ],
+    )
 
     assert _run_scorer_point_route("validate_can_read_scorer", "1", "s1") is True
     assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is True
@@ -5030,10 +5172,15 @@ def test_queue_by_name_honors_a_queue_deny(workspace_permission_setup, monkeypat
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("review_queue", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("review_queue", "*", DENY.name),
+        ],
+    )
 
     assert _run_queue_by_name(monkeypatch, "exp-1", [username]) is False
 
@@ -5065,10 +5212,15 @@ def test_get_or_create_user_queue_honors_a_queue_deny(workspace_permission_setup
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("review_queue", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("review_queue", "*", DENY.name),
+        ],
+    )
 
     assert _run_get_or_create_queue("exp-1") is False
 
@@ -5090,10 +5242,15 @@ def test_review_queue_list_filter_honors_a_queue_deny(workspace_permission_setup
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("review_queue", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("review_queue", "*", DENY.name),
+        ],
+    )
 
     rows = [{"queue_id": "q1", "users": [username]}, {"queue_id": "q2", "users": ["bob"]}]
     assert _run_list_filter(rows) == []
@@ -5130,10 +5287,15 @@ def test_review_queue_list_filter_honors_a_queue_manage_grant(workspace_permissi
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("review_queue", "*", MANAGE.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("review_queue", "*", MANAGE.name),
+        ],
+    )
 
     rows = [{"queue_id": "q1", "users": ["bob"]}, {"queue_id": "q2", "users": ["carol"]}]
     assert _run_list_filter(rows) == ["q1", "q2"]
@@ -5164,11 +5326,16 @@ def test_scorer_list_filter_honors_a_scorer_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("scorer", "*", READ.name),
-        ("scorer", "1/blocked", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", "*", READ.name),
+            ("scorer", "1/blocked", DENY.name),
+        ],
+    )
 
     # Scorer.experiment_id is an int32 in the proto, so ids here are numeric. The predicate
     # matches grant keys and never fetches an experiment, so any id works.
@@ -5188,11 +5355,16 @@ def test_scorer_list_filter_honors_a_scorer_version_deny(workspace_permission_se
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("scorer", "*", READ.name),
-        ("scorer_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", "*", READ.name),
+            ("scorer_version", "*", DENY.name),
+        ],
+    )
 
     rows = [
         {"experiment_id": 1, "scorer_name": "s1"},
@@ -5206,10 +5378,15 @@ def test_scorer_list_filter_keeps_rows_without_a_scorer_version_grant(workspace_
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("scorer", "*", READ.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", "*", READ.name),
+        ],
+    )
 
     rows = [{"experiment_id": 1, "scorer_name": "s1"}]
     assert _run_scorer_list_filter(rows) == ["s1"]
@@ -5220,11 +5397,16 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", READ.name),
-        ("experiment", "1", DENY.name),
-        ("scorer", "*", READ.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("experiment", "1", DENY.name),
+            ("scorer", "*", READ.name),
+        ],
+    )
 
     rows = [
         {"experiment_id": 1, "scorer_name": "s1"},
@@ -5304,10 +5486,15 @@ def test_guardrail_configs_withhold_a_denied_scorer(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("scorer", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("scorer", "*", DENY.name),
+        ],
+    )
 
     out = _run_guardrail_redaction(_guardrail_config_payload())
 
@@ -5321,10 +5508,15 @@ def test_guardrail_configs_withhold_on_scorer_version_deny(workspace_permission_
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("scorer_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("scorer_version", "*", DENY.name),
+        ],
+    )
 
     out = _run_guardrail_redaction(_guardrail_config_payload())
 
@@ -5371,10 +5563,15 @@ def test_add_guardrail_vetoes_a_denied_scorer(workspace_permission_setup, monkey
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("gateway_endpoint", "*", EDIT.name),
-        ("scorer", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("gateway_endpoint", "*", EDIT.name),
+            ("scorer", "*", DENY.name),
+        ],
+    )
 
     assert _run_add_guardrail(monkeypatch) is False
 
@@ -5402,6 +5599,7 @@ def test_add_guardrail_denies_an_unresolvable_guardrail(workspace_permission_set
         method="POST",
         json={"endpoint_id": "endpoint-1", "guardrail_id": "missing"},
     ):
+
         def _raise(guardrail_id):
             raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
 
@@ -5424,10 +5622,15 @@ def test_batch_trace_infos_redaction_honors_assessment_deny(workspace_permission
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
     out = _run_multi_trace_redaction(
         "BatchGetTraceInfos",
@@ -5459,10 +5662,15 @@ def test_batch_get_traces_redaction_reaches_nested_trace_info(workspace_permissi
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
     out = _run_multi_trace_redaction(
         "BatchGetTraces",
@@ -5493,10 +5701,15 @@ def test_optimization_job_honors_a_prompt_deny(workspace_permission_setup, uri):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("prompt", "other", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("prompt", "other", DENY.name),
+        ],
+    )
 
     assert _run_submit_optimization(uri) is False
 
@@ -5505,10 +5718,15 @@ def test_optimization_job_honors_a_prompt_version_deny(workspace_permission_setu
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("prompt_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("prompt_version", "*", DENY.name),
+        ],
+    )
 
     assert _run_submit_optimization("prompts:/other/3") is False
 
@@ -5543,10 +5761,15 @@ def test_get_assessment_denies_rather_than_redacts(workspace_permission_setup, m
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
     assert _run_get_assessment(monkeypatch, "exp-1") is False
 
@@ -5576,10 +5799,15 @@ def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
 
     assert _run_model_version_artifact() is False
 
@@ -5622,10 +5850,15 @@ def _deny_assessments(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
 
 def test_search_traces_refuses_an_assessment_backed_filter(workspace_permission_setup):
@@ -5719,10 +5952,15 @@ def test_search_traces_v3_sees_mixed_alias_locations(workspace_permission_setup)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", READ.name),
-        ("experiment", "exp-2", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", READ.name),
+            ("experiment", "exp-2", DENY.name),
+        ],
+    )
 
     assert _run_search_traces_v3([_snake_location("exp-1")]) is True
     assert _run_search_traces_v3([_snake_location("exp-2")]) is False
@@ -5760,15 +5998,31 @@ _PROMPT_TAGS = [{"key": "mlflow.prompt.is_prompt", "value": "true"}]
 @pytest.mark.parametrize(
     ("validator", "tier", "path", "body"),
     [
-        ("validate_can_create_experiment", "experiment", "/api/2.0/mlflow/experiments/create",
-         {"name": "x"}),
-        ("validate_can_create_registered_model", "registered_model",
-         "/api/2.0/mlflow/registered-models/create", {"name": "x"}),
+        (
+            "validate_can_create_experiment",
+            "experiment",
+            "/api/2.0/mlflow/experiments/create",
+            {"name": "x"},
+        ),
+        (
+            "validate_can_create_registered_model",
+            "registered_model",
+            "/api/2.0/mlflow/registered-models/create",
+            {"name": "x"},
+        ),
         # The route is shared; the request's own tags decide which family is created.
-        ("validate_can_create_registered_model", "prompt",
-         "/api/2.0/mlflow/registered-models/create", {"name": "x", "tags": _PROMPT_TAGS}),
-        ("validate_can_create_gateway_secret", "gateway_secret",
-         "/api/3.0/mlflow/gateway/secrets/create", {"name": "x"}),
+        (
+            "validate_can_create_registered_model",
+            "prompt",
+            "/api/2.0/mlflow/registered-models/create",
+            {"name": "x", "tags": _PROMPT_TAGS},
+        ),
+        (
+            "validate_can_create_gateway_secret",
+            "gateway_secret",
+            "/api/3.0/mlflow/gateway/secrets/create",
+            {"name": "x"},
+        ),
     ],
 )
 def test_workspace_creates_honor_a_created_type_deny(
@@ -5841,19 +6095,24 @@ def test_single_model_responses_redact_embedded_versions(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
     payload = json.dumps({
         "registered_model": {
-            "name": "model-xyz", "tags": [], "latest_versions": [{"name": "model-xyz"}]
+            "name": "model-xyz",
+            "tags": [],
+            "latest_versions": [{"name": "model-xyz"}],
         }
     })
     flask_resp = Response(payload, mimetype="application/json")
-    with auth_module.app.test_request_context(
-        path, method="POST", json={"name": "model-xyz"}
-    ):
+    with auth_module.app.test_request_context(path, method="POST", json={"name": "model-xyz"}):
         getattr(auth_module, handler)(flask_resp)
     out = json.loads(flask_resp.get_data(as_text=True))
     # message_to_json omits an emptied repeated field rather than serialising [].
@@ -5883,10 +6142,15 @@ def test_delete_alias_requires_version_read_and_falls_back_to_the_model(
     _grant(store, username, "team-a", [("registered_model", "model-xyz", MANAGE.name)])
     assert _delete_alias() is True
 
-    _grant(store, username, "team-a", [
-        ("registered_model", "model-xyz", MANAGE.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "model-xyz", MANAGE.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
     assert _delete_alias() is False
 
 
@@ -5913,10 +6177,15 @@ def test_set_alias_requires_version_read_and_falls_back_to_the_model(
     assert _set_alias() is True
 
     # A version DENY blocks publishing even though the parent still permits the alias map update.
-    _grant(store, username, "team-a", [
-        ("registered_model", "model-xyz", EDIT.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "model-xyz", EDIT.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
     assert _set_alias() is False
 
 
@@ -5960,7 +6229,8 @@ def test_create_model_version_ignores_a_registry_source_uri(
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("registered_model", "model-xyz", EDIT.name)])
     monkeypatch.setattr(
-        auth_module, "_authorize_logged_model_id",
+        auth_module,
+        "_authorize_logged_model_id",
         lambda *a: pytest.fail("a registry source must not be treated as a logged model"),
     )
     with auth_module.app.test_request_context(
@@ -5972,16 +6242,20 @@ def test_create_model_version_ignores_a_registry_source_uri(
 
 
 def _version_payload():
-    return {"model_version": {"name": "model-xyz", "version": "3", "run_id": "r-1",
-                              "run_link": "http://host/#/experiments/1/runs/r-1",
-                              "model_id": "m-1",
-                              "model_metrics": [{"key": "acc", "value": 0.9}],
-                              "source": "models:/m-1"}}
+    return {
+        "model_version": {
+            "name": "model-xyz",
+            "version": "3",
+            "run_id": "r-1",
+            "run_link": "http://host/#/experiments/1/runs/r-1",
+            "model_id": "m-1",
+            "model_metrics": [{"key": "acc", "value": 0.9}],
+            "source": "models:/m-1",
+        }
+    }
 
 
-def test_model_version_withholds_run_content_on_a_run_deny(
-    workspace_permission_setup, monkeypatch
-):
+def test_model_version_withholds_run_content_on_a_run_deny(workspace_permission_setup, monkeypatch):
     """A ModelVersion names the run that produced it (run_id, and run_link which is a URL to it)."""
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
@@ -5990,8 +6264,11 @@ def test_model_version_withholds_run_content_on_a_run_deny(
     _grant(store, username, "team-a", [("run", "*", DENY.name)])
 
     flask_resp = Response(json.dumps(_version_payload()), mimetype="application/json")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/model-versions/get", method="GET",
-                                             query_string={"name": "model-xyz", "version": "3"}):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/get",
+        method="GET",
+        query_string={"name": "model-xyz", "version": "3"},
+    ):
         auth_module.redact_model_version_siblings(flask_resp)
     version = json.loads(flask_resp.get_data(as_text=True))["model_version"]
 
@@ -6014,8 +6291,11 @@ def test_model_version_withholds_model_content_on_a_logged_model_deny(
     _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
 
     flask_resp = Response(json.dumps(_version_payload()), mimetype="application/json")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/model-versions/get", method="GET",
-                                             query_string={"name": "model-xyz", "version": "3"}):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/get",
+        method="GET",
+        query_string={"name": "model-xyz", "version": "3"},
+    ):
         auth_module.redact_model_version_siblings(flask_resp)
     version = json.loads(flask_resp.get_data(as_text=True))["model_version"]
 
@@ -6026,8 +6306,7 @@ def test_model_version_withholds_model_content_on_a_logged_model_deny(
 
 @pytest.mark.parametrize(
     ("tier", "gone", "kept"),
-    [("run", ("run_id", "run_link"), "model_id"),
-     ("logged_model", ("model_id",), "run_id")],
+    [("run", ("run_id", "run_link"), "model_id"), ("logged_model", ("model_id",), "run_id")],
     ids=["run-deny", "logged_model-deny"],
 )
 def test_search_registered_models_latest_versions_lose_denied_siblings(
@@ -6040,12 +6319,26 @@ def test_search_registered_models_latest_versions_lose_denied_siblings(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a",
-           [("registered_model", "*", MANAGE.name), (tier, "*", DENY.name)])
+    _grant(
+        store, username, "team-a", [("registered_model", "*", MANAGE.name), (tier, "*", DENY.name)]
+    )
 
-    payload = {"registered_models": [{"name": "model-xyz", "latest_versions": [
-        {"name": "model-xyz", "version": "3", "run_id": "r-1",
-         "run_link": "http://x/r-1", "model_id": "m-1"}]}]}
+    payload = {
+        "registered_models": [
+            {
+                "name": "model-xyz",
+                "latest_versions": [
+                    {
+                        "name": "model-xyz",
+                        "version": "3",
+                        "run_id": "r-1",
+                        "run_link": "http://x/r-1",
+                        "model_id": "m-1",
+                    }
+                ],
+            }
+        ]
+    }
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/registered-models/search", method="GET"
@@ -6071,12 +6364,17 @@ def test_registered_model_latest_versions_also_lose_denied_siblings(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("run", "*", DENY.name)])
-    payload = {"registered_model": {"name": "model-xyz", "latest_versions": [
-        {"name": "model-xyz", "version": "3", "run_id": "r-1"}]}}
+    payload = {
+        "registered_model": {
+            "name": "model-xyz",
+            "latest_versions": [{"name": "model-xyz", "version": "3", "run_id": "r-1"}],
+        }
+    }
 
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/registered-models/get", method="GET",
-                                             query_string={"name": "model-xyz"}):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/get", method="GET", query_string={"name": "model-xyz"}
+    ):
         auth_module.redact_get_registered_model_versions(flask_resp)
     model = json.loads(flask_resp.get_data(as_text=True))["registered_model"]
 
@@ -6093,13 +6391,18 @@ def test_get_run_withholds_model_links_on_a_logged_model_deny(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
-    payload = {"run": {"info": {"run_id": "r-1", "experiment_id": "exp-1"},
-                       "inputs": {"model_inputs": [{"model_id": "m-1"}]},
-                       "outputs": {"model_outputs": [{"model_id": "m-2", "step": 1}]}}}
+    payload = {
+        "run": {
+            "info": {"run_id": "r-1", "experiment_id": "exp-1"},
+            "inputs": {"model_inputs": [{"model_id": "m-1"}]},
+            "outputs": {"model_outputs": [{"model_id": "m-2", "step": 1}]},
+        }
+    }
 
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/runs/get", method="GET",
-                                             query_string={"run_id": "r-1"}):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/runs/get", method="GET", query_string={"run_id": "r-1"}
+    ):
         auth_module.redact_get_run_model_links(flask_resp)
     run = json.loads(flask_resp.get_data(as_text=True))["run"]
 
@@ -6114,11 +6417,13 @@ def test_get_run_keeps_model_links_without_a_deny(workspace_permission_setup, mo
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    payload = {"run": {"info": {"run_id": "r-1"},
-                       "inputs": {"model_inputs": [{"model_id": "m-1"}]}}}
+    payload = {
+        "run": {"info": {"run_id": "r-1"}, "inputs": {"model_inputs": [{"model_id": "m-1"}]}}
+    }
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/runs/get", method="GET",
-                                             query_string={"run_id": "r-1"}):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/runs/get", method="GET", query_string={"run_id": "r-1"}
+    ):
         auth_module.redact_get_run_model_links(flask_resp)
     run = json.loads(flask_resp.get_data(as_text=True))["run"]
     assert run["inputs"]["model_inputs"][0]["model_id"] == "m-1"
@@ -6162,9 +6467,7 @@ def test_every_metadata_bearing_trace_response_is_registered_for_redaction():
                     continue
                 declared = [
                     f"/api/2.0{endpoint.path}".replace("{", "<").replace("}", ">")
-                    for endpoint in method.GetOptions()
-                    .Extensions[databricks_pb2.rpc]
-                    .endpoints
+                    for endpoint in method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
                 ]
                 return bool(declared) and all(path in stubbed for path in declared)
         return False
@@ -6188,29 +6491,55 @@ def test_every_metadata_bearing_trace_response_is_registered_for_redaction():
     [
         (
             "redact_batch_trace_assessments",
-            {"traces": [{"trace_info": {"trace_id": "t-1", "trace_metadata": {
-                "mlflow.sourceRun": "r-1", "other": "keep"}}}]},
+            {
+                "traces": [
+                    {
+                        "trace_info": {
+                            "trace_id": "t-1",
+                            "trace_metadata": {"mlflow.sourceRun": "r-1", "other": "keep"},
+                        }
+                    }
+                ]
+            },
             lambda body: body["traces"][0]["trace_info"]["trace_metadata"],
         ),
         (
             "redact_batch_trace_info_assessments",
-            {"trace_infos": [{"trace_id": "t-1", "trace_metadata": {
-                "mlflow.sourceRun": "r-1", "other": "keep"}}]},
+            {
+                "trace_infos": [
+                    {
+                        "trace_id": "t-1",
+                        "trace_metadata": {"mlflow.sourceRun": "r-1", "other": "keep"},
+                    }
+                ]
+            },
             lambda body: body["trace_infos"][0]["trace_metadata"],
         ),
         (
             "redact_start_trace_metadata",
-            {"trace_info": {"request_id": "t-1", "request_metadata": [
-                {"key": "mlflow.sourceRun", "value": "r-1"}, {"key": "other", "value": "keep"}]}},
-            lambda body: {e["key"]: e["value"]
-                          for e in body["trace_info"]["request_metadata"]},
+            {
+                "trace_info": {
+                    "request_id": "t-1",
+                    "request_metadata": [
+                        {"key": "mlflow.sourceRun", "value": "r-1"},
+                        {"key": "other", "value": "keep"},
+                    ],
+                }
+            },
+            lambda body: {e["key"]: e["value"] for e in body["trace_info"]["request_metadata"]},
         ),
         (
             "redact_end_trace_metadata",
-            {"trace_info": {"request_id": "t-1", "request_metadata": [
-                {"key": "mlflow.sourceRun", "value": "r-1"}, {"key": "other", "value": "keep"}]}},
-            lambda body: {e["key"]: e["value"]
-                          for e in body["trace_info"]["request_metadata"]},
+            {
+                "trace_info": {
+                    "request_id": "t-1",
+                    "request_metadata": [
+                        {"key": "mlflow.sourceRun", "value": "r-1"},
+                        {"key": "other", "value": "keep"},
+                    ],
+                }
+            },
+            lambda body: {e["key"]: e["value"] for e in body["trace_info"]["request_metadata"]},
         ),
     ],
     ids=["batch-get-traces", "batch-get-trace-infos", "start-trace-v2", "end-trace"],
@@ -6250,8 +6579,18 @@ def test_trace_metadata_strips_only_the_denied_sibling_tier(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("run", "*", DENY.name)])
-    payload = {"trace": {"trace_info": {"trace_id": "t-1", "trace_metadata": {
-        "mlflow.sourceRun": "r-1", "mlflow.modelId": "m-1", "other": "keep"}}}}
+    payload = {
+        "trace": {
+            "trace_info": {
+                "trace_id": "t-1",
+                "trace_metadata": {
+                    "mlflow.sourceRun": "r-1",
+                    "mlflow.modelId": "m-1",
+                    "other": "keep",
+                },
+            }
+        }
+    }
 
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context("/api/3.0/mlflow/traces", method="POST", json={}):
@@ -6270,8 +6609,15 @@ def test_trace_metadata_handles_the_v2_repeated_spelling(workspace_permission_se
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
-    payload = {"trace_info": {"request_id": "t-1", "request_metadata": [
-        {"key": "mlflow.modelId", "value": "m-1"}, {"key": "keep", "value": "v"}]}}
+    payload = {
+        "trace_info": {
+            "request_id": "t-1",
+            "request_metadata": [
+                {"key": "mlflow.modelId", "value": "m-1"},
+                {"key": "keep", "value": "v"},
+            ],
+        }
+    }
 
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context("/api/2.0/mlflow/traces/t-1/info", method="GET"):
@@ -6290,11 +6636,20 @@ def test_attach_model_response_redacts_a_denied_secret(workspace_permission_setu
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("gateway_secret", "sec-1", DENY.name)])
-    payload = {"mapping": {"mapping_id": "map-1", "endpoint_id": "ep-1",
-                           "model_definition_id": "md-1",
-                           "model_definition": {"model_definition_id": "md-1", "name": "md",
-                                                "secret_id": "sec-1", "secret_name": "s",
-                                                "provider": "openai"}}}
+    payload = {
+        "mapping": {
+            "mapping_id": "map-1",
+            "endpoint_id": "ep-1",
+            "model_definition_id": "md-1",
+            "model_definition": {
+                "model_definition_id": "md-1",
+                "name": "md",
+                "secret_id": "sec-1",
+                "secret_name": "s",
+                "provider": "openai",
+            },
+        }
+    }
 
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context(
@@ -6331,7 +6686,8 @@ def test_create_logged_model_requires_read_on_a_named_source_run(
 
     tracking = auth_module._get_tracking_store()
     monkeypatch.setattr(
-        tracking, "get_run",
+        tracking,
+        "get_run",
         lambda run_id: SimpleNamespace(info=SimpleNamespace(experiment_id="exp-1")),
         raising=False,
     )
@@ -6351,11 +6707,13 @@ def test_create_logged_model_without_a_source_run_is_unaffected(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     # A run DENY must not block a create that names no run.
-    _grant(store, username, "team-a",
-           [("experiment", "exp-1", MANAGE.name), ("run", "*", DENY.name)])
+    _grant(
+        store, username, "team-a", [("experiment", "exp-1", MANAGE.name), ("run", "*", DENY.name)]
+    )
 
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/logged-models", method="POST",
+        "/api/2.0/mlflow/logged-models",
+        method="POST",
         json={"experiment_id": "exp-1", "name": "m"},
     ):
         with workspace_context.WorkspaceContext("team-a"):
@@ -6380,8 +6738,12 @@ def test_logged_model_metrics_withhold_a_denied_runs_id(
     if run_grant:
         _grant(store, username, "team-a", [("run", "*", run_grant)])
 
-    payload = {"model": {"info": {"model_id": "m-1", "experiment_id": "exp-1"},
-                         "data": {"metrics": [_metric_row()]}}}
+    payload = {
+        "model": {
+            "info": {"model_id": "m-1", "experiment_id": "exp-1"},
+            "data": {"metrics": [_metric_row()]},
+        }
+    }
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context("/api/2.0/mlflow/logged-models/m-1", method="GET"):
         with workspace_context.WorkspaceContext("team-a"):
@@ -6394,8 +6756,14 @@ def test_logged_model_metrics_withhold_a_denied_runs_id(
 
 
 def _metric_row(model_id="m-1", run_id="run-1"):
-    return {"key": "acc", "value": 0.9, "timestamp": 1, "step": 0,
-            "model_id": model_id, "run_id": run_id}
+    return {
+        "key": "acc",
+        "value": 0.9,
+        "timestamp": 1,
+        "step": 0,
+        "model_id": model_id,
+        "run_id": run_id,
+    }
 
 
 @pytest.mark.parametrize(
@@ -6416,8 +6784,12 @@ def test_get_run_metrics_withhold_a_denied_models_id(
     if model_grant:
         _grant(store, username, "team-a", [("logged_model", "*", model_grant)])
 
-    payload = {"run": {"info": {"run_id": "run-1", "experiment_id": "exp-1"},
-                       "data": {"metrics": [_metric_row()]}}}
+    payload = {
+        "run": {
+            "info": {"run_id": "run-1", "experiment_id": "exp-1"},
+            "data": {"metrics": [_metric_row()]},
+        }
+    }
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context("/api/2.0/mlflow/runs/get", method="GET"):
         with workspace_context.WorkspaceContext("team-a"):
@@ -6437,8 +6809,10 @@ def test_metric_history_withholds_a_denied_models_id(workspace_permission_setup,
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("logged_model", "*", DENY.name)])
 
-    flask_resp = Response(json.dumps({"metrics": [_metric_row(), _metric_row(model_id="")]}),
-                          mimetype="application/json")
+    flask_resp = Response(
+        json.dumps({"metrics": [_metric_row(), _metric_row(model_id="")]}),
+        mimetype="application/json",
+    )
     with auth_module.app.test_request_context("/api/2.0/mlflow/metrics/get-history", method="GET"):
         with workspace_context.WorkspaceContext("team-a"):
             auth_module.redact_metric_history_model_ids(flask_resp)
@@ -6499,15 +6873,30 @@ def test_id_grain_types_honor_deny_in_response_filtering(
 @pytest.mark.parametrize(
     ("validator", "path", "body", "action"),
     [
-        ("validate_can_read_gateway_model_definition",
-         "/api/3.0/mlflow/gateway/model-definitions/get", {"model_definition_id": "res-1"}, "read"),
-        ("validate_can_delete_gateway_model_definition",
-         "/api/3.0/mlflow/gateway/model-definitions/delete",
-         {"model_definition_id": "res-1"}, "delete"),
-        ("validate_can_read_gateway_endpoint",
-         "/api/3.0/mlflow/gateway/endpoints/get", {"endpoint_id": "res-1"}, "read"),
-        ("validate_can_read_gateway_secret",
-         "/api/3.0/mlflow/gateway/secrets/get", {"secret_id": "res-1"}, "read"),
+        (
+            "validate_can_read_gateway_model_definition",
+            "/api/3.0/mlflow/gateway/model-definitions/get",
+            {"model_definition_id": "res-1"},
+            "read",
+        ),
+        (
+            "validate_can_delete_gateway_model_definition",
+            "/api/3.0/mlflow/gateway/model-definitions/delete",
+            {"model_definition_id": "res-1"},
+            "delete",
+        ),
+        (
+            "validate_can_read_gateway_endpoint",
+            "/api/3.0/mlflow/gateway/endpoints/get",
+            {"endpoint_id": "res-1"},
+            "read",
+        ),
+        (
+            "validate_can_read_gateway_secret",
+            "/api/3.0/mlflow/gateway/secrets/get",
+            {"secret_id": "res-1"},
+            "read",
+        ),
     ],
 )
 def test_gateway_point_validators_honor_a_per_id_deny(
@@ -6520,9 +6909,11 @@ def test_gateway_point_validators_honor_a_per_id_deny(
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    tier = {"model_definition": "gateway_model_definition", "endpoint": "gateway_endpoint",
-            "secret": "gateway_secret"}[next(k for k in
-            ("model_definition", "endpoint", "secret") if f"{k}_id" in body)]
+    tier = {
+        "model_definition": "gateway_model_definition",
+        "endpoint": "gateway_endpoint",
+        "secret": "gateway_secret",
+    }[next(k for k in ("model_definition", "endpoint", "secret") if f"{k}_id" in body)]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [(tier, "*", MANAGE.name), (tier, "res-1", DENY.name)])
 
@@ -6531,9 +6922,15 @@ def test_gateway_point_validators_honor_a_per_id_deny(
 
 
 def _definition_payload(secret_id="sec-1"):
-    return {"model_definition": {"model_definition_id": "md-1", "name": "md",
-                                 "secret_id": secret_id, "secret_name": "my-secret",
-                                 "provider": "openai"}}
+    return {
+        "model_definition": {
+            "model_definition_id": "md-1",
+            "name": "md",
+            "secret_id": secret_id,
+            "secret_name": "my-secret",
+            "provider": "openai",
+        }
+    }
 
 
 @pytest.mark.parametrize(
@@ -6580,14 +6977,21 @@ def test_list_model_definitions_redacts_secrets_in_rows_it_keeps(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("gateway_model_definition", "*", READ.name),
-        ("gateway_secret", "sec-1", DENY.name),
-    ])
-    payload = {"model_definitions": [
-        {"model_definition_id": "md-1", "secret_id": "sec-1", "secret_name": "a"},
-        {"model_definition_id": "md-2", "secret_id": "sec-2", "secret_name": "b"},
-    ]}
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("gateway_model_definition", "*", READ.name),
+            ("gateway_secret", "sec-1", DENY.name),
+        ],
+    )
+    payload = {
+        "model_definitions": [
+            {"model_definition_id": "md-1", "secret_id": "sec-1", "secret_name": "a"},
+            {"model_definition_id": "md-2", "secret_id": "sec-2", "secret_name": "b"},
+        ]
+    }
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/gateway/model-definitions/list", method="GET"
@@ -6611,7 +7015,8 @@ def test_create_endpoint_vetoes_a_denied_experiment(workspace_permission_setup, 
 
     def _create(experiment_id):
         with auth_module.app.test_request_context(
-            "/api/3.0/mlflow/gateway/endpoints/create", method="POST",
+            "/api/3.0/mlflow/gateway/endpoints/create",
+            method="POST",
             json={"name": "ep", "experiment_id": experiment_id},
         ):
             return auth_module.validate_can_create_gateway_endpoint()
@@ -6648,18 +7053,20 @@ def _endpoint_payload(definition_id="md-1", secret_id="sec-1"):
     return {
         "endpoint": {
             "endpoint_id": "ep-1",
-            "model_mappings": [{
-                "mapping_id": "map-1",
-                "endpoint_id": "ep-1",
-                "model_definition_id": definition_id,
-                "model_definition": {
+            "model_mappings": [
+                {
+                    "mapping_id": "map-1",
+                    "endpoint_id": "ep-1",
                     "model_definition_id": definition_id,
-                    "name": "md",
-                    "secret_id": secret_id,
-                    "secret_name": "my-secret",
-                    "provider": "openai",
-                },
-            }],
+                    "model_definition": {
+                        "model_definition_id": definition_id,
+                        "name": "md",
+                        "secret_id": secret_id,
+                        "secret_name": "my-secret",
+                        "provider": "openai",
+                    },
+                }
+            ],
         }
     }
 
@@ -6667,7 +7074,8 @@ def _endpoint_payload(definition_id="md-1", secret_id="sec-1"):
 def _run_endpoint_redaction(handler, payload):
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/gateway/endpoints/get", method="GET",
+        "/api/3.0/mlflow/gateway/endpoints/get",
+        method="GET",
         query_string={"endpoint_id": "ep-1"},
     ):
         getattr(auth_module, handler)(flask_resp)
@@ -6676,8 +7084,10 @@ def _run_endpoint_redaction(handler, payload):
 
 @pytest.mark.parametrize(
     "handler",
-    ["redact_get_gateway_endpoint_model_definitions",
-     "redact_update_gateway_endpoint_model_definitions"],
+    [
+        "redact_get_gateway_endpoint_model_definitions",
+        "redact_update_gateway_endpoint_model_definitions",
+    ],
 )
 def test_endpoint_responses_redact_a_denied_model_definition(
     workspace_permission_setup, monkeypatch, handler
@@ -6740,9 +7150,7 @@ def test_detach_model_vetoes_a_denied_model_definition(workspace_permission_setu
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    monkeypatch.setattr(
-        auth_module, "_get_gateway_endpoint_permission", lambda endpoint_id: MANAGE
-    )
+    monkeypatch.setattr(auth_module, "_get_gateway_endpoint_permission", lambda endpoint_id: MANAGE)
     _grant(store, username, "team-a", [("gateway_model_definition", "md-1", DENY.name)])
 
     def _detach(definition_id):
@@ -6762,9 +7170,7 @@ def test_update_endpoint_vetoes_a_denied_experiment(workspace_permission_setup, 
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    monkeypatch.setattr(
-        auth_module, "_get_gateway_endpoint_permission", lambda endpoint_id: MANAGE
-    )
+    monkeypatch.setattr(auth_module, "_get_gateway_endpoint_permission", lambda endpoint_id: MANAGE)
     monkeypatch.setattr(auth_module, "_validate_can_use_model_definitions", lambda configs: True)
     _grant(store, username, "team-a", [("experiment", "exp-1", DENY.name)])
 
@@ -6802,15 +7208,25 @@ def test_latest_versions_are_redacted_by_a_version_deny(workspace_permission_set
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
 
     assert _get_registered_model_versions([{"name": "model-xyz", "version": "3"}]) == []
     # The model row itself is still returned -- only the embedded versions are withheld.
-    payload = json.dumps({"registered_model": {"name": "model-xyz", "tags": [],
-                                               "latest_versions": [{"name": "model-xyz"}]}})
+    payload = json.dumps({
+        "registered_model": {
+            "name": "model-xyz",
+            "tags": [],
+            "latest_versions": [{"name": "model-xyz"}],
+        }
+    })
     flask_resp = Response(payload, mimetype="application/json")
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/registered-models/get", method="GET", query_string={"name": "model-xyz"}
@@ -6836,10 +7252,15 @@ def test_search_registered_models_redacts_embedded_versions(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", READ.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", READ.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
     payload = json.dumps({
         "registered_models": [
             {"name": "model-xyz", "tags": [], "latest_versions": [{"name": "model-xyz"}]}
@@ -6865,9 +7286,7 @@ def _run_delete_experiment(experiment_id="exp-1"):
         return auth_module.validate_can_delete_experiment()
 
 
-@pytest.mark.parametrize(
-    "tier", ["run", "trace", "logged_model", "assessment", "review_queue"]
-)
+@pytest.mark.parametrize("tier", ["run", "trace", "logged_model", "assessment", "review_queue"])
 def test_experiment_delete_requires_delete_on_what_it_contains(workspace_permission_setup, tier):
     """Deleting an experiment withdraws its contents, so each contained tier carries `delete`. A
     child grant that cannot delete withholds the cascade even from an experiment MANAGE holder --
@@ -6876,10 +7295,15 @@ def test_experiment_delete_requires_delete_on_what_it_contains(workspace_permiss
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", MANAGE.name),
-        (tier, "*", EDIT.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", MANAGE.name),
+            (tier, "*", EDIT.name),
+        ],
+    )
 
     assert _run_delete_experiment() is False
 
@@ -6888,10 +7312,15 @@ def test_experiment_delete_allowed_when_children_are_deletable(workspace_permiss
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", MANAGE.name),
-        ("run", "*", MANAGE.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", MANAGE.name),
+            ("run", "*", MANAGE.name),
+        ],
+    )
 
     assert _run_delete_experiment() is True
 
@@ -6910,10 +7339,15 @@ def test_registered_model_delete_requires_delete_on_its_versions(workspace_permi
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "*", MANAGE.name),
-        ("registered_model_version", "*", EDIT.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "*", MANAGE.name),
+            ("registered_model_version", "*", EDIT.name),
+        ],
+    )
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/registered-models/delete", method="POST", json={"name": "model-xyz"}
@@ -6948,10 +7382,15 @@ def test_version_mutations_honor_a_version_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "model-xyz", EDIT.name),
-        ("registered_model_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "model-xyz", EDIT.name),
+            ("registered_model_version", "*", DENY.name),
+        ],
+    )
 
     assert _run_version_route("validate_can_update_model_or_prompt_version") is False
     assert _run_version_route("validate_can_delete_model_or_prompt_version") is False
@@ -6969,10 +7408,15 @@ def test_version_tier_confers_authority_without_registry_management(workspace_pe
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "model-xyz", READ.name),
-        ("registered_model_version", "*", EDIT.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "model-xyz", READ.name),
+            ("registered_model_version", "*", EDIT.name),
+        ],
+    )
 
     assert _run_version_route("validate_can_update_model_or_prompt_version") is True
 
@@ -6995,10 +7439,15 @@ def test_version_grant_cannot_outrun_a_parent_deny(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("registered_model", "model-xyz", DENY.name),
-        ("registered_model_version", "*", EDIT.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "model-xyz", DENY.name),
+            ("registered_model_version", "*", EDIT.name),
+        ],
+    )
 
     assert _run_version_route("validate_can_update_model_or_prompt_version") is False
 
@@ -7014,10 +7463,15 @@ def test_prompt_versions_resolve_to_the_prompt_version_tier(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     _use_prompt_registry(monkeypatch, {"my-prompt"})
-    _grant(store, username, "team-a", [
-        ("prompt", "my-prompt", READ.name),
-        ("registered_model_version", "*", EDIT.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("prompt", "my-prompt", READ.name),
+            ("registered_model_version", "*", EDIT.name),
+        ],
+    )
 
     # The model-version tier must NOT authorize a prompt version.
     assert (
@@ -7030,17 +7484,20 @@ def test_prompt_versions_resolve_to_the_prompt_version_tier(
     )
 
 
-def test_prompt_version_deny_does_not_block_model_versions(
-    workspace_permission_setup, monkeypatch
-):
+def test_prompt_version_deny_does_not_block_model_versions(workspace_permission_setup, monkeypatch):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     _use_prompt_registry(monkeypatch, {"my-prompt"})
-    _grant(store, username, "team-a", [
-        ("registered_model", "model-xyz", EDIT.name),
-        ("prompt_version", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("registered_model", "model-xyz", EDIT.name),
+            ("prompt_version", "*", DENY.name),
+        ],
+    )
 
     assert _run_version_route("validate_can_update_model_or_prompt_version") is True
 
@@ -7049,10 +7506,15 @@ def _deny_tier(workspace_permission_setup, tier):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        (tier, "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            (tier, "*", DENY.name),
+        ],
+    )
 
 
 def test_search_traces_refuses_a_run_backed_filter(workspace_permission_setup):
@@ -7117,10 +7579,15 @@ def test_query_trace_metrics_denies_the_assessments_view(workspace_permission_se
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "*", EDIT.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "*", EDIT.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
     assert _run_query_trace_metrics("ASSESSMENTS") is False
     # The other views aggregate nothing from assessments, so they are untouched.
@@ -7170,10 +7637,15 @@ def test_trace_assessments_redacted_on_assessment_deny(workspace_permission_setu
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", READ.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", READ.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
     kept, response = _run_trace_redaction()
     assert kept == []
@@ -7201,10 +7673,15 @@ def test_trace_assessments_kept_on_explicit_assessment_read(workspace_permission
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", READ.name),
-        ("assessment", "*", READ.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", READ.name),
+            ("assessment", "*", READ.name),
+        ],
+    )
 
     kept, _ = _run_trace_redaction()
     assert kept == ["a1", "a2"]
@@ -7220,10 +7697,15 @@ def test_retention_gate_keeps_each_tier_separate(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [
-        ("experiment", "exp-1", READ.name),
-        ("assessment", "*", DENY.name),
-    ])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "exp-1", READ.name),
+            ("assessment", "*", DENY.name),
+        ],
+    )
 
     experiment = (auth_module.RESOURCE_TYPE_EXPERIMENT, "exp-1")
     with auth_module.app.test_request_context("/"):
@@ -7231,10 +7713,15 @@ def test_retention_gate_keeps_each_tier_separate(workspace_permission_setup):
             username,
             experiment,
             [
-                Requirement(auth_module.RESOURCE_TYPE_TRACE, "*", "read",
-                            fallback_if_no_grant=(experiment,)),
-                Requirement(auth_module.RESOURCE_TYPE_ASSESSMENT, "*", "read",
-                            fallback_if_no_grant=(experiment,)),
+                Requirement(
+                    auth_module.RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)
+                ),
+                Requirement(
+                    auth_module.RESOURCE_TYPE_ASSESSMENT,
+                    "*",
+                    "read",
+                    fallback_if_no_grant=(experiment,),
+                ),
             ],
         )
 
