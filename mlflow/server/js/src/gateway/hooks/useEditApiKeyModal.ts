@@ -18,13 +18,20 @@ const INITIAL_FORM_DATA: SecretFormData = {
   configFields: {},
 };
 
-const CREDENTIAL_BOUND_CONFIG_FIELD = 'api_base';
+const apiBaseHostname = (value: string | undefined): string | null => {
+  const apiBase = value?.trim();
+  if (!apiBase) return null;
+  try {
+    return new URL(apiBase).hostname || apiBase;
+  } catch {
+    return apiBase;
+  }
+};
 
-const normalizeCredentialBoundConfigValue = (value: string | undefined) => value?.trim() || '';
-
-const hasCredentialBoundConfigChanged = (formData: SecretFormData, initialFormData: SecretFormData): boolean =>
-  normalizeCredentialBoundConfigValue(formData.configFields[CREDENTIAL_BOUND_CONFIG_FIELD]) !==
-  normalizeCredentialBoundConfigValue(initialFormData.configFields[CREDENTIAL_BOUND_CONFIG_FIELD]);
+const hasApiBaseHostnameChanged = (formData: SecretFormData, initialFormData: SecretFormData): boolean => {
+  const updatedHostname = apiBaseHostname(formData.configFields['api_base']);
+  return updatedHostname !== null && updatedHostname !== apiBaseHostname(initialFormData.configFields['api_base']);
+};
 
 const getCredentialReplacementFieldNames = (
   secret: SecretInfo,
@@ -118,7 +125,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       }
     }
 
-    if (secret && hasCredentialBoundConfigChanged(formData, initialFormData)) {
+    if (secret && hasApiBaseHostnameChanged(formData, initialFormData)) {
       const requiredSecretFieldNames = getCredentialReplacementFieldNames(
         secret,
         selectedAuthMode,
@@ -131,8 +138,8 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
       if (missingSecretFieldNames.length > 0) {
         const message = intl.formatMessage({
-          defaultMessage: 'Re-enter this credential when changing the API Base URL.',
-          description: 'Validation message shown when editing API Base URL without re-entering API key',
+          defaultMessage: 'Re-enter this credential when changing the API Base URL hostname.',
+          description: 'Validation message shown when changing the API Base URL hostname',
         });
         newErrors.secretFields = Object.fromEntries(missingSecretFieldNames.map((fieldName) => [fieldName, message]));
       }
@@ -220,7 +227,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       if (!allRequiredSecretsProvided) return false;
     }
 
-    if (secret && hasCredentialBoundConfigChanged(formData, initialFormData)) {
+    if (secret && hasApiBaseHostnameChanged(formData, initialFormData)) {
       const requiredSecretFieldNames = getCredentialReplacementFieldNames(
         secret,
         selectedAuthMode,

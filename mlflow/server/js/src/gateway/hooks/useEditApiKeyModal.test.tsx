@@ -161,6 +161,32 @@ describe('useEditApiKeyModal', () => {
     expect(result.current.isFormValid).toBe(false);
   });
 
+  test.each([
+    ['path', 'https://api.openai.com/v2'],
+    ['trailing slash', 'https://api.openai.com/v1/'],
+    ['scheme', 'http://api.openai.com/v1'],
+    ['port', 'https://api.openai.com:8443/v1'],
+    ['reset to default', ''],
+  ])('allows %s edit without re-entering credentials', async (_description, apiBase) => {
+    const { result } = renderHook(
+      () => useEditApiKeyModal({ secret: mockApiBaseSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.handleFormDataChange({
+        ...result.current.formData,
+        configFields: { api_base: apiBase },
+      });
+    });
+
+    expect(result.current.isFormValid).toBe(true);
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+    expect(mockUpdateSecret).toHaveBeenCalledWith(expect.objectContaining({ secret_value: undefined }));
+  });
+
   test('resetForm reverts to initial form data', () => {
     const { result } = renderHook(
       () => useEditApiKeyModal({ secret: mockSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),
@@ -229,7 +255,7 @@ describe('useEditApiKeyModal', () => {
 
     expect(mockUpdateSecret).not.toHaveBeenCalled();
     expect(result.current.errors.secretFields?.['api_key']).toBe(
-      'Re-enter this credential when changing the API Base URL.',
+      'Re-enter this credential when changing the API Base URL hostname.',
     );
   });
 
@@ -323,10 +349,10 @@ describe('useEditApiKeyModal', () => {
     });
     expect(mockUpdateSecret).not.toHaveBeenCalled();
     expect(result.current.errors.secretFields?.['portkey_config']).toBe(
-      'Re-enter this credential when changing the API Base URL.',
+      'Re-enter this credential when changing the API Base URL hostname.',
     );
     expect(result.current.errors.secretFields?.['provider_api_key']).toBe(
-      'Re-enter this credential when changing the API Base URL.',
+      'Re-enter this credential when changing the API Base URL hostname.',
     );
 
     act(() => {
