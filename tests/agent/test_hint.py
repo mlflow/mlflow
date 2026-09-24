@@ -133,6 +133,16 @@ def test_silent_when_the_install_ships_no_skill(clean_env: Path, monkeypatch: py
     assert hint_message() is None
 
 
+def test_missing_skill_manifest_is_claimed_once(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    lookup_mock = mock.Mock(return_value=None)
+    monkeypatch.setattr(hint, "_bundled_skill_manifest", lookup_mock)
+    assert hint_message() is None
+    assert hint_message() is None
+    # Lookup should only be attempted once because the skill was claimed into _EMITTED_HINTS
+    assert lookup_mock.call_count == 1
+
+
 def test_bundled_lookup_survives_a_missing_skills_package(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         hint.resources, "files", mock.Mock(side_effect=ModuleNotFoundError("no skills"))

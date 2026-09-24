@@ -135,12 +135,12 @@ def maybe_hint_tracing_skill(skill: str = TRACING_SKILL) -> None:
     try:
         if skill in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
             return
-        if (path := _bundled_skill_manifest(skill)) is None:
-            return
         with _EMITTED_HINTS_LOCK:
             if skill in _EMITTED_HINTS:
                 return
             _EMITTED_HINTS.add(skill)
+        if (path := _bundled_skill_manifest(skill)) is None:
+            return
         hint_template = _SKILL_HINTS.get(skill, _DEFAULT_HINT)
         _logger.info(hint_template.format(skill=skill, path=path))
     except Exception:
