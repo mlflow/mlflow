@@ -189,3 +189,34 @@ def test_sparse_columns_are_skipped():
     ])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert result.passed, result.reason
+
+
+def test_expectation_columns_are_not_asserted():
+    df = pd.DataFrame([
+        {"scorer_a/value": "yes", "expected_response/value": "some string", "max_length/value": 10},
+    ])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={},
+        result_df=df,
+        expectation_names={"expected_response", "max_length"},
+    )
+    assert result.passed, result.reason
+    assert result.reason == ""
+
+
+def test_expectation_columns_do_not_hide_failing_scorer():
+    df = pd.DataFrame([{"scorer_a/value": "no", "expected_response/value": "yes"}])
+    result = EvaluationResult(
+        run_id="r1", metrics={}, result_df=df, expectation_names={"expected_response"}
+    )
+    assert not result.passed
+    assert "scorer_a" in result.reason
+    assert "expected_response" not in result.reason
+
+
+def test_columns_are_all_asserted_without_expectation_names():
+    df = pd.DataFrame([{"scorer_a/value": "yes", "expected_response/value": "some string"}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "expected_response" in result.reason
