@@ -28,7 +28,6 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_TRACE,
 )
-from mlflow.utils.os import is_windows
 
 from tests.server.auth.auth_test_utils import (
     User,
@@ -46,12 +45,10 @@ def clear_credentials(monkeypatch):
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(tmp_path, db_uri):
     auth_config_path = write_isolated_auth_config(tmp_path)
-    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
     with _init_server(
-        backend_uri=backend_uri,
+        backend_uri=db_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
         extra_env={
