@@ -2950,7 +2950,14 @@ def _entity_is_prompt(entity) -> bool:
     """
     if hasattr(entity, "_is_prompt"):
         return entity._is_prompt()
-    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in entity.tags)
+    # Duplicate keys are legal on the wire and the store keeps the LAST, so fold the same way before
+    # reading the marker. `any(... == "true")` called a `[true, false]` create body a prompt while a
+    # registered model was what got created, which sent the veto to the wrong tier.
+    value = None
+    for tag in entity.tags:
+        if tag.key == IS_PROMPT_TAG_KEY:
+            value = tag.value
+    return value is not None and value.lower() == "true"
 
 
 def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:

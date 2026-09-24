@@ -2384,6 +2384,40 @@ def test_gateway_model_definition_list_gates_a_denied_secret_selector(
 
 
 @pytest.mark.parametrize(
+    ("tag_values", "denied_type", "allowed"),
+    [
+        # The store keeps the LAST value, so this creates a registered model, not a prompt.
+        (["true", "false"], "registered_model", False),
+        (["true", "false"], "prompt", True),
+        (["false", "true"], "prompt", False),
+        (["false", "true"], "registered_model", True),
+    ],
+    ids=["model-deny", "model-wrong-tier", "prompt-deny", "prompt-wrong-tier"],
+)
+def test_create_classification_folds_duplicate_prompt_tags_last_wins(
+    workspace_permission_setup, monkeypatch, tag_values, denied_type, allowed
+):
+    """Duplicate keys are legal on the wire, so auth must fold them the way the store does.
+
+    Reading `any(... == "true")` sent a `[true, false]` body to the prompt tier while the store
+    created a registered model, so a `registered_model` DENY did not apply to what was created.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [(denied_type, "*", DENY.name)])
+    body = {
+        "name": "m-1",
+        "tags": [{"key": "mlflow.prompt.is_prompt", "value": v} for v in tag_values],
+    }
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/create", method="POST", json=body
+    ):
+        assert auth_module.validate_can_create_registered_model() is allowed
+
+
+@pytest.mark.parametrize(
     ("grant", "created", "allowed"),
     [
         (("registered_model", "m-1", DENY.name), "m-1", False),
