@@ -5967,6 +5967,59 @@ def test_attach_model_response_redacts_a_denied_secret(workspace_permission_setu
     assert mapping["model_definition"]["provider"] == "openai"
 
 
+@pytest.mark.parametrize(
+    ("run_grant", "expected"),
+    [(None, True), ("READ", True), ("DENY", False)],
+    ids=["no-run-grant-falls-back-to-experiment", "run-read", "run-deny"],
+)
+def test_create_logged_model_requires_read_on_a_named_source_run(
+    workspace_permission_setup, monkeypatch, run_grant, expected
+):
+    """Binding a new logged model to another user's run would launder artifact access through the
+    model, so a named `source_run_id` needs run READ -- the same check the version create performs.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("experiment", "exp-1", MANAGE.name)]
+    if run_grant:
+        rows.append(("run", "*", run_grant))
+    _grant(store, username, "team-a", rows)
+
+    tracking = auth_module._get_tracking_store()
+    monkeypatch.setattr(
+        tracking, "get_run",
+        lambda run_id: SimpleNamespace(info=SimpleNamespace(experiment_id="exp-1")),
+        raising=False,
+    )
+    body = {"experiment_id": "exp-1", "name": "m", "source_run_id": "run-1"}
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/logged-models", method="POST", json=body
+    ):
+        with workspace_context.WorkspaceContext("team-a"):
+            assert auth_module.validate_can_create_logged_model() is expected
+
+
+def test_create_logged_model_without_a_source_run_is_unaffected(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    # A run DENY must not block a create that names no run.
+    _grant(store, username, "team-a",
+           [("experiment", "exp-1", MANAGE.name), ("run", "*", DENY.name)])
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/logged-models", method="POST",
+        json={"experiment_id": "exp-1", "name": "m"},
+    ):
+        with workspace_context.WorkspaceContext("team-a"):
+            assert auth_module.validate_can_create_logged_model() is True
+
+
 _ID_GRAIN_TYPES = [
     "experiment",
     "registered_model",

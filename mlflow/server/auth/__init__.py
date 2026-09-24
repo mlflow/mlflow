@@ -3588,9 +3588,17 @@ def _authorize_bulk_in_experiments(
 
 
 def validate_can_create_logged_model():
-    return _authorize_create_in_experiment(
-        _get_request_param("experiment_id"), RESOURCE_TYPE_LOGGED_MODEL
-    )
+    """The experiment authorizes the create; a named ``source_run_id`` additionally needs run READ.
+
+    Same reasoning as ``validate_can_create_model_version``: the new model's artifacts are read
+    through the model itself, so binding it to another user's run at create time would launder
+    access to that run. Read, not use -- it mirrors the run-read check the version create already
+    performs, and the run is being referenced rather than put into service.
+    """
+    msg = _get_request_message(CreateLoggedModel())
+    if not _authorize_create_in_experiment(msg.experiment_id, RESOURCE_TYPE_LOGGED_MODEL):
+        return False
+    return not msg.source_run_id or _authorize_run_id(msg.source_run_id, "read")
 
 
 def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | None":
