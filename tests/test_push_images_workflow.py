@@ -31,21 +31,29 @@ def test_floating_image_tags_are_promoted_after_versioned_images_are_published()
     metadata_indexes = [build_steps.index(step) for step in metadata_steps.values()]
     assert max(metadata_indexes) < validation_index < first_push_index
 
+    latest_check_job = jobs["check-latest"]
+    assert latest_check_job["needs"] == "push-images"
+    assert latest_check_job["permissions"] == {"contents": "read"}
+    assert latest_check_job["outputs"] == {"promote": "${{ steps.latest.outputs.promote }}"}
+    assert "concurrency" not in latest_check_job
+    assert "concurrency" not in jobs["push-images"]
+    latest_check_script = next(
+        step["run"]
+        for step in latest_check_job["steps"]
+        if step.get("name") == "Check GitHub's latest release"
+    )
+    api_failure_branch = latest_check_script.split("elif", maxsplit=1)[0]
+    assert 'echo "promote=false"' in api_failure_branch
+    assert "exit 1" in api_failure_branch
+
     promotion_job = jobs["promote-latest"]
-    assert promotion_job["needs"] == "push-images"
+    assert promotion_job["needs"] == "check-latest"
+    assert promotion_job["if"] == "needs.check-latest.outputs.promote == 'true'"
     assert promotion_job["permissions"] == {"contents": "read", "packages": "write"}
     assert promotion_job["concurrency"] == {
         "group": "push-images-promote-latest",
         "cancel-in-progress": False,
     }
-    latest_check_script = next(
-        step["run"]
-        for step in promotion_job["steps"]
-        if step.get("name") == "Check GitHub's latest release"
-    )
-    api_failure_branch = latest_check_script.split("elif", maxsplit=1)[0]
-    assert "exit 1" in api_failure_branch
-
     promotion_script = next(
         step["run"]
         for step in promotion_job["steps"]
@@ -53,9 +61,17 @@ def test_floating_image_tags_are_promoted_after_versioned_images_are_published()
     )
     latest_check = 'gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name'
     first_write = "docker buildx imagetools create --prefer-index=false"
+    recheck_failure_branch = promotion_script.split("elif", maxsplit=1)[0]
+    assert "exit 1" in recheck_failure_branch
     assert promotion_script.count(latest_check) == 1
-    assert promotion_script.index(latest_check) < promotion_script.index(first_write)
     assert promotion_script.count(first_write) == 3
+    write_indexes = [
+        index
+        for index in range(len(promotion_script))
+        if promotion_script.startswith(first_write, index)
+    ]
+    assert promotion_script.index(latest_check) < min(write_indexes)
+    assert all("if" not in step for step in promotion_job["steps"])
 
     expected_promotions = {
         (
