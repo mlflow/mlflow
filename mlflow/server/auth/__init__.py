@@ -5575,6 +5575,11 @@ def filter_search_logged_models(resp: Response) -> None:
 
     if next_page_token:
         response_proto.next_page_token = next_page_token
+    _withhold_denied_metric_references(
+        [metric for model in response_proto.models for metric in model.data.metrics],
+        username,
+        RESOURCE_TYPE_RUN,
+    )
     resp.data = message_to_json(response_proto)
 
 
@@ -6154,22 +6159,24 @@ def _withhold_denied_version_siblings(versions, username: str) -> bool:
     return withheld
 
 
-def _withhold_denied_metric_model_ids(metrics, username: str) -> bool:
-    """Clear `Metric.model_id` when the caller is denied the logged-model tier.
+# A metric is dual-homed -- it names both the run it belongs to and, when logged against one, the
+# logged model. Which field is a SIBLING therefore depends on the route: on a run response the
+# model is the sibling, on a logged-model response the run is.
+_METRIC_SIBLING_FIELD = {
+    RESOURCE_TYPE_LOGGED_MODEL: "model_id",
+    RESOURCE_TYPE_RUN: "run_id",
+}
 
-    A metric is dual-homed: it belongs to a run AND, when logged against a logged model, names that
-    model. So a metric row is a second route to a model id, independent of a run's
-    `model_inputs`/`model_outputs` links.
-    """
-    named = [metric for metric in metrics if metric.model_id]
+
+def _withhold_denied_metric_references(metrics, username: str, tier: str) -> bool:
+    field = _METRIC_SIBLING_FIELD[tier]
+    named = [metric for metric in metrics if getattr(metric, field)]
     if not named:
         return False
-    if RESOURCE_TYPE_LOGGED_MODEL not in _denied_sibling_tiers(
-        username, (RESOURCE_TYPE_LOGGED_MODEL,)
-    ):
+    if tier not in _denied_sibling_tiers(username, (tier,)):
         return False
     for metric in named:
-        metric.ClearField("model_id")
+        metric.ClearField(field)
     return True
 
 
@@ -6251,10 +6258,41 @@ def redact_metric_history_model_ids(resp: Response) -> None:
         return
     response_message = GetMetricHistory.Response()
     parse_dict(resp.json, response_message)
-    if _withhold_denied_metric_model_ids(
-        response_message.metrics, authenticate_request().username
+    if _withhold_denied_metric_references(
+        response_message.metrics, authenticate_request().username, RESOURCE_TYPE_LOGGED_MODEL
     ):
         resp.data = message_to_json(response_message)
+
+
+def _redact_logged_model_response(resp: Response, response_message, models_of) -> None:
+    """The mirror of the run case: here the logged model is the route's subject, so
+    `metrics[].model_id` is its own id and stays, while `metrics[].run_id` names a run the caller
+    may be denied.
+    """
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    metrics = [
+        metric for model in models_of(response_message) for metric in model.data.metrics
+    ]
+    if _withhold_denied_metric_references(
+        metrics, authenticate_request().username, RESOURCE_TYPE_RUN
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_logged_model_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, GetLoggedModel.Response(), lambda m: [m.model])
+
+
+def redact_finalize_logged_model_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, FinalizeLoggedModel.Response(), lambda m: [m.model])
+
+
+def redact_set_logged_model_tags_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, SetLoggedModelTags.Response(), lambda m: [m.model])
 
 
 def _redact_version_response(resp: Response, response_message, versions_of) -> None:
@@ -6505,7 +6543,10 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateModelVersion: redact_created_model_version_siblings,
     UpdateModelVersion: redact_updated_model_version_siblings,
     TransitionModelVersionStage: redact_transitioned_model_version_siblings,
+    FinalizeLoggedModel: redact_finalize_logged_model_run_ids,
+    GetLoggedModel: redact_get_logged_model_run_ids,
     GetMetricHistory: redact_metric_history_model_ids,
+    SetLoggedModelTags: redact_set_logged_model_tags_run_ids,
     GetRun: redact_get_run_model_links,
     SearchRuns: redact_search_runs_model_links,
     StartTraceV3: redact_start_trace_v3_metadata,
