@@ -123,17 +123,12 @@ def test_update_skill_version_enforces_lifecycle_transitions(store):
     assert _get_version_row(store, 1) == SkillStatus.ACTIVE.value
 
 
-def test_update_skill_version_noop_does_not_change_audit_fields(store):
+def test_update_skill_version_with_same_status_is_invalid(store):
     _seed_skill(store, [(1, SkillStatus.ACTIVE)])
-    before = _get_version_audit(store, 1)
 
     assert store.update_skill_version("reviewer", 1).status == SkillStatus.ACTIVE
-    assert (
-        store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE).status
-        == SkillStatus.ACTIVE
-    )
-
-    assert _get_version_audit(store, 1) == before
+    with pytest.raises(MlflowException, match="Invalid status transition"):
+        store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE)
 
 
 def test_update_skill_version_records_last_updated_by(store):
@@ -339,6 +334,14 @@ def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
     assert _get_alias_rows(store) == []
 
 
+def test_delete_skill_version_allows_active_versions(store):
+    _seed_skill(store, [(1, SkillStatus.ACTIVE)])
+
+    store.delete_skill_version("reviewer", 1)
+
+    assert _get_version_row(store, 1) == SkillStatus.DELETED.value
+
+
 def test_delete_skill_version_of_deleted_version_is_not_found(store):
     _seed_skill(store, [(1, SkillStatus.DEPRECATED)])
 
@@ -496,13 +499,13 @@ def test_deleting_a_missing_alias_raises(store):
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
-def test_deleting_latest_alias_reports_not_found(store):
+def test_deleting_latest_alias_is_invalid(store):
     _seed_skill(store, [(1, SkillStatus.ACTIVE)])
 
-    with pytest.raises(MlflowException, match="Alias 'latest' not found") as exc:
+    with pytest.raises(MlflowException, match="cannot be deleted") as exc:
         store.delete_skill_alias("reviewer", "latest")
 
-    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_skill_alias_validation_uses_skill_specific_error(store):

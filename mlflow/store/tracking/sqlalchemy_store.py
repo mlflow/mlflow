@@ -172,9 +172,6 @@ from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStor
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
 )
-from mlflow.store.tracking.skill_registry.lifecycle_mixin import (
-    SqlAlchemySkillRegistryLifecycleMixin,
-)
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
     SqlAlchemySkillRegistryMixin,
 )
@@ -311,7 +308,6 @@ class DatasetFilter(TypedDict, total=False):
 
 class SqlAlchemyStore(
     SqlAlchemySkillRegistryMixin,
-    SqlAlchemySkillRegistryLifecycleMixin,
     SqlAlchemyMCPServerRegistryMixin,
     SqlAlchemyGatewayStoreMixin,
     AbstractStore,

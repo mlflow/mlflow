@@ -148,8 +148,8 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _validate_alias_name,
     _validate_list_param,
-    _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
     _validate_model_version_or_stage_exists,
@@ -5622,7 +5622,7 @@ class MlflowClient:
             Aliases: ["test-alias"]
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         _validate_model_version(version)
         self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_alias(name, alias, version)
@@ -5720,7 +5720,7 @@ class MlflowClient:
             Aliases: []
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_alias(name, alias)
 
