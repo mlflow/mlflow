@@ -442,6 +442,12 @@ from mlflow.server.mcp_server_api import (
     is_mcp_server_api_path,
 )
 from mlflow.server.mcp_server_api import (
+    create_mcp_access_endpoint as _create_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    get_mcp_access_endpoint as _get_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     get_mcp_server as _get_mcp_server_endpoint,
 )
 from mlflow.server.mcp_server_api import (
@@ -449,6 +455,15 @@ from mlflow.server.mcp_server_api import (
 )
 from mlflow.server.mcp_server_api import (
     search_mcp_servers as _search_mcp_servers_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_server_access_endpoints as _search_server_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_access_endpoint as _update_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_server as _update_mcp_server_endpoint,
 )
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
@@ -7998,7 +8013,38 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
         to_dict=lambda s: _stamp(MCPServerResponse.from_entity(s).model_dump(mode="json")),
     )
     data["mcp_servers"] = readable[:max_results]
+    _withhold_denied_mcp_version_passengers_on_servers(data["mcp_servers"], username)
     return json.dumps(data).encode()
+
+
+# An access endpoint carries its resolved version's content: `resolved_version` is the version
+# object, `tools` is copied out of it, and `server_version`/`server_alias` name the passenger. They
+# are withheld together, because leaving the selector behind still discloses which version a denied
+# caller's endpoint resolves to.
+_MCP_VERSION_PASSENGER_FIELDS = ("resolved_version", "tools", "server_version", "server_alias")
+
+
+def _withhold_denied_mcp_version_passengers(endpoints: list[dict], username: str) -> None:
+    # The endpoint row is the subject of its own route, so a denied version is redacted out of the
+    # row rather than removing the row. Memoized on the server name, which is what the veto resolves
+    # a workspace from -- the cross-server search mixes servers in one response.
+    denied: dict[str, bool] = {}
+    for endpoint in endpoints:
+        server_name = endpoint.get("server_name")
+        if server_name not in denied:
+            denied[server_name] = not _mcp_server_version_not_denied(username, server_name)
+        if not denied[server_name]:
+            continue
+        for field in _MCP_VERSION_PASSENGER_FIELDS:
+            # Only clear what the payload already carries: the nested summary has no `tools`, and
+            # adding the key would change the response shape rather than redact it.
+            if field in endpoint:
+                endpoint[field] = None
+
+
+def _withhold_denied_mcp_version_passengers_on_servers(servers: list[dict], username: str) -> None:
+    for server in servers:
+        _withhold_denied_mcp_version_passengers(server.get("access_endpoints", []), username)
 
 
 def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
@@ -8030,6 +8076,7 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
         to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
     )
     data["mcp_access_endpoints"] = readable[:max_results]
+    _withhold_denied_mcp_version_passengers(data["mcp_access_endpoints"], username)
     return json.dumps(data).encode()
 
 
@@ -8293,6 +8340,23 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     if name := data.get("name"):
         perm = _get_mcp_server_permission(name, username)
         data["allowed_actions"] = _permission_to_allowed_actions(perm)
+    _withhold_denied_mcp_version_passengers(data.get("access_endpoints", []), username)
+    return json.dumps(data).encode()
+
+
+def _filter_mcp_access_endpoint(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    _withhold_denied_mcp_version_passengers([data], username)
+    return json.dumps(data).encode()
+
+
+def _filter_search_server_access_endpoints(
+    username: str, body: bytes, request: StarletteRequest
+) -> bytes:
+    # Every row belongs to the one server the path validator already gated on read, so unlike the
+    # cross-server search there is no row filtering to do -- only the version passenger to withhold.
+    data = json.loads(body)
+    _withhold_denied_mcp_version_passengers(data.get("mcp_access_endpoints", []), username)
     return json.dumps(data).encode()
 
 
@@ -8321,6 +8385,14 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
+    # A server response embeds `access_endpoints`, each carrying its resolved version, so the update
+    # response needs the same pass the read does. Server CREATE is excluded: a new server has no
+    # endpoints yet, so wiring it would be dead code.
+    _update_mcp_server_endpoint: _filter_get_mcp_server,
+    _get_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
+    _create_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
+    _update_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
+    _search_server_access_endpoints_endpoint: _filter_search_server_access_endpoints,
     _search_jobs_endpoint: _filter_search_jobs,
     _list_gateway_models_endpoint: _filter_list_gateway_models,
 }
