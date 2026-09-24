@@ -314,6 +314,7 @@ def log_explainer(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    skops_trusted_types: list[str] | None = None,
 ):
     """
     Log an SHAP explainer as an MLflow artifact for the current run.
@@ -355,6 +356,9 @@ def log_explainer(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        skops_trusted_types: A list of trusted types when saving the explainer's underlying
+            scikit-learn model in the ``skops`` format. Only include types that you have reviewed
+            and trust.
     """
 
     return Model.log(
@@ -377,6 +381,7 @@ def log_explainer(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        skops_trusted_types=skops_trusted_types,
     )
 
 
@@ -393,6 +398,7 @@ def save_explainer(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    skops_trusted_types: list[str] | None = None,
 ):
     """
     Save a SHAP explainer to a path on the local file system. Produces an MLflow Model
@@ -428,6 +434,9 @@ def save_explainer(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        skops_trusted_types: A list of trusted types when saving the explainer's underlying
+            scikit-learn model in the ``skops`` format. Only include types that you have reviewed
+            and trust.
     """
     import shap
 
@@ -462,7 +471,11 @@ def save_explainer(
             )
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
-            mlflow.sklearn.save_model(explainer.model.inner_model.__self__, underlying_model_path)
+            mlflow.sklearn.save_model(
+                explainer.model.inner_model.__self__,
+                underlying_model_path,
+                skops_trusted_types=skops_trusted_types,
+            )
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
             mlflow.pytorch.save_model(explainer.model.inner_model, underlying_model_path)
 
