@@ -2407,6 +2407,19 @@ def _model_id_from_source_uri(source: str) -> str | None:
         return None
 
 
+def _can_read_model_version_source(
+    get_permission: Callable[[str], Permission], source_id: str
+) -> bool:
+    # Deny a nonexistent source id uniformly (403 rather than 404) so the response cannot
+    # be used as an oracle for which run/model ids exist.
+    try:
+        return get_permission(source_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
 def validate_can_create_model_version():
     # Downstream artifact reads are gated on the destination registered model. Require read on
     # the resource that owns the source so creating a version cannot grant access to artifacts
