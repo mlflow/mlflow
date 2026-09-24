@@ -72,6 +72,17 @@ def _validate_remote_value(value: str, what: str) -> None:
 
 def _validate_git(url: str, ref: str | None) -> None:
     _validate_remote_value(url, "Git URL")
+    # A URL is persisted as the version's source for anyone to read. Git fetches use the
+    # caller's own credential helpers, so credentials in the URL are never needed: a
+    # password is refused for every scheme, and a username for http(s), where userinfo is
+    # only ever a credential. An ssh URL keeps its login name (``ssh://git@host/repo``).
+    if "://" in url:
+        parts = urlsplit(url)
+        if parts.password or (parts.username and parts.scheme in ("http", "https")):
+            raise invalid_content(
+                "Git URL must not contain credentials; they would be stored with the skill "
+                "version. Configure a credential helper and remove them from the URL."
+            )
     if ref is not None:
         if not ref:
             raise invalid_content("Git ref must not be empty.")
