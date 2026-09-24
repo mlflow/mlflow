@@ -7806,9 +7806,22 @@ def test_mcp_access_endpoint_version_selectors_honor_the_version_tier(
         for method, route, body in selecting:
             resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
             assert resp.status_code == 403, f"{method} {route} returned {resp.status_code}"
-        # A request that selects no version is untouched: the veto is scoped to the selector.
-        resp = requests.get(url=f"{base}{prefix}/{server_name}/endpoints", auth=(owner, owner_pw))
-        assert resp.status_code == 200
+        # A `status` filter resolves against the VERSION's status column, not the endpoint -- an
+        # endpoint response carries no status of its own -- so it selects rows by version state,
+        # which is a membership oracle the passenger redaction cannot close.
+        for route in (
+            f"{prefix}/{server_name}/endpoints?filter_string=status+%3D+'active'",
+            f"{prefix}/endpoints?filter_string=status+%3D+'active'",
+        ):
+            resp = requests.get(url=base + route, auth=(owner, owner_pw))
+            assert resp.status_code == 403, f"{route} returned {resp.status_code}"
+        # A filter naming no version is untouched, as is a request carrying no selector at all.
+        for route in (
+            f"{prefix}/{server_name}/endpoints",
+            f"{prefix}/{server_name}/endpoints?filter_string=transport_type+%3D+'streamable-http'",
+        ):
+            resp = requests.get(url=base + route, auth=(owner, owner_pw))
+            assert resp.status_code == 200, f"{route} returned {resp.status_code}"
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])

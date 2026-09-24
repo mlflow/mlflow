@@ -7822,6 +7822,21 @@ def _mcp_path_targets_an_access_endpoint(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] == "endpoints"
 
 
+def _mcp_endpoint_filter_selects_version_status(filter_string: str) -> bool:
+    # Asks the grammar's owner, like `_filter_selects_on_tiers`: the store routes exactly `status`
+    # to the version table (`_apply_mcp_access_endpoint_filters`). An unparsable filter counts as
+    # selecting, so the most restrictive reading applies; the handler still raises its own 400.
+    if not filter_string:
+        return False
+    from mlflow.utils.search_utils import SearchMCPAccessEndpointUtils
+
+    try:
+        parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    except Exception:
+        return True
+    return any(c.get("type") == "attribute" and c.get("key") == "status" for c in parsed)
+
+
 async def _mcp_request_selects_a_version(request: StarletteRequest) -> bool:
     """True if the request names a specific server version, by number or by alias.
 
@@ -7831,6 +7846,12 @@ async def _mcp_request_selects_a_version(request: StarletteRequest) -> bool:
     """
     params = request.query_params
     if params.get("server_version") or params.get("server_alias"):
+        return True
+    # `filter_string=status = '...'` resolves against `SqlMCPServerVersion.status`, not the endpoint
+    # -- an endpoint response carries no status of its own. So it selects rows by version state,
+    # which the passenger redaction cannot hide: WHICH rows match is the disclosure. (Contrast
+    # `SearchMCPServers`'s `status`, which is a propagated property this PR deliberately exposes.)
+    if _mcp_endpoint_filter_selects_version_status(params.get("filter_string") or ""):
         return True
     if request.method not in ("POST", "PATCH"):
         return False
