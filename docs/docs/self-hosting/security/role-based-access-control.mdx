@@ -118,6 +118,7 @@ permission as follows:
    whether it is higher or lower, and a `(run, *, DENY)` is not rescued by
    `(experiment, 42, MANAGE)`. A tier with no grant at all is silent, and
    the next tier speaks.
+
 3. **Server `default_permission`** (defaults to `READ`): a floor max'd
    into the resolution result. When no role grant matches at all, the
    floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
