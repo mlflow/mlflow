@@ -163,8 +163,9 @@ container, in this order:
 1. **Platform Admin bypass** - `is_admin = true` allows the request outright.
 2. **Workspace admin** - a `(workspace, *, MANAGE)` grant resolves every
    resource to `MANAGE`, ahead of every rule below including `DENY`.
-3. **Container READ** - the caller must be able to read the container. A tier
-   grant alone does not reach inside a container the caller cannot read.
+3. **Container READ** - the caller must be able to read the container. This is a
+   separate check from the tier, and an absent container grant can still satisfy
+   it through `default_permission` (see the last table row).
 4. **Grants on the same tier fold together** - a matching `DENY` wins,
    otherwise the most permissive grant applies.
 5. **The tier decides, then the container** - the sub-resource tier is
@@ -177,19 +178,23 @@ container, in this order:
 Steps 5 and 6 are what make a tier grant optional: with no grant on the tier,
 the container decides exactly as it did before these types existed.
 
-Editing a run in experiment 42, with workspace `USE`:
+Editing a run in experiment 42. The first four rows hold in any configuration,
+because an explicit grant on the experiment settles step 3:
 
-| Grants                                        | Read run | Edit run | Why                                    |
-| --------------------------------------------- | -------- | -------- | -------------------------------------- |
-| `(experiment, 42, EDIT)`                      | yes      | yes      | no run grant, so the container decides |
-| `(experiment, 42, EDIT)` + `(run, *, READ)`   | yes      | no       | the run tier decides, and it is lower  |
-| `(experiment, 42, READ)` + `(run, *, EDIT)`   | yes      | yes      | the run tier decides, and it is higher |
-| `(experiment, 42, MANAGE)` + `(run, *, DENY)` | no       | no       | `DENY` on the tier is not rescued      |
-| `(run, *, EDIT)` alone                        | no       | no       | step 3: no read on the container       |
+| Grants                                        | Read run  | Edit run  | Why                                    |
+| --------------------------------------------- | --------- | --------- | -------------------------------------- |
+| `(experiment, 42, EDIT)`                      | yes       | yes       | no run grant, so the container decides |
+| `(experiment, 42, EDIT)` + `(run, *, READ)`   | yes       | no        | the run tier decides, and it is lower  |
+| `(experiment, 42, READ)` + `(run, *, EDIT)`   | yes       | yes       | the run tier decides, and it is higher |
+| `(experiment, 42, MANAGE)` + `(run, *, DENY)` | no        | no        | `DENY` on the tier is not rescued      |
+| `(run, *, EDIT)` alone                        | see below | see below | step 3 falls to `default_permission`   |
 
-The last row is the one to watch: a tier grant widens what a caller may do
-**inside** a container they can already read, and does not by itself grant
-entry to one they cannot.
+The last row depends on configuration, and is worth understanding because it is
+the common case. With no grant on the experiment, step 3 falls through to
+`default_permission`: on a default server that is `READ`, which satisfies the
+container check, so a `run` grant alone is enough to edit runs. Set
+`default_permission = NO_PERMISSIONS`, or run in multi-workspace mode where an
+absent grant is a denial rather than a default, and the same grant is refused.
 
 ## Workspace isolation
 
