@@ -431,6 +431,65 @@ for member in ("alice", "bob", "carol"):
 </TabItem>
 </Tabs>
 
+### 5. Let a reviewer read an experiment but not its traces
+
+Carve the traces out of a grant that would otherwise include them. `DENY` on the
+[sub-resource tier](#sub-resource-tiers) applies to the experiment's traces without
+affecting the experiment or its runs.
+
+```mermaid
+flowchart LR
+    Rev[Reviewer] --> R["exp-reviewer<br/>role"]
+    R --> P1["experiment *<br/>READ"]
+    R --> P2["trace *<br/>DENY"]
+```
+
+```python
+role = auth_client.create_role(name="exp-reviewer", workspace="ml-research")
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="experiment", resource_pattern="*", permission="READ"
+)
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="trace", resource_pattern="*", permission="DENY"
+)
+auth_client.assign_role(username="carol", role_id=role.id)
+```
+
+Carol can read every experiment in the workspace and the runs inside them, while trace
+reads and searches are refused. Note the `*` pattern: sub-resource tiers are wildcard
+grain only, so `resource_pattern="tr-abc123"` is rejected with a 400.
+
+### 6. Let an annotator edit runs without giving away the experiment
+
+The mirror image: a grant on the tier can also widen access, so an annotator can work on
+runs while the experiment itself stays read-only.
+
+```mermaid
+flowchart LR
+    Ann[Annotator] --> R["run-annotator<br/>role"]
+    R --> P1["experiment *<br/>READ"]
+    R --> P2["run *<br/>EDIT"]
+```
+
+```python
+role = auth_client.create_role(name="run-annotator", workspace="ml-research")
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="experiment", resource_pattern="*", permission="READ"
+)
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="run", resource_pattern="*", permission="EDIT"
+)
+auth_client.assign_role(username="dave", role_id=role.id)
+```
+
+Dave can update runs and log to them, but renaming or deleting the experiment is refused —
+the run tier decides run operations outright rather than being max'd against its parent.
+
+:::note
+These two scenarios have no Admin UI tab because the sub-resource tiers and `DENY` are not
+offered in its pickers yet. Grant them through the role API shown above.
+:::
+
 ## Admin UI
 
 The admin UI is the operator-facing surface for the permission model above,
