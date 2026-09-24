@@ -750,7 +750,7 @@ def _can_create_in_workspace(username: str) -> bool:
         return False
 
     user = store.get_user(username)
-    perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+    perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
     if perm is not None and perm.can_use:
         return True
     if perm is None and _user_inherits_default_workspace_grant(workspace_name):
@@ -1272,7 +1272,7 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
             user = store.get_user(username)
-            perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+            perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
             if perm is not None:
                 return perm
             # Honor the default-workspace auto-grant when configured.
@@ -3388,9 +3388,7 @@ def _validate_can_use_model_definitions_for_create(
             return False
         username = authenticate_request().username
         user = store.get_user(username)
-        workspace_perm = store.get_role_permission_for_resource(
-            user.id, "workspace", "*", workspace_name
-        )
+        workspace_perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
         if workspace_perm is not None and workspace_perm.can_use:
             return True
         # Honor ``grant_default_workspace_access``: an ungranted user in the
@@ -8429,7 +8427,7 @@ def _get_proxy_artifact_permission(
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
             user = store.get_user(username)
-            perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+            perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
             if perm is not None:
                 return perm
             # Honor the default-workspace auto-grant when configured.
