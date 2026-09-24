@@ -32,8 +32,15 @@ def _upload(store, name="reviewer", organization="acme"):
     return version, path
 
 
-def _add_plugin_version(store, members, *, name="toolkit", version="1.0.0", status="active"):
-    """Insert an agent plugin version containing ``members`` as (skill name, version) pairs."""
+def _add_plugin_version(
+    store, members, *, name="toolkit", version="1.0.0", status="active", source_type="oci"
+):
+    """
+    Insert an agent plugin version containing ``members`` as (skill name, version) pairs.
+
+    ``source_type`` is what makes it a packaged plugin; pass ``"assembled"`` for one whose
+    members are standalone skills pinned by reference.
+    """
     with store.ManagedSessionMaker(read_only=False) as session:
         if session.get(SqlAgentPlugin, (_workspace(store), "acme", name)) is None:
             session.add(store._with_workspace_field(SqlAgentPlugin(organization="acme", name=name)))
@@ -49,6 +56,8 @@ def _add_plugin_version(store, members, *, name="toolkit", version="1.0.0", stat
                     version_prerelease_sort_key="",
                     plugin_json={"name": name, "version": version},
                     status=status,
+                    source_type=source_type,
+                    source=None if source_type == "assembled" else "ghcr.io/acme/toolkit:v1",
                 )
             )
         )
@@ -276,3 +285,61 @@ def test_delete_skill_is_workspace_scoped(store, workspaces_enabled):
     with WorkspaceContext("team-a"):
         assert store.get_skill_version("reviewer", 1, organization="acme").version == 1
         assert store.delete_skill_and_collect_artifacts("reviewer", "acme") == [team_a_path]
+
+
+def test_packaged_plugin_member_names_cannot_receive_standalone_versions(store):
+    _upload(store)
+    _add_plugin_version(store, [("reviewer", 1)])
+
+    with pytest.raises(MlflowException, match="member of the packaged agent plugin") as exc:
+        store.create_skill_version(
+            "reviewer", organization="acme", source_type="git", source="https://h/r.git"
+        )
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    assert "@acme/toolkit" in str(exc.value)
+    assert _version_rows(store) == 1
+
+
+def test_packaged_plugin_member_names_cannot_be_created_standalone(store):
+    # The membership row outlives its skill only in tests, but the name is still bound.
+    _upload(store)
+    _add_plugin_version(store, [("reviewer", 1)])
+    with pytest.raises(MlflowException, match="member of the packaged agent plugin"):
+        store.create_skill("reviewer", organization="acme")
+    # Another organization or name is free.
+    assert store.create_skill("reviewer", organization="example").name == "reviewer"
+    assert store.create_skill("linter", organization="acme").name == "linter"
+
+
+@pytest.mark.parametrize("status", ["active", "deleted"])
+def test_packaged_membership_binds_the_name_whatever_the_plugin_version_status(store, status):
+    _upload(store)
+    _add_plugin_version(store, [("reviewer", 1)], status=status)
+    with pytest.raises(MlflowException, match="member of the packaged agent plugin"):
+        store.create_skill_version(
+            "reviewer", organization="acme", source_type="git", source="https://h/r.git"
+        )
+
+
+def test_assembled_plugin_members_stay_standalone(store):
+    _upload(store)
+    _add_plugin_version(store, [("reviewer", 1)], source_type="assembled")
+    version = store.create_skill_version(
+        "reviewer", organization="acme", source_type="git", source="https://h/r.git"
+    )
+    assert version.version == 2
+
+
+def test_packaged_member_check_is_workspace_scoped(store, workspaces_enabled):
+    if not workspaces_enabled:
+        pytest.skip("workspace isolation only applies when workspaces are enabled")
+    with WorkspaceContext("team-a"):
+        _upload(store)
+        _add_plugin_version(store, [("reviewer", 1)])
+    with WorkspaceContext("team-b"):
+        assert (
+            store.create_skill_version(
+                "reviewer", organization="acme", source_type="git", source="https://h/r.git"
+            ).version
+            == 1
+        )

@@ -121,6 +121,62 @@ def test_registration_records_the_creator_on_the_version_and_a_new_parent(
     assert store.get_skill("reviewer").created_by == "alice"
 
 
+@pytest.mark.parametrize("upload", [True, False])
+def test_registration_refuses_a_name_held_by_a_packaged_plugin_member(store, artifact_root, upload):
+    from mlflow.store.tracking.dbmodels.models import (
+        SqlAgentPlugin,
+        SqlAgentPluginVersion,
+        SqlAgentPluginVersionMember,
+    )
+
+    existing = register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(store._with_workspace_field(SqlAgentPlugin(organization="acme", name="kit")))
+        session.add(
+            store._with_workspace_field(
+                SqlAgentPluginVersion(
+                    organization="acme",
+                    name="kit",
+                    version="1.0.0",
+                    version_major=1,
+                    version_minor=0,
+                    version_patch=0,
+                    version_prerelease_sort_key="",
+                    plugin_json={"name": "kit", "version": "1.0.0"},
+                    source_type="oci",
+                    source="ghcr.io/acme/kit:v1",
+                )
+            )
+        )
+        session.flush()
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace="default",
+                plugin_organization="acme",
+                plugin_name="kit",
+                plugin_version="1.0.0",
+                member_name="reviewer",
+                member_organization="acme",
+                member_version=existing.version,
+            )
+        )
+    if upload:
+        registration = SkillVersionRegistration(name="reviewer", organization="acme")
+        kwargs = {"content": skill_archive(), "multipart": True}
+    else:
+        registration = SkillVersionRegistration(
+            name="reviewer", organization="acme", source="https://example.com/r.git"
+        )
+        kwargs = {}
+    with pytest.raises(MlflowException, match="member of the packaged agent plugin") as exc:
+        register_skill_version(registration, **kwargs)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    assert version_rows(store) == 1
+    # An upload that is refused at commit leaves no content behind either.
+    tokens = list((artifact_root / "skills" / "@acme" / "reviewer").iterdir())
+    assert len(tokens) == 1
+
+
 # --- body and source must agree ---------------------------------------------------------------
 
 

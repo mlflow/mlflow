@@ -120,6 +120,50 @@ class SqlAlchemySkillRegistryMixin:
             )
         return parsed_status.value
 
+    def _assert_name_not_a_packaged_member(self, session, name: str, organization: str) -> None:
+        """
+        Refuse standalone creation for a name held by a member of a packaged agent plugin.
+
+        A skill name is unique within its workspace and organization whether the skill was
+        registered standalone or created by importing a package. A packaged plugin's members
+        take their source from the package, so a standalone version registered onto one would
+        break that binding; the RFC has standalone creation fail instead. Members of assembled
+        plugins are ordinary standalone skills pinned by reference and stay unaffected.
+        """
+        workspace = self._with_workspace_field(SqlSkill(name=name, organization=organization))
+        member = SqlAgentPluginVersionMember
+        plugin_version = SqlAgentPluginVersion
+        held_by = (
+            session
+            .query(plugin_version.organization, plugin_version.name, plugin_version.version)
+            .join(
+                member,
+                (plugin_version.workspace == member.plugin_workspace)
+                & (plugin_version.organization == member.plugin_organization)
+                & (plugin_version.name == member.plugin_name)
+                & (plugin_version.version == member.plugin_version),
+            )
+            .filter(
+                member.plugin_workspace == workspace.workspace,
+                member.member_organization == organization,
+                member.member_name == name,
+                plugin_version.source_type.isnot(None),
+                plugin_version.source_type != SkillSourceType.ASSEMBLED.value,
+            )
+            .order_by(plugin_version.organization, plugin_version.name, plugin_version.version)
+            .first()
+        )
+        if held_by is not None:
+            plugin_organization, plugin_name, version = held_by
+            plugin = (f"@{plugin_organization}/" if plugin_organization else "") + plugin_name
+            raise MlflowException(
+                f"Skill '{name}' in organization '{organization}' is a member of the packaged "
+                f"agent plugin '{plugin}' (version {version}) and cannot receive standalone "
+                "versions; re-import the plugin to update it, or register under a different "
+                "name or organization.",
+                error_code=RESOURCE_ALREADY_EXISTS,
+            )
+
     def create_skill(
         self,
         name: str,
@@ -131,6 +175,7 @@ class SqlAlchemySkillRegistryMixin:
         self._validate_skill_identity(name, organization)
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
+            self._assert_name_not_a_packaged_member(session, name, organization)
             skill = self._with_workspace_field(
                 SqlSkill(
                     name=name,
@@ -439,6 +484,10 @@ class SqlAlchemySkillRegistryMixin:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
         self._validate_skill_version_status(status)
+        # Checked once, ahead of the retry loop: the loop treats RESOURCE_ALREADY_EXISTS as a
+        # version-number collision, and a bound name is not something a retry can resolve.
+        with self.ManagedSessionMaker() as session:
+            self._assert_name_not_a_packaged_member(session, name, organization)
         for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
             try:
                 with self.ManagedSessionMaker(read_only=False) as session:
