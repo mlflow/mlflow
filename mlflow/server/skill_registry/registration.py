@@ -14,7 +14,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.archive import extract_skill_archive, get_max_decompressed_size
 from mlflow.genai.skill_content.fetchers.oci import parse_image_reference
 from mlflow.genai.skill_content.paths import collect_tree
-from mlflow.genai.skill_content.sources import OCI_SCHEME, is_local_path, resolve_source_type
+from mlflow.genai.skill_content.sources import (
+    _MLFLOW_PREFIXES,
+    OCI_SCHEME,
+    is_local_path,
+    resolve_source_type,
+)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -158,6 +163,13 @@ def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
 
     source = registration.source
     source_type = registration.source_type
+    # Locations inside MLflow are never a client-supplied remote source, whatever type the
+    # request claims: only the server records such a source, and only for content it wrote.
+    if isinstance(source, str) and source.strip().lower().startswith(_MLFLOW_PREFIXES):
+        raise MlflowException.invalid_parameter_value(
+            f"'source' {source!r} names content inside MLflow; a remote source must be a git, "
+            "oci, or zip location. Upload local content instead of pointing at it."
+        )
     # A native OCI reference such as `ghcr.io/acme/skills:v1` has no scheme and would read as
     # a local path; with an explicit `oci` type it is the reference itself, and OCISource
     # validates its shape. Every other form is refused when it looks like a filesystem path.
