@@ -1684,36 +1684,43 @@ def _authorize_create_mcp_server_version(username: str, name: str) -> bool:
     )
 
 
+def _mcp_server_version_action_allowed(username: str, name: str, action: str) -> bool:
+    server = (RESOURCE_TYPE_MCP_SERVER, name)
+    return authorize(
+        username,
+        server,
+        [
+            Requirement(
+                RESOURCE_TYPE_MCP_SERVER_VERSION,
+                "*",
+                action,
+                fallback_if_no_grant=(server,),
+            )
+        ],
+    )
+
+
+def _mcp_version_action(parts: list[str], method: str) -> str:
+    # The version's own action, which is not simply the HTTP method. Removing a version TAG is
+    # an UPDATE of the version, not a delete of it; and the alias routes mutate the server's
+    # alias map while only READING the version they name -- the shape the registry alias routes
+    # already take. `POST /{name}/versions` never reaches here: it is a create, intercepted
+    # earlier so the container gates it and the version tier only vetoes.
+    if parts[2] == "aliases":
+        return "read"
+    if len(parts) > 4 and parts[4] == "tags":
+        return "update"
+    if method == "DELETE":
+        return "delete"
+    if method in ("POST", "PATCH"):
+        return "update"
+    return "read"
+
+
 def _mcp_server_version_not_denied(username: str, name: str) -> bool:
-    server = (RESOURCE_TYPE_MCP_SERVER, name)
-    return authorize(
-        username,
-        server,
-        [
-            Requirement(
-                RESOURCE_TYPE_MCP_SERVER_VERSION,
-                "*",
-                ACTION_NOT_DENIED,
-                fallback_if_no_grant=(server,),
-            )
-        ],
-    )
-
-
-def _mcp_server_version_cascade_delete_allowed(username: str, name: str) -> bool:
-    server = (RESOURCE_TYPE_MCP_SERVER, name)
-    return authorize(
-        username,
-        server,
-        [
-            Requirement(
-                RESOURCE_TYPE_MCP_SERVER_VERSION,
-                "*",
-                "delete",
-                fallback_if_no_grant=(server,),
-            )
-        ],
-    )
+    # For a route where the version is a PASSENGER: the server is the subject and its own gate
+    # has already run, so the tier can only refuse.
+    return _mcp_server_version_action_allowed(username, name, ACTION_NOT_DENIED)
 
 
 def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
@@ -8097,11 +8104,15 @@ def _get_mcp_server_validator(
                 return False
         if not allowed:
             return False
-        # The server tier stays the positive gate; the version tier only vetoes. Without this the
-        # independent version tier existed solely at creation: listing versions, reading, updating,
-        # deleting or tagging one, and resolving an alias all fell through to the parent server.
+        # The version tier takes the route's OWN action, with the server as fallback, so a
+        # positive version grant decides these routes rather than being inert: with
+        # `(mcp_server, *, MANAGE)` and `(mcp_server_version, *, READ)` a version delete is now
+        # refused, exactly as the parent cascade below already refused it. A caller with no
+        # version grant falls back to the server and is unaffected.
         if _mcp_path_targets_a_version(parts):
-            return _mcp_server_version_not_denied(username, name)
+            return _mcp_server_version_action_allowed(
+                username, name, _mcp_version_action(parts, request.method)
+            )
         # An access endpoint that names a version resolves it and serves its content, so selecting
         # one is a version-tier operation. The server tier stays the positive gate; the version tier
         # only vetoes, as on the nested version routes.
@@ -8116,7 +8127,7 @@ def _get_mcp_server_validator(
         # `DELETE /{name}/versions/{v}` refuses. `fallback_if_no_grant` keeps a caller with no
         # version grant working, since they have already passed the server's own delete gate.
         if request.method == "DELETE":
-            return _mcp_server_version_cascade_delete_allowed(username, name)
+            return _mcp_server_version_action_allowed(username, name, "delete")
         return True
 
     return validator
