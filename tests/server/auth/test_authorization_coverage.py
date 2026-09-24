@@ -1,6 +1,7 @@
 # CI guard for the basic-auth dispatcher: every Flask route must resolve to an
 # authorization decision, or be listed in the debt list _KNOWN_UNGATED_ROUTE_MARKERS.
 
+import inspect
 import json
 from types import SimpleNamespace
 
@@ -79,6 +80,25 @@ def test_known_ungated_markers_are_not_stale():
         "Debt markers that no longer match any ungated route (their family is now "
         f"gated — remove them from _KNOWN_UNGATED_ROUTE_MARKERS): {stale}"
     )
+
+
+def test_gateway_secret_selector_inert_routes_still_drop_the_field():
+    """A route is exempt from the `secret_id` gate only while its handler ignores the field.
+
+    `_list_gateway_endpoints` declares `secret_id` in the proto and the store accepts it, but the
+    handler forwards only `provider=`, so the selector filters nothing and gating it would refuse a
+    request that returns an unfiltered listing. If someone wires it, the oracle becomes real and the
+    route needs `_gateway_secret_selector_not_denied` -- fail here rather than leak quietly.
+    """
+    from mlflow.server import handlers
+
+    for name in a._GATEWAY_SECRET_SELECTOR_INERT_ROUTES:
+        source = inspect.getsource(getattr(handlers, name))
+        assert "secret_id=" not in source, (
+            f"{name} now forwards secret_id to the store, so its selector is real. Gate it with "
+            "_gateway_secret_selector_not_denied and drop it from "
+            "_GATEWAY_SECRET_SELECTOR_INERT_ROUTES."
+        )
 
 
 def test_unknown_issue_subpath_fails_closed():
