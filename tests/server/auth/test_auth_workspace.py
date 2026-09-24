@@ -6020,6 +6020,37 @@ def test_create_logged_model_without_a_source_run_is_unaffected(
             assert auth_module.validate_can_create_logged_model() is True
 
 
+@pytest.mark.parametrize(
+    ("run_grant", "run_id_kept"),
+    [(None, True), ("READ", True), ("DENY", False)],
+    ids=["no-run-grant", "run-read", "run-deny"],
+)
+def test_logged_model_metrics_withhold_a_denied_runs_id(
+    workspace_permission_setup, monkeypatch, run_grant, run_id_kept
+):
+    """The mirror of the run case: the logged model is the subject here, so its own `model_id`
+    stays and `run_id` is the sibling that can be denied.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    if run_grant:
+        _grant(store, username, "team-a", [("run", "*", run_grant)])
+
+    payload = {"model": {"info": {"model_id": "m-1", "experiment_id": "exp-1"},
+                         "data": {"metrics": [_metric_row()]}}}
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context("/api/2.0/mlflow/logged-models/m-1", method="GET"):
+        with workspace_context.WorkspaceContext("team-a"):
+            auth_module.redact_get_logged_model_run_ids(flask_resp)
+    metric = json.loads(flask_resp.get_data(as_text=True))["model"]["data"]["metrics"][0]
+
+    assert bool(metric.get("run_id")) is run_id_kept
+    # The model is the subject and the caller passed its read check, so its own id stays.
+    assert metric["model_id"] == "m-1"
+
+
 def _metric_row(model_id="m-1", run_id="run-1"):
     return {"key": "acc", "value": 0.9, "timestamp": 1, "step": 0,
             "model_id": model_id, "run_id": run_id}
