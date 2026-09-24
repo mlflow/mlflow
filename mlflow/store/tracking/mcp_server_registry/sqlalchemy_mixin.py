@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from dataclasses import asdict, replace
@@ -25,7 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.db.db_types import MYSQL
+from mlflow.store.db.db_types import MYSQL, SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -60,6 +61,7 @@ from mlflow.utils.validation import (
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
 
 _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN", "NOT IN"}
+_SQLITE_LARGE_IN_THRESHOLD = 900
 
 
 def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
@@ -210,7 +212,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         with self.ManagedSessionMaker() as session:
             query = self._mcp_server_query(session)
             if filter_string:
-                query = _apply_mcp_server_filter(query, filter_string, self._get_dialect())
+                query = _apply_mcp_server_filter(query, filter_string, self._get_dialect(), session)
             order_clauses = _parse_search_mcp_servers_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
             server_rows = query.all()
@@ -1242,7 +1244,20 @@ def _resolved_endpoint_targets_subquery(
     return stmt.subquery("resolved_endpoint_targets")
 
 
-def _apply_mcp_server_filter(query, filter_string, dialect):
+def _get_large_sqlite_in_subquery(session, values: tuple[str, ...]):
+    try:
+        session.execute(sa.select(sa.func.json_valid("[]"))).scalar()
+    except sa.exc.OperationalError as e:
+        if "no such function" in str(e).lower():
+            raise MlflowException.invalid_parameter_value(
+                "Large SQLite IN filters require SQLite JSON support (json_each)."
+            ) from e
+        raise
+    json_values = sa.func.json_each(json.dumps(values)).table_valued("value")
+    return sa.select(json_values.c.value)
+
+
+def _apply_mcp_server_filter(query, filter_string, dialect, session):
     parsed = SearchMCPServerUtils.parse_search_filter(filter_string)
     attribute_filters = []
     tag_filters = {}
@@ -1283,9 +1298,19 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
                 )
             else:
                 attr = getattr(SqlMCPServer, key)
-                attribute_filters.append(
-                    SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
-                )
+                if (
+                    dialect == SQLITE
+                    and comparator in ("IN", "NOT IN")
+                    and isinstance(value, tuple)
+                    and len(value) > _SQLITE_LARGE_IN_THRESHOLD
+                ):
+                    # Bind the values as one JSON array to avoid SQLite's host-parameter limit.
+                    in_filter = attr.in_(_get_large_sqlite_in_subquery(session, value))
+                    attribute_filters.append(~in_filter if comparator == "NOT IN" else in_filter)
+                else:
+                    attribute_filters.append(
+                        SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+                    )
         elif type_ == "tag":
             if comparator not in _VALID_FILTER_COMPARATORS:
                 raise MlflowException(

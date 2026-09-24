@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -35,7 +36,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
     SqlWebhook,
 )
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore, _get_attribute_filter
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
     WorkspaceAwareSqlAlchemyStore,
 )
@@ -1430,6 +1431,39 @@ def test_search_registered_models(store):
         [names[4]],
         None,
     )
+
+
+def test_search_models_large_name_in_filter_on_sqlite(store):
+    name = "model-in-large-scope"
+    _rm_maker(store, name)
+    _mv_maker(store, name)
+    names = [name, *[f"other-model-{index}" for index in range(900)]]
+    filter_string = "name IN (" + ", ".join(f"'{value}'" for value in names) + ")"
+
+    models, _ = _search_registered_models(store, filter_string)
+    versions = store.search_model_versions(filter_string=filter_string)
+
+    assert models == [name]
+    assert [version.name for version in versions] == [name]
+
+
+def test_large_sqlite_in_filter_requires_json_support():
+    session = mock.Mock(
+        execute=mock.Mock(
+            side_effect=OperationalError("SELECT", {}, Exception("no such function: json_valid"))
+        )
+    )
+
+    with pytest.raises(MlflowException, match="require SQLite JSON support"):
+        _get_attribute_filter(
+            session,
+            SqlRegisteredModel.name,
+            "IN",
+            tuple(str(index) for index in range(901)),
+            "sqlite",
+        )
+
+    session.execute.assert_called_once()
 
 
 def test_search_registered_models_by_tag(store):

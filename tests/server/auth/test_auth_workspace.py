@@ -10,6 +10,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.service_pb2 import SearchExperiments
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
@@ -24,9 +25,220 @@ from mlflow.server.auth.routes import (
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces, _get_request_message
 from mlflow.utils import workspace_context
+from mlflow.utils.search_utils import (
+    SearchMCPServerUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
+)
 
 from tests.helper_functions import random_str
+
+
+def test_quote_filter_values_uses_mlflow_filter_literal_escaping():
+    assert auth_module._quote_filter_values({"model's-name", r"model\name"}) == (
+        r"'model\'s-name', 'model\\name'"
+    )
+
+
+@pytest.mark.parametrize(
+    "parser", [SearchModelUtils, SearchModelVersionUtils, SearchMCPServerUtils]
+)
+def test_quote_filter_values_round_trips_through_search_parsers(parser):
+    values = {"model's-name", r"model\name", r"model\name's"}
+
+    parsed = parser.parse_search_filter(f"name IN ({auth_module._quote_filter_values(values)})")
+
+    assert parsed == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": tuple(sorted(values)),
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("scoper", "request_json", "readable_ids", "expected_json"),
+    [
+        (
+            auth_module._scope_search_experiments,
+            {"filter": "name LIKE 'prod%'"},
+            {"experiment": {"1", "2"}},
+            {"filter": "name LIKE 'prod%' AND experiment_id IN ('1', '2')"},
+        ),
+        (
+            auth_module._scope_experiment_ids,
+            {"experiment_ids": ["1", "3"]},
+            {"experiment": {"1", "2"}},
+            {"experiment_ids": ["1"]},
+        ),
+        (
+            auth_module._scope_experiment_ids,
+            {},
+            {"experiment": {"1", "2"}},
+            {"experiment_ids": ["1", "2"]},
+        ),
+        (
+            auth_module._scope_list_scorers,
+            {"experiment_id": "3"},
+            {"experiment": {"1", "2"}},
+            {"experiment_ids": []},
+        ),
+        (
+            auth_module._scope_model_search,
+            {"filter": "name LIKE 'prod%'"},
+            {"registered_model": {"model"}, "prompt": {"prompt"}},
+            {"filter": "name LIKE 'prod%' AND name IN ('model', 'prompt')"},
+        ),
+    ],
+)
+def test_request_scopers_apply_basic_auth_scope_before_handler_deserialization(
+    monkeypatch, scoper, request_json, readable_ids, expected_json
+):
+    monkeypatch.setattr(
+        auth_module,
+        "get_readable_resource_ids_for_user",
+        lambda _username, resource_type: readable_ids.get(resource_type),
+    )
+    with auth_module.app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps(request_json)
+    ):
+        auth_module._scope_request(scoper, "user")
+        assert auth_module._get_normalized_request_json() == expected_json
+
+
+def test_request_scoper_preserves_camel_case_experiment_ids(monkeypatch):
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"2"})
+    with auth_module.app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"experimentIds": ["1", "2"]}),
+    ):
+        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
+        assert auth_module._get_normalized_request_json() == {"experimentIds": ["2"]}
+
+
+@pytest.mark.parametrize("experiment_ids", [None, "1", {"1": True}])
+def test_request_scoper_leaves_malformed_experiment_ids_for_handler_validation(
+    monkeypatch, experiment_ids
+):
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
+    request_json = {"experiment_ids": experiment_ids}
+    with auth_module.app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps(request_json)
+    ):
+        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
+        assert auth_module._get_normalized_request_json() == request_json
+
+
+def test_model_search_scopes_more_than_500_names(monkeypatch):
+    model_ids = {f"model-{index}" for index in range(501)}
+    monkeypatch.setattr(
+        auth_module,
+        "get_readable_resource_ids_for_user",
+        lambda _username, resource_type: (
+            model_ids if resource_type == "registered_model" else set()
+        ),
+    )
+    request_json = {}
+
+    auth_module._scope_model_search(request_json, "user")
+
+    assert request_json["filter"].startswith("name IN (")
+    assert "'model-500'" in request_json["filter"]
+
+
+def test_request_scoper_merges_get_query_overrides_before_handler_parsing(monkeypatch):
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1", "2"})
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/search",
+        method="GET",
+        query_string={"filter": "name LIKE 'prod%'"},
+    ):
+        auth_module._scope_request(auth_module._scope_search_experiments, "user")
+        request_message = _get_request_message(SearchExperiments())
+
+    assert request_message.filter == "name LIKE 'prod%' AND experiment_id IN ('1', '2')"
+
+
+def test_request_scoper_merges_get_overrides_without_query_parameters(monkeypatch):
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1", "2"})
+    with auth_module.app.test_request_context("/api/2.0/mlflow/experiments/search", method="GET"):
+        auth_module._scope_request(auth_module._scope_search_experiments, "user")
+        request_message = _get_request_message(SearchExperiments())
+
+    assert request_message.filter == "experiment_id IN ('1', '2')"
+
+
+@pytest.mark.parametrize(
+    ("readable_ids", "expected_ids"),
+    [({"1"}, ["1"]), (set(), [])],
+)
+def test_batch_get_traces_get_passes_injected_experiment_scope_to_storage(
+    monkeypatch, readable_ids, expected_ids
+):
+    tracking_store = Mock()
+    tracking_store.batch_get_traces.return_value = []
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: readable_ids)
+    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/batchGet?trace_ids=trace-1", method="GET"
+    ):
+        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
+        response = _batch_get_traces()
+
+    assert response.status_code == 200
+    tracking_store.batch_get_traces.assert_called_once_with(
+        ["trace-1"], None, experiment_ids=expected_ids
+    )
+
+
+@pytest.mark.parametrize(
+    ("readable_ids", "expected_ids"),
+    [({"1"}, ["1"]), (set(), [])],
+)
+def test_batch_get_trace_infos_get_passes_injected_experiment_scope_to_storage(
+    monkeypatch, readable_ids, expected_ids
+):
+    tracking_store = Mock()
+    tracking_store.batch_get_trace_infos.return_value = []
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: readable_ids)
+    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/batchGetInfos?trace_ids=trace-1", method="GET"
+    ):
+        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
+        response = _batch_get_trace_infos()
+
+    assert response.status_code == 200
+    tracking_store.batch_get_trace_infos.assert_called_once_with(
+        ["trace-1"], experiment_ids=expected_ids
+    )
+
+
+def test_search_experiments_request_scope_uses_current_grants_for_each_page(monkeypatch):
+    resolver = Mock(side_effect=[{"1", "2"}, {"1", "3"}])
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", resolver)
+
+    for expected_filter in (
+        "experiment_id IN ('1', '2')",
+        "experiment_id IN ('1', '3')",
+    ):
+        with auth_module.app.test_request_context(
+            method="POST", content_type="application/json", data=json.dumps({"page_token": "token"})
+        ):
+            auth_module._scope_request(auth_module._scope_search_experiments, "user")
+            assert auth_module._get_normalized_request_json()["filter"] == expected_filter
+
+    assert resolver.call_args_list == [
+        (("user", "experiment"),),
+        (("user", "experiment"),),
+    ]
 
 
 def test_cleanup_workspace_permissions_handler(monkeypatch):
@@ -3654,6 +3866,25 @@ def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
     assert predicate("exp-other")
     # Per-resource NO_PERMISSIONS is ignored; default READ fallback applies.
     assert predicate("exp-explicit-deny")
+
+
+def test_get_readable_resource_ids_denies_on_resolution_error(monkeypatch, caplog):
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", Mock(side_effect=RuntimeError("unavailable"))
+    )
+
+    assert auth_module.get_readable_resource_ids("experiment") == set()
+    assert "Failed to resolve request authorization scope; denying access" in caplog.text
+
+
+def test_get_readable_resource_ids_skips_scoping_when_auth_is_disabled(monkeypatch):
+    authenticate = Mock()
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", authenticate)
+
+    assert auth_module.get_readable_resource_ids("experiment") is None
+    authenticate.assert_not_called()
 
 
 # =============================================================================

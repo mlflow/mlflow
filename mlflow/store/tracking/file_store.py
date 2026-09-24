@@ -378,7 +378,6 @@ class FileStore(AbstractStore):
             experiment_ids += self._get_active_experiments(full_path=False)
         if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             experiment_ids += self._get_deleted_experiments(full_path=False)
-
         experiments = []
         for exp_id in experiment_ids:
             try:

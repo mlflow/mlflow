@@ -1850,6 +1850,18 @@ def test_search_mcp_servers_filter_by_name_in(store):
     assert {s.name for s in result} == {"io.github.test/server2"}
 
 
+def test_search_mcp_servers_large_name_in_filter_on_sqlite(store):
+    name = "io.github.test/server"
+    _setup_server(store, name)
+    names = [name, *[f"io.github.test/other-{index}" for index in range(900)]]
+
+    result = store.search_mcp_servers(
+        filter_string="name IN (" + ", ".join(f"'{value}'" for value in names) + ")"
+    )
+
+    assert [server.name for server in result] == [name]
+
+
 def test_search_mcp_access_endpoints_filter_by_server_name_in_is_currently_broken(store):
     # Known bug (https://github.com/mlflow/mlflow/issues/25203): sqlparse's
     # builtin keyword table includes the literal string "server_name" (matching

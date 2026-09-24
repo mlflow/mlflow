@@ -55,7 +55,6 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_version,
     search_all_access_endpoints,
     search_mcp_server_versions,
-    search_mcp_servers,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.utils import workspace_context
@@ -6553,7 +6552,8 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+    # user2 has no experiment grants at all; the validator checks whether the
+    # caller has any readable experiments and denies with 403 if the set is empty.
 
     def batch_get(auth):
         return requests.post(
@@ -6564,6 +6564,15 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     assert batch_get((user2, password2)).status_code == 403
     assert batch_get((user1, password1)).status_code == 200
+
+    with User(user1, password1, monkeypatch):
+        unrelated_experiment_id = client.create_experiment("unrelated_trace_batch_get_test")
+    _grant_experiment_permission(
+        client.tracking_uri, unrelated_experiment_id, user2, "READ", (user1, password1)
+    )
+    response = batch_get((user2, password2))
+    assert response.status_code == 200
+    assert response.json().get("trace_infos", []) == []
 
     _grant_experiment_permission(
         client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
@@ -7088,7 +7097,7 @@ def test_read_predicate_honors_grant_default_workspace_access(
 
 @pytest.mark.parametrize(
     "endpoint_fn",
-    [search_mcp_servers, search_all_access_endpoints],
+    [search_all_access_endpoints],
 )
 def test_response_filter_matches_endpoint_functions(endpoint_fn):
     request = SimpleNamespace(scope={"endpoint": endpoint_fn})
@@ -7728,12 +7737,15 @@ def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatc
     indirect=True,
 )
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch, prefix):
+def test_mcp_server_search_paginates_over_request_scoped_results(
+    fastapi_client, monkeypatch, prefix
+):
     reader, reader_pw = create_user(fastapi_client.tracking_uri)
     admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
-    # 3 readable servers so backfill must break mid-backend-page and still
-    # return z-read3 on the next client request (not skip it).
+    # Hidden servers sort before readable ones. Request-side scoping must remove
+    # them before pagination so the first page is full and the second returns
+    # the remaining readable server.
     readable = ["com.test/z-read1", "com.test/z-read2", "com.test/z-read3"]
     hidden = ["com.test/a-hid1", "com.test/a-hid2"]
     for name in readable + hidden:
@@ -7758,8 +7770,8 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
     for name in readable:
         grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
 
-    # Request max_results=2. Without backfill the first page might contain a
-    # mix of readable/hidden servers and return fewer than 2 readable rows.
+    # Request max_results=2. The first page must contain two readable servers;
+    # hidden servers must not affect the result count or page token.
     with User(reader, reader_pw, monkeypatch):
         all_readable = []
         page_token = None

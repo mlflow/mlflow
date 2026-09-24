@@ -19,7 +19,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_app_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -1056,7 +1065,9 @@ def _get_normalized_request_json(flask_request: Request = request) -> dict[str, 
     Returns:
         The request data as a dictionary (empty dict if no body).
     """
-    request_json = _get_request_json(flask_request)
+    request_json = g.get("mlflow_scoped_request_json") if has_app_context() else None
+    if request_json is None:
+        request_json = _get_request_json(flask_request)
 
     # Older clients may post their JSON double-encoded as strings, so the get_json
     # above actually converts it to a string. Therefore, we check this condition
@@ -1146,7 +1157,16 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     JSON body for POST) to distinguish the two cases.
     """
     try:
+        scoped_request_json = g.get("mlflow_scoped_request_json")
+        if scoped_request_json is not None:
+            return field.name in scoped_request_json or field.json_name in scoped_request_json
         if request.method == "GET":
+            scoped_request_overrides = g.get("mlflow_scoped_request_overrides")
+            if scoped_request_overrides is not None:
+                return (
+                    field.name in scoped_request_overrides
+                    or field.json_name in scoped_request_overrides
+                )
             return field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
@@ -1155,7 +1175,10 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
 
 
 def _get_request_message(request_message, flask_request=request, schema=None):
-    if flask_request.method == "GET" and flask_request.args:
+    scoped_request_overrides = (
+        g.get("mlflow_scoped_request_overrides") if has_app_context() else None
+    )
+    if flask_request.method == "GET" and (flask_request.args or scoped_request_overrides):
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
         # protobuf does not know how to read the query parameters directly. The query parser above
@@ -1184,6 +1207,8 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                         )
                     value = value.lower() == "true"
                 request_json[field.name] = value
+        if scoped_request_overrides:
+            request_json.update(scoped_request_overrides)
     else:
         request_json = _get_normalized_request_json(flask_request)
 
@@ -4439,11 +4464,12 @@ def _batch_get_traces() -> Response:
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    experiment_ids = list(request_message.experiment_ids)
     if has_experiment_ids:
         traces = store.batch_get_traces(
             request_message.trace_ids,
             None,
-            experiment_ids=list(request_message.experiment_ids),
+            experiment_ids=experiment_ids,
         )
     else:
         traces = store.batch_get_traces(request_message.trace_ids, None)
@@ -4465,9 +4491,10 @@ def _batch_get_trace_infos() -> Response:
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    experiment_ids = list(request_message.experiment_ids)
     if has_experiment_ids:
         trace_infos = store.batch_get_trace_infos(
-            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
+            request_message.trace_ids, experiment_ids=experiment_ids
         )
     else:
         trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
@@ -6047,10 +6074,12 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
+    experiment_ids = list(request_message.experiment_ids)
+
     models = _get_tracking_store().search_logged_models(
         # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
         # to avoid serialization issues
-        experiment_ids=list(request_message.experiment_ids),
+        experiment_ids=experiment_ids,
         filter_string=request_message.filter or None,
         datasets=(
             [
@@ -6225,9 +6254,8 @@ def _list_scorers():
         )
     if has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        if requested_experiment_ids:
-            for eid in requested_experiment_ids:
-                _validate_experiment_id(eid)
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
         scorers = store.list_scorers_across_experiments(valid_experiment_ids)
     elif request_message.experiment_id:
@@ -6236,8 +6264,6 @@ def _list_scorers():
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
