@@ -1706,9 +1706,9 @@ Request Structure
 | secret_value | An array of :ref:`mlflowupdategatewaysecretsecretvalueentry` | Optional new secret value(s) for key rotation as key-value pairs (empty map = no change). For simple API keys:         |
 |              |                                                              | {"api_key": "sk-xxx"} For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}           |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
-| auth_config  | An array of :ref:`mlflowupdategatewaysecretauthconfigentry`  | Optional new auth configuration. Adding, changing, or removing api_base requires a non-empty secret_value in the same  |
-|              |                                                              | request; otherwise the update is rejected with INVALID_PARAMETER_VALUE. For multi-auth providers, include "auth_mode"  |
-|              |                                                              | key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})                                               |
+| auth_config  | An array of :ref:`mlflowupdategatewaysecretauthconfigentry`  | Optional new auth configuration. Setting api_base to a different hostname requires a non-empty secret_value in the     |
+|              |                                                              | same request. Clearing api_base and edits to the path, scheme, or port do not require it. For multi-auth providers,    |
+|              |                                                              | include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})                           |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+
 | updated_by   | ``STRING``                                                   | Username of the updater                                                                                                |
 +--------------+--------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------+

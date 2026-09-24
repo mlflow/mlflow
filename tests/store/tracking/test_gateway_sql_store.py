@@ -288,7 +288,9 @@ def test_update_gateway_secret_rejects_api_base_change_without_secret_value(
         auth_config={"api_base": "https://provider.example/v1", "api_version": "2024-02-01"},
     )
 
-    with pytest.raises(MlflowException, match="replacement secret_value") as exc:
+    with pytest.raises(
+        MlflowException, match="Changing the API Base URL hostname requires providing secret_value"
+    ) as exc:
         store.update_gateway_secret(
             secret_id=created.secret_id,
             auth_config={"api_base": "https://attacker.example/v1", "api_version": "2024-02-01"},
@@ -314,7 +316,9 @@ def test_update_gateway_secret_rejects_api_base_addition_without_secret_value(
         auth_config={"api_version": "2024-02-01"},
     )
 
-    with pytest.raises(MlflowException, match="replacement secret_value") as exc:
+    with pytest.raises(
+        MlflowException, match="Changing the API Base URL hostname requires providing secret_value"
+    ) as exc:
         store.update_gateway_secret(
             secret_id=created.secret_id,
             auth_config={"api_base": "https://attacker.example/v1", "api_version": "2024-02-01"},
@@ -328,7 +332,7 @@ def test_update_gateway_secret_rejects_api_base_addition_without_secret_value(
 
 
 @pytest.mark.parametrize("provider", [None, "openai"])
-def test_update_gateway_secret_rejects_api_base_removal_without_secret_value(
+def test_update_gateway_secret_allows_api_base_removal_without_secret_value(
     store: SqlAlchemyStore,
     provider,
 ):
@@ -339,17 +343,12 @@ def test_update_gateway_secret_rejects_api_base_removal_without_secret_value(
         auth_config={"api_base": "https://provider.example/v1", "api_version": "2024-02-01"},
     )
 
-    with pytest.raises(MlflowException, match="replacement secret_value") as exc:
-        store.update_gateway_secret(
-            secret_id=created.secret_id,
-            auth_config={"api_version": "2024-02-01"},
-        )
+    updated = store.update_gateway_secret(
+        secret_id=created.secret_id,
+        auth_config={"api_version": "2024-02-01"},
+    )
 
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert store.get_secret_info(secret_id=created.secret_id).auth_config == {
-        "api_base": "https://provider.example/v1",
-        "api_version": "2024-02-01",
-    }
+    assert updated.auth_config == {"api_version": "2024-02-01"}
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "victim-key"}
 
 
@@ -399,6 +398,33 @@ def test_update_gateway_secret_allows_non_destination_auth_config_change_without
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "victim-key"}
 
 
+@pytest.mark.parametrize(
+    "updated_base",
+    [
+        "https://provider.example/v2",
+        "https://provider.example/v1/",
+        "http://provider.example/v1",
+        "https://provider.example:8443/v1",
+        "https://PROVIDER.EXAMPLE/v1",
+    ],
+)
+def test_update_gateway_secret_allows_same_hostname_without_secret_value(
+    store: SqlAlchemyStore, updated_base
+):
+    secret = store.create_gateway_secret(
+        secret_name="same-host-secret",
+        secret_value={"api_key": "original-key"},
+        auth_config={"api_base": "https://provider.example/v1"},
+    )
+
+    updated = store.update_gateway_secret(
+        secret_id=secret.secret_id, auth_config={"api_base": updated_base}
+    )
+
+    assert updated.auth_config == {"api_base": updated_base}
+    assert store._get_decrypted_secret(secret.secret_id) == {"api_key": "original-key"}
+
+
 def test_providerless_secret_endpoint_config_survives_rejected_api_base_update(
     store: SqlAlchemyStore,
 ):
@@ -429,7 +455,9 @@ def test_providerless_secret_endpoint_config_survives_rejected_api_base_update(
     assert config.models[0].secret_value == {"api_key": "original-key"}
     assert config.models[0].provider == "openai"
 
-    with pytest.raises(MlflowException, match="replacement secret_value"):
+    with pytest.raises(
+        MlflowException, match="Changing the API Base URL hostname requires providing secret_value"
+    ):
         store.update_gateway_secret(
             secret_id=secret.secret_id,
             auth_config={"api_base": "https://new.example/v1"},
