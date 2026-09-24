@@ -13,11 +13,11 @@ from starlette.testclient import TestClient
 from mlflow.entities.mcp_server import MCPTool
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
     PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
 )
+from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import MANAGE, get_permission
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
 from mlflow.server.mcp_server_api import (
@@ -393,14 +393,14 @@ def test_search_servers(client):
 
 def test_search_servers_scopes_request_before_storage(store):
     app = _create_registry_fastapi_app()
-
-    @app.middleware("http")
-    async def set_authenticated_user(request, call_next):
-        request.state.username = "alice"
-        return await call_next(request)
+    auth_module.add_fastapi_permission_middleware(app)
 
     with (
         mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
         mock.patch(
             "mlflow.server.auth.get_readable_resource_ids_for_user",
             return_value={"com.example/alpha"},
@@ -409,11 +409,38 @@ def test_search_servers_scopes_request_before_storage(store):
         mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
         mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
     ):
-        response = TestClient(app).get(PREFIX)
+        response = TestClient(app).get(
+            PREFIX, params={"filter_string": "name != 'com.example/beta'"}
+        )
 
     assert response.status_code == 200
     assert response.json()["mcp_servers"] == []
-    assert search.call_args.kwargs["filter_string"] == "name IN ('com.example/alpha')"
+    assert search.call_args.kwargs["filter_string"] == (
+        "name != 'com.example/beta' AND name IN ('com.example/alpha')"
+    )
+
+
+def test_search_servers_keeps_wildcard_scope_unrestricted(store):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value=None),
+        mock.patch("mlflow.server.auth._get_mcp_server_permission"),
+        mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    assert [server["name"] for server in response.json()["mcp_servers"]] == ["com.example/alpha"]
+    assert search.call_args.kwargs["filter_string"] is None
 
 
 def test_search_servers_returns_only_allowed_servers(store):
@@ -424,6 +451,9 @@ def test_search_servers_returns_only_allowed_servers(store):
     @app.middleware("http")
     async def set_authenticated_user(request, call_next):
         request.state.username = "alice"
+        from mlflow.server.auth import _scope_mcp_server_search_query
+
+        _scope_mcp_server_search_query(request, "alice")
         return await call_next(request)
 
     with (
@@ -449,6 +479,9 @@ def test_search_servers_returns_allowed_actions_for_authenticated_user(store):
     @app.middleware("http")
     async def set_authenticated_user(request, call_next):
         request.state.username = "alice"
+        from mlflow.server.auth import _scope_mcp_server_search_query
+
+        _scope_mcp_server_search_query(request, "alice")
         return await call_next(request)
 
     with (
@@ -473,16 +506,15 @@ def test_search_servers_returns_allowed_actions_for_authenticated_user(store):
 def test_search_servers_returns_all_actions_for_admin(store):
     store.create_mcp_server(name="com.example/alpha")
     app = _create_registry_fastapi_app()
-
-    @app.middleware("http")
-    async def set_authenticated_user(request, call_next):
-        request.state.username = "admin"
-        request.state.is_admin = True
-        return await call_next(request)
+    auth_module.add_fastapi_permission_middleware(app)
 
     with (
         mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
-        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value=None),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="admin", id=1, is_admin=True),
+        ),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user") as resolver,
     ):
         response = TestClient(app).get(PREFIX)
 
@@ -493,14 +525,18 @@ def test_search_servers_returns_all_actions_for_admin(store):
         "DELETE",
         "MANAGE",
     ]
+    resolver.assert_not_called()
 
 
-def test_search_servers_skips_storage_for_empty_auth_scope(store):
+def test_search_servers_scopes_empty_auth_scope_before_storage(store):
     app = _create_registry_fastapi_app()
 
     @app.middleware("http")
     async def set_authenticated_user(request, call_next):
         request.state.username = "alice"
+        from mlflow.server.auth import _scope_mcp_server_search_query
+
+        _scope_mcp_server_search_query(request, "alice")
         return await call_next(request)
 
     with (
@@ -512,17 +548,18 @@ def test_search_servers_skips_storage_for_empty_auth_scope(store):
 
     assert response.status_code == 200
     assert response.json()["mcp_servers"] == []
-    search.assert_not_called()
+    assert search.call_args.kwargs["filter_string"] == "name IN ('')"
 
 
-def test_search_servers_sqlite_guard_rejects_oversized_auth_scope(store):
-    # The handler imposes no arbitrary cap; SQLite's bind-variable limit surfaces
-    # as a controlled error from the store, consistent with experiment search.
+def test_search_servers_scopes_oversized_auth_scope_on_sqlite(store):
     app = _create_registry_fastapi_app()
 
     @app.middleware("http")
     async def set_authenticated_user(request, call_next):
         request.state.username = "alice"
+        from mlflow.server.auth import _scope_mcp_server_search_query
+
+        _scope_mcp_server_search_query(request, "alice")
         return await call_next(request)
 
     oversized_names = {f"com.example/server-{i}" for i in range(901)}
@@ -534,9 +571,8 @@ def test_search_servers_sqlite_guard_rejects_oversized_auth_scope(store):
     ):
         response = TestClient(app).get(PREFIX)
 
-    assert response.status_code == 400
-    assert response.json()["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "900" in response.json()["message"]
+    assert response.status_code == 200
+    assert response.json()["mcp_servers"] == []
 
 
 def test_search_servers_returns_resolved_icon_source(client):
