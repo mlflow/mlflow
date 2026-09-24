@@ -6617,6 +6617,67 @@ def test_create_model_version_gates_a_model_id_hidden_in_the_source_uri(
     assert seen == [("m-someone-elses", "read")]
 
 
+@pytest.mark.parametrize(
+    ("parent_is_prompt", "marker", "denied_type", "allowed"),
+    [
+        # A marker disagreeing with the parent means the OTHER version tier governs the row.
+        (False, "true", "prompt_version", False),
+        (False, "true", "registered_model_version", False),
+        (True, "false", "registered_model_version", False),
+        (True, "false", "prompt_version", False),
+        # Agreeing, or absent: only the parent's own tier is implicated.
+        (False, None, "prompt_version", True),
+        (False, "false", "prompt_version", True),
+        (True, None, "registered_model_version", True),
+        (False, "true", "run", True),
+    ],
+    ids=[
+        "model-parent-asserts-prompt",
+        "model-parent-asserts-prompt-own-tier",
+        "prompt-parent-asserts-model",
+        "prompt-parent-asserts-model-own-tier",
+        "model-parent-no-marker",
+        "model-parent-agrees",
+        "prompt-parent-no-marker",
+        "unrelated-tier",
+    ],
+)
+def test_create_model_version_vetoes_the_family_the_body_asserts(
+    workspace_permission_setup, monkeypatch, parent_is_prompt, marker, denied_type, allowed
+):
+    """The store persists the request's own prompt marker regardless of the parent's family.
+
+    Measured on a live server: a plain registered model accepts a version marked `true` (200), and
+    `_entity_is_prompt` then reads that row as a prompt version -- so authorizing only the parent's
+    tier let a `(prompt_version, "*", DENY)` holder create one. Vetoing both on disagreement is
+    strictly narrower than either alone and never wider.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    parent_type = "prompt" if parent_is_prompt else "registered_model"
+    _grant(store, username, "team-a", [(parent_type, "model-xyz", EDIT.name)])
+    _grant(store, username, "team-a", [(denied_type, "*", DENY.name)])
+    monkeypatch.setattr(
+        auth_module._get_model_registry_store(),
+        "get_registered_model",
+        # Mirrors the fixture's `_RegistryStore`: `workspace` is what resolves the grant anchor,
+        # so omitting it denies for an unrelated reason.
+        lambda name: SimpleNamespace(
+            name=name, workspace="team-a", _is_prompt=lambda: parent_is_prompt
+        ),
+        raising=False,
+    )
+    body = {"name": "model-xyz", "source": "dummy-source"}
+    if marker is not None:
+        body["tags"] = [{"key": "mlflow.prompt.is_prompt", "value": marker}]
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create", method="POST", json=body
+    ):
+        assert auth_module.validate_can_create_model_version() is allowed
+
+
 def test_create_model_version_ignores_a_registry_source_uri(
     workspace_permission_setup, monkeypatch
 ):

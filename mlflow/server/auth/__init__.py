@@ -2420,6 +2420,34 @@ def _can_read_model_version_source(
         raise
 
 
+def _version_type_asserted_against_parent(msg, container_type: str) -> "str | None":
+    """The version tier the REQUEST asserts, when that differs from the parent's family.
+
+    The parent normally decides the version's family, but the store persists the request's own
+    `mlflow.prompt.is_prompt` marker on the version regardless of the parent. Measured: a plain
+    registered model accepts a version marked `true` (200), and `_entity_is_prompt` then classifies
+    that row as a PROMPT version on every later read. Authorizing only the parent's tier therefore
+    gated `registered_model_version` while creating something read as a prompt version -- a
+    `(prompt_version, "*", DENY)` holder created one anyway.
+
+    Vetoing both is strictly narrower than either alone and never wider, which is the same fallback
+    `validate_can_create_registered_model` takes when it cannot classify. None when the request
+    carries no marker or agrees with the parent, so an ordinary create pays no extra query.
+    """
+    asserted = _prompt_marker_in_tags(msg.tags)
+    if asserted is None:
+        return None
+    asserted_type = (
+        RESOURCE_TYPE_PROMPT_VERSION if asserted else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    parent_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    return None if asserted_type == parent_type else asserted_type
+
+
 def validate_can_create_model_version():
     # Downstream artifact reads are gated on the destination registered model. Require read on
     # the resource that owns the source so creating a version cannot grant access to artifacts
@@ -2432,6 +2460,15 @@ def validate_can_create_model_version():
     # anchor the version to. A raw-body key check would miss the aliases and skip the READ
     # check while the handler still binds the source run/model from them.
     msg = _get_request_message(CreateModelVersion())
+    # Before the source branches: a marker disagreeing with the parent means the OTHER version tier
+    # governs the row that gets created, so it vetoes too.
+    asserted_type = _version_type_asserted_against_parent(msg, target[0])
+    if asserted_type is not None and not authorize(
+        authenticate_request().username,
+        target,
+        [Requirement(asserted_type, "*", ACTION_NOT_DENIED)],
+    ):
+        return False
     if is_models_uri(msg.source):
         parsed_source = _parse_model_uri(msg.source)
         if parsed_source.name is not None:
@@ -2965,6 +3002,23 @@ def validate_can_get_user_permission() -> bool:
     return store.is_workspace_admin(requester_user.id, workspace_name)
 
 
+def _prompt_marker_in_tags(tags) -> "bool | None":
+    """The prompt marker a tag list carries, or None when it carries none.
+
+    Duplicate keys are legal on the wire and the store keeps the LAST, so fold the same way before
+    reading the marker: `any(... == "true")` called a `[true, false]` body a prompt while a
+    registered model was what got created.
+
+    `None` is not `False`. An absent marker inherits the parent's family; a marker present and false
+    ASSERTS the model family, which is a different statement and gates differently.
+    """
+    value = None
+    for tag in tags:
+        if tag.key == IS_PROMPT_TAG_KEY:
+            value = tag.value
+    return None if value is None else value.lower() == "true"
+
+
 def _entity_is_prompt(entity) -> bool:
     """True if a ``RegisteredModel`` / ``ModelVersion`` entity is prompt-flagged.
 
@@ -2976,14 +3030,7 @@ def _entity_is_prompt(entity) -> bool:
     """
     if hasattr(entity, "_is_prompt"):
         return entity._is_prompt()
-    # Duplicate keys are legal on the wire and the store keeps the LAST, so fold the same way before
-    # reading the marker. `any(... == "true")` called a `[true, false]` create body a prompt while a
-    # registered model was what got created, which sent the veto to the wrong tier.
-    value = None
-    for tag in entity.tags:
-        if tag.key == IS_PROMPT_TAG_KEY:
-            value = tag.value
-    return value is not None and value.lower() == "true"
+    return _prompt_marker_in_tags(entity.tags) is True
 
 
 def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
