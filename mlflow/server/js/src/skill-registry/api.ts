@@ -1,4 +1,5 @@
 import { fetchAPI, fetchOrFail, getAjaxUrl, HTTPMethods } from '../common/utils/FetchUtils';
+import { buildSearchParams } from '../common/utils/SearchUtils';
 import type {
   CreateSkillVersionRequest,
   ExternalSkillVersionRequest,
@@ -31,21 +32,12 @@ export const buildSkillIdentityPath = (name: string, organization = ''): string 
 };
 
 export const buildSkillSearchParams = (params: SearchSkillsParams = {}): string => {
-  const searchParams = new URLSearchParams();
-  if (params.filter_string !== undefined) {
-    searchParams.append('filter_string', params.filter_string);
-  }
-  if (params.max_results !== undefined) {
-    searchParams.append('max_results', String(params.max_results));
-  }
-  for (const orderBy of params.order_by ?? []) {
-    searchParams.append('order_by', orderBy);
-  }
-  if (params.page_token !== undefined) {
-    searchParams.append('page_token', params.page_token);
-  }
-  const queryString = searchParams.toString();
-  return queryString ? `?${queryString}` : '';
+  return buildSearchParams({
+    filter_string: params.filter_string,
+    max_results: params.max_results,
+    order_by: params.order_by,
+    page_token: params.page_token,
+  });
 };
 
 export const buildSkillMultipartBody = (
@@ -53,7 +45,9 @@ export const buildSkillMultipartBody = (
   content: Blob,
 ) => {
   const body = new FormData();
-  body.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  // A Blob is required to preserve the RFC's application/json part type. The backend
+  // must therefore receive metadata as an UploadFile rather than a string Form field.
+  body.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
   const gzipContent =
     content.type === 'application/gzip' ? content : content.slice(0, content.size, 'application/gzip');
   const filename = typeof File !== 'undefined' && content instanceof File ? content.name : 'skill.tar.gz';

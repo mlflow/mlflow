@@ -14,6 +14,7 @@ export enum SkillAction {
 
 export type SkillRequestSourceType = 'git' | 'oci' | 'zip';
 export type SkillSourceType = SkillRequestSourceType | 'mlflow';
+export type CreateSkillVersionStatus = SkillStatus.ACTIVE | SkillStatus.DRAFT;
 
 export interface RegistryIcon {
   src: string;
@@ -63,20 +64,39 @@ export interface SkillVersion extends SkillAuditFields {
 }
 
 interface SkillVersionRequestBase {
-  ref?: string | null;
   subpath?: string | null;
   digest?: string | null;
-  status?: SkillStatus;
+  status?: CreateSkillVersionStatus;
 }
 
-export interface ExternalSkillVersionRequest extends SkillVersionRequestBase {
+interface ExternalSkillVersionRequestBase extends SkillVersionRequestBase {
   source: string;
-  source_type?: SkillRequestSourceType | null;
 }
+
+export interface InferredSkillVersionRequest extends ExternalSkillVersionRequestBase {
+  source_type?: null;
+  ref?: string | null;
+}
+
+export interface GitSkillVersionRequest extends ExternalSkillVersionRequestBase {
+  source_type: 'git';
+  ref?: string | null;
+}
+
+export interface OCIOrZipSkillVersionRequest extends ExternalSkillVersionRequestBase {
+  source_type: 'oci' | 'zip';
+  ref?: never;
+}
+
+export type ExternalSkillVersionRequest =
+  | InferredSkillVersionRequest
+  | GitSkillVersionRequest
+  | OCIOrZipSkillVersionRequest;
 
 export interface UploadedSkillVersionRequest extends SkillVersionRequestBase {
   source?: null;
   source_type?: never;
+  ref?: never;
 }
 
 export type CreateSkillVersionRequest = ExternalSkillVersionRequest | UploadedSkillVersionRequest;

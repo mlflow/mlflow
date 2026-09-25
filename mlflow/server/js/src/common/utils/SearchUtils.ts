@@ -1,5 +1,25 @@
 const SQL_KEYWORD_PATTERN = /(\s+(ILIKE|LIKE|IN|IS)\s+)|=|!=|<=|>=|<|>/i;
 
+type SearchParamValue = string | number | string[] | undefined;
+
+export const buildSearchParams = (params: Record<string, SearchParamValue>): string => {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        searchParams.append(key, item);
+      }
+    } else {
+      searchParams.append(key, String(value));
+    }
+  }
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : '';
+};
+
 /**
  * Builds a filter clause from a search string.
  * If the input contains SQL-like operators (ILIKE, LIKE, IN, IS, =, !=, etc.),

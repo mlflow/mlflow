@@ -469,7 +469,14 @@ export async function fetchOrFail(input: RequestInfo | URL, options?: RequestIni
   // eslint-disable-next-line no-restricted-globals -- only used by OSS
   const response = await fetch(input, fetchOptions);
   if (!response.ok) {
+    const responseForMessage = response.clone();
     const error = matchPredefinedErrorFromResponse(response);
+    try {
+      const message = (await responseForMessage.json()).message;
+      error.message = message ?? error.message;
+    } catch {
+      // If the message can't be parsed, use the predefined error message.
+    }
     throw error;
   }
   return response;

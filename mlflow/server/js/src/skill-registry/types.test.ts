@@ -103,9 +103,26 @@ const invalidClientSelectedVersion: RegisterSkillRequest = {
   version: 3,
 };
 
+const invalidCreateStatus: RegisterSkillRequest = {
+  name: 'code-review',
+  source: 'https://github.com/acme/skills.git',
+  // @ts-expect-error New versions may only be created as active or draft.
+  status: SkillStatus.DEPRECATED,
+};
+
+// @ts-expect-error ref is only valid for Git sources.
+const invalidOCIRef: RegisterSkillRequest = {
+  name: 'code-review',
+  source_type: 'oci',
+  source: 'ghcr.io/acme/skills:v1',
+  ref: 'main',
+};
+
 void invalidStringVersion;
 void invalidVersionPermission;
 void invalidMlflowRequest;
 void invalidRegistrationMetadata;
 void invalidRegistrationTags;
 void invalidClientSelectedVersion;
+void invalidCreateStatus;
+void invalidOCIRef;
