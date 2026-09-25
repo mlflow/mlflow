@@ -944,7 +944,8 @@ def should_compute_cost_client_side() -> bool:
     """Whether LLM cost should be computed on the client side.
 
     Databricks and SageMaker MLflow tracking backends need client-side cost.
-    Other backends compute it server-side in sqlalchemy_store.log_spans().
+    Other backends compute it in translate_span_when_storing(), called by
+    SqlAlchemyStore._log_spans_once() before the span is saved.
     """
     from mlflow.tracking._tracking_service.utils import get_tracking_uri
     from mlflow.utils.uri import is_databricks_uri, is_sagemaker_mlflow_tracking_uri

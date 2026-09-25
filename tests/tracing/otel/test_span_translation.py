@@ -923,6 +923,7 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
 def test_translate_preserves_client_computed_cost():
     cost = {"input_cost": 1.0, "output_cost": 2.0, "total_cost": 3.0}
     span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
     span.to_dict.return_value = {
         "attributes": {
             SpanAttributeKey.MODEL: json.dumps("gpt-4o-mini"),
