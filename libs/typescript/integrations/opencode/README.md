@@ -42,7 +42,21 @@ The plugin is configured via environment variables:
 | ----------------------- | -------- | ---------------------------------------------------------- |
 | `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
 | `MLFLOW_EXPERIMENT_ID`  | Yes      | MLflow experiment ID                                       |
+| `MLFLOW_TRACE_LOCATION` | For UC   | Existing `catalog.schema.table_prefix` trace location      |
 | `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging                      |
+
+For a Databricks experiment backed by Unity Catalog, set `MLFLOW_TRACE_LOCATION`
+alongside the required variables:
+
+```bash
+export MLFLOW_TRACKING_URI=databricks
+export MLFLOW_EXPERIMENT_ID=123
+export MLFLOW_TRACE_LOCATION=my_catalog.my_schema.my_table_prefix
+```
+
+The UC trace location must already exist. Without this setting, the SDK uses the
+experiment-backed path, and traces will not appear in the UC table. An invalid
+location stops tracing and prints a warning instead of silently falling back.
 
 ## Viewing Traces
 
