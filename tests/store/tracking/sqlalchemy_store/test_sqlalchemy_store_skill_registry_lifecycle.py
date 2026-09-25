@@ -334,12 +334,16 @@ def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
     assert _get_alias_rows(store) == []
 
 
-def test_delete_skill_version_allows_active_versions(store):
+def test_delete_skill_version_rejects_active_versions(store):
     _seed_skill(store, [(1, SkillStatus.ACTIVE)])
 
-    store.delete_skill_version("reviewer", 1)
+    with pytest.raises(
+        MlflowException, match="Invalid status transition from 'active' to 'deleted'"
+    ) as exc:
+        store.delete_skill_version("reviewer", 1)
 
-    assert _get_version_row(store, 1) == SkillStatus.DELETED.value
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert _get_version_row(store, 1) == SkillStatus.ACTIVE.value
 
 
 def test_delete_skill_version_of_deleted_version_is_not_found(store):

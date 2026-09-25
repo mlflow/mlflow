@@ -710,6 +710,7 @@ class SqlAlchemySkillRegistryMixin:
                     f"Skill version '{name}' version '{version}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+            self._validate_skill_status_transition(current_status, SkillStatus.DELETED)
 
             now = get_current_time_millis()
             updated = (
