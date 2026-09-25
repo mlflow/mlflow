@@ -4287,6 +4287,45 @@ def _grant(store, username, workspace, rows):
     return role
 
 
+@pytest.mark.parametrize(
+    ("rows", "allowed"),
+    [
+        ([("experiment", "exp-2", MANAGE.name)], True),
+        # the trace tier decides, and neither READ nor EDIT can delete
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", READ.name)], False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", EDIT.name)], False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", DENY.name)], False),
+        # the assessments FK is ondelete=CASCADE, so the assessment tier gates this route too
+        ([("experiment", "exp-2", MANAGE.name), ("assessment", "*", READ.name)], False),
+        ([("experiment", "exp-2", MANAGE.name), ("assessment", "*", DENY.name)], False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", MANAGE.name)], True),
+    ],
+)
+def test_delete_traces_is_gated_like_the_experiment_cascade(
+    workspace_permission_setup, monkeypatch, rows, allowed
+):
+    # DeleteTraces destroys the traces AND their assessments, so it must be gated exactly as
+    # DeleteExperiment is -- otherwise deleting every trace in an experiment is less protected
+    # than deleting the experiment that contains them. It previously resolved the trace tier with
+    # ACTION_NOT_DENIED and named no assessment tier at all, so (trace, READ) did not narrow
+    # experiment MANAGE and (assessment, DENY) did not stop the cascade.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", rows)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces/delete-traces", method="POST", json={"experiment_id": "exp-2"}
+    ):
+        assert auth_module.validate_can_delete_traces() is allowed
+    # and the broad route that subsumes it agrees
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/delete", method="POST", json={"experiment_id": "exp-2"}
+    ):
+        assert auth_module.validate_can_delete_experiment() is allowed
+
+
 def test_legacy_resolver_lets_deny_beat_a_positive_grant(workspace_permission_setup):
     """The regression `4af3cf834` fixed: the store folded grants with ``max`` and
     ``PERMISSION_PRIORITY[DENY]`` is -1, so a ``DENY`` sharing a role with any positive grant was
