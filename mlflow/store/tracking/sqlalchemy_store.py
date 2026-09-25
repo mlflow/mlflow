@@ -20,7 +20,7 @@ import sqlalchemy
 import sqlalchemy.orm
 from sqlalchemy import and_, case, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
+from sqlalchemy.orm import Query, Session, aliased, joinedload, noload, selectinload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
@@ -3784,6 +3784,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         max_results: int | None = None,
         order_by: list[dict[str, Any]] | None = None,
         page_token: str | None = None,
+        include_metrics: bool = True,
     ) -> PagedList[LoggedModel]:
         if datasets and not all(d.get("dataset_name") for d in datasets):
             raise MlflowException(
@@ -3804,6 +3805,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 models, session, experiment_ids, filter_string, datasets
             )
             models = self._apply_order_by_search_logged_models(models, session, order_by)
+            if not include_metrics:
+                # `to_mlflow_entity` reads `self.metrics`, and the relationship is lazy, so
+                # without an explicit loader it would emit exactly the queries this
+                # parameter exists to avoid. Filtering and ordering are unaffected: both
+                # run against `logged_model_metrics` in the statement above.
+                models = models.options(noload(SqlLoggedModel.metrics))
             models = models.offset(offset).limit(max_results + 1).all()
 
             if len(models) > max_results:

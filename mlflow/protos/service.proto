@@ -4735,6 +4735,12 @@ message SearchLoggedModels {
   // Token indicating the page of Logged Models to fetch.
   optional string page_token = 5;
 
+  // Whether to include metric values on the returned Logged Models. Metrics dominate the
+  // size of a Logged Model, so a caller that only needs model identity - a table listing
+  // the models a Run produced, for example - can set this to false to avoid fetching and
+  // serializing them. Defaults to true, leaving existing callers unaffected.
+  optional bool include_metrics = 7 [default = true];
+
   message OrderBy {
     // Name of the field to order by, e.g. "metrics.accuracy".
     optional string field_name = 1 [(validate_required) = true];

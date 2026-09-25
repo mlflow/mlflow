@@ -1263,6 +1263,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         max_results: int | None = None,
         order_by: list[dict[str, Any]] | None = None,
         page_token: str | None = None,
+        include_metrics: bool = True,
     ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
@@ -1290,6 +1291,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
                     associated with the specified dataset name and digest will be considered for
                     ordering. This field may only be set if ``dataset_name`` is also set.
             page_token: Token specifying the next page of results.
+            include_metrics: Whether to load metric values onto the returned models. Metrics
+                dominate the size of a logged model, so a caller that only needs model
+                identity can pass ``False`` to skip fetching them. Metrics can still be
+                filtered and ordered on. Defaults to ``True``.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of

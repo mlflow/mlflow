@@ -4390,6 +4390,37 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     assert call_kwargs.get("max_results") == 10
 
 
+def test_search_logged_models_include_metrics_defaults_to_true(
+    mock_get_request_message, mock_tracking_store
+):
+    """An unset `include_metrics` must keep the pre-existing behaviour for old clients."""
+    proto = SearchLoggedModels()
+    assert not proto.HasField("include_metrics")
+
+    mock_get_request_message.return_value = proto
+    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
+
+    _search_logged_models()
+
+    call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs.get("include_metrics") is True
+
+
+def test_search_logged_models_include_metrics_false_reaches_the_store(
+    mock_get_request_message, mock_tracking_store
+):
+    proto = SearchLoggedModels()
+    proto.include_metrics = False
+
+    mock_get_request_message.return_value = proto
+    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
+
+    _search_logged_models()
+
+    call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs.get("include_metrics") is False
+
+
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
     # Create proto without setting page_token - it defaults to empty string
     list_webhooks_proto = ListWebhooks()

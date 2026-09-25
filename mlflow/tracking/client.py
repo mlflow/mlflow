@@ -6037,6 +6037,7 @@ class MlflowClient:
         max_results: int | None = None,
         order_by: list[dict[str, Any]] | None = None,
         page_token: str | None = None,
+        include_metrics: bool = True,
     ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
@@ -6091,13 +6092,23 @@ class MlflowClient:
                     associated with the specified dataset name and digest will be considered for
                     ordering. This field may only be set if ``dataset_name`` is also set.
             page_token: Token specifying the next page of results.
+            include_metrics: Whether to load metric values onto the returned models. Metrics
+                dominate the size of a logged model, so a caller that only needs model
+                identity can pass ``False`` to skip fetching them. Metrics can still be
+                filtered and ordered on. Defaults to ``True``.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
         return self._tracking_client.search_logged_models(
-            experiment_ids, filter_string, datasets, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            datasets,
+            max_results,
+            order_by,
+            page_token,
+            include_metrics=include_metrics,
         )
 
     @require_prompt_registry
