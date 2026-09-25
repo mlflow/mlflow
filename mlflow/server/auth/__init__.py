@@ -1146,21 +1146,63 @@ def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
         return None
 
 
-def _authorize_artifact_proxy_child(artifact_path: "str | None", action: str) -> bool:
+_ARTIFACT_PROXY_UNPARSABLE = object()
+
+_ARTIFACT_PROXY_CAN = {"read": "can_read", "update": "can_update", "manage": "can_manage"}
+
+
+def _artifact_proxy_child(artifact_path: "str | None"):
+    """Resolve an artifact proxy path to the sub-resource it names.
+
+    Returns ``(child_type, experiment_key)``, ``None`` when the path names no child tier
+    (an experiment-level artifact), or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot
+    be canonicalized -- which must deny rather than fall through.
+    """
     if not artifact_path:
-        return True
+        return None
     canonical = _canonical_artifact_proxy_path(artifact_path)
     if canonical is None:
-        return False
+        return _ARTIFACT_PROXY_UNPARSABLE
     match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
     child_type = _artifact_proxy_child_type(canonical) if match else None
     if child_type is None:
-        return True
-    experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+        return None
+    return child_type, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+
+
+def _authorize_artifact_proxy_resolved(
+    child, username: str, action: str, experiment_permission
+) -> bool:
+    """Authorize an artifact proxy request against the tier the path names.
+
+    An artifact under ``<experiment>/<run_id>/artifacts/`` is the run's payload, so it is
+    gated like any other run mutation: the experiment carries the READ baseline and the run
+    tier carries the action, which lets a positive run grant decide exactly as it does on
+    ``UpdateRun``. A path naming no child tier keeps the experiment at the action level,
+    since there is no tier to carry it.
+    """
+    if child is _ARTIFACT_PROXY_UNPARSABLE:
+        return False
+    if child is None:
+        return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
+    child_type, experiment = child
     return authorize(
-        getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username,
+        username,
         experiment,
-        [Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))],
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment[1], "read"),
+            Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,)),
+        ],
+    )
+
+
+def _authorize_flask_artifact_proxy(action: str) -> bool:
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+    return _authorize_artifact_proxy_resolved(
+        _artifact_proxy_child(_artifact_proxy_path()),
+        username,
+        action,
+        _get_permission_from_experiment_id_artifact_proxy,
     )
 
 
@@ -1730,21 +1772,15 @@ def validate_can_manage_experiment():
 
 
 def validate_can_read_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_read and (
-        _authorize_artifact_proxy_child(_artifact_proxy_path(), "read")
-    )
+    return _authorize_flask_artifact_proxy("read")
 
 
 def validate_can_update_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_update and (
-        _authorize_artifact_proxy_child(_artifact_proxy_path(), "update")
-    )
+    return _authorize_flask_artifact_proxy("update")
 
 
 def validate_can_delete_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_manage and (
-        _authorize_artifact_proxy_child(_artifact_proxy_path(), "manage")
-    )
+    return _authorize_flask_artifact_proxy("manage")
 
 
 # Runs
@@ -7917,24 +7953,14 @@ def _artifact_proxy_path_from_request_path(path: str, query_path: "str | None") 
     return query_path
 
 
-def _authorize_fastapi_artifact_proxy_child(
+def _authorize_fastapi_artifact_proxy(
     path: str, username: str, query_path: "str | None", action: str
 ) -> bool:
-    artifact_path = _artifact_proxy_path_from_request_path(path, query_path)
-    if not artifact_path:
-        return True
-    canonical = _canonical_artifact_proxy_path(artifact_path)
-    if canonical is None:
-        return False
-    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
-    child_type = _artifact_proxy_child_type(canonical) if match else None
-    if child_type is None:
-        return True
-    experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
-    return authorize(
+    return _authorize_artifact_proxy_resolved(
+        _artifact_proxy_child(_artifact_proxy_path_from_request_path(path, query_path)),
         username,
-        experiment,
-        [Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))],
+        action,
+        lambda: _get_proxy_artifact_permission(path, username, query_path),
     )
 
 
@@ -7942,21 +7968,13 @@ def _get_fastapi_proxy_artifact_validator(
     path: str, method: str
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     async def validator(username: str, request: StarletteRequest) -> bool:
-        query_path = request.query_params.get("path")
-        permission = await asyncio.to_thread(
-            _get_proxy_artifact_permission, path, username, query_path
-        )
-        allowed, action = {
-            "GET": (permission.can_read, "read"),
-            "PUT": (permission.can_update, "update"),
-            "DELETE": (permission.can_manage, "manage"),
-            "POST": (permission.can_update, "update"),
-        }.get(method, (False, None))
-        if not allowed:
+        action = {"GET": "read", "PUT": "update", "DELETE": "manage", "POST": "update"}.get(method)
+        if action is None:
             return False
-        # Same child gate as the Flask validators, so neither dispatch path is the softer one.
+        query_path = request.query_params.get("path")
+        # Same gate as the Flask validators, so neither dispatch path is the softer one.
         return await asyncio.to_thread(
-            _authorize_fastapi_artifact_proxy_child, path, username, query_path, action
+            _authorize_fastapi_artifact_proxy, path, username, query_path, action
         )
 
     return validator
