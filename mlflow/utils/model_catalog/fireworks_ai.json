@@ -1052,7 +1052,14 @@
       "pricing": {
         "input_per_million_tokens": 0.22,
         "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007
+        "cache_read_per_million_tokens": 0.007,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.275,
+            "output_per_million_tokens": 0.825,
+            "cache_read_per_million_tokens": 0.00875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1061,7 +1068,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/deepseek-v4-flash-vision-exp": {
       "mode": "chat",
@@ -1079,9 +1087,10 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/deepseek-v4-pro": {
       "mode": "chat",
@@ -1091,9 +1100,16 @@
         "max_tokens": 384000
       },
       "pricing": {
-        "input_per_million_tokens": 1.74,
-        "output_per_million_tokens": 3.48,
-        "cache_read_per_million_tokens": 0.145
+        "input_per_million_tokens": 1.2,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.6,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.2,
+            "output_per_million_tokens": 1.2,
+            "cache_read_per_million_tokens": 0.6
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1102,7 +1118,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/deepseek-v4-pro-0813": {
       "mode": "chat",
@@ -1114,7 +1130,14 @@
       "pricing": {
         "input_per_million_tokens": 1.32,
         "output_per_million_tokens": 3.96,
-        "cache_read_per_million_tokens": 0.044
+        "cache_read_per_million_tokens": 0.044,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 4.95,
+            "cache_read_per_million_tokens": 0.055
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1123,7 +1146,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/deepseek-v4p1-flash": {
       "mode": "chat",
@@ -1135,7 +1159,14 @@
       "pricing": {
         "input_per_million_tokens": 0.22,
         "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007
+        "cache_read_per_million_tokens": 0.007,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.275,
+            "output_per_million_tokens": 0.825,
+            "cache_read_per_million_tokens": 0.00875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1144,7 +1175,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/devstral-small-2505": {
       "mode": "chat",
@@ -1245,6 +1276,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "accounts/fireworks/models/ember-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/ernie-4p5-21b-a3b-pt": {
       "mode": "chat",
@@ -1758,7 +1808,14 @@
       "pricing": {
         "input_per_million_tokens": 1.4,
         "output_per_million_tokens": 4.4,
-        "cache_read_per_million_tokens": 0.14
+        "cache_read_per_million_tokens": 0.14,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.75,
+            "output_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.175
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1767,7 +1824,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-20"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/glm-5p3": {
       "mode": "chat",
@@ -1779,7 +1837,14 @@
       "pricing": {
         "input_per_million_tokens": 1.4,
         "output_per_million_tokens": 4.4,
-        "cache_read_per_million_tokens": 0.26
+        "cache_read_per_million_tokens": 0.26,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.75,
+            "output_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.325
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1788,7 +1853,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/glm-5p3-flash": {
       "mode": "chat",
@@ -1799,7 +1864,14 @@
       "pricing": {
         "input_per_million_tokens": 0.15,
         "output_per_million_tokens": 0.5,
-        "cache_read_per_million_tokens": 0.03
+        "cache_read_per_million_tokens": 0.03,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.1875,
+            "output_per_million_tokens": 0.625,
+            "cache_read_per_million_tokens": 0.0375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1808,7 +1880,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-04"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/gpt-oss-120b": {
       "mode": "chat",
@@ -1820,7 +1892,14 @@
       "pricing": {
         "input_per_million_tokens": 0.15,
         "output_per_million_tokens": 0.6,
-        "cache_read_per_million_tokens": 0.015
+        "cache_read_per_million_tokens": 0.015,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.18,
+            "output_per_million_tokens": 0.72,
+            "cache_read_per_million_tokens": 0.018
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1829,7 +1908,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/gpt-oss-20b": {
       "mode": "chat",
@@ -2163,7 +2242,14 @@
       "pricing": {
         "input_per_million_tokens": 0.95,
         "output_per_million_tokens": 4.0,
-        "cache_read_per_million_tokens": 0.16
+        "cache_read_per_million_tokens": 0.16,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.22
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2172,7 +2258,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/kimi-k2p7-code": {
       "mode": "chat",
@@ -2184,7 +2271,14 @@
       "pricing": {
         "input_per_million_tokens": 0.95,
         "output_per_million_tokens": 4.0,
-        "cache_read_per_million_tokens": 0.19
+        "cache_read_per_million_tokens": 0.19,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.425,
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.285
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2193,7 +2287,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/kimi-k3": {
       "mode": "chat",
@@ -2205,7 +2300,14 @@
       "pricing": {
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3
+        "cache_read_per_million_tokens": 0.3,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.75,
+            "output_per_million_tokens": 18.75,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2214,7 +2316,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/llama-guard-2-8b": {
       "mode": "chat",
@@ -2887,7 +2989,14 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 1.2,
-        "cache_read_per_million_tokens": 0.06
+        "cache_read_per_million_tokens": 0.06,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.2,
+            "output_per_million_tokens": 1.2,
+            "cache_read_per_million_tokens": 0.6
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2896,7 +3005,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/minimax-m3": {
       "mode": "chat",
@@ -2908,16 +3017,23 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 1.2,
-        "cache_read_per_million_tokens": 0.06
+        "cache_read_per_million_tokens": 0.06,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.45,
+            "output_per_million_tokens": 1.8,
+            "cache_read_per_million_tokens": 0.09
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
-        "vision": true,
+        "vision": false,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-24"
+      "last_updated_at": "2026-09-22"
     },
     "accounts/fireworks/models/ministral-3-14b-instruct-2512": {
       "mode": "chat",
@@ -3298,7 +3414,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/models/mythomax-l2-13b": {
       "mode": "chat",
@@ -5171,7 +5288,14 @@
       "pricing": {
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.25
+        "cache_read_per_million_tokens": 0.25,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5180,7 +5304,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-15"
     },
     "accounts/fireworks/models/qwq-32b": {
       "mode": "chat",
@@ -5562,7 +5686,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "accounts/fireworks/routers/glm-5p2-fast-us": {
       "mode": "chat",
@@ -5583,7 +5708,28 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
+    },
+    "accounts/fireworks/routers/glm-5p3-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.1,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.39
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-17"
     },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
       "mode": "chat",
@@ -5656,9 +5802,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33
+        "input_per_million_tokens": 4.5,
+        "output_per_million_tokens": 22.5,
+        "cache_read_per_million_tokens": 0.45
       },
       "capabilities": {
         "function_calling": true,
@@ -5667,7 +5813,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4-flash": {
       "mode": "chat",
@@ -5700,7 +5846,14 @@
       "pricing": {
         "input_per_million_tokens": 0.22,
         "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007
+        "cache_read_per_million_tokens": 0.007,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.275,
+            "output_per_million_tokens": 0.825,
+            "cache_read_per_million_tokens": 0.00875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5709,7 +5862,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-02"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4-flash-vision-exp": {
       "mode": "chat",
@@ -5727,9 +5881,10 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -5739,9 +5894,16 @@
         "max_tokens": 384000
       },
       "pricing": {
-        "input_per_million_tokens": 1.74,
-        "output_per_million_tokens": 3.48,
-        "cache_read_per_million_tokens": 0.145
+        "input_per_million_tokens": 1.2,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.6,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.2,
+            "output_per_million_tokens": 1.2,
+            "cache_read_per_million_tokens": 0.6
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5750,7 +5912,36 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-09-15"
+    },
+    "deepseek-v4-pro-0813": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.32,
+        "output_per_million_tokens": 3.96,
+        "cache_read_per_million_tokens": 0.044,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 4.95,
+            "cache_read_per_million_tokens": 0.055
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-v4p1-flash": {
       "mode": "chat",
@@ -5762,7 +5953,14 @@
       "pricing": {
         "input_per_million_tokens": 0.22,
         "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007
+        "cache_read_per_million_tokens": 0.007,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.275,
+            "output_per_million_tokens": 0.825,
+            "cache_read_per_million_tokens": 0.00875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5771,7 +5969,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-09-15"
     },
     "glm-4p7": {
       "mode": "chat",
@@ -5846,7 +6044,14 @@
       "pricing": {
         "input_per_million_tokens": 1.4,
         "output_per_million_tokens": 4.4,
-        "cache_read_per_million_tokens": 0.14
+        "cache_read_per_million_tokens": 0.14,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.75,
+            "output_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.175
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5855,7 +6060,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-20"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "glm-5p2-fast": {
       "mode": "chat",
@@ -5876,7 +6082,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "glm-5p2-fast-us": {
       "mode": "chat",
@@ -5897,7 +6104,83 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
+    },
+    "glm-5p3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.26,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.75,
+            "output_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.325
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-22"
+    },
+    "glm-5p3-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.1,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.39
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-17"
+    },
+    "glm-5p3-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.03,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.1875,
+            "output_per_million_tokens": 0.625,
+            "cache_read_per_million_tokens": 0.0375
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-22"
     },
     "gpt-oss-120b": {
       "mode": "chat",
@@ -5909,7 +6192,14 @@
       "pricing": {
         "input_per_million_tokens": 0.15,
         "output_per_million_tokens": 0.6,
-        "cache_read_per_million_tokens": 0.015
+        "cache_read_per_million_tokens": 0.015,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.18,
+            "output_per_million_tokens": 0.72,
+            "cache_read_per_million_tokens": 0.018
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5918,7 +6208,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-09-15"
     },
     "gpt-oss-20b": {
       "mode": "chat",
@@ -5972,7 +6262,14 @@
       "pricing": {
         "input_per_million_tokens": 0.95,
         "output_per_million_tokens": 4.0,
-        "cache_read_per_million_tokens": 0.16
+        "cache_read_per_million_tokens": 0.16,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.22
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5981,7 +6278,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "kimi-k2p6-fast": {
       "mode": "chat",
@@ -6014,7 +6312,14 @@
       "pricing": {
         "input_per_million_tokens": 0.95,
         "output_per_million_tokens": 4.0,
-        "cache_read_per_million_tokens": 0.19
+        "cache_read_per_million_tokens": 0.19,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.425,
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.285
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6023,7 +6328,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "kimi-k2p7-code-fast": {
       "mode": "chat",
@@ -6056,7 +6362,14 @@
       "pricing": {
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3
+        "cache_read_per_million_tokens": 0.3,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.75,
+            "output_per_million_tokens": 18.75,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6065,7 +6378,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-15"
     },
     "kimi-k3-fast": {
       "mode": "chat",
@@ -6096,9 +6409,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33
+        "input_per_million_tokens": 4.5,
+        "output_per_million_tokens": 22.5,
+        "cache_read_per_million_tokens": 0.45
       },
       "capabilities": {
         "function_calling": true,
@@ -6107,7 +6420,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-24"
     },
     "minimax-m2p1": {
       "mode": "chat",
@@ -6140,7 +6453,14 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 1.2,
-        "cache_read_per_million_tokens": 0.06
+        "cache_read_per_million_tokens": 0.06,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.2,
+            "output_per_million_tokens": 1.2,
+            "cache_read_per_million_tokens": 0.6
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6149,7 +6469,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-09-15"
     },
     "minimax-m3": {
       "mode": "chat",
@@ -6161,16 +6481,23 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 1.2,
-        "cache_read_per_million_tokens": 0.06
+        "cache_read_per_million_tokens": 0.06,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.45,
+            "output_per_million_tokens": 1.8,
+            "cache_read_per_million_tokens": 0.09
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
-        "vision": true,
+        "vision": false,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-24"
+      "last_updated_at": "2026-09-22"
     },
     "muse-glimmer-30b": {
       "mode": "chat",
@@ -6191,7 +6518,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-09-25",
+      "last_updated_at": "2026-09-24"
     },
     "nemotron-3-ultra-nvfp4": {
       "mode": "chat",
@@ -6264,7 +6592,14 @@
       "pricing": {
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.25
+        "cache_read_per_million_tokens": 0.25,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6273,7 +6608,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-15"
     }
   }
 }

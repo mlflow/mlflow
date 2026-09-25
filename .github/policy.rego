@@ -100,8 +100,8 @@ deny_unsafe_checkout contains msg if {
 	# instead of "on".
 	input["true"].pull_request_target
 	not safe_pull_request_target_workflow
-	some job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/checkout@")
 	step["with"].ref
 	msg := concat("", [
@@ -117,29 +117,46 @@ safe_pull_request_target_workflow if {
 }
 
 deny_create_app_token_without_permissions contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/create-github-app-token@")
 	not step_has_app_token_permissions(step)
 	msg := sprintf(
 		concat("", [
-			"actions/create-github-app-token in job '%s' must explicitly request permissions ",
+			"actions/create-github-app-token at %s must explicitly request permissions ",
 			"via 'permission-<name>: <level>' inputs (e.g., permission-contents: write) for ",
 			"least-privilege access. See ",
 			"https://github.com/actions/create-github-app-token#create-a-token-with-specific-permissions",
 		]),
-		[job_id],
+		[entry.location],
+	)
+}
+
+deny_create_app_token_without_repository_scope contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/create-github-app-token@")
+	some key in {"owner", "repositories"}
+	inputs := object.get(step, "with", {})
+	value := object.get(inputs, key, "")
+	trim(value, " \t\n") == ""
+	msg := sprintf(
+		concat("", [
+			"actions/create-github-app-token at %s must set a non-empty 'with.%s' ",
+			"to explicitly scope the token to its intended repositories.",
+		]),
+		[entry.location, key],
 	)
 }
 
 deny_create_app_token_with_app_id contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/create-github-app-token@")
 	step["with"]["app-id"]
 	msg := sprintf(
-		"actions/create-github-app-token in job '%s' uses deprecated 'app-id'. Use 'client-id' instead.",
-		[job_id],
+		"actions/create-github-app-token at %s uses deprecated 'app-id'. Use 'client-id' instead.",
+		[entry.location],
 	)
 }
 
@@ -149,16 +166,16 @@ step_has_app_token_permissions(step) if {
 }
 
 deny_unnecessary_github_token contains msg if {
-	some job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/github-script@")
 	regex.match(`\$\{\{\s*(secrets\.GITHUB_TOKEN|github\.token)\s*\}\}`, step["with"]["github-token"])
 	msg := "Unnecessary use of github-token for actions/github-script."
 }
 
 deny_github_token_env_var contains msg if {
-	some job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	step.env.GITHUB_TOKEN
 	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
 }
@@ -170,8 +187,8 @@ deny_github_token_env_var contains msg if {
 }
 
 deny_github_token_shorthand contains msg if {
-	some job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	some key, value in step["with"]
 	contains_github_token(value)
 	msg := sprintf(
@@ -181,8 +198,8 @@ deny_github_token_shorthand contains msg if {
 }
 
 deny_github_token_shorthand contains msg if {
-	some job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	some key, value in step.env
 	contains_github_token(value)
 	msg := sprintf(
@@ -275,16 +292,16 @@ deny_wrong_shell_defaults contains msg if {
 }
 
 deny_github_script_without_retries contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/github-script@")
 	not step["with"].retries
 	msg := sprintf(
 		concat("", [
-			"actions/github-script in job '%s' must have 'retries' set ",
+			"actions/github-script at %s must have 'retries' set ",
 			"(e.g., retries: 3) for resilience against transient GitHub API failures.",
 		]),
-		[job_id],
+		[entry.location],
 	)
 }
 
@@ -307,58 +324,29 @@ deny_push_without_branches contains msg if {
 }
 
 deny_interpolation_in_run contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	regex.match(`\$\{\{`, step.run)
 	msg := sprintf(
 		concat("", [
-			"Direct ${{ }} interpolation in run block of job '%s'. ",
+			"Direct ${{ }} interpolation in run block at %s. ",
 			"Use env: to pass the value and reference it as $VAR in the script.",
 		]),
-		[job_id],
-	)
-}
-
-deny_interpolation_in_run contains msg if {
-	not input.jobs
-	input.runs.steps
-	some i, step in input.runs.steps
-	regex.match(`\$\{\{`, step.run)
-	msg := sprintf(
-		concat("", [
-			"Direct ${{ }} interpolation in run block of composite action step #%d. ",
-			"Use env: to pass the value and reference it as $VAR in the script.",
-		]),
-		[i + 1],
+		[entry.location],
 	)
 }
 
 deny_interpolation_in_github_script contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/github-script@")
 	regex.match(`\$\{\{`, step["with"].script)
 	msg := sprintf(
 		concat("", [
-			"Direct ${{ }} interpolation in github-script of job '%s'. ",
+			"Direct ${{ }} interpolation in github-script at %s. ",
 			"Use env: to pass the value and reference it as process.env.VAR in the script.",
 		]),
-		[job_id],
-	)
-}
-
-deny_interpolation_in_github_script contains msg if {
-	not input.jobs
-	input.runs.steps
-	some i, step in input.runs.steps
-	startswith(step.uses, "actions/github-script@")
-	regex.match(`\$\{\{`, step["with"].script)
-	msg := sprintf(
-		concat("", [
-			"Direct ${{ }} interpolation in github-script of composite action step #%d. ",
-			"Use env: to pass the value and reference it as process.env.VAR in the script.",
-		]),
-		[i + 1],
+		[entry.location],
 	)
 }
 
@@ -373,29 +361,49 @@ deny_interpolation_in_job_if contains msg if {
 }
 
 deny_interpolation_in_step_if contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	is_string(step["if"])
 	regex.match(`\$\{\{`, step["if"])
 	msg := sprintf(
 		concat("", [
-			"Unnecessary ${{ }} in 'if' of step '%s' in job '%s'. ",
+			"Unnecessary ${{ }} in 'if' at %s. ",
 			"Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
 		]),
-		[step.name, job_id],
+		[entry.location],
 	)
 }
 
 contains_github_token(value) if {
+	is_string(value)
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }
 
-# All steps in a job, including steps nested inside `parallel` groups.
-# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsparallel
-job_steps(job) := array.concat(
-	[step | some step in job.steps],
-	[step | some group in job.steps; some step in group.parallel],
-)
+# Include the position so unnamed steps and parallel children have useful diagnostics.
+step_entries(inp) := entries if {
+	inp.jobs
+	entries := array.concat(
+		[{"step": step, "location": sprintf("job '%s', step #%d", [job_id, i + 1])} |
+			some job_id, job in inp.jobs
+			some i, step in job.steps
+		],
+		[{
+			"step": step,
+			"location": sprintf("job '%s', step #%d, parallel step #%d", [job_id, i + 1, j + 1]),
+		} |
+			some job_id, job in inp.jobs
+			some i, group in job.steps
+			some j, step in group.parallel
+		],
+	)
+}
+
+step_entries(inp) := entries if {
+	not inp.jobs
+	entries := [{"step": step, "location": sprintf("composite action step #%d", [i + 1])} |
+		some i, step in inp.runs.steps
+	]
+}
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
@@ -417,21 +425,7 @@ is_step_unpinned(step) if {
 	not regex.match(`^[^@]+@[0-9a-f]{40}$`, step.uses)
 }
 
-all_steps(inp) := steps if {
-	# For workflow files with jobs
-	inp.jobs
-	steps := {step |
-		some job in inp.jobs
-		some step in job_steps(job)
-	}
-}
-
-all_steps(inp) := steps if {
-	# For composite action files with runs
-	not inp.jobs
-	inp.runs.steps
-	steps := {step | some step in inp.runs.steps}
-}
+all_steps(inp) := {entry.step | some entry in step_entries(inp)}
 
 unpinned_actions(inp) := {step.uses |
 	some step in all_steps(inp)
@@ -476,13 +470,13 @@ contains_secret(value) if {
 }
 
 deny_checkout_missing_persist_credentials contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/checkout@")
 	not has_explicit_persist_credentials(step)
 	msg := sprintf(
-		"actions/checkout in job '%s' must set 'persist-credentials' explicitly (false for read-only, true if pushing).",
-		[job_id],
+		"actions/checkout at %s must set 'persist-credentials' explicitly (false for read-only, true if pushing).",
+		[entry.location],
 	)
 }
 
@@ -495,24 +489,24 @@ has_explicit_persist_credentials(step) if {
 }
 
 deny_upload_artifact_without_retention contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/upload-artifact@")
 	not step["with"]["retention-days"]
 	msg := sprintf(
-		"actions/upload-artifact in job '%s' must set 'retention-days' explicitly.",
-		[job_id],
+		"actions/upload-artifact at %s must set 'retention-days' explicitly.",
+		[entry.location],
 	)
 }
 
 deny_upload_artifact_without_if_no_files_found contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/upload-artifact@")
 	not step["with"]["if-no-files-found"]
 	msg := sprintf(
-		"actions/upload-artifact in job '%s' must set 'if-no-files-found' explicitly.",
-		[job_id],
+		"actions/upload-artifact at %s must set 'if-no-files-found' explicitly.",
+		[entry.location],
 	)
 }
 
@@ -535,24 +529,25 @@ has_explicit_fail_fast(strategy) if {
 }
 
 deny_mutable_install contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	some line in split(step.run, "\n")
 	regex.match(`\bnpm install\b`, line)
 	not regex.match(`--package-lock-only\b`, line)
+	not regex.match(`^\s*npm install\s+(-g|--global)(\s+[@A-Za-z0-9._/-]+)+\s*$`, line)
 	msg := sprintf(
-		"'npm install' in job '%s' modifies the lockfile. Use 'npm ci' for reproducible builds.",
-		[job_id],
+		"'npm install' at %s modifies the lockfile. Use 'npm ci' for reproducible builds.",
+		[entry.location],
 	)
 }
 
 deny_mutable_install contains msg if {
-	some job_id, job in input.jobs
-	some step in job_steps(job)
+	some entry in step_entries(input)
+	step := entry.step
 	regex.match(`(?m)^\s*yarn(\s+install)?\s*(?:#.*)?$`, step.run)
 	not regex.match(`\byarn install\s+--immutable\b`, step.run)
 	msg := sprintf(
-		"yarn or yarn install in job '%s' may modify the lockfile. Use 'yarn install --immutable'.",
-		[job_id],
+		"yarn or yarn install at %s may modify the lockfile. Use 'yarn install --immutable'.",
+		[entry.location],
 	)
 }

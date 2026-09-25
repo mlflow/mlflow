@@ -1,0 +1,49 @@
+name: Stack Nudge
+
+on:
+  pull_request_target:
+    types: [opened, edited]
+
+permissions: {}
+cache-mode: none
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  nudge:
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.user.type != 'Bot' &&
+      contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
+      contains(github.event.pull_request.body, '🥞 Stacked PR') &&
+      !github.event.pull_request.stack
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Nudge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- mlflow-stack-nudge -->'
+          already_nudged=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments --jq "
+            any(.comments[]; .author.login == \"github-actions\" and ((.body // \"\") | contains(\"$marker\")))
+          ")
+          if [[ "$already_nudged" == true ]]; then
+            echo "Stack Nudge comment already exists; skipping."
+            exit 0
+          fi
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$marker
+
+          ⚠️ GitHub now supports [stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) natively. Please use those for your stack."
