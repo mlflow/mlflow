@@ -1,28 +1,34 @@
 from mlflow.server.auth.entities import (
     GetUserPermissionResult,
+    MutationConditions,
     Role,
     RolePermission,
     User,
     UserRoleAssignment,
 )
 from mlflow.server.auth.routes import (
+    ADD_MUTATION_CONDITIONS,
     ADD_ROLE_PERMISSION,
     ASSIGN_ROLE,
     CREATE_ROLE,
     CREATE_USER,
     DELETE_ROLE,
     DELETE_USER,
+    GET_MUTATION_CONDITIONS,
     GET_ROLE,
     GET_USER,
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
+    LIST_MUTATION_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
     LIST_USER_ROLES,
+    REMOVE_MUTATION_CONDITIONS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     UNASSIGN_ROLE,
+    UPDATE_MUTATION_CONDITIONS,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -30,6 +36,11 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import http_request, verify_rest_response
+
+#: Distinguishes "leave this condition unchanged" from "clear it". ``None`` already
+#: means clear, so omission needs its own marker -- otherwise an update touching one
+#: condition would silently drop the other.
+_UNSET = object()
 
 
 class AuthServiceClient:
@@ -357,6 +368,99 @@ class AuthServiceClient:
     def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
         resp = self._request(LIST_ROLE_USERS, "GET", params={"role_id": str(role_id)})
         return [UserRoleAssignment.from_json(a) for a in resp["assignments"]]
+
+    # ---- Mutation conditions (condition-based access control) ----
+    #
+    # Two optional filters per (role, resource_type) that gate create/mutation only,
+    # never reads. Conditions **subtract** from what the role's grants allow: they
+    # never confer access, and a role with no conditions behaves exactly as before.
+
+    def add_mutation_conditions(
+        self,
+        role_id: int,
+        resource_type: str,
+        value_condition: str | None = None,
+        target_condition: str | None = None,
+    ) -> MutationConditions:
+        """Attach conditions to ``role_id`` for ``resource_type``.
+
+        Args:
+            role_id: The role to condition. Conditions apply on top of that role's
+                grants and cannot widen them.
+            resource_type: One of ``experiment``, ``run``, ``trace``, ``logged_model``,
+                ``registered_model``, ``registered_model_version``, ``prompt``,
+                ``prompt_version``. Other types are rejected -- a condition is only
+                meaningful for a type carrying tags or aliases.
+            value_condition: Constrains *what values* a mutation may set, as a filter
+                string over ``tag_key``, ``tag_value`` and ``alias``. Evaluated against
+                the request, and applied on create. A clause whose identifier the
+                request does not carry is vacuous, so a metrics-only ``LogBatch`` is
+                not denied by a ``tag_key`` clause. Reserved ``mlflow.*`` tag keys are
+                rejected here, because MLflow writes them itself.
+            target_condition: Constrains *which existing resources* may be mutated, as
+                a filter string over ``tags.<key>`` and ``aliases.<name>``. Evaluated
+                against the resource's current state, and vacuous on create. **A
+                missing tag fails the clause**, matching search semantics -- so
+                ``tags.lifecycle != 'prod'`` denies an untagged resource.
+
+        Both are optional, and at most five AND-joined clauses each; ``OR`` is not
+        supported. Use ``!=`` or ``NOT IN`` to exclude.
+
+        Returns:
+            The created :py:class:`MutationConditions`.
+        """
+        resp = self._request(
+            ADD_MUTATION_CONDITIONS,
+            "POST",
+            json={
+                "role_id": role_id,
+                "resource_type": resource_type,
+                "value_condition": value_condition,
+                "target_condition": target_condition,
+            },
+        )
+        return MutationConditions.from_json(resp["mutation_conditions"])
+
+    def get_mutation_conditions(self, role_id: int, resource_type: str) -> MutationConditions:
+        resp = self._request(
+            GET_MUTATION_CONDITIONS,
+            "GET",
+            params={"role_id": str(role_id), "resource_type": resource_type},
+        )
+        return MutationConditions.from_json(resp["mutation_conditions"])
+
+    def update_mutation_conditions(
+        self,
+        role_id: int,
+        resource_type: str,
+        value_condition: str | None = _UNSET,
+        target_condition: str | None = _UNSET,
+    ) -> MutationConditions:
+        """Update conditions, leaving any argument you omit untouched.
+
+        Passing ``None`` explicitly **clears** that condition; omitting the argument
+        leaves it as it is. The two are different operations, so they cannot share a
+        sentinel -- if they did, an update that only meant to change the value
+        condition would silently drop the target condition.
+        """
+        body: dict[str, object] = {"role_id": role_id, "resource_type": resource_type}
+        if value_condition is not _UNSET:
+            body["value_condition"] = value_condition
+        if target_condition is not _UNSET:
+            body["target_condition"] = target_condition
+        resp = self._request(UPDATE_MUTATION_CONDITIONS, "PATCH", json=body)
+        return MutationConditions.from_json(resp["mutation_conditions"])
+
+    def remove_mutation_conditions(self, role_id: int, resource_type: str) -> None:
+        self._request(
+            REMOVE_MUTATION_CONDITIONS,
+            "DELETE",
+            json={"role_id": role_id, "resource_type": resource_type},
+        )
+
+    def list_mutation_conditions(self, role_id: int) -> list[MutationConditions]:
+        resp = self._request(LIST_MUTATION_CONDITIONS, "GET", params={"role_id": str(role_id)})
+        return [MutationConditions.from_json(c) for c in resp["mutation_conditions"]]
 
     def list_all_roles(self) -> list[Role]:
         # Same endpoint as list_roles; omitting the ``workspace`` param returns the

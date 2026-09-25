@@ -331,7 +331,9 @@ from mlflow.server.auth.requirements import (
     requirement_to_grant_load_keys as requirement_to_grant_load_keys,
 )
 from mlflow.server.auth.routes import (
+    ADD_MUTATION_CONDITIONS,
     ADD_ROLE_PERMISSION,
+    AJAX_ADD_MUTATION_CONDITIONS,
     AJAX_ADD_ROLE_PERMISSION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
@@ -339,11 +341,13 @@ from mlflow.server.auth.routes import (
     AJAX_DELETE_ROLE,
     AJAX_DELETE_USER,
     AJAX_GET_CURRENT_USER,
+    AJAX_GET_MUTATION_CONDITIONS,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
     AJAX_GET_USER_PERMISSION,
     AJAX_GRANT_USER_PERMISSION,
     AJAX_LIST_CURRENT_USER_PERMISSIONS,
+    AJAX_LIST_MUTATION_CONDITIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -352,9 +356,11 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     AJAX_ONLINE_SCORING_CONFIG,
     AJAX_ONLINE_SCORING_CONFIGS,
+    AJAX_REMOVE_MUTATION_CONDITIONS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
+    AJAX_UPDATE_MUTATION_CONDITIONS,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
     AJAX_UPDATE_USER_ADMIN,
@@ -379,6 +385,7 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_METRIC_HISTORY_BULK_INTERVAL_REST,
     GET_MODEL_VERSION_ARTIFACT,
+    GET_MUTATION_CONDITIONS,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
     GET_TRACE_ARTIFACT_V3,
@@ -392,6 +399,7 @@ from mlflow.server.auth.routes import (
     JOB_CANCEL,
     JOB_GET,
     LIST_CURRENT_USER_PERMISSIONS,
+    LIST_MUTATION_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
@@ -400,6 +408,7 @@ from mlflow.server.auth.routes import (
     LIST_USERS,
     ONLINE_SCORING_CONFIG,
     ONLINE_SCORING_CONFIGS,
+    REMOVE_MUTATION_CONDITIONS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
@@ -407,6 +416,7 @@ from mlflow.server.auth.routes import (
     SIGNUP,
     UI_TELEMETRY,
     UNASSIGN_ROLE,
+    UPDATE_MUTATION_CONDITIONS,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -4740,6 +4750,18 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_LIST_ROLE_PERMISSIONS, "GET"): validate_can_view_roles,
     (UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
     (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
+    # Mutation conditions are part of a role's definition, so they carry the same
+    # authorization as role permissions: manage to author, view to read.
+    (ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
+    (AJAX_ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
+    (GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (AJAX_GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
+    (AJAX_UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
+    (REMOVE_MUTATION_CONDITIONS, "DELETE"): validate_can_manage_roles,
+    (AJAX_REMOVE_MUTATION_CONDITIONS, "DELETE"): validate_can_manage_roles,
+    (LIST_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (AJAX_LIST_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
     (ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (AJAX_ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
@@ -5558,6 +5580,89 @@ def update_role_permission():
     permission = _get_request_param("permission")
     rp = store.update_role_permission(role_permission_id, permission)
     return jsonify({"role_permission": rp.to_json()})
+
+
+# ---- Mutation conditions (condition-based access control) ----
+#
+# Addressed by (role_id, resource_type), the natural key. Every route carries
+# ``role_id``, so ``_get_role_workspace_from_request`` already resolves the
+# workspace for ``validate_can_manage_roles`` with no extension needed.
+
+
+@catch_mlflow_exception
+def add_mutation_conditions():
+    role_id = _get_int_request_param("role_id")
+    resource_type = _get_request_param("resource_type")
+    params = _request_params()
+    mc = store.add_mutation_conditions(
+        role_id,
+        resource_type,
+        _optional_condition_param(params, "value_condition"),
+        _optional_condition_param(params, "target_condition"),
+    )
+    return jsonify({"mutation_conditions": mc.to_json()})
+
+
+@catch_mlflow_exception
+def get_mutation_conditions():
+    role_id = _get_int_request_param("role_id")
+    resource_type = _get_request_param("resource_type")
+    mc = store.get_mutation_conditions(role_id, resource_type)
+    return jsonify({"mutation_conditions": mc.to_json()})
+
+
+@catch_mlflow_exception
+def update_mutation_conditions():
+    """Partial update: an omitted field is left alone, an explicit ``null`` clears it.
+
+    The distinction is carried by key *presence*, not by value, because "clear the
+    target condition" and "leave the target condition alone" would otherwise both
+    arrive as ``null`` -- and guessing wrong in the clearing direction silently
+    removes a restriction the admin still wants.
+    """
+    role_id = _get_int_request_param("role_id")
+    resource_type = _get_request_param("resource_type")
+    params = _request_params()
+    mc = store.update_mutation_conditions(
+        role_id,
+        resource_type,
+        value_condition=_optional_condition_param(params, "value_condition"),
+        target_condition=_optional_condition_param(params, "target_condition"),
+        update_value_condition="value_condition" in params,
+        update_target_condition="target_condition" in params,
+    )
+    return jsonify({"mutation_conditions": mc.to_json()})
+
+
+@catch_mlflow_exception
+def remove_mutation_conditions():
+    role_id = _get_int_request_param("role_id")
+    resource_type = _get_request_param("resource_type")
+    store.remove_mutation_conditions(role_id, resource_type)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def list_mutation_conditions():
+    role_id = _get_int_request_param("role_id")
+    conditions = store.list_mutation_conditions(role_id)
+    return jsonify({"mutation_conditions": [c.to_json() for c in conditions]})
+
+
+def _optional_condition_param(params: dict, name: str) -> str | None:
+    """Read an optional condition filter string, rejecting non-string input.
+
+    A non-string would otherwise reach the parser and fail with a message about
+    filter syntax rather than about the request being malformed.
+    """
+    value = params.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Parameter '{name}' must be a string or null. Got: {value!r}"
+        )
+    return value
 
 
 @catch_mlflow_exception
@@ -8871,6 +8976,24 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
     (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
     (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
+    # Mutation conditions. Writes are gated by validate_can_manage_roles and reads by
+    # validate_can_view_roles, like the role-permission routes above -- a condition is
+    # part of a role's definition, so it carries the same authorization.
+    (add_mutation_conditions, "POST", ADD_MUTATION_CONDITIONS, AJAX_ADD_MUTATION_CONDITIONS),
+    (get_mutation_conditions, "GET", GET_MUTATION_CONDITIONS, AJAX_GET_MUTATION_CONDITIONS),
+    (
+        update_mutation_conditions,
+        "PATCH",
+        UPDATE_MUTATION_CONDITIONS,
+        AJAX_UPDATE_MUTATION_CONDITIONS,
+    ),
+    (
+        remove_mutation_conditions,
+        "DELETE",
+        REMOVE_MUTATION_CONDITIONS,
+        AJAX_REMOVE_MUTATION_CONDITIONS,
+    ),
+    (list_mutation_conditions, "GET", LIST_MUTATION_CONDITIONS, AJAX_LIST_MUTATION_CONDITIONS),
     (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),

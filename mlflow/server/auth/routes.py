@@ -70,6 +70,25 @@ LIST_ROLE_PERMISSIONS = _get_rest_path("/mlflow/roles/permissions/list", version
 AJAX_LIST_ROLE_PERMISSIONS = _get_ajax_path("/mlflow/roles/permissions/list", version=3)
 UPDATE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/update", version=3)
 AJAX_UPDATE_ROLE_PERMISSION = _get_ajax_path("/mlflow/roles/permissions/update", version=3)
+
+# Mutation conditions (condition-based access control). Addressed by
+# (role_id, resource_type) rather than a surrogate id: that pair is the natural key
+# and is unique, so an admin can author and amend a condition without first looking
+# up a row id.
+ADD_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/add", version=3)
+AJAX_ADD_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/add", version=3)
+GET_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/get", version=3)
+AJAX_GET_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/get", version=3)
+UPDATE_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/update", version=3)
+AJAX_UPDATE_MUTATION_CONDITIONS = _get_ajax_path(
+    "/mlflow/roles/mutation-conditions/update", version=3
+)
+REMOVE_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/remove", version=3)
+AJAX_REMOVE_MUTATION_CONDITIONS = _get_ajax_path(
+    "/mlflow/roles/mutation-conditions/remove", version=3
+)
+LIST_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/list", version=3)
+AJAX_LIST_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/list", version=3)
 ASSIGN_ROLE = _get_rest_path("/mlflow/roles/assign", version=3)
 AJAX_ASSIGN_ROLE = _get_ajax_path("/mlflow/roles/assign", version=3)
 UNASSIGN_ROLE = _get_rest_path("/mlflow/roles/unassign", version=3)

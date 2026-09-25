@@ -5,11 +5,13 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
 
 from mlflow.server.auth.entities import (
+    MutationConditions,
     Role,
     RolePermission,
     User,
@@ -59,6 +61,13 @@ class SqlRole(Base):
     user_assignments = relationship(
         "SqlUserRoleAssignment", backref="role", cascade="all, delete-orphan"
     )
+    # Conditions are per (role, resource_type) and meaningless without the role,
+    # so they cascade exactly like permissions do. The FK also declares
+    # ON DELETE CASCADE for the DB-level path (raw SQL, or a dialect with FK
+    # enforcement on), but the ORM cascade is what ``delete_role`` relies on.
+    mutation_conditions = relationship(
+        "SqlMutationConditions", backref="role", cascade="all, delete-orphan"
+    )
     __table_args__ = (
         UniqueConstraint("workspace", "name", name="unique_workspace_role_name"),
         Index("idx_roles_workspace", "workspace"),
@@ -96,6 +105,53 @@ class SqlRolePermission(Base):
             resource_type=self.resource_type,
             resource_pattern=self.resource_pattern,
             permission=self.permission,
+        )
+
+
+class SqlMutationConditions(Base):
+    """Condition-based access control: two optional filters per ``(role, resource_type)``
+    that gate create/mutation operations only, never reads.
+
+    ``value_condition`` (the RFC's *value*, this codebase's **request condition**)
+    constrains what values may be set, and is evaluated against the request body.
+    ``target_condition`` (the RFC's *target*, the **resource condition**) constrains
+    which existing resources may be mutated, and is evaluated against the resource's
+    current state.
+
+    Both are nullable: a role may carry one, both, or neither. Each is stored as the
+    filter string the admin authored, in MLflow's search-filter grammar, and parsed
+    at read time (``mlflow.server.auth.conditions``). Storing the string rather than a
+    decomposed form keeps ``list`` round-trippable and the schema stable; the RFC
+    leaves the representation open.
+
+    Conditions only ever **subtract** from what grants allow -- an empty table is
+    exactly today's behaviour, and a condition never confers access.
+    """
+
+    __tablename__ = "mutation_conditions"
+
+    id = Column(Integer(), primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    # 64 to match SqlRolePermission.resource_type -- the same vocabulary, so the
+    # same width. (The RFC says 255; matching the sibling column matters more.)
+    resource_type = Column(String(64), nullable=False)
+    # Text, not String(n): a filter string has no meaningful length bound beyond
+    # the clause-count limit the parser enforces.
+    value_condition = Column(Text, nullable=True)
+    target_condition = Column(Text, nullable=True)
+    __table_args__ = (
+        # At most one of each condition per (role, resource_type), per the RFC.
+        UniqueConstraint("role_id", "resource_type", name="unique_role_resource_type"),
+        Index("idx_mutation_conditions_role_id", "role_id"),
+    )
+
+    def to_mlflow_entity(self):
+        return MutationConditions(
+            id_=self.id,
+            role_id=self.role_id,
+            resource_type=self.resource_type,
+            value_condition=self.value_condition,
+            target_condition=self.target_condition,
         )
 
 

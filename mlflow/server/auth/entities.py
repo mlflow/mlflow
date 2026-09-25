@@ -465,6 +465,84 @@ class RolePermission:
         )
 
 
+class MutationConditions:
+    """Two optional filters for one ``(role, resource_type)`` pair, gating
+    create/mutation operations only -- never reads.
+
+    - ``value_condition`` (the RFC's *value*; the **request condition**) constrains
+      what values may be set. Evaluated against the request body, and applies on
+      create.
+    - ``target_condition`` (the RFC's *target*; the **resource condition**)
+      constrains which existing resources may be mutated. Evaluated against the
+      resource's current state, and vacuous on create (there is no prior state).
+
+    Either may be ``None``, meaning unconstrained in that direction. Conditions
+    **subtract** from what grants allow and never confer access, so an absent
+    condition -- or an absent row -- is exactly today's behaviour.
+    """
+
+    def __init__(
+        self,
+        id_,
+        role_id,
+        resource_type,
+        value_condition=None,
+        target_condition=None,
+    ):
+        self._id = id_
+        self._role_id = role_id
+        self._resource_type = resource_type
+        self._value_condition = value_condition
+        self._target_condition = target_condition
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def role_id(self):
+        return self._role_id
+
+    @property
+    def resource_type(self):
+        return self._resource_type
+
+    @property
+    def value_condition(self):
+        return self._value_condition
+
+    @value_condition.setter
+    def value_condition(self, value_condition):
+        self._value_condition = value_condition
+
+    @property
+    def target_condition(self):
+        return self._target_condition
+
+    @target_condition.setter
+    def target_condition(self, target_condition):
+        self._target_condition = target_condition
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "role_id": self.role_id,
+            "resource_type": self.resource_type,
+            "value_condition": self.value_condition,
+            "target_condition": self.target_condition,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            id_=dictionary["id"],
+            role_id=dictionary["role_id"],
+            resource_type=dictionary["resource_type"],
+            value_condition=dictionary.get("value_condition"),
+            target_condition=dictionary.get("target_condition"),
+        )
+
+
 class UserRoleAssignment:
     def __init__(self, id_, user_id, role_id):
         self._id = id_

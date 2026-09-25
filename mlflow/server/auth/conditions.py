@@ -1,0 +1,742 @@
+"""Condition-based access control: the pure half.
+
+Two optional filters per ``(role, resource_type)``, layered on top of existing RBAC
+grants, gating **create/mutation only** -- never reads:
+
+- **request condition** (the RFC calls it *value*) constrains *what values* may be
+  set. Its vocabulary is ``tag_key``, ``tag_value``, ``alias``, and it is evaluated
+  against the request body. It applies on create.
+- **resource condition** (the RFC calls it *target*) constrains *which existing
+  resources* may be mutated. Its vocabulary is ``tags.<key>`` and
+  ``aliases.<name>``, and it is evaluated against the resource's current state. It
+  is vacuous on create, because there is no prior state to test.
+
+The governing invariant is **grants add, conditions subtract**. Capability is still
+the union of the user's roles' grants; conditions can only remove from that union.
+Every applicable condition across *all* of a user's roles must pass. A condition
+never confers access, is never consulted on a read, and an empty table reproduces
+the pre-conditions behaviour exactly.
+
+This module is deliberately pure: no store, no request, no Flask. It knows how to
+parse a filter string and how to decide whether values satisfy it. Loading rows,
+resolving resource attributes, and wiring into validators all live elsewhere
+(``sqlalchemy_store``, ``resources.py``, ``__init__.py``) so that the security core
+can be reviewed and tested in isolation.
+
+Why not extend ``SearchUtils``: its ``parse_search_filter`` validates identifiers
+against the *run* vocabulary, and these two namespaces are neither a subset nor a
+superset of it. We reuse its tokenizer and comparison primitives -- which are the
+fiddly, well-tested parts -- and own the vocabulary here.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from enum import Enum, auto
+from typing import NamedTuple
+
+import sqlparse
+from sqlparse.sql import Comparison, Parenthesis, Statement, TokenList
+from sqlparse.tokens import Token as TokenType
+
+from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.search_utils import SearchUtils, _join_in_comparison_tokens
+
+# ---------------------------------------------------------------------------
+# Namespaces and vocabulary
+# ---------------------------------------------------------------------------
+
+#: Request-condition namespace: constrains the values a mutation may set.
+NAMESPACE_REQUEST = "request"
+#: Resource-condition namespace: constrains which resources may be mutated.
+NAMESPACE_RESOURCE = "resource"
+
+NAMESPACES = frozenset({NAMESPACE_REQUEST, NAMESPACE_RESOURCE})
+
+#: Request identifiers. Flat names, because a request carries values, not state.
+REQUEST_IDENTIFIER_TAG_KEY = "tag_key"
+REQUEST_IDENTIFIER_TAG_VALUE = "tag_value"
+REQUEST_IDENTIFIER_ALIAS = "alias"
+
+REQUEST_IDENTIFIERS = frozenset({
+    REQUEST_IDENTIFIER_TAG_KEY,
+    REQUEST_IDENTIFIER_TAG_VALUE,
+    REQUEST_IDENTIFIER_ALIAS,
+})
+
+#: Resource identifier prefixes. Keyed, because resource state is a map:
+#: ``tags.lifecycle``, ``aliases.champion``.
+RESOURCE_PREFIX_TAGS = "tags"
+RESOURCE_PREFIX_ALIASES = "aliases"
+
+RESOURCE_PREFIXES = frozenset({RESOURCE_PREFIX_TAGS, RESOURCE_PREFIX_ALIASES})
+
+#: Comparators permitted in a condition. A deliberate subset of what
+#: ``SearchUtils.get_comparison_func`` supports: every value here is a string, so
+#: the numeric orderings (``>``, ``<``, ``>=``, ``<=``) would compare
+#: lexicographically and mislead an admin into thinking they had expressed a range.
+#: ``!=`` and ``NOT IN`` are what supply exclusion, which is why the RFC needs no
+#: separate deny form.
+ALLOWED_COMPARATORS = frozenset({"=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"})
+
+#: Per the RFC. A cap rather than a performance bound: a condition an admin cannot
+#: read at a glance is one they cannot reason about, and every clause is an AND.
+MAX_CLAUSES = 5
+
+#: Tags MLflow writes itself. Exempt from request conditions (D4) -- an admin must
+#: not be able to block MLflow's own bookkeeping, e.g. ``mlflow.runName`` -- but
+#: permitted in resource conditions, where testing current ``mlflow.*`` state is
+#: both safe and useful.
+RESERVED_TAG_PREFIX = "mlflow."
+
+#: Resource types a condition may be authored for.
+#:
+#: Narrower than the grant vocabulary, and deliberately so: a condition is only
+#: meaningful for a type that carries tags or aliases and has a mutating route that
+#: names them. Authoring a condition for anything else would be advertised
+#: protection that never fires, so it is rejected at write time.
+#:
+#: ``prompt`` and ``prompt_version`` are present at full parity with their
+#: registered-model counterparts (D2). A prompt *is* a registered model carrying the
+#: prompt marker tag, so the request-extraction map already fires for both -- parity
+#: costs two entries here rather than a second code path.
+#:
+#: Absent: ``assessment`` (the RFC excludes it), and the deprecated stage-transition
+#: surface, whose ``stage`` field is neither a tag nor an alias (D15/D16).
+SUPPORTED_RESOURCE_TYPES = frozenset({
+    "experiment",
+    "run",
+    "trace",
+    "logged_model",
+    "registered_model",
+    "registered_model_version",
+    "prompt",
+    "prompt_version",
+})
+
+#: Types that own aliases, and so supply the ``alias`` clause (D18). A version's
+#: alias list names aliases stored on its *parent*, so gating the version on them
+#: would let one alias be governed under two different resource types.
+ALIAS_OWNING_RESOURCE_TYPES = frozenset({"registered_model", "prompt"})
+
+
+def validate_condition_resource_type(resource_type: str) -> None:
+    """Reject a resource type that no condition could govern.
+
+    Fails at authoring time rather than silently never matching, because a condition
+    on an unsupported type is worse than no condition: the admin believes a
+    restriction is in force.
+    """
+    if resource_type not in SUPPORTED_RESOURCE_TYPES:
+        raise MlflowException(
+            f"Mutation conditions are not supported for resource type '{resource_type}'. "
+            f"Supported types are {sorted(SUPPORTED_RESOURCE_TYPES)} -- a condition is only "
+            f"meaningful for a type that carries tags or aliases and has a mutating route "
+            f"naming them.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+class ConditionScope(Enum):
+    """Which conditions apply to an operation.
+
+    There is no ``NONE``: an operation that no condition could govern simply has no
+    :class:`ConditionContext`, which is a cheaper and less error-prone way to say
+    "not applicable" than a scope that must be checked for.
+    """
+
+    #: Creating a resource. Request conditions apply; resource conditions are
+    #: vacuous, because the resource does not exist yet.
+    CREATE = auto()
+    #: Mutating an existing resource. Both kinds apply.
+    MUTATE = auto()
+
+
+class Clause(NamedTuple):
+    """One parsed comparison.
+
+    ``identifier`` is the flat name for a request clause (``tag_key``) and the
+    prefix for a resource clause (``tags``); ``key`` is populated only for resource
+    clauses, naming which tag or alias is being tested.
+    """
+
+    identifier: str
+    key: str | None
+    comparator: str
+    value: str | tuple[str, ...]
+
+    def describe(self) -> str:
+        """Render the clause approximately as authored, for error messages."""
+        lhs = self.identifier if self.key is None else f"{self.identifier}.{self.key}"
+        if isinstance(self.value, tuple):
+            rendered = "(" + ", ".join(f"'{v}'" for v in self.value) + ")"
+        else:
+            rendered = f"'{self.value}'"
+        return f"{lhs} {self.comparator} {rendered}"
+
+
+# ---------------------------------------------------------------------------
+# Values
+# ---------------------------------------------------------------------------
+
+
+class RequestValues(NamedTuple):
+    """The condition-relevant values a single request carries.
+
+    ``tags`` is a sequence of ``(key, value)`` pairs rather than a mapping because a
+    batch request may set the same key twice, and because a *deletion* names a key
+    with no value -- represented as ``value=None``. That ``None`` is what lets a
+    delete be gated on the key it removes (D12) while a ``tag_value`` clause stays
+    vacuous over it (D13).
+    """
+
+    tags: tuple[tuple[str, str | None], ...] = ()
+    aliases: tuple[str, ...] = ()
+
+    def is_empty(self) -> bool:
+        return not self.tags and not self.aliases
+
+
+class ResourceValues(NamedTuple):
+    """The condition-relevant current state of one existing resource.
+
+    ``aliases`` is populated only for the types that *own* aliases -- the registry
+    entry, not the version (D18). A version's ``aliases`` list names aliases stored
+    on its parent, so treating it as the version's own state would let the same
+    alias be governed under two different resource types.
+    """
+
+    resource_id: str
+    tags: Mapping[str, str] = {}
+    aliases: Mapping[str, str] = {}
+
+
+class ConditionContext(NamedTuple):
+    """A validator's declaration: "this operation targets resources of this type".
+
+    Deliberately **not** derived from the permission ``Requirement``. Inference from
+    it fails in both directions on the create-in-experiment path: the
+    ``experiment``/``update`` requirement has a mutating action but names the
+    *container* (conditioning it would deny wrongly), while the requirement that
+    does name the target carries a non-capability action and so would be skipped.
+    The validator knows which resource it is about to change; nothing else reliably
+    does.
+
+    ``resource_ids`` holds **ids, never loaded entities**. The framework pulls
+    attributes from them, and only if a resource condition actually exists -- which
+    is what keeps the common paths free of extra queries.
+    """
+
+    resource_type: str
+    scope: ConditionScope
+    request: RequestValues = RequestValues()
+    resource_ids: tuple[str, ...] = ()
+
+
+class MutationConditionSpec(NamedTuple):
+    """One role's conditions for one resource type, as loaded from the store."""
+
+    resource_type: str
+    value_condition: str | None = None
+    target_condition: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Parsing
+# ---------------------------------------------------------------------------
+
+
+def _identifier_head(raw: str) -> str:
+    """Lowercased, backtick-trimmed leading segment of a left-hand side."""
+    return SearchUtils._trim_backticks(raw.strip()).partition(".")[0].strip().lower()
+
+
+def _is_condition_identifier(token, namespace: str) -> bool:
+    """Is this bare token an identifier from *either* namespace?
+
+    Deliberately not namespace-scoped. Joining only the current namespace's
+    identifiers would make ``alias = 'x'`` in a *resource* condition fail as a
+    generic "invalid clause", when the useful message is the cross-namespace one
+    telling the admin that ``alias`` belongs in the request condition. Joining both
+    lets :func:`_split_identifier` produce that message. An unknown bare keyword is
+    still left loose and still reported as invalid.
+    """
+    head = _identifier_head(token.value)
+    return head in REQUEST_IDENTIFIERS or head in RESOURCE_PREFIXES
+
+
+def _join_keyword_identifier_tokens(tokens, namespace: str):
+    """Rejoin clauses whose identifier sqlparse classified as a SQL keyword.
+
+    ``alias`` is a SQL keyword, so ``alias = 'champion'`` tokenizes as three loose
+    tokens rather than a ``Comparison`` and would be rejected as an invalid clause.
+    The RFC names the identifier ``alias``, and requiring admins to write
+    ``` `alias` ``` instead would be a trap -- the unquoted form looks correct and
+    is what anyone would try first.
+
+    So we stitch those runs back into a ``Comparison`` ourselves, the same way
+    ``SearchUtils._join_in_comparison_tokens`` does for ``IN`` and for the trace
+    ``timestamp`` builtin. Only identifiers in the namespace's own vocabulary are
+    joined, so this cannot resurrect a clause that should have been rejected: an
+    unknown bare keyword stays loose and is still reported as invalid.
+    """
+    joined = []
+    pending = [t for t in tokens if not t.is_whitespace]
+    index = 0
+    while index < len(pending):
+        token = pending[index]
+        remaining = pending[index + 1 :]
+        if (
+            token.ttype in (TokenType.Keyword, TokenType.Name, TokenType.Name.Builtin)
+            and _is_condition_identifier(token, namespace)
+            and remaining
+        ):
+            # <identifier> <comparison-operator> <value>
+            if remaining[0].ttype is TokenType.Operator.Comparison and len(remaining) >= 2:
+                joined.append(Comparison(TokenList([token, remaining[0], remaining[1]])))
+                index += 3
+                continue
+            # <identifier> IN|NOT IN ( ... )
+            if (
+                remaining[0].ttype is TokenType.Keyword
+                and remaining[0].value.upper().replace(" ", " ").strip() in ("IN", "NOT IN")
+                and len(remaining) >= 2
+                and isinstance(remaining[1], Parenthesis)
+            ):
+                joined.append(Comparison(TokenList([token, remaining[0], remaining[1]])))
+                index += 3
+                continue
+            # <identifier> NOT IN ( ... ) tokenized as two keywords
+            if (
+                remaining[0].ttype is TokenType.Keyword
+                and remaining[0].value.upper().strip() == "NOT"
+                and len(remaining) >= 3
+                and remaining[1].ttype is TokenType.Keyword
+                and remaining[1].value.upper().strip() == "IN"
+                and isinstance(remaining[2], Parenthesis)
+            ):
+                joined.append(
+                    Comparison(TokenList([token, remaining[0], remaining[1], remaining[2]]))
+                )
+                index += 4
+                continue
+        joined.append(token)
+        index += 1
+    return joined
+
+
+def _invalid_statement_token(token) -> bool:
+    """Mirror of ``SearchUtils._invalid_statement_token_search_runs``.
+
+    Anything that is not a comparison, whitespace, or ``AND`` is rejected -- which
+    is what gives us the RFC's no-``OR`` rule structurally, rather than as a
+    separate check that could be forgotten.
+    """
+    if (
+        isinstance(token, Comparison)
+        or token.is_whitespace
+        or token.match(ttype=TokenType.Keyword, values=["AND"])
+    ):
+        return False
+    return True
+
+
+def _split_identifier(raw: str, namespace: str) -> tuple[str, str | None]:
+    """Split the left-hand side into ``(identifier, key)`` and validate it.
+
+    Rejects cross-namespace identifiers explicitly: a ``tags.x`` clause in a request
+    condition and a ``tag_key`` clause in a resource condition are both silently
+    meaningless otherwise, and an admin who mixes them would believe they had
+    written a restriction that never fires.
+    """
+    stripped = SearchUtils._trim_backticks(raw.strip())
+
+    if namespace == NAMESPACE_REQUEST:
+        identifier = stripped.lower()
+        if identifier in REQUEST_IDENTIFIERS:
+            return identifier, None
+        if identifier.split(".", 1)[0] in RESOURCE_PREFIXES:
+            raise MlflowException(
+                f"'{raw}' is a resource-condition identifier and cannot be used in a request "
+                f"condition. Request conditions constrain the values being set, so they use "
+                f"{sorted(REQUEST_IDENTIFIERS)}. To constrain which resources may be mutated, "
+                f"put '{raw}' in the resource condition instead.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        raise MlflowException(
+            f"Invalid request-condition identifier '{raw}'. Valid identifiers are "
+            f"{sorted(REQUEST_IDENTIFIERS)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Resource namespace: must be prefix.key
+    head, _, tail = stripped.partition(".")
+    prefix = head.strip().lower()
+    if prefix not in RESOURCE_PREFIXES:
+        if prefix in REQUEST_IDENTIFIERS:
+            raise MlflowException(
+                f"'{raw}' is a request-condition identifier and cannot be used in a resource "
+                f"condition. Resource conditions constrain which resources may be mutated, so "
+                f"they use 'tags.<key>' or 'aliases.<name>'. To constrain the values being set, "
+                f"put '{raw}' in the request condition instead.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        raise MlflowException(
+            f"Invalid resource-condition identifier '{raw}'. Valid identifiers are "
+            f"'tags.<key>' and 'aliases.<name>'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    key = SearchUtils._trim_backticks(tail.strip())
+    key = SearchUtils._strip_quotes(key)
+    if not key:
+        raise MlflowException(
+            f"Resource-condition identifier '{raw}' is missing a key. Use "
+            f"'{prefix}.<name>', for example 'tags.lifecycle'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return prefix, key
+
+
+def _parse_value(token, comparator: str, raw_lhs: str) -> str | tuple[str, ...]:
+    """Extract the right-hand side. ``IN``/``NOT IN`` yield a tuple, others a str."""
+    if comparator in ("IN", "NOT IN"):
+        if not isinstance(token, Parenthesis):
+            raise MlflowException(
+                f"'{comparator}' for '{raw_lhs}' requires a parenthesised list of quoted "
+                f"strings, for example \"{raw_lhs} {comparator} ('a', 'b')\".",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        values = SearchUtils._parse_list_from_sql_token(token)
+        if not values:
+            raise MlflowException(
+                f"'{comparator}' for '{raw_lhs}' requires at least one value.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return tuple(str(v) for v in values)
+    return str(SearchUtils._strip_quotes(token.value, expect_quoted_value=True))
+
+
+def _parse_comparison(comparison: Comparison, namespace: str) -> Clause:
+    tokens = [t for t in comparison.tokens if not t.is_whitespace]
+    # `NOT IN` may arrive as one keyword token or as two, depending on how sqlparse
+    # split it; collapse the two-token form so the shape below is uniform.
+    if (
+        len(tokens) == 4
+        and tokens[1].ttype is TokenType.Keyword
+        and tokens[1].value.upper().strip() == "NOT"
+        and tokens[2].ttype is TokenType.Keyword
+        and tokens[2].value.upper().strip() == "IN"
+    ):
+        comparator_value = "NOT IN"
+        raw_lhs, value_token = tokens[0].value, tokens[3]
+    elif len(tokens) == 3:
+        comparator_value = tokens[1].value.upper().strip()
+        raw_lhs, value_token = tokens[0].value, tokens[2]
+    else:
+        raise MlflowException(
+            f"Invalid clause '{comparison}' in condition. Expected the form "
+            f"<identifier> <comparator> <value>.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    identifier, key = _split_identifier(raw_lhs, namespace)
+
+    comparator = " ".join(comparator_value.split())
+    if comparator not in ALLOWED_COMPARATORS:
+        raise MlflowException(
+            f"Comparator '{comparator_value}' is not supported in conditions. Supported "
+            f"comparators are {sorted(ALLOWED_COMPARATORS)}. Condition values are always "
+            f"strings, so ordering comparators would compare lexicographically rather than "
+            f"numerically.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    value = _parse_value(value_token, comparator, raw_lhs)
+
+    if namespace == NAMESPACE_REQUEST and identifier == REQUEST_IDENTIFIER_TAG_KEY:
+        _reject_reserved_request_keys(value)
+
+    return Clause(identifier=identifier, key=key, comparator=comparator, value=value)
+
+
+def _reject_reserved_request_keys(value: str | tuple[str, ...]) -> None:
+    """D4: ``mlflow.*`` keys may not appear in a request condition.
+
+    MLflow writes these itself -- ``mlflow.runName`` on a run, the prompt marker on
+    a registered model -- so a condition that constrained them would make an admin
+    able to break ordinary logging, and would fail in ways that look like MLflow
+    bugs rather than policy. Rejecting at authoring time is clearer than silently
+    exempting at evaluation time, because the admin finds out immediately.
+
+    Resource conditions have no such restriction: reading current ``mlflow.*``
+    state is exactly how an admin expresses "only prompts" or "only runs named X".
+    """
+    candidates = value if isinstance(value, tuple) else (value,)
+    if reserved := [v for v in candidates if v.startswith(RESERVED_TAG_PREFIX)]:
+        raise MlflowException(
+            f"Request conditions may not reference reserved tag keys "
+            f"{sorted(reserved)} (the '{RESERVED_TAG_PREFIX}' prefix is written by MLflow "
+            f"itself, so constraining it would block MLflow's own tag writes). Reserved keys "
+            f"are permitted in resource conditions, where they test existing state.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def parse_condition(filter_string: str | None, namespace: str) -> tuple[Clause, ...]:
+    """Parse a condition filter string into clauses.
+
+    Returns an empty tuple for an empty or absent string: "no condition" and "a
+    condition that constrains nothing" are the same thing, and both mean
+    unconstrained.
+
+    Every clause is ANDed. ``OR`` is rejected, because a condition is a restriction
+    and a disjunction of restrictions is a weaker restriction -- which reads as
+    though it tightened something while loosening it.
+    """
+    if namespace not in NAMESPACES:
+        raise MlflowException(
+            f"Unknown condition namespace '{namespace}'. Expected one of {sorted(NAMESPACES)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not filter_string or not filter_string.strip():
+        return ()
+
+    try:
+        parsed = sqlparse.parse(filter_string)
+    except Exception:
+        raise MlflowException(
+            f"Error parsing condition '{filter_string}'.", error_code=INVALID_PARAMETER_VALUE
+        )
+    if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+        raise MlflowException(
+            f"Invalid condition '{filter_string}'. Could not be parsed.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(parsed) > 1:
+        raise MlflowException(
+            f"Invalid condition '{filter_string}'. Expected a single filter expression.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    tokens = _join_keyword_identifier_tokens(
+        _join_in_comparison_tokens(parsed[0].tokens), namespace
+    )
+    if invalids := list(filter(_invalid_statement_token, tokens)):
+        rendered = ", ".join(f"'{t}'" for t in invalids)
+        raise MlflowException(
+            f"Invalid clause(s) in condition: {rendered}. Conditions support comparisons "
+            f"joined by AND only -- OR is not supported, because a condition is a restriction "
+            f"and OR-ing restrictions weakens rather than tightens them.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    clauses = tuple(_parse_comparison(t, namespace) for t in tokens if isinstance(t, Comparison))
+    if not clauses:
+        raise MlflowException(
+            f"Condition '{filter_string}' contains no comparisons.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(clauses) > MAX_CLAUSES:
+        raise MlflowException(
+            f"Condition has {len(clauses)} clauses, which exceeds the maximum of {MAX_CLAUSES}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return clauses
+
+
+def validate_condition(filter_string: str | None, namespace: str) -> None:
+    """Write-time validation hook. Raises if the string will not parse.
+
+    Called by the store so a malformed condition can never be persisted -- a
+    condition that fails to parse at *evaluation* time would have to either
+    fail open (unsafe) or deny every mutation (an outage), so the only good place
+    to catch it is on the way in.
+    """
+    parse_condition(filter_string, namespace)
+
+
+# ---------------------------------------------------------------------------
+# Evaluation
+# ---------------------------------------------------------------------------
+
+
+def _compare(clause: Clause, lhs: str) -> bool:
+    return SearchUtils.get_comparison_func(clause.comparator)(lhs, clause.value)
+
+
+def _request_lhs_values(clause: Clause, values: RequestValues) -> tuple[str, ...] | None:
+    """Project the request values a clause applies to.
+
+    Returns ``None`` when the request carries nothing of that kind -- which the
+    caller reads as "vacuous", not "failed".
+    """
+    if clause.identifier == REQUEST_IDENTIFIER_TAG_KEY:
+        return tuple(key for key, _ in values.tags) or None
+    if clause.identifier == REQUEST_IDENTIFIER_TAG_VALUE:
+        # A deletion names a key with no value, so its value is None and a
+        # tag_value clause has nothing to test (D13). Constraining what a delete
+        # removes is the resource condition's job.
+        present = tuple(v for _, v in values.tags if v is not None)
+        return present or None
+    if clause.identifier == REQUEST_IDENTIFIER_ALIAS:
+        return values.aliases or None
+    return None
+
+
+def evaluate_request(clauses: Sequence[Clause], values: RequestValues) -> bool:
+    """Do the values this request sets satisfy every clause?
+
+    **Absence is vacuous here** (D13/D20): a clause whose identifier the request
+    does not carry passes. This is not leniency, it is necessary -- routes carry
+    different subsets of the namespace (``CreateExperiment`` has no alias,
+    ``SetRegisteredModelAlias`` has no tag key), so without this rule a single
+    condition could never be written that applied to more than one route, and every
+    value-free request (a metrics-only ``LogBatch``, a rename) would be denied by a
+    ``tag_key`` clause that has nothing to say about it.
+
+    Note this is the **opposite** of the resource side, deliberately. See
+    :func:`evaluate_resource`.
+
+    Every value must satisfy the clause: setting ten tags where one is disallowed is
+    denied, because the alternative is that a bulk request is a way around a
+    restriction that holds for a single one.
+    """
+    for clause in clauses:
+        lhs_values = _request_lhs_values(clause, values)
+        if lhs_values is None:
+            continue  # vacuous: nothing of this kind in the request
+        if not all(_compare(clause, lhs) for lhs in lhs_values):
+            return False
+    return True
+
+
+def _resource_lhs(clause: Clause, values: ResourceValues) -> str | None:
+    if clause.identifier == RESOURCE_PREFIX_TAGS:
+        return values.tags.get(clause.key)
+    if clause.identifier == RESOURCE_PREFIX_ALIASES:
+        return values.aliases.get(clause.key)
+    return None
+
+
+def evaluate_resource(clauses: Sequence[Clause], values: ResourceValues) -> bool:
+    """Does this resource's current state satisfy every clause?
+
+    **Absence fails here** -- the inverse of :func:`evaluate_request`, and the
+    asymmetry is the point. A resource that lacks the tag does not have the state
+    the condition describes, so it does not satisfy it. This reuses MLflow's search
+    semantics verbatim (``lhs is None`` -> ``False``), so a resource condition
+    selects exactly the resources the same filter string would return in a search
+    box, and it errs closed.
+
+    Implementing both namespaces the same way would open a hole in one direction or
+    the other: vacuous-on-absence here would let an untagged resource slip past
+    every ``tags.*`` restriction, and fail-on-absence on the request side would deny
+    ordinary value-free writes.
+
+    **The footgun this creates, which must stay documented:**
+    ``tags.lifecycle != 'prod'`` *denies* a resource with no ``lifecycle`` tag,
+    because the tag is absent rather than not-'prod'. That surprises admins, but the
+    surprise is in the strict direction.
+    """
+    for clause in clauses:
+        lhs = _resource_lhs(clause, values)
+
+        # The prompt marker is special in MLflow's own search path and must be
+        # special here for the same reason: an ordinary registered model carries no
+        # `mlflow.prompt.is_prompt` tag, so absence means "not a prompt" rather
+        # than "unknown". Without this, `tags.mlflow.prompt.is_prompt != 'true'` --
+        # the natural way to write "models, not prompts" -- would deny every
+        # ordinary registered model, which is both wrong and the opposite of what
+        # the admin asked for.
+        if clause.key == IS_PROMPT_TAG_KEY and lhs is None:
+            matched = (clause.comparator == "=" and clause.value == "false") or (
+                clause.comparator == "!=" and clause.value == "true"
+            )
+            if not matched:
+                return False
+            continue
+
+        if lhs is None:
+            return False
+        if not _compare(clause, lhs):
+            return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Combination
+# ---------------------------------------------------------------------------
+
+
+def combine(results: Sequence[bool]) -> bool:
+    """AND over every applicable condition. That is the whole rule.
+
+    No precedence, no load keys, no tier override, no fold -- deliberately unlike
+    the grants path, which needs all of those because grants *add* and a more
+    specific grant must be able to override a broader one. Conditions only ever
+    subtract, so two conditions can never conflict in a way that needs resolving:
+    if either says no, the answer is no.
+
+    The consequence worth stating plainly, because it is the property that makes
+    conditions safe to reason about: **adding a role can never lift another role's
+    restriction.** A permissive condition, or no condition at all, on a second role
+    does not widen the first.
+    """
+    return all(results)
+
+
+def condition_load_types(contexts: Sequence[ConditionContext]) -> tuple[str, ...]:
+    """The distinct resource types a set of contexts needs conditions for.
+
+    Deduplicated so the loader issues one query regardless of how many contexts a
+    validator declares.
+    """
+    seen: dict[str, None] = {}
+    for context in contexts:
+        seen.setdefault(context.resource_type, None)
+    return tuple(seen)
+
+
+def needs_resource_values(
+    contexts: Sequence[ConditionContext], types_with_target: frozenset[str] | set[str]
+) -> bool:
+    """Would evaluating these contexts require reading resource state?
+
+    The gate calls this before touching a store. Two ways to answer no, and both are
+    common: no context is at ``MUTATE`` scope (a create has no prior state), or no
+    role has a target condition on any type in play (the configured-but-request-only
+    case). Either way the resource is never read.
+    """
+    return any(
+        context.scope is ConditionScope.MUTATE
+        and context.resource_type in types_with_target
+        and context.resource_ids
+        for context in contexts
+    )
+
+
+def context_for(
+    resource_type: str,
+    resource_id: str | None,
+    scope: ConditionScope,
+    request: RequestValues | None = None,
+) -> ConditionContext:
+    """Build a context, treating a wildcard id as "no specific resource".
+
+    Sub-resource grants are wildcard-only grain, so a child requirement's id is
+    literally ``"*"``. Passing that through as a resource id would send the
+    framework off to fetch a resource named ``*``. A wildcard means the operation is
+    not scoped to one identified resource, so there is nothing for a resource
+    condition to read -- request conditions still apply.
+    """
+    ids: tuple[str, ...] = ()
+    if resource_id is not None and resource_id != "*":
+        ids = (resource_id,)
+    return ConditionContext(
+        resource_type=resource_type,
+        scope=scope,
+        request=request or RequestValues(),
+        resource_ids=ids,
+    )

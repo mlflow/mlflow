@@ -16,8 +16,15 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.server.auth.conditions import (
+    NAMESPACE_REQUEST,
+    NAMESPACE_RESOURCE,
+    validate_condition,
+    validate_condition_resource_type,
+)
 from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
+    SqlMutationConditions,
     SqlRole,
     SqlRolePermission,
     SqlUser,
@@ -29,6 +36,7 @@ from mlflow.server.auth.entities import (
     GatewayModelDefinitionPermission,
     GatewaySecretPermission,
     MCPServerPermission,
+    MutationConditions,
     RegisteredModelPermission,
     Role,
     RolePermission,
@@ -109,6 +117,20 @@ class RoleGrantRow(NamedTuple):
     resource_type: str
     resource_pattern: str
     permission: str
+
+
+class MutationConditionRow(NamedTuple):
+    """One role's conditions for one resource type, detached from the ORM session.
+
+    A plain tuple for the same reason as ``RoleGrantRow``: evaluation runs outside
+    the store, so nothing it receives should be a live SQLAlchemy instance. Both
+    fields are the filter string as authored -- parsing happens in
+    ``mlflow.server.auth.conditions``, not here.
+    """
+
+    resource_type: str
+    value_condition: str | None
+    target_condition: str | None
 
 
 class SqlAlchemyStore:
@@ -1971,6 +1993,165 @@ class SqlAlchemyStore:
             _validate_permission_for_resource_type(permission, rp.resource_type)
             rp.permission = permission
             return rp.to_mlflow_entity()
+
+    # ---- MutationConditions CRUD ----
+    #
+    # Two optional filters per (role, resource_type) that gate create/mutation only.
+    # Conditions subtract from what grants allow and never confer access, so an
+    # empty table reproduces the pre-conditions behaviour exactly.
+
+    def add_mutation_conditions(
+        self,
+        role_id: int,
+        resource_type: str,
+        value_condition: str | None = None,
+        target_condition: str | None = None,
+    ) -> MutationConditions:
+        validate_condition_resource_type(resource_type)
+        # Validate here, not at evaluation time. A condition that failed to parse
+        # mid-request would have to either fail open (unsafe) or deny every mutation
+        # (an outage), so the only good place to catch it is on the way in.
+        validate_condition(value_condition, NAMESPACE_REQUEST)
+        validate_condition(target_condition, NAMESPACE_RESOURCE)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._get_role(session, role_id)
+            try:
+                mc = SqlMutationConditions(
+                    role_id=role_id,
+                    resource_type=resource_type,
+                    value_condition=value_condition,
+                    target_condition=target_condition,
+                )
+                session.add(mc)
+                session.flush()
+                return mc.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Mutation conditions for (role_id={role_id}, "
+                    f"resource_type={resource_type}) already exist. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    @staticmethod
+    def _get_mutation_conditions(session, role_id: int, resource_type: str):
+        try:
+            return (
+                session
+                .query(SqlMutationConditions)
+                .filter(
+                    SqlMutationConditions.role_id == role_id,
+                    SqlMutationConditions.resource_type == resource_type,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Mutation conditions for (role_id={role_id}, "
+                f"resource_type={resource_type}) not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple mutation conditions for (role_id={role_id}, "
+                f"resource_type={resource_type})",
+                INVALID_STATE,
+            )
+
+    def get_mutation_conditions(self, role_id: int, resource_type: str) -> MutationConditions:
+        with self.ManagedSessionMaker() as session:
+            return self._get_mutation_conditions(session, role_id, resource_type).to_mlflow_entity()
+
+    def update_mutation_conditions(
+        self,
+        role_id: int,
+        resource_type: str,
+        value_condition: str | None = None,
+        target_condition: str | None = None,
+        update_value_condition: bool = True,
+        update_target_condition: bool = True,
+    ) -> MutationConditions:
+        """Partial update.
+
+        Three distinct intents, which is why the ``update_*`` flags exist rather than
+        overloading ``None``:
+
+        - **set**: pass the new string with its flag true
+        - **clear**: pass ``None`` with its flag true (removes that restriction)
+        - **leave unchanged**: pass its flag false
+
+        Without the flags, "clear the target condition" and "leave the target
+        condition alone" would both arrive as ``None`` -- and guessing wrong in the
+        clearing direction silently removes a restriction an admin still wants.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            mc = self._get_mutation_conditions(session, role_id, resource_type)
+            if update_value_condition:
+                validate_condition(value_condition, NAMESPACE_REQUEST)
+                mc.value_condition = value_condition
+            if update_target_condition:
+                validate_condition(target_condition, NAMESPACE_RESOURCE)
+                mc.target_condition = target_condition
+            return mc.to_mlflow_entity()
+
+    def remove_mutation_conditions(self, role_id: int, resource_type: str) -> None:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            mc = self._get_mutation_conditions(session, role_id, resource_type)
+            session.delete(mc)
+
+    def list_mutation_conditions(self, role_id: int) -> list[MutationConditions]:
+        with self.ManagedSessionMaker() as session:
+            self._get_role(session, role_id)
+            rows = (
+                session
+                .query(SqlMutationConditions)
+                .filter(SqlMutationConditions.role_id == role_id)
+                .all()
+            )
+            return [r.to_mlflow_entity() for r in rows]
+
+    def list_mutation_conditions_for_user(
+        self, user_id: int, workspace: str, resource_types: "Collection[str]"
+    ) -> list["MutationConditionRow"]:
+        """Every condition applying to ``user_id`` in ``workspace`` for these types.
+
+        One query, the same join shape as ``list_grants``. Two differences from the
+        grants path, both because conditions only subtract:
+
+        - **No workspace-wide fallback.** ``list_grants`` folds in
+          ``resource_type='workspace'`` rows because a workspace grant applies to
+          every type. A condition is not a grant, and a workspace-wide *restriction*
+          is not something the RFC defines, so only the named types are queried.
+        - **No precedence.** Rows come back flat and the caller ANDs them. There is
+          nothing to fold, because two restrictions cannot conflict -- if either says
+          no, the answer is no.
+
+        Per-user conditions need no special-casing: a per-user grant lives on a
+        synthetic ``__user_<id>__`` role that is a real ``roles`` row, so this join
+        picks it up like any other role the user holds (D10).
+        """
+        types = set(resource_types)
+        for resource_type in types:
+            validate_condition_resource_type(resource_type)
+        if not types:
+            return []
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(
+                    SqlMutationConditions.resource_type,
+                    SqlMutationConditions.value_condition,
+                    SqlMutationConditions.target_condition,
+                )
+                .join(SqlRole, SqlRole.id == SqlMutationConditions.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    SqlMutationConditions.resource_type.in_(types),
+                )
+                .all()
+            )
+            return [MutationConditionRow(rtype, value, target) for rtype, value, target in rows]
 
     # ---- UserRoleAssignment CRUD ----
 
