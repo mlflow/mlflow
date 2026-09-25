@@ -18,6 +18,7 @@ import { EvaluationsAssessmentHoverCard } from './components/EvaluationsAssessme
 import { AssessmentColumnSummary } from './components/charts/AssessmentColumnSummary';
 import {
   createAssessmentColumnId,
+  createExpectationColumnId,
   TRACE_ID_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -45,6 +46,7 @@ import {
 } from './types';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
 import { getDocsLink } from './utils/DocUtils';
+import { EXPECTED_FACTS_FIELD_NAME, EXPECTED_OUTPUT_FIELD_NAME } from './components/GenAiEvaluationTracesReview.utils';
 
 const COLUMN_TOOLTIPS = {
   [TRACE_ID_COLUMN_ID]: {
@@ -149,6 +151,20 @@ const COLUMN_TOOLTIPS = {
       description: 'Tooltip description for the Issues column in the traces table',
     }),
     docsUrl: getDocsLink('/genai/eval-monitor/ai-insights/detect-issues'),
+  },
+  [createExpectationColumnId(EXPECTED_OUTPUT_FIELD_NAME)]: {
+    description: defineMessage({
+      defaultMessage: 'Expected output for evaluation',
+      description: 'Tooltip description for the Expected response column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/assessments/expectations'),
+  },
+  [createExpectationColumnId(EXPECTED_FACTS_FIELD_NAME)]: {
+    description: defineMessage({
+      defaultMessage: 'Expected facts for evaluation',
+      description: 'Tooltip description for the Expected facts column in the traces table',
+    }),
+    docsUrl: getDocsLink('/genai/assessments/expectations'),
   },
   [`${TracesTableColumnGroup.ASSESSMENT}-group`]: {
     description: defineMessage({

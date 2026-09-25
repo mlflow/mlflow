@@ -1,6 +1,26 @@
 {
   "schema_version": "1.0",
   "models": {
+    "gemma-4-31b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 40960,
+        "max_tokens": 40960
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.99,
+        "output_per_million_tokens": 1.49
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-02"
+    },
     "gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
@@ -100,6 +120,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "qwen-3.8-27b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.99,
+        "output_per_million_tokens": 1.49
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-14"
     },
     "zai-glm-4.6": {
       "mode": "chat",

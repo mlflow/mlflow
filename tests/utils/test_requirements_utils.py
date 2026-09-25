@@ -308,10 +308,18 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
         with open(os.path.join(databricks_dir, file_name), "w"):
             pass
 
+    for module_name in [
+        "databricks",
+        "databricks.automl",
+        "databricks.automl_foo",
+        "databricks.automl_runtime",
+        "databricks.model_monitoring",
+        "databricks.other",
+    ]:
+        # Ensure the dummy modules are loaded during the test and restored afterward.
+        monkeypatch.delitem(sys.modules, module_name, raising=False)
+
     with _CaptureImportedModules() as cap:
-        # Delete `databricks` from the cache to ensure we load from the dummy module created above.
-        if "databricks" in sys.modules:
-            del sys.modules["databricks"]
         import databricks
         import databricks.automl
         import databricks.automl_foo

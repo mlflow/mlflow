@@ -14,14 +14,14 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-UBUNTU_BASE_IMAGE = "ubuntu:22.04"
+UBUNTU_BASE_IMAGE = "ubuntu:24.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
 SETUP_PYENV = r"""# Setup pyenv
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
     libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+    libncurses-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 RUN git clone \
     --depth 1 \
     --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
@@ -32,10 +32,11 @@ RUN apt install -y software-properties-common \
     && apt update \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
-    && apt install -y python3.10 python3.10-distutils \
-    # Remove python3-blinker to avoid pip uninstall conflicts
-    && apt remove -y python3-blinker \
-    && ln -s -f $(which python3.10) /usr/bin/python \
+    && apt install -y python3.11 python3.11-distutils \
+    # Remove apt-installed distributions that pip cannot uninstall (no RECORD file),
+    # since deadsnakes Python keeps Debian's dist-packages on sys.path
+    && apt remove -y python3-blinker python3-cryptography \
+    && ln -s -f $(which python3.11) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
 """  # noqa: E501
@@ -64,6 +65,17 @@ RUN chmod o+rwX /opt/mlflow/
 RUN rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["python", "-c", "{entrypoint}"]
+"""
+
+
+# apt has no default socket timeout, so a mirror that accepts the connection and then stops
+# sending data hangs the build indefinitely instead of failing and being retried.
+SETUP_APT_TIMEOUTS = """# Fail fast on a stalled package mirror
+RUN printf '%s\\n' \\
+    'Acquire::http::Timeout "30";' \\
+    'Acquire::https::Timeout "30";' \\
+    'Acquire::Retries "3";' \\
+    > /etc/apt/apt.conf.d/99-mlflow-timeouts
 """
 
 
@@ -103,12 +115,16 @@ def generate_dockerfile(
                 "switch to UBUNTU_BASE_IMAGE to enable java installation."
             )
         setup_python_venv_steps = (
-            "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
+            SETUP_APT_TIMEOUTS
+            + "RUN apt-get -y update && apt-get install -y --no-install-recommends "
+            "nginx"
         )
 
     elif base_image == UBUNTU_BASE_IMAGE:
         setup_python_venv_steps = (
-            "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y "
+            SETUP_APT_TIMEOUTS
+            + "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC "
+            "apt-get install -y "
             "--no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake "
             "git-core\n\n"
         )
@@ -117,7 +133,8 @@ def generate_dockerfile(
             jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
             setup_java_steps = (
                 "# Setup Java\n"
-                f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+                "RUN apt-get install -y --no-install-recommends "
+                f"openjdk-{jdk_ver}-jdk-headless maven\n"
                 f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
             )
 

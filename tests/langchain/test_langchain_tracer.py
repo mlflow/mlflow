@@ -195,6 +195,43 @@ def test_chat_model():
     assert chat_model_span.outputs["choices"][0]["message"]["content"] == "generated text"
 
 
+@pytest.mark.parametrize(
+    ("invocation_params", "metadata", "expected_model"),
+    [
+        # ChatVertexAI / ChatGoogleGenerativeAI expose the model under `model_name`, not `model`,
+        # so the span (and any cost computed from it) previously lost the model entirely.
+        ({"model_name": "gemini-2.5-flash"}, {}, "gemini-2.5-flash"),
+        # LangChain's standardized `ls_model_name` (in metadata) is preferred when present.
+        (
+            {"model_name": "gemini-2.5-flash"},
+            {"ls_model_name": "gemini-2.5-flash-lite"},
+            "gemini-2.5-flash-lite",
+        ),
+        # Providers that expose `model` (e.g. ChatOpenAI) keep working.
+        ({"model": "gpt-4o-mini"}, {}, "gpt-4o-mini"),
+    ],
+)
+def test_chat_model_name_extracted(invocation_params, metadata, expected_model):
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test prompt")]],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params=invocation_params,
+        metadata=metadata,
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "generated text"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    chat_model_span = trace.data.spans[0]
+    assert chat_model_span.get_attribute(SpanAttributeKey.MODEL) == expected_model
+
+
 def test_chat_model_with_tool():
     callback = MlflowLangchainTracer()
     run_id = str(uuid.uuid4())

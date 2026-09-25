@@ -140,7 +140,8 @@ def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_reg
         )
 
 
-def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_registry():
+def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_registry(monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     model_uri = "models:/MyModel/Staging"
     artifact_location = "s3://blah_bucket/"
     model_version_detailed = ModelVersion(

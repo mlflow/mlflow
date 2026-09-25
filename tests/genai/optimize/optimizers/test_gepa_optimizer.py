@@ -435,7 +435,7 @@ def test_make_reflective_dataset_with_traces(
     system_data = result["system_prompt"]
     assert len(system_data) == 2
     assert system_data[0]["component_name"] == "system_prompt"
-    assert system_data[0]["current_text"] == "You are helpful"
+    assert all("current_text" not in record for record in system_data)
     assert system_data[0]["score"] == 0.9
     assert system_data[0]["inputs"] == {"question": "What is 2+2?"}
     assert system_data[0]["outputs"] == "4"

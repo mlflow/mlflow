@@ -1,12 +1,23 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 
 import type { ModelTrace } from './ModelTrace.types';
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { GenericSkeleton, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
 import { ModelTraceExplorerLinkedPromptsView } from './linked-prompts/ModelTraceExplorerLinkedPromptsView';
+import { shouldEnableModelTraceExplorerCustomTraceView } from './FeatureUtils';
+import { useCustomViewAssistantConnector } from './custom-view/assistant/CustomViewAssistantConnector';
+
+// Custom View pulls in @a2ui (ESM-only). Lazy-load it so consumers that only
+// need the standard trace explorer (e.g. the OSS notebook renderer) do not
+// transitively import @a2ui on the static module graph.
+const LazyModelTraceExplorerCustomView = React.lazy(() =>
+  import('./custom-view/ModelTraceExplorerCustomView').then((module) => ({
+    default: module.ModelTraceExplorerCustomView,
+  })),
+);
 
 export const ModelTraceExplorerContent = ({
   modelTraceInfo,
@@ -21,6 +32,11 @@ export const ModelTraceExplorerContent = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { activeView, setActiveView, rootNode } = useModelTraceExplorerViewState();
+  // Gate the tab on a usable connector: without a host-provided openAssistant
+  // (e.g. multi-experiment views, or consumers that don't mount the provider)
+  // there is no way to author a view, so the tab would be a dead end.
+  const { openAssistant } = useCustomViewAssistantConnector();
+  const isCustomViewEnabled = shouldEnableModelTraceExplorerCustomTraceView() && Boolean(openAssistant);
 
   const handleValueChange = useCallback(
     (value: string) => {
@@ -70,6 +86,14 @@ export const ModelTraceExplorerContent = ({
             description="Label for the linked prompts view tab in the model trace explorer"
           />
         </Tabs.Trigger>
+        {isCustomViewEnabled && (
+          <Tabs.Trigger value="custom">
+            <FormattedMessage
+              defaultMessage="Custom view"
+              description="Label for the custom view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+        )}
       </Tabs.List>
       <Tabs.Content
         value="summary"
@@ -109,6 +133,22 @@ export const ModelTraceExplorerContent = ({
       >
         <ModelTraceExplorerLinkedPromptsView modelTraceInfo={modelTraceInfo} />
       </Tabs.Content>
+      {isCustomViewEnabled && (
+        <Tabs.Content
+          value="custom"
+          mountMode="preserve"
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <React.Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
+            <LazyModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
+          </React.Suspense>
+        </Tabs.Content>
+      )}
     </Tabs.Root>
   );
 };

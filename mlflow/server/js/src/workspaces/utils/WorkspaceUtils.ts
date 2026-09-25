@@ -81,7 +81,7 @@ export const setLastUsedWorkspace = (workspace: string | null) => {
 };
 
 // Workspace name validation constants (must match backend: mlflow/store/workspace/abstract_store.py)
-const WORKSPACE_NAME_PATTERN = /^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+const WORKSPACE_NAME_PATTERN = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 export const WORKSPACE_NAME_MIN_LENGTH = 2;
 export const WORKSPACE_NAME_MAX_LENGTH = 63;
 
@@ -106,7 +106,7 @@ export const validateWorkspaceName = (name: string): WorkspaceValidationResult =
   if (!WORKSPACE_NAME_PATTERN.test(name)) {
     return {
       valid: false,
-      error: 'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
+      error: 'Workspace name must be lowercase alphanumeric with optional hyphens.',
     };
   }
 

@@ -71,6 +71,10 @@ export interface CodeSnippetProps {
    */
   wrapLines?: boolean;
   /**
+   * Whether SyntaxHighlighter should apply its inline styles. Disable to let CSS control colors.
+   */
+  useInlineStyles?: boolean;
+  /**
    * Props to pass to the line elements
    */
   lineProps?: React.HTMLProps<HTMLElement> | undefined;
@@ -95,6 +99,7 @@ export function CodeSnippet({
   wrapLines,
   lineProps,
   PreTag,
+  useInlineStyles,
 }: CodeSnippetProps) {
   const customStyle = {
     border: 'none',
@@ -117,6 +122,7 @@ export function CodeSnippet({
       wrapLongLines={wrapLongLines}
       wrapLines={wrapLines}
       PreTag={PreTag}
+      useInlineStyles={useInlineStyles}
     >
       {children}
     </SyntaxHighlighter>

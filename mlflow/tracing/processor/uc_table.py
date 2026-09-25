@@ -14,6 +14,7 @@ from mlflow.tracing.utils import (
     _bypass_attribute_guard,
     generate_trace_id_v4,
     get_mlflow_span_for_otel_span,
+    maybe_get_serving_request_id,
 )
 
 _logger = logging.getLogger(__name__)
@@ -64,8 +65,13 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
         # Override the schema version to 4 for UC table
         metadata[TRACE_SCHEMA_VERSION_KEY] = "4"
 
+        # Carry the serving client request ID so the finished trace can be keyed into the serving
+        # response buffer. None outside model serving.
+        client_request_id = maybe_get_serving_request_id()
+
         trace_info = TraceInfo(
             trace_id=trace_id,
+            client_request_id=client_request_id,
             trace_location=trace_location,
             request_time=root_span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
@@ -79,7 +85,12 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
 
     def on_end(self, span: OTelReadableSpan) -> None:
         if span._parent is None:
-            self._set_user_session_span_attributes(span)
+            try:
+                self._set_user_session_span_attributes(span)
+            except Exception as e:
+                _logger.debug(
+                    "Failed to set user and session attributes on root span: %s", e, exc_info=True
+                )
         super().on_end(span)
 
     def _set_user_session_span_attributes(self, root_span: OTelReadableSpan) -> None:

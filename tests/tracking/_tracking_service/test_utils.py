@@ -31,6 +31,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
+    _has_existing_mlruns_data,
     _resolve_custom_scheme,
     _resolve_tracking_uri,
     _use_tracking_uri,
@@ -68,6 +69,52 @@ def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
+
+
+@pytest.mark.parametrize(
+    ("setup", "expected"),
+    [
+        (lambda mlruns_dir: None, False),
+        (
+            lambda mlruns_dir: (
+                (mlruns_dir / "not-an-experiment").mkdir(),
+                (mlruns_dir / "not-an-experiment" / "meta.yaml").touch(),
+            ),
+            False,
+        ),
+        (lambda mlruns_dir: (mlruns_dir / "0").mkdir(), False),
+        (
+            lambda mlruns_dir: (
+                (mlruns_dir / "0").mkdir(),
+                (mlruns_dir / "0" / "meta.yaml").touch(),
+            ),
+            True,
+        ),
+    ],
+)
+def test_has_existing_mlruns_data(tmp_path, monkeypatch, setup, expected):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    setup(mlruns_dir)
+
+    assert _has_existing_mlruns_data() is expected
+
+
+def test_has_existing_mlruns_data_when_mlruns_is_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    assert _has_existing_mlruns_data() is False
+
+
+def test_has_existing_mlruns_data_handles_filesystem_errors():
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.os.scandir",
+        side_effect=OSError,
+    ) as scandir:
+        assert _has_existing_mlruns_data() is False
+
+    scandir.assert_called_once()
 
 
 @pytest.mark.skip(reason="FileStore is no longer supported")

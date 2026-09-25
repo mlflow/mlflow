@@ -6,6 +6,9 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.environment_variables import (
+    MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS,
+)
 from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
@@ -71,28 +74,37 @@ class OnlineTraceCheckpointManager:
         """
         Calculate the time window for trace scoring.
 
-        Enforces a maximum lookback period to prevent getting stuck on persistently
-        failing traces. If the checkpoint is older than MAX_LOOKBACK_MS, uses
-        current_time - MAX_LOOKBACK_MS instead to skip over old problematic traces.
+        A configurable completion buffer is subtracted from the current time to
+        determine the upper bound of the time window. This gives traces time to
+        complete before their start-time window closes. A maximum lookback period is
+        measured from this buffered upper bound to prevent getting stuck on old traces.
 
         Returns:
             OnlineTraceScoringTimeWindow with min and max trace timestamps.
             min_trace_timestamp_ms is the checkpoint if it exists and is within the
-            lookback period, otherwise now - MAX_LOOKBACK_MS.
-            max_trace_timestamp_ms is the current time.
+            lookback period, otherwise the buffered upper bound - MAX_LOOKBACK_MS.
+            max_trace_timestamp_ms is current time minus the trace completion buffer.
+            It can be earlier than min_trace_timestamp_ms while an existing checkpoint
+            is ahead of the buffered upper bound; the processor waits for the upper bound
+            to advance before querying.
         """
         current_time_ms = int(time.time() * 1000)
         checkpoint = self.get_checkpoint()
 
-        # Start from checkpoint, but never look back more than MAX_LOOKBACK_MS
-        min_lookback_time_ms = current_time_ms - MAX_LOOKBACK_MS
+        # Subtract a completion buffer from the upper bound so that traces which
+        # started recently still have time to finish before we advance past them.
+        buffer_seconds = max(0, MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS.get())
+        max_trace_timestamp_ms = current_time_ms - buffer_seconds * 1000
 
-        if checkpoint is not None:
-            min_trace_timestamp_ms = max(checkpoint.timestamp_ms, min_lookback_time_ms)
-        else:
-            min_trace_timestamp_ms = min_lookback_time_ms
+        # Start from the checkpoint, but preserve a full MAX_LOOKBACK_MS window
+        # behind the buffered upper bound regardless of the configured buffer.
+        min_lookback_time_ms = max_trace_timestamp_ms - MAX_LOOKBACK_MS
+        min_trace_timestamp_ms = max(
+            checkpoint.timestamp_ms if checkpoint else min_lookback_time_ms,
+            min_lookback_time_ms,
+        )
 
         return OnlineTraceScoringTimeWindow(
             min_trace_timestamp_ms=min_trace_timestamp_ms,
-            max_trace_timestamp_ms=current_time_ms,
+            max_trace_timestamp_ms=max_trace_timestamp_ms,
         )

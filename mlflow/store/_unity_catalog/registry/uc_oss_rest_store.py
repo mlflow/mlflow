@@ -437,7 +437,7 @@ class UnityCatalogOssStore(BaseRestStore):
         Get temporary credentials for uploading model version files
 
         Args:
-            name: Registered model name.
+            model_name: Registered model name.
             version: Model version number.
 
         Returns:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from packaging.version import Version
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -9,6 +11,28 @@ if TYPE_CHECKING:
     import torch
 
 _TORCH_DTYPE_KEY = "torch_dtype"
+# transformers 4.56.0 renamed the `torch_dtype` kwarg of `from_pretrained`/`pipeline` to `dtype`
+# and emits a deprecation warning whenever the old name is used.
+_DTYPE_KEY = "dtype"
+_DTYPE_KWARG_MIN_TRANSFORMERS_VERSION = "4.56.0"
+
+
+def _get_torch_dtype_kwarg_name() -> str:
+    """
+    Return the keyword argument name that the installed transformers version expects for
+    specifying the model's torch dtype when calling ``from_pretrained``/``pipeline``.
+
+    transformers 4.56.0 renamed ``torch_dtype`` to ``dtype`` and warns when the old name is
+    passed, so newer versions receive ``dtype`` while older ones keep ``torch_dtype``.
+    """
+    try:
+        import transformers
+    except ImportError:
+        return _TORCH_DTYPE_KEY
+
+    if Version(transformers.__version__) >= Version(_DTYPE_KWARG_MIN_TRANSFORMERS_VERSION):
+        return _DTYPE_KEY
+    return _TORCH_DTYPE_KEY
 
 
 def _extract_torch_dtype_if_set(pipeline) -> torch.dtype | None:

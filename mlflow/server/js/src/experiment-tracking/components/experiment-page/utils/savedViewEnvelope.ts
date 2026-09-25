@@ -12,6 +12,9 @@ import { EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX } from '../../../constants'
 export interface SavedViewEnvelope {
   name: string;
   createdAt: number;
+  // When the view was last overwritten in place. Absent on views written before overwrite existed
+  // (and by callers that never overwrite, e.g. runs / V3); decode defaults it to `createdAt`.
+  updatedAt: number;
   // The compressed (or, for forward-compat, plain-JSON) serialized view state.
   state: string;
 }
@@ -23,6 +26,8 @@ export interface SavedViewSummary {
   id: string;
   name: string;
   createdAt: number;
+  // Present for callers that overwrite views (traces V4); the runs / V3 lists ignore it.
+  updatedAt?: number;
 }
 
 export const getSavedViewTagKey = (id: string): string => `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${id}`;
@@ -42,10 +47,17 @@ export const getSavedViewIdFromTagKey = (tagKey: string): string | null => {
  * (typically deflate-compressed) view-state blob; it is stored verbatim so the name/createdAt stay
  * readable without decompression.
  */
-export const encodeSavedViewEnvelope = (name: string, compressedState: string, createdAt: number): string =>
-  JSON.stringify({ name, createdAt, state: compressedState } satisfies SavedViewEnvelope);
+// `updatedAt` is optional so callers that never overwrite (runs / V3) can keep the 3-arg form; it
+// defaults to `createdAt` for a freshly-created view.
+export const encodeSavedViewEnvelope = (
+  name: string,
+  compressedState: string,
+  createdAt: number,
+  updatedAt: number = createdAt,
+): string => JSON.stringify({ name, createdAt, updatedAt, state: compressedState } satisfies SavedViewEnvelope);
 
-const isValidEnvelope = (value: unknown): value is SavedViewEnvelope =>
+// `updatedAt` is validated loosely (may be absent on legacy tags); decode fills it from `createdAt`.
+const isValidEnvelope = (value: unknown): value is Omit<SavedViewEnvelope, 'updatedAt'> & { updatedAt?: unknown } =>
   typeof value === 'object' &&
   value !== null &&
   typeof (value as SavedViewEnvelope).name === 'string' &&
@@ -55,7 +67,8 @@ const isValidEnvelope = (value: unknown): value is SavedViewEnvelope =>
 /**
  * Parse an experiment-tag value into a saved-view envelope. Throws if the value is not valid JSON
  * or is missing required fields; the `state` field is left compressed (deserialize lazily via
- * {@link deserializePersistedState}).
+ * {@link deserializePersistedState}). A missing/invalid `updatedAt` falls back to `createdAt`, so
+ * views written before overwrite existed decode cleanly.
  */
 export const decodeSavedViewEnvelope = (tagValue: string): SavedViewEnvelope => {
   const parsed = JSON.parse(tagValue);
@@ -64,7 +77,8 @@ export const decodeSavedViewEnvelope = (tagValue: string): SavedViewEnvelope => 
       'Invalid saved-view envelope: expected an object with a string `name`, number `createdAt`, and string `state`',
     );
   }
-  return { name: parsed.name, createdAt: parsed.createdAt, state: parsed.state };
+  const updatedAt = typeof parsed.updatedAt === 'number' ? parsed.updatedAt : parsed.createdAt;
+  return { name: parsed.name, createdAt: parsed.createdAt, updatedAt, state: parsed.state };
 };
 
 /**
@@ -99,8 +113,8 @@ export const listSavedViews = (tags: KeyValueEntity[]): SavedViewSummary[] =>
       return views;
     }
     try {
-      const { name, createdAt } = decodeSavedViewEnvelope(value);
-      views.push({ id, name, createdAt });
+      const { name, createdAt, updatedAt } = decodeSavedViewEnvelope(value);
+      views.push({ id, name, createdAt, updatedAt });
     } catch {
       // Skip a corrupt/legacy tag value rather than failing the entire list.
     }

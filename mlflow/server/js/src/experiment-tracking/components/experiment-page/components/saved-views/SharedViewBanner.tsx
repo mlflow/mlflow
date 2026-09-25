@@ -66,8 +66,8 @@ export const SharedViewBanner = ({
             )}
             <Button componentId={`${componentId}.discard`} size="small" onClick={onDiscard}>
               <FormattedMessage
-                defaultMessage="Discard"
-                description="Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
+                defaultMessage="Exit shared view"
+                description="Experiment page > shared view banner > button that stops previewing the shared view and restores the user's own view"
               />
             </Button>
             {onDismiss && (

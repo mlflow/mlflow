@@ -34,6 +34,8 @@ _DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
 
 _DSPY_3_2_0_OR_NEWER = _DSPY_VERSION >= Version("3.2.0")
 
+_DSPY_3_3_0_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
+
 
 # Test module
 class CoT(dspy.Module):
@@ -66,7 +68,7 @@ class DummyLMWithUsage(DummyLM):
                     },
                 )
 
-            return super().__call__(prompt, messages, **kwargs)
+            return super().__call__(prompt=prompt, messages=messages, **kwargs)
 
 
 def test_autolog_lm():
@@ -157,12 +159,18 @@ def test_autolog_cot():
     }
     assert spans[3].name == "DummyLMWithUsage.__call__"
     assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert spans[3].inputs == {
+    expected_lm_inputs = {
         "prompt": None,
         "messages": mock.ANY,
         "n": 3,
         "temperature": 0.7,
     }
+    if _DSPY_3_3_0_OR_NEWER:
+        # 3.3.0 added `*items` and `request` to `BaseLM.__call__`, and the span records every
+        # bound argument. `items` is empty because `DummyLMWithUsage.__call__` above forwards
+        # to `super()` entirely by keyword, so nothing binds to the variadic parameter.
+        expected_lm_inputs |= {"items": [], "request": None}
+    assert spans[3].inputs == expected_lm_inputs
     assert len(spans[3].outputs) == 3
     assert spans[3].model_name == "dummy"
     # Output parser will run per completion output (n=3)

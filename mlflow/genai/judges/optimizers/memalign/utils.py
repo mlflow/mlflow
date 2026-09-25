@@ -23,8 +23,6 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
 )
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
-    create_examples_field,
-    create_guidelines_field,
 )
 from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
@@ -575,16 +573,3 @@ def retrieve_relevant_examples(
         )
         for i in indices
     ]
-
-
-def create_extended_signature(base_signature: "dspy.Signature") -> "dspy.Signature":
-    """Create extended DSPy signature with guidelines and example judgements fields.
-
-    Args:
-        base_signature: Base DSPy signature to extend
-
-    Returns:
-        Extended signature with guidelines and example_judgements fields prepended
-    """
-    extended_sig = base_signature.prepend("guidelines", create_guidelines_field())
-    return extended_sig.prepend("example_judgements", create_examples_field())

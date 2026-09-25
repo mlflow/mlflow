@@ -386,6 +386,74 @@ def test_correct_filtering(filter_string, matching_runs):
     assert set(filtered_runs) == {runs[i] for i in matching_runs}
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "matching_runs"),
+    [
+        ("datasets.digest IN ('06409663', 'A1B2C3D4')", [0, 1]),
+        ("datasets.name IN ('123', 'MyDataset')", [0, 1]),
+        ("datasets.context IN ('2024', 'Train')", [0, 1]),
+        ("datasets.digest IN ('06409663')", [0]),
+        ("datasets.name IN ('MyDataset')", [1]),
+        ("datasets.context IN ('Train')", [1]),
+    ],
+)
+def test_dataset_in_clause_with_digits_and_uppercase(filter_string, matching_runs):
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_id="r1",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=0,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(metrics=[], params=[], tags=[]),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="123",
+                            digest="06409663",
+                            source_type="src",
+                            source="s",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "2024")],
+                    )
+                ]
+            ),
+        ),
+        Run(
+            run_info=RunInfo(
+                run_id="r2",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=0,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(metrics=[], params=[], tags=[]),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="MyDataset",
+                            digest="A1B2C3D4",
+                            source_type="src",
+                            source="s",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "Train")],
+                    )
+                ]
+            ),
+        ),
+    ]
+    filtered_runs = SearchUtils.filter(runs, filter_string)
+    assert set(filtered_runs) == {runs[i] for i in matching_runs}
+
+
 def test_filter_runs_by_start_time():
     runs = [
         Run(

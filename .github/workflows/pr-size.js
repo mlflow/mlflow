@@ -38,47 +38,16 @@ function getSize(total) {
   return Object.entries(THRESHOLDS).find(([, max]) => total <= max)[0];
 }
 
-function extractStackedPrBaseSha(body, headRef) {
-  if (!body || !body.includes("Stacked PR")) return null;
-  const marker = `[**${headRef}**]`;
-  for (const line of body.split("\n")) {
-    if (line.includes(marker)) {
-      const match = line.match(/\/files\/([a-f0-9]{7,40})\.\.([a-f0-9]{7,40})/);
-      if (match) return match[1];
-    }
-  }
-  return null;
-}
-
-async function getFiles(github, owner, repo, pr) {
-  const baseSha = extractStackedPrBaseSha(pr.body, pr.head.ref);
-  if (baseSha) {
-    console.log(`Stacked PR detected, using incremental diff: ${baseSha}..${pr.head.sha}`);
-    try {
-      const resp = await github.rest.repos.compareCommits({
-        owner,
-        repo,
-        base: baseSha,
-        head: pr.head.sha,
-      });
-      return resp.data.files;
-    } catch (e) {
-      console.warn(`Failed to fetch incremental diff, falling back to full diff: ${e.message}`);
-    }
-  }
-  return github.paginate(github.rest.pulls.listFiles, {
+module.exports = async ({ github, context }) => {
+  const { owner, repo } = context.repo;
+  const pr = context.payload.pull_request;
+  const headSha = pr.head.sha;
+  const files = await github.paginate(github.rest.pulls.listFiles, {
     owner,
     repo,
     pull_number: pr.number,
     per_page: 100,
   });
-}
-
-module.exports = async ({ github, context }) => {
-  const { owner, repo } = context.repo;
-  const pr = context.payload.pull_request;
-  const headSha = pr.head.sha;
-  const files = await getFiles(github, owner, repo, pr);
 
   let total = 0;
   const maxThreshold = Math.max(...Object.values(THRESHOLDS).filter(isFinite));

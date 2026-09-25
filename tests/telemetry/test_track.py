@@ -133,7 +133,7 @@ def test_backend_store_info_http_scheme_enrichment_cached(
             return_value=("http", True),
         ) as mock_uri_info,
         mock.patch(
-            "mlflow.telemetry.client.http_request",
+            "mlflow.utils.server_info.http_request",
             return_value=mock_response,
         ) as mock_req,
     ):
@@ -142,7 +142,7 @@ def test_backend_store_info_http_scheme_enrichment_cached(
 
     assert mock_telemetry_client.info["tracking_uri_scheme"] == "http-sql"
     assert mock_uri_info.call_count == 2
-    # http_request is called only once due to lru_cache
+    # Successful responses are shared through the centralized server-info cache.
     mock_req.assert_called_once()
 
 
@@ -195,7 +195,7 @@ def test_fetch_server_info(
         mock_response.json.return_value = json_body
 
     with mock.patch(
-        "mlflow.telemetry.client.http_request",
+        "mlflow.utils.server_info.http_request",
         return_value=mock_response,
     ) as mock_req:
         result = _fetch_server_info("http://localhost:5000")
@@ -206,13 +206,68 @@ def test_fetch_server_info(
 
 def test_fetch_server_info_connection_error():
     with mock.patch(
-        "mlflow.telemetry.client.http_request",
+        "mlflow.utils.server_info.http_request",
         side_effect=ConnectionError,
     ) as mock_req:
-        result = _fetch_server_info("http://localhost:5000")
+        assert _fetch_server_info("http://localhost:5000") is None
+        assert _fetch_server_info("http://localhost:5000") is None
 
-    assert result is None
     mock_req.assert_called_once()
+
+
+def test_fetch_server_info_caches_non_200_response():
+    mock_response = mock.Mock(status_code=404)
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=mock_response,
+    ) as mock_req:
+        assert _fetch_server_info("http://localhost:5000") is None
+        assert _fetch_server_info("http://localhost:5000") is None
+
+    mock_req.assert_called_once()
+
+
+def test_fetch_server_info_caches_invalid_json_failure():
+    mock_response = mock.Mock(status_code=200)
+    mock_response.json.side_effect = ValueError("bad json")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=mock_response,
+    ) as mock_req:
+        assert _fetch_server_info("http://localhost:5000") is None
+        assert _fetch_server_info("http://localhost:5000") is None
+
+    mock_req.assert_called_once()
+
+
+def test_fetch_server_info_caches_successful_responses():
+    mock_response = mock.Mock(status_code=200)
+    mock_response.json.return_value = {"store_type": "SqlStore"}
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=mock_response,
+    ) as mock_req:
+        assert _fetch_server_info("http://localhost:5000") == {"store_type": "SqlStore"}
+        assert _fetch_server_info("http://localhost:5000") == {"store_type": "SqlStore"}
+
+    mock_req.assert_called_once()
+
+
+def test_fetch_server_info_keeps_distinct_effective_uris_separate():
+    mock_response = mock.Mock(status_code=200)
+    mock_response.json.return_value = {"store_type": "SqlStore"}
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=mock_response,
+    ) as mock_req:
+        _fetch_server_info("http://localhost:5000")
+        _fetch_server_info("http://localhost:5000/mlflow")
+
+    assert mock_req.call_count == 2
 
 
 @pytest.mark.parametrize(

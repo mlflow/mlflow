@@ -10,9 +10,11 @@ interface CreateEndpointModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: (endpoint: Endpoint) => void;
+  /** Restrict endpoint creation to this provider. */
+  provider?: string;
 }
 
-export const CreateEndpointModal = ({ open, onClose, onSuccess }: CreateEndpointModalProps) => {
+export const CreateEndpointModal = ({ open, onClose, onSuccess, provider }: CreateEndpointModalProps) => {
   const intl = useIntl();
 
   const {
@@ -26,6 +28,7 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess }: CreateEndpoint
     handleCancel,
     handleNameBlur,
   } = useCreateEndpointForm({
+    defaultProvider: provider,
     onSuccess: (endpoint) => {
       form.reset();
       onSuccess?.(endpoint);
@@ -54,6 +57,7 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess }: CreateEndpoint
       <FormProvider {...form}>
         <EndpointFormRenderer
           mode="create"
+          providerDisabled={Boolean(provider)}
           isSubmitting={isLoading}
           error={error}
           errorMessage={getReadableErrorMessage(error)}

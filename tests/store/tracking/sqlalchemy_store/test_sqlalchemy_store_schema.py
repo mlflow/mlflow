@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+from datetime import date
 
 import pytest
 import sqlalchemy
@@ -46,8 +47,12 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     for generated_schema_table, expected_schema_table in zip(
         generated_schema_table_chunks, expected_schema_table_chunks
     ):
-        generated_lines = [x.strip() for x in sorted(generated_schema_table.split("\n"))]
-        expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
+        generated_lines = [
+            line.strip() for line in sorted(generated_schema_table.split("\n")) if line.strip()
+        ]
+        expected_lines = [
+            line.strip() for line in sorted(expected_schema_table.split("\n")) if line.strip()
+        ]
         assert generated_lines == expected_lines, (
             "Generated schema did not match expected schema. Generated schema had table "
             f"definition:\n{generated_schema_table}\nExpected schema had table definition:"
@@ -202,6 +207,22 @@ def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
         cursor.execute("PRAGMA index_info('index_metrics_run_uuid_key_step')")
         columns = [row[2] for row in cursor.fetchall()]
         assert columns == ["run_uuid", "key", "step"]
+
+
+@pytest.mark.parametrize("upgrade_from_initial_schema", [False, True])
+def test_trace_archival_candidate_index(tmp_path, db_url, upgrade_from_initial_schema):
+    if upgrade_from_initial_schema:
+        engine = sqlalchemy.create_engine(db_url)
+        InitialBase.metadata.create_all(engine)
+        invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    else:
+        SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA index_info('index_trace_info_timestamp_ms_request_id')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["timestamp_ms", "request_id"]
 
 
 def test_index_for_dataset_tables(tmp_path, db_url):
@@ -452,6 +473,36 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "transport_type": "streamable-http",
             "created_at": seed,
             "last_updated_at": seed,
+        },
+        "sql_trace_metric_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_span_cost_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_assessment_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_trace_rollup_rebuild_queue": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "rollup_family": f"family_{seed}",
         },
     }
     if table_name not in base_values:

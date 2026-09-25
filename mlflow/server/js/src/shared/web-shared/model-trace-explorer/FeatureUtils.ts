@@ -58,3 +58,11 @@ export const shouldUseUnifiedModelTraceComparisonUI = () => {
 export const isEvaluatingTracesInDetailsViewEnabled = () => {
   return true;
 };
+
+/**
+ * Determines if the "Custom view" tab (an agent-authored A2UI layout) is
+ * enabled in the model trace explorer.
+ */
+export const shouldEnableModelTraceExplorerCustomTraceView = () => {
+  return true;
+};

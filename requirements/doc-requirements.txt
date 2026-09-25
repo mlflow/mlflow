@@ -25,8 +25,9 @@ polars>=1
 # required for the genai evaluation example
 openai
 # required for the haystack
-# TODO: Support haystack 3.x (`OpenTelemetryTracer` moved to `opentelemetry-haystack`)
-haystack-ai<3
+haystack-ai
+# required for haystack >= 3 (`OpenTelemetryTracer` moved out of the core package)
+opentelemetry-haystack
 # required for deepeval scorer documentation
 deepeval
 # required for ragas scorer documentation

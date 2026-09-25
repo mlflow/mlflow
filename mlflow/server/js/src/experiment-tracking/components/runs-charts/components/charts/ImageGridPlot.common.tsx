@@ -24,14 +24,16 @@ export const ImageGridRunHeader = ({
   color,
   params,
   maxParamsWidth,
+  showParams = true,
 }: {
   displayName: string;
   color?: string;
   params: Record<string, { key: string; value: string | number }>;
   maxParamsWidth?: number;
+  showParams?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const paramsText = formatRunParams(params);
+  const paramsText = showParams ? formatRunParams(params) : '';
 
   return (
     <Tooltip

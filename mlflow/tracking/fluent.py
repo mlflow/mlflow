@@ -61,7 +61,6 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
@@ -376,7 +375,7 @@ class ActiveRun(Run):
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
-        Run.__init__(self, run.info, run.data)
+        Run.__init__(self, run.info, run.data, run.inputs, run.outputs)
 
     def __enter__(self):
         return self
@@ -1012,6 +1011,7 @@ def flush_trace_async_logging(terminate=False) -> None:
     # When set_destination() is called multiple times, each call creates a new
     # tracer provider, processor, and exporter. The registry tracks all of them
     # so we drain both layers: span queue → exporter → async DB write queue.
+    from mlflow.tracing.export.utils import flush_exporter
     from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
 
     try:
@@ -1020,11 +1020,10 @@ def flush_trace_async_logging(terminate=False) -> None:
         _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
 
     # When batch processor is disabled (no registry entries), the current exporter
-    # may still have an _async_queue that needs draining (SimpleSpanProcessor path).
+    # may still have buffered spans that need draining (SimpleSpanProcessor path).
     try:
         if trace_exporter := _get_trace_exporter():
-            if hasattr(trace_exporter, "_async_queue"):
-                trace_exporter._async_queue.flush(terminate=terminate)
+            flush_exporter(trace_exporter, terminate=terminate)
     except Exception as e:
         _logger.debug(f"Failed to flush trace exporter async queue: {e}", exc_info=True)
 
@@ -1782,7 +1781,6 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
-@experimental(version="3.9.0")
 def log_stream(
     stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
 ) -> None:
@@ -2386,11 +2384,35 @@ def create_experiment(
                 trace_location=trace_location,
             )
         except MlflowException as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Experiment '{name}' (ID: {experiment_id}) was created "
-                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
-                f"{e.message} Please delete the experiment and retry."
-            ) from e
+            # Attempt to soft-delete the experiment we just created so a failed
+            # trace-location link does not leave an active experiment behind.
+            # Note: delete_experiment is a soft delete; the experiment name
+            # remains reserved until permanently removed via `mlflow gc`.
+            cleanup_succeeded = False
+            try:
+                client.delete_experiment(experiment_id)
+                cleanup_succeeded = True
+            except Exception:
+                _logger.warning(
+                    "Failed to soft-delete experiment '%s' (ID: %s) after linking it to "
+                    "trace location '%s' failed. The experiment may remain active.",
+                    name,
+                    experiment_id,
+                    trace_location.full_table_prefix,
+                    exc_info=True,
+                )
+            if cleanup_succeeded:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed, so the "
+                    f"experiment was soft-deleted (its name remains reserved): {e.message}"
+                ) from e
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed; the "
+                    f"experiment could not be cleaned up and may remain active: {e.message}"
+                ) from e
 
     return experiment_id
 
@@ -2428,6 +2450,55 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
+
+
+def restore_experiment(experiment_id: str) -> None:
+    """
+    Restore a deleted experiment unless permanently deleted.
+
+    Args:
+        experiment_id: The string-ified experiment ID returned from ``create_experiment``.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
+
+        # Examine the deleted experiment details.
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+        print("--")
+
+        # Restore the experiment and examine the details.
+        mlflow.restore_experiment(experiment_id)
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: deleted
+        Last Updated timestamp: 1662004217511
+        --
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: active
+        Last Updated timestamp: 1662004217512
+
+    """
+    MlflowClient().restore_experiment(experiment_id)
 
 
 def initialize_logged_model(
@@ -3094,6 +3165,41 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
+def restore_run(run_id: str) -> None:
+    """
+    Restores a deleted run with the given ID.
+
+    Args:
+        run_id: Unique identifier for the run to restore.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+        mlflow.restore_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: active
+
+    """
+    MlflowClient().restore_run(run_id)
+
+
 def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
     """
     Set tags on the specified logged model.
@@ -3223,16 +3329,42 @@ def get_artifact_uri(artifact_path: str | None = None) -> str:
     )
 
 
+@overload
 def search_runs(
     experiment_ids: list[str] | None = None,
     filter_string: str = "",
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: list[str] | None = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas"] = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> Union[list[Run], "pandas.DataFrame"]:
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["list"] = "list",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> list[Run]: ...
+
+
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["pandas", "list"] = "pandas",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> "list[Run] | pandas.DataFrame":
     """
     Search for Runs that fit the specified criteria.
 

@@ -354,6 +354,53 @@ def test_translate_token_usage_with_partial_cache_fields():
     assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
 
 
+def test_translate_token_usage_with_openinference_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.token_count.prompt": 100,
+            "llm.token_count.completion": 50,
+            "llm.token_count.prompt_details.cache_read": 80,
+            "llm.token_count.prompt_details.cache_write": 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_with_partial_openinference_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.token_count.prompt": 100,
+            "llm.token_count.completion": 50,
+            "llm.token_count.prompt_details.cache_read": 80,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
 @pytest.mark.parametrize(
     ("attributes", "expected_input", "expected_output", "expected_total"),
     [
@@ -625,6 +672,95 @@ def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_
     assert model == model_value
 
 
+@pytest.mark.parametrize("json_encoded", [False, True])
+@pytest.mark.parametrize(
+    ("attributes", "expected_model"),
+    [
+        ({"llm.response.model_name": "jev-1.13.0"}, "jev-1.13.0"),
+        ({"llm.request.model_name": "jev-latest"}, "jev-latest"),
+        ({"llm.model_name": "legacy-model"}, "legacy-model"),
+        ({"embedding.model_name": "embedding-model"}, "embedding-model"),
+        (
+            {
+                "llm.response.model_name": "jev-1.13.0",
+                "llm.request.model_name": "jev-latest",
+                "llm.model_name": "legacy-model",
+            },
+            "jev-1.13.0",
+        ),
+        (
+            {"llm.request.model_name": "jev-latest", "llm.model_name": "jev-1.13.0"},
+            "jev-1.13.0",
+        ),
+        (
+            {"llm.response.model_name": "", "llm.request.model_name": "jev-latest"},
+            "jev-latest",
+        ),
+        (
+            {"llm.response.model_name": None, "llm.request.model_name": "jev-latest"},
+            "jev-latest",
+        ),
+    ],
+)
+def test_translate_openinference_model_name(attributes, expected_model, json_encoded):
+    span = mock.Mock(spec=Span)
+    span.to_dict.return_value = {
+        "attributes": {
+            key: json.dumps(value) if json_encoded else value for key, value in attributes.items()
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    assert json.loads(result["attributes"][SpanAttributeKey.MODEL]) == expected_model
+
+
+@pytest.mark.parametrize("redacted", [False, True])
+def test_translate_openinference_structured_inputs_outputs(redacted):
+    inputs = {
+        "state": {"ticket": "I was charged twice"},
+        "model": "jev-latest",
+        "questions": {"billing": {"type": "noul", "instructions": "Is this about billing?"}},
+    }
+    outputs = {
+        "model": "jev-1.13.0",
+        "answers": {"billing": {"type": "noul", "noul": 0.98}},
+        "usage": {"input_tokens": 10, "output_tokens": 0},
+    }
+    span = mock.Mock(spec=Span)
+    span.to_dict.return_value = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.provider": "typesafe",
+            "llm.request.model_name": "jev-latest",
+            "llm.response.model_name": "jev-1.13.0",
+            "input.value": json.dumps("__REDACTED__" if redacted else inputs),
+            "output.value": json.dumps("__REDACTED__" if redacted else outputs),
+            "llm.token_count.prompt": 10,
+            "llm.token_count.completion": 0,
+            "llm.token_count.total": 10,
+        }
+    }
+
+    attributes = translate_span_when_storing(span)["attributes"]
+
+    assert json.loads(attributes[SpanAttributeKey.MODEL]) == "jev-1.13.0"
+    assert json.loads(attributes[SpanAttributeKey.MODEL_PROVIDER]) == "typesafe"
+    assert json.loads(attributes[SpanAttributeKey.SPAN_TYPE]) == SpanType.LLM
+    assert json.loads(attributes[SpanAttributeKey.INPUTS]) == (
+        "__REDACTED__" if redacted else inputs
+    )
+    assert json.loads(attributes[SpanAttributeKey.OUTPUTS]) == (
+        "__REDACTED__" if redacted else outputs
+    )
+    assert json.loads(attributes[SpanAttributeKey.CHAT_USAGE]) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 0,
+        TokenUsageKey.TOTAL_TOKENS: 10,
+    }
+    assert SpanAttributeKey.MESSAGE_FORMAT not in attributes
+
+
 @pytest.mark.parametrize(
     ("translator", "provider_value"),
     [
@@ -685,6 +821,13 @@ def test_translate_model_name_from_inputs_outputs(
             {
                 SpanAttributeKey.MODEL: json.dumps("existing-model"),
                 "gen_ai.response.model": '"new-model"',
+            },
+            "existing-model",
+        ),
+        (
+            {
+                SpanAttributeKey.MODEL: json.dumps("existing-model"),
+                "llm.response.model_name": '"jev-1.13.0"',
             },
             "existing-model",
         ),
@@ -826,6 +969,27 @@ def test_translate_cost_edge_cases(
         }
     else:
         assert SpanAttributeKey.LLM_COST not in result["attributes"]
+
+
+def test_translate_cost_forwards_openinference_cache_tokens(mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.model_name": '"gpt-4o-mini"',
+            "llm.token_count.prompt": 100,
+            "llm.token_count.completion": 50,
+            "llm.token_count.prompt_details.cache_read": 80,
+            "llm.token_count.prompt_details.cache_write": 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    translate_span_when_storing(span)
+
+    assert mock_litellm_cost.call_args.kwargs["cache_read_input_tokens"] == 80
+    assert mock_litellm_cost.call_args.kwargs["cache_creation_input_tokens"] == 20
 
 
 def test_update_token_usage_with_cached_tokens():

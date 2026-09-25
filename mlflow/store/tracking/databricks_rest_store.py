@@ -306,7 +306,18 @@ class DatabricksTracingRestStore(RestStore):
         )
         return TraceInfo.from_proto(response_proto)
 
-    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+    def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        raise MlflowException.invalid_parameter_value(
+            "`experiment_ids` is not supported by `list_scorers` against the "
+            "Databricks-hosted backend."
+        )
+
+    def batch_get_traces(
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
@@ -314,10 +325,17 @@ class DatabricksTracingRestStore(RestStore):
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" or
                 "catalog.schema.table_prefix" for UC schema destinations.
+            experiment_ids: Not supported by the Databricks-hosted backend. Passing a
+                non-None value raises ``MlflowException``.
 
         Returns:
             List of Trace objects.
         """
+        if experiment_ids is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`experiment_ids` is not supported by `batch_get_traces` against the "
+                "Databricks-hosted backend."
+            )
         trace_ids = [parse_trace_id_v4(trace_id)[1] for trace_id in trace_ids]
         req_body = message_to_json(
             BatchGetTraces(
@@ -334,8 +352,20 @@ class DatabricksTracingRestStore(RestStore):
         return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
     def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> list[TraceInfo]:
+        """
+        Not implemented for the Databricks backend.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace.
+            experiment_ids: Not supported because this method is not implemented for the
+                Databricks-hosted backend.
+        """
         raise MlflowNotImplementedException()
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
@@ -1013,6 +1043,7 @@ class DatabricksTracingRestStore(RestStore):
                 profile=None,
                 created_by=dataset_dict.get("created_by"),
                 last_updated_by=dataset_dict.get("last_updated_by"),
+                version=dataset_dict.get("version"),
             )
             datasets.append(dataset)
 

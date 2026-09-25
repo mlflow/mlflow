@@ -1,6 +1,8 @@
+import contextlib
 import json
 import os
 import pickle
+import shutil
 import threading
 import time
 import uuid
@@ -47,7 +49,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
@@ -83,6 +85,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_context import WorkspaceContext
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -579,10 +582,14 @@ def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo)
     )
     assert len(results) == 100
     assert mock_store.batch_get_traces.call_count == 10
-    assert mock_store.batch_get_traces.has_calls([
-        mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
-        for j in range(10)
-    ])
+    mock_store.batch_get_traces.assert_has_calls(
+        [
+            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+            for j in range(10)
+        ],
+        # The batches are fetched concurrently, so the call order is not deterministic
+        any_order=True,
+    )
     mock_artifact_repo.download_trace_data.assert_not_called()
 
 
@@ -2401,6 +2408,185 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
+@pytest.fixture
+def isolated_registry_uris(tmp_path: Path, cached_db: Path) -> list[str]:
+    db_paths = [tmp_path / "registry_a.db", tmp_path / "registry_b.db"]
+    for db_path in db_paths:
+        shutil.copy2(cached_db, db_path)
+    return [f"sqlite:///{db_path}" for db_path in db_paths]
+
+
+@pytest.fixture
+def workspace_registry_uri(tmp_path: Path, cached_db: Path, monkeypatch) -> str:
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_path = tmp_path / "workspace_registry.db"
+    shutil.copy2(cached_db, db_path)
+    return f"sqlite:///{db_path}"
+
+
+@pytest.mark.parametrize(
+    ("prompt_uri", "getter_name"),
+    [
+        ("prompts:/shared_prompt/1", "get_prompt_version"),
+        ("prompts:/shared_prompt@production", "get_prompt_version_by_alias"),
+    ],
+)
+@pytest.mark.parametrize("load_order", [(0, 1), (1, 0)])
+def test_load_prompt_cache_isolated_by_registry(
+    isolated_registry_uris, prompt_uri, getter_name, load_order
+):
+    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in isolated_registry_uris]
+    templates = ["Registry A", "Registry B"]
+
+    for client, template in zip(clients, templates):
+        client.register_prompt("shared_prompt", template)
+        client.set_prompt_alias("shared_prompt", alias="production", version=1)
+
+    registry_clients = [client._get_registry_client() for client in clients]
+    with contextlib.ExitStack() as stack:
+        getters = [
+            stack.enter_context(
+                mock.patch.object(
+                    registry_client,
+                    getter_name,
+                    wraps=getattr(registry_client, getter_name),
+                )
+            )
+            for registry_client in registry_clients
+        ]
+
+        for position, index in enumerate(load_order):
+            assert clients[index].load_prompt(prompt_uri).template == templates[index]
+            assert getters[index].call_count == 1
+            if position == 0:
+                assert getters[1 - index].call_count == 0
+
+            assert clients[index].load_prompt(prompt_uri).template == templates[index]
+            assert getters[index].call_count == 1
+
+
+def test_prompt_cache_invalidation_is_registry_scoped(isolated_registry_uris):
+    clients = [MlflowClient(tracking_uri=uri, registry_uri=uri) for uri in isolated_registry_uris]
+
+    for client in clients:
+        client.register_prompt("shared_prompt", "Version 1")
+        client.register_prompt("shared_prompt", "Version 2")
+        client.set_prompt_alias("shared_prompt", alias="production", version=1)
+        assert client.load_prompt("prompts:/shared_prompt@production").version == 1
+
+    clients[0].set_prompt_alias("shared_prompt", alias="production", version=2)
+
+    registry_clients = [client._get_registry_client() for client in clients]
+    with (
+        mock.patch.object(
+            registry_clients[0],
+            "get_prompt_version_by_alias",
+            wraps=registry_clients[0].get_prompt_version_by_alias,
+        ) as registry_a_getter,
+        mock.patch.object(
+            registry_clients[1],
+            "get_prompt_version_by_alias",
+            wraps=registry_clients[1].get_prompt_version_by_alias,
+        ) as registry_b_getter,
+    ):
+        assert clients[0].load_prompt("prompts:/shared_prompt@production").version == 2
+        assert registry_a_getter.call_count == 1
+
+        assert clients[1].load_prompt("prompts:/shared_prompt@production").version == 1
+        assert registry_b_getter.call_count == 0
+
+
+def test_failed_prompt_mutation_preserves_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.register_prompt("cached_prompt", "Version 1")
+    client.register_prompt("cached_prompt", "Version 2")
+    client.set_prompt_alias("cached_prompt", alias="production", version=1)
+    assert client.load_prompt("prompts:/cached_prompt@production").version == 1
+
+    registry_client = client._get_registry_client()
+    with (
+        mock.patch.object(
+            registry_client,
+            "set_prompt_alias",
+            side_effect=MlflowException("mutation failed"),
+        ),
+        pytest.raises(MlflowException, match="mutation failed"),
+    ):
+        client.set_prompt_alias("cached_prompt", alias="production", version=2)
+
+    with mock.patch.object(
+        registry_client,
+        "get_prompt_version_by_alias",
+        wraps=registry_client.get_prompt_version_by_alias,
+    ) as getter:
+        assert client.load_prompt("prompts:/cached_prompt@production").version == 1
+        assert getter.call_count == 0
+
+
+@pytest.mark.parametrize(
+    ("prompt_uri", "getter_name"),
+    [
+        ("prompts:/shared_prompt/1", "get_prompt_version"),
+        ("prompts:/shared_prompt@production", "get_prompt_version_by_alias"),
+    ],
+)
+@pytest.mark.parametrize("load_order", [("team-a", "team-b"), ("team-b", "team-a")])
+def test_load_prompt_cache_isolated_by_workspace(
+    workspace_registry_uri, monkeypatch, prompt_uri, getter_name, load_order
+):
+    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: None)
+    client = MlflowClient(tracking_uri=workspace_registry_uri, registry_uri=workspace_registry_uri)
+    templates = {"team-a": "Team A", "team-b": "Team B"}
+
+    for workspace, template in templates.items():
+        with WorkspaceContext(workspace):
+            client.register_prompt("shared_prompt", template)
+            client.set_prompt_alias("shared_prompt", alias="production", version=1)
+
+    registry_client = client._get_registry_client()
+    with mock.patch.object(
+        registry_client,
+        getter_name,
+        wraps=getattr(registry_client, getter_name),
+    ) as getter:
+        for expected_call_count, workspace in enumerate(load_order, start=1):
+            with WorkspaceContext(workspace):
+                assert client.load_prompt(prompt_uri).template == templates[workspace]
+                assert getter.call_count == expected_call_count
+
+                assert client.load_prompt(prompt_uri).template == templates[workspace]
+                assert getter.call_count == expected_call_count
+
+
+def test_prompt_cache_invalidation_is_workspace_scoped(workspace_registry_uri, monkeypatch):
+    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: None)
+    client = MlflowClient(tracking_uri=workspace_registry_uri, registry_uri=workspace_registry_uri)
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            client.register_prompt("shared_prompt", "Version 1")
+            client.register_prompt("shared_prompt", "Version 2")
+            client.set_prompt_alias("shared_prompt", alias="production", version=1)
+            assert client.load_prompt("prompts:/shared_prompt@production").version == 1
+
+    with WorkspaceContext("team-a"):
+        client.set_prompt_alias("shared_prompt", alias="production", version=2)
+
+    registry_client = client._get_registry_client()
+    with mock.patch.object(
+        registry_client,
+        "get_prompt_version_by_alias",
+        wraps=registry_client.get_prompt_version_by_alias,
+    ) as getter:
+        with WorkspaceContext("team-a"):
+            assert client.load_prompt("prompts:/shared_prompt@production").version == 2
+            assert getter.call_count == 1
+
+        with WorkspaceContext("team-b"):
+            assert client.load_prompt("prompts:/shared_prompt@production").version == 1
+            assert getter.call_count == 1
+
+
 def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
     def wait_for_prompt_linking():
         """Wait for background prompt linking threads to complete."""
@@ -2731,6 +2917,12 @@ def test_search_prompt(tracking_uri):
     prompts = client.search_prompts(max_results=3)
     assert len(prompts) == 3
 
+    prompts = client.search_prompts(order_by=["name DESC"])
+    assert [p.name for p in prompts] == sorted((p.name for p in prompts), reverse=True)
+
+    prompts = client.search_prompts(order_by=["name ASC"])
+    assert [p.name for p in prompts] == sorted(p.name for p in prompts)
+
 
 def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
@@ -3026,7 +3218,9 @@ def test_link_prompts_to_trace_smoke_test(tracking_uri):
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test")
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     model = client.create_logged_model(experiment_id=experiment_id)
     tmp_path = tmp_path.joinpath("artifacts")
     tmp_path.mkdir()
@@ -3048,7 +3242,9 @@ def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
 
 def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test")
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     model = client.create_logged_model(experiment_id=experiment_id)
     tmp_path = tmp_path.joinpath("artifacts")
     tmp_path.mkdir()
@@ -3067,6 +3263,54 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_log_model_artifact_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    client.log_model_artifact(
+        model_id=model.model_id, local_path=str(tmp_file), artifact_path="subdir"
+    )
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="subdir", is_dir=True, file_size=None)]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir")
+    assert artifacts == [FileInfo(path="subdir/file", is_dir=False, file_size=1)]
+
+
+def test_log_model_artifacts_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    tmp_dir = tmp_path.joinpath("dir")
+    tmp_dir.mkdir()
+    another_file = tmp_dir.joinpath("another_file")
+    another_file.write_text("aa")
+    client.log_model_artifacts(
+        model_id=model.model_id, local_dir=str(tmp_path), artifact_path="subdir"
+    )
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="subdir", is_dir=True, file_size=None)]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir")
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="subdir/dir", is_dir=True, file_size=None),
+        FileInfo(path="subdir/file", is_dir=False, file_size=1),
+    ]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir/dir")
+    assert artifacts == [FileInfo(path="subdir/dir/another_file", is_dir=False, file_size=2)]
 
 
 def test_logged_model_model_id_required(tracking_uri):
@@ -3991,3 +4235,116 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.source_run_id == run.info.run_id
     assert issue.created_by == "monitoring_system"
     assert issue.created_timestamp > 0
+
+
+# register_prompt UI discoverability tests
+
+
+def _make_uc_prompt_version(name: str, version: int = 1):
+    """Return a minimal PromptVersion suitable for use as a UC registry stub return value."""
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
+
+    return PromptVersion(name=name, version=version, template="stub {{var}}")
+
+
+def _uc_register_prompt_patches(name: str, tracking_uri: str):
+    """Context manager stack that makes register_prompt execute the UC branch.
+
+    Patches applied:
+    - is_databricks_unity_catalog_uri -> True (so the UC branch is entered)
+    - registry_client.create_prompt -> no-op
+    - registry_client.create_prompt_version -> Mock(version=1)
+    - registry_client.get_prompt_version -> minimal PromptVersion
+    """
+    fake_pv = _make_uc_prompt_version(name)
+    mock_version = Mock(version=1)
+    mock_registry_client = Mock()
+    mock_registry_client.create_prompt.return_value = None
+    mock_registry_client.create_prompt_version.return_value = mock_version
+    mock_registry_client.get_prompt_version.return_value = fake_pv
+
+    @contextlib.contextmanager
+    def _stack():
+        with (
+            mock.patch(
+                "mlflow.tracking.client.is_databricks_unity_catalog_uri",
+                return_value=True,
+            ),
+            mock.patch.object(
+                MlflowClient,
+                "_get_registry_client",
+                return_value=mock_registry_client,
+            ),
+        ):
+            yield mock_registry_client
+
+    return _stack()
+
+
+def test_register_prompt_uc_branch_logs_experiment_prompt_url(tracking_uri):
+    fake_workspace_url = "https://my-workspace.azuredatabricks.net/"
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
+        with (
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_url",
+                return_value=fake_workspace_url,
+            ),
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_id",
+                return_value="123456",
+                create=True,
+            ),
+            mock.patch(
+                "mlflow.tracking.fluent._get_experiment_id",
+                return_value="987654",
+            ),
+            mock.patch("mlflow.tracking.client._logger.info") as log_info,
+        ):
+            client.register_prompt(
+                name="catalog.schema.my_prompt",
+                template="Answer: {{question}}",
+            )
+
+    log_info.assert_called_once_with(
+        "Prompt registered. View in experiment Prompts tab: %s/ml/experiments/%s/prompts/%s%s",
+        fake_workspace_url.rstrip("/"),
+        "987654",
+        "catalog.schema.my_prompt",
+        "?o=123456&promptVersion=1",
+    )
+
+
+def test_register_prompt_uc_branch_no_ui_link_when_workspace_url_none(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
+        with (
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_url",
+                return_value=None,
+            ),
+            mock.patch("mlflow.tracking.client._logger.info") as log_info,
+        ):
+            client.register_prompt(
+                name="catalog.schema.my_prompt",
+                template="Answer: {{question}}",
+            )
+
+    log_info.assert_not_called()
+
+
+def test_register_prompt_ui_link_logs_debug_on_error(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with (
+        mock.patch(
+            "mlflow.tracking.client.get_workspace_url",
+            side_effect=RuntimeError("workspace lookup failed"),
+        ),
+        mock.patch("mlflow.tracking.client._logger.debug") as log_debug,
+    ):
+        client._log_prompt_ui_link("catalog.schema.my_prompt", 1)
+
+    log_debug.assert_called_once_with("Failed to log prompt UI link", exc_info=True)

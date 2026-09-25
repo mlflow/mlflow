@@ -5,11 +5,16 @@ import posixpath
 from unittest import mock
 
 import pytest
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.credentials import AzureSasCredential
+from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    _UnsupportedMultipartUploadException,
+)
 from mlflow.store.artifact.artifact_repo import try_read_trace_data
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -426,19 +431,97 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         repo.download_artifacts("")
 
 
-def test_create_multipart_upload(mock_client):
+def test_create_multipart_upload_with_account_key(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     mock_client.url = "some-url"
     mock_client.account_name = "some-account"
-    mock_client.credential.account_key = base64.b64encode(b"some-key").decode("utf-8")
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    mock_client.credential.account_key = account_key
 
-    create = repo.create_multipart_upload("local_file")
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        create = repo.create_multipart_upload("local_file")
+
     assert create.upload_id is None
     assert len(create.credentials) == 1
     assert create.credentials[0].url.startswith(
         "some-url/container/some/path/local_file?comp=block"
     )
+    assert generate_sas.call_args.kwargs["account_key"] == account_key
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_create_multipart_upload_with_token_credential(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.url = "some-url"
+    mock_client.account_name = "some-account"
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    user_delegation_key = mock_client.get_user_delegation_key.return_value
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        create = repo.create_multipart_upload("local_file")
+
+    assert create.credentials[0].url.endswith("&sas")
+    kwargs = generate_sas.call_args.kwargs
+    assert kwargs["user_delegation_key"] is user_delegation_key
+    assert "account_key" not in kwargs
+    assert kwargs["start"].tzinfo is not None
+    assert kwargs["start"] < kwargs["expiry"]
+    mock_client.get_user_delegation_key.assert_called_once_with(kwargs["start"], kwargs["expiry"])
+
+
+def test_create_multipart_upload_falls_back_when_delegation_key_is_forbidden(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    response = mock.Mock(status_code=403)
+    error = HttpResponseError(response=response)
+    error.error_code = "AuthorizationPermissionMismatch"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(
+        _UnsupportedMultipartUploadException,
+        match=_UnsupportedMultipartUploadException.MESSAGE,
+    ):
+        repo.create_multipart_upload("local_file")
+
+
+def test_create_multipart_upload_propagates_other_forbidden_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=403))
+    error.error_code = "AuthorizationFailure"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.create_multipart_upload("local_file")
+
+    assert exc_info.value is error
+
+
+def test_create_multipart_upload_propagates_other_delegation_key_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=500))
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.create_multipart_upload("local_file")
+
+    assert exc_info.value is error
+
+
+@pytest.mark.parametrize("credential", [None, object(), AzureSasCredential("sas")])
+def test_create_multipart_upload_falls_back_for_unsupported_credentials(mock_client, credential):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = credential
+
+    with pytest.raises(
+        _UnsupportedMultipartUploadException,
+        match=_UnsupportedMultipartUploadException.MESSAGE,
+    ):
+        repo.create_multipart_upload("local_file")
+
+    mock_client.get_user_delegation_key.assert_not_called()
 
 
 def test_complete_multipart_upload(mock_client, tmp_path):
@@ -504,6 +587,41 @@ def test_delete_artifacts_directory(mock_client):
 
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
+
+
+@pytest.mark.parametrize("artifact_path", ["foo", "foo/"])
+def test_delete_artifacts_preserves_prefix_siblings(mock_client, artifact_path):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    target = BlobProperties()
+    target.name = posixpath.join(TEST_ROOT_PATH, "foo/file")
+    sibling_dir = BlobProperties()
+    sibling_dir.name = posixpath.join(TEST_ROOT_PATH, "foobar/keep")
+    sibling_file = BlobProperties()
+    sibling_file.name = posixpath.join(TEST_ROOT_PATH, "foo_baz")
+    mock_client.get_container_client().list_blobs.return_value = [
+        target,
+        sibling_dir,
+        sibling_file,
+    ]
+
+    repo.delete_artifacts(artifact_path)
+
+    mock_client.get_container_client().list_blobs.assert_called_once_with(
+        name_starts_with=posixpath.join(TEST_ROOT_PATH, artifact_path)
+    )
+    mock_client.get_container_client().delete_blob.assert_called_once_with(target.name)
+
+
+def test_delete_artifacts_raises_when_only_sibling_path_matches_prefix(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    sibling = BlobProperties()
+    sibling.name = posixpath.join(TEST_ROOT_PATH, "foobar/keep")
+    mock_client.get_container_client().list_blobs.return_value = [sibling]
+
+    with pytest.raises(MlflowException, match="No such file or directory"):
+        repo.delete_artifacts("foo")
+
+    mock_client.get_container_client().delete_blob.assert_not_called()
 
 
 def test_delete_artifacts_nonexistent_path(mock_client):

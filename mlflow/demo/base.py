@@ -20,6 +20,8 @@ class DemoFeature(str, Enum):
     JUDGES = "judges"
     ISSUES = "issues"
     REVIEW_QUEUES = "review_queues"
+    CUSTOM_VIEW = "custom_view"
+    SAVED_VIEWS = "saved_views"
 
 
 @dataclass

@@ -1,4 +1,6 @@
+import importlib
 import json
+import logging
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -1358,3 +1360,50 @@ async def test_autolog_run_tracer_inline_with_manual_traces_async():
     # Find and verify ChatOpenAI span has model name
     chat_model_span = next(s for s in spans if s.name == "ChatOpenAI")
     assert chat_model_span.model_name == "gpt-3.5-turbo"
+
+
+def test_autolog_secondary_patch_failure_emits_warning(caplog):
+    """
+    Verify that when the secondary patches for RunnableSequence.batch or
+    BaseCallbackManager.merge fail, a logger.warning is emitted (not logger.debug),
+    so users are informed at default log levels.
+
+    Regression test for https://github.com/mlflow/mlflow/issues/22032.
+    """
+    # Patch safe_patch so that the first call (BaseCallbackManager.__init__) succeeds
+    # but the second block (RunnableSequence.batch / BaseCallbackManager.merge) raises.
+    call_count = 0
+
+    def _safe_patch_side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        # First call is the primary __init__ patch, let it succeed silently.
+        # Later calls (inside the secondary try block) raise to trigger the warning.
+        if call_count >= 2:
+            raise RuntimeError("simulated patch failure")
+
+    # `mlflow.langchain.autolog` resolves to the re-exported autolog FUNCTION
+    # (mlflow/langchain/__init__.py does `from mlflow.langchain.autolog import autolog`),
+    # which shadows the submodule of the same name. Patching the string target
+    # "mlflow.langchain.autolog.safe_patch" therefore fails with an AttributeError.
+    # Resolve the module itself and patch the name it imported.
+    autolog_module = importlib.import_module("mlflow.langchain.autolog")
+
+    # The "mlflow" logger sets propagate=False, so its records never reach caplog's
+    # root handler. Enable propagation for the duration of the test so caplog captures
+    # the warning, then restore the original value.
+    mlflow_logger = logging.getLogger("mlflow")
+    original_propagate = mlflow_logger.propagate
+    mlflow_logger.propagate = True
+    try:
+        with mock.patch.object(autolog_module, "safe_patch", side_effect=_safe_patch_side_effect):
+            with caplog.at_level(logging.WARNING, logger="mlflow.langchain.autolog"):
+                mlflow.langchain.autolog()
+    finally:
+        mlflow_logger.propagate = original_propagate
+
+    warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(
+        "Failed to apply RunnableSequence.batch or BaseCallbackManager.merge patch" in m
+        for m in warning_messages
+    ), f"Expected warning not found. Captured warnings: {warning_messages}"

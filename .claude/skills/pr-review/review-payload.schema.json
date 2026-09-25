@@ -7,15 +7,14 @@
   "required": ["event", "body", "comments"],
   "properties": {
     "event": {
-      "description": "Review action. APPROVE only when there are no CRITICAL findings; otherwise COMMENT.",
+      "description": "Review action, determined by the comments: COMMENT when at least one comment carries the CRITICAL prefix, APPROVE otherwise. Enforced by the conditional below.",
       "type": "string",
       "enum": ["APPROVE", "COMMENT"]
     },
     "body": {
-      "description": "Concise top-level review summary in 2-3 sentences capturing the overall assessment. Do not restate individual findings (those belong in inline comments). Must end with the '🤖 Generated with Claude' footer on its own line.",
+      "description": "Concise top-level review summary in 2-3 sentences capturing the overall assessment. Do not restate individual findings (those belong in inline comments).",
       "type": "string",
-      "minLength": 1,
-      "pattern": "(^|\\n)🤖 Generated with Claude\\s*$"
+      "minLength": 1
     },
     "commit_id": {
       "description": "Head commit SHA being reviewed. Optional; GitHub defaults to the latest commit when omitted.",
@@ -28,27 +27,14 @@
       "items": { "$ref": "#/$defs/comment" }
     }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "event": { "const": "APPROVE" } },
-        "required": ["event"]
-      },
-      "then": {
-        "properties": {
-          "comments": {
-            "items": {
-              "properties": {
-                "body": {
-                  "not": { "$ref": "#/$defs/criticalPrefix" }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  ],
+  "if": {
+    "properties": {
+      "comments": { "contains": { "$ref": "#/$defs/criticalComment" } }
+    },
+    "required": ["comments"]
+  },
+  "then": { "properties": { "event": { "const": "COMMENT" } } },
+  "else": { "properties": { "event": { "const": "APPROVE" } } },
   "$defs": {
     "side": {
       "type": "string",
@@ -65,6 +51,11 @@
     "nitPrefix": {
       "type": "string",
       "pattern": "^🟢 \\*\\*NIT:\\*\\* "
+    },
+    "criticalComment": {
+      "type": "object",
+      "properties": { "body": { "$ref": "#/$defs/criticalPrefix" } },
+      "required": ["body"]
     },
     "comment": {
       "type": "object",

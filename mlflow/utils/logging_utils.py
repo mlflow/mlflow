@@ -1,6 +1,5 @@
 import contextlib
 import logging
-import logging.config
 import re
 import sys
 
@@ -162,56 +161,36 @@ class SensitiveQueryParamFilter(logging.Filter):
 
 
 def _configure_mlflow_loggers(root_module_name):
-    log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+    """
+    Configure the loggers MLflow owns, leaving every other logger untouched.
+
+    This deliberately avoids `logging.config.dictConfig`. Even with
+    `disable_existing_loggers=False`, `dictConfig` mutates loggers it was never
+    asked to configure: it force-sets `.disabled = False` on unrelated loggers
+    (re-enabling ones the host application had deliberately silenced) and resets
+    the level, handlers, and propagate flag of any descendant of a configured
+    logger. See CPython bpo-44607.
+    """
+    log_level = get_mlflow_log_level()
     # For alembic, use WARNING minimum to reduce noise, but respect higher levels
     alembic_level = log_level if log_level in ("WARNING", "ERROR", "CRITICAL") else "WARNING"
 
-    logging.config.dictConfig({
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "mlflow_formatter": {
-                "()": MlflowFormatter,
-                "format": LOGGING_LINE_FORMAT,
-                "datefmt": LOGGING_DATETIME_FORMAT,
-            },
-        },
-        "handlers": {
-            "mlflow_handler": {
-                "formatter": "mlflow_formatter",
-                "class": "logging.StreamHandler",
-                "stream": MLFLOW_LOGGING_STREAM,
-                "filters": ["suppress_in_thread"],
-            },
-        },
-        "loggers": {
-            root_module_name: {
-                "handlers": ["mlflow_handler"],
-                "level": get_mlflow_log_level(),
-                "propagate": False,
-            },
-            "sqlalchemy.engine": {
-                "handlers": ["mlflow_handler"],
-                "level": "WARN",
-                "propagate": False,
-            },
-            "alembic": {
-                "handlers": ["mlflow_handler"],
-                "level": alembic_level,
-                "propagate": False,
-            },
-            "huey": {
-                "handlers": ["mlflow_handler"],
-                "level": alembic_level,
-                "propagate": False,
-            },
-        },
-        "filters": {
-            "suppress_in_thread": {
-                "()": SuppressLogFilter,
-            }
-        },
-    })
+    handler = logging.StreamHandler(stream=MLFLOW_LOGGING_STREAM)
+    handler.setFormatter(MlflowFormatter(fmt=LOGGING_LINE_FORMAT, datefmt=LOGGING_DATETIME_FORMAT))
+    handler.addFilter(SuppressLogFilter())
+
+    for name, level in (
+        (root_module_name, log_level),
+        ("sqlalchemy.engine", "WARNING"),
+        ("alembic", alembic_level),
+        ("huey", alembic_level),
+    ):
+        logger = logging.getLogger(name)
+        # Replace handlers on these four loggers rather than appending, matching
+        # what `dictConfig` did. Direct assignment keeps repeat calls idempotent.
+        logger.handlers = [handler]
+        logger.setLevel(level)
+        logger.propagate = False
 
 
 def _install_sensitive_query_param_filter() -> None:
