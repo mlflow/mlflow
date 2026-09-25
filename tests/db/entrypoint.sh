@@ -1,6 +1,10 @@
 #!/bin/bash
 set -ex
 
+# Install locked dependencies into the system Python (the repository is mounted to the working directory)
+uv sync --locked --inexact --extra db --group db-test --no-install-project
+uv pip list --system
+
 # Install mlflow (assuming the repository root is mounted to the working directory)
 if [ "$INSTALL_MLFLOW_FROM_REPO" = "true" ]; then
   uv pip install --system --no-deps -e .
