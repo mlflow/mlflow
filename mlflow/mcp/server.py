@@ -1,6 +1,7 @@
 import contextlib
 import io
 import os
+import threading
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -32,6 +33,10 @@ _ALL_TOOLS = _GENAI_TOOLS | _ML_TOOLS
 if TYPE_CHECKING:
     from fastmcp import FastMCP
     from fastmcp.tools import FunctionTool
+
+# ``contextlib.redirect_stdout`` swaps the process-wide ``sys.stdout``, so concurrent tool
+# calls (the HTTP endpoint runs tools in a thread pool) would capture each other's output.
+_OUTPUT_CAPTURE_LOCK = threading.Lock()
 
 
 def param_type_to_json_schema_type(pt: click.ParamType) -> str:
@@ -97,6 +102,7 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
         # Capture stdout and stderr
         string_io = io.StringIO()
         with (
+            _OUTPUT_CAPTURE_LOCK,
             contextlib.redirect_stdout(string_io),
             contextlib.redirect_stderr(string_io),
         ):
@@ -209,16 +215,14 @@ def _collect_tools(commands: dict[str, click.Command]) -> list["FunctionTool"]:
     return tools
 
 
-def create_mcp(categories: Iterable[str] | None = None) -> "FastMCP":
+def collect_category_tools(categories: Iterable[str] | None = None) -> list["FunctionTool"]:
     """
-    Build the MLflow MCP server.
+    Collect the MCP tools of the given categories.
 
     Args:
-        categories: Tool categories to expose. When ``None``, the categories are read from the
+        categories: Tool categories to include. When ``None``, the categories are read from the
             ``MLFLOW_MCP_TOOLS`` environment variable (the stdio ``mlflow mcp run`` behavior).
     """
-    from fastmcp import FastMCP
-
     if categories is None:
         is_enabled = _is_tool_enabled
     else:
@@ -253,9 +257,24 @@ def create_mcp(categories: Iterable[str] | None = None) -> "FastMCP":
     if is_enabled("deployments"):
         tools.extend(_collect_tools(deployments_cli.commands.commands))
 
+    return tools
+
+
+def create_mcp(
+    categories: Iterable[str] | None = None, tools: list["FunctionTool"] | None = None
+) -> "FastMCP":
+    """
+    Build the MLflow MCP server.
+
+    Args:
+        categories: Tool categories to expose; see :func:`collect_category_tools`.
+        tools: Pre-built tools to expose instead of collecting them from ``categories``.
+    """
+    from fastmcp import FastMCP
+
     mcp = FastMCP(
         name="Mlflow MCP",
-        tools=tools,
+        tools=collect_category_tools(categories) if tools is None else tools,
     )
 
     register_prompts(mcp)

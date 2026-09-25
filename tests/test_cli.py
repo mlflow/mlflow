@@ -242,6 +242,16 @@ def test_server_enable_mcp_rejects_flask_only_servers(server_opt: str):
         )
 
 
+def test_server_enable_mcp_rejects_artifacts_only():
+    with pytest.raises(click.UsageError, match="'--enable-mcp' cannot be combined with"):
+        CliRunner().invoke(
+            server,
+            ["--enable-mcp", "--artifacts-only"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
 def test_server_enable_mcp_sets_environment_flag(monkeypatch):
     monkeypatch.setenv(MLFLOW_SERVER_ENABLE_MCP.name, "false")
     with (

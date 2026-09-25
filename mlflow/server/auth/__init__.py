@@ -63,6 +63,7 @@ from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
+    MLFLOW_SERVER_ENABLE_MCP,
 )
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
@@ -377,7 +378,7 @@ from mlflow.server.auth.routes import (
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
-from mlflow.server.fastapi_app import create_fastapi_app
+from mlflow.server.fastapi_app import MCP_ENDPOINT_PATH, create_fastapi_app
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
@@ -949,12 +950,13 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_run_permission(run_id: str) -> Permission:
+def _get_run_permission(run_id: str, username: str | None = None) -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
-    username = authenticate_request().username
+    if username is None:
+        username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -5923,6 +5925,11 @@ def _find_fastapi_validator(
     if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+    # The MCP endpoint carries every tool on one path, so the route only authenticates; each
+    # tool call is authorized against its own resource in ``mlflow.server.auth.mcp_tools``.
+    if unprefixed == MCP_ENDPOINT_PATH:
+        return _get_require_authentication_validator()
+
     # `artifact_router` is not registered under `--static-prefix`, so this matches the
     # raw path; prefixed artifact requests fall through to Flask, which owns their auth.
     if _is_native_fastapi_proxy_artifact_path(path, method):
@@ -6375,7 +6382,13 @@ def create_app(app: Flask = app):
     app.after_request(_after_request)
 
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
-        fastapi_app = create_fastapi_app(app)
+        mcp_tool_policy = None
+        if MLFLOW_SERVER_ENABLE_MCP.get():
+            # Imported here: the module needs the optional fastmcp-backed MCP app to exist.
+            from mlflow.server.auth.mcp_tools import get_mcp_tool_policy
+
+            mcp_tool_policy = get_mcp_tool_policy()
+        fastapi_app = create_fastapi_app(app, mcp_tool_policy=mcp_tool_policy)
         add_fastapi_permission_middleware(fastapi_app)
         return fastapi_app
     else:

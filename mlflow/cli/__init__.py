@@ -660,6 +660,11 @@ def server(
             "'--enable-mcp' requires the default uvicorn server and cannot be combined with "
             "'--gunicorn-opts' or '--waitress-opts'."
         )
+    if enable_mcp and artifacts_only:
+        raise click.UsageError(
+            "'--enable-mcp' cannot be combined with '--artifacts-only': the MCP tools need the "
+            "tracking store, which an artifacts-only server does not initialize."
+        )
 
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"

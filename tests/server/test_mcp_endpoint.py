@@ -8,6 +8,8 @@ from fastmcp.client.transports import StreamableHttpTransport
 from starlette.testclient import TestClient
 
 from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_MCP
+from mlflow.mcp.server import collect_category_tools
+from mlflow.mcp.server_app import LOCAL_EXECUTION_TOOLS, SERVER_MCP_TOOL_CATEGORIES
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR, handlers
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
@@ -60,6 +62,11 @@ async def test_mcp_endpoint_lists_genai_tools_only(mcp_app):
 
     assert {"search_experiments", "list_runs", "search_traces", "list_scorers"} <= names
     assert names.isdisjoint(_ML_ONLY_TOOLS)
+    # Tools that execute work locally stay on the stdio server.
+    assert names.isdisjoint(LOCAL_EXECUTION_TOOLS)
+    assert LOCAL_EXECUTION_TOOLS <= {
+        tool.name for tool in collect_category_tools(SERVER_MCP_TOOL_CATEGORIES)
+    }
 
 
 @pytest.mark.asyncio

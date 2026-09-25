@@ -58,7 +58,13 @@ from mlflow.utils.workspace_context import (
 )
 from mlflow.version import VERSION
 
+if typing.TYPE_CHECKING:
+    from mlflow.mcp.server_app import McpToolPolicy
+
 _logger = logging.getLogger(__name__)
+
+# Unprefixed path of the Streamable HTTP MCP endpoint (``mlflow server --enable-mcp``).
+MCP_ENDPOINT_PATH = "/mcp"
 
 
 class _EfficientWSGIResponder(WSGIResponder):
@@ -255,9 +261,16 @@ async def _lifespan(app: FastAPI):
         yield
 
 
-def create_fastapi_app(flask_app: Flask = flask_app):
+def create_fastapi_app(
+    flask_app: Flask = flask_app, mcp_tool_policy: "McpToolPolicy | None" = None
+):
     """
     Create a FastAPI application that wraps the existing Flask app.
+
+    Args:
+        flask_app: The Flask app to mount at the root path.
+        mcp_tool_policy: Authorization hooks for the MCP endpoint's tools, supplied by the
+            authentication app. Only used when ``MLFLOW_SERVER_ENABLE_MCP`` is set.
 
     Returns:
         FastAPI application instance with the Flask app mounted via WSGIMiddleware.
@@ -317,9 +330,10 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         # Streamable HTTP answers on a single exact path. A Starlette mount would redirect
         # `/mcp` to `/mcp/` (307), which MCP clients don't follow, so the app is added as a
         # route on the full prefixed path and built to match that same path internally.
-        mcp_path = _add_static_prefix("/mcp")
-        fastapi_app.state.mcp_app = create_server_mcp_app(mcp_path)
-        fastapi_app.add_route(mcp_path, fastapi_app.state.mcp_app)
+        mcp_path = _add_static_prefix(MCP_ENDPOINT_PATH)
+        mcp_app = create_server_mcp_app(mcp_path, tool_policy=mcp_tool_policy)
+        fastapi_app.state.mcp_app = mcp_app
+        fastapi_app.add_route(mcp_path, mcp_app.state.identity_app)
 
     # Mount the entire Flask application at the root path.
     # Must come AFTER include_router so native FastAPI routes take precedence.
