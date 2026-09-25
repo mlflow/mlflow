@@ -275,6 +275,7 @@ from mlflow.protos.webhooks_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server.asgi_utils import get_routed_asgi_path
+from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
@@ -1358,7 +1359,7 @@ def _authorize_logged_model(action: str) -> bool:
 
 
 def _authorize_logged_model_id(model_id: str, action: str) -> bool:
-    model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+    model = auth_resources.fetch_logged_model(model_id)
     if model is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
@@ -1440,7 +1441,7 @@ def _get_permission_from_prompt_name() -> Permission:
 def _get_registered_model_or_prompt_permission(name: str) -> Permission:
     """Resolve a persisted registry entity's permission in its actual namespace."""
     username = authenticate_request().username
-    rm = _get_model_registry_store().get_registered_model(name)
+    rm = auth_resources.fetch_registered_model_strict(name)
     resource_type = "prompt" if rm._is_prompt() else "registered_model"
     workspace_name = getattr(rm, "workspace", None)
     return _get_role_permission_or_default(
@@ -1947,7 +1948,7 @@ def _run_requirement(
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
     # A missing run denies rather than 404ing, so the response is not an oracle for which
     # run ids exist -- master applies the same reasoning to logged models.
-    run = _fetch_or_none(_get_tracking_store().get_run, run_id)
+    run = auth_resources.fetch_run(run_id)
     if run is None:
         return None
     experiment = (RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id)
@@ -2024,7 +2025,7 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
         return False
     anchor, requirements = resolved
     for model_id in sorted(model_ids):
-        model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+        model = auth_resources.fetch_logged_model(model_id)
         if model is None:
             return False
         model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
@@ -2187,7 +2188,7 @@ def _request_targets_prompt() -> bool:
     if not name:
         return False
     try:
-        rm = _get_model_registry_store().get_registered_model(name)
+        rm = auth_resources.fetch_registered_model_strict(name)
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
@@ -2396,7 +2397,7 @@ def _validate_can_manage_registered_model_or_prompt():
 
 def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
     name = _get_request_param("name")
-    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
+    rm = auth_resources.fetch_registered_model(name)
     if rm is None:
         return None
     return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
@@ -3831,7 +3832,7 @@ def validate_can_delete_traces():
 
 
 def _authorize_trace(trace_id: str, action: str) -> bool:
-    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    trace = auth_resources.fetch_trace_info(trace_id)
     if trace is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id)
@@ -3889,7 +3890,7 @@ def validate_can_create_logged_model():
 
 
 def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | None":
-    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    trace = auth_resources.fetch_trace_info(trace_id)
     if trace is None:
         return None
     return (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id), trace.experiment_id
@@ -5390,6 +5391,27 @@ def _authorized_outside_before_request(req) -> bool:
 
 @catch_mlflow_exception
 def _before_request():
+    """Authorize the request, then drop the request-scoped resource caches.
+
+    The ``finally`` is mandatory rather than stylistic. The caches live in ContextVars
+    (see ``auth_resources``) because the FastAPI path has no Flask ``g``, and unlike
+    ``g`` a ContextVar is not torn down for us -- an uncleared entry persists on the
+    worker thread and would be read by the *next* request served there, which is a
+    cross-request read of mutable resource state.
+
+    It has to be a ``finally`` around the whole body, not a call at the end of the
+    happy path: the authorization flow below has six-plus exit points (the
+    unprotected-route return, the authentication ``Response``, the admin short-circuit,
+    and three ``make_forbidden_response()`` paths), and a denied request is exactly the
+    one whose leftover state matters.
+    """
+    try:
+        return _authorize_before_request()
+    finally:
+        auth_resources.clear_cache()
+
+
+def _authorize_before_request():
     if is_unprotected_route(request.path):
         return
 
@@ -7646,7 +7668,7 @@ def _graphql_get_permission_for_experiment(experiment_id: str, username: str) ->
 
 
 def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
-    run = _get_tracking_store().get_run(run_id)
+    run = auth_resources.fetch_run_strict(run_id)
     experiment_id = run.info.experiment_id
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -8919,8 +8941,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 )
             finally:
                 workspace_context.clear_server_request_workspace()
+                # Same reasoning as Flask's ``_before_request``: the resource caches
+                # live in ContextVars, which are not torn down for us, so an uncleared
+                # entry would be read by the next request on this thread. This funnel
+                # bypasses Flask's hook entirely, so it needs its own clear -- missing
+                # it would leak on uvicorn deployments only.
+                auth_resources.clear_cache()
         else:
             workspace_context.clear_server_request_workspace()
+            auth_resources.clear_cache()
 
         response = await call_next(request)
 
