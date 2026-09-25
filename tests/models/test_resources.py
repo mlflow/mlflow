@@ -10,6 +10,7 @@ from mlflow.models.resources import (
     DatabricksSQLWarehouse,
     DatabricksTable,
     DatabricksUCConnection,
+    DatabricksUCModelService,
     DatabricksVectorSearchIndex,
     _ResourceBuilder,
 )
@@ -160,6 +161,27 @@ def test_lakebase(on_behalf_of_user):
     }
 
 
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_uc_model_service(on_behalf_of_user):
+    model_service = DatabricksUCModelService(
+        model_service_name="model_service_name", on_behalf_of_user=on_behalf_of_user
+    )
+    expected = (
+        {"uc_model_service": [{"name": "model_service_name"}]}
+        if on_behalf_of_user is None
+        else {
+            "uc_model_service": [
+                {"name": "model_service_name", "on_behalf_of_user": on_behalf_of_user}
+            ]
+        }
+    )
+    assert model_service.to_dict() == expected
+    assert _ResourceBuilder.from_resources([model_service]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
 def test_resources():
     resources = [
         DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
@@ -171,6 +193,7 @@ def test_resources():
         DatabricksUCConnection(connection_name="slack_connection"),
         DatabricksApp(app_name="test_databricks_app"),
         DatabricksLakebase(database_instance_name="test_databricks_lakebase"),
+        DatabricksUCModelService(model_service_name="test_databricks_uc_model_service"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
@@ -188,6 +211,7 @@ def test_resources():
             "uc_connection": [{"name": "slack_connection"}],
             "app": [{"name": "test_databricks_app"}],
             "lakebase": [{"name": "test_databricks_lakebase"}],
+            "uc_model_service": [{"name": "test_databricks_uc_model_service"}],
         },
     }
 
@@ -253,6 +277,8 @@ def test_resources_from_yaml(tmp_path):
                 - name: slack_connection
                 app:
                 - name: test_databricks_app
+                uc_model_service:
+                - name: test_databricks_uc_model_service
             """
         )
 
@@ -272,6 +298,7 @@ def test_resources_from_yaml(tmp_path):
             "uc_connection": [{"name": "slack_connection"}],
             "app": [{"name": "test_databricks_app"}],
             "lakebase": [{"name": "test_databricks_lakebase"}],
+            "uc_model_service": [{"name": "test_databricks_uc_model_service"}],
         },
     }
 

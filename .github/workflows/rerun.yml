@@ -1,14 +1,13 @@
-# Triggers rerun-workflow-run.yml on PR approval.
-# See https://stackoverflow.com/questions/67247752/how-to-use-secret-in-pull-request-review-similar-to-pull-request-target for why we need this approach and how it works.
+# Triggered by trigger-rerun.yml on PR approval.
 name: rerun
-
 on:
-  pull_request_review:
-    types: [submitted]
+  workflow_run:
+    workflows: [trigger-rerun]
+    types: [completed]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -18,17 +17,103 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  # rerun-workflow-run.yml triggers on `workflow_run`, so it needs a completed
-  # run to react to. This job is only that trigger and hands over no data:
-  # that workflow reads the PR head SHA from the event itself.
-  approved:
+  rerun:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    if: >-
-      github.event.review.state == 'approved' &&
-      (
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association) ||
-        (github.event.review.user.type == 'Bot' && contains(fromJSON('["mlflow-app[bot]", "nailaopus[bot]"]'), github.event.review.user.login))
-      )
+    permissions:
+      actions: write # to rerun workflows
     steps:
-      - run: echo "Approved, triggering rerun-workflow-run.yml"
+      - name: Rerun failed checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          pages=$(gh api graphql --paginate --slurp \
+            -f owner="${GH_REPO%/*}" -f name="${GH_REPO#*/}" -f sha="$HEAD_SHA" \
+            -f query='
+              query($owner: String!, $name: String!, $sha: String!, $endCursor: String) {
+                repository(owner: $owner, name: $name) {
+                  object(expression: $sha) {
+                    ... on Commit {
+                      statusCheckRollup {
+                        contexts(first: 100, after: $endCursor) {
+                          nodes {
+                            ... on CheckRun {
+                              name
+                              status
+                              conclusion
+                              startedAt
+                              completedAt
+                              checkSuite {
+                                app { slug }
+                                workflowRun {
+                                  databaseId
+                                  event
+                                  createdAt
+                                  workflow { resourcePath }
+                                }
+                              }
+                            }
+                          }
+                          pageInfo { hasNextPage endCursor }
+                        }
+                      }
+                    }
+                  }
+                }
+              }')
+
+          rows=$(jq -r '
+            def failed:
+              .conclusion == "FAILURE" or .conclusion == "TIMED_OUT"
+              or .conclusion == "STARTUP_FAILURE";
+            def fast:
+              try (((.completedAt | fromdateiso8601) - (.startedAt | fromdateiso8601))
+                   | . >= 0 and . <= 60) catch false;
+            [ .[].data.repository.object.statusCheckRollup.contexts.nodes[]?
+              | select(.checkSuite.app.slug == "github-actions"
+                       and .checkSuite.workflowRun != null)
+              | select(.checkSuite.workflowRun.event != "dynamic") ]
+            # Keep all jobs from the newest run for each workflow path and event.
+            | group_by([.checkSuite.workflowRun.workflow.resourcePath,
+                        .checkSuite.workflowRun.event])
+            | map(group_by(.checkSuite.workflowRun.databaseId)
+                  | max_by([.[0].checkSuite.workflowRun.createdAt,
+                            .[0].checkSuite.workflowRun.databaseId]))
+            | .[]
+            # Do not hide queued retries with missing start times during deduplication.
+            | select(all(.[]; .status == "COMPLETED"))
+            # Defensively discard superseded executions of the same job.
+            | group_by(.name)
+            | map(max_by(.startedAt // ""))
+            | select(any(.[]; failed))
+            | .[0].checkSuite.workflowRun as $run
+            | ($run.workflow.resourcePath | endswith("/protect.yml")) as $is_protect
+            # Every non-skipped job must be fast; Protect is exempt.
+            | select($is_protect or all(.[] | select(.conclusion != "SKIPPED"); fast))
+            | "\($run.databaseId) \($is_protect)"
+          ' <<< "$pages")
+
+          rerun() {
+            echo "Rerunning https://github.com/$GH_REPO/actions/runs/$1"
+            gh run rerun "$1" --failed --repo "$GH_REPO" || echo "Failed to rerun $1"
+          }
+
+          # Submit Protect last because it polls the other checks for failures.
+          protect_id=""
+          if [ -n "$rows" ]; then
+            while read -r id is_protect; do
+              if [ "$is_protect" = "true" ]; then
+                protect_id=$id
+              else
+                rerun "$id" &
+              fi
+            done <<< "$rows"
+          fi
+
+          wait
+          if [ -n "$protect_id" ]; then
+            rerun "$protect_id"
+          fi

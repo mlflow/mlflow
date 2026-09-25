@@ -173,6 +173,7 @@ async def test_gemini_single_embedding():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -219,6 +220,7 @@ async def test_gemini_batch_embedding():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -285,6 +287,7 @@ async def test_gemini_completions():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -392,6 +395,7 @@ async def test_gemini_chat():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -582,6 +586,7 @@ async def test_gemini_chat_function_calling():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -706,6 +711,7 @@ async def test_gemini_chat_multi_function_calling():
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -846,7 +852,61 @@ async def test_gemini_chat_function_calling_second_turn():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_response"),
+    [
+        (
+            "Status: 200 OK\nThe page loaded fine.",
+            {"result": "Status: 200 OK\nThe page loaded fine."},
+        ),
+        ("", {"result": ""}),
+        ('{"temperature": 31.2}', {"temperature": 31.2}),
+        ("42", {"result": 42}),
+        ('["sunny", "windy"]', {"result": ["sunny", "windy"]}),
+        ([{"type": "text", "text": "sunny"}], {"result": [{"type": "text", "text": "sunny"}]}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_tool_result_content(content, expected_response):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_001",
+                    "function": {"arguments": '{"location": "Singapore"}', "name": "get_weather"},
+                    "type": "function",
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_001", "content": content},
+    ])
+    resp = {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, "finishReason": "stop"}]}
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["json"]["contents"][-1] == {
+        "role": "user",
+        "parts": [
+            {
+                "functionResponse": {
+                    "id": "call_001",
+                    "name": "get_weather",
+                    "response": expected_response,
+                }
+            }
+        ],
+    }
 
 
 @pytest.mark.asyncio
@@ -891,8 +951,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                                 "name": "get_weather",
                                 "args": {"location": "Kuala Lumpur"},
                                 "id": "call_002",
-                                "thoughtSignature": "new_thought_sig_token",
                             },
+                            "thoughtSignature": "new_thought_sig_token",
                         },
                     ],
                     "role": "model",
@@ -924,8 +984,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                             "id": "call_001",
                             "name": "get_weather",
                             "args": {"location": "Singapore"},
-                            "thoughtSignature": "opaque_thought_sig_token",
-                        }
+                        },
+                        "thoughtSignature": "opaque_thought_sig_token",
                     }
                 ],
             },
@@ -966,7 +1026,48 @@ async def test_gemini_chat_function_calling_thought_signature():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        pytest.param(
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"location": "Paris"},
+                    "id": "call_001",
+                },
+                "thoughtSignature": "sig_token",
+            },
+            id="sibling-of-functionCall",
+        ),
+        pytest.param(
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"location": "Paris"},
+                    "id": "call_001",
+                    "thoughtSignature": "sig_token",
+                },
+            },
+            id="nested-in-functionCall",
+        ),
+    ],
+)
+def test_gemini_function_call_thought_signature_response(part):
+    # thoughtSignature is documented as a sibling of functionCall on the Part, but some
+    # responses have been observed with it nested inside functionCall instead. The adapter
+    # must not silently drop the signature in either case.
+    choice = GeminiAdapter._convert_function_call_to_openai_choice(
+        content_parts=[part],
+        finish_reason="stop",
+        choice_idx=0,
+        stream=False,
+    )
+    assert choice.message.tool_calls[0].thought_signature == "sig_token"
 
 
 def chat_stream_response():
@@ -1060,6 +1161,7 @@ async def test_gemini_chat_stream(resp):
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1131,6 +1233,7 @@ async def test_gemini_chat_function_calling_stream():
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1206,6 +1309,7 @@ async def test_gemini_completions_stream(resp):
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 

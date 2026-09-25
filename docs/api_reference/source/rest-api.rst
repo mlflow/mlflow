@@ -1371,14 +1371,18 @@ Request Structure
 
 
 
-List all scorers, optionally scoped to a single experiment.
+List all scorers, optionally scoped to one or more experiments.
 
 
-+---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
-|  Field Name   |    Type    |                                                            Description                                                            |
-+===============+============+===================================================================================================================================+
-| experiment_id | ``STRING`` | The experiment ID. If empty, returns scorers across all experiments in the active workspace (used by the admin-UI scorer picker). |
-+---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| experiment_id  | ``STRING``             | A single experiment ID. Kept for backward compatibility; prefer ``experiment_ids`` for multi-experiment queries. Mutually exclusive with                   |
+|                |                        | ``experiment_ids`` -- specifying both is an error.                                                                                                         |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only scorers from these experiments are returned. Mutually exclusive with               |
+|                |                        | ``experiment_id`` -- specifying both is an error. Not supported against a Databricks-hosted backend.                                                       |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
 
@@ -2982,10 +2986,14 @@ Create Presigned Upload URL
 
 Generate a presigned URL for uploading an artifact directly to cloud storage.
 The server uses its own credentials to sign the URL, enabling clients to upload
-artifacts without needing direct cloud storage write permissions.
+artifacts without needing direct cloud storage write permissions. Supports both
+run artifacts (run_id) and logged model artifacts (model_id).
 
 Consumed by external artifact repository plugins
 (e.g. https://github.com/aws/sagemaker-mlflow).
+
+Logged-model uploads require a client that sends model_id and a server that
+supports it. Upgrading only one side does not enable this flow.
 
 
 
@@ -3000,15 +3008,19 @@ Request Structure
 
 
 
-+------------+------------+------------------------------------------------------------------------------------------------+
-| Field Name |    Type    |                                          Description                                           |
-+============+============+================================================================================================+
-| run_id     | ``STRING`` | Run ID that owns the artifact. Must be provided.                                               |
-+------------+------------+------------------------------------------------------------------------------------------------+
-| path       | ``STRING`` | Relative path within the run's artifact directory (e.g. "models/model.pkl"). Must be provided. |
-+------------+------------+------------------------------------------------------------------------------------------------+
-| expiration | ``INT64``  | URL expiration time in seconds (default: 900).                                                 |
-+------------+------------+------------------------------------------------------------------------------------------------+
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                                                                Description                                                                                 |
++============+============+============================================================================================================================================================================+
+| run_id     | ``STRING`` | ID of the run that owns the artifact. Exactly one of run_id and model_id must be provided.                                                                                 |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| path       | ``STRING`` | Relative path within the owning resource's artifact directory (e.g. "models/model.pkl"). Must be provided.                                                                 |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| expiration | ``INT64``  | URL expiration time in seconds (default: 900).                                                                                                                             |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| model_id   | ``STRING`` | ID of the logged model that owns the artifact, for artifacts stored under a logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts") rather than |
+|            |            | a run's. Exactly one of run_id and model_id must be provided. Clients must populate model_id for logged-model artifacts; sending a logged model ID through run_id is not   |
+|            |            | supported.                                                                                                                                                                 |
++------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreatePresignedUploadUrlResponse:
 
@@ -5642,6 +5654,24 @@ Example::
 
 
 
+.. _fastapiGETgatewaymlflowv1models:
+
+List Models
+-----------
+
++-------------------------------+-------------+
+|           Endpoint            | HTTP Method |
++===============================+=============+
+| ``/gateway/mlflow/v1/models`` | ``GET``     |
++-------------------------------+-------------+
+
+OpenAI-compatible models listing endpoint.
+
+The returned model ``id`` is the MLflow gateway endpoint name expected by
+``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+
+
+
 .. _fastapiPOSTgatewayopenaiv1chatcompletions:
 
 OpenAI Passthrough Chat
@@ -5697,6 +5727,24 @@ Example::
         "model": "my-openai-endpoint",
         "input": "The food was delicious and the waiter..."
     }
+
+
+
+.. _fastapiPOSTgatewaytypesafev1systemone:
+
+Typesafe Passthrough System One
+-------------------------------
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``/gateway/typesafe/v1/systemone`` | ``POST``    |
++------------------------------------+-------------+
+
+Evaluate TypeSafe questions using the credentials and model of a gateway endpoint.
+
+The request uses TypeSafe's native ``state`` and ``questions`` fields. The ``model``
+field selects an MLflow gateway endpoint, whose configured model is sent to TypeSafe.
 
 
 
@@ -7431,11 +7479,14 @@ BatchGetTraceInfos
 
 
 
-+------------+------------------------+-----------------------------------------------+
-| Field Name |          Type          |                  Description                  |
-+============+========================+===============================================+
-| trace_ids  | An array of ``STRING`` | IDs of the traces to fetch. Must be provided. |
-+------------+------------------------+-----------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| trace_ids      | An array of ``STRING`` | IDs of the traces to fetch. Must be provided.                                                                                                              |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. Not supported when proxying to |
+|                |                        | a Databricks-hosted backend, since that API has no corresponding field.                                                                                    |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowBatchGetTraces:
 
@@ -7447,11 +7498,14 @@ BatchGetTraces
 
 
 
-+------------+------------------------+----------------------------------------------+
-| Field Name |          Type          |                 Description                  |
-+============+========================+==============================================+
-| trace_ids  | An array of ``STRING`` | ID of the traces to fetch. Must be provided. |
-+------------+------------------------+----------------------------------------------+
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   Field Name   |          Type          |                                                                        Description                                                                         |
++================+========================+============================================================================================================================================================+
+| trace_ids      | An array of ``STRING`` | ID of the traces to fetch. Must be provided.                                                                                                               |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. Not supported when proxying to |
+|                |                        | a Databricks-hosted backend, since that API has no corresponding field.                                                                                    |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowBudgetDuration:
 
@@ -8875,6 +8929,28 @@ Reference to an issue associated with this trace
 | issue_name | ``STRING`` | The name of the issue this assessment references This field is required. |
 +------------+------------+--------------------------------------------------------------------------+
 
+.. _mlflowJobProgress:
+
+JobProgress
+-----------
+
+
+
+Structured best-effort progress payload for a running job.
+
+
++------------+------------+----------------------------------------------------------------------------------+
+| Field Name |    Type    |                                   Description                                    |
++============+============+==================================================================================+
+| phase      | ``STRING`` | Current phase or stage of the job, e.g. ``"scoring traces"``.                    |
++------------+------------+----------------------------------------------------------------------------------+
+| completed  | ``INT64``  | Amount of work completed so far, e.g. ``42``.                                    |
++------------+------------+----------------------------------------------------------------------------------+
+| total      | ``INT64``  | Total amount of work, if known, e.g. ``100``.                                    |
++------------+------------+----------------------------------------------------------------------------------+
+| unit       | ``STRING`` | Unit for the ``completed`` and ``total`` values, e.g. ``"trace"`` or ``"file"``. |
++------------+------------+----------------------------------------------------------------------------------+
+
 .. _mlflowJobState:
 
 JobState
@@ -8886,15 +8962,21 @@ Generic job state message combining status with metadata.
 Provides a unified way to represent job state across different job types.
 
 
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-|  Field Name   |                      Type                      |                                         Description                                          |
-+===============+================================================+==============================================================================================+
-| status        | :ref:`mlflowjobstatus`                         | Current status of the job.                                                                   |
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-| error_message | ``STRING``                                     | Error message if the job failed. Only set when status is JOB_STATUS_FAILED.                  |
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-| metadata      | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs. Can be used to store job-specific state information. |
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+|     Field Name      |                      Type                      |                                         Description                                          |
++=====================+================================================+==============================================================================================+
+| status              | :ref:`mlflowjobstatus`                         | Current status of the job.                                                                   |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| error_message       | ``STRING``                                     | Error message for a terminal failure or timeout outcome, when available.                     |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| metadata            | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs. Can be used to store job-specific state information. |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| status_message      | ``STRING``                                     | Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.           |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| progress            | :ref:`mlflowjobprogress`                       | Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.              |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| progress_updated_at | ``INT64``                                      | Timestamp of the latest progress update in milliseconds since epoch.                         |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
 
 .. _mlflowLinkPromptsToTrace:
 
@@ -12066,21 +12148,23 @@ JobStatus
 Generic status enum for MLflow jobs.
 Can be used across different job types (optimization, scorer, etc.).
 
-+------------------------+----------------------------------+
-|          Name          |           Description            |
-+========================+==================================+
-| JOB_STATUS_UNSPECIFIED |                                  |
-+------------------------+----------------------------------+
-| JOB_STATUS_PENDING     | Job is queued, waiting to start. |
-+------------------------+----------------------------------+
-| JOB_STATUS_IN_PROGRESS | Job is currently running.        |
-+------------------------+----------------------------------+
-| JOB_STATUS_COMPLETED   | Job completed successfully.      |
-+------------------------+----------------------------------+
-| JOB_STATUS_FAILED      | Job failed with an error.        |
-+------------------------+----------------------------------+
-| JOB_STATUS_CANCELED    | Job was canceled by user.        |
-+------------------------+----------------------------------+
++---------------------------+----------------------------------------------------------------------------+
+|           Name            |                                Description                                 |
++===========================+============================================================================+
+| JOB_STATUS_UNSPECIFIED    |                                                                            |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_PENDING        | Job is queued, waiting to start.                                           |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_IN_PROGRESS    | Job is currently running.                                                  |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_COMPLETED      | Job completed successfully.                                                |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_FAILED         | Job failed with an error.                                                  |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_CANCELED       | Job was canceled by user.                                                  |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_NEEDS_RECOVERY | Job backend work may still exist, but the current watcher is unresponsive. |
++---------------------------+----------------------------------------------------------------------------+
 
 .. _mlflowLoggedModelStatus:
 

@@ -10,10 +10,15 @@ PyTorch (native) format
 
 import atexit
 import importlib
+import io
 import itertools
+import json
 import logging
 import os
+import pickletools
+import re
 import warnings
+import zipfile
 from functools import partial
 from typing import Any, Literal
 
@@ -69,6 +74,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "pytorch"
 
@@ -88,6 +94,14 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 
 _MODEL_DATA_SUBPATH = "data"
+
+
+def _get_default_serialization_format(export_model):
+    if export_model:
+        return SERIALIZATION_FORMAT_PT2
+    if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri()):
+        return SERIALIZATION_FORMAT_PICKLE
+    return SERIALIZATION_FORMAT_PT2
 
 
 def get_default_pip_requirements():
@@ -165,7 +179,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    serialization_format: Literal["pickle", "pt2"] | None = None,
     **kwargs,
 ):
     """
@@ -221,6 +235,8 @@ def log_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -273,7 +289,9 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, name="model", input_example=X)
+            mlflow.pytorch.log_model(
+                model, name="model", input_example=X, serialization_format="pt2"
+            )
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
@@ -293,8 +311,7 @@ def log_model(
         :caption: Output
 
         run_id: 1a1ec9e413ce48e9abf9aec20efd6f71
-        artifacts: ['model/data/model.pth',
-                    'model/data/pickle_module_info.txt']
+        artifacts: ['model/data/model.pt2']
         artifacts: ['scripted_model/data/model.pth',
                     'scripted_model/data/pickle_module_info.txt']
 
@@ -302,6 +319,9 @@ def log_model(
 
         PyTorch logged models
     """
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format(export_model)
+
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
         artifact_path=artifact_path,
@@ -345,7 +365,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    serialization_format: Literal["pickle", "pt2"] | None = None,
     **kwargs,
 ):
     """
@@ -382,6 +402,8 @@ def save_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -405,7 +427,12 @@ def save_model(
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
-            mlflow.pytorch.save_model(model, "model", input_example=torch.ones(1, 1))
+            mlflow.pytorch.save_model(
+                model,
+                "model",
+                input_example=torch.ones(1, 1),
+                serialization_format="pt2",
+            )
 
             # Convert to a scripted model and save it
             scripted_pytorch_model = torch.jit.script(model)
@@ -444,6 +471,9 @@ def save_model(
     from torch.export import Dim as ExportDim
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format(export_model)
 
     if export_model:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
@@ -671,12 +701,16 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+def _is_pickle_deserialization_allowed() -> bool:
+    return (
+        MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        or is_in_databricks_runtime()
+        or is_in_databricks_model_serving_environment()
+    )
+
+
 def _load_by_pickle_check(is_loading_state_dict: bool):
-    if (
-        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-        and not is_in_databricks_runtime()
-        and not is_in_databricks_model_serving_environment()
-    ):
+    if not _is_pickle_deserialization_allowed():
         if is_loading_state_dict:
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this state dict is saved "
@@ -693,6 +727,200 @@ def _load_by_pickle_check(is_loading_state_dict: bool):
             "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
             "using pickle."
         )
+
+
+# Short metadata records that `torch.export.save` writes as plain text and never unpickles.
+_PT2_TEXT_RECORD_NAMES = frozenset({
+    "version",
+    "archive_format",
+    "archive_version",
+    "byteorder",
+    "serialization_id",
+})
+# Content that cannot carry pickle opcodes: at most one newline (the GLOBAL opcode needs two)
+# and no non-ASCII bytes (needed by the binary STACK_GLOBAL argument opcodes).
+_PT2_TEXT_RECORD_CONTENT = re.compile(r"[A-Za-z0-9._-]{1,64}\n?")
+# Payload configs the PT2 archive loader consults to decide whether a weight / constant record
+# is unpickled (`use_pickle: true`) or read as raw tensor bytes.
+_PT2_PAYLOAD_CONFIG_RECORD = re.compile(r"(?:^|/)data/(?:weights|constants)/[^/]+_config\.json$")
+# Records with these prefixes are read as raw tensor bytes when `use_pickle` is false; records
+# with any other prefix (custom / opaque objects) are always unpickled.
+_PT2_RAW_TENSOR_RECORD_PREFIXES = ("weight_", "tensor_")
+
+
+def _parse_json_record(content: bytes) -> tuple[bool, Any]:
+    try:
+        return True, json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return False, None
+
+
+def _pt2_raw_tensor_records(records: dict[str, bytes]) -> set[str]:
+    raw_records: set[str] = set()
+    pickled_records: set[str] = set()
+    for name, content in records.items():
+        if not _PT2_PAYLOAD_CONFIG_RECORD.search(name):
+            continue
+        match _parse_json_record(content):
+            case (True, {"config": dict() as entries}):
+                pass
+            case _:
+                continue
+        directory = name.rsplit("/", 1)[0]
+        for entry in entries.values():
+            match entry:
+                case {"path_name": str() as path_name} if "/" not in path_name:
+                    record = f"{directory}/{path_name}"
+                case _:
+                    continue
+            if entry.get("use_pickle") is False and path_name.startswith(
+                _PT2_RAW_TENSOR_RECORD_PREFIXES
+            ):
+                raw_records.add(record)
+            else:
+                pickled_records.add(record)
+    return raw_records - pickled_records
+
+
+_PICKLE_STRING_OPCODES = frozenset({
+    "STRING",
+    "BINSTRING",
+    "SHORT_BINSTRING",
+    "UNICODE",
+    "SHORT_BINUNICODE",
+    "BINUNICODE",
+    "BINUNICODE8",
+})
+_PICKLE_MEMO_OPCODES = frozenset({"PUT", "BINPUT", "LONG_BINPUT", "MEMOIZE"})
+
+
+def _pickle_globals(data: bytes) -> set[str]:
+    """
+    Returns the ``module.name`` globals a pickle stream references, without unpickling it.
+    Raises if the stream is malformed or a ``STACK_GLOBAL`` operand cannot be resolved
+    statically, so callers can fail closed.
+    """
+    referenced: set[str] = set()
+    pending_strings: list[str] = []
+    for opcode, arg, _ in pickletools.genops(data):
+        if opcode.name == "GLOBAL":
+            module, name = arg.split(" ", 1)
+            referenced.add(f"{module}.{name}")
+        elif opcode.name == "STACK_GLOBAL":
+            match pending_strings:
+                case [*_, module, name]:
+                    referenced.add(f"{module}.{name}")
+                case _:
+                    raise ValueError("STACK_GLOBAL operands are not string literals")
+            pending_strings = []
+        elif opcode.name in _PICKLE_STRING_OPCODES:
+            pending_strings.append(arg)
+        elif opcode.name not in _PICKLE_MEMO_OPCODES:
+            pending_strings = []
+    return referenced
+
+
+def _user_registered_safe_globals(torch) -> set[str]:
+    # Mirrors how `torch.load(weights_only=True)` keys globals added through
+    # `torch.serialization.add_safe_globals`: either an explicit alias or ``module.qualname``.
+    names: set[str] = set()
+    for entry in torch.serialization.get_safe_globals():
+        match entry:
+            case (_, str() as alias):
+                names.add(alias)
+            case _:
+                names.add(f"{entry.__module__}.{entry.__qualname__}")
+    return names
+
+
+def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
+    """
+    `torch.export.load` unpickles the weights, constants and sample inputs stored in a
+    ``.pt2`` archive with ``weights_only=False`` (and dlopens any bundled AOTInductor
+    artifacts), so a crafted archive can execute arbitrary code on load. When pickle
+    deserialization is disallowed, refuse the archive unless every record is plain
+    JSON / text metadata or is accepted by torch's restricted ``weights_only`` unpickler,
+    which only admits tensors and primitive containers.
+    """
+    import torch
+
+    if Version(torch.__version__) < Version("2.10"):
+        # `weights_only=True` was bypassable before torch 2.6 (CVE-2025-32434) and subject to
+        # memory corruption before torch 2.10 (CVE-2026-24747), so the archive cannot be
+        # verified safely on older versions.
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, and the installed `torch` "
+            f"version ({torch.__version__}) cannot safely verify that a model saved with "
+            "serialization_format='pt2' is free of pickle payloads. Upgrade to `torch` >= 2.10, "
+            "or set environment variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to "
+            "allow deserializing the model using pickle."
+        )
+
+    def _violation(record: str) -> MlflowException:
+        return MlflowException(
+            "Deserializing model using pickle is disallowed, but record "
+            f"'{record}' in the model's 'pt2' archive is not a pickle-free payload. Only "
+            "models saved by `mlflow.pytorch.save_model(..., serialization_format='pt2')` "
+            "whose weights, constants and example inputs are tensors or primitive containers "
+            "can be loaded. You can set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing the model "
+            "using pickle."
+        )
+
+    user_safe_globals = _user_registered_safe_globals(torch)
+
+    def _references_user_safe_globals(content: bytes) -> bool:
+        # Globals registered through `torch.serialization.add_safe_globals` are honored by the
+        # `weights_only` unpickler, which would let a crafted record invoke their reducers during
+        # validation. Inspect the pickle streams of the `torch.save` checkpoint statically and
+        # treat any reference to them (or any stream that cannot be inspected) as a violation,
+        # so the process-wide registry is never touched.
+        with zipfile.ZipFile(io.BytesIO(content)) as checkpoint:
+            pickle_members = [
+                n for n in checkpoint.namelist() if n.rsplit("/", 1)[-1] == "data.pkl"
+            ]
+            if not pickle_members:
+                return True
+            return any(
+                _pickle_globals(checkpoint.read(member)) & user_safe_globals
+                for member in pickle_members
+            )
+
+    def _is_pickle_free_record(name: str, content: bytes) -> bool:
+        if name.rsplit("/", 1)[-1] in _PT2_TEXT_RECORD_NAMES and (
+            _PT2_TEXT_RECORD_CONTENT.fullmatch(content.decode("ascii", errors="replace"))
+        ):
+            return True
+        if _parse_json_record(content)[0]:
+            return True
+        try:
+            if _references_user_safe_globals(content):
+                return False
+            torch.load(io.BytesIO(content), map_location="cpu", weights_only=True)
+        except Exception:
+            return False
+        return True
+
+    try:
+        archive = zipfile.ZipFile(model_path)
+    except zipfile.BadZipFile as e:
+        raise _violation(os.path.basename(model_path)) from e
+
+    with archive:
+        infos = [info for info in archive.infolist() if not info.is_dir()]
+        payload_configs = {
+            info.filename: archive.read(info)
+            for info in infos
+            if _PT2_PAYLOAD_CONFIG_RECORD.search(info.filename)
+        }
+        raw_tensor_records = _pt2_raw_tensor_records(payload_configs)
+        # Records are read one at a time so validation never holds more than one payload
+        # in memory alongside the model that `torch.export.load` allocates afterwards.
+        for info in infos:
+            if info.filename in raw_tensor_records:
+                continue
+            if not _is_pickle_free_record(info.filename, archive.read(info)):
+                raise _violation(info.filename)
 
 
 def _load_model(path, device=None, **kwargs):
@@ -747,6 +975,8 @@ def _load_model(path, device=None, **kwargs):
                     "The model is exported by `torch.export` API. To load the model, "
                     "`torch` package version must be >= 2.4"
                 )
+            if not _is_pickle_deserialization_allowed():
+                _validate_pt2_archive_is_pickle_free(model_path)
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:
             _load_by_pickle_check(False)
