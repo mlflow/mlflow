@@ -24,7 +24,15 @@ from typing import Any
 SCHEMA_VERSION = "1.0"
 
 # Modes that MLflow catalogs from LiteLLM
-_SUPPORTED_MODES = {"chat", "completion", "embedding", "image_generation", "video_generation"}
+_SUPPORTED_MODES = {
+    "chat",
+    "completion",
+    "embedding",
+    "image_generation",
+    "video_generation",
+    # OpenAI-style Responses API models (e.g. bedrock_mantle's openai.gpt-5.x family)
+    "responses",
+}
 
 # Providers that should be consolidated into a canonical name
 _PROVIDER_CONSOLIDATION = {

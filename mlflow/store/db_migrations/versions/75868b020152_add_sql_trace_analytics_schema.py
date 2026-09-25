@@ -1,0 +1,1106 @@
+"""add sql trace analytics schema
+
+Revision ID: 75868b020152
+Revises: b7e2c1a4d9f3
+Create Date: 2026-07-22 00:00:00.000000
+
+"""
+
+import json
+import logging
+import math
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects import mssql
+
+from mlflow.store.db import trace_analytics_backfill_75868b020152 as _backfill
+from mlflow.store.db.trace_analytics_schema_75868b020152 import (
+    MODEL_DIMENSION_MAX_LENGTH,
+    SESSION_ID_MAX_LENGTH,
+    TRACE_NAME_MAX_LENGTH,
+    _validate_existing_column,
+    analytics_columns_by_table,
+)
+
+revision = "75868b020152"
+down_revision = "b7e2c1a4d9f3"
+branch_labels = None
+depends_on = None
+
+_logger = logging.getLogger(__name__)
+
+_BATCH_SIZE = 250
+_TOKEN_COLUMNS = _backfill.TOKEN_COLUMNS
+_COST_COLUMNS = _backfill.COST_COLUMNS
+_finite_float_or_none = _backfill.finite_float_or_none
+_token_count_or_none = _backfill.token_count_or_none
+_json_object = _backfill.json_object
+trace_analytics_values = _backfill.trace_analytics_values
+_TRACE_NAME_TAG_KEY = "mlflow.traceName"
+_TRACE_SESSION_METADATA_KEY = "mlflow.trace.session"
+_TOKEN_USAGE_METADATA_KEY = "mlflow.trace.tokenUsage"
+_COST_METADATA_KEY = "mlflow.trace.cost"
+_GATEWAY_ENDPOINT_ID_METADATA_KEY = "mlflow.gateway.endpointId"
+_SPAN_MODEL_ATTRIBUTE_KEY = "mlflow.llm.model"
+_SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY = "mlflow.llm.provider"
+
+
+def upgrade():
+    _validate_required_trace_joins()
+    _validate_dimension_attributes()
+    _add_analytics_columns()
+    _backfill_trace_analytics()
+    _backfill_span_analytics()
+    _backfill_trace_costs_from_spans()
+    _backfill_assessment_analytics()
+    _validate_backfill()
+    _finalize_assessment_not_null()
+    _create_rollup_tables()
+    _cleanup_legacy_analytics()
+    _drop_dimension_attributes()
+    _create_analytics_indexes()
+
+
+def downgrade():
+    _add_dimension_attributes()
+    _reconstruct_legacy_analytics()
+    _drop_analytics_indexes()
+    op.drop_table("sql_trace_rollup_rebuild_queue")
+    op.drop_table("sql_assessment_daily_rollups")
+    op.drop_table("sql_span_cost_daily_rollups")
+    op.drop_table("sql_trace_metric_daily_rollups")
+    _drop_analytics_columns()
+
+
+def _dimension_attributes_type():
+    return mssql.JSON() if op.get_bind().dialect.name == "mssql" else sa.JSON()
+
+
+def _drop_dimension_attributes():
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("spans") as batch_op:
+            batch_op.drop_column("duration_ns")
+            batch_op.drop_column("dimension_attributes")
+            batch_op.drop_constraint("fk_spans_trace_id", type_="foreignkey")
+            batch_op.drop_constraint("fk_spans_experiment_id", type_="foreignkey")
+            batch_op.create_foreign_key(
+                "fk_spans_experiment_id",
+                "experiments",
+                ["experiment_id"],
+                ["experiment_id"],
+            )
+            batch_op.create_foreign_key(
+                "fk_spans_trace_id",
+                "trace_info",
+                ["trace_id"],
+                ["request_id"],
+                ondelete="CASCADE",
+            )
+            batch_op.add_column(
+                sa.Column(
+                    "duration_ns",
+                    sa.BigInteger(),
+                    sa.Computed(
+                        "end_time_unix_nano - start_time_unix_nano",
+                        persisted=True,
+                    ),
+                    nullable=True,
+                ),
+                insert_before="content",
+            )
+    else:
+        op.drop_column("spans", "dimension_attributes")
+
+
+def _add_dimension_attributes():
+    column = sa.Column("dimension_attributes", _dimension_attributes_type(), nullable=True)
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("spans") as batch_op:
+            batch_op.drop_column("duration_ns")
+            batch_op.add_column(column)
+            batch_op.add_column(
+                sa.Column(
+                    "duration_ns",
+                    sa.BigInteger(),
+                    sa.Computed(
+                        "end_time_unix_nano - start_time_unix_nano",
+                        persisted=True,
+                    ),
+                    nullable=True,
+                ),
+                insert_before="content",
+            )
+    else:
+        op.add_column("spans", column)
+
+
+def _add_analytics_columns():
+    # Add the analytics columns that are not already present. The online prepopulation utility may
+    # have added some already, so this is add-if-missing rather than a plain add, and any
+    # already-present column is validated so a skewed or hand-altered column fails the migration
+    # instead of silently corrupting the backfill. Column definitions and validation come from the
+    # frozen trace_analytics_schema_75868b020152 module, the single source of truth this migration
+    # and the online prepopulation utility both build from.
+    bind = op.get_bind()
+    for table_name, columns in analytics_columns_by_table().items():
+        existing = {column["name"]: column for column in sa.inspect(bind).get_columns(table_name)}
+        for column in columns:
+            if actual := existing.get(column.name):
+                _validate_existing_column(table_name, column, actual, bind.dialect)
+                continue
+            op.add_column(table_name, column)
+
+
+def _drop_analytics_columns():
+    columns_by_table = {
+        "spans": [
+            "model_provider",
+            "model_name",
+            "total_cost",
+            "output_cost",
+            "input_cost",
+        ],
+        "assessments": [
+            "is_numeric_value",
+            "aggregate_value",
+            "trace_timestamp_ms",
+            "experiment_id",
+        ],
+        "trace_info": [
+            "total_cost",
+            "output_cost",
+            "input_cost",
+            "cache_creation_input_tokens_above_1hr",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "total_tokens",
+            "output_tokens",
+            "input_tokens",
+            "session_id",
+            "trace_name",
+        ],
+    }
+    dialect_name = op.get_bind().dialect.name
+    if dialect_name == "mssql":
+        op.alter_column(
+            table_name="assessments",
+            column_name="is_numeric_value",
+            existing_type=sa.Boolean(),
+            existing_nullable=False,
+            server_default=None,
+        )
+
+    if dialect_name == "sqlite":
+        for table_name, columns in columns_by_table.items():
+            with op.batch_alter_table(table_name) as batch_op:
+                if table_name == "spans":
+                    # Alembic copies reflected columns during batch recreation, but SQLite rejects
+                    # explicit values for stored generated columns. Recreate duration_ns so SQLite
+                    # recomputes it from the copied start and end timestamps.
+                    batch_op.drop_column("duration_ns")
+                for column in columns:
+                    batch_op.drop_column(column)
+                if table_name == "spans":
+                    batch_op.add_column(
+                        sa.Column(
+                            "duration_ns",
+                            sa.BigInteger(),
+                            sa.Computed(
+                                "end_time_unix_nano - start_time_unix_nano",
+                                persisted=True,
+                            ),
+                            nullable=True,
+                        ),
+                        insert_before="content",
+                    )
+    else:
+        for table_name, columns in columns_by_table.items():
+            for column in columns:
+                op.drop_column(table_name, column)
+
+
+def _create_rollup_tables():
+    op.create_table(
+        "sql_trace_metric_daily_rollups",
+        sa.Column(
+            "id",
+            sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
+            sa.Identity(always=False),
+            autoincrement=True,
+            nullable=False,
+        ),
+        sa.Column("experiment_id", sa.Integer(), nullable=False),
+        sa.Column("rollup_day", sa.Date(), nullable=False),
+        sa.Column("metric_name", sa.String(length=250), nullable=False),
+        sa.Column("grouping_set", sa.String(length=50), nullable=False),
+        sa.Column("trace_status", sa.String(length=50), nullable=True),
+        sa.Column("sample_count", sa.BigInteger(), nullable=False),
+        sa.Column("sum_value", sa.Float(precision=53), nullable=True),
+        sa.Column("min_value", sa.Float(precision=53), nullable=True),
+        sa.Column("max_value", sa.Float(precision=53), nullable=True),
+        sa.Column("p50_value", sa.Float(precision=53), nullable=True),
+        sa.Column("p90_value", sa.Float(precision=53), nullable=True),
+        sa.Column("p99_value", sa.Float(precision=53), nullable=True),
+        sa.PrimaryKeyConstraint("id", name="sql_trace_metric_daily_rollups_pk"),
+    )
+    op.create_table(
+        "sql_span_cost_daily_rollups",
+        sa.Column(
+            "id",
+            sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
+            sa.Identity(always=False),
+            autoincrement=True,
+            nullable=False,
+        ),
+        sa.Column("experiment_id", sa.Integer(), nullable=False),
+        sa.Column("rollup_day", sa.Date(), nullable=False),
+        sa.Column("metric_name", sa.String(length=250), nullable=False),
+        sa.Column("grouping_set", sa.String(length=50), nullable=False),
+        sa.Column("model_name", sa.String(length=MODEL_DIMENSION_MAX_LENGTH), nullable=True),
+        sa.Column("model_provider", sa.String(length=MODEL_DIMENSION_MAX_LENGTH), nullable=True),
+        sa.Column("sample_count", sa.BigInteger(), nullable=False),
+        sa.Column("sum_value", sa.Float(precision=53), nullable=True),
+        sa.Column("min_value", sa.Float(precision=53), nullable=True),
+        sa.Column("max_value", sa.Float(precision=53), nullable=True),
+        sa.PrimaryKeyConstraint("id", name="sql_span_cost_daily_rollups_pk"),
+    )
+    op.create_table(
+        "sql_assessment_daily_rollups",
+        sa.Column(
+            "id",
+            sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
+            sa.Identity(always=False),
+            autoincrement=True,
+            nullable=False,
+        ),
+        sa.Column("experiment_id", sa.Integer(), nullable=False),
+        sa.Column("rollup_day", sa.Date(), nullable=False),
+        sa.Column("metric_name", sa.String(length=250), nullable=False),
+        sa.Column("grouping_set", sa.String(length=50), nullable=False),
+        sa.Column("sample_count", sa.BigInteger(), nullable=False),
+        sa.Column("sum_value", sa.Float(precision=53), nullable=True),
+        sa.Column("min_value", sa.Float(precision=53), nullable=True),
+        sa.Column("max_value", sa.Float(precision=53), nullable=True),
+        sa.PrimaryKeyConstraint("id", name="sql_assessment_daily_rollups_pk"),
+    )
+    op.create_table(
+        "sql_trace_rollup_rebuild_queue",
+        sa.Column("experiment_id", sa.Integer(), nullable=False),
+        sa.Column("rollup_day", sa.Date(), nullable=False),
+        sa.Column("rollup_family", sa.String(length=50), nullable=False),
+        sa.PrimaryKeyConstraint(
+            "experiment_id",
+            "rollup_day",
+            "rollup_family",
+            name="sql_trace_rollup_rebuild_queue_pk",
+        ),
+    )
+
+
+def _create_analytics_indexes():
+    op.create_index(
+        "index_trace_info_experiment_id_session_id",
+        "trace_info",
+        ["experiment_id", "session_id"],
+    )
+    op.create_index(
+        "idx_trace_rollups_lookup",
+        "sql_trace_metric_daily_rollups",
+        [
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+            "trace_status",
+        ],
+    )
+    op.create_index(
+        "idx_span_cost_rollups_lookup",
+        "sql_span_cost_daily_rollups",
+        [
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+            "model_name",
+            "model_provider",
+        ],
+        mysql_length={"model_name": 64, "model_provider": 64},
+    )
+    op.create_index(
+        "idx_assessment_rollups_lookup",
+        "sql_assessment_daily_rollups",
+        ["experiment_id", "rollup_day", "metric_name", "grouping_set"],
+    )
+
+    span_index_options = {}
+    if op.get_bind().dialect.name == "postgresql":
+        span_index_options = {
+            "postgresql_include": [
+                "input_cost",
+                "output_cost",
+                "total_cost",
+                "model_name",
+                "model_provider",
+            ],
+            "postgresql_where": sa.text(
+                "input_cost IS NOT NULL OR output_cost IS NOT NULL OR total_cost IS NOT NULL"
+            ),
+        }
+    op.create_index(
+        "idx_spans_cost_trace_time_cover",
+        "spans",
+        ["trace_id", "start_time_unix_nano"],
+        **span_index_options,
+    )
+    op.create_index(
+        "idx_spans_cost_exp_time_cover",
+        "spans",
+        ["experiment_id", "start_time_unix_nano"],
+        **span_index_options,
+    )
+    op.create_index(
+        "idx_assessments_exp_trace_ts",
+        "assessments",
+        ["experiment_id", "trace_timestamp_ms"],
+    )
+    op.create_index(
+        "idx_assessments_exp_trace_ts_name",
+        "assessments",
+        ["experiment_id", "trace_timestamp_ms", "name"],
+    )
+    op.create_index(
+        "idx_assessments_exp_name_valid",
+        "assessments",
+        ["experiment_id", "name", "valid"],
+    )
+
+
+def _drop_analytics_indexes():
+    for index_name, table_name in (
+        ("idx_assessments_exp_name_valid", "assessments"),
+        ("idx_assessments_exp_trace_ts_name", "assessments"),
+        ("idx_assessments_exp_trace_ts", "assessments"),
+        ("idx_spans_cost_exp_time_cover", "spans"),
+        ("idx_spans_cost_trace_time_cover", "spans"),
+        ("idx_assessment_rollups_lookup", "sql_assessment_daily_rollups"),
+        ("idx_span_cost_rollups_lookup", "sql_span_cost_daily_rollups"),
+        ("idx_trace_rollups_lookup", "sql_trace_metric_daily_rollups"),
+        ("index_trace_info_experiment_id_session_id", "trace_info"),
+    ):
+        op.drop_index(index_name, table_name=table_name)
+
+
+def _backfill_trace_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
+    trace_tags = sa.Table("trace_tags", metadata, autoload_with=bind)
+    trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
+    trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
+
+    update_stmt = (
+        trace_info
+        .update()
+        .where(trace_info.c.request_id == sa.bindparam("request_id_param"))
+        .values(
+            trace_name=sa.bindparam("trace_name"),
+            session_id=sa.bindparam("session_id"),
+            input_tokens=sa.bindparam("input_tokens"),
+            output_tokens=sa.bindparam("output_tokens"),
+            total_tokens=sa.bindparam("total_tokens"),
+            cache_read_input_tokens=sa.bindparam("cache_read_input_tokens"),
+            cache_creation_input_tokens=sa.bindparam("cache_creation_input_tokens"),
+            cache_creation_input_tokens_above_1hr=sa.bindparam(
+                "cache_creation_input_tokens_above_1hr"
+            ),
+            input_cost=sa.bindparam("input_cost"),
+            output_cost=sa.bindparam("output_cost"),
+            total_cost=sa.bindparam("total_cost"),
+        )
+    )
+    truncation_counts = {"trace_name": 0, "session_id": 0}
+    value_columns = [
+        "trace_name",
+        "session_id",
+        *_TOKEN_COLUMNS.values(),
+        *_COST_COLUMNS.values(),
+    ]
+    last_request_id = None
+    while True:
+        # Read the destination columns alongside the keys so rows already filled by the online
+        # prepopulation utility can be skipped instead of rewritten under the migration's lock.
+        page_stmt = sa.select(
+            trace_info.c.request_id,
+            *(trace_info.c[column] for column in value_columns),
+        ).order_by(trace_info.c.request_id)
+        if last_request_id is not None:
+            page_stmt = page_stmt.where(trace_info.c.request_id > last_request_id)
+        batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
+        if not batch:
+            break
+
+        batch_ids = [row.request_id for row in batch]
+        rows_by_trace_id = {row.request_id: row for row in batch}
+        trace_names = dict.fromkeys(batch_ids)
+        for row in bind.execute(
+            sa.select(trace_tags.c.request_id, trace_tags.c.value).where(
+                trace_tags.c.request_id.in_(batch_ids),
+                trace_tags.c.key == _TRACE_NAME_TAG_KEY,
+            )
+        ):
+            trace_names[row.request_id] = row.value
+
+        metadata_by_trace = {trace_id: {} for trace_id in batch_ids}
+        for row in bind.execute(
+            sa.select(
+                trace_metadata.c.request_id, trace_metadata.c.key, trace_metadata.c.value
+            ).where(
+                trace_metadata.c.request_id.in_(batch_ids),
+                trace_metadata.c.key.in_([
+                    _TRACE_SESSION_METADATA_KEY,
+                    _TOKEN_USAGE_METADATA_KEY,
+                    _COST_METADATA_KEY,
+                ]),
+            )
+        ):
+            metadata_by_trace[row.request_id][row.key] = row.value
+
+        metrics_by_trace = {trace_id: {} for trace_id in batch_ids}
+        for row in bind.execute(
+            sa.select(trace_metrics.c.request_id, trace_metrics.c.key, trace_metrics.c.value).where(
+                trace_metrics.c.request_id.in_(batch_ids),
+                trace_metrics.c.key.in_(list(_TOKEN_COLUMNS)),
+            )
+        ):
+            metrics_by_trace[row.request_id][_TOKEN_COLUMNS[row.key]] = _token_count_or_none(
+                row.value
+            )
+
+        updates = []
+        for trace_id in batch_ids:
+            values = metadata_by_trace[trace_id]
+            trace_name, trace_name_truncated = _bounded_string_or_none(
+                trace_names[trace_id], TRACE_NAME_MAX_LENGTH
+            )
+            truncation_counts["trace_name"] += trace_name_truncated
+            session_value = values.get(_TRACE_SESSION_METADATA_KEY)
+            truncation_counts["session_id"] += (
+                isinstance(session_value, str) and len(session_value) > SESSION_ID_MAX_LENGTH
+            )
+            analytics_values = trace_analytics_values(values, metrics_by_trace[trace_id])
+            update = {
+                "request_id_param": trace_id,
+                "trace_name": trace_name,
+                **analytics_values,
+            }
+            if any(
+                rows_by_trace_id[trace_id]._mapping[column] != update[column]
+                for column in value_columns
+            ):
+                updates.append(update)
+        if updates:
+            _execute_backfill_updates(bind, update_stmt, updates, "trace")
+        last_request_id = batch_ids[-1]
+
+    if sum(truncation_counts.values()):
+        _logger.warning(
+            "Truncated trace analytics dimensions during backfill: trace_name=%d "
+            "(limit %d), session_id=%d (limit %d)",
+            truncation_counts["trace_name"],
+            TRACE_NAME_MAX_LENGTH,
+            truncation_counts["session_id"],
+            SESSION_ID_MAX_LENGTH,
+        )
+
+
+def _backfill_span_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    spans = sa.Table("spans", metadata, autoload_with=bind)
+    span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
+    update_stmt = (
+        spans
+        .update()
+        .where(
+            spans.c.trace_id == sa.bindparam("trace_id_param"),
+            spans.c.span_id == sa.bindparam("span_id_param"),
+        )
+        .values(
+            input_cost=sa.bindparam("input_cost"),
+            output_cost=sa.bindparam("output_cost"),
+            total_cost=sa.bindparam("total_cost"),
+            model_name=sa.bindparam("model_name"),
+            model_provider=sa.bindparam("model_provider"),
+        )
+    )
+    truncation_counts = {"model_name": 0, "model_provider": 0}
+    value_columns = [*_COST_COLUMNS.values(), "model_name", "model_provider"]
+    last_span_key = None
+    while True:
+        # Read the destination columns so rows already filled by the online prepopulation utility
+        # can be skipped instead of rewritten under the migration's lock.
+        page_stmt = sa.select(
+            spans.c.trace_id,
+            spans.c.span_id,
+            spans.c.dimension_attributes,
+            *(spans.c[column] for column in value_columns),
+        ).order_by(spans.c.trace_id, spans.c.span_id)
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            page_stmt = page_stmt.where(
+                sa.or_(
+                    spans.c.trace_id > last_trace_id,
+                    sa.and_(
+                        spans.c.trace_id == last_trace_id,
+                        spans.c.span_id > last_span_id,
+                    ),
+                )
+            )
+        batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
+        if not batch:
+            break
+
+        span_keys = [(row.trace_id, row.span_id) for row in batch]
+        metrics_by_span = {span_key: {} for span_key in span_keys}
+        for row in bind.execute(
+            _span_metrics_for_keys_query(span_metrics, span_keys, bind.dialect.name)
+        ):
+            span_key = (row.trace_id, row.span_id)
+            if span_key in metrics_by_span:
+                metrics_by_span[span_key][_COST_COLUMNS[row.key]] = _finite_float_or_none(row.value)
+
+        updates = []
+        for row in batch:
+            dimensions = _validated_dimension_attributes(
+                row.dimension_attributes, (row.trace_id, row.span_id)
+            )
+            costs = metrics_by_span[(row.trace_id, row.span_id)]
+            model_name, model_name_truncated = _bounded_string_or_none(
+                dimensions.get(_SPAN_MODEL_ATTRIBUTE_KEY), MODEL_DIMENSION_MAX_LENGTH
+            )
+            model_provider, model_provider_truncated = _bounded_string_or_none(
+                dimensions.get(_SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY), MODEL_DIMENSION_MAX_LENGTH
+            )
+            truncation_counts["model_name"] += model_name_truncated
+            truncation_counts["model_provider"] += model_provider_truncated
+            update = {
+                "trace_id_param": row.trace_id,
+                "span_id_param": row.span_id,
+                **{column: costs.get(column) for column in _COST_COLUMNS.values()},
+                "model_name": model_name,
+                "model_provider": model_provider,
+            }
+            if any(row._mapping[column] != update[column] for column in value_columns):
+                updates.append(update)
+        if updates:
+            _execute_backfill_updates(bind, update_stmt, updates, "span")
+        last_span_key = span_keys[-1]
+
+    if sum(truncation_counts.values()):
+        _logger.warning(
+            "Truncated span analytics dimensions to %d characters during backfill: "
+            "model_name=%d, model_provider=%d",
+            MODEL_DIMENSION_MAX_LENGTH,
+            truncation_counts["model_name"],
+            truncation_counts["model_provider"],
+        )
+
+
+def _backfill_trace_costs_from_spans():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
+    trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
+    spans = sa.Table("spans", metadata, autoload_with=bind)
+    span_total_cost = (
+        sa
+        .select(sa.func.sum(spans.c.total_cost))
+        .where(spans.c.trace_id == trace_info.c.request_id)
+        .scalar_subquery()
+    )
+    bind.execute(
+        trace_info
+        .update()
+        .where(
+            trace_info.c.total_cost.is_(None),
+            span_total_cost.isnot(None),
+            sa.exists(
+                sa.select(1).where(
+                    trace_metadata.c.request_id == trace_info.c.request_id,
+                    trace_metadata.c.key == _GATEWAY_ENDPOINT_ID_METADATA_KEY,
+                )
+            ),
+        )
+        .values(total_cost=span_total_cost)
+    )
+
+
+def _backfill_assessment_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
+    assessments = sa.Table("assessments", metadata, autoload_with=bind)
+
+    update_stmt = (
+        assessments
+        .update()
+        .where(assessments.c.assessment_id == sa.bindparam("assessment_id_param"))
+        .values(
+            experiment_id=sa.bindparam("experiment_id"),
+            trace_timestamp_ms=sa.bindparam("trace_timestamp_ms"),
+            aggregate_value=sa.bindparam("aggregate_value"),
+            is_numeric_value=sa.bindparam("is_numeric_value"),
+        )
+    )
+    last_assessment_id = None
+    value_columns = [
+        "experiment_id",
+        "trace_timestamp_ms",
+        "aggregate_value",
+        "is_numeric_value",
+    ]
+    while True:
+        # Read the destination columns so rows already filled by the online prepopulation utility
+        # can be skipped instead of rewritten under the migration's lock.
+        page_stmt = (
+            sa
+            .select(
+                assessments.c.assessment_id,
+                assessments.c.value,
+                trace_info.c.experiment_id.label("source_experiment_id"),
+                trace_info.c.timestamp_ms.label("source_trace_timestamp_ms"),
+                *(assessments.c[column] for column in value_columns),
+            )
+            .join(trace_info, trace_info.c.request_id == assessments.c.trace_id)
+            .order_by(assessments.c.assessment_id)
+        )
+        if last_assessment_id is not None:
+            page_stmt = page_stmt.where(assessments.c.assessment_id > last_assessment_id)
+        batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
+        if not batch:
+            break
+
+        updates = []
+        for row in batch:
+            aggregate_value, is_numeric_value = _assessment_aggregate(row.value)
+            update = {
+                "assessment_id_param": row.assessment_id,
+                "experiment_id": row.source_experiment_id,
+                "trace_timestamp_ms": row.source_trace_timestamp_ms,
+                "aggregate_value": aggregate_value,
+                "is_numeric_value": is_numeric_value,
+            }
+            if any(row._mapping[column] != update[column] for column in value_columns):
+                updates.append(update)
+        if updates:
+            _execute_backfill_updates(bind, update_stmt, updates, "assessment")
+        last_assessment_id = batch[-1].assessment_id
+
+
+def _validate_required_trace_joins():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
+    for child_table, trace_column in (("spans", "trace_id"), ("assessments", "trace_id")):
+        child = sa.Table(child_table, metadata, autoload_with=bind)
+        missing_trace_id = bind.execute(
+            sa
+            .select(child.c[trace_column])
+            .outerjoin(trace_info, child.c[trace_column] == trace_info.c.request_id)
+            .where(trace_info.c.request_id.is_(None))
+            .limit(1)
+        ).scalar_one_or_none()
+        if missing_trace_id is not None:
+            raise RuntimeError(
+                f"Cannot backfill trace analytics: {child_table} row references missing "
+                f"trace_info row {missing_trace_id!r}"
+            )
+
+
+def _validate_backfill():
+    bind = op.get_bind()
+    assessments = sa.Table("assessments", sa.MetaData(), autoload_with=bind)
+    missing_assessment_id = bind.execute(
+        sa
+        .select(assessments.c.assessment_id)
+        .where(
+            sa.or_(
+                assessments.c.experiment_id.is_(None),
+                assessments.c.trace_timestamp_ms.is_(None),
+                # Must be non-NULL before _finalize_assessment_not_null tightens it to NOT NULL.
+                assessments.c.is_numeric_value.is_(None),
+            )
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+    if missing_assessment_id is not None:
+        raise RuntimeError(
+            "Trace analytics assessment backfill left assessment "
+            f"{missing_assessment_id!r} without required analytics values"
+        )
+
+
+def _finalize_assessment_not_null():
+    # is_numeric_value is added nullable so the online prepopulation utility can expand the schema
+    # with a fast metadata-only ALTER. Every assessment row is backfilled and _validate_backfill has
+    # confirmed none is NULL, so tighten it to NOT NULL to match the ORM model. This blocking ALTER
+    # runs only here in the offline migration, never in the online prepopulation path.
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("assessments") as batch_op:
+            batch_op.alter_column(
+                "is_numeric_value",
+                existing_type=sa.Boolean(),
+                nullable=False,
+                existing_server_default=sa.false(),
+            )
+    else:
+        op.alter_column(
+            "assessments",
+            "is_numeric_value",
+            existing_type=sa.Boolean(),
+            nullable=False,
+            existing_server_default=sa.false(),
+        )
+
+
+def _validate_dimension_attributes():
+    bind = op.get_bind()
+    spans = sa.Table("spans", sa.MetaData(), autoload_with=bind)
+    last_span_key = None
+    while True:
+        stmt = (
+            sa
+            .select(spans.c.trace_id, spans.c.span_id, spans.c.dimension_attributes)
+            .where(spans.c.dimension_attributes.isnot(None))
+            .order_by(spans.c.trace_id, spans.c.span_id)
+        )
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            stmt = stmt.where(
+                sa.or_(
+                    spans.c.trace_id > last_trace_id,
+                    sa.and_(
+                        spans.c.trace_id == last_trace_id,
+                        spans.c.span_id > last_span_id,
+                    ),
+                )
+            )
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
+        if not rows:
+            break
+        for row in rows:
+            _validated_dimension_attributes(row.dimension_attributes, (row.trace_id, row.span_id))
+        last_span_key = (rows[-1].trace_id, rows[-1].span_id)
+
+
+def _validated_dimension_attributes(value, span_key):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError) as e:
+            raise RuntimeError(
+                f"Cannot drop spans.dimension_attributes: malformed JSON for span {span_key!r}"
+            ) from e
+    if value is None:
+        return {}
+
+    allowed_keys = {_SPAN_MODEL_ATTRIBUTE_KEY, _SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY}
+    unexpected = set(value) - allowed_keys if isinstance(value, dict) else set()
+    invalid_value_keys = (
+        {
+            key
+            for key, dimension_value in value.items()
+            if key in allowed_keys
+            and dimension_value is not None
+            and not isinstance(dimension_value, str)
+        }
+        if isinstance(value, dict)
+        else set()
+    )
+    unsupported = unexpected | invalid_value_keys
+    if not isinstance(value, dict) or unsupported:
+        details = sorted(unsupported) if isinstance(value, dict) else type(value).__name__
+        raise RuntimeError(
+            "Cannot drop spans.dimension_attributes: unsupported content for "
+            f"span {span_key!r}: {details}"
+        )
+    return value
+
+
+def _span_metrics_for_keys_query(span_metrics, span_keys, dialect_name):
+    columns = [
+        span_metrics.c.trace_id,
+        span_metrics.c.span_id,
+        span_metrics.c.key,
+        span_metrics.c.value,
+    ]
+    if dialect_name == "mssql":
+        batch_keys = sa.values(
+            sa.column("trace_id", span_metrics.c.trace_id.type),
+            sa.column("span_id", span_metrics.c.span_id.type),
+            name="span_keys",
+        ).data(span_keys)
+        return (
+            sa
+            .select(*columns)
+            .select_from(
+                span_metrics.join(
+                    batch_keys,
+                    sa.and_(
+                        span_metrics.c.trace_id == batch_keys.c.trace_id,
+                        span_metrics.c.span_id == batch_keys.c.span_id,
+                    ),
+                )
+            )
+            .where(span_metrics.c.key.in_(list(_COST_COLUMNS)))
+        )
+
+    return sa.select(*columns).where(
+        sa.tuple_(span_metrics.c.trace_id, span_metrics.c.span_id).in_(span_keys),
+        span_metrics.c.key.in_(list(_COST_COLUMNS)),
+    )
+
+
+def _execute_backfill_updates(bind, update_stmt, updates, entity):
+    result = bind.execute(update_stmt, updates)
+    if result.supports_sane_multi_rowcount() and result.rowcount != len(updates):
+        raise RuntimeError(
+            f"Trace analytics {entity} backfill updated {result.rowcount} of {len(updates)} rows"
+        )
+
+
+def _delete_trace_rows(table, keys):
+    bind = op.get_bind()
+    while True:
+        request_ids = (
+            bind
+            .execute(
+                sa
+                .select(table.c.request_id)
+                .where(table.c.key.in_(keys))
+                .order_by(table.c.request_id)
+                .limit(_BATCH_SIZE)
+            )
+            .scalars()
+            .all()
+        )
+        if not request_ids:
+            break
+        bind.execute(
+            table.delete().where(table.c.request_id.in_(request_ids), table.c.key.in_(keys))
+        )
+
+
+def _delete_span_metric_rows(span_metrics):
+    bind = op.get_bind()
+    while True:
+        rows = bind.execute(
+            sa
+            .select(span_metrics.c.trace_id, span_metrics.c.span_id)
+            .where(span_metrics.c.key.in_(list(_COST_COLUMNS)))
+            .order_by(span_metrics.c.trace_id, span_metrics.c.span_id)
+            .limit(_BATCH_SIZE)
+        ).all()
+        if not rows:
+            break
+        key_filter = sa.or_(
+            *(
+                sa.and_(
+                    span_metrics.c.trace_id == row.trace_id,
+                    span_metrics.c.span_id == row.span_id,
+                )
+                for row in rows
+            )
+        )
+        bind.execute(
+            span_metrics.delete().where(
+                key_filter,
+                span_metrics.c.key.in_(list(_COST_COLUMNS)),
+            )
+        )
+
+
+def _cleanup_legacy_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_tags = sa.Table("trace_tags", metadata, autoload_with=bind)
+    trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
+    trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
+    span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
+
+    _delete_trace_rows(trace_tags, [_TRACE_NAME_TAG_KEY])
+    _delete_trace_rows(
+        trace_metadata,
+        [
+            _TRACE_SESSION_METADATA_KEY,
+            _TOKEN_USAGE_METADATA_KEY,
+            _COST_METADATA_KEY,
+        ],
+    )
+    _delete_trace_rows(trace_metrics, list(_TOKEN_COLUMNS))
+    _delete_span_metric_rows(span_metrics)
+
+
+def _reconstruct_legacy_analytics():
+    bind = op.get_bind()
+    metadata = sa.MetaData()
+    trace_info = sa.Table("trace_info", metadata, autoload_with=bind)
+    trace_tags = sa.Table("trace_tags", metadata, autoload_with=bind)
+    trace_metadata = sa.Table("trace_request_metadata", metadata, autoload_with=bind)
+    trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
+    spans = sa.Table("spans", metadata, autoload_with=bind)
+    span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
+
+    _cleanup_legacy_analytics()
+    last_request_id = None
+    while True:
+        stmt = sa.select(trace_info).order_by(trace_info.c.request_id)
+        if last_request_id is not None:
+            stmt = stmt.where(trace_info.c.request_id > last_request_id)
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
+        if not rows:
+            break
+        tag_rows = []
+        metadata_rows = []
+        metric_rows = []
+        for row in rows:
+            trace_id = row["request_id"]
+            if row["trace_name"] is not None:
+                tag_rows.append({
+                    "request_id": trace_id,
+                    "key": _TRACE_NAME_TAG_KEY,
+                    "value": row["trace_name"],
+                })
+            if row["session_id"] is not None:
+                metadata_rows.append({
+                    "request_id": trace_id,
+                    "key": _TRACE_SESSION_METADATA_KEY,
+                    "value": row["session_id"],
+                })
+            token_usage = {
+                key: value
+                for key, column in _TOKEN_COLUMNS.items()
+                if (value := _token_count_or_none(row[column])) is not None
+            }
+            if token_usage:
+                metadata_rows.append({
+                    "request_id": trace_id,
+                    "key": _TOKEN_USAGE_METADATA_KEY,
+                    "value": json.dumps(token_usage),
+                })
+                metric_rows.extend(
+                    {"request_id": trace_id, "key": key, "value": value}
+                    for key, value in token_usage.items()
+                )
+            cost = {
+                key: value
+                for key, column in _COST_COLUMNS.items()
+                if (value := _finite_float_or_none(row[column])) is not None
+            }
+            if cost:
+                metadata_rows.append({
+                    "request_id": trace_id,
+                    "key": _COST_METADATA_KEY,
+                    "value": json.dumps(cost),
+                })
+        if tag_rows:
+            bind.execute(trace_tags.insert(), tag_rows)
+        if metadata_rows:
+            bind.execute(trace_metadata.insert(), metadata_rows)
+        if metric_rows:
+            bind.execute(trace_metrics.insert(), metric_rows)
+        last_request_id = rows[-1]["request_id"]
+
+    dimension_update_stmt = (
+        spans
+        .update()
+        .where(
+            spans.c.trace_id == sa.bindparam("trace_id_param"),
+            spans.c.span_id == sa.bindparam("span_id_param"),
+        )
+        .values(
+            dimension_attributes=sa.bindparam(
+                "dimension_attributes_param",
+                type_=_dimension_attributes_type(),
+            )
+        )
+    )
+    last_span_key = None
+    while True:
+        stmt = sa.select(spans).order_by(spans.c.trace_id, spans.c.span_id)
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            stmt = stmt.where(
+                sa.or_(
+                    spans.c.trace_id > last_trace_id,
+                    sa.and_(
+                        spans.c.trace_id == last_trace_id,
+                        spans.c.span_id > last_span_id,
+                    ),
+                )
+            )
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
+        if not rows:
+            break
+        dimension_updates = []
+        metric_rows = []
+        for row in rows:
+            dimensions = {
+                key: row[column]
+                for key, column in (
+                    (_SPAN_MODEL_ATTRIBUTE_KEY, "model_name"),
+                    (_SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY, "model_provider"),
+                )
+                if row[column] is not None
+            }
+            if dimensions:
+                dimension_updates.append({
+                    "trace_id_param": row["trace_id"],
+                    "span_id_param": row["span_id"],
+                    "dimension_attributes_param": dimensions,
+                })
+            metric_rows.extend(
+                {
+                    "trace_id": row["trace_id"],
+                    "span_id": row["span_id"],
+                    "key": key,
+                    "value": row[column],
+                }
+                for key, column in _COST_COLUMNS.items()
+                if row[column] is not None
+            )
+        if dimension_updates:
+            bind.execute(dimension_update_stmt, dimension_updates)
+        if metric_rows:
+            bind.execute(span_metrics.insert(), metric_rows)
+        last_span_key = (rows[-1]["trace_id"], rows[-1]["span_id"])
+
+
+def _assessment_aggregate(value_json):
+    try:
+        value = json.loads(value_json)
+    except (TypeError, ValueError):
+        value = value_json
+
+    if isinstance(value, bool):
+        return (1.0 if value else 0.0), False
+    if isinstance(value, (int, float)):
+        try:
+            value = float(value)
+        except OverflowError:
+            # Too large for a float: not a usable numeric aggregate, so treat it like inf/nan.
+            return None, False
+        return (value, True) if math.isfinite(value) else (None, False)
+    if isinstance(value, str):
+        value = value.strip().lower()
+        if value in {"yes", "no"}:
+            return (1.0 if value == "yes" else 0.0), False
+    return None, False
+
+
+def _bounded_string_or_none(value, max_length):
+    if not isinstance(value, str):
+        return None, False
+    return value[:max_length], len(value) > max_length
