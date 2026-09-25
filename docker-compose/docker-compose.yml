@@ -33,7 +33,7 @@ services:
       RUSTFS_CONSOLE_ENABLE: ${RUSTFS_CONSOLE_ENABLE:-true}
     ports:
       - "${RUSTFS_API_PORT}:${RUSTFS_API_PORT}"
-      - "${RUSTFS_CONSOLE_PORT}:${RUSTFS_CONSOLE_PORT}"
+      - "${RUSTFS_CONSOLE_PORT:-9001}:9001"
     volumes:
       - storage-data:/data
     restart: unless-stopped
