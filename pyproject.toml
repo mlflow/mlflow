@@ -215,6 +215,14 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
+# Used by the DB test images in tests/db (drivers not covered by the `db` extra)
+db-test = [
+  { include-group = "pytest" },
+  "psutil",
+  "psycopg[binary]",
+  "mysqlclient",
+  "pyodbc",
+]
 protos = ["mypy-protobuf"]
 docs = [
   "sphinx==4.2.0",
