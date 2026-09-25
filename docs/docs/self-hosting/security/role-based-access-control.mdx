@@ -164,14 +164,12 @@ container, in this order:
 2. **Workspace admin** - a `(workspace, *, MANAGE)` grant resolves every
    resource to `MANAGE`, ahead of every rule below including `DENY`.
 3. **Container READ** - the caller must be able to read the container. This is a
-   separate check from the tier, and it is what stops a sub-resource grant from
-   becoming an existence oracle: a successful child operation would otherwise
-   reveal that the container exists. Experiment ids are small sequential
-   integers, so a caller holding only `(run, *, READ)` could sweep
-   `experiment_ids=[1..N]` on `SearchRuns` and map every experiment in the
-   workspace without holding a single experiment grant. Requiring `READ` costs
-   nothing, because every level carrying update, delete or manage already
-   carries read.
+   separate check from the tier, and it is what bounds a sub-resource grant to
+   the containers the caller can already see. A tier grant names no container,
+   because the grain is wildcard-only, so without this check
+   `(run, *, READ)` would read every run in every experiment in the workspace.
+   Requiring `READ` costs nothing, because every permission level carrying
+   update, delete or manage already carries read.
 4. **Grants on the same tier fold together** - a matching `DENY` wins,
    otherwise the most permissive grant applies.
 5. **The tier decides, then the container** - the sub-resource tier is
@@ -203,6 +201,14 @@ experiment 42 and nowhere else, even though the run grant names no experiment.
 Anything that leaves the container below `READ` therefore blocks every operation
 on its contents, whatever the tier grant says - `DENY` on the container, or a
 `NO_PERMISSIONS` floor.
+
+:::note
+This ordering governs operations on a **named** resource, which are refused with
+`403` when a grant is missing. Search and list endpoints behave differently: they
+return only the resources the caller may see, so an unauthorized search yields an
+empty result rather than an error. That is existing behaviour and is not changed
+by the sub-resource tiers.
+:::
 
 The last row depends on configuration, and is worth understanding because it is
 the common case. With no grant on the experiment, step 3 falls through to
