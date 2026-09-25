@@ -17,6 +17,3 @@ RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt
 
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-
-# Dependencies are installed from uv.lock by entrypoint.sh
-ENV UV_PROJECT_ENVIRONMENT=/usr/local
