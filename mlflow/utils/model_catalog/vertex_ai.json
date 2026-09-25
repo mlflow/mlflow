@@ -1470,7 +1470,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-ai/deepseek-v3.1-maas": {
       "mode": "chat",
@@ -1497,7 +1498,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "deepseek-ai/deepseek-v3.2-maas": {
       "mode": "chat",
@@ -1524,7 +1526,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "gemini-2.0-flash": {
       "mode": "chat",
@@ -1733,7 +1736,6 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.03,
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.15,
@@ -1742,9 +1744,6 @@
           "flex": {
             "input_per_million_tokens": 0.15,
             "output_per_million_tokens": 1.25
-          },
-          "priority": {
-            "input_per_million_tokens": 0.54
           }
         },
         "modality": {
@@ -1763,8 +1762,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-02",
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2027-03-15",
+      "last_updated_at": "2026-09-25"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -2117,12 +2116,27 @@
       "pricing": {
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.1
+          },
+          "priority": {
+            "input_per_million_tokens": 3.6,
+            "output_per_million_tokens": 21.6,
+            "cache_read_per_million_tokens": 0.36
           }
         },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
+          }
+        ],
         "modality": {
           "image": {
             "output_per_million_tokens": 120.0
@@ -2143,7 +2157,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-3-pro-preview": {
       "mode": "chat",
@@ -2249,6 +2263,14 @@
       "pricing": {
         "input_per_million_tokens": 0.5,
         "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.05,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.25,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.025
+          }
+        },
         "modality": {
           "image": {
             "output_per_million_tokens": 60.0
@@ -2269,7 +2291,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-3.1-flash-lite": {
       "mode": "chat",
@@ -2722,6 +2744,44 @@
       },
       "last_updated_at": "2026-09-23"
     },
+    "gemini-3.8-flash-cyber": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.75,
+            "cache_read_per_million_tokens": 0.075
+          },
+          "flex": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.75,
+            "cache_read_per_million_tokens": 0.075
+          },
+          "priority": {
+            "input_per_million_tokens": 2.7,
+            "output_per_million_tokens": 13.5,
+            "cache_read_per_million_tokens": 0.27
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-25"
+    },
     "gemini-embedding-001": {
       "mode": "embedding",
       "context_window": {
@@ -2730,7 +2790,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.12
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2740,7 +2805,7 @@
         "response_schema": false
       },
       "deprecation_date": "2028-05-20",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-embedding-2": {
       "mode": "embedding",
@@ -2836,7 +2901,12 @@
       "mode": "chat",
       "pricing": {
         "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 9.0
+        "output_per_million_tokens": 9.0,
+        "modality": {
+          "video": {
+            "output_per_million_tokens": 17.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2845,7 +2915,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-omni-1.1-flash-preview": {
       "mode": "chat",
@@ -2972,7 +3042,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.6
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": true,
@@ -2981,7 +3052,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-21"
+      "last_updated_at": "2026-09-24"
     },
     "imagegeneration@006": {
       "mode": "image_generation",
@@ -3272,6 +3343,33 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "meta/llama-3.3-70b-instruct-maas": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.72,
+        "output_per_million_tokens": 0.72,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.36,
+            "output_per_million_tokens": 0.36
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
+    },
     "meta/llama-4-maverick-17b-128e-instruct-maas": {
       "mode": "chat",
       "context_window": {
@@ -3443,7 +3541,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "mistral-large-2411": {
       "mode": "chat",
@@ -3744,7 +3843,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "multimodalembedding": {
       "mode": "embedding",
@@ -3846,7 +3946,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "qwen/qwen3-235b-a22b-instruct-2507-maas": {
       "mode": "chat",
@@ -3872,7 +3973,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "qwen/qwen3-coder-480b-a35b-instruct-maas": {
       "mode": "chat",
@@ -3899,7 +4001,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "qwen/qwen3-next-80b-a3b-instruct-maas": {
       "mode": "chat",
@@ -3919,7 +4022,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "qwen/qwen3-next-80b-a3b-thinking-maas": {
       "mode": "chat",
@@ -3939,7 +4043,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "text-embedding-004": {
       "mode": "embedding",
@@ -4201,6 +4306,18 @@
       },
       "last_updated_at": "2026-08-31"
     },
+    "virtual-try-on-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-15",
+      "last_updated_at": "2026-09-24"
+    },
     "xai/grok-4.1-fast-non-reasoning": {
       "mode": "chat",
       "context_window": {
@@ -4378,7 +4495,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "zai-org/glm-5-maas": {
       "mode": "chat",
@@ -4399,7 +4517,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-21",
+      "last_updated_at": "2026-09-24"
     },
     "zai-org/glm-5.2-maas": {
       "mode": "chat",

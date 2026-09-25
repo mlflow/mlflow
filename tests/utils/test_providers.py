@@ -40,6 +40,7 @@ def test_list_provider_names_returns_bundled_providers():
     assert "openai" in providers
     assert "anthropic" in providers
     assert "bedrock" in providers
+    assert providers == sorted(providers)
 
 
 def test_list_provider_names_excludes_non_json():
