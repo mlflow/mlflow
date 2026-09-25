@@ -86,6 +86,54 @@ return {tostring(new_spend), 0}
 """
 
 
+# Lua script: seed a window's spend from trace history and set the exceeded flag,
+# reporting whether this call was the one that flipped it. Mirrors _RECORD_COST_LUA
+# so that a crossing first observed through backfill is reported exactly once, even
+# when several gateway processes refresh at the same time.
+#
+# Takes max(stored, seeded) like InMemoryBudgetTracker.backfill_spend: this hash is
+# the shared counter record_cost bumps with HINCRBYFLOAT, and the trace history the
+# seed comes from lags behind it. Writing the seed unconditionally would regress the
+# counter, which un-sets exceeded, lets the same window alert twice as live spend
+# re-crosses the limit, and drops a REJECT policy below its limit until it does.
+#
+# Returns {flipped, cumulative_spend, window_start, window_end} so the caller can
+# build the window from this same atomic read rather than a second round-trip that
+# could observe a rolled window.
+_BACKFILL_SPEND_LUA = """
+local wkey = KEYS[1]
+local spend = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+
+if redis.call('EXISTS', wkey) == 0 then
+    return {0, '0', '', ''}
+end
+
+local was_exceeded = redis.call('HGET', wkey, 'exceeded')
+local current = tonumber(redis.call('HGET', wkey, 'cumulative_spend') or '0')
+local new_spend = math.max(current, spend)
+
+local exceeded = '0'
+if new_spend >= limit then
+    exceeded = '1'
+end
+
+redis.call('HSET', wkey, 'cumulative_spend', tostring(new_spend), 'exceeded', exceeded)
+
+local flipped = 0
+if exceeded == '1' and was_exceeded ~= '1' then
+    flipped = 1
+end
+
+return {
+    flipped,
+    tostring(new_spend),
+    redis.call('HGET', wkey, 'window_start'),
+    redis.call('HGET', wkey, 'window_end'),
+}
+"""
+
+
 def _window_key(policy_id: str) -> str:
     return f"{_KEY_PREFIX}window:{policy_id}"
 
@@ -316,22 +364,37 @@ class RedisBudgetTracker(BudgetTracker):
 
         return False, None
 
-    def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
-        pipe = self._client.pipeline()
+    def backfill_spend(self, spend_by_policy: dict[str, float]) -> list[BudgetWindow]:
+        newly_exceeded: list[BudgetWindow] = []
 
         for budget_policy_id, spend in spend_by_policy.items():
-            wkey = _window_key(budget_policy_id)
-            if not self._client.exists(wkey):
-                continue
-
             if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
                 continue
             policy = _deserialize_policy(policy_data)
+            wkey = _window_key(budget_policy_id)
 
-            exceeded = "1" if spend >= policy.budget_amount else "0"
-            pipe.hset(wkey, mapping={"cumulative_spend": str(spend), "exceeded": exceeded})
+            # The window may be absent (never created, or expired); the script writes
+            # nothing in that case, matching the previous existence check.
+            flipped, new_spend, window_start, window_end = self._client.eval(
+                _BACKFILL_SPEND_LUA,
+                1,
+                wkey,
+                str(spend),
+                str(policy.budget_amount),
+            )
 
-        pipe.execute()
+            if int(flipped):
+                newly_exceeded.append(
+                    BudgetWindow(
+                        policy=policy,
+                        window_start=datetime.fromisoformat(window_start),
+                        window_end=datetime.fromisoformat(window_end),
+                        cumulative_spend=float(new_spend),
+                        exceeded=True,
+                    )
+                )
+
+        return newly_exceeded
 
     def get_all_windows(self) -> list[BudgetWindow]:
         return [
