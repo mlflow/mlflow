@@ -43,7 +43,7 @@ const makeV4ViewTag = async (
   name: string,
   createdAt: number,
   query = 'q=x',
-  cols: TraceColumnId[] = ['start_time'],
+  cols: string[] = ['start_time'],
   filters: TraceFilterModel = [],
   assessments: Record<string, boolean> = {},
   custom: Record<string, boolean> = {},
@@ -344,6 +344,7 @@ describe('TracesV4SavedViewsButton', () => {
 
 describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
   const setColumns = jest.fn();
+  const setColumnOrder = jest.fn();
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
   // router's state (TestRouter never touches window.location.hash) after a param rewrite.
   const setFilterModel = jest.fn();
@@ -366,6 +367,7 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       setFilterModel,
       assessmentVisibility,
       setAssessmentVisibility,
+      setColumnOrder,
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
@@ -473,6 +475,63 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('v1');
     });
     expect(setColumns).toHaveBeenCalledWith(['start_time']);
+  });
+
+  test('opening a view restores its stored column ORDER (standard + assessment) into the reorder store', async () => {
+    // A view saved with a reordered, mixed column set: opening it must restore BOTH the standard-only
+    // visibility (setColumns drops the assessment id) AND the full mixed order (setColumnOrder keeps it),
+    // so a reordered assessment column round-trips rather than snapping back to canonical order.
+    mockExperiment([
+      await makeV4ViewTag('v1', 'Reordered', 1000, 'q=x', ['input', 'assessment:relevance', 'start_time']),
+    ]);
+    let state: any;
+    renderProbeAt('/', (s) => (state = s));
+    await act(async () => {
+      await state.openView('v1');
+    });
+    // Visibility restore is standard-only (assessment id filtered out by decodeViewColumns).
+    expect(setColumns).toHaveBeenCalledWith(['input', 'start_time']);
+    // Order restore keeps the full mixed list in stored order (decodeViewColumnOrder).
+    expect(setColumnOrder).toHaveBeenCalledWith(['input', 'assessment:relevance', 'start_time']);
+  });
+
+  test('reordering the columns of an active view reads as dirty', async () => {
+    // v1 stored with cols=[start_time,input]; the probe's live columns are [input,start_time] (same
+    // set, swapped order). Order is now part of the dirty diff, so this must read dirty.
+    mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time', 'input'])]);
+    const ReorderProbe = ({ onRender }: { onRender: (s: any) => void }) => {
+      const savedViews = useTracesV4SavedViews({
+        experimentId: 'exp-1',
+        visibleColumns: ['input', 'start_time'],
+        filterModel: [],
+        setColumns,
+        resetColumns: jest.fn(),
+        setFilterModel,
+        setColumnOrder,
+      });
+      onRender(savedViews);
+      return null;
+    };
+    let state: any;
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <ReorderProbe onRender={(s) => (state = s)} />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+      {
+        wrapper: ({ children }) => (
+          <TestRouter
+            routes={[testRoute(<>{children}</>, '/')]}
+            history={history}
+            initialEntries={[`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`]}
+          />
+        ),
+      },
+    );
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
   });
 
   test('opening a view restores its stored popover filter model', async () => {

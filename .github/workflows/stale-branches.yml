@@ -26,6 +26,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Runs the PR's own copy of the script, so the token is read-only: a preview

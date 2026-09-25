@@ -3,6 +3,7 @@ import functools
 import inspect
 import itertools
 import uuid
+from collections.abc import Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Callable, NamedTuple
 
@@ -937,6 +938,21 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     ),
     ValidationExemptArgument(
         "anthropic", "create", lambda x: isinstance(x, (dict, type(None))), None, "extra_headers"
+    ),
+    # Mistral and Groq also forward the client span's traceparent to the gateway. The
+    # SDKs accept mapping-valued headers, and the injected value may differ from the user input.
+    ValidationExemptArgument(
+        "mistral", "complete", lambda x: x is None or isinstance(x, Mapping), None, "http_headers"
+    ),
+    ValidationExemptArgument(
+        "mistral",
+        "complete_async",
+        lambda x: x is None or isinstance(x, Mapping),
+        None,
+        "http_headers",
+    ),
+    ValidationExemptArgument(
+        "groq", "create", lambda x: x is None or isinstance(x, Mapping), None, "extra_headers"
     ),
     # Gemini header injection goes through config.http_options.headers. Config can be
     # None, a dict, or a Pydantic-style object with an http_options attribute.

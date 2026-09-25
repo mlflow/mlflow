@@ -38,10 +38,11 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read

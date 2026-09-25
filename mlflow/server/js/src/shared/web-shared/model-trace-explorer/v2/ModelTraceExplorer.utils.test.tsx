@@ -45,6 +45,7 @@ import {
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
   getRootSpanTimeToFirstTokenMs,
+  tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
@@ -417,6 +418,33 @@ describe('getMatchesFromSpan', () => {
 
     expect(getMatchesFromSpan(spanNode, 'no-match')).toHaveLength(0);
   });
+
+  it('finds matches in span link attributes', () => {
+    const spanNode: ModelTraceSpanNode = {
+      key: 'test',
+      title: 'test',
+      attributes: {},
+      links: [
+        {
+          trace_id: 'tr-linked',
+          span_id: 'linked-span',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+      start: 0,
+      end: 1,
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    expect(getMatchesFromSpan(spanNode, 'relationship')).toEqual([
+      expect.objectContaining({ section: 'links', key: 'link-0-relationship', isKeyMatch: true }),
+    ]);
+    expect(getMatchesFromSpan(spanNode, 'triggered')).toEqual([
+      expect.objectContaining({ section: 'links', key: 'link-0-relationship', isKeyMatch: false }),
+    ]);
+  });
 });
 
 describe('normalizeConversation', () => {
@@ -625,6 +653,15 @@ describe('isModelTraceChatTool', () => {
 });
 
 describe('normalizeNewSpanData', () => {
+  it('preserves span links', () => {
+    const links = [{ trace_id: 'tr-linked', span_id: 'linked-span', attributes: { relationship: 'follows_from' } }];
+    const span = { ...MOCK_V3_SPANS[0], links };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, 'tr-current');
+
+    expect(normalized.links).toEqual(links);
+  });
+
   it('should process messages and tools if not contained in attributes', () => {
     const modifiedChatInput = {
       ...MOCK_CHAT_TOOL_CALL_SPAN,
@@ -642,6 +679,22 @@ describe('normalizeNewSpanData', () => {
     const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
     expect(normalized.chatMessages).toEqual(messages);
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
+  });
+
+  it('keeps a large int64-range numeric-string attribute as-is in the displayed attributes', () => {
+    // 2051281657916407550 is well beyond IEEE-754 double precision; JSON.parse would otherwise
+    // silently round it, corrupting the value shown on the Attributes tab.
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'custom.large_id': '2051281657916407550',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect((normalized.attributes as Record<string, unknown>)?.['custom.large_id']).toBe('2051281657916407550');
   });
 
   it('should keep the valid tools from mlflow.chat.tools when some are malformed', () => {
@@ -1465,6 +1518,29 @@ describe('convertOtelAttributesToMap', () => {
     });
   });
 
+  it('should decode span links and their attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'AQIDBAUGBwgJCgsMDQ4PEA==',
+          span_id: 'AQIDBAUGBwg=',
+          attributes: [{ key: 'relationship', value: { string_value: 'follows_from' } }],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result.links).toEqual([
+      {
+        trace_id: 'tr-0102030405060708090a0b0c0d0e0f10',
+        span_id: '0102030405060708',
+        attributes: { relationship: 'follows_from' },
+      },
+    ]);
+  });
+
   // Regression: chat inputs/outputs (mlflow.spanInputs / mlflow.spanOutputs) arrive
   // as nested array_value/kvlist_value AnyValue structures. A scalar-only unwrap left
   // them raw, so normalizeConversation could not detect the {role, content} chat shape
@@ -1773,5 +1849,22 @@ describe('getRootSpanTimeToFirstTokenMs', () => {
   it('returns null when V4 array-shaped attributes do not contain the key', () => {
     const node = makeNode([{ key: 'some.other.key', value: { string_value: 'value' } }]);
     expect(getRootSpanTimeToFirstTokenMs(node)).toBeNull();
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
+  });
+
+  it('keeps an unsafe integer whose shortest representation matches its input text', () => {
+    // 1000000000000000100 parses to the double 1000000000000000128, but JS prints the shortest
+    // text that round-trips ('1000000000000000100'), so a re-stringify check would wrongly
+    // accept the corrupted number — only the safe-integer range check catches this.
+    expect(tryDeserializeAttribute('1000000000000000100')).toBe('1000000000000000100');
   });
 });

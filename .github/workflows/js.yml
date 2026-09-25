@@ -11,10 +11,6 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - mlflow/server/js/**
       - .github/actions/check-component-ids/**
@@ -29,10 +25,10 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   check-component-ids:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 5
@@ -45,7 +41,6 @@ jobs:
         uses: ./.github/actions/check-component-ids
 
   js:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -53,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         option: [--testPathPattern, --testPathIgnorePatterns]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: mlflow/server/js

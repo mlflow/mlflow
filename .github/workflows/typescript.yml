@@ -2,14 +2,11 @@ name: TypeScript SDK
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -29,10 +26,10 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   typescript-sdk:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 20
@@ -40,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         node-version: [22, 24]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -89,11 +86,10 @@ jobs:
   # -- which type-checks each integration against the published floor -- can see
   # it. Runs separately from typescript-sdk so it never gates the main matrix.
   min-version-check:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash

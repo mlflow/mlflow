@@ -11,11 +11,17 @@ import yaml
 import mlflow
 import mlflow.utils.autologging_utils
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -318,7 +324,11 @@ def log_explainer(
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of
-            'sklearn' or 'pytorch' flavors.
+            'sklearn' or 'pytorch' flavors. SHAP explainer state uses pickle-based serialization
+            regardless of this setting. For scikit-learn-backed explainers, MLflow also serializes
+            the extracted model with cloudpickle because skops cannot make the complete SHAP
+            artifact pickle-free. This does not affect models saved directly with
+            :py:mod:`mlflow.sklearn`.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under ``registered_model_name``,
@@ -401,7 +411,11 @@ def save_explainer(
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of
-            'sklearn' or 'pytorch' flavors.
+            'sklearn' or 'pytorch' flavors. SHAP explainer state uses pickle-based serialization
+            regardless of this setting. For scikit-learn-backed explainers, MLflow also serializes
+            the extracted model with cloudpickle because skops cannot make the complete SHAP
+            artifact pickle-free. This does not affect models saved directly with
+            :py:mod:`mlflow.sklearn`.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
@@ -456,7 +470,14 @@ def save_explainer(
             )
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
-            mlflow.sklearn.save_model(explainer.model.inner_model.__self__, underlying_model_path)
+            mlflow.sklearn.save_model(
+                explainer.model.inner_model.__self__,
+                underlying_model_path,
+                # SHAP explainers are already serialized with pickle. Keep the nested sklearn
+                # model on the same trust boundary instead of auto-trusting types that skops
+                # deliberately rejects, such as sklearn.tree._tree.Tree.
+                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+            )
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
             mlflow.pytorch.save_model(explainer.model.inner_model, underlying_model_path)
 
@@ -597,6 +618,10 @@ def load_explainer(model_uri):
     """
     Load a SHAP explainer from a local file or a run.
 
+    .. warning::
+
+        SHAP explainer artifacts contain pickle-based state. Load them only from sources you trust.
+
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
 
@@ -641,6 +666,16 @@ def _load_explainer(explainer_file, model=None):
         model: Model to override underlying explainer model.
 
     """
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. The workaround is to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     import shap
 
     def inject_model_loader(_in_file):

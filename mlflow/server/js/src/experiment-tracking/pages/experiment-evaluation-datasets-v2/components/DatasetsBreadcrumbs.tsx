@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react';
-import { Breadcrumb, useDesignSystemTheme } from '@databricks/design-system';
+import { Breadcrumb, useDesignSystemTheme, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import type { Dataset } from '../hooks/useDatasetsQueries';
+import { DatasetViewCopyDatasetId } from './DatasetViewCopyDatasetId';
 
 interface DatasetsBreadcrumbsProps {
   experimentId: string;
   /** Dataset name for the trailing crumb. Omit (or pass undefined) to show only "Datasets". */
   datasetName?: string;
+  /** Optional dataset object to display dataset ID with copy functionality. */
+  dataset?: Dataset;
   /**
    * Optional right-aligned slot rendered on the same row as the breadcrumb. Used on the
    * detail page to host the dataset-level kebab so it sits inline with the breadcrumb
@@ -17,7 +21,7 @@ interface DatasetsBreadcrumbsProps {
   rightActions?: ReactNode;
 }
 
-export const DatasetsBreadcrumbs = ({ experimentId, datasetName, rightActions }: DatasetsBreadcrumbsProps) => {
+export const DatasetsBreadcrumbs = ({ experimentId, datasetName, dataset, rightActions }: DatasetsBreadcrumbsProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const listRoute = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Datasets);
@@ -32,49 +36,66 @@ export const DatasetsBreadcrumbs = ({ experimentId, datasetName, rightActions }:
   // row's vertical centre. Without this, the taller kebab pulls the centre-aligned text
   // down on the detail page so it no longer lines up with the list-page breadcrumb.
   return (
-    <nav
-      aria-label={intl.formatMessage({
-        defaultMessage: 'Breadcrumb',
-        description: 'Aria label for the V2 evaluation datasets breadcrumb navigation landmark',
-      })}
+    <div
       css={{
         display: 'flex',
-        gap: theme.spacing.sm,
-        // Match the default-size DS button height used by the detail-page kebab so the
-        // breadcrumb row keeps the same height whether or not `rightActions` is rendered.
-        // Without this, the toolbar (and its search bar) lands at a different Y on the
-        // list page than on the detail page.
-        minHeight: 32,
+        flexDirection: 'column',
+        gap: theme.spacing.xs,
       }}
     >
-      <div css={{ flex: 1, minWidth: 0, alignSelf: 'flex-start' }}>
-        <Breadcrumb includeTrailingCaret={false}>
-          <Breadcrumb.Item>
-            {showTrailingCrumb ? (
-              <Link componentId="mlflow.eval-datasets-v2.breadcrumb.datasets" to={listRoute}>
-                <FormattedMessage
-                  defaultMessage="Datasets"
-                  description="Breadcrumb label for the V2 evaluation datasets list page"
-                />
-              </Link>
-            ) : (
-              // `aria-current="page"` marks the current location when no dataset is selected.
-              <span aria-current="page">
-                <FormattedMessage
-                  defaultMessage="Datasets"
-                  description="Breadcrumb label for the V2 evaluation datasets list page"
-                />
-              </span>
-            )}
-          </Breadcrumb.Item>
-          {showTrailingCrumb && (
+      <nav
+        aria-label={intl.formatMessage({
+          defaultMessage: 'Breadcrumb',
+          description: 'Aria label for the V2 evaluation datasets breadcrumb navigation landmark',
+        })}
+        css={{
+          display: 'flex',
+          gap: theme.spacing.sm,
+          // Match the default-size DS button height used by the detail-page kebab so the
+          // breadcrumb row keeps the same height whether or not `rightActions` is rendered.
+          // Without this, the toolbar (and its search bar) lands at a different Y on the
+          // list page than on the detail page.
+          minHeight: 32,
+        }}
+      >
+        <div css={{ flex: 1, minWidth: 0, alignSelf: 'flex-start' }}>
+          <Breadcrumb includeTrailingCaret={false}>
             <Breadcrumb.Item>
-              <span aria-current="page">{datasetName}</span>
+              {showTrailingCrumb ? (
+                <Link componentId="mlflow.eval-datasets-v2.breadcrumb.datasets" to={listRoute}>
+                  <FormattedMessage
+                    defaultMessage="Datasets"
+                    description="Breadcrumb label for the V2 evaluation datasets list page"
+                  />
+                </Link>
+              ) : (
+                // `aria-current="page"` marks the current location when no dataset is selected.
+                <span aria-current="page">
+                  <FormattedMessage
+                    defaultMessage="Datasets"
+                    description="Breadcrumb label for the V2 evaluation datasets list page"
+                  />
+                </span>
+              )}
             </Breadcrumb.Item>
-          )}
-        </Breadcrumb>
-      </div>
-      {rightActions && <div css={{ flexShrink: 0, alignSelf: 'center' }}>{rightActions}</div>}
-    </nav>
+            {showTrailingCrumb && (
+              <Breadcrumb.Item>
+                <span aria-current="page">{datasetName}</span>
+              </Breadcrumb.Item>
+            )}
+          </Breadcrumb>
+        </div>
+        {rightActions && <div css={{ flexShrink: 0, alignSelf: 'center' }}>{rightActions}</div>}
+      </nav>
+      {dataset && (
+        <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
+          <Typography.Text color="secondary" size="sm">
+            <FormattedMessage defaultMessage="Dataset ID" description="Label for displaying the dataset ID" />:{' '}
+            {dataset.dataset_id}
+          </Typography.Text>
+          <DatasetViewCopyDatasetId dataset={dataset} />
+        </div>
+      )}
+    </div>
   );
 };

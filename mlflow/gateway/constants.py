@@ -34,6 +34,9 @@ MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset([
 ])
 
 # Provider constants
+TYPESAFE_API_BASE_URL = "https://api.typesafe.ai/v1"
+TYPESAFE_SYSTEM_ONE_PATH = "systemone"
+
 MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS = 1_000_000
 # Max for Claude 3.5 Sonnet. Newer models have higher limits.
 # https://docs.anthropic.com/en/docs/about-claude/models/overview#model-comparison-table
@@ -48,3 +51,7 @@ MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 # translations prior to sending a request payload to their chat endpoints.
 # to reduce the need to case-match, supported model prefixes are lowercase.
 MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
+
+GATEWAY_DISABLED_MESSAGE = (
+    "The AI Gateway feature is disabled. Set MLFLOW_ENABLE_AI_GATEWAY=true to enable it."
+)

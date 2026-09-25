@@ -29,6 +29,12 @@ export const TRACE_COLUMN_IDS = [
   'metadata',
 ] as const;
 
+const TRACE_COLUMN_ID_SET = new Set<string>(TRACE_COLUMN_IDS);
+
+/** Narrows an arbitrary id to a known `TraceColumnId`. Shared so the visibility/order hooks can
+ * validate and dedupe persisted column ids against the canonical set. */
+export const isTraceColumnId = (id: string): id is TraceColumnId => TRACE_COLUMN_ID_SET.has(id);
+
 /**
  * Columns the user can sort by. A cursor-paginated search API can only sort server-side, so sorting
  * a column the API doesn't order by would only reorder the current page and mislead across pages —

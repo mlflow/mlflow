@@ -71,6 +71,7 @@ class InMemoryBudgetTracker(BudgetTracker):
         cost_usd: float,
         workspace: str | None = None,
         endpoint_id: str | None = None,
+        username: str | None = None,
     ) -> list[BudgetWindow]:
         """Record a cost against all applicable policies.
 
@@ -78,6 +79,7 @@ class InMemoryBudgetTracker(BudgetTracker):
             cost_usd: The cost in USD to record.
             workspace: The workspace the request was made from.
             endpoint_id: The gateway endpoint the request was routed to.
+            username: The authenticated username the request was made by.
 
         Returns:
             List of windows that were newly exceeded (limit exceeded for the first
@@ -96,7 +98,9 @@ class InMemoryBudgetTracker(BudgetTracker):
                     window.cumulative_spend = 0.0
                     window.exceeded = False
 
-                if not _policy_applies(window.policy, workspace, endpoint_id):
+                if not _policy_applies(
+                    window.policy, workspace, endpoint_id=endpoint_id, username=username
+                ):
                     continue
 
                 window.cumulative_spend += cost_usd
@@ -111,12 +115,14 @@ class InMemoryBudgetTracker(BudgetTracker):
         self,
         workspace: str | None = None,
         endpoint_id: str | None = None,
+        username: str | None = None,
     ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
         Args:
             workspace: The workspace to check against.
             endpoint_id: The gateway endpoint to check against.
+            username: The authenticated username to check against.
 
         Returns:
             Tuple of (exceeded, window). If exceeded is True, window is the
@@ -129,7 +135,9 @@ class InMemoryBudgetTracker(BudgetTracker):
                 if now >= window.window_end:
                     continue
 
-                if not _policy_applies(window.policy, workspace, endpoint_id):
+                if not _policy_applies(
+                    window.policy, workspace, endpoint_id=endpoint_id, username=username
+                ):
                     continue
 
                 if window.policy.budget_action != BudgetAction.REJECT:

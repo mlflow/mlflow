@@ -4,6 +4,7 @@ import {
   captureV4ViewState,
   buildV4ViewQuery,
   decodeViewColumns,
+  decodeViewColumnOrder,
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
   getTraceV4SavedViewIdFromTagKey,
@@ -70,6 +71,13 @@ describe('captureV4ViewState', () => {
     expect(state.single.cols).toBe('start_time,input,duration');
     const out = params(buildV4ViewQuery(state, 'view-1'));
     expect(out.get('cols')).toBeNull();
+  });
+
+  test('captures mixed standard + assessment ids in display order', () => {
+    // The `cols` list carries the full visible set in user order — standard AND assessment columns —
+    // so a reordered assessment column round-trips (via decodeViewColumnOrder), not just standard ones.
+    const state = captureV4ViewState(params('q=x'), ['input', 'assessment:relevance', 'start_time']);
+    expect(state.single.cols).toBe('input,assessment:relevance,start_time');
   });
 
   test('stores the live popover filter model, and omits an empty one', () => {
@@ -173,6 +181,35 @@ describe('decodeViewColumns', () => {
     expect(decodeViewColumns(withCols('bogus'), TRACE_COLUMN_IDS)).toBeUndefined();
     expect(decodeViewColumns(withCols(''), TRACE_COLUMN_IDS)).toBeUndefined();
     expect(decodeViewColumns({ single: {}, multi: {} }, TRACE_COLUMN_IDS)).toBeUndefined();
+  });
+
+  test('returns undefined for a non-string cols (hand-edited tag) rather than throwing', () => {
+    expect(
+      decodeViewColumns({ single: { cols: 123 as unknown as string }, multi: {} }, TRACE_COLUMN_IDS),
+    ).toBeUndefined();
+  });
+});
+
+describe('decodeViewColumnOrder', () => {
+  const withCols = (cols: string) => ({ single: { cols }, multi: {} });
+
+  test('keeps every id — standard AND assessment — in stored order', () => {
+    // Unlike decodeViewColumns (standard-only, for visibility), this preserves assessment ids so a
+    // reordered assessment column survives the round-trip into the mixed reorder store.
+    expect(decodeViewColumnOrder(withCols('input,assessment:relevance,start_time'))).toEqual([
+      'input',
+      'assessment:relevance',
+      'start_time',
+    ]);
+  });
+
+  test('returns undefined when cols is empty or absent (leaves the user order intact)', () => {
+    expect(decodeViewColumnOrder(withCols(''))).toBeUndefined();
+    expect(decodeViewColumnOrder({ single: {}, multi: {} })).toBeUndefined();
+  });
+
+  test('returns undefined for a non-string cols (hand-edited tag) rather than throwing', () => {
+    expect(decodeViewColumnOrder({ single: { cols: 123 as unknown as string }, multi: {} })).toBeUndefined();
   });
 });
 

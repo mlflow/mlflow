@@ -19,7 +19,7 @@ from tests.conftest import _XDIST_SERIAL_PATHS, _is_serial_item
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _MASTER_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "master.yml"
 
-# The two-pass CI job runs only on Linux (`ubuntu-latest`); the exit-code guards below
+# The two-pass CI job runs only on Linux (`ubuntu-24.04`); the exit-code guards below
 # shell out to `bash -eo pipefail` to model that exact shell. Skip on Windows, where this
 # test file is still collected but that shell contract is not the one CI relies on.
 _requires_bash = pytest.mark.skipif(is_windows(), reason="two-pass CI shell contract is Linux-only")

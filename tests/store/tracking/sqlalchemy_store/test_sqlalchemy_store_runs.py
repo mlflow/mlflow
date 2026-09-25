@@ -26,6 +26,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -50,7 +51,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
 )
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_store import (
+    _RUN_DELETE_CASCADE_MODELS,
+    SqlAlchemyStore,
+)
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
@@ -356,6 +360,16 @@ def test_delete_run(store: SqlAlchemyStore):
         assert actual.run_uuid == deleted_run.info.run_id
 
 
+def test_run_delete_cascade_models_match_orm_relationships():
+    orm_delete_cascade_models = {
+        relationship.mapper.class_
+        for relationship in sqlalchemy.inspect(models.SqlRun).relationships
+        if "delete" in relationship.cascade
+    }
+
+    assert set(_RUN_DELETE_CASCADE_MODELS) == orm_delete_cascade_models
+
+
 def test_hard_delete_run(store: SqlAlchemyStore):
     run = _run_factory(store)
     metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
@@ -376,6 +390,38 @@ def test_hard_delete_run(store: SqlAlchemyStore):
         assert actual_param is None
         actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
         assert actual_tag is None
+        actual_latest_metric = (
+            session.query(models.SqlLatestMetric).filter_by(run_uuid=run.info.run_id).first()
+        )
+        assert actual_latest_metric is None
+
+
+def test_hard_delete_run_does_not_load_child_rows(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    store.log_metric(
+        run.info.run_id,
+        entities.Metric("metric", 1.0, get_current_time_millis(), 0),
+    )
+    store.log_param(run.info.run_id, entities.Param("param", "value"))
+    store.set_tag(run.info.run_id, entities.RunTag("tag", "value"))
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        store._hard_delete_run(run.info.run_id)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    child_tables = ("metrics", "latest_metrics", "params", "tags")
+    assert not any(
+        statement.lstrip().startswith("select") and f"from {table}" in statement
+        for statement in statements
+        for table in child_tables
+    )
 
 
 def test_get_deleted_runs(store: SqlAlchemyStore):
@@ -1354,6 +1400,38 @@ def test_search_tags(store: SqlAlchemyStore):
         experiment_id,
         filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
     ) == [r2]
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        # A genuine 0.0 (is_nan=False) must keep matching, only the NaN placeholder is excluded.
+        ("metrics.loss < 0.1", ["zero"]),
+        ("metrics.loss <= 0", ["zero"]),
+        ("metrics.loss = 0", ["zero"]),
+        ("metrics.loss > 0", ["good"]),
+        ("metrics.loss >= 0", ["zero", "good"]),
+        ("metrics.loss < 1", ["zero", "good"]),
+        ("metrics.loss = 0.5", ["good"]),
+        # NaN != x is true for every x, matching IEEE 754 and the file store.
+        ("metrics.loss != 0", ["good", "diverged"]),
+        ("metrics.loss != 0.5", ["zero", "diverged"]),
+    ],
+)
+def test_search_metrics_nan_comparator_semantics(
+    store: SqlAlchemyStore, filter_string: str, expected: list[str]
+):
+    # NaN is stored as value=0 with is_nan=True, so the placeholder must not match.
+    experiment_id = _create_experiments(store, "search_metric_nan")
+    run_ids = {}
+    for name, value in [("zero", 0.0), ("good", 0.5), ("diverged", float("nan"))]:
+        run_id = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+        store.log_metric(run_id, entities.Metric("loss", value, 1, 0))
+        run_ids[name] = run_id
+
+    assert sorted(_search_runs(store, experiment_id, filter_string)) == sorted(
+        run_ids[name] for name in expected
+    )
 
 
 def test_search_metrics(store: SqlAlchemyStore):
@@ -4007,6 +4085,119 @@ def test_search_logged_models_invalid_operator_lists_applicable_operators(store:
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
 
 
+def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    expected_names_and_values = []
+    for i in range(4):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        metric_value = 4.0 - i
+        expected_names_and_values.append((model.name, metric_value))
+        for dataset_name in ["train", "val", "test"]:
+            run = store.create_run(
+                experiment_id=exp_id,
+                user_id="user",
+                start_time=0,
+                tags=[],
+                run_name=f"{model.name}-{dataset_name}",
+            )
+            store.log_metric(
+                run.info.run_id,
+                Metric(
+                    "accuracy",
+                    metric_value,
+                    timestamp=123,
+                    step=0,
+                    model_id=model.model_id,
+                    dataset_name=dataset_name,
+                    dataset_digest="d",
+                ),
+            )
+
+    expected_names = [
+        name
+        for name, _ in sorted(expected_names_and_values, key=lambda item: item[1], reverse=True)
+    ]
+    order_by = [{"field_name": "metrics.accuracy", "ascending": False}]
+    page = store.search_logged_models(experiment_ids=[exp_id], order_by=order_by, max_results=1)
+    actual_names = []
+    while True:
+        actual_names.extend(model.name for model in page)
+        if page.token is None:
+            break
+        page = store.search_logged_models(
+            experiment_ids=[exp_id], order_by=order_by, max_results=1, page_token=page.token
+        )
+
+    assert actual_names == expected_names
+
+
+def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
+    store: SqlAlchemyStore,
+):
+    with store.ManagedSessionMaker() as session:
+        query = store._get_query(session, models.SqlLoggedModel)
+        ordered = store._apply_order_by_search_logged_models(
+            query, session, [{"field_name": "model_id", "ascending": False}]
+        )
+
+        order_by = [
+            str(clause.compile(compile_kwargs={"literal_binds": True}))
+            for clause in ordered._order_by_clauses
+        ]
+        assert order_by == [
+            "CASE WHEN (logged_models.model_id IS NULL) THEN 1 ELSE 0 END ASC",
+            "logged_models.model_id DESC",
+            "logged_models.creation_timestamp_ms DESC",
+        ]
+
+
+def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="run", tags=[]
+    )
+    num_models = 5
+    for i in range(num_models):
+        model = store.create_logged_model(
+            experiment_id=exp_id,
+            name=f"model-{i}",
+            source_run_id=run.info.run_id,
+            tags=[LoggedModelTag("tag", f"v{i}")],
+            params=[LoggedModelParameter("param", f"v{i}")],
+        )
+        store.log_metric(
+            run.info.run_id,
+            Metric("accuracy", float(i), timestamp=123, step=0, model_id=model.model_id),
+        )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        models = store.search_logged_models(experiment_ids=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(models) == num_models
+    # Eager loading must still populate the entities, not just suppress the queries.
+    assert all(m.tags and m.params and m.metrics for m in models)
+
+    statements = [s.replace('"', "").replace("`", "") for s in statements]
+    for table in ("logged_model_tags", "logged_model_params", "logged_model_metrics"):
+        child_selects = [
+            s
+            for s in statements
+            if s.lstrip().startswith("select") and re.search(rf"\bfrom\s+{table}\b", s)
+        ]
+        # One batched `WHERE model_id IN (...)` load per relationship, not one per model.
+        assert len(child_selects) == 1, f"{table}: {len(child_selects)} SELECTs"
+
+
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 
@@ -4286,3 +4477,56 @@ def test_log_metric_redrives_on_deadlock_and_persists(store: SqlAlchemyStore, mo
     run_metrics = store.get_run(run.info.run_id).data.metrics
     assert state["n"] == 2  # first attempt deadlocked, second succeeded
     assert run_metrics["acc"] == 0.9
+
+
+def test_set_logged_model_tags_bulk_upsert(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_logged_model_exp")
+    run = store.create_run(exp_id, "user", 0, [], None)
+    model = store.create_logged_model(exp_id, "test_model", source_run_id=run.info.run_id)
+
+    # 1. Clean multi-tag insertion
+    tags = [LoggedModelTag(f"k_{i}", f"v_{i}") for i in range(5)]
+    store.set_logged_model_tags(model.model_id, tags)
+    fetched = store.get_logged_model(model.model_id)
+    assert fetched.tags == {f"k_{i}": f"v_{i}" for i in range(5)}
+
+    # 2. Upsert (update existing tags + insert new tags)
+    update_tags = [
+        LoggedModelTag("k_0", "v_0_updated"),
+        LoggedModelTag("k_new", "v_new"),
+    ]
+    store.set_logged_model_tags(model.model_id, update_tags)
+    fetched = store.get_logged_model(model.model_id)
+    expected = {f"k_{i}": f"v_{i}" for i in range(5)}
+    expected["k_0"] = "v_0_updated"
+    expected["k_new"] = "v_new"
+    assert fetched.tags == expected
+
+    # 3. Empty list should be a safe no-op
+    store.set_logged_model_tags(model.model_id, [])
+    assert store.get_logged_model(model.model_id).tags == expected
+
+    # 4. Large batch crossing batch boundary (>100 tags)
+    batch_tags = [LoggedModelTag(f"batch_{i}", f"val_{i}") for i in range(150)]
+    store.set_logged_model_tags(model.model_id, batch_tags)
+    fetched_large = store.get_logged_model(model.model_id)
+    # 6 pre-existing keys ('k_0'..'k_4', 'k_new') + 150 batch keys = 156 total tags
+    assert len(fetched_large.tags) == 156
+    # Verify boundaries across both batch_size=100 chunks:
+    # Chunk 1 (indices 0..99)
+    assert fetched_large.tags["batch_0"] == "val_0"
+    assert fetched_large.tags["batch_99"] == "val_99"
+    # Chunk 2 (indices 100..149)
+    assert fetched_large.tags["batch_100"] == "val_100"
+    assert fetched_large.tags["batch_149"] == "val_149"
+
+    # 5. Repeated key within a single call: last value wins, no error on any dialect
+    store.set_logged_model_tags(
+        model.model_id,
+        [
+            LoggedModelTag("dup", "first"),
+            LoggedModelTag("dup", "second"),
+            LoggedModelTag("dup", "third"),
+        ],
+    )
+    assert store.get_logged_model(model.model_id).tags["dup"] == "third"

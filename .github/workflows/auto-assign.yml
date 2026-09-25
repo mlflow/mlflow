@@ -10,11 +10,16 @@ on:
       - .github/workflows/auto-assign.yml
       - .github/workflows/auto-assign.js
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   scan-and-assign:

@@ -1,5 +1,5 @@
 import { FormattedMessage, type IntlShape } from '@databricks/i18n';
-import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import type { CellContext } from '@tanstack/react-table';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { COLUMN_SIZES } from './constants';
 import { TRACE_COLUMN_LABELS } from './columnLabels';
@@ -19,6 +19,7 @@ import {
   TraceTagsCell,
   TraceMetadataCell,
   TraceTokensCell,
+  SessionTokensCell,
   TraceUserCell,
 } from './TraceCell';
 
@@ -57,7 +58,7 @@ export const openLabel = (intl: IntlShape, traceId: string, column: string): str
 
 // A column def whose `id` is a known TraceColumnId (TanStack widens `id` to `string`; narrowing it
 // here lets the visibility lookups stay cast-free and gives an exhaustiveness check on the list).
-type StandardColumnDef = ColumnDef<ModelTraceInfoV3> & { id: TraceColumnId };
+type StandardColumnDef = TraceTableColumn & { id: TraceColumnId };
 
 /**
  * One ColumnDef per TraceColumnId, at module scope (never rebuilt per render — the load-bearing perf
@@ -172,6 +173,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.tokens,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.tokens} />,
     cell: (ctx) => <TraceTokensCell trace={ctx.row.original} />,
+    renderSessionCell: (traces) => <SessionTokensCell traces={traces} />,
   },
   {
     id: 'cost',
@@ -217,15 +219,25 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
 const EMPTY_EXTRA_COLUMNS: TraceTableColumn[] = [];
 
 /**
- * The visible column defs, in canonical order: the standard columns filtered to `visibleColumns`
- * (order stays canonical — a membership set, not a reorderable list), followed by any consumer
- * `extraColumns`. Callers should memoize the result; `extraColumns` defaults to a stable module-scope
- * empty array so an omitted value doesn't churn the memo.
+ * The visible standard and consumer-provided column defs in `columnOrder`. Definitions absent from
+ * the order are appended, which keeps older consumers and newly discovered dynamic columns visible.
+ * When `columnOrder` is omitted the result follows `visibleColumns` order (standard columns first,
+ * then `extraColumns`) — the pre-reorder behavior, so existing callers are unaffected. Callers should
+ * memoize the result; `extraColumns` defaults to a stable module-scope empty array so an omitted value
+ * doesn't churn the memo.
  */
 export const getVisibleColumnDefs = (
   visibleColumns: TraceColumnId[],
   extraColumns: TraceTableColumn[] = EMPTY_EXTRA_COLUMNS,
+  columnOrder?: string[],
 ): TraceTableColumn[] => {
-  const visible = new Set<string>(visibleColumns);
-  return [...STANDARD_COLUMNS.filter((column) => visible.has(column.id)), ...extraColumns];
+  const columnsById = new Map(STANDARD_COLUMNS.map((column) => [column.id, column]));
+  const visibleColumnDefs = [...visibleColumns.flatMap((id) => columnsById.get(id) ?? []), ...extraColumns];
+  if (columnOrder === undefined) {
+    return visibleColumnDefs;
+  }
+  const visibleById = new Map(visibleColumnDefs.flatMap((column) => (column.id ? [[column.id, column] as const] : [])));
+  const ordered = columnOrder.flatMap((id) => visibleById.get(id) ?? []);
+  const orderedIds = new Set(ordered.flatMap((column) => (column.id ? [column.id] : [])));
+  return [...ordered, ...visibleColumnDefs.filter((column) => !column.id || !orderedIds.has(column.id))];
 };

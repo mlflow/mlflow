@@ -18,6 +18,7 @@ export type {
 // Constants
 export {
   TRACE_COLUMN_IDS,
+  isTraceColumnId,
   SORTABLE_TRACE_COLUMNS,
   isSortableTraceColumn,
   DEFAULT_SORT_COLUMN,
@@ -43,6 +44,11 @@ export {
   type GenericColumnOption,
   type ColumnSelectorGroup,
 } from './TraceColumnSelector';
+export {
+  ReorderableTraceColumnList,
+  type ReorderableTraceColumnListProps,
+  type ReorderableTraceColumnOption,
+} from './ReorderableTraceColumnList';
 export { TraceFilterButton, type TraceFilterButtonProps } from './TraceFilterButton';
 export { TracesTableView, type TracesTableViewProps, type TracesTableViewState } from './TracesTableView';
 

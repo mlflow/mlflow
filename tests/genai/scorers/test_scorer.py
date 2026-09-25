@@ -1,3 +1,5 @@
+import threading
+import time
 from collections import defaultdict
 from unittest.mock import call, patch
 
@@ -7,12 +9,14 @@ import pytest
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.exceptions import MlflowException
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.registry import get_scorer, list_scorers
+from mlflow.utils.timeout import MlflowTimeoutError
 
 
 @pytest.fixture(autouse=True)
@@ -343,7 +347,7 @@ def test_custom_scorer_registration_blocked_for_non_databricks_uri():
 
     with pytest.raises(
         mlflow.exceptions.MlflowException,
-        match="Custom scorer registration.*not supported outside of Databricks tracking",
+        match="Custom scorer registration.*disabled by default outside of Databricks tracking",
     ):
         test_custom_scorer.register(experiment_id=experiment_id, name="test_scorer")
 
@@ -360,7 +364,7 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
     )
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="Custom scorer registration.*not supported"
+        mlflow.exceptions.MlflowException, match="Custom scorer registration.*disabled by default"
     ):
         Scorer._reconstruct_decorator_scorer(serialized)
 
@@ -377,6 +381,53 @@ def test_custom_scorer_loading_allowed_for_databricks_remote_access():
     with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
         result = Scorer._reconstruct_decorator_scorer(serialized)
         assert result.name == "test_scorer"
+
+
+def test_custom_scorer_loading_allowed_when_flag_enabled(monkeypatch):
+    serialized = SerializedScorer(
+        name="test_scorer",
+        is_session_level_scorer=False,
+        call_source="return len(outputs) > 0",
+        call_signature="(outputs)",
+        original_func_name="test_scorer",
+    )
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    result = Scorer._reconstruct_decorator_scorer(serialized)
+    assert result.name == "test_scorer"
+
+
+def test_custom_scorer_registration_allowed_when_flag_enabled(monkeypatch):
+    @scorer
+    def flagged_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    # Off by default: registration is rejected on a non-Databricks URI.
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    with pytest.raises(
+        mlflow.exceptions.MlflowException,
+        match="Custom scorer registration.*disabled by default outside of Databricks tracking",
+    ):
+        flagged_scorer._check_can_be_registered()
+
+    # Opted in: the decorator-scorer guard no longer blocks registration.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    flagged_scorer._check_can_be_registered()
+
+
+def test_custom_scorer_registration_deferred_to_remote_server(monkeypatch):
+    @scorer
+    def remote_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    # Against a remote HTTP server the server's own handler enforces the flag, so the
+    # client-side guard must not block (and must not require a remote client to set the
+    # server variable) even with the flag unset locally.
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    monkeypatch.setattr(
+        "mlflow.genai.scorers.base.get_tracking_uri", lambda: "http://localhost:5000"
+    )
+    remote_scorer._check_can_be_registered()
 
 
 def test_custom_scorer_error_message_renders_code_snippet_legibly():
@@ -399,7 +450,7 @@ def test_custom_scorer_error_message_renders_code_snippet_legibly():
     )
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="is not supported outside of"
+        mlflow.exceptions.MlflowException, match="is disabled by default outside of"
     ) as exc_info:
         Scorer._reconstruct_decorator_scorer(serialized)
 
@@ -544,3 +595,119 @@ def test_scorer_pass_if_is_exposed():
         return True
 
     assert plain.pass_if is None
+
+
+def test_scorer_default_timeout_is_none_sentinel():
+    @scorer
+    def s(outputs) -> bool:
+        return True
+
+    assert s.timeout is None
+
+
+def test_scorer_default_timeout_uses_constant(monkeypatch):
+    # A scorer with no explicit timeout is bounded by DEFAULT_SCORER_TIMEOUT.
+    monkeypatch.setattr("mlflow.genai.scorers.base.DEFAULT_SCORER_TIMEOUT", 0.2)
+    release = threading.Event()
+
+    @scorer
+    def slow(outputs) -> bool:
+        release.wait(10)
+        return True
+
+    try:
+        with pytest.raises(MlflowTimeoutError, match="timed out after 0.2 seconds"):
+            slow.run(outputs="x")
+    finally:
+        release.set()
+
+
+@pytest.mark.parametrize("timeout", [None, 0, 30, 5.5])
+def test_scorer_timeout_value_preserved(timeout):
+    @scorer(timeout=timeout)
+    def s(outputs) -> bool:
+        return True
+
+    assert s.timeout == timeout
+
+
+@pytest.mark.parametrize("bad", [-1, True, False, "5", float("inf"), float("nan")])
+def test_scorer_rejects_invalid_timeout(bad):
+    with pytest.raises(MlflowException, match="must be a non-negative"):
+
+        @scorer(timeout=bad)
+        def s(outputs) -> bool:
+            return True
+
+
+def test_scorer_run_times_out_slow_scorer():
+    # Event (released below) instead of a bare sleep so the abandoned daemon thread doesn't linger.
+    release = threading.Event()
+
+    @scorer(timeout=0.2)
+    def slow(outputs) -> bool:
+        release.wait(10)
+        return True
+
+    start = time.time()
+    try:
+        with pytest.raises(MlflowTimeoutError, match="timed out after 0.2 seconds"):
+            slow.run(outputs="x")
+        # Abandoned well before the 10s the scorer would otherwise take.
+        assert time.time() - start < 3
+    finally:
+        release.set()
+
+
+def test_scorer_run_within_timeout_returns_normally():
+    @scorer(timeout=5)
+    def ok(outputs) -> bool:
+        return outputs == "good"
+
+    assert ok.run(outputs="good") is True
+    assert ok.run(outputs="bad") is False
+
+
+def test_scorer_run_propagates_non_timeout_exception():
+    @scorer(timeout=5)
+    def boom(outputs) -> bool:
+        raise ValueError("boom in scorer")
+
+    with pytest.raises(ValueError, match="boom in scorer"):
+        boom.run(outputs="x")
+
+
+def test_scorer_timeout_zero_runs_unbounded(monkeypatch):
+    # `timeout=0` disables the timeout even when the default is tiny.
+    monkeypatch.setattr("mlflow.genai.scorers.base.DEFAULT_SCORER_TIMEOUT", 0.05)
+
+    @scorer(timeout=0)
+    def slow(outputs) -> bool:
+        time.sleep(0.2)
+        return True
+
+    assert slow.run(outputs="x") is True
+
+
+def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_databricks):
+    release = threading.Event()
+
+    @scorer(timeout=0.2)
+    def slow_scorer(inputs) -> bool:
+        release.wait(10)
+        return True
+
+    @scorer
+    def fast_scorer(inputs) -> bool:
+        return True
+
+    try:
+        results = mlflow.genai.evaluate(data=sample_data, scorers=[slow_scorer, fast_scorer])
+    finally:
+        release.set()
+
+    # The fast scorer yields its metric; the timed-out one errors and is excluded. The control
+    # scorer makes the absence specifically a timeout, not scorers being dropped wholesale.
+    metrics = results.metrics.keys()
+    assert any("fast_scorer" in metric for metric in metrics)
+    assert all("slow_scorer" not in metric for metric in metrics)

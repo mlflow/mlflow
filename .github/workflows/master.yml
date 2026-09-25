@@ -2,14 +2,11 @@ name: MLflow tests
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -43,6 +40,7 @@ env:
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -50,8 +48,7 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -69,11 +66,11 @@ jobs:
           ./dev/run-python-skinny-tests.sh
 
   python:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: write
     strategy:
       fail-fast: false
       matrix:
@@ -134,8 +131,7 @@ jobs:
             pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -148,7 +144,7 @@ jobs:
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
           docker images --digests
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+          ./tests/db/compose.sh build
       - name: Run tests
         run: |
           set +e
@@ -159,7 +155,7 @@ jobs:
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
             # https://github.com/actions/virtual-environments/issues/5022
-            ./tests/db/compose.sh run --rm --no-TTY $service pytest \
+            ./tests/db/compose.sh run --rm --no-TTY $service pytest -q \
               tests/store/tracking/sqlalchemy_store \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
@@ -191,8 +187,7 @@ jobs:
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
   java:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -215,8 +210,7 @@ jobs:
           uv run --no-dev mvn clean package -q
 
   flavors:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -243,8 +237,7 @@ jobs:
             tests/autologging
 
   models:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -278,8 +271,7 @@ jobs:
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/models
 
   evaluate:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -315,8 +307,7 @@ jobs:
           uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -376,8 +367,7 @@ jobs:
             --ignore tests/genai/evaluate/test_pytest_integration.py
 
   pyfunc:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read

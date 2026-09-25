@@ -1,7 +1,7 @@
 ---
-applyTo: ".github/workflows/**/*.yml"
+applyTo: ".github/workflows/**/*.yml,.github/actions/**/*.yml"
 ---
 
 # GitHub Actions Code Review Instructions
 
-For workflow style conventions, see [.claude/rules/github-actions.md](../../.claude/rules/github-actions.md).
+For workflow style conventions, see [.claude/skills/github-actions-style/SKILL.md](../../.claude/skills/github-actions-style/SKILL.md).

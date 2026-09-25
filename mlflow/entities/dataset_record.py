@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from google.protobuf.json_format import MessageToDict
+from google.protobuf.json_format import MessageToDict  # type: ignore[import-untyped]
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record_source import (
@@ -42,7 +42,7 @@ class DatasetRecord(_MlflowObject):
     created_by: str | None = None
     last_updated_by: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.inputs is None:
             raise ValueError("inputs must be provided")
 
@@ -50,11 +50,13 @@ class DatasetRecord(_MlflowObject):
             self.tags = {}
 
         if self.source and isinstance(self.source, DatasetRecordSource):
+            # DatasetRecordSource.__post_init__ guarantees source_data is a dict
+            source_data = cast("dict[str, Any]", self.source.source_data)
             if not self.source_id:
                 if self.source.source_type == DatasetRecordSourceType.TRACE:
-                    self.source_id = self.source.source_data.get("trace_id")
+                    self.source_id = source_data.get("trace_id")
                 else:
-                    self.source_id = self.source.source_data.get("source_id")
+                    self.source_id = source_data.get("source_id")
             if not self.source_type:
                 self.source_type = self.source.source_type.value
 
@@ -116,7 +118,7 @@ class DatasetRecord(_MlflowObject):
         )
 
     def to_dict(self) -> dict[str, Any]:
-        d = MessageToDict(
+        d: dict[str, Any] = MessageToDict(
             self.to_proto(),
             preserving_proto_field_name=True,
         )

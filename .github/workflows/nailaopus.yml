@@ -24,6 +24,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
@@ -81,7 +82,7 @@ jobs:
     # `.github/policy.rego`'s require-explicit-permissions rule.
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Resolve PR number
@@ -97,6 +98,7 @@ jobs:
           client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
+          repositories: mlflow,internal
           # Least-privilege: explicitly request only what the workflow uses
           # on each repo. The App's installation permissions are the upper
           # bound; these inputs narrow the issued token further.
@@ -175,7 +177,7 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
-          ref: 5e5f9229e16b97822ea3349b31285370be36b4d1
+          ref: 893db451740abb76e142bff410462548a9a227b2
           sparse-checkout: |
             nailaopus
           path: internal

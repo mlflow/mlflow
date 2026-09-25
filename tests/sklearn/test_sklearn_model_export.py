@@ -215,6 +215,28 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
     )
 
 
+def test_skops_load_honors_pickle_deserialization_flag(sklearn_knn_model, model_path, monkeypatch):
+    # skops must honor MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false too: its trusted-types allow-list
+    # is read from the (untrusted) MLmodel, so it is not a safe bypass of the deserialization guard.
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        serialization_format="skops",
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
+    # false -> both load paths are blocked
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.sklearn.load_model(model_uri=model_path)
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        pyfunc.load_model(model_uri=model_path)
+
+    # true -> the skops model still loads (guards against an accidentally-inverted condition)
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    mlflow.sklearn.load_model(model_uri=model_path)
+    pyfunc.load_model(model_uri=model_path)
+
+
 def test_log_model_skops_no_pip_requirements_warning(sklearn_logreg_model, recwarn):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
@@ -662,6 +684,14 @@ def test_model_log_uses_skops_serialization_format_by_default(sklearn_logreg_mod
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
+def test_get_default_serialization_format_in_databricks():
+    expected = mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    with mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=True):
+        assert mlflow.sklearn._get_default_serialization_format() == expected
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        assert mlflow.sklearn._get_default_serialization_format() == expected
+
+
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
     sklearn_knn_model, model_path
 ):
@@ -813,7 +843,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.11.15
+    python_version: 3.11.16
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -827,7 +857,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.11.15
+python: 3.11.16
 build_dependencies:
    - pip==25.1.1
    - setuptools==80.4.0
