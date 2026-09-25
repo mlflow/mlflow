@@ -44,6 +44,13 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
+
+@pytest.fixture(autouse=True)
+def reset_mistral_autolog():
+    yield
+    mlflow.mistral.autolog(disable=True)
+
+
 DUMMY_CHAT_COMPLETION_REQUEST = {
     "model": "test_model",
     "max_tokens": 1024,
