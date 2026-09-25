@@ -54,9 +54,10 @@ export MLFLOW_EXPERIMENT_ID=123
 export MLFLOW_TRACE_LOCATION=my_catalog.my_schema.my_table_prefix
 ```
 
-The UC trace location must already exist. Without this setting, the SDK uses the
-experiment-backed path, and traces will not appear in the UC table. An invalid
-location stops tracing and prints a warning instead of silently falling back.
+The UC trace location must already exist. Without this setting (or with an empty
+value), the SDK uses the experiment-backed path, and traces will not appear in
+the UC table. A non-empty invalid location stops tracing and prints a warning
+instead of silently falling back.
 
 ## Viewing Traces
 

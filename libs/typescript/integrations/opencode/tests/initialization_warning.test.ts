@@ -16,8 +16,9 @@ describe('OpenCode initialization failure', () => {
     ({ MLflowTracingPlugin } = await import('../src'));
   });
 
-  afterAll(() => {
+  afterEach(() => {
     process.env = originalEnv;
+    jest.restoreAllMocks();
   });
 
   it('warns once instead of silently dropping traces when the UC location is invalid', async () => {
