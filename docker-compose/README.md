@@ -151,7 +151,7 @@ docker compose down -v
 - Set **server domains/host** so virtual-hosted requests can be resolved by RustFS:
 
   ```env
-  RUSTFS_SERVER_DOMAINS=storage:9000
+  RUSTFS_SERVER_DOMAINS=storage:${RUSTFS_API_PORT}
   ```
 
   (match the compose service DNS name)
@@ -160,7 +160,7 @@ docker compose down -v
 
 - Inside MLflow, use the internal endpoint:
   ```env
-  MLFLOW_S3_ENDPOINT_URL=http://storage:9000
+  MLFLOW_S3_ENDPOINT_URL=http://storage:${RUSTFS_API_PORT}
   MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/
   ```
 
@@ -169,7 +169,7 @@ docker compose down -v
 RustFS usually responds on `/health` with a json that contains the status of the server:
 
 ```sh
-curl -s http://127.0.0.1:9000/health | grep -q '\"status\"\\s*:\\s*\"ok\"'
+curl -s http://127.0.0.1:${RUSTFS_API_PORT}/health | grep -q '\"status\"\\s*:\\s*\"ok\"'
 ```
 
 Use that in a container healthcheck (no `-f`, 4xx may appear during bootstrap).
@@ -199,7 +199,7 @@ If this passes, MLflow can read and write artifacts to RustFS.
 ### Troubleshooting
 
 - `InvalidBucketName` on create-bucket → use `s3api` (virtual-host friendly) or MinIO `mc`; ensure `RUSTFS_SERVER_DOMAINS` matches the S3 hostname.
-- Endpoint issues from MLflow → make sure `MLFLOW_S3_ENDPOINT_URL` uses the **service name** visible from MLflow (e.g., `http://storage:9000`).
+- Endpoint issues from MLflow → make sure `MLFLOW_S3_ENDPOINT_URL` uses the **service name** visible from MLflow (e.g., `http://storage:${RUSTFS_API_PORT}`).
 
 ### Resetting the Environment
 
