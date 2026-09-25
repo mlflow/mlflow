@@ -2,8 +2,8 @@ import datetime
 import json
 import math
 import re
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import KW_ONLY, InitVar, dataclass, field
+from typing import ClassVar, Optional
 
 import numpy as np
 import pandas as pd
@@ -1816,6 +1816,116 @@ def test_convert_dataclass_to_schema_complex():
             "required": True,
         },
     ]
+
+
+@pytest.mark.parametrize("as_list", [False, True])
+def test_convert_dataclass_to_schema_nested_inheritance(as_list):
+    @dataclass
+    class Base:
+        role: str
+        count: int | None
+
+    @dataclass
+    class Message(Base):
+        content: str
+
+    annotation = list[Message] if as_list else Message
+
+    @dataclass
+    class Request:
+        message: annotation
+
+    column = convert_dataclass_to_schema(Request).to_dict()[0]
+    nested = column["items"] if as_list else column
+    assert nested["properties"] == {
+        "role": {"type": "string", "required": True},
+        "count": {"type": "long", "required": False},
+        "content": {"type": "string", "required": True},
+    }
+
+
+def test_convert_dataclass_to_schema_nested_inherited_only():
+    @dataclass
+    class Base:
+        value: int
+
+    @dataclass
+    class Child(Base):
+        pass
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.long)
+    ])
+
+
+def test_convert_dataclass_to_schema_nested_override():
+    @dataclass
+    class Base:
+        value: int
+
+    @dataclass
+    class Child(Base):
+        value: str | None
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.string, required=False)
+    ])
+
+
+def test_convert_dataclass_to_schema_nested_inherited_pseudo_fields():
+    @dataclass
+    class Base:
+        category: ClassVar[str] = "message"
+        init_only: InitVar[int] = 0
+        _: KW_ONLY
+
+    @dataclass
+    class Child(Base):
+        value: int = 1
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.long)
+    ])
+
+
+def test_convert_dataclass_to_schema_nested_diamond_inheritance():
+    @dataclass
+    class Base:
+        value: int = 0
+
+    @dataclass
+    class Left(Base):
+        value: str = ""
+
+    @dataclass
+    class Right(Base):
+        extra: int = 0
+
+    @dataclass
+    class Child(Right, Left):
+        own: int = 0
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.long),
+        Property("extra", DataType.long),
+        Property("own", DataType.long),
+    ])
 
 
 def test_convert_dataclass_to_schema_invalid():
