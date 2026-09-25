@@ -39,6 +39,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
+    should_compute_cost_client_side,
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -683,6 +684,77 @@ def test_get_spans_table_name_for_trace_no_destination():
 
         result = get_active_spans_table_name()
         assert result is None
+
+
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [
+        ("databricks", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://tracking.example.com", False),
+    ],
+)
+def test_should_compute_cost_client_side(tracking_uri, expected):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value=tracking_uri
+    ):
+        assert should_compute_cost_client_side() is expected
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+def test_sagemaker_cost_computed_when_span_ends(mock_litellm_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == {
+        CostKey.INPUT_COST: 100.0,
+        CostKey.OUTPUT_COST: 100.0,
+        CostKey.TOTAL_COST: 200.0,
+    }
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+@pytest.mark.parametrize(
+    "manual_cost",
+    [
+        None,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    ],
+)
+def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost, manual_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+    span.set_attribute(SpanAttributeKey.LLM_COST, manual_cost)
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert SpanAttributeKey.LLM_COST in span._span.attributes
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == manual_cost
+    mock_litellm_cost.assert_not_called()
 
 
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
