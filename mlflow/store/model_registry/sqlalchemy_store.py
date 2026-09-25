@@ -1253,6 +1253,7 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             None
         """
+        version = _validate_model_version(version)
         # currently delete model version still keeps the tags associated with the version
         with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()

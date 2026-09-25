@@ -1941,10 +1941,11 @@ def test_get_model_version_by_alias(store):
     assert mv.aliases == ["test_alias"]
 
 
-def test_delete_model_version_deletes_alias(store):
+@pytest.mark.parametrize("version", [2, "2"])
+def test_delete_model_version_deletes_alias(store, version):
     model_name = "DeleteModelVersionDeletesAlias_TestMod"
     _setup_and_test_aliases(store, model_name)
-    store.delete_model_version(model_name, 2)
+    store.delete_model_version(model_name, version)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
     with pytest.raises(
