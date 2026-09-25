@@ -169,7 +169,10 @@ docker compose down -v
 RustFS usually responds on `/health` with a json that contains the status of the server:
 
 ```sh
-curl -s http://127.0.0.1:${RUSTFS_API_PORT}/health | grep -q '\"status\"\\s*:\\s*\"ok\"'
+set -a
+[ ! -f .env ] || . .env
+set +a
+curl -s http://127.0.0.1:${RUSTFS_API_PORT:-9000}/health | grep -q '\"status\"\\s*:\\s*\"ok\"'
 ```
 
 Use that in a container healthcheck (no `-f`, 4xx may appear during bootstrap).
