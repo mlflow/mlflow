@@ -274,6 +274,13 @@ def test_dataset_search_rejects_non_integer_time_filter(store):
     ):
         store.search_datasets(filter_string="created_time > 1.5")
 
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid comparator for numeric attribute: LIKE",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_datasets(filter_string="created_time LIKE 1")
+
 
 def test_dataset_schema_and_profile_computation(store):
     test_prefix = "test_schema_profile_"

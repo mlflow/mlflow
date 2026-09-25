@@ -10755,8 +10755,11 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}"
                 )
-            if SearchEvaluationDatasetsUtils.is_numeric_attribute(type_, key, comparator):
-                if comparator not in ("=", "!=", "<", "<=", ">", ">="):
+            if key in SearchEvaluationDatasetsUtils.NUMERIC_ATTRIBUTES:
+                if (
+                    comparator
+                    not in SearchEvaluationDatasetsUtils.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+                ):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for numeric attribute: {comparator}"
                     )
