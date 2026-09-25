@@ -7,7 +7,7 @@ cd tests/db
 # its dependencies to the locked versions
 locked=$(mktemp)
 uv export --locked --no-default-groups --extra db --group db-test \
-  --no-emit-project --no-emit-workspace --no-hashes --output-file "$locked"
+  --no-emit-workspace --no-hashes --output-file "$locked"
 uv run --isolated --no-project --with mlflow --with-requirements "$locked" \
   python check_migration.py pre-migration
 # Run the post-migration step with mlflow from the repository
