@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.dbmodels.models import SqlEvaluationDatasetRecord
 from mlflow.utils import mlflow_tags
 
@@ -263,6 +264,15 @@ def test_dataset_search_comprehensive(store):
 
     with pytest.raises(MlflowException, match="Invalid attribute key"):
         store.search_datasets(filter_string="invalid_field = 'value'")
+
+
+def test_dataset_search_rejects_non_integer_time_filter(store):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value for numeric attribute 'created_time': '1.5'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_datasets(filter_string="created_time > 1.5")
 
 
 def test_dataset_schema_and_profile_computation(store):
