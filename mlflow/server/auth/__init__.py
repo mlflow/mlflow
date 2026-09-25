@@ -25,7 +25,7 @@ import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, NamedTuple
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -276,6 +276,20 @@ from mlflow.protos.webhooks_pb2 import (
 from mlflow.server import app
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import resources as auth_resources
+from mlflow.server.auth.conditions import (
+    NAMESPACE_REQUEST,
+    NAMESPACE_RESOURCE,
+    ConditionContext,
+    ConditionScope,
+    RequestValues,
+    combine,
+    condition_load_types,
+    context_for,
+    evaluate_request,
+    evaluate_resource,
+    needs_resource_values,
+    parse_condition,
+)
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
@@ -929,6 +943,111 @@ def authorize(
     return all(action_met(action, permission) for permission, action in decisions)
 
 
+def _parsed_condition(filter_string: str, namespace: str):
+    """Parse a stored condition, memoized for the process.
+
+    Conditions are validated on the way in and are small, bounded strings, so the
+    parse is pure and its result is immutable -- caching it keeps re-parsing off the
+    hot path of every mutating request. Keyed on the namespace too: the same string
+    means different things in the two namespaces.
+    """
+    return _parsed_condition_cached(filter_string, namespace)
+
+
+@functools.lru_cache(maxsize=512)
+def _parsed_condition_cached(filter_string: str, namespace: str):
+    return parse_condition(filter_string, namespace)
+
+
+def authorize_on_conditions(
+    username: str,
+    workspace: "str | None",
+    contexts: "Sequence[ConditionContext]",
+) -> bool:
+    """Do the mutation conditions on this user's roles permit the operation?
+
+    The other half of the decision from :func:`authorize`. Grants add and conditions
+    subtract, so this is only ever consulted *after* a base grant check has already
+    passed, and it can only ever turn an allow into a deny -- never the reverse.
+
+    Every applicable condition across *all* the user's roles must pass. There is no
+    precedence and no most-specific-wins: adding a role cannot lift a restriction
+    another role imposes (see :func:`conditions.combine`).
+
+    Ordered so the common cases cost nothing. An admin, a user with no conditions
+    configured, or an operation no context covers all return before any resource is
+    read, and the resource read happens only when a target condition actually exists
+    for a type in play at ``MUTATE`` scope.
+    """
+    if not contexts:
+        return True
+    user = store.get_user(username)
+    # Admin bypass precedes everything, exactly as it does for grants: conditions
+    # restrict delegated authority and are not a mechanism for constraining admins.
+    if user.is_admin:
+        return True
+    if workspace is None:
+        # The base check resolves the workspace before we are reached, so an unknown
+        # workspace here means the grant path already denied. Deny rather than guess:
+        # loading conditions from the wrong workspace could silently skip one.
+        return False
+
+    rows = store.list_mutation_conditions_for_user(
+        user.id, workspace, condition_load_types(contexts)
+    )
+    # The overwhelmingly common case, and the one that makes an empty table behave
+    # exactly like today's server: nothing configured, nothing to enforce.
+    if not rows:
+        return True
+
+    by_type: dict[str, list] = {}
+    for row in rows:
+        by_type.setdefault(row.resource_type, []).append(row)
+
+    results: list[bool] = []
+
+    # Request conditions first: pure, no I/O, and a denial here saves the resource read.
+    for context in contexts:
+        for row in by_type.get(context.resource_type, ()):
+            if row.value_condition is None:
+                continue
+            clauses = _parsed_condition(row.value_condition, NAMESPACE_REQUEST)
+            results.append(evaluate_request(clauses, context.request))
+    if not combine(results):
+        return False
+
+    types_with_target = frozenset(
+        resource_type
+        for resource_type, type_rows in by_type.items()
+        if any(row.target_condition is not None for row in type_rows)
+    )
+    if not needs_resource_values(contexts, types_with_target):
+        return True
+
+    for context in contexts:
+        if context.scope is not ConditionScope.MUTATE:
+            continue
+        target_rows = [
+            row
+            for row in by_type.get(context.resource_type, ())
+            if row.target_condition is not None
+        ]
+        if not target_rows:
+            continue
+        for resource_id in context.resource_ids:
+            values = auth_resources.attrs_for(context.resource_type, resource_id)
+            if values is None:
+                # A condition cannot be satisfied by a resource that is not there, and
+                # denying rather than 404ing keeps the response from revealing which
+                # ids exist.
+                return False
+            for row in target_rows:
+                clauses = _parsed_condition(row.target_condition, NAMESPACE_RESOURCE)
+                results.append(evaluate_resource(clauses, values))
+
+    return combine(results)
+
+
 class RetentionGate:
     """Which resources a response may retain, decided on demand from ONE grants load.
 
@@ -1438,29 +1557,61 @@ def _get_permission_from_prompt_name() -> Permission:
     )
 
 
-def _get_registered_model_or_prompt_permission(name: str) -> Permission:
+class _RegistryEntryAuthz(NamedTuple):
+    """What a registry-entry route needs to authorize, from one resolution.
+
+    ``_get_permission_from_registered_model_or_prompt_name`` computed the family and
+    the workspace internally and returned only the permission. Conditions need all
+    three: evaluating a prompt's condition against ``registered_model`` would apply
+    the wrong role's restriction (D2), and the workspace decides which conditions
+    load at all.
+    """
+
+    permission: Permission
+    resource_type: str
+    workspace: "str | None"
+
+
+def _registered_model_or_prompt_authz(name: str) -> _RegistryEntryAuthz:
     """Resolve a persisted registry entity's permission in its actual namespace."""
     username = authenticate_request().username
     rm = auth_resources.fetch_registered_model_strict(name)
     resource_type = "prompt" if rm._is_prompt() else "registered_model"
     workspace_name = getattr(rm, "workspace", None)
-    return _get_role_permission_or_default(
+    permission = _get_role_permission_or_default(
         _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
     )
+    return _RegistryEntryAuthz(permission, resource_type, workspace_name)
 
 
-def _get_permission_from_registered_model_or_prompt_name() -> Permission:
-    """Resolve permission for a shared model-registry route in a single DB round-trip."""
+def _get_registered_model_or_prompt_permission(name: str) -> Permission:
+    return _registered_model_or_prompt_authz(name).permission
+
+
+def _registry_entry_authz_from_request() -> _RegistryEntryAuthz:
+    """Resolve a shared model-registry route in a single DB round-trip.
+
+    A name that does not resolve falls back to the ``registered_model`` family, which
+    is what the pre-conditions code did: the entity is absent, so there is no marker
+    tag to read, and a create-shaped request has no prior state to classify. The
+    workspace is unknown in that case, and a resource condition on an absent resource
+    denies anyway.
+    """
     name = _get_request_param("name")
     try:
-        return _get_registered_model_or_prompt_permission(name)
+        return _registered_model_or_prompt_authz(name)
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
     username = authenticate_request().username
-    return _get_role_permission_or_default(
+    permission = _get_role_permission_or_default(
         _role_permission_for_known_workspace(username, "registered_model", name, None)
     )
+    return _RegistryEntryAuthz(permission, "registered_model", None)
+
+
+def _get_permission_from_registered_model_or_prompt_name() -> Permission:
+    return _registry_entry_authz_from_request().permission
 
 
 def validate_can_register_scorer():
@@ -2201,7 +2352,28 @@ def _validate_can_read_registered_model_or_prompt():
 
 
 def _validate_can_update_registered_model_or_prompt():
-    return _get_permission_from_registered_model_or_prompt_name().can_update
+    """Base grant check, then the conditions that narrow it.
+
+    The legacy registry surface has no ``Requirement`` list, so it calls the
+    conditions half directly rather than through ``authorize`` -- wiring conditions
+    only into ``authorize`` would leave this route, one of the RFC's three primary
+    use cases, ungated (§4.1, D1).
+    """
+    authz = _registry_entry_authz_from_request()
+    if not authz.permission.can_update:
+        return False
+    return authorize_on_conditions(
+        authenticate_request().username,
+        authz.workspace,
+        [
+            context_for(
+                authz.resource_type,
+                _get_request_param("name"),
+                ConditionScope.MUTATE,
+                _request_values_for_current_request(),
+            )
+        ],
+    )
 
 
 def _validate_can_delete_registered_model_or_prompt():
@@ -4681,6 +4853,28 @@ def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
 
 
+def _extract_tag_key_value() -> RequestValues:
+    """A single ``key``/``value`` tag pair, the shape most Set*Tag routes use."""
+    return RequestValues(tags=((_get_request_param("key"), _get_request_param("value")),))
+
+
+#: Request-value extractors, keyed on the proto request class (D3). Keyed on the class
+#: rather than the path because that is the only identifier that survives the AJAX and
+#: REST duplication of every route, and because the coverage guard can then compare this
+#: map against the proto definitions directly.
+#:
+#: An absent entry means "this route sets no tag or alias", which is why the coverage
+#: guard in the tests has to assert the map is complete: a mutating route that names a
+#: tag and has no extractor here is silently ungated by request conditions.
+REQUEST_VALUE_EXTRACTORS = {
+    SetRegisteredModelTag: _extract_tag_key_value,
+}
+
+
+def get_request_value_extractor(request_class):
+    return REQUEST_VALUE_EXTRACTORS.get(request_class)
+
+
 @functools.lru_cache(maxsize=None)
 def _re_compile_path(path: str) -> re.Pattern:
     """
@@ -4842,6 +5036,32 @@ BEFORE_REQUEST_VALIDATORS.update({
 # Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
 # regex matching — the BEFORE_REQUEST_VALIDATORS exact-match lookup won't find them when
 # the real request path contains an actual trace/request ID instead of the template name.
+#: ``(path, method) -> extractor``, built from the proto-keyed map through the same
+#: ``get_endpoints`` walk the validators use, so a route reaches its extractor by the
+#: same key the dispatcher already has. Both the REST and AJAX paths of a route appear,
+#: because ``get_endpoints`` yields both.
+REQUEST_VALUE_EXTRACTOR_ROUTES = {
+    (http_path, method): extractor
+    for http_path, extractor, methods in get_endpoints(get_request_value_extractor)
+    for method in methods
+    if extractor is not None and extractor in REQUEST_VALUE_EXTRACTORS.values()
+}
+
+
+def _request_values_for_current_request() -> RequestValues:
+    """The tags and aliases this request sets, or empty if the route sets none.
+
+    Empty is the safe default only because request clauses are vacuous on absence
+    (D20): a route with no extractor is simply not constrained by request conditions,
+    which is why the coverage guard has to prove the map is complete rather than
+    trusting this fallback.
+    """
+    extractor = REQUEST_VALUE_EXTRACTOR_ROUTES.get((request.path, request.method))
+    if extractor is None:
+        return RequestValues()
+    return extractor()
+
+
 TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     (_re_compile_path(path), method): handler
     for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
