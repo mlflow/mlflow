@@ -959,7 +959,8 @@ def set_span_cost_attribute(span: LiveSpan) -> None:
     Set the calculated cost on a span unless a cost was already provided.
     """
     try:
-        if span.get_attribute(SpanAttributeKey.LLM_COST) is not None:
+        # An explicitly set null cost should not be replaced by a calculated cost.
+        if SpanAttributeKey.LLM_COST in span._span.attributes:
             return
         if cost := calculate_span_cost(span):
             span.set_attribute(SpanAttributeKey.LLM_COST, cost)

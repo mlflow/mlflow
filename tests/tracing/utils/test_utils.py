@@ -726,18 +726,24 @@ def test_sagemaker_cost_computed_when_span_ends(mock_litellm_cost):
 
 
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
-def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost):
+@pytest.mark.parametrize(
+    "manual_cost",
+    [
+        None,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    ],
+)
+def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost, manual_cost):
     span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
     span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
     span.set_attribute(
         SpanAttributeKey.CHAT_USAGE,
         {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
     )
-    manual_cost = {
-        CostKey.INPUT_COST: 0.01,
-        CostKey.OUTPUT_COST: 0.02,
-        CostKey.TOTAL_COST: 0.03,
-    }
     span.set_attribute(SpanAttributeKey.LLM_COST, manual_cost)
 
     with mock.patch(
