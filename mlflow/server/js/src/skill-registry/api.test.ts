@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { buildSkillIdentityPath, buildSkillMultipartBody, buildSkillSearchParams, SkillRegistryApi } from './api';
-import { SkillStatus, type RegisterSkillRequest, type UploadedSkillVersionRequest } from './types';
+import {
+  SkillStatus,
+  type ExternalSkillVersionRequest,
+  type RegisterExternalSkillRequest,
+  type RegisterUploadedSkillRequest,
+  type UploadedSkillVersionRequest,
+} from './types';
 
 const jsonResponse = (body: unknown = {}) =>
   Promise.resolve({
@@ -175,20 +181,32 @@ describe('Skill Registry API', () => {
 
   describe('JSON registration', () => {
     it.each([
-      ['git', 'https://github.com/acme/skills.git', 'main'],
-      ['oci', 'ghcr.io/acme/skills:v1', null],
-      ['zip', 'https://example.com/skills.zip', null],
-    ] as const)('registers an external %s source as JSON', async (sourceType, source, ref) => {
-      const request: RegisterSkillRequest = {
+      {
         name: 'code-review',
-        source_type: sourceType,
-        source,
-        ref,
+        source_type: 'git',
+        source: 'https://github.com/acme/skills.git',
+        ref: 'main',
         subpath: 'skills/code-review',
         digest: null,
         status: SkillStatus.DRAFT,
-      };
-
+      },
+      {
+        name: 'code-review',
+        source_type: 'oci',
+        source: 'ghcr.io/acme/skills:v1',
+        subpath: 'skills/code-review',
+        digest: null,
+        status: SkillStatus.DRAFT,
+      },
+      {
+        name: 'code-review',
+        source_type: 'zip',
+        source: 'https://example.com/skills.zip',
+        subpath: 'skills/code-review',
+        digest: null,
+        status: SkillStatus.DRAFT,
+      },
+    ] satisfies RegisterExternalSkillRequest[])('registers an external source as JSON', async (request) => {
       await SkillRegistryApi.registerSkill(request);
 
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -202,12 +220,10 @@ describe('Skill Registry API', () => {
     });
 
     it.each([
-      ['git', 'https://github.com/acme/skills.git'],
-      ['oci', 'ghcr.io/acme/skills:v1'],
-      ['zip', 'https://example.com/skills.zip'],
-    ] as const)('creates a version for an external %s source as JSON', async (sourceType, source) => {
-      const request = { source_type: sourceType, source, status: SkillStatus.ACTIVE };
-
+      { source_type: 'git', source: 'https://github.com/acme/skills.git', status: SkillStatus.ACTIVE },
+      { source_type: 'oci', source: 'ghcr.io/acme/skills:v1', status: SkillStatus.ACTIVE },
+      { source_type: 'zip', source: 'https://example.com/skills.zip', status: SkillStatus.ACTIVE },
+    ] satisfies ExternalSkillVersionRequest[])('creates a version for an external source as JSON', async (request) => {
       await SkillRegistryApi.createSkillVersion('code-review', request);
 
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -228,13 +244,14 @@ describe('Skill Registry API', () => {
       const contentPart = body.get('content');
       expect(metadataPart).toBeInstanceOf(Blob);
       expect((metadataPart as Blob).type).toBe('application/json');
+      expect((metadataPart as File).name).toBe('metadata.json');
       expect(await readBlob(metadataPart as Blob)).toBe(JSON.stringify(metadata));
       expect(contentPart).toBeInstanceOf(Blob);
       expect((contentPart as Blob).type).toBe('application/gzip');
     });
 
     it('registers local content atomically and leaves the multipart boundary to the browser', async () => {
-      const metadata: RegisterSkillRequest = { name: 'code-review', status: SkillStatus.ACTIVE };
+      const metadata: RegisterUploadedSkillRequest = { name: 'code-review', status: SkillStatus.ACTIVE };
 
       await SkillRegistryApi.registerSkill(metadata, new Blob(['archive'], { type: 'application/gzip' }));
 
@@ -258,6 +275,22 @@ describe('Skill Registry API', () => {
       expect(url).toBe('ajax-api/3.0/mlflow/skills/@acme/code-review/versions');
       expect(options?.body).toBeInstanceOf(FormData);
       expect(new Headers(options?.headers).has('Content-Type')).toBe(false);
+    });
+
+    it.each([400, 409])('preserves the backend error message for a %s multipart failure', async (status) => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Skill registration failed' }), {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      await expect(
+        SkillRegistryApi.registerSkill(
+          { name: 'code-review', status: SkillStatus.ACTIVE },
+          new Blob(['archive'], { type: 'application/gzip' }),
+        ),
+      ).rejects.toThrow('Skill registration failed');
     });
   });
 });
