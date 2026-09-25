@@ -23,17 +23,6 @@ _uc_model_URI_PREFIX = "/Models/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
-# Keep in sync with the partition IDs in botocore/data/endpoints.json.
-_AWS_ARN_PARTITIONS = {
-    "aws",
-    "aws-cn",
-    "aws-eusc",
-    "aws-iso",
-    "aws-iso-b",
-    "aws-iso-e",
-    "aws-iso-f",
-    "aws-us-gov",
-}
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
@@ -99,17 +88,18 @@ def is_databricks_uri(uri):
 
 
 def is_sagemaker_mlflow_tracking_uri(uri: str) -> bool:
-    """Whether the URI is a SageMaker MLflow tracking-server ARN."""
+    """Whether the URI has the shape of a SageMaker MLflow tracking-server ARN."""
     parts = uri.split(":", 5)
+    if len(parts) != 6:
+        return False
+
+    resource_type, separator, resource_id = parts[5].partition("/")
     return (
-        len(parts) == 6
-        and parts[0] == "arn"
-        and parts[1] in _AWS_ARN_PARTITIONS
+        parts[0] == "arn"
         and parts[2] == "sagemaker"
-        and bool(parts[3])
-        and bool(parts[4])
-        and parts[5].startswith("mlflow-tracking-server/")
-        and len(parts[5]) > len("mlflow-tracking-server/")
+        and resource_type == "mlflow-tracking-server"
+        and separator == "/"
+        and bool(resource_id)
     )
 
 

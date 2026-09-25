@@ -955,9 +955,11 @@ def should_compute_cost_client_side() -> bool:
 
 def set_span_cost_attribute(span: LiveSpan) -> None:
     """
-    Set the cost attribute on a span using calculated cost information.
+    Set the calculated cost on a span unless a cost was already provided.
     """
     try:
+        if span.get_attribute(SpanAttributeKey.LLM_COST) is not None:
+            return
         if cost := calculate_span_cost(span):
             span.set_attribute(SpanAttributeKey.LLM_COST, cost)
     except Exception as e:
