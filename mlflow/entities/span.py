@@ -330,36 +330,16 @@ class Span:
 
         raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
 
-    def get(self, *args: Any, **kwargs: Any) -> NoReturn:
-        """Span objects do not support dict-style `.get()` access."""
-        item = args[0] if args else (kwargs.get("key") or kwargs.get("item"))
-        hint = ""
-        if isinstance(item, str):
-            if (
-                item.isidentifier()
-                and not item.startswith("_")
-                and item != "get"
-                and item in dir(self)
-            ):
-                hint = f" Use attribute access instead, e.g. `span.{item}`."
-            else:
-                try:
-                    attrs = getattr(self, "attributes", None)
-                    if isinstance(attrs, dict) and item in attrs:
-                        hint = (
-                            f" To access span attributes, use `span.get_attribute({item!r})` "
-                            f"or `span.attributes[{item!r}]`."
-                        )
-                except Exception:
-                    pass
-
-        if not hint:
-            hint = (
-                " Use attribute access instead, e.g. `span.inputs`, `span.outputs`, "
-                "or `span.attributes`."
+    def __getattr__(self, name: str) -> NoReturn:
+        # Only reached when normal lookup fails. Keeps `hasattr(span, "get")`
+        # False and makes `span.get` itself raise, unlike defining a real method.
+        if name == "get":
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute 'get'; a span is not a dict. "
+                "Use attribute access such as `span.name`, `span.inputs`, `span.outputs`, "
+                "or `span.attributes`, or `span.get_attribute(key)` for a span attribute."
             )
-
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute 'get'.{hint}")
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def get_attribute(self, key: str) -> Any | None:
         """
@@ -1424,7 +1404,10 @@ class LazySpan(Span):
 
     def __getattr__(self, name: str):
         self._ensure_materialized()
-        return object.__getattribute__(self, name)
+        try:
+            return object.__getattribute__(self, name)
+        except AttributeError:
+            return super().__getattr__(name)
 
     def __repr__(self):
         if self.__dict__.get("_materialized"):
