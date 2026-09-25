@@ -79,3 +79,26 @@ def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
 
         with pytest.raises(MlflowException, match="must be a valid integer"):
             psycopg3_store.search_experiments(filter_string="experiment_id = 'not-a-number'")
+
+
+def test_search_experiments_time_filter_binds_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"filter-{uuid.uuid4().hex}")
+        experiment = psycopg3_store.get_experiment(exp_id)
+
+        results = psycopg3_store.search_experiments(
+            filter_string=f"creation_time = {experiment.creation_time}"
+        )
+
+        assert exp_id in {experiment.experiment_id for experiment in results}
+
+
+def test_search_datasets_time_filter_binds_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        dataset = psycopg3_store.create_dataset(f"filter-{uuid.uuid4().hex}")
+
+        results = psycopg3_store.search_datasets(
+            filter_string=f"created_time = {dataset.created_time}"
+        )
+
+        assert dataset.dataset_id in {dataset.dataset_id for dataset in results}

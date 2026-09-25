@@ -685,6 +685,10 @@ class SqlAlchemyStore(AbstractStore):
                             f"Invalid comparator for attribute {key}: {comparator}",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
+                    if isinstance(value, float):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
                     try:
                         value = int(value)
                     except (TypeError, ValueError):
