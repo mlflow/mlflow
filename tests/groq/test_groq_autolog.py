@@ -16,6 +16,11 @@ from groq.types.chat.chat_completion import (
 import mlflow.groq
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.distributed import (
+    _get_tracing_headers_from_span,
+    set_tracing_context_from_http_request_headers,
+)
+from mlflow.tracing.utils import aggregate_usage_from_spans
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -116,6 +121,42 @@ def test_chat_completion_autolog(mock_litellm_cost):
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
+
+
+@pytest.mark.parametrize("user_headers", [None, {"X-Custom": "my-value"}])
+def test_tracing_headers_parent_gateway_span_without_double_counting(user_headers):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+    request = DUMMY_CHAT_COMPLETION_REQUEST.copy()
+    if user_headers is not None:
+        request["extra_headers"] = user_headers
+
+    with patch("groq._client.Groq.post", return_value=DUMMY_CHAT_COMPLETION_RESPONSE) as mock_post:
+        client.chat.completions.create(**request)
+
+    span = get_traces()[0].data.spans[0]
+    sent_headers = mock_post.call_args.kwargs["options"]["headers"]
+    # Stored spans do not retain the live sampling flag, so compare the trace and span IDs.
+    assert (
+        sent_headers["traceparent"].split("-")[:3]
+        == _get_tracing_headers_from_span(span)["traceparent"].split("-")[:3]
+    )
+    if user_headers is not None:
+        assert sent_headers["X-Custom"] == "my-value"
+    assert span.inputs.get("extra_headers") == user_headers
+
+    # A gateway span using the propagated context is a child, so its repeated usage is skipped.
+    with set_tracing_context_from_http_request_headers(sent_headers):
+        with mlflow.start_span("gateway") as gateway_span:
+            gateway_span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE, span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+            )
+
+    assert gateway_span.trace_id == span.trace_id
+    assert gateway_span.parent_id == span.span_id
+    assert aggregate_usage_from_spans([span, gateway_span]) == span.get_attribute(
+        SpanAttributeKey.CHAT_USAGE
+    )
 
 
 TOOLS = [
