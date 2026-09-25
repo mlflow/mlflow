@@ -704,32 +704,32 @@ def _validate_model_version(model_version):
         )
 
 
-def _validate_model_alias_name(model_alias_name):
-    if model_alias_name is None or model_alias_name == "":
+def _validate_alias_name(alias, resource_type="Registered model"):
+    if alias is None or alias == "":
         raise MlflowException(
-            "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
+            f"{resource_type} alias name cannot be empty.", INVALID_PARAMETER_VALUE
         )
-    if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
+    if not _REGISTERED_MODEL_ALIAS_REGEX.match(alias):
         raise MlflowException(
-            f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
+            f"Invalid alias name: '{alias}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
-        "Registered model alias name",
+        f"{resource_type} alias name",
         MAX_REGISTERED_MODEL_ALIAS_LENGTH,
-        model_alias_name,
+        alias,
     )
 
 
-def _validate_model_alias_name_reserved(model_alias_name):
-    if model_alias_name.lower() == "latest":
+def _validate_alias_name_reserved(alias):
+    if alias.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
             INVALID_PARAMETER_VALUE,
         )
-    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
+    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(alias):
         raise MlflowException(
-            f"Version alias name '{model_alias_name}' is reserved.",
+            f"Version alias name '{alias}' is reserved.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -798,8 +798,8 @@ def _validate_skill_version(version):
 
 
 def _validate_skill_alias(alias):
-    _validate_model_alias_name(alias)
-    _validate_model_alias_name_reserved(alias)
+    _validate_alias_name(alias, resource_type="Skill")
+    _validate_alias_name_reserved(alias)
 
 
 def _validate_skill_tag(key, value):

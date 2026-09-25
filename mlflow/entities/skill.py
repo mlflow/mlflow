@@ -34,6 +34,13 @@ class SkillStatus(str, Enum):
         return self.value
 
 
+VALID_SKILL_STATUS_TRANSITIONS: dict[SkillStatus, set[SkillStatus]] = {
+    SkillStatus.DRAFT: {SkillStatus.ACTIVE, SkillStatus.DELETED},
+    SkillStatus.ACTIVE: {SkillStatus.DRAFT, SkillStatus.DEPRECATED},
+    SkillStatus.DEPRECATED: {SkillStatus.ACTIVE, SkillStatus.DELETED},
+}
+
+
 def _aliases_to_dict(aliases: Any) -> dict[str, Any]:
     """Normalize an aliases payload to an ``{alias: version}`` dict.
 

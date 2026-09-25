@@ -56,8 +56,8 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _REGISTERED_MODEL_ALIAS_LATEST,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_model_version,
@@ -1510,8 +1510,8 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
-        _validate_model_alias_name_reserved(alias)
+        _validate_alias_name(alias)
+        _validate_alias_name_reserved(alias)
         version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1537,7 +1537,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
@@ -1557,7 +1557,7 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
 
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
             if versions := self.get_latest_versions(name):

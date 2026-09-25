@@ -15,6 +15,8 @@ from mlflow.utils.validation import (
     _find_destination_keys,
     _is_numeric,
     _parse_trace_archival_duration_config,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_db_type_string,
@@ -27,8 +29,6 @@ from mlflow.utils.validation import (
     _validate_list_param,
     _validate_mcp_icon_url,
     _validate_metric_name,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_param_name,
@@ -223,21 +223,21 @@ def test_validate_tag_name_bad(tag_name):
 
 
 @pytest.mark.parametrize("alias_name", GOOD_ALIAS_NAMES)
-def test_validate_model_alias_name_good(alias_name):
-    _validate_model_alias_name(alias_name)
+def test_validate_alias_name_good(alias_name):
+    _validate_alias_name(alias_name)
 
 
 @pytest.mark.parametrize("alias_name", BAD_ALIAS_NAMES)
-def test_validate_model_alias_name_bad(alias_name):
+def test_validate_alias_name_bad(alias_name):
     with pytest.raises(MlflowException, match="alias name") as e:
-        _validate_model_alias_name(alias_name)
+        _validate_alias_name(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.parametrize("alias_name", ["latest", "LATEST", "Latest", "v123", "V1"])
-def test_validate_model_alias_name_reserved(alias_name):
+def test_validate_alias_name_reserved(alias_name):
     with pytest.raises(MlflowException, match="reserved") as e:
-        _validate_model_alias_name_reserved(alias_name)
+        _validate_alias_name_reserved(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
