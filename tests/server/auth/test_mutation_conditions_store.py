@@ -207,6 +207,60 @@ def test_malformed_condition_rejected_on_update(store, role):
     assert store.get_mutation_conditions(role.id, "run").value_condition == "tag_key != 'a'"
 
 
+@pytest.mark.parametrize(
+    ("resource_type", "value_condition", "target_condition", "expected"),
+    [
+        ("run", "alias = 'champion'", None, "does not carry aliases"),
+        ("experiment", "alias LIKE 'dev-%'", None, "does not carry aliases"),
+        ("trace", None, "aliases.champion = '3'", "does not carry aliases"),
+        ("logged_model", None, "aliases.x = '1'", "does not carry aliases"),
+        (
+            "registered_model_version",
+            "alias = 'champion'",
+            None,
+            "condition the 'registered_model' resource type instead",
+        ),
+        (
+            "prompt_version",
+            None,
+            "aliases.champion = '3'",
+            "condition the 'prompt' resource type instead",
+        ),
+    ],
+)
+def test_alias_condition_rejected_for_a_type_without_aliases(
+    store, role, resource_type, value_condition, target_condition, expected
+):
+    """Parsing is not enough. An alias clause on a type that carries no aliases is
+    vacuous on the request side -- so the admin sees a saved restriction that can
+    never fire -- and denies every mutation on the resource side. Both are caught on
+    the way in, and nothing is persisted.
+    """
+    with pytest.raises(MlflowException, match=expected):
+        store.add_mutation_conditions(role.id, resource_type, value_condition, target_condition)
+    # Nothing was persisted: absence raises, per the store's convention.
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mutation_conditions(role.id, resource_type)
+
+
+def test_alias_condition_rejected_for_a_type_without_aliases_on_update(store, role):
+    """The update path validates too: an admin editing a legitimate tag condition into
+    an alias one must not slip past the check the add path applies.
+    """
+    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+    with pytest.raises(MlflowException, match="does not carry aliases"):
+        store.update_mutation_conditions(role.id, "run", "alias = 'champion'")
+    assert store.get_mutation_conditions(role.id, "run").value_condition == "tag_key != 'a'"
+
+
+def test_alias_condition_accepted_for_the_registry_entry_types(store, role):
+    for resource_type in ("registered_model", "prompt"):
+        created = store.add_mutation_conditions(
+            role.id, resource_type, "alias = 'champion'", "aliases.champion = '3'"
+        )
+        assert created.value_condition == "alias = 'champion'"
+
+
 def test_reserved_key_permitted_in_target_condition(store, role):
     """D4's other direction: reading current ``mlflow.*`` state is how an admin
     expresses "only prompts".

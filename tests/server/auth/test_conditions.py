@@ -8,10 +8,12 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.conditions import (
+    ALIAS_OWNING_RESOURCE_TYPES,
     ALLOWED_COMPARATORS,
     MAX_CLAUSES,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
+    SUPPORTED_RESOURCE_TYPES,
     Clause,
     ConditionContext,
     ConditionScope,
@@ -442,9 +444,70 @@ def test_validate_condition_rejects_malformed():
     open (unsafe) or deny every mutation (an outage).
     """
     with pytest.raises(MlflowException, match="OR is not supported"):
-        validate_condition("tag_key = 'a' OR tag_key = 'b'", NAMESPACE_REQUEST)
-    validate_condition("tag_key != 'a'", NAMESPACE_REQUEST)
-    validate_condition(None, NAMESPACE_RESOURCE)
+        validate_condition("tag_key = 'a' OR tag_key = 'b'", NAMESPACE_REQUEST, "run")
+    validate_condition("tag_key != 'a'", NAMESPACE_REQUEST, "run")
+    validate_condition(None, NAMESPACE_RESOURCE, "run")
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "condition", "namespace"),
+    [
+        ("run", "alias = 'champion'", NAMESPACE_REQUEST),
+        ("experiment", "alias LIKE 'dev-%'", NAMESPACE_REQUEST),
+        ("trace", "aliases.champion = '3'", NAMESPACE_RESOURCE),
+        ("logged_model", "aliases.x = '1'", NAMESPACE_RESOURCE),
+    ],
+)
+def test_validate_condition_rejects_alias_on_a_type_without_aliases(
+    resource_type, condition, namespace
+):
+    """An alias clause parses anywhere, but only two types carry aliases -- and the
+    two namespaces then fail in opposite directions. A request clause would be
+    vacuous under D20, so the restriction silently never fires and the admin
+    believes a protection is in force that is not. A resource clause would find
+    nothing, fail, and deny every mutation of the type. Refuse both on the way in.
+    """
+    with pytest.raises(MlflowException, match="does not carry aliases"):
+        validate_condition(condition, namespace, resource_type)
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "owner"),
+    [("registered_model_version", "registered_model"), ("prompt_version", "prompt")],
+)
+def test_validate_condition_points_a_version_alias_at_its_registry_entry(resource_type, owner):
+    """A version is the one case an admin plausibly expects to work, since the route
+    that sets an alias names a version (D18). The error has to say where the
+    condition belongs, not merely that it is wrong.
+    """
+    with pytest.raises(MlflowException, match=f"condition the '{owner}' resource type instead"):
+        validate_condition("alias = 'champion'", NAMESPACE_REQUEST, resource_type)
+    with pytest.raises(MlflowException, match=f"condition the '{owner}' resource type instead"):
+        validate_condition("aliases.champion = '3'", NAMESPACE_RESOURCE, resource_type)
+
+
+@pytest.mark.parametrize("resource_type", sorted(ALIAS_OWNING_RESOURCE_TYPES))
+def test_validate_condition_allows_alias_on_the_types_that_own_one(resource_type):
+    validate_condition("alias = 'champion'", NAMESPACE_REQUEST, resource_type)
+    validate_condition("aliases.champion = '3'", NAMESPACE_RESOURCE, resource_type)
+
+
+@pytest.mark.parametrize("resource_type", sorted(SUPPORTED_RESOURCE_TYPES))
+def test_validate_condition_allows_tags_on_every_supported_type(resource_type):
+    """Only aliases need the cross-check: every supported type carries tags, so a
+    tag condition must never be refused on type grounds.
+    """
+    validate_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST, resource_type)
+    validate_condition("tags.lifecycle = 'dev'", NAMESPACE_RESOURCE, resource_type)
+
+
+def test_validate_condition_requires_a_resource_type():
+    """The cross-check is not optional. A caller that could omit the resource type
+    would persist a condition that silently never fires, which is the failure this
+    validation exists to prevent -- so there is deliberately no default.
+    """
+    with pytest.raises(TypeError, match="resource_type"):
+        validate_condition("alias = 'champion'", NAMESPACE_REQUEST)
 
 
 def test_clause_describe_round_trips_readably():

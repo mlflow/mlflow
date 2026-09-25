@@ -121,6 +121,11 @@ SUPPORTED_RESOURCE_TYPES = frozenset({
 #: would let one alias be governed under two different resource types.
 ALIAS_OWNING_RESOURCE_TYPES = frozenset({"registered_model", "prompt"})
 
+#: The version types, named so an alias condition mistakenly placed on one can say
+#: which registry entry to condition instead. Kept beside the constant above because
+#: the two encode the same fact about where an alias lives.
+_VERSION_RESOURCE_TYPES = frozenset({"registered_model_version", "prompt_version"})
+
 
 def validate_condition_resource_type(resource_type: str) -> None:
     """Reject a resource type that no condition could govern.
@@ -548,15 +553,69 @@ def parse_condition(filter_string: str | None, namespace: str) -> tuple[Clause, 
     return clauses
 
 
-def validate_condition(filter_string: str | None, namespace: str) -> None:
-    """Write-time validation hook. Raises if the string will not parse.
+def _validate_clauses_for_resource_type(
+    clauses: tuple[Clause, ...], namespace: str, resource_type: str
+) -> None:
+    """Reject a clause whose identifier the resource type cannot carry.
+
+    Parsing alone is not enough: ``alias = 'champion'`` is well-formed but
+    meaningless on a run, and the two namespaces then fail in *opposite*
+    directions. A request clause on an absent value is vacuous (D20), so the
+    restriction silently never fires and the admin believes a protection is in
+    force that is not -- the same fail-open hazard the supported-type check exists
+    to prevent. A resource clause on an absent value fails, so it denies every
+    mutation of that type instead. Neither is a condition anyone would author on
+    purpose, so both are refused here rather than surfacing later as a phantom
+    restriction or an outage.
+
+    Only aliases need checking: every supported type carries tags.
+    """
+    if resource_type in ALIAS_OWNING_RESOURCE_TYPES:
+        return
+
+    alias_identifier = (
+        REQUEST_IDENTIFIER_ALIAS if namespace == NAMESPACE_REQUEST else RESOURCE_PREFIX_ALIASES
+    )
+    if not any(clause.identifier == alias_identifier for clause in clauses):
+        return
+
+    # A version is the one case an admin plausibly expects to work: the route that
+    # sets an alias names a version, so say where the condition belongs instead.
+    if resource_type in _VERSION_RESOURCE_TYPES:
+        owner = "prompt" if resource_type == "prompt_version" else "registered_model"
+        raise MlflowException(
+            f"Condition identifier '{alias_identifier}' is not valid for resource type "
+            f"'{resource_type}'. An alias is stored on the registry entry rather than on a "
+            f"version, so condition the '{owner}' resource type instead -- a version's alias "
+            f"list names aliases owned by its parent, and gating the version on them would "
+            f"let one alias be governed under two different resource types.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    raise MlflowException(
+        f"Condition identifier '{alias_identifier}' is not valid for resource type "
+        f"'{resource_type}', which does not carry aliases. Only "
+        f"{sorted(ALIAS_OWNING_RESOURCE_TYPES)} do. Use a tag condition instead: an alias "
+        f"condition here would never restrict anything, or would deny every mutation of "
+        f"this type.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
+def validate_condition(filter_string: str | None, namespace: str, resource_type: str) -> None:
+    """Write-time validation hook. Raises if the condition could not govern.
 
     Called by the store so a malformed condition can never be persisted -- a
     condition that fails to parse at *evaluation* time would have to either
     fail open (unsafe) or deny every mutation (an outage), so the only good place
     to catch it is on the way in.
+
+    ``resource_type`` is required rather than defaulted: a caller that forgets it
+    would persist a condition that silently never fires, so there is deliberately
+    no way to ask for the parse without the cross-check.
     """
-    parse_condition(filter_string, namespace)
+    clauses = parse_condition(filter_string, namespace)
+    _validate_clauses_for_resource_type(clauses, namespace, resource_type)
 
 
 # ---------------------------------------------------------------------------

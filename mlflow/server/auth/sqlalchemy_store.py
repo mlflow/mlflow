@@ -2011,8 +2011,8 @@ class SqlAlchemyStore:
         # Validate here, not at evaluation time. A condition that failed to parse
         # mid-request would have to either fail open (unsafe) or deny every mutation
         # (an outage), so the only good place to catch it is on the way in.
-        validate_condition(value_condition, NAMESPACE_REQUEST)
-        validate_condition(target_condition, NAMESPACE_RESOURCE)
+        validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
+        validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
             try:
@@ -2086,10 +2086,10 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker(read_only=False) as session:
             mc = self._get_mutation_conditions(session, role_id, resource_type)
             if update_value_condition:
-                validate_condition(value_condition, NAMESPACE_REQUEST)
+                validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
                 mc.value_condition = value_condition
             if update_target_condition:
-                validate_condition(target_condition, NAMESPACE_RESOURCE)
+                validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
                 mc.target_condition = target_condition
             return mc.to_mlflow_entity()
 
