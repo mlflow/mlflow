@@ -1,5 +1,6 @@
 import inspect
 import io
+import math
 import sys
 from unittest import mock
 
@@ -359,6 +360,33 @@ def test_ndcg_at_k():
     targets = pd.Series([["a", "b"]])
     result = ndcg_at_k(k=3).eval_fn(predictions, targets)
     assert result.scores[0] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("predictions", "targets", "expected"),
+    [
+        (["a", "a", "z"], ["a_bc574ae_2"], 0.0),
+        (["a", "a", "a"], ["a_bc574ae_3"], 0.0),
+        (["a", "a_bc574ae_2", "a"], ["a"], 1.5 / (1 + 1 / math.log2(3))),
+        (["a", "a", "a_bc574ae_2"], ["a_bc574ae_2"], 0.5),
+        ([7, 7, "7_bc574ae_2"], ["7_bc574ae_2"], 0.5),
+        (["7", 7, "7"], [7], 1 / math.log2(3)),
+        (["a_bc574ae_2", "a_bc574ae_2", "z"], ["a_bc574ae_2_bc574ae_2"], 0.0),
+        (["a", "a", "a_bc574ae_2"], ["a", "a_bc574ae_2"], 1.0),
+    ],
+)
+def test_ndcg_at_k_preserves_relevance_when_ids_are_renamed(predictions, targets, expected):
+    document_ids = dict.fromkeys(predictions + targets)
+    renamed_ids = {doc_id: f"doc-{i}" for i, doc_id in enumerate(document_ids)}
+    renamed_predictions = [renamed_ids[doc_id] for doc_id in predictions]
+    renamed_targets = [renamed_ids[doc_id] for doc_id in targets]
+
+    result = ndcg_at_k(len(predictions)).eval_fn(
+        pd.Series([predictions, renamed_predictions]),
+        pd.Series([targets, renamed_targets]),
+    )
+
+    assert result.scores == pytest.approx([expected, expected])
 
 
 def test_bleu():
