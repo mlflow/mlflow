@@ -830,9 +830,9 @@ def test_search_model_versions(store):
     with pytest.raises(
         MlflowException,
         match=r"Invalid value for numeric attribute 'version_number': 1.5",
-    ) as exception_context:
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
         search_versions("version_number=1.5")
-    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # search using run_id_1 should return version 1
     assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
