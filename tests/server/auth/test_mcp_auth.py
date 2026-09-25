@@ -7,13 +7,20 @@ from pathlib import Path
 
 import httpx
 import pytest
+import requests
 from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from fastmcp.exceptions import ToolError
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY, MLFLOW_SERVER_ENABLE_MCP
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_RBAC_SEED_DEFAULT_ROLES,
+    MLFLOW_SERVER_ENABLE_MCP,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.server import collect_category_tools
 from mlflow.mcp.server_app import LOCAL_EXECUTION_TOOLS, SERVER_MCP_TOOL_CATEGORIES
@@ -26,6 +33,7 @@ from mlflow.server.auth.mcp_tools import (
 )
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests.server.auth.auth_test_utils import (
     ADMIN_PASSWORD,
@@ -97,13 +105,25 @@ def unauthenticated_mcp_server(tmp_path):
         yield url
 
 
-def _mcp_client(url: str, credentials: tuple[str, str] | None, path: str = "/mcp") -> Client:
+def _mcp_client(
+    url: str,
+    credentials: tuple[str, str] | None,
+    path: str = "/mcp",
+    workspace: str | None = None,
+) -> Client:
     auth = httpx.BasicAuth(*credentials) if credentials else None
-    return Client(StreamableHttpTransport(f"{url}{path}", auth=auth))
+    headers = {WORKSPACE_HEADER_NAME: workspace} if workspace else None
+    return Client(StreamableHttpTransport(f"{url}{path}", auth=auth, headers=headers))
 
 
-async def _call(url: str, credentials: tuple[str, str] | None, tool: str, **arguments) -> str:
-    async with _mcp_client(url, credentials) as client:
+async def _call(
+    url: str,
+    credentials: tuple[str, str] | None,
+    tool: str,
+    workspace: str | None = None,
+    **arguments,
+) -> str:
+    async with _mcp_client(url, credentials, workspace=workspace) as client:
         result = await client.call_tool(tool, arguments)
     return result.content[0].text
 
@@ -288,6 +308,75 @@ async def test_static_prefix_route_is_authenticated_and_authorized(mcp_server, m
         assert "exp-a" in result.content[0].text
         with pytest.raises(ToolError, match="^Permission denied$"):
             await client.call_tool("get_experiment", {"experiment_id": exp_b})
+
+
+# --------------------------------------------------------------------------- workspaces
+
+
+@pytest.fixture
+def workspace_mcp_server(tmp_path):
+    backend_uri = _backend_uri(tmp_path)
+    extra_env = {
+        MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+        "MLFLOW_AUTH_CONFIG_PATH": str(_write_auth_config(tmp_path)),
+        "_MLFLOW_SGI_NAME": "uvicorn",
+        MLFLOW_SERVER_ENABLE_MCP.name: "true",
+        MLFLOW_ENABLE_WORKSPACES.name: "true",
+        MLFLOW_WORKSPACE_STORE_URI.name: backend_uri,
+        MLFLOW_RBAC_SEED_DEFAULT_ROLES.name: "true",
+    }
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
+    ) as url:
+        yield url
+
+
+def _create_workspace(url: str, name: str) -> None:
+    requests.post(
+        f"{url}/api/3.0/mlflow/workspaces", json={"name": name}, auth=ADMIN
+    ).raise_for_status()
+
+
+def _create_experiment_in_workspace(url: str, workspace: str, name: str) -> str:
+    response = requests.post(
+        f"{url}/api/2.0/mlflow/experiments/create",
+        json={"name": name},
+        auth=ADMIN,
+        headers={WORKSPACE_HEADER_NAME: workspace},
+    )
+    response.raise_for_status()
+    return response.json()["experiment_id"]
+
+
+@pytest.mark.asyncio
+async def test_workspace_header_scopes_tool_results_and_permission_checks(workspace_mcp_server):
+    url = workspace_mcp_server
+    _create_workspace(url, "ws-a")
+    _create_workspace(url, "ws-b")
+    exp_a = _create_experiment_in_workspace(url, "ws-a", "exp-in-a")
+    exp_b = _create_experiment_in_workspace(url, "ws-b", "exp-in-b")
+    username, password = create_user(url)
+    grant_role_permission(url, username, "experiment", exp_a, "READ", workspace="ws-a")
+    reader = (username, password)
+
+    # (a) The header selects the workspace the tools and the permission checks run in.
+    text = await _call(url, reader, "get_experiment", workspace="ws-a", experiment_id=exp_a)
+    assert "exp-in-a" in text
+    listing = await _call(url, reader, "search_experiments", workspace="ws-a")
+    assert "exp-in-a" in listing
+    assert "exp-in-b" not in listing
+    assert "exp-in-a" not in await _call(url, reader, "search_experiments", workspace="ws-b")
+
+    # (b) The grant lives in workspace A: the same experiment id addressed through workspace B
+    # is denied, as is an experiment that belongs to another workspace.
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(url, reader, "get_experiment", workspace="ws-b", experiment_id=exp_a)
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(url, reader, "get_experiment", workspace="ws-a", experiment_id=exp_b)
 
 
 def test_find_fastapi_validator_resolves_the_mcp_path_under_a_static_prefix(monkeypatch):

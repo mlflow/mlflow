@@ -1,0 +1,193 @@
+---
+title: Remote MCP Server
+description: Serve the MLflow MCP tools over HTTP from the tracking server so AI assistants and coding tools can reach a shared MLflow deployment without a local MLflow install, with basic-auth authentication and per-tool authorization.
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Remote MCP Server
+
+:::info
+
+- This feature is experimental and may change in future releases.
+- It requires the default uvicorn server and the `mcp` extra (`pip install 'mlflow[mcp]'`) on the tracking server host.
+
+:::
+
+The [MLflow MCP server](/genai/mcp) normally runs on your machine over stdio, started by your MCP client with `mlflow mcp run`. The tracking server can serve the same tools itself over the [Streamable HTTP](https://modelcontextprotocol.io/specification/latest/basic/transports#streamable-http) transport at `/mcp`. A team then connects any MCP client to one shared URL: no local MLflow install, no tracking URI to configure per client, and, with the basic-auth app, one set of credentials and permissions for both the REST API and the tools.
+
+## Enabling the endpoint
+
+The endpoint is off by default. Enable it with the `--enable-mcp` flag or the `MLFLOW_SERVER_ENABLE_MCP` environment variable:
+
+<Tabs>
+  <TabItem label="Flag" value="flag">
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db --enable-mcp
+```
+
+  </TabItem>
+  <TabItem label="Environment variable" value="env">
+
+```bash
+export MLFLOW_SERVER_ENABLE_MCP=true
+mlflow server --backend-store-uri sqlite:///mlflow.db
+```
+
+  </TabItem>
+</Tabs>
+
+Requirements and limits:
+
+- **uvicorn only.** The endpoint is an ASGI app on the FastAPI wrapper, which only the default uvicorn server runs. `--enable-mcp` is rejected together with `--gunicorn-opts` or `--waitress-opts`.
+- **Tracking store required.** `--enable-mcp` is rejected together with `--artifacts-only`.
+- **`fastmcp` installed on the server.** Install MLflow with the `mcp` extra on the host that runs `mlflow server`. The server fails at startup with a clear error otherwise.
+
+## Endpoint URL
+
+The endpoint answers on `/mcp` under the server's base URL, for example `http://localhost:5000/mcp`. When the server runs with `--static-prefix`, the prefix applies: with `--static-prefix /mlflow` the URL is `http://localhost:5000/mlflow/mcp`. Use the path without a trailing slash.
+
+The tools operate on the server's own backend store, so no tracking URI is configured on the client.
+
+## Connecting a client
+
+<Tabs>
+  <TabItem label="Claude Code" value="claude-code">
+
+```bash
+claude mcp add --transport http mlflow http://localhost:5000/mcp
+```
+
+With the basic-auth app active, pass the credentials as a header (the value is the base64 encoding of `username:password`):
+
+```bash
+claude mcp add --transport http mlflow http://localhost:5000/mcp \
+  --header "Authorization: Basic $(printf '%s' 'alice:secret' | base64)"
+```
+
+  </TabItem>
+  <TabItem label="Claude Desktop" value="claude-desktop">
+
+Claude Desktop connects to remote MCP servers through **Settings → Connectors → Add custom connector**, where you enter the endpoint URL. For a server behind basic auth, or on plans without custom connectors, bridge the HTTP endpoint through the `mcp-remote` package in `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mlflow": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:5000/mcp",
+        "--header",
+        "Authorization: Basic ${MLFLOW_BASIC_AUTH}"
+      ],
+      "env": {
+        "MLFLOW_BASIC_AUTH": "<base64 of username:password>"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem label="Cursor" value="cursor">
+
+Add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mlflow": {
+      "url": "http://localhost:5000/mcp",
+      "headers": {
+        "Authorization": "Basic <base64 of username:password>"
+      }
+    }
+  }
+}
+```
+
+Omit `headers` when the server runs without the basic-auth app.
+
+  </TabItem>
+  <TabItem label="Python" value="python">
+
+```python
+import asyncio
+
+import httpx
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+
+async def main():
+    transport = StreamableHttpTransport(
+        "http://localhost:5000/mcp",
+        # Only needed with the basic-auth app.
+        auth=httpx.BasicAuth("alice", "secret"),
+    )
+    async with Client(transport) as client:
+        for tool in await client.list_tools():
+            print(tool.name)
+        result = await client.call_tool("search_experiments", {"max_results": 5})
+        print(result.content[0].text)
+
+
+asyncio.run(main())
+```
+
+  </TabItem>
+</Tabs>
+
+## Served tools
+
+The endpoint serves the `traces`, `scorers`, `experiments` and `runs` categories. The `MLFLOW_MCP_TOOLS` variable that selects categories for `mlflow mcp run` does not apply to the endpoint.
+
+| Category    | Tools                                                                                                                                                                                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Experiments | `create_experiment`, `get_experiment`, `search_experiments`, `rename_experiment`, `update_experiment`, `delete_experiment`, `restore_experiment`                                                                                                                             |
+| Runs        | `create_run`, `describe_run`, `list_runs`, `delete_run`, `restore_run`, `link_traces_to_run`                                                                                                                                                                                 |
+| Traces      | `search_traces`, `get_trace`, `delete_traces`, `set_trace_tag`, `delete_trace_tag`, `log_trace_feedback`, `log_trace_expectation`, `get_trace_assessment`, `update_trace_assessment`, `delete_trace_assessment`                                                              |
+| Scorers     | `list_scorers`, `register_llm_judge_scorer`                                                                                                                                                                                                                                  |
+
+Two groups of tools available to `mlflow mcp run` are deliberately not served, because they execute work on the machine running the MCP server, which over HTTP is the tracking server host:
+
+- **`evaluate_traces`** runs scorers, including LLM judges, in the server process using the server's environment and API credentials. Serving it would let any caller with update rights on an experiment spend those credentials.
+- **The `models` and `deployments` categories** build Docker images, start local model servers and spawn subprocesses.
+
+Both remain available on the stdio server, where the process belongs to the caller.
+
+## Authentication and authorization
+
+Without the [basic-auth app](/self-hosting/security/basic-http-auth), the endpoint is open to anyone who can reach the server, exactly like the REST API.
+
+With `--app-name basic-auth`, the endpoint is protected by the same permission middleware as the other native server routes:
+
+- **Authentication.** Every request needs HTTP basic credentials of an MLflow user. Missing or wrong credentials get the same `401` challenge as the REST API.
+- **Per-tool authorization.** One path carries every tool, so the route only authenticates and each tool call is authorized against the resource it touches, with the permission the corresponding tracking operation requires. `get_experiment` needs `READ` on the experiment, `set_trace_tag` needs `EDIT` on the trace's experiment (resolved from the trace id), `delete_run` needs `MANAGE` on the run's experiment, and so on. A call the user is not allowed to make fails with a `Permission denied` tool error that does not reveal whether the resource exists.
+- **Filtered searches.** `search_experiments` returns only the experiments the user can read, filling `max_results` from readable rows the way the REST search does.
+- **Admins** bypass authorization, as with the REST API.
+- **Workspaces.** When [workspaces](/self-hosting/workspaces/getting-started) are enabled, send the `X-MLFLOW-WORKSPACE` header with the MCP request. Tool results and permission checks are scoped to that workspace.
+
+Permissions are managed the same way as for the REST API; see [Role-Based Access Control](/self-hosting/security/role-based-access-control).
+
+## Deploying beyond localhost
+
+The endpoint sits behind the server's [security middleware](/self-hosting/architecture/tracking-server#built-in-security-middleware). A server reached under a real hostname must allow it, or MCP requests are rejected along with everything else:
+
+```bash
+mlflow server --host 0.0.0.0 --enable-mcp \
+  --allowed-hosts mlflow.example.com \
+  --app-name basic-auth
+```
+
+Terminate TLS in front of the server before sending basic-auth credentials over a network.
+
+## Related Documentation
+
+- [MLflow MCP Server (stdio)](/genai/mcp)
+- [Tracking Server](/self-hosting/architecture/tracking-server)
+- [Basic Auth](/self-hosting/security/basic-http-auth)
+- [Model Context Protocol Specification](https://modelcontextprotocol.io/)

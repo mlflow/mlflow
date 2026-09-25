@@ -13,6 +13,8 @@ from mlflow.mcp.request_context import MCP_REQUEST_USERNAME
 from mlflow.mcp.server import collect_category_tools, create_mcp
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server.handlers import _get_tracking_store
+from mlflow.telemetry.events import McpRunEvent
+from mlflow.telemetry.track import _record_event
 
 if TYPE_CHECKING:
     from fastmcp.tools import FunctionTool
@@ -144,6 +146,8 @@ def create_server_mcp_app(path: str, tool_policy: McpToolPolicy | None = None) -
         tools = [_authorized_tool(tool, tool_policy) for tool in tools]
 
     mcp = create_mcp(tools=tools)
+    # Same event as ``mlflow mcp run``; the marker tells the two transports apart.
+    _record_event(McpRunEvent, {"context": "server"})
     app = mcp.http_app(path=path, stateless_http=True, transport="streamable-http")
     app.state.identity_app = _McpRequestIdentity(app)
     return app

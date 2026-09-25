@@ -27,6 +27,12 @@ The MLflow MCP server exposes all MLflow trace management operations through the
 
 This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your LLM applications and AI agents.
 
+:::tip
+
+The `mlflow mcp run` command described here runs the MCP server locally over stdio. A tracking server can also serve the same tools over HTTP, so a shared server is reachable from any MCP client without a local MLflow install. See [Remote MCP Server](/genai/mcp/remote-server).
+
+:::
+
 ## Prerequisites
 
 - MLflow version 3.5.1 or newer
@@ -293,6 +299,7 @@ export MLFLOW_MCP_TOOLS="traces,scorers,experiments"
 
 ## Related Documentation
 
+- [Remote MCP Server](/genai/mcp/remote-server)
 - [MLflow Tracing Overview](/genai/tracing/quickstart)
 - [Collecting User Feedback](/genai/assessments/feedback)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)
