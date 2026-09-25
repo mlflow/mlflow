@@ -1,4 +1,5 @@
 import { fetchAPI, getAjaxUrl, HTTPMethods } from '../common/utils/FetchUtils';
+import { buildSearchParams } from '../common/utils/SearchUtils';
 import type {
   MCPServer,
   MCPServerVersion,
@@ -20,24 +21,6 @@ import type {
 } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
-
-function buildSearchParams(params: Record<string, string | number | string[] | undefined>): string {
-  const searchParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined) {
-      continue;
-    }
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        searchParams.append(key, item);
-      }
-    } else {
-      searchParams.append(key, String(value));
-    }
-  }
-  const queryString = searchParams.toString();
-  return queryString ? `?${queryString}` : '';
-}
 
 // MCP Server endpoints
 

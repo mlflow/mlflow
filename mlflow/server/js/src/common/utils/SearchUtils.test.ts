@@ -1,5 +1,22 @@
 import { describe, it, expect } from '@jest/globals';
-import { buildSearchFilterClause } from './SearchUtils';
+import { buildSearchFilterClause, buildSearchParams } from './SearchUtils';
+
+describe('buildSearchParams', () => {
+  it('serializes scalar and repeated parameters and omits undefined values', () => {
+    expect(
+      buildSearchParams({
+        filter_string: "status = 'active'",
+        max_results: 25,
+        order_by: ['name ASC', 'version DESC'],
+        page_token: undefined,
+      }),
+    ).toBe('?filter_string=status+%3D+%27active%27&max_results=25&order_by=name+ASC&order_by=version+DESC');
+  });
+
+  it('returns an empty string when no parameters are defined', () => {
+    expect(buildSearchParams({ page_token: undefined })).toBe('');
+  });
+});
 
 describe('buildSearchFilterClause', () => {
   it('returns undefined for undefined input', () => {
