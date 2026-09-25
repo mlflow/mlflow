@@ -963,6 +963,7 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
                 index=pf_input.index,
                 name=x,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -992,6 +993,7 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
                 index=pf_input.index,
                 name=name,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 

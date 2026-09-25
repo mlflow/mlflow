@@ -2762,6 +2762,22 @@ def test_pyfunc_model_preserves_nondefault_dataframe_index(complex_type, values,
 
 
 @pytest.mark.parametrize("named", [False, True])
+def test_pyfunc_model_preserves_nondefault_dataframe_index_scalar_only(named):
+    df = pd.DataFrame(
+        {"scalar": [1, 2, 3, 4]},
+        index=pd.Index(["first", "second", "third", "fourth"], name="row_id"),
+        dtype=np.int32,
+    )
+    filtered_df = df.iloc[2:]
+    schema = Schema([ColSpec(DataType.double, name="scalar" if named else None)])
+    model = Model()
+    model.signature = ModelSignature(inputs=schema)
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    pd.testing.assert_frame_equal(pyfunc_model.predict(filtered_df), filtered_df.astype(float))
+
+
+@pytest.mark.parametrize("named", [False, True])
 def test_loaded_pyfunc_model_preserves_nondefault_dataframe_index(tmp_path, named):
     class IdentityModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
