@@ -48,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         option: [--testPathPattern, --testPathIgnorePatterns]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     defaults:
       run:
         working-directory: mlflow/server/js
