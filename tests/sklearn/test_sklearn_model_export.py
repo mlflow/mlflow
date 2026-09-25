@@ -684,6 +684,14 @@ def test_model_log_uses_skops_serialization_format_by_default(sklearn_logreg_mod
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
+def test_get_default_serialization_format_in_databricks():
+    expected = mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    with mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=True):
+        assert mlflow.sklearn._get_default_serialization_format() == expected
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        assert mlflow.sklearn._get_default_serialization_format() == expected
+
+
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
     sklearn_knn_model, model_path
 ):
@@ -835,7 +843,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.11.15
+    python_version: 3.11.16
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -849,7 +857,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.11.15
+python: 3.11.16
 build_dependencies:
    - pip==25.1.1
    - setuptools==80.4.0

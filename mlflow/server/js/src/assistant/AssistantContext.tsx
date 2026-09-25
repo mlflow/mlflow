@@ -34,7 +34,8 @@ import {
   type SendMessageStreamResult,
 } from './AssistantService';
 import { getClientToolHandler } from './clientToolHandlers';
-import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from '@databricks/web-shared/hooks';
+import { useCurrentUserQuery } from '../account/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GATEWAY_PROVIDER_ID } from './constants';
 
@@ -279,6 +280,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
 
+  // Namespace the persisted transcript by the authenticated user so a shared browser origin never
+  // shows one user's conversation to the next. When auth is off there is no username and all traffic
+  // is the single local operator, so the base key is used.
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUserQuery();
+  const chatStorageKey = currentUser?.user?.username
+    ? `${CHAT_STORAGE_KEY_BASE}.${currentUser.user.username}`
+    : CHAT_STORAGE_KEY_BASE;
+
   // Panel state - persisted to localStorage
   const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
     key: 'mlflow.assistant.panelOpen',
@@ -286,16 +295,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     initialValue: false,
   });
 
-  // Conversation - persisted to localStorage so it survives reloads as a single conversation.
-  const [persistedChat, setPersistedChat] = useLocalStorage<PersistedChat>({
-    key: CHAT_STORAGE_KEY_BASE,
-    version: CHAT_STORAGE_VERSION,
-    initialValue: { messages: [], tokenUsage: EMPTY_TOKEN_USAGE },
-  });
-
-  // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
+  // Chat state - messages/tokenUsage are seeded from the current user's persisted conversation
+  // once their identity is known (see the seeding block below), not synchronously at mount, so a
+  // shared browser never paints the previous user's transcript before identity resolves.
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
@@ -305,7 +309,22 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [pendingComposerFocus, setPendingComposerFocus] = useState(false);
   const [pendingAutomaticMessage, setPendingAutomaticMessage] = useState<PendingAutomaticMessage | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => normalizeTokenUsage(persistedChat.tokenUsage));
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(EMPTY_TOKEN_USAGE);
+  const [seededChatKey, setSeededChatKey] = useState<string | null>(null);
+
+  // Seed (and re-seed on identity change) the transcript from the CURRENT user's own storage key.
+  // Done during render, before paint, so a shared browser never shows the previous user's messages;
+  // useLocalStorage reads its key only once and cannot react to a live identity switch, so read the
+  // per-user key directly here. The ref-guard makes this run once per identity.
+  if (!isCurrentUserLoading && seededChatKey !== chatStorageKey) {
+    const persisted = getLocalStorageItem<PersistedChat>(chatStorageKey, CHAT_STORAGE_VERSION, false, {
+      messages: [],
+      tokenUsage: EMPTY_TOKEN_USAGE,
+    });
+    setSeededChatKey(chatStorageKey);
+    setMessages(reviveMessages(persisted.messages));
+    setTokenUsage(normalizeTokenUsage(persisted.tokenUsage));
+  }
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -658,8 +677,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (isStreaming) {
       return;
     }
-    setPersistedChat({ messages: trimForStorage(messages), tokenUsage });
-  }, [isStreaming, messages, tokenUsage, setPersistedChat]);
+    // Only persist once the transcript has been seeded for the current identity, so the
+    // identity-loading window (empty messages) cannot clobber a stored conversation, and a
+    // live identity switch cannot write the previous user's messages to the new user's key.
+    if (seededChatKey !== chatStorageKey) {
+      return;
+    }
+    setLocalStorageItem<PersistedChat>(chatStorageKey, CHAT_STORAGE_VERSION, false, {
+      messages: trimForStorage(messages),
+      tokenUsage,
+    });
+  }, [isStreaming, messages, tokenUsage, chatStorageKey, seededChatKey]);
 
   const failStreamingTurn = useCallback(
     (errorMsg: string, code?: string) => {
@@ -833,7 +861,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const requestComposerFocus = useCallback(() => setPendingComposerFocus(true), []);
   const clearComposerFocusRequest = useCallback(() => setPendingComposerFocus(false), []);
 
-  const reset = useCallback(() => {
+  // Tear down the active session boundary (the backend session id, any in-flight stream, and the
+  // per-turn state) without touching the persisted transcript. Shared by `reset()`, which also
+  // clears the transcript, and by the identity-change effect below, which must keep the transcript
+  // it just seeded for the new user.
+  const resetSessionBoundary = useCallback(() => {
     // Invalidate any in-flight send still awaiting its POST: its captured token no longer matches,
     // so its guarded callbacks no-op and its EventSource is closed when the await resolves.
     activeRequestRef.current = null;
@@ -847,14 +879,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       rafPendingRef.current = null;
     }
     setSessionId(null);
-    setMessages([]);
     setIsStreaming(false);
     setError(null);
     setErrorCode(null);
     setCurrentStatus(null);
     setActiveTools([]);
-    setTokenUsage(EMPTY_TOKEN_USAGE);
-    setPersistedChat({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE });
     openTextBufferRef.current = '';
     setPendingPermission(null);
     setPendingClientToolCall(null);
@@ -863,7 +892,39 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPendingAutomaticMessage(null);
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
-  }, [setPersistedChat]);
+  }, []);
+
+  const reset = useCallback(() => {
+    resetSessionBoundary();
+    setMessages([]);
+    setTokenUsage(EMPTY_TOKEN_USAGE);
+    setLocalStorageItem<PersistedChat>(chatStorageKey, CHAT_STORAGE_VERSION, false, {
+      messages: [],
+      tokenUsage: EMPTY_TOKEN_USAGE,
+    });
+  }, [resetSessionBoundary, chatStorageKey]);
+
+  // On a live identity switch (a different user becomes active without a page reload) the seed block
+  // above re-seeds the transcript for the new user, but the backend session id and any active stream
+  // still belong to the previous user, so the next send could continue the previous user's Assistant
+  // session. Reset the session boundary (not the just-seeded transcript) whenever the resolved
+  // identity changes. Gated on a resolved identity like the seed block, so the loading-to-resolved
+  // transition on a cold load is not mistaken for a switch: the first resolved identity becomes the
+  // baseline with no prior session to tear down.
+  const previousChatKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isCurrentUserLoading) {
+      return;
+    }
+    const previousChatKey = previousChatKeyRef.current;
+    previousChatKeyRef.current = chatStorageKey;
+    if (previousChatKey !== null && previousChatKey !== chatStorageKey) {
+      resetSessionBoundary();
+      // Drop a prompt the previous user prefilled into the composer so it never surfaces for the new
+      // user. reset() keeps pendingPrompt for its own new-session prefill flow, so clear it only here.
+      setPendingPrompt(null);
+    }
+  }, [chatStorageKey, isCurrentUserLoading, resetSessionBoundary]);
 
   const startChat = useCallback(
     async (prompt?: string) => {
