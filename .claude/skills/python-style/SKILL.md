@@ -1,10 +1,11 @@
 ---
-paths: "**/*.py"
+name: python-style
+description: Python coding and testing conventions for MLflow. Use when writing, modifying, or reviewing Python source files and tests in this repository.
 ---
 
 # Python Style Guide
 
-This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
+This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
 
 ## Avoid Redundant Docstrings
 
@@ -296,6 +297,35 @@ def test_list_items():
     assert len(items) == 3
 ```
 
+## Prefer Polling Over Static Sleeps in Tests
+
+When a test waits for an asynchronous condition, poll for it with a bounded timeout. A fixed sleep slows down fast runs and can be too short on slow machines.
+
+```python
+# Bad
+def test_server_request():
+    start_server()
+    time.sleep(5)
+    send_request_to_server()  # May fail without revealing that the server is still starting.
+
+
+# Good
+def test_server_request():
+    start_server()
+    deadline = time.monotonic() + 30
+
+    while time.monotonic() < deadline:
+        if server_is_ready():
+            break
+        time.sleep(0.5)
+    else:
+        raise TimeoutError("Server did not become ready within 30 seconds")
+
+    send_request_to_server()
+```
+
+Use a short polling interval and fail clearly if the timeout expires. A fixed sleep is appropriate when elapsed time itself is the behavior under test.
+
 ## Use the `db_uri` Fixture Instead of Creating a SQLite Database
 
 A brand-new SQLite file runs the full migration, so a function-scoped fixture pays that cost on every test (~8s each on Windows CI). The `db_uri` fixture in `tests/conftest.py` copies a session-cached, pre-migrated database, keeping tests isolated without re-running migrations.
@@ -315,6 +345,27 @@ def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
     return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+```
+
+## Don't Discard Subprocess Output in Tests
+
+`subprocess.DEVNULL` throws away the output that explains a failure. Let the subprocess inherit the parent's stdout and stderr: pytest captures those and prints them when the test fails.
+
+```python
+# Bad
+def test_server():
+    with subprocess.Popen(
+        ["mlflow", "server"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ):
+        ...
+
+
+# Good
+def test_server():
+    with subprocess.Popen(["mlflow", "server"]):
+        ...
 ```
 
 ## Preserve function metadata and type information in decorators

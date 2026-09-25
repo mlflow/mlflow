@@ -2,10 +2,6 @@ name: build-docs
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - dev/build_docs.py
       - .github/workflows/build-docs.yml
@@ -33,6 +29,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
+cache-mode: none
 
 defaults:
   run:

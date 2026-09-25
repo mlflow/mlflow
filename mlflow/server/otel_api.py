@@ -42,6 +42,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
     _USER_AGENT,
 )
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -101,6 +102,11 @@ async def export_traces(
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
+    x_mlflow_workspace: str | None = Header(
+        default=None,
+        alias=WORKSPACE_HEADER_NAME,
+        description="Workspace to use when MLflow workspaces are enabled.",
+    ),
 ) -> Response:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
@@ -119,6 +125,7 @@ async def export_traces(
         content_type: Content-Type header from the request
         content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
+        x_mlflow_workspace: Optional workspace header if using MLflow workspaces
 
     Returns:
         FastAPI Response with ExportTraceServiceResponse in protobuf format

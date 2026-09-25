@@ -13,6 +13,7 @@ def test_demo_feature_enum():
     assert DemoFeature.TRACES == "traces"
     assert DemoFeature.EVALUATION == "evaluation"
     assert DemoFeature.CUSTOM_VIEW == "custom_view"
+    assert DemoFeature.SAVED_VIEWS == "saved_views"
     assert isinstance(DemoFeature.TRACES, str)
 
 

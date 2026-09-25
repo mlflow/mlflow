@@ -1,3 +1,4 @@
+import { GavelIcon } from '@databricks/design-system';
 import type { TraceTableColumn } from '@databricks/web-shared/traces-table';
 import { TraceAssessmentCell } from '../components/TraceAssessmentCell';
 import { assessmentColumnId } from './assessmentColumns';
@@ -15,6 +16,12 @@ export const buildAssessmentColumnDefs = (assessmentColumns: AssessmentColumn[])
   assessmentColumns.map(({ name, type }) => ({
     id: assessmentColumnId(name),
     ...ASSESSMENT_COLUMN_SIZE,
-    header: () => name,
+    header: () => (
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <GavelIcon data-testid="trace-assessment-column-icon" css={{ fontSize: 16 }} />
+        {name}
+      </span>
+    ),
+    labelText: name,
     cell: (ctx) => <TraceAssessmentCell trace={ctx.row.original} assessmentName={name} columnType={type} />,
   }));

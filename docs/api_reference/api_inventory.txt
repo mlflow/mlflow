@@ -483,6 +483,7 @@ mlflow.entities.LiveSpan.from_dict
 mlflow.entities.LiveSpan.record_exception
 mlflow.entities.LiveSpan.set_attribute
 mlflow.entities.LiveSpan.set_attributes
+mlflow.entities.LiveSpan.set_description
 mlflow.entities.LiveSpan.set_inputs
 mlflow.entities.LiveSpan.set_log_level
 mlflow.entities.LiveSpan.set_outputs
@@ -539,6 +540,7 @@ mlflow.entities.NoOpSpan.end
 mlflow.entities.NoOpSpan.record_exception
 mlflow.entities.NoOpSpan.set_attribute
 mlflow.entities.NoOpSpan.set_attributes
+mlflow.entities.NoOpSpan.set_description
 mlflow.entities.NoOpSpan.set_inputs
 mlflow.entities.NoOpSpan.set_log_level
 mlflow.entities.NoOpSpan.set_outputs
@@ -619,6 +621,7 @@ mlflow.entities.TraceArchivalConfig
 mlflow.entities.TraceData
 mlflow.entities.TraceData.from_dict
 mlflow.entities.TraceData.to_dict
+mlflow.entities.TraceData.to_json_bytes
 mlflow.entities.TraceInfo
 mlflow.entities.TraceInfo.from_dict
 mlflow.entities.TraceInfo.from_proto
@@ -876,7 +879,10 @@ mlflow.gateway.config.RouteDestinationConfig
 mlflow.gateway.config.TogetherAIConfig
 mlflow.gateway.config.TogetherAIConfig.validate_togetherai_api_key
 mlflow.gateway.config.TrafficRouteConfig
+mlflow.gateway.config.TypeSafeConfig
+mlflow.gateway.config.TypeSafeConfig.validate_typesafe_api_key
 mlflow.gateway.config.VertexAIConfig
+mlflow.gateway.config.VertexAIConfig.validate_vertex_anthropic_betas
 mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
@@ -1734,6 +1740,8 @@ mlflow.pytorch.load_model
 mlflow.pytorch.log_model
 mlflow.pytorch.save_model
 mlflow.register_model
+mlflow.restore_experiment
+mlflow.restore_run
 mlflow.run
 mlflow.sagemaker.SageMakerDeploymentClient
 mlflow.sagemaker.SageMakerDeploymentClient.create_deployment

@@ -3,7 +3,8 @@
 //   2. PRs that attempt to close an issue without the "ready" label.
 //   3. PRs that don't link to any issue and change more than LOC_THRESHOLD
 //      lines.
-// Skips PRs that reference multiple issues (ambiguous intent).
+//   4. PRs that reference multiple issues, closed issues, or unassigned issues
+//      already claimed by an earlier open PR.
 // Only enforces on issues/PRs created on or after 2026-03-10.
 
 const fs = require("fs");
@@ -34,12 +35,29 @@ const QUERY = `
         closingIssuesReferences(first: 10) {
           nodes {
             number
+            state
             createdAt
             labels(first: 50) {
               nodes { name }
             }
             assignees(first: 10) {
               nodes { login }
+            }
+            timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+              nodes {
+                __typename
+                ... on CrossReferencedEvent {
+                  willCloseTarget
+                  source {
+                    __typename
+                    ... on PullRequest {
+                      number
+                      state
+                      createdAt
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -79,6 +97,17 @@ function getMissingHeadings(body, headings) {
   if (!body) return headings;
   const bodyLines = new Set(body.split("\n").map((line) => line.trim()));
   return headings.filter((h) => !bodyLines.has(h));
+}
+
+function getEarlierOpenLinkedPr(issue, currentPr) {
+  const currentCreatedAt = new Date(currentPr.created_at);
+  return issue.timelineItems.nodes
+    .filter((node) => node.__typename === "CrossReferencedEvent" && node.willCloseTarget)
+    .map((node) => node.source)
+    .filter((source) => source?.__typename === "PullRequest")
+    .filter((pr) => pr.number !== currentPr.number && pr.state === "OPEN")
+    .filter((pr) => new Date(pr.createdAt) < currentCreatedAt)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0];
 }
 
 async function isDatabricksAuthor({ github, context }) {
@@ -202,9 +231,13 @@ async function getCloseReason({ github, context }) {
 
   if (issues.length > 1) {
     console.log(
-      `Multiple issues referenced (${issues.map((i) => `#${i.number}`).join(", ")}). Skipping.`
+      `Multiple issues referenced (${issues.map((i) => `#${i.number}`).join(", ")}). Closing.`
     );
-    return undefined;
+    return [
+      "This PR was automatically closed because it links to multiple issues with closing keywords.",
+      "Please update the PR description to close one primary issue, reference any related issues without a closing keyword, and then reopen this PR.",
+      "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+    ].join(" ");
   }
 
   const issue = issues[0];
@@ -216,6 +249,15 @@ async function getCloseReason({ github, context }) {
       `Issue #${issue.number} was created before ${CUTOFF_DATE.toISOString()}. Skipping.`
     );
     return undefined;
+  }
+
+  if (issue.state !== "OPEN") {
+    console.log(`Issue #${issue.number} is ${issue.state}. Closing PR #${prNumber}.`);
+    return [
+      `This PR was automatically closed because #${issue.number} is not open.`,
+      "Please open or link to an open issue before submitting a PR.",
+      "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+    ].join(" ");
   }
 
   const hasReadyLabel = issue.labels.nodes.some((label) => label.name === READY_LABEL);
@@ -241,6 +283,20 @@ async function getCloseReason({ github, context }) {
       "If you believe this was done in error, please reach out to a maintainer.",
       "Please do not force-push to or delete the PR branch so this PR can be reopened.",
     ].join(" ");
+  }
+
+  if (assigneeLogins.length === 0) {
+    const earlierOpenPr = getEarlierOpenLinkedPr(issue, context.payload.pull_request);
+    if (earlierOpenPr !== undefined) {
+      console.log(
+        `Issue #${issue.number} is already claimed by earlier open PR #${earlierOpenPr.number}. Closing PR #${prNumber}.`
+      );
+      return [
+        `This PR was automatically closed because #${issue.number} is already linked from earlier open PR #${earlierOpenPr.number}.`,
+        "Please coordinate on the issue thread and ask a maintainer for reassignment if there is a valid reason.",
+        "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+      ].join(" ");
+    }
   }
 
   console.log(`Issue #${issue.number} has the "${READY_LABEL}" label. No action needed.`);
@@ -270,4 +326,10 @@ async function main({ context, github }) {
   }
 }
 
-module.exports = { main, getCloseReason, isDatabricksAuthor, getProtectedPathHits };
+module.exports = {
+  main,
+  getCloseReason,
+  getEarlierOpenLinkedPr,
+  isDatabricksAuthor,
+  getProtectedPathHits,
+};

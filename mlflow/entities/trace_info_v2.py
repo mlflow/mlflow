@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
@@ -8,6 +8,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
+from mlflow.protos.service_pb2 import TraceStatus as ProtoTraceStatus
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
@@ -57,9 +58,10 @@ class TraceInfoV2(_MlflowObject):
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
-            return self.__dict__ == other.__dict__
+            # `type(other) is type(self)` guarantees `other` has the same attribute layout.
+            return self.__dict__ == cast("TraceInfoV2", other).__dict__
         return False
 
     @property
@@ -67,7 +69,7 @@ class TraceInfoV2(_MlflowObject):
         """Returns the trace ID of the trace info."""
         return self.request_id
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoTraceInfo:
         proto = ProtoTraceInfo()
         proto.request_id = self.request_id
         proto.experiment_id = self.experiment_id
@@ -76,7 +78,8 @@ class TraceInfoV2(_MlflowObject):
         # so we substitute None with 0 for execution_time_ms. This should be not too confusing
         # as we only put None when starting a trace i.e. the execution time is actually 0.
         proto.execution_time_ms = self.execution_time_ms or 0
-        proto.status = self.status.to_proto()
+        # The proto enum field is typed as its EnumTypeWrapper class; cast the raw int back.
+        proto.status = cast(ProtoTraceStatus, self.status.to_proto())
 
         request_metadata = []
         for key, value in _truncate_request_metadata(self.request_metadata).items():
@@ -97,7 +100,9 @@ class TraceInfoV2(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto, assessments=None):
+    def from_proto(
+        cls, proto: ProtoTraceInfo, assessments: list[Assessment] | None = None
+    ) -> "TraceInfoV2":
         return cls(
             request_id=proto.request_id,
             experiment_id=proto.experiment_id,
@@ -109,7 +114,7 @@ class TraceInfoV2(_MlflowObject):
             assessments=assessments or [],
         )
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert trace info to a dictionary for persistence.
         Update status field to the string value for serialization.
@@ -122,7 +127,7 @@ class TraceInfoV2(_MlflowObject):
         return trace_info_dict
 
     @classmethod
-    def from_dict(cls, trace_info_dict):
+    def from_dict(cls, trace_info_dict: dict[str, Any]) -> "TraceInfoV2":
         """
         Convert trace info dictionary to TraceInfo object.
         """
@@ -149,7 +154,8 @@ class TraceInfoV2(_MlflowObject):
     def from_v3(cls, trace_info: TraceInfo) -> "TraceInfoV2":
         return cls(
             request_id=trace_info.trace_id,
-            experiment_id=trace_info.experiment_id,
+            # A v3 TraceInfo always carries an experiment location, so the ID is set in practice.
+            experiment_id=cast(str, trace_info.experiment_id),
             timestamp_ms=trace_info.request_time,
             execution_time_ms=trace_info.execution_duration,
             status=TraceStatus.from_state(trace_info.state),

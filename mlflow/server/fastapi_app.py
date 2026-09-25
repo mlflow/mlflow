@@ -8,9 +8,12 @@ to FastAPI endpoints.
 
 import inspect
 import json
+import logging
 import os
+import shutil
 import time
 import typing
+from contextlib import asynccontextmanager
 
 import anyio
 from fastapi import FastAPI, Request
@@ -20,6 +23,8 @@ from flask import Flask
 from starlette.middleware.wsgi import WSGIResponder, build_environ
 from starlette.types import Receive, Scope, Send
 
+from mlflow.assistant.providers.base import assistant_sandbox_enabled
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
@@ -48,6 +53,8 @@ from mlflow.utils.workspace_context import (
     set_server_request_workspace,
 )
 from mlflow.version import VERSION
+
+_logger = logging.getLogger(__name__)
 
 
 class _EfficientWSGIResponder(WSGIResponder):
@@ -198,6 +205,45 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
     fastapi_app.state.mcp_exception_handlers_added = True
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    # On startup, clean up assistant sandbox artifacts orphaned by a previous server generation:
+    # containers whose in-process stream is gone, and stale per-session $HOME directories. Runs in
+    # every uvicorn worker but only removes containers from a *previous* boot id, so it is safe
+    # across workers. Note: this only runs under uvicorn (the default ASGI server); gunicorn and
+    # waitress use the Flask app, which has no lifespan.
+    #
+    # Container reaping is NOT gated on the sandbox being enabled in this process: a server that
+    # crashed with a sandbox container running and was restarted with the sandbox now off must
+    # still reap that orphan, so it runs whenever a `docker` executable is present. The two reapers
+    # run under separate error boundaries so one failing does not skip the other.
+    if shutil.which("docker") is not None:
+        try:
+            from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+            # Reaping does blocking Docker I/O; keep it off the event loop.
+            await anyio.to_thread.run_sync(reap_orphaned_sandbox_containers)
+        except Exception:
+            _logger.warning("Assistant sandbox container cleanup failed", exc_info=True)
+    try:
+        from mlflow.server.assistant.session import reap_stale_sandbox_homes
+
+        await anyio.to_thread.run_sync(reap_stale_sandbox_homes)
+    except Exception:
+        _logger.warning("Assistant sandbox home cleanup failed", exc_info=True)
+
+    # Remote mode but no sandbox means the assistant runs its work on the host; surface that once
+    # at startup rather than silently, since it is a weaker isolation posture for a shared server.
+    if MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and not assistant_sandbox_enabled():
+        _logger.warning(
+            "The MLflow Assistant is in remote mode but the Docker sandbox is not active "
+            "(no `docker` executable found, or MLFLOW_ENABLE_ASSISTANT_SANDBOX=false); the "
+            "assistant will run its Bash tool on the server host. Install Docker, or set "
+            "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
+        )
+    yield
+
+
 def create_fastapi_app(flask_app: Flask = flask_app):
     """
     Create a FastAPI application that wraps the existing Flask app.
@@ -219,6 +265,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=_lifespan,
     )
 
     # Initialize security middleware BEFORE adding routes

@@ -4,9 +4,8 @@ import ast
 import inspect
 import json
 import logging
-import re
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
@@ -23,14 +22,16 @@ BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 # server handler (_register_scorer) to consistently reject decorator scorer registration
 # outside of Databricks environments.
 DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
-    "Custom scorer registration (using @scorer decorator) is not supported "
+    "Custom scorer registration (using @scorer decorator) is disabled by default "
     "outside of Databricks tracking environments due to security concerns. "
     "Custom scorers require arbitrary code execution during deserialization.\n\n"
     "To use custom scorers:\n"
     "1. Configure MLflow to use a Databricks tracking URI, or\n"
     "2. Manage your custom scorer code in a source code repository "
     "(e.g., GitHub) and import it directly, or\n"
-    "3. Use built-in scorers or make_judge() scorers instead."
+    "3. On a self-managed MLflow server (or local environment) that you trust to run the "
+    "scorer's code, set the MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS environment variable to true, or\n"
+    "4. Use built-in scorers or make_judge() scorers instead."
 )
 
 THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
@@ -41,12 +42,26 @@ THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
     "`mlflow.genai.evaluate(..., scorers=[...])` without calling `.register()`."
 )
 
-# Restricts dynamic imports during third-party scorer deserialization to this
-# closed set so a malicious payload can't turn `model_validate` into arbitrary import.
+# Restricts dynamic imports during third-party scorer deserialization to this closed set
+# of the modules that define the supported scorer classes, so a malicious payload can't
+# turn `model_validate` into arbitrary import. Matched verbatim, never by package prefix:
+# a caller who can place a file below one of these packages (for example through a
+# `file://` experiment artifact root) must not be able to have the server import it as
+# `mlflow.genai.scorers.<pkg>.<run_id>.artifacts.<module>`.
 THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
     "mlflow.genai.scorers.ragas",
+    "mlflow.genai.scorers.ragas.scorers",
+    "mlflow.genai.scorers.ragas.scorers.agentic_metrics",
+    "mlflow.genai.scorers.ragas.scorers.comparison_metrics",
+    "mlflow.genai.scorers.ragas.scorers.rag_metrics",
     "mlflow.genai.scorers.deepeval",
+    "mlflow.genai.scorers.deepeval.scorers",
+    "mlflow.genai.scorers.deepeval.scorers.agentic_metrics",
+    "mlflow.genai.scorers.deepeval.scorers.conversational_metrics",
+    "mlflow.genai.scorers.deepeval.scorers.rag_metrics",
+    "mlflow.genai.scorers.deepeval.scorers.safety_metrics",
     "mlflow.genai.scorers.trulens",
+    "mlflow.genai.scorers.trulens.scorers.agent_trace",
     "mlflow.genai.scorers.phoenix",
 })
 
@@ -112,6 +127,20 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
+def _extract_params_from_signature(signature: str) -> str:
+    if signature.startswith("("):
+        try:
+            func_def = ast.parse(f"def _f{signature}: pass").body[0]
+        except SyntaxError:
+            pass
+        else:
+            return ast.unparse(func_def.args)
+
+    raise MlflowException(
+        f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+    )
+
+
 def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
     """
     Recreate a function from its source code, signature, and name.
@@ -126,14 +155,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     """
     import mlflow
 
-    # Parse the signature to build the function definition
-    sig_match = re.match(r"\((.*?)\)", signature)
-    if not sig_match:
-        raise MlflowException(
-            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
-        )
-
-    params_str = sig_match.group(1).strip()
+    params_str = _extract_params_from_signature(signature)
 
     # Build the function definition with future annotations to defer type hint evaluation
     func_def = "from __future__ import annotations\n"
@@ -330,3 +352,140 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
         args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
         return f"{call.name}({args})"
     return call.name
+
+
+class _ScorerJobParamNames(NamedTuple):
+    """Scorer job names grouped by how their params carry serialized scorers."""
+
+    inline: frozenset[str]  # a single scorer under ``serialized_scorer``
+    inline_list: frozenset[str]  # a list of scorers under ``serialized_scorers``
+    online: frozenset[str]  # a list of online-scorer entries under ``online_scorers``
+
+
+def _scorer_job_param_names() -> _ScorerJobParamNames:
+    """Scorer job names grouped by how their params carry serialized scorers.
+
+    Imported lazily from the job definitions (the single source of truth for these names) to
+    avoid a circular import, so a job rename cannot silently desync this detection.
+    """
+    from mlflow.genai.evaluation.job import INVOKE_GENAI_EVALUATE_JOB_NAME
+    from mlflow.genai.scorers.job import (
+        INVOKE_SCORER_JOB_NAME,
+        ONLINE_SESSION_SCORER_JOB_NAME,
+        ONLINE_TRACE_SCORER_JOB_NAME,
+    )
+
+    return _ScorerJobParamNames(
+        inline=frozenset({INVOKE_SCORER_JOB_NAME}),
+        inline_list=frozenset({INVOKE_GENAI_EVALUATE_JOB_NAME}),
+        online=frozenset({ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME}),
+    )
+
+
+def _obj_has_call_source(obj: Any) -> bool:
+    # Recurse so a decorator sub-scorer nested in an ensemble (under
+    # ``ensemble_scorer_data["scorers"]``) is detected, not only a top-level scorer.
+    if isinstance(obj, dict):
+        if obj.get("call_source") is not None:
+            return True
+        return any(_obj_has_call_source(value) for value in obj.values())
+    if isinstance(obj, list):
+        return any(_obj_has_call_source(item) for item in obj)
+    return False
+
+
+def _parse_serialized_scorer(serialized_scorer: str) -> dict[str, Any]:
+    """Parse a serialized scorer, raising on malformed input rather than swallowing it."""
+    try:
+        return json.loads(serialized_scorer)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise MlflowException.invalid_parameter_value(f"Malformed serialized scorer: {e}") from e
+
+
+def _iter_serialized_scorers(job_name: str, params: dict[str, Any]) -> list[str]:
+    names = _scorer_job_param_names()
+    if job_name in names.inline:
+        s = params.get("serialized_scorer")
+        return [s] if isinstance(s, str) else []
+    if job_name in names.inline_list:
+        return [s for s in params.get("serialized_scorers") or [] if isinstance(s, str)]
+    if job_name in names.online:
+        return [
+            sc["serialized_scorer"]
+            for sc in params.get("online_scorers") or []
+            if isinstance(sc, dict) and isinstance(sc.get("serialized_scorer"), str)
+        ]
+    return []
+
+
+def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> bool:
+    """Return True if a job's params carry custom (@scorer decorator) scorer code.
+
+    Custom scorers carry a non-null ``call_source`` that is executed via ``exec()``
+    during deserialization. This is the server-derived signal the job framework uses to
+    gate and route custom scorers. Returns False for non-custom jobs; raises on malformed
+    serialized-scorer input.
+    """
+    return any(
+        _obj_has_call_source(_parse_serialized_scorer(s))
+        for s in _iter_serialized_scorers(job_name, params)
+    )
+
+
+def custom_scorer_execution_blocked(serialized_data: Any) -> bool:
+    """Return True if this server must NOT execute the custom code in ``serialized_data``.
+
+    Custom (@scorer) scorers embed ``call_source`` that is run via ``exec()`` when the scorer is
+    deserialized, so a server blocks them unless an operator opted in with
+    ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS``. This is the single server-side check the register and
+    invoke handlers share. Recurses so a custom sub-scorer nested in an ensemble is caught too.
+    """
+    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS
+
+    return _obj_has_call_source(serialized_data) and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+
+
+# Model-URI schemes resolved through the MLflow AI Gateway or a Databricks endpoint (see
+# ``convert_mlflow_uri_to_litellm``). Any other scheme -- or a bare model name with no scheme --
+# is a direct-provider model a remote executor cannot resolve.
+_GATEWAY_BACKED_SCHEMES = frozenset({"gateway", "endpoints", "databricks"})
+
+
+def _iter_scorer_models(serialized_data: dict[str, Any]) -> list[str]:
+    """Model URIs referenced by a serialized scorer, including ensemble sub-scorers.
+
+    Uses ``extract_model_from_serialized_scorer`` (which understands the known scorer types)
+    rather than scanning for arbitrary ``model`` keys, and recurses into ensemble sub-scorers.
+    """
+    models = []
+    if model := extract_model_from_serialized_scorer(serialized_data):
+        models.append(model)
+    ensemble = serialized_data.get("ensemble_scorer_data")
+    if isinstance(ensemble, dict):
+        for sub in ensemble.get("scorers") or []:
+            if isinstance(sub, dict):
+                models.extend(_iter_scorer_models(sub))
+    return models
+
+
+def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any]) -> bool:
+    """Return True if any scorer in the job references a direct-provider (non-Gateway) model.
+
+    A remote executor can only reach models routed through the Gateway (a ``gateway:/``,
+    ``endpoints:/``, or ``databricks:/`` URI). Anything else -- another scheme (e.g. ``openai:/``)
+    or a bare model name with no scheme (e.g. ``gpt-oss-120b``) -- is a direct-provider model it
+    cannot resolve. Scorers with no model are compatible.
+    """
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    for serialized in _iter_serialized_scorers(job_name, params):
+        for model in _iter_scorer_models(_parse_serialized_scorer(serialized)):
+            # Fail closed: a model reachable remotely must have an explicit gateway-backed scheme.
+            # A missing scheme (bare name) makes _parse_model_uri raise -> treat as direct-provider.
+            try:
+                provider, _ = _parse_model_uri(model)
+            except MlflowException:
+                return True
+            if provider not in _GATEWAY_BACKED_SCHEMES:
+                return True
+    return False

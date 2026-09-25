@@ -26,7 +26,14 @@ export const TRACE_COLUMN_IDS = [
   'tokens',
   'cost',
   'tags',
+  'metadata',
 ] as const;
+
+const TRACE_COLUMN_ID_SET = new Set<string>(TRACE_COLUMN_IDS);
+
+/** Narrows an arbitrary id to a known `TraceColumnId`. Shared so the visibility/order hooks can
+ * validate and dedupe persisted column ids against the canonical set. */
+export const isTraceColumnId = (id: string): id is TraceColumnId => TRACE_COLUMN_ID_SET.has(id);
 
 /**
  * Columns the user can sort by. A cursor-paginated search API can only sort server-side, so sorting
@@ -73,4 +80,5 @@ export const COLUMN_SIZES: Record<TraceColumnId, ColumnSizeSpec> = {
   tokens: { size: 110, minSize: 80, maxSize: 220 },
   cost: { size: 110, minSize: 80, maxSize: 220 },
   tags: { size: 200, minSize: 120, maxSize: 600 },
+  metadata: { size: 160, minSize: 120, maxSize: 600 },
 };

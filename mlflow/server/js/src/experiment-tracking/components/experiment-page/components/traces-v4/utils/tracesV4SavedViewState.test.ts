@@ -4,6 +4,7 @@ import {
   captureV4ViewState,
   buildV4ViewQuery,
   decodeViewColumns,
+  decodeViewColumnOrder,
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
   getTraceV4SavedViewIdFromTagKey,
@@ -72,6 +73,13 @@ describe('captureV4ViewState', () => {
     expect(out.get('cols')).toBeNull();
   });
 
+  test('captures mixed standard + assessment ids in display order', () => {
+    // The `cols` list carries the full visible set in user order — standard AND assessment columns —
+    // so a reordered assessment column round-trips (via decodeViewColumnOrder), not just standard ones.
+    const state = captureV4ViewState(params('q=x'), ['input', 'assessment:relevance', 'start_time']);
+    expect(state.single.cols).toBe('input,assessment:relevance,start_time');
+  });
+
   test('stores the live popover filter model, and omits an empty one', () => {
     // Filters are React state (not URL-backed), so they're passed in and stored on the envelope; an
     // empty model is omitted so a filter-less view stays byte-identical to a legacy (pre-filter) one.
@@ -99,6 +107,25 @@ describe('captureV4ViewState', () => {
 
     const noAssessments = captureV4ViewState(params('q=x'), ['start_time'], [], {});
     expect(noAssessments.assessmentColumns).toBeUndefined();
+  });
+
+  test('captures custom-column visibility, omitting an empty map', () => {
+    // An empty map is omitted so a view saved with no custom columns stays byte-identical to a legacy one.
+    const withCustom = captureV4ViewState(
+      params('q=x'),
+      ['start_time'],
+      [],
+      {},
+      {
+        'tag:environment': true,
+        'custom_metadata:region': false,
+      },
+    );
+    expect(withCustom.customColumns).toEqual({ 'tag:environment': true, 'custom_metadata:region': false });
+    expect(params(buildV4ViewQuery(withCustom, 'view-1')).has('customColumns')).toBe(false);
+
+    const noCustom = captureV4ViewState(params('q=x'), ['start_time'], [], {}, {});
+    expect(noCustom.customColumns).toBeUndefined();
   });
 
   test('never captures an incoming share key or cols param from the URL (only the live columns)', () => {
@@ -154,6 +181,35 @@ describe('decodeViewColumns', () => {
     expect(decodeViewColumns(withCols('bogus'), TRACE_COLUMN_IDS)).toBeUndefined();
     expect(decodeViewColumns(withCols(''), TRACE_COLUMN_IDS)).toBeUndefined();
     expect(decodeViewColumns({ single: {}, multi: {} }, TRACE_COLUMN_IDS)).toBeUndefined();
+  });
+
+  test('returns undefined for a non-string cols (hand-edited tag) rather than throwing', () => {
+    expect(
+      decodeViewColumns({ single: { cols: 123 as unknown as string }, multi: {} }, TRACE_COLUMN_IDS),
+    ).toBeUndefined();
+  });
+});
+
+describe('decodeViewColumnOrder', () => {
+  const withCols = (cols: string) => ({ single: { cols }, multi: {} });
+
+  test('keeps every id — standard AND assessment — in stored order', () => {
+    // Unlike decodeViewColumns (standard-only, for visibility), this preserves assessment ids so a
+    // reordered assessment column survives the round-trip into the mixed reorder store.
+    expect(decodeViewColumnOrder(withCols('input,assessment:relevance,start_time'))).toEqual([
+      'input',
+      'assessment:relevance',
+      'start_time',
+    ]);
+  });
+
+  test('returns undefined when cols is empty or absent (leaves the user order intact)', () => {
+    expect(decodeViewColumnOrder(withCols(''))).toBeUndefined();
+    expect(decodeViewColumnOrder({ single: {}, multi: {} })).toBeUndefined();
+  });
+
+  test('returns undefined for a non-string cols (hand-edited tag) rather than throwing', () => {
+    expect(decodeViewColumnOrder({ single: { cols: 123 as unknown as string }, multi: {} })).toBeUndefined();
   });
 });
 

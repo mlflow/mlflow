@@ -77,7 +77,7 @@ def _distill_goal_and_persona(
         return None
 
 
-@experimental(version="3.10.0")
+@experimental(version="3.10.0", skip=True)
 @format_docstring(_MODEL_API_DOC)
 def generate_test_cases(
     sessions: "list[Session] | list[list[Trace]]",

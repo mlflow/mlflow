@@ -2,20 +2,16 @@ name: Examples
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
-      - ".github/workflows/review.yml"
   schedule:
     # Run this action daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -51,6 +47,7 @@ env:
   PYTHONFAULTHANDLER: "1"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   examples:
@@ -58,7 +55,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -125,7 +122,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos import service_pb2 as pb
@@ -13,8 +14,9 @@ class MetricViewType(str, Enum):
     def __str__(self) -> str:
         return self.value
 
-    def to_proto(self):
-        return pb.MetricViewType.Value(self)
+    def to_proto(self) -> int:
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(int, pb.MetricViewType.Value(self))
 
     @classmethod
     def from_proto(cls, proto: int) -> "MetricViewType":
@@ -32,8 +34,9 @@ class AggregationType(str, Enum):
     def __str__(self) -> str:
         return self.value
 
-    def to_proto(self):
-        return pb.AggregationType.Value(self)
+    def to_proto(self) -> int:
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(int, pb.AggregationType.Value(self))
 
 
 @dataclass
@@ -41,7 +44,7 @@ class MetricAggregation(_MlflowObject):
     aggregation_type: AggregationType
     percentile_value: float | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.aggregation_type == AggregationType.PERCENTILE:
             if self.percentile_value is None:
                 raise ValueError("Percentile value is required for PERCENTILE aggregation")
@@ -62,7 +65,8 @@ class MetricAggregation(_MlflowObject):
 
     def to_proto(self) -> pb.MetricAggregation:
         proto = pb.MetricAggregation()
-        proto.aggregation_type = self.aggregation_type.to_proto()
+        # The proto enum field is typed as its EnumTypeWrapper class; cast the raw int back.
+        proto.aggregation_type = cast(pb.AggregationType, self.aggregation_type.to_proto())
         if self.percentile_value is not None:
             proto.percentile_value = self.percentile_value
         return proto

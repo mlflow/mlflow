@@ -16,6 +16,7 @@ export const TRACE_COLUMN_LABELS = defineMessages({
   tokens: { defaultMessage: 'Tokens', description: 'Header for the traces table tokens column' },
   cost: { defaultMessage: 'Cost', description: 'Header for the traces table cost column' },
   tags: { defaultMessage: 'Tags', description: 'Header for the traces table tags column' },
+  metadata: { defaultMessage: 'Metadata', description: 'Header for the traces table metadata column' },
 } as const);
 
 export const getTraceColumnLabel = (columnId: TraceColumnId, intl: IntlShape): string =>

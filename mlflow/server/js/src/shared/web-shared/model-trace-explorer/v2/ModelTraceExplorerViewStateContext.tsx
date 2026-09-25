@@ -202,7 +202,9 @@ export const ModelTraceExplorerViewStateProvider = ({
 
   useEffect(() => {
     const defaultActiveTab = getDefaultActiveTab(selectedNode);
-    setActiveTab(defaultActiveTab);
+    setActiveTab((currentTab) =>
+      currentTab === 'links' && (selectedNode?.links?.length ?? 0) > 0 ? currentTab : defaultActiveTab,
+    );
   }, [selectedNode]);
 
   const value = useMemo(

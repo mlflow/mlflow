@@ -41,6 +41,7 @@ import {
   buildV4ViewQuery,
   captureV4ViewState,
   decodeViewColumns,
+  decodeViewColumnOrder,
   getTraceV4SavedViewIdFromTagKey,
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
@@ -91,8 +92,11 @@ export type TracesV4ViewDirtyStatus = 'clean' | 'dirty';
 
 interface UseTracesV4SavedViewsParams {
   experimentId: string;
-  /** The user's live visible columns — captured into a view on save, and diffed against it for dirty. */
-  visibleColumns: TraceColumnId[];
+  /**
+   * The user's live visible columns — standard + assessment (`assessment:*`) ids in display order —
+   * captured into a view on save (as `cols`, carrying both membership and order) and diffed for dirty.
+   */
+  visibleColumns: string[];
   /** The live popover filter model — captured into a view on save, restored on open, diffed for dirty. */
   filterModel: TraceFilterModel;
   /** Writes an explicit column set into the user's persisted store (used by open / reset). */
@@ -110,6 +114,15 @@ interface UseTracesV4SavedViewsParams {
   assessmentVisibility?: Record<string, boolean>;
   /** Restores a view's assessment visibility (overwrites the override map); used by open / reset. */
   setAssessmentVisibility?: (visibility: Record<string, boolean> | undefined) => void;
+  /**
+   * Live custom-column visibility by id (localStorage-backed, not URL) — captured into a view on
+   * save and diffed for dirty. Defaults to an empty map so a page with no custom columns captures nothing.
+   */
+  customVisibility?: Record<string, boolean>;
+  /** Restores a view's custom-column visibility (overwrites the override map); used by open / reset. */
+  setCustomVisibility?: (visibility: Record<string, boolean> | undefined) => void;
+  /** Adopts a saved/previewed column order into the persisted mixed order (used by open / reset). */
+  setColumnOrder?: (columnOrder: string[] | undefined) => void;
 }
 
 /**
@@ -128,6 +141,9 @@ export const useTracesV4SavedViews = ({
   assessmentNames = [],
   assessmentVisibility = {},
   setAssessmentVisibility,
+  customVisibility = {},
+  setCustomVisibility,
+  setColumnOrder,
 }: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
@@ -220,9 +236,15 @@ export const useTracesV4SavedViews = ({
         );
         return null;
       }
-      // Capture the current URL view params + the live columns, filter model and assessment-column
+      // Capture the current URL view params + the live columns, filter model and assessment/custom-column
       // visibility (none of the latter three ride in the URL).
-      const state = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility);
+      const state = captureV4ViewState(
+        searchParams,
+        visibleColumns,
+        filterModel,
+        assessmentVisibility,
+        customVisibility,
+      );
       const compressedState = await textCompressDeflate(JSON.stringify(state));
       const id = getUUID();
       const envelope = encodeSavedViewEnvelope(name.trim(), compressedState, Date.now());
@@ -248,6 +270,7 @@ export const useTracesV4SavedViews = ({
       visibleColumns,
       filterModel,
       assessmentVisibility,
+      customVisibility,
       views,
       atCap,
       intl,
@@ -325,12 +348,26 @@ export const useTracesV4SavedViews = ({
       if (columns) {
         setColumns(columns);
       }
+      // Restore the full mixed (standard + assessment) column order so a reordered view round-trips.
+      // Absent `cols` (an older view) leaves the user's order intact.
+      setColumnOrder?.(decodeViewColumnOrder(state));
       setFilterModel(supportedFilters(state.filters));
       // Restore assessment-column visibility (localStorage, not URL). An older view without the field
       // clears overrides rather than leaving the previous view's visibility applied on top.
       setAssessmentVisibility?.(state.assessmentColumns);
+      // Restore custom-column visibility (localStorage, not URL). An older view without the field
+      // clears overrides rather than leaving the previous view's visibility applied on top.
+      setCustomVisibility?.(state.customColumns);
     },
-    [setSearchParams, setColumns, setFilterModel, supportedFilters, setAssessmentVisibility],
+    [
+      setSearchParams,
+      setColumns,
+      setColumnOrder,
+      setFilterModel,
+      supportedFilters,
+      setAssessmentVisibility,
+      setCustomVisibility,
+    ],
   );
 
   // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
@@ -391,7 +428,13 @@ export const useTracesV4SavedViews = ({
       if (!existing) {
         return;
       }
-      const state = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility);
+      const state = captureV4ViewState(
+        searchParams,
+        visibleColumns,
+        filterModel,
+        assessmentVisibility,
+        customVisibility,
+      );
       const compressedState = await textCompressDeflate(JSON.stringify(state));
       const envelope = encodeSavedViewEnvelope(existing.name, compressedState, existing.createdAt, Date.now());
       if (envelope.length > MAX_TAG_VALUE_LENGTH) {
@@ -423,7 +466,18 @@ export const useTracesV4SavedViews = ({
         3,
       );
     },
-    [views, searchParams, visibleColumns, filterModel, assessmentVisibility, dispatch, experimentId, refetch, intl],
+    [
+      views,
+      searchParams,
+      visibleColumns,
+      filterModel,
+      assessmentVisibility,
+      customVisibility,
+      dispatch,
+      experimentId,
+      refetch,
+      intl,
+    ],
   );
 
   // Discard live edits: re-apply the active view's stored state (which also restores its columns).
@@ -458,14 +512,25 @@ export const useTracesV4SavedViews = ({
         if (columns) {
           setColumns(columns);
         }
+        setColumnOrder?.(decodeViewColumnOrder(state));
         setFilterModel(supportedFilters(state.filters));
         setAssessmentVisibility?.(state.assessmentColumns);
+        setCustomVisibility?.(state.customColumns);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [activeViewId, decodeViewState, setColumns, setFilterModel, supportedFilters, setAssessmentVisibility]);
+  }, [
+    activeViewId,
+    decodeViewState,
+    setColumns,
+    setColumnOrder,
+    setFilterModel,
+    supportedFilters,
+    setAssessmentVisibility,
+    setCustomVisibility,
+  ]);
 
   // Dirty = the live table (URL view params + columns) diverges from the active view's stored state.
   // Treated as clean until the stored state is loaded AND columns are hydrated, so it never flashes
@@ -474,7 +539,7 @@ export const useTracesV4SavedViews = ({
     if (!activeViewId || !activeStoredState || hydratedViewIdRef.current !== activeViewId) {
       return 'clean';
     }
-    const live = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility);
+    const live = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility, customVisibility);
     // Normalize the stored baseline's filters the same way openView restores them (drop unsupported
     // clauses); diffing raw stored filters would mark a view with a since-removed field dirty forever.
     const normalizedStored: CapturedV4ViewState = {
@@ -489,6 +554,7 @@ export const useTracesV4SavedViews = ({
     visibleColumns,
     filterModel,
     assessmentVisibility,
+    customVisibility,
     supportedFilters,
   ]);
 

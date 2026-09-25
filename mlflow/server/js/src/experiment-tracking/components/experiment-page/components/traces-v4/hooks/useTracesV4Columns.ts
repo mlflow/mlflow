@@ -5,6 +5,7 @@ import {
   type TraceColumnVisibility,
 } from '@databricks/web-shared/traces-table';
 import { TRACE_COLUMN_STORAGE_KEY_PREFIX } from '../utils/constants';
+import { isCustomTraceColumnId } from '../utils/customColumns';
 
 // Bump when the stored schema changes so stale entries reset. v2 → override map (was a flat visible
 // list); v3 → new default-visibility set; v4 → Tokens now shown by default. New opt-in columns
@@ -18,6 +19,7 @@ const OPT_IN_COLUMNS: ReadonlySet<TraceColumnId> = new Set([
   'source',
   'run_name',
   'cost',
+  'metadata',
 ]);
 
 export interface UseTracesV4ColumnsParams {
@@ -49,5 +51,6 @@ export const useTracesV4Columns = (
     storageKey: `${TRACE_COLUMN_STORAGE_KEY_PREFIX}.${experimentId}`,
     version: COLUMN_STORAGE_VERSION,
     getDefaultVisible,
+    isDynamicColumnId: isCustomTraceColumnId,
   });
 };

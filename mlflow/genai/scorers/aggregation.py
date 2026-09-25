@@ -83,6 +83,15 @@ def _cast_assessment_value_to_float(assessment: Feedback) -> float | None:
         and CategoricalRating(assessment.value.lower()) != CategoricalRating.UNKNOWN
     ):
         return float(assessment.value.lower() == CategoricalRating.YES)
+    elif assessment.value is not None:
+        from mlflow.agent.hint import maybe_warn_agent
+
+        maybe_warn_agent(
+            "non-aggregatable-scorer-output",
+            f"Scorer {assessment.name!r} returned a value of type "
+            f"{type(assessment.value).__name__!r}, which is not included in aggregated metrics; "
+            "return a boolean, number, or 'yes'/'no' instead.",
+        )
 
 
 def _compute_aggregations(

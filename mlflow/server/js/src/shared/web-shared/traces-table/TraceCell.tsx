@@ -236,6 +236,8 @@ interface TraceCellProps {
 interface TraceTagsCellProps extends TraceCellProps {
   /** Toggle a filter when a tag pill is clicked. Absent → pills render as plain (non-clickable) tags. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Override the key/value entries rendered by the shared pill layout. */
+  entries?: Array<[string, string]>;
 }
 
 /** Trace id — monospace text that links when a destination is provided, with the full id in a tooltip. */
@@ -605,40 +607,72 @@ export const TraceDurationCell: React.MemoExoticComponent<(props: { trace: Model
   },
 );
 
+type TokenUsage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+};
+
+const TokenUsageCell = ({ usage }: { usage: TokenUsage }): JSX.Element => {
+  const { theme } = useDesignSystemTheme();
+  if (!usage.total_tokens) {
+    return <EmptyValue />;
+  }
+  const parts = [
+    usage.input_tokens !== undefined ? `Input ${usage.input_tokens}` : undefined,
+    usage.output_tokens !== undefined ? `Output ${usage.output_tokens}` : undefined,
+  ].filter(Boolean);
+  const content = (
+    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
+      <TokenIcon css={{ color: theme.colors.textSecondary, fontSize: CELL_ICON_SIZE }} />
+      <span css={truncateCss}>{usage.total_tokens}</span>
+    </span>
+  );
+  if (parts.length === 0) {
+    return content;
+  }
+  return (
+    <Tooltip
+      componentId={`${COMPONENT_ID}.cell.tokens-tooltip`}
+      content={<WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>}
+      maxWidth={CELL_OVERLAY_MAX_WIDTH}
+    >
+      {content}
+    </Tooltip>
+  );
+};
+
 /** Total token count in a tag, with an input/output breakdown on hover. */
 export const TraceTokensCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceTokensCell({ trace }: { trace: ModelTraceInfoV3 }) {
-    const { theme } = useDesignSystemTheme();
     // `getTraceTokenUsage` can return undefined when the metadata JSON is unparseable — guard so a
     // malformed row renders "-" instead of throwing.
-    const usage = getTraceTokenUsage(trace) ?? {};
-    if (!usage.total_tokens) {
-      return <EmptyValue />;
-    }
-    const parts = [
-      usage.input_tokens !== undefined ? `Input ${usage.input_tokens}` : undefined,
-      usage.output_tokens !== undefined ? `Output ${usage.output_tokens}` : undefined,
-    ].filter(Boolean);
-    const content = (
-      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
-        <TokenIcon css={{ color: theme.colors.textSecondary, fontSize: CELL_ICON_SIZE }} />
-        <span css={truncateCss}>{usage.total_tokens}</span>
-      </span>
-    );
-    if (parts.length === 0) {
-      return content;
-    }
-    return (
-      <Tooltip
-        componentId={`${COMPONENT_ID}.cell.tokens-tooltip`}
-        content={<WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>}
-        maxWidth={CELL_OVERLAY_MAX_WIDTH}
-      >
-        {content}
-      </Tooltip>
-    );
+    return <TokenUsageCell usage={getTraceTokenUsage(trace) ?? {}} />;
   },
 );
+
+/** Session token count, aggregated across all traces in the collapsed session header. */
+export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> =
+  memo(function SessionTokensCell({ traces }: { traces: ModelTraceInfoV3[] }) {
+    const usage = traces.reduce<TokenUsage>((totals, trace) => {
+      const traceUsage = getTraceTokenUsage(trace) ?? {};
+      return {
+        input_tokens:
+          totals.input_tokens === undefined && traceUsage.input_tokens === undefined
+            ? undefined
+            : (totals.input_tokens ?? 0) + (traceUsage.input_tokens ?? 0),
+        output_tokens:
+          totals.output_tokens === undefined && traceUsage.output_tokens === undefined
+            ? undefined
+            : (totals.output_tokens ?? 0) + (traceUsage.output_tokens ?? 0),
+        total_tokens:
+          totals.total_tokens === undefined && traceUsage.total_tokens === undefined
+            ? undefined
+            : (totals.total_tokens ?? 0) + (traceUsage.total_tokens ?? 0),
+      };
+    }, {});
+    return <TokenUsageCell usage={usage} />;
+  });
 
 /** Total cost in USD in a tag, with an input/output breakdown on hover. */
 export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
@@ -739,10 +773,18 @@ const TagPill = ({
  * siblings, and each clickable pill `stopPropagation`s so a filter click never also opens the drawer.
  */
 export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps) => JSX.Element> = memo(
-  function TraceTagsCell({ trace, onSelect, accessibleLabel, onFilterByTag }: TraceTagsCellProps) {
+  function TraceTagsCell({
+    trace,
+    onSelect,
+    accessibleLabel,
+    onFilterByTag,
+    entries: entriesOverride,
+  }: TraceTagsCellProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const entries = Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
+    const entries =
+      entriesOverride ??
+      Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
     const containerRef = useRef<HTMLSpanElement>(null);
     const pillRefs = useRef<Array<HTMLSpanElement | null>>([]);
     const overflowRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -858,4 +900,14 @@ export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps
       </span>
     );
   },
+);
+
+/** User-authored metadata rendered with the same compact pill layout as aggregate tags. */
+export const TraceMetadataCell = ({ trace, onSelect, accessibleLabel }: TraceCellProps): JSX.Element => (
+  <TraceTagsCell
+    trace={trace}
+    onSelect={onSelect}
+    accessibleLabel={accessibleLabel}
+    entries={Object.entries(trace.trace_metadata ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX))}
+  />
 );

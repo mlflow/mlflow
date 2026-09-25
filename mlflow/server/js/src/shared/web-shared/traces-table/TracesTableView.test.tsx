@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TracesTableView, type TracesTableViewProps, type TracesTableViewState } from './TracesTableView';
 import { useBulkTraceSelection } from './hooks/useBulkTraceSelection';
-import { makeTraces } from './test-utils/mockTraces';
+import { makeSessionTrace, makeTraces } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
 
 const baseProps = (over: Partial<TracesTableViewProps> = {}): TracesTableViewProps => ({
@@ -107,6 +107,20 @@ describe('TracesTableView', () => {
     await renderWithProviders(<TracesTableView {...baseProps({ viewState: 'ready' })} />);
     expect(screen.getByRole('columnheader', { name: /Time/ })).toBeInTheDocument();
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
+  });
+
+  test('forwards sessionsMayBeIncomplete so paginated grouped sessions hide partial aggregates', async () => {
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    const grouped = { traces, visibleColumns: ['tokens' as const], isGroupedBySession: true };
+
+    const { unmount } = await renderWithProviders(
+      <TracesTableView {...baseProps({ ...grouped, sessionsMayBeIncomplete: true })} />,
+    );
+    expect(screen.queryByText('30')).not.toBeInTheDocument();
+    unmount();
+
+    await renderWithProviders(<TracesTableView {...baseProps({ ...grouped, sessionsMayBeIncomplete: false })} />);
+    expect(screen.getByText('30')).toBeInTheDocument();
   });
 
   test('customEmptyState short-circuits the viewState region but keeps the toolbar', async () => {
