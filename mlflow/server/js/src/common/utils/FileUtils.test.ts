@@ -19,4 +19,8 @@ describe('FileUtils', () => {
   test('supports pbtxt text previews', () => {
     expect(TEXT_EXTENSIONS.has('pbtxt')).toBe(true);
   });
+
+  test('supports ipynb text previews', () => {
+    expect(TEXT_EXTENSIONS.has('ipynb')).toBe(true);
+  });
 });

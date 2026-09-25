@@ -19,6 +19,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
     SqlAssessments,
     SqlEvaluationDataset,
     SqlExperiment,
@@ -46,7 +47,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlSpanCostDailyRollup,
     SqlTraceInfo,
+    SqlTraceMetricDailyRollup,
+    SqlTraceRollupRebuild,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
@@ -120,6 +124,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if model is SqlEvaluationDataset:
             return query.filter(SqlEvaluationDataset.workspace == workspace)
+
+        if model in (
+            SqlTraceMetricDailyRollup,
+            SqlSpanCostDailyRollup,
+            SqlAssessmentDailyRollup,
+            SqlTraceRollupRebuild,
+        ):
+            return query.join(
+                SqlExperiment, model.experiment_id == SqlExperiment.experiment_id
+            ).filter(SqlExperiment.workspace == workspace)
 
         if model is SqlLabelSchema:
             return query.join(

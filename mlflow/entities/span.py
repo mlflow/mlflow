@@ -3,7 +3,7 @@ import base64
 import json
 import logging
 from functools import cached_property
-from typing import Any, Union
+from typing import Any, NoReturn, Union
 
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -300,6 +300,35 @@ class Span:
             f"{type(self).__name__}(name={self.name!r}, trace_id={self.trace_id!r}, "
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
+
+    # `__getitem__` alone would enable the legacy sequence protocol, making
+    # `iter(span)` and `"x" in span` appear to work and then fail confusingly.
+    __iter__ = None
+
+    def __getitem__(self, item: Any) -> NoReturn:
+        """Span objects do not support indexing via subscript syntax."""
+        hint = ""
+        if isinstance(item, str):
+            if item.isidentifier() and not item.startswith("_") and item in dir(self):
+                hint = f" Use attribute access instead, e.g. `span.{item}`."
+            else:
+                try:
+                    attrs = getattr(self, "attributes", None)
+                    if isinstance(attrs, dict) and item in attrs:
+                        hint = (
+                            f" To access span attributes, use `span.get_attribute({item!r})` "
+                            f"or `span.attributes[{item!r}]`."
+                        )
+                except Exception:
+                    pass
+
+        if not hint:
+            hint = (
+                " Use attribute access instead, e.g. `span.inputs`, `span.outputs`, "
+                "or `span.attributes`."
+            )
+
+        raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
 
     def get_attribute(self, key: str) -> Any | None:
         """

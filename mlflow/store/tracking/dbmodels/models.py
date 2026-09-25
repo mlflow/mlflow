@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Computed,
+    Date,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
@@ -24,7 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mssql import NVARCHAR
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
     backref,
@@ -104,6 +105,16 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.tracking.utils.trace_analytics import (
+    PROMOTED_TRACE_METADATA_KEYS,
+    assessment_aggregate,
+    compatibility_metadata_from_columns,
+)
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceTagKey,
+)
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -126,8 +137,9 @@ RunStatusTypes = [
 ]
 
 
-# Create MutableJSON type for tracking mutations in JSON columns
+# Create mutable JSON types for tracking mutations in JSON columns.
 MutableJSON = MutableDict.as_mutable(JSON)
+MutableJSONArray = MutableList.as_mutable(JSON)
 
 
 def _resolve_mcp_server_icons(
@@ -822,6 +834,50 @@ class SqlTraceInfo(Base):
     DB-backed trace payload generation used for concurrency coordination.
     Defaults to 0.
     """
+    trace_name = Column(String(MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE), nullable=True)
+    """
+    Denormalized trace name used by trace analytics queries.
+    """
+    session_id = Column(String(MAX_CHARS_IN_TRACE_INFO_METADATA), nullable=True)
+    """
+    Denormalized session identifier used by trace analytics queries.
+    """
+    input_tokens = Column(BigInteger, nullable=True)
+    """
+    Denormalized input token usage used by trace analytics queries.
+    """
+    output_tokens = Column(BigInteger, nullable=True)
+    """
+    Denormalized output token usage used by trace analytics queries.
+    """
+    total_tokens = Column(BigInteger, nullable=True)
+    """
+    Denormalized total token usage used by trace analytics queries.
+    """
+    cache_read_input_tokens = Column(BigInteger, nullable=True)
+    """
+    Denormalized cache-read token usage used by trace analytics queries.
+    """
+    cache_creation_input_tokens = Column(BigInteger, nullable=True)
+    """
+    Denormalized cache-creation token usage used by trace analytics queries.
+    """
+    cache_creation_input_tokens_above_1hr = Column(BigInteger, nullable=True)
+    """
+    Denormalized extended-TTL cache-creation token usage used by trace analytics queries.
+    """
+    input_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized trace input cost used by trace analytics queries.
+    """
+    output_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized trace output cost used by trace analytics queries.
+    """
+    total_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized trace total cost used by trace analytics queries.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("request_id", name="trace_info_pk"),
@@ -830,6 +886,7 @@ class SqlTraceInfo(Base):
         # in the where clause.
         Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
         Index(f"index_{__tablename__}_timestamp_ms_request_id", "timestamp_ms", "request_id"),
+        Index(f"index_{__tablename__}_experiment_id_session_id", "experiment_id", "session_id"),
     )
 
     def to_mlflow_entity(self):
@@ -839,14 +896,25 @@ class SqlTraceInfo(Base):
         Returns:
             :py:class:`mlflow.entities.TraceInfo` object.
         """
+        tags = {t.key: t.value for t in self.tags if t.key != TraceTagKey.TRACE_NAME}
+        if self.trace_name is not None:
+            tags[TraceTagKey.TRACE_NAME] = self.trace_name
+
+        trace_metadata = {
+            m.key: m.value
+            for m in self.request_metadata
+            if m.key not in PROMOTED_TRACE_METADATA_KEYS
+        }
+        trace_metadata.update(compatibility_metadata_from_columns(self))
+
         return TraceInfo(
             trace_id=self.request_id,
             trace_location=TraceLocation.from_experiment_id(str(self.experiment_id)),
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=TraceState(self.status),
-            tags={t.key: t.value for t in self.tags},
-            trace_metadata={m.key: m.value for m in self.request_metadata},
+            tags=tags,
+            trace_metadata=trace_metadata,
             client_request_id=self.client_request_id,
             request_preview=self.request_preview,
             response_preview=self.response_preview,
@@ -912,6 +980,123 @@ class SqlTraceMetadata(Base):
     __table_args__ = (
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
         Index(f"index_{__tablename__}_request_id"),
+    )
+
+
+class SqlTraceMetricDailyRollup(Base):
+    __tablename__ = "sql_trace_metric_daily_rollups"
+
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    metric_name = Column(String(250), nullable=False)
+    grouping_set = Column(String(50), nullable=False)
+    trace_status = Column(String(50), nullable=True)
+    sample_count = Column(BigInteger, nullable=False)
+    sum_value = Column(Float(precision=53), nullable=True)
+    min_value = Column(Float(precision=53), nullable=True)
+    max_value = Column(Float(precision=53), nullable=True)
+    p50_value = Column(Float(precision=53), nullable=True)
+    p90_value = Column(Float(precision=53), nullable=True)
+    p99_value = Column(Float(precision=53), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sql_trace_metric_daily_rollups_pk"),
+        Index(
+            "idx_trace_rollups_lookup",
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+            "trace_status",
+        ),
+    )
+
+
+class SqlSpanCostDailyRollup(Base):
+    __tablename__ = "sql_span_cost_daily_rollups"
+
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    metric_name = Column(String(250), nullable=False)
+    grouping_set = Column(String(50), nullable=False)
+    model_name = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
+    model_provider = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
+    sample_count = Column(BigInteger, nullable=False)
+    sum_value = Column(Float(precision=53), nullable=True)
+    min_value = Column(Float(precision=53), nullable=True)
+    max_value = Column(Float(precision=53), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sql_span_cost_daily_rollups_pk"),
+        Index(
+            "idx_span_cost_rollups_lookup",
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+            "model_name",
+            "model_provider",
+            mysql_length={"model_name": 64, "model_provider": 64},
+        ),
+    )
+
+
+class SqlAssessmentDailyRollup(Base):
+    __tablename__ = "sql_assessment_daily_rollups"
+
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    metric_name = Column(String(250), nullable=False)
+    grouping_set = Column(String(50), nullable=False)
+    sample_count = Column(BigInteger, nullable=False)
+    sum_value = Column(Float(precision=53), nullable=True)
+    min_value = Column(Float(precision=53), nullable=True)
+    max_value = Column(Float(precision=53), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="sql_assessment_daily_rollups_pk"),
+        Index(
+            "idx_assessment_rollups_lookup",
+            "experiment_id",
+            "rollup_day",
+            "metric_name",
+            "grouping_set",
+        ),
+    )
+
+
+class SqlTraceRollupRebuild(Base):
+    __tablename__ = "sql_trace_rollup_rebuild_queue"
+
+    experiment_id = Column(Integer, nullable=False)
+    rollup_day = Column(Date, nullable=False)
+    rollup_family = Column(String(50), nullable=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "experiment_id",
+            "rollup_day",
+            "rollup_family",
+            name="sql_trace_rollup_rebuild_queue_pk",
+        ),
     )
 
 
@@ -1029,6 +1214,22 @@ class SqlAssessments(Base):
     """
     The update time of an assessment if the assessment has been updated: `BigInteger`.
     """
+    experiment_id = Column(Integer, nullable=True)
+    """
+    Denormalized experiment ID used by assessment analytics queries.
+    """
+    trace_timestamp_ms = Column(BigInteger, nullable=True)
+    """
+    Denormalized trace timestamp used by assessment analytics queries.
+    """
+    aggregate_value = Column(Float(precision=53), nullable=True)
+    """
+    Materialized numeric value used by assessment analytics aggregations.
+    """
+    is_numeric_value = Column(Boolean, nullable=False, default=False, server_default=sa.false())
+    """
+    Whether the original JSON assessment value is a finite number.
+    """
     source_type = Column(String(50), nullable=False)
     """
     Assessment source type: `String` (limit 50 characters). e.g., "HUMAN", "CODE", "LLM_JUDGE".
@@ -1077,6 +1278,14 @@ class SqlAssessments(Base):
         Index(f"index_{__tablename__}_run_id_created_timestamp", "run_id", "created_timestamp"),
         Index(f"index_{__tablename__}_last_updated_timestamp", "last_updated_timestamp"),
         Index(f"index_{__tablename__}_assessment_type", "assessment_type"),
+        Index("idx_assessments_exp_trace_ts", "experiment_id", "trace_timestamp_ms"),
+        Index(
+            "idx_assessments_exp_trace_ts_name",
+            "experiment_id",
+            "trace_timestamp_ms",
+            "name",
+        ),
+        Index("idx_assessments_exp_name_valid", "experiment_id", "name", "valid"),
     )
 
     def to_mlflow_entity(self) -> Assessment:
@@ -1158,7 +1367,8 @@ class SqlAssessments(Base):
 
         if assessment.feedback is not None:
             assessment_type = "feedback"
-            value_json = json.dumps(assessment.feedback.value)
+            value = assessment.feedback.value
+            value_json = json.dumps(value)
             error_json = (
                 json.dumps(assessment.feedback.error.to_dictionary())
                 if assessment.feedback.error
@@ -1166,11 +1376,13 @@ class SqlAssessments(Base):
             )
         elif assessment.expectation is not None:
             assessment_type = "expectation"
-            value_json = json.dumps(assessment.expectation.value)
+            value = assessment.expectation.value
+            value_json = json.dumps(value)
             error_json = None
         elif assessment.issue is not None:
             assessment_type = "issue"
-            value_json = json.dumps(assessment.issue.to_dictionary())
+            value = assessment.issue.to_dictionary()
+            value_json = json.dumps(value)
             error_json = None
         else:
             raise MlflowException.invalid_parameter_value(
@@ -1179,6 +1391,7 @@ class SqlAssessments(Base):
 
         metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
 
+        aggregate_value, is_numeric_value = assessment_aggregate(value)
         return SqlAssessments(
             assessment_id=assessment.assessment_id,
             trace_id=assessment.trace_id,
@@ -1196,6 +1409,8 @@ class SqlAssessments(Base):
             overrides=assessment.overrides,
             valid=True,
             assessment_metadata=metadata_json,
+            aggregate_value=aggregate_value,
+            is_numeric_value=is_numeric_value,
         )
 
     def __repr__(self):
@@ -2008,15 +2223,13 @@ class SqlEvaluationDatasetRecord(Base):
 class SqlSpan(Base):
     __tablename__ = "spans"
 
-    trace_id = Column(
-        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
-    )
+    trace_id = Column(String(50), nullable=False)
     """
     Trace ID: `String` (limit 50 characters). Part of composite primary key.
     Foreign key to trace_info table.
     """
 
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(Integer, nullable=False)
     """
     Experiment ID: `Integer`. Foreign key to experiments table.
     """
@@ -2075,10 +2288,25 @@ class SqlSpan(Base):
     Uses LONGTEXT in MySQL to support large spans (up to 4GB).
     """
 
-    dimension_attributes = Column(MutableJSON, nullable=True)
+    input_cost = Column(Float(precision=53), nullable=True)
     """
-    Dimension attributes JSON: `JSON`. Optional field for storing reserved span attributes for
-    efficient querying or metrics aggregation.
+    Denormalized input cost used by span analytics queries.
+    """
+    output_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized output cost used by span analytics queries.
+    """
+    total_cost = Column(Float(precision=53), nullable=True)
+    """
+    Denormalized total cost used by span analytics queries.
+    """
+    model_name = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
+    """
+    Denormalized model name used by span cost analytics queries.
+    """
+    model_provider = Column(String(500).with_variant(NVARCHAR(500), "mssql"), nullable=True)
+    """
+    Denormalized model provider used by span cost analytics queries.
     """
 
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
@@ -2088,6 +2316,17 @@ class SqlSpan(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        ForeignKeyConstraint(
+            ["trace_id"],
+            ["trace_info.request_id"],
+            name="fk_spans_trace_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_spans_experiment_id",
+        ),
         # The leftmost experiment_id column also supports experiment-only filters, so this
         # composite index replaces a separate index on experiment_id.
         Index(
@@ -2103,6 +2342,36 @@ class SqlSpan(Base):
             "index_spans_experiment_id_type_status", "experiment_id", "type", "status"
         ),  # For type-only and type+status filters
         Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
+        Index(
+            "idx_spans_cost_trace_time_cover",
+            "trace_id",
+            "start_time_unix_nano",
+            postgresql_include=[
+                "input_cost",
+                "output_cost",
+                "total_cost",
+                "model_name",
+                "model_provider",
+            ],
+            postgresql_where=sa.text(
+                "input_cost IS NOT NULL OR output_cost IS NOT NULL OR total_cost IS NOT NULL"
+            ),
+        ),
+        Index(
+            "idx_spans_cost_exp_time_cover",
+            "experiment_id",
+            "start_time_unix_nano",
+            postgresql_include=[
+                "input_cost",
+                "output_cost",
+                "total_cost",
+                "model_name",
+                "model_provider",
+            ],
+            postgresql_where=sa.text(
+                "input_cost IS NOT NULL OR output_cost IS NOT NULL OR total_cost IS NOT NULL"
+            ),
+        ),
     )
 
 
@@ -2407,6 +2676,41 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
+    executor_backend = Column(String(255), nullable=True)
+    """
+    Persisted executor backend name for retry, cancellation, and recovery: `String` (limit 255).
+    """
+
+    lease_expires_at = Column(BigInteger(), nullable=True)
+    """
+    Lease expiration timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    status_message = Column(Text, nullable=True)
+    """
+    Latest best-effort in-flight status message: `Text`.
+    """
+
+    progress = Column(MutableJSON, nullable=True)
+    """
+    Latest best-effort structured progress: `JSON`.
+    """
+
+    progress_updated_at = Column(BigInteger(), nullable=True)
+    """
+    Progress update timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    token_hash = Column(String(64), nullable=True)
+    """
+    SHA-256 hex digest of the remote execution token: `String` (limit 64).
+    """
+
+    scoped_permissions = Column(MutableJSONArray, nullable=True)
+    """
+    Persisted remote-execution scoped permissions list: `JSON`.
+    """
+
     status_details = Column(MutableJSON, nullable=True)
     """
     Job status details: `JSON`.
@@ -2421,6 +2725,14 @@ class SqlJob(Base):
     an anonymous submitter.
     """
 
+    next_attempt_at = Column(BigInteger(), nullable=True)
+    """
+    Earliest time (Unix epoch milliseconds) at which a PENDING job may be claimed: `BigInteger`.
+    Set when a job is re-pended after a transient failure to enforce an exponential backoff, using
+    the database clock so the deadline is comparable across replicas regardless of host clock skew.
+    ``NULL`` means the job is claimable immediately (never retried, or reset/requeued).
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2429,6 +2741,11 @@ class SqlJob(Base):
             "workspace",
             "status",
             "creation_time",
+        ),
+        Index(
+            "index_jobs_status_lease_expires_at",
+            "status",
+            "lease_expires_at",
         ),
     )
 
@@ -2456,9 +2773,78 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            executor_backend=self.executor_backend,
+            lease_expires_at=self.lease_expires_at,
+            status_message=self.status_message,
+            progress=self.progress,
+            progress_updated_at=self.progress_updated_at,
+            token_hash=self.token_hash,
+            scoped_permissions=self.scoped_permissions,
             status_details=self.status_details,
             creator=self.creator,
         )
+
+
+class SqlJobLock(Base):
+    """
+    DB model for framework-managed exclusive job locks.
+
+    These are recorded in the ``job_locks`` table.
+    """
+
+    __tablename__ = "job_locks"
+
+    lock_key = Column(String(255), nullable=False)
+    """
+    Framework-computed exclusive lock key: `String` (limit 255). Primary key.
+    """
+
+    job_id = Column(String(36), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
+    """
+    Holding job ID: `String` (limit 36). Foreign key into ``jobs`` table.
+    """
+
+    acquired_at = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Lock acquisition timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("lock_key", name="job_locks_pk"),
+        Index("index_job_locks_job_id", "job_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlJobLock ({self.lock_key}, {self.job_id})>"
+
+
+class SqlSchedulerLease(Base):
+    """
+    DB model for framework-managed scheduler leases. These are recorded in the
+    ``scheduler_leases`` table.
+    """
+
+    __tablename__ = "scheduler_leases"
+
+    lease_key = Column(String(255), nullable=False)
+    """
+    Scheduler lease key: `String` (limit 255). Primary key.
+    """
+
+    acquired_at = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Lease acquisition / renewal timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    ttl_seconds = Column(Integer, nullable=False)
+    """
+    Lease time-to-live in seconds: `Integer`.
+    """
+
+    __table_args__ = (PrimaryKeyConstraint("lease_key", name="scheduler_leases_pk"),)
+
+    def __repr__(self):
+        return f"<SqlSchedulerLease ({self.lease_key}, {self.acquired_at})>"
 
 
 class SqlGatewaySecret(Base):

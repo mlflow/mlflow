@@ -59,6 +59,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.portkey import PortkeyProvider
     from mlflow.gateway.providers.sap_ai_core import SapAiCoreProvider
     from mlflow.gateway.providers.togetherai import TogetherAIProvider
+    from mlflow.gateway.providers.typesafe import TypeSafeProvider
     from mlflow.gateway.providers.vertex_ai import VertexAIProvider
     from mlflow.gateway.providers.xai import XAIProvider
 
@@ -87,6 +88,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.PORTKEY, PortkeyProvider)
     registry.register(Provider.SAP_AI_CORE, SapAiCoreProvider)
     registry.register(Provider.TOGETHERAI, TogetherAIProvider)
+    registry.register(Provider.TYPESAFE, TypeSafeProvider)
     registry.register(Provider.VERTEX_AI, VertexAIProvider)
     registry.register(Provider.XAI, XAIProvider)
 
