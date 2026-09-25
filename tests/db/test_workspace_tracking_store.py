@@ -78,6 +78,26 @@ def test_experiment_id_filters_bind_integers(psycopg3_store):
         assert associations.to_list() == []
 
 
+@pytest.mark.parametrize("base_filter", [None, 'tags.base = "true"'])
+def test_trace_filter_correlation_binds_integer_experiment_ids(psycopg3_store, base_filter):
+    # psycopg v3 rejects a VARCHAR bind compared with trace_info.experiment_id (INTEGER).
+    # The public API accepts string IDs, but the SQL filter must bind them as integers.
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"correlation-{uuid.uuid4().hex}")
+
+        result = psycopg3_store.calculate_trace_filter_correlation(
+            experiment_ids=[exp_id],
+            filter_string1='tags.has_error = "true"',
+            filter_string2='tags.primary_span_type = "TOOL"',
+            base_filter=base_filter,
+        )
+
+        assert result.total_count == 0
+        assert result.filter1_count == 0
+        assert result.filter2_count == 0
+        assert result.joint_count == 0
+
+
 def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
     # `experiment_id = ...` / `IN (...)` filters bind against the INTEGER
     # `experiments.experiment_id` column; without coercing the filter value to
