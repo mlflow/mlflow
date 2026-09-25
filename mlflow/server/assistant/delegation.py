@@ -59,7 +59,7 @@ def mint_delegation_credential(
 def verify_delegation_credential(credential: str | None) -> str | None:
     """Return the username a valid, unexpired credential attests to, else None.
 
-    None for any malformed, mis-signed, or expired value, or when there is no signing key.
+    None for any malformed, wrongly signed, or expired value, or when there is no signing key.
     """
     key = _signing_key()
     if not key or not credential:
