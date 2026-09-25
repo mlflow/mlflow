@@ -9,6 +9,7 @@ from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
+from mlflow.store.artifact.host_policy import enforce_server_artifact_uri_host_policy
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
@@ -75,6 +76,10 @@ class ArtifactRepositoryRegistry:
             An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
             requirements.
         """
+        # Applied here rather than only in the server handlers so that repositories resolved
+        # indirectly (`runs:/`, `models:/`) and those built by the tracking client inside server
+        # jobs follow the same policy.
+        enforce_server_artifact_uri_host_policy(artifact_uri)
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
         if repository is None:

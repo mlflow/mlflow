@@ -16,6 +16,7 @@ import mlflow
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.ensemble import (
     BOOL_ENSEMBLES,
@@ -36,6 +37,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_uri
 from mlflow.utils.timeout import MlflowTimeoutError
+from mlflow.utils.uri import is_http_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -576,10 +578,10 @@ class Scorer(BaseModel):
             module_path = data.get("module") or ""
             class_name = data.get("class")
             metric_name = data.get("metric_name")
-            if not any(
-                module_path == m or module_path.startswith(m + ".")
-                for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
-            ):
+            # Exact match only: a dotted descendant of an allow-listed package can be a
+            # caller-placed file (e.g. a run artifact under a `file://` experiment root),
+            # and `import_module` would execute it before the class check below.
+            if module_path not in THIRD_PARTY_SCORER_ALLOWED_MODULES:
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': module '{module_path}' is not "
                     f"in the allow-list {sorted(THIRD_PARTY_SCORER_ALLOWED_MODULES)}."
@@ -588,6 +590,21 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': missing required fields in "
                     f"third_party_scorer_data (class, metric_name)."
+                )
+            # The wrappers resolve unknown metric names by splicing them into an import
+            # path (`ragas.metrics.collections.<metric_name>`, `deepeval.metrics.<metric_name>`),
+            # so a dotted name would reach a caller-placed module the same way.
+            if not metric_name.isidentifier():
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': metric_name '{metric_name}' "
+                    "must be a plain identifier."
+                )
+            # Concrete subclasses pin `metric_name` via ClassVar and inherit the wrapper's
+            # `__init__`, so a `metric_name` kwarg would override the validated value above.
+            if "metric_name" in (data.get("kwargs") or {}):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': kwargs must not contain "
+                    "'metric_name'; set it at the top level of third_party_scorer_data."
                 )
             try:
                 module = importlib.import_module(module_path)
@@ -601,6 +618,11 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': class '{class_name}' not "
                     f"found in module '{module_path}'."
+                )
+            if not (inspect.isclass(scorer_class) and issubclass(scorer_class, Scorer)):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': '{module_path}.{class_name}' "
+                    "is not a Scorer subclass."
                 )
             init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
             # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
@@ -694,10 +716,15 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow loading when connected to a Databricks workspace, where
-        # registration is gated behind authentication. OSS backends don't have this guarantee,
-        # so block loading to prevent executing untrusted code.
-        if not is_databricks_uri(get_tracking_uri()):
+        # execution risk. Only allow loading when connected to a Databricks workspace (where
+        # registration is gated behind authentication) or when the operator has explicitly opted
+        # in via MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS. Otherwise block loading to prevent executing
+        # untrusted code. This guard runs wherever a scorer is deserialized (client or server),
+        # reading the flag from that process's environment.
+        if (
+            not is_databricks_uri(get_tracking_uri())
+            and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+        ):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"
@@ -1301,11 +1328,20 @@ class Scorer(BaseModel):
             for sub_scorer in self._scorers:
                 sub_scorer._check_can_be_registered(error_message)
 
-        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow registration when using Databricks tracking URI.
-        # Registration itself is safe (just stores code), but we restrict it to Databricks
-        # to ensure loaded scorers can only be executed in controlled environments.
-        if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
+        # NB: Custom (@scorer) scorers use exec() when they run, which poses a code execution
+        # risk, so registration is restricted to environments that accept that risk. Against a
+        # remote (HTTP) server the server's own `_register_scorer` handler enforces the flag, so
+        # we defer to it here -- a remote client should not have to set a server variable. This
+        # client-side guard therefore only blocks local, in-process registration (no server to
+        # defer to) that has not opted in via MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS; Databricks is
+        # always allowed (registration there is gated behind authentication).
+        tracking_uri = get_tracking_uri()
+        if (
+            self.kind == ScorerKind.DECORATOR
+            and not is_databricks_uri(tracking_uri)
+            and not is_http_uri(tracking_uri)
+            and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+        ):
             raise MlflowException.invalid_parameter_value(
                 DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
             )
