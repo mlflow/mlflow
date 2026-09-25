@@ -1,0 +1,46 @@
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip install --no-cache-dir \
+    mlflow==2.13.0 \
+    msal==1.25.0 \
+    requests==2.31.0 \
+    python-jose==3.3.0 \
+    cryptography==41.0.7 \
+    psycopg2-binary==2.9.9 \
+    sqlalchemy==2.0.23
+
+# Create app directory
+WORKDIR /app
+
+# Copy configuration files
+COPY auth_azure.ini /app/auth_azure.ini
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Set environment variables
+ENV MLFLOW_AUTH_CONFIG_PATH=/app/auth_azure.ini
+ENV MLFLOW_BACKEND_STORE_URI=sqlite:////app/data/mlflow.db
+ENV MLFLOW_ARTIFACT_ROOT=/app/data/artifacts
+ENV PYTHONUNBUFFERED=1
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
+
+# Start MLflow server
+CMD ["mlflow", "server", \
+     "--app-name", "basic-auth", \
+     "--host", "0.0.0.0", \
+     "--port", "5000", \
+     "--backend-store-uri", "sqlite:////app/data/mlflow.db", \
+     "--default-artifact-root", "/app/data/artifacts"]

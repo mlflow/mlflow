@@ -1,0 +1,21 @@
+# MLflow Azure SSO Authentication Requirements
+# Install with: pip install -r requirements_azure_sso.txt
+
+# Core MLflow
+mlflow==2.13.0
+
+# Azure AD Authentication
+msal==1.25.0              # Microsoft Authentication Library for token exchange
+requests==2.31.0          # HTTP library for API calls
+python-jose==3.3.0        # JWT token verification
+cryptography==41.0.7      # RSA key handling for token verification
+
+# Database (for production)
+psycopg2-binary==2.9.9    # PostgreSQL adapter
+sqlalchemy==2.0.23        # Database ORM
+
+# Optional: For development/testing
+pytest==7.4.3
+pytest-cov==4.1.0
+black==23.12.1
+flake8==6.1.0

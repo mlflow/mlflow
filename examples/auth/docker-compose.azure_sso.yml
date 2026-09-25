@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # MLflow server with Azure SSO
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.azure_sso
+    container_name: mlflow-azure-sso
+    ports:
+      - "5000:5000"
+    environment:
+      # Azure AD Configuration
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_REDIRECT_URI: ${AZURE_REDIRECT_URI:-http://localhost:5000/login/callback}
+      
+      # MLflow Configuration
+      MLFLOW_AUTH_CONFIG_PATH: /app/auth_azure.ini
+      MLFLOW_BACKEND_STORE_URI: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/mlflow
+      MLFLOW_ARTIFACT_ROOT: /app/data/artifacts
+      MLFLOW_ENABLE_WORKSPACES: "true"
+      
+      # Logging
+      PYTHONUNBUFFERED: "1"
+    
+    volumes:
+      - ./auth_azure.ini:/app/auth_azure.ini:ro
+      - mlflow_artifacts:/app/data/artifacts
+      - mlflow_data:/app/data
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - mlflow_network
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # PostgreSQL database for production
+  postgres:
+    image: postgres:15-alpine
+    container_name: mlflow-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-mlflow}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mlflow_password}
+      POSTGRES_DB: mlflow
+      POSTGRES_INITDB_ARGS: "-c max_connections=200"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    networks:
+      - mlflow_network
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mlflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mlflow_artifacts:
+    driver: local
+  mlflow_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  mlflow_network:
+    driver: bridge
