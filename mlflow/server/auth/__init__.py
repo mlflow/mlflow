@@ -1794,15 +1794,24 @@ def validate_can_update_run():
     return _authorize_run("update")
 
 
-def _authorize_create_in_experiment(experiment_id: str, created_type: str) -> bool:
-    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+def _authorize_create_in_experiment_as(
+    username: str, experiment_id: str, created_type: str
+) -> bool:
+    # Takes the username explicitly for the FastAPI validators, which are handed one rather
+    # than running inside a Flask request context.
     return authorize(
-        authenticate_request().username,
-        experiment,
+        username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
             Requirement(created_type, "*", ACTION_NOT_DENIED),
         ],
+    )
+
+
+def _authorize_create_in_experiment(experiment_id: str, created_type: str) -> bool:
+    return _authorize_create_in_experiment_as(
+        authenticate_request().username, experiment_id, created_type
     )
 
 
@@ -7822,7 +7831,9 @@ def _get_otel_validator(
             raise MlflowException(
                 "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
             )
-        return _get_experiment_permission(experiment_id, username).can_update
+        # The handler persists the submitted spans, so this is a trace create and carries the
+        # same veto as StartTrace / StartTraceV3.
+        return _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE)
 
     return validator
 
