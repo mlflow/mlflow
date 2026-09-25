@@ -685,6 +685,16 @@ class SqlAlchemyStore(AbstractStore):
                             f"Invalid comparator for attribute {key}: {comparator}",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
+                    if isinstance(value, float):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
                 elif (
                     comparator not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
                     or (comparator in ("IN", "NOT IN") and key not in ("run_id", "name"))

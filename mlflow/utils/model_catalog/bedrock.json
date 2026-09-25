@@ -5080,15 +5080,15 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 2.75,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.275,
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.25,
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "input_per_million_tokens": 5.5,
-            "cache_read_per_million_tokens": 0.55,
-            "output_per_million_tokens": 24.75
+            "input_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.5,
+            "output_per_million_tokens": 22.5
           }
         ]
       },
@@ -5099,7 +5099,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-09-25"
     },
     "global.openai.gpt-5.5": {
       "mode": "chat",
@@ -5109,15 +5109,15 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 5.5,
-        "output_per_million_tokens": 33.0,
-        "cache_read_per_million_tokens": 0.55,
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.5,
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "input_per_million_tokens": 11.0,
-            "cache_read_per_million_tokens": 1.1,
-            "output_per_million_tokens": 49.5
+            "input_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 1.0,
+            "output_per_million_tokens": 45.0
           }
         ]
       },
@@ -5128,7 +5128,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-09-25"
     },
     "global.openai.gpt-5.6-luna": {
       "mode": "chat",
