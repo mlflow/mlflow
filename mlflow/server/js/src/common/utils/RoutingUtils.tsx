@@ -200,6 +200,7 @@ export const createRouteElement = (component: React.ComponentType<React.PropsWit
  */
 export interface DocumentTitleHandle {
   getPageTitle: (params: Params<string>) => string;
+  pageManagesDocumentTitle?: boolean;
 }
 
 /**
@@ -225,6 +226,11 @@ export const usePageTitle = () => {
   const title = handle?.getPageTitle(lastMatch.params);
 
   return title;
+};
+
+export const usePageManagesDocumentTitle = () => {
+  const matches = useMatches();
+  return matches.some((match) => (match.handle as DocumentTitleHandle | undefined)?.pageManagesDocumentTitle === true);
 };
 
 export const DEFAULT_ASSISTANT_PROMPTS = [

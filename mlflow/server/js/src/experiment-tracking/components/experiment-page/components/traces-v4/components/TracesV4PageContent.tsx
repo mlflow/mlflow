@@ -46,6 +46,7 @@ import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-table';
+import { useExperimentPageRevampContext } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-page-tabs/ExperimentPageRevampContext';
 
 interface TracesV4PageContentProps {
   experimentId: string;
@@ -68,6 +69,7 @@ const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_ID
  */
 export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   const intl = useIntl();
   const navigate = useNavigate();
   const { pathname, search, hash } = useLocation();
@@ -395,8 +397,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             flex: 1,
             minHeight: 0,
             gap: theme.spacing.md,
-            paddingTop: theme.spacing.md,
-            paddingLeft: theme.spacing.md,
+            paddingTop: revampEnabled ? 0 : theme.spacing.md,
+            paddingLeft: revampEnabled ? 0 : theme.spacing.md,
             marginBottom: -theme.spacing.sm,
           }}
         >

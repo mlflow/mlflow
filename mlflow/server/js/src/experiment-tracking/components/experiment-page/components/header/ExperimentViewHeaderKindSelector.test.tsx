@@ -36,7 +36,7 @@ describe('ExperimentViewHeaderKindSelector', () => {
 
     await userEvent.click(getByText('Machine learning'));
 
-    await userEvent.click(await findByText('GenAI apps & agents'));
+    await userEvent.click(await findByText('Agents and LLM apps'));
 
     expect(onChange).toHaveBeenCalledWith(ExperimentKind.GENAI_DEVELOPMENT);
   });

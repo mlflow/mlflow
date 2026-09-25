@@ -10,9 +10,11 @@ const ExperimentPageRoutePathToTabNameMap = map(
   {
     [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Overview,
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
+    [RoutePaths.experimentPageTabTraceDetail]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
     [RoutePaths.experimentPageTabEvaluationRuns]: ExperimentPageTabName.EvaluationRuns,
+    [RoutePaths.experimentPageTabDatasetDetail]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
     [RoutePaths.experimentPageTabSingleChatSession]: ExperimentPageTabName.SingleChatSession,
@@ -22,6 +24,7 @@ const ExperimentPageRoutePathToTabNameMap = map(
     [RoutePaths.experimentPageTabPrompts]: ExperimentPageTabName.Prompts,
     [RoutePaths.experimentPageTabPromptDetails]: ExperimentPageTabName.Prompts,
     [RoutePaths.experimentPageTabReviewQueue]: ExperimentPageTabName.ReviewQueue,
+    [RoutePaths.experimentPageTabSettings]: ExperimentPageTabName.Settings,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );

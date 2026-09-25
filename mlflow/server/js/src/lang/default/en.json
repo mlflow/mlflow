@@ -135,6 +135,10 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
   },
+  "+be6MA": {
+    "defaultMessage": "Experiment Settings",
+    "description": "Tooltip and accessible label for the experiment settings button"
+  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -947,6 +951,10 @@
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
   },
+  "2+sQ7k": {
+    "defaultMessage": "Experiments",
+    "description": "Breadcrumb link to the experiments list"
+  },
   "2+uccV": {
     "defaultMessage": "Workspaces",
     "description": "Home page workspaces section title"
@@ -1158,6 +1166,10 @@
   "2kNo2y": {
     "defaultMessage": "Tool Error Rates",
     "description": "Title for the tool error rates section"
+  },
+  "2lUSly": {
+    "defaultMessage": "Moves this experiment to the trash.",
+    "description": "Description for deleting experiment"
   },
   "2mRfvl": {
     "defaultMessage": "Request error",
@@ -1675,6 +1687,10 @@
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
   },
+  "5/9vlW": {
+    "defaultMessage": "Experiment ID",
+    "description": "Label for experiment ID setting"
+  },
   "502XWr": {
     "defaultMessage": "Search inputs, expectations…",
     "description": "Placeholder for the search input on the V2 dataset records page"
@@ -1735,6 +1751,10 @@
     "defaultMessage": "Analyze with Assistant",
     "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
   },
+  "5K9Kmf": {
+    "defaultMessage": "Experiment name",
+    "description": "Label for experiment name setting"
+  },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
@@ -1774,6 +1794,10 @@
   "5S0B47": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer inputs/outputs section"
+  },
+  "5SZJcB": {
+    "defaultMessage": "Retry",
+    "description": "Link-styled button to retry an experiment rename"
   },
   "5Sk9A1": {
     "defaultMessage": "Input cost",
@@ -1974,6 +1998,10 @@
   "6K04VZ": {
     "defaultMessage": "Max. tokens: {max_tokens}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > max tokens parameter"
+  },
+  "6OU57Z": {
+    "defaultMessage": "Artifact location",
+    "description": "Label for artifact location setting"
   },
   "6Q/0BO": {
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
@@ -2186,6 +2214,10 @@
   "7AbOaV": {
     "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
     "description": "Hint text explaining API key name field"
+  },
+  "7CRULb": {
+    "defaultMessage": "The full path to this experiment.",
+    "description": "Description for experiment path setting"
   },
   "7Dhfxy": {
     "defaultMessage": "Fail",
@@ -3027,10 +3059,6 @@
     "defaultMessage": "Create User",
     "description": "Button to create a new user"
   },
-  "ACNZd9": {
-    "defaultMessage": "GenAI apps & agents",
-    "description": "Label for experiments automatically identified as generative AI development"
-  },
   "AEK/2K": {
     "defaultMessage": "Please enter instructions to run the judge",
     "description": "Tooltip message when instructions are missing"
@@ -3571,6 +3599,10 @@
     "defaultMessage": "Local packages",
     "description": "MCP compare packages heading"
   },
+  "CKH7uA": {
+    "defaultMessage": "Unable to save the experiment name.",
+    "description": "Inline error shown when an experiment rename fails"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -3586,10 +3618,6 @@
   "COIi12": {
     "defaultMessage": "Run judges",
     "description": "Button text for running multiple judges"
-  },
-  "CPO2ro": {
-    "defaultMessage": "GenAI apps & agents",
-    "description": "A short label for custom experiments automatically identified as being focused on generative AI app and agent development"
   },
   "CRr6Tx": {
     "defaultMessage": "Create and manage judges",
@@ -3711,6 +3739,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "CwXUv5": {
+    "defaultMessage": "Delete experiment",
+    "description": "Label for deleting experiment"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -3830,6 +3862,10 @@
   "DQ3XQT": {
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
+  },
+  "DQhytI": {
+    "defaultMessage": "Trace storage destination",
+    "description": "Label for experiment trace storage destination"
   },
   "DSu+/R": {
     "defaultMessage": "Select reviewers",
@@ -4311,10 +4347,6 @@
     "defaultMessage": "1. Install MLflow with GenAI extras on the server",
     "description": "AI Gateway setup guide > Step 1 title"
   },
-  "Fg/zU/": {
-    "defaultMessage": "GenAI apps & agents",
-    "description": "A short label for custom experiments focused on generative AI app and agent development"
-  },
   "Fggk2Q": {
     "defaultMessage": "Key:",
     "description": "Label for tag key in modal"
@@ -4546,6 +4578,10 @@
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
+  },
+  "Gj+C1W": {
+    "defaultMessage": "Breadcrumb",
+    "description": "Aria label for experiment page breadcrumb navigation"
   },
   "Gk9Z7W": {
     "defaultMessage": "Created by",
@@ -5603,6 +5639,10 @@
     "defaultMessage": "Runs",
     "description": "Label for the runs tab in the MLflow experiment navbar"
   },
+  "L0SLs0": {
+    "defaultMessage": "Agents and LLM apps",
+    "description": "Label for experiments focused on agent and LLM app development"
+  },
   "L12vyN": {
     "defaultMessage": "The following {count, plural, one {endpoint} other {endpoints}} will be deleted:",
     "description": "Gateway > Bulk delete endpoints modal > Description"
@@ -5890,6 +5930,10 @@
   "MJILab": {
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > conversational guidelines assessment > negative value label. Displayed if the assistant violates guidelines at any point in the conversation."
+  },
+  "MJXT1P": {
+    "defaultMessage": "Controls the tracking experience and available features.",
+    "description": "Description for experiment type setting"
   },
   "ML+mQa": {
     "defaultMessage": "Overall assessment:",
@@ -6795,10 +6839,6 @@
     "defaultMessage": "Copy",
     "description": "Copy button tooltip"
   },
-  "PewjIJ": {
-    "defaultMessage": "GenAI apps & agents",
-    "description": "Label for experiments focused on generative AI model development"
-  },
   "Pgxfhl": {
     "defaultMessage": "Role",
     "description": "Roles table column header for the role name"
@@ -6862,6 +6902,10 @@
   "PymnbL": {
     "defaultMessage": "User",
     "description": "Header for the traces table user column"
+  },
+  "PzhlAQ": {
+    "defaultMessage": "Experiment name is required.",
+    "description": "Inline error shown when the experiment name is empty"
   },
   "PzytKT": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
@@ -7655,6 +7699,10 @@
     "defaultMessage": "Hide raw server.json",
     "description": "Toggle to hide raw server.json"
   },
+  "TJJxB2": {
+    "defaultMessage": "Path",
+    "description": "Label for experiment path setting"
+  },
   "TKo/CQ": {
     "defaultMessage": "Metadata",
     "description": "Column selector label for the aggregate metadata column"
@@ -7847,6 +7895,10 @@
     "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
     "description": "Generic error message for budget policy update"
   },
+  "U0Y2kG": {
+    "defaultMessage": "Agents and LLM apps",
+    "description": "Label for experiments automatically identified as agent or LLM app development"
+  },
   "U0eQAT": {
     "defaultMessage": "Only 1 issue found. There may be more.",
     "description": "Title of the guidance callout when an issue detection run found a single issue"
@@ -7991,6 +8043,10 @@
     "defaultMessage": "Deleted dataset \"{name}\"",
     "description": "Success toast after deleting a V2 evaluation dataset"
   },
+  "UdJKDO": {
+    "defaultMessage": "Experiment type",
+    "description": "Label for experiment type setting"
+  },
   "Uf0z53": {
     "defaultMessage": "Cancel",
     "description": "Cancel button in unified trace tag assignment modal"
@@ -8062,6 +8118,10 @@
   "Uue10g": {
     "defaultMessage": "Models",
     "description": "Breadcrumb for models tab of experiments page on the logged model details page"
+  },
+  "Uwd6SZ": {
+    "defaultMessage": "Trace location",
+    "description": "Heading for experiment trace storage"
   },
   "UwpML4": {
     "defaultMessage": "Model registered successfully",
@@ -8586,6 +8646,10 @@
   "WmgIQ+": {
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
+  },
+  "WnGOXk": {
+    "defaultMessage": "Delete",
+    "description": "Button to delete experiment"
   },
   "Wp1PWT": {
     "defaultMessage": "Failed to delete webhook",
@@ -9723,6 +9787,10 @@
     "defaultMessage": "Edit judge",
     "description": "Title for edit judge modal"
   },
+  "bKCGPW": {
+    "defaultMessage": "Copy link to this experiment",
+    "description": "Accessible label for the button that copies a link to the current experiment page"
+  },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
@@ -10330,6 +10398,10 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "dfOnAK": {
+    "defaultMessage": "Experiment load error: {errorMessage}",
+    "description": "Error shown when experiment Settings cannot load"
   },
   "dft8gv": {
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
@@ -11783,6 +11855,10 @@
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
   },
+  "ibHMAk": {
+    "defaultMessage": "Agents and LLM apps",
+    "description": "A short label for custom experiments focused on agent and LLM app development"
+  },
   "ibSBwh": {
     "defaultMessage": "Output",
     "description": "Header for the traces table output column"
@@ -11886,6 +11962,10 @@
   "j/pJM6": {
     "defaultMessage": "Last Modified",
     "description": "Label name for the last modified time under details tab on the model view page"
+  },
+  "j022N7": {
+    "defaultMessage": "Settings",
+    "description": "Label for the settings page in the MLflow experiment navigation"
   },
   "j1ddWI": {
     "defaultMessage": "Categorical",
@@ -12294,6 +12374,10 @@
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
+  },
+  "kVSInb": {
+    "defaultMessage": "The unique identifier used by MLflow APIs.",
+    "description": "Description for experiment ID setting"
   },
   "kVgfHt": {
     "defaultMessage": "Actions{count}",
@@ -12914,6 +12998,10 @@
   "n7MxV7": {
     "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
     "description": "Gateway > Endpoint details > Description for adding more primary models"
+  },
+  "n7mbdZ": {
+    "defaultMessage": "The destination configured for this experiment's traces.",
+    "description": "Description for experiment trace storage destination"
   },
   "nAJlQl": {
     "defaultMessage": "Deprecated",
@@ -13586,6 +13674,10 @@
   "pxRaW6": {
     "defaultMessage": "Schema",
     "description": "Label for the playground response_format JSON schema editor"
+  },
+  "pxnwk7": {
+    "defaultMessage": "Agents and LLM apps",
+    "description": "A short label for custom experiments automatically identified as being focused on agent or LLM app development"
   },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
@@ -14531,6 +14623,10 @@
     "defaultMessage": "Delete",
     "description": "Confirm button label on the delete-custom-view modal"
   },
+  "tez9iz": {
+    "defaultMessage": "About",
+    "description": "Heading for experiment metadata in Settings"
+  },
   "tiQptW": {
     "defaultMessage": "Learn more",
     "description": "Link to the documentation page for GenAI evaluation"
@@ -15142,6 +15238,10 @@
   "wY8GPK": {
     "defaultMessage": "Get started with AI Gateway",
     "description": "Gateway > Endpoints > Quick start title"
+  },
+  "wYRjew": {
+    "defaultMessage": "The location where run artifacts are stored.",
+    "description": "Description for artifact location setting"
   },
   "wYicDf": {
     "defaultMessage": "Share",
@@ -15938,6 +16038,10 @@
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
     "description": "Label indicating positive infinity used as a hover text in a plot UI element"
+  },
+  "zYvDa1": {
+    "defaultMessage": "Actions",
+    "description": "Heading for experiment management actions"
   },
   "zZ9sIi": {
     "defaultMessage": "The global guideline adherence LLM judge determines whether the response adheres to the global guidelines provided. All responses must adhere to global guidelines.",

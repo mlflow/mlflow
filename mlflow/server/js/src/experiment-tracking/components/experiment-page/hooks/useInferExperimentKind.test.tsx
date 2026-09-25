@@ -144,6 +144,32 @@ describe('useInferExperimentKind', () => {
     // Should still infer the experiment kind
     expect(result.current.inferredExperimentKind).toBe(ExperimentKind.GENAI_DEVELOPMENT_INFERRED);
     expect(result.current.inferredExperimentPageTab).toBeUndefined();
-    expect(updateExperimentKind).not.toHaveBeenCalled();
+    expect(updateExperimentKind).toHaveBeenCalledWith({
+      experimentId: '123',
+      kind: ExperimentKind.GENAI_DEVELOPMENT,
+    });
+  });
+
+  test('it should infer GenAI from a V4 trace location and persist the normalized kind', async () => {
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
+        return res(ctx.json({}));
+      }),
+      rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => {
+        return res(ctx.json({}));
+      }),
+    );
+    const updateExperimentKind = jest.fn();
+    const { result } = renderTestHook({ hasV4Location: true, updateExperimentKind });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.inferredExperimentKind).toBe(ExperimentKind.GENAI_DEVELOPMENT_INFERRED);
+    expect(updateExperimentKind).toHaveBeenCalledWith({
+      experimentId: '123',
+      kind: ExperimentKind.GENAI_DEVELOPMENT,
+    });
   });
 });

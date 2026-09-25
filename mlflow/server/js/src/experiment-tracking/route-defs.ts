@@ -57,7 +57,10 @@ const getExperimentPageRouteDefs = () => {
         return import('./pages/experiment-page-tabs/ExperimentPageTabs');
       }),
       pageId: PageId.experimentPage,
-      handle: { getPageTitle: (params) => `Experiment ${params['experimentId']}` } satisfies RouteHandle,
+      handle: {
+        getPageTitle: (params) => `Experiment ${params['experimentId']}`,
+        pageManagesDocumentTitle: true,
+      } satisfies RouteHandle,
       children: [
         {
           path: RoutePaths.experimentPageTabOverview,
@@ -248,6 +251,14 @@ const getExperimentPageRouteDefs = () => {
               'How can I improve this prompt?',
               'Show me how to use this prompt in code.',
             ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabSettings,
+          pageId: PageId.experimentPageTabSettings,
+          element: createLazyRouteElement(() => import('./pages/experiment-settings/ExperimentSettingsPage')),
+          handle: {
+            getPageTitle: (params) => `Settings - Experiment ${params['experimentId']}`,
           } satisfies RouteHandle,
         },
       ],
