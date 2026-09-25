@@ -115,6 +115,8 @@ interface Message {
 /**
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
+ * MLFLOW_TRACE_LOCATION is optional and resolved by the core SDK. If init()
+ * fails, a later event retries it; repeated warnings are suppressed.
  */
 function ensureInitialized(): boolean {
   if (initialized) {

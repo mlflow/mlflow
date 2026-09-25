@@ -35,7 +35,7 @@ function isValidHttpUri(uri: string): boolean {
 function traceLocationFromEnvironment(
   value: string | undefined,
 ): UnityCatalogLocationOptions | undefined {
-  if (value === undefined) {
+  if (value === undefined || value.trim().length === 0) {
     return undefined;
   }
 

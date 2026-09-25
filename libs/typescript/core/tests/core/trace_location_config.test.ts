@@ -36,7 +36,7 @@ describe('MLFLOW_TRACE_LOCATION configuration', () => {
     expect(initializeSDK).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['', '  ', 'cat.sch', 'cat.sch.prefix.extra', 'cat..prefix', 'cat.sch.'])(
+  it.each(['cat.sch', 'cat.sch.prefix.extra', 'cat..prefix', 'cat.sch.'])(
     'rejects invalid MLFLOW_TRACE_LOCATION %j before initializing',
     (value) => {
       process.env.MLFLOW_TRACE_LOCATION = value;
@@ -56,6 +56,15 @@ describe('MLFLOW_TRACE_LOCATION configuration', () => {
     init({ ...baseConfig, traceLocation });
 
     expect(getConfig().traceLocation).toEqual(traceLocation);
+  });
+
+  it.each(['', '  '])('keeps experiment-backed tracing for empty value %j', (value) => {
+    process.env.MLFLOW_TRACE_LOCATION = value;
+
+    init(baseConfig);
+
+    expect(getConfig().traceLocation).toBeUndefined();
+    expect(initializeSDK).toHaveBeenCalledTimes(1);
   });
 
   it('keeps experiment-backed tracing when the variable is absent', () => {
