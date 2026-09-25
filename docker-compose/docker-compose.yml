@@ -25,20 +25,24 @@ services:
     image: rustfs/rustfs:1.0.0-alpha.83
     container_name: storage
     environment:
-      RUSTFS_ADDRESS: :9000
-      RUSTFS_SERVER_DOMAINS: storage:9000
+      RUSTFS_ADDRESS: :${RUSTFS_API_PORT}
+      RUSTFS_SERVER_DOMAINS: storage:${RUSTFS_API_PORT}
       RUSTFS_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
       RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-s3admin}
       RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-s3admin}
       RUSTFS_CONSOLE_ENABLE: ${RUSTFS_CONSOLE_ENABLE:-true}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${RUSTFS_API_PORT}:${RUSTFS_API_PORT}"
+      - "${RUSTFS_CONSOLE_PORT}:${RUSTFS_CONSOLE_PORT}"
     volumes:
       - storage-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", 'curl -s http://127.0.0.1:9000/health | grep -q ''"status":"ok"''']
+      test:
+        [
+          "CMD-SHELL",
+          'curl -s http://127.0.0.1:${RUSTFS_API_PORT}/health | grep -q ''"status":"ok"''',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

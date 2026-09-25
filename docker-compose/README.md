@@ -76,6 +76,8 @@ The `.env` file defines:
 - **RustFS**
 
   - `RUSTFS_CONSOLE_ENABLE=true`
+  - `RUSTFS_API_PORT=9000`
+  - `RUSTFS_CONSOLE_PORT=9001`
 
 - **MLflow**
   - `MLFLOW_VERSION=latest`
@@ -83,7 +85,7 @@ The `.env` file defines:
   - `MLFLOW_PORT=5000`
   - `MLFLOW_BACKEND_STORE_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}`
   - `MLFLOW_ARTIFACTS_DESTINATION=s3://${S3_BUCKET}`
-  - `MLFLOW_S3_ENDPOINT_URL=http://storage:9000`
+  - `MLFLOW_S3_ENDPOINT_URL=http://storage:${RUSTFS_API_PORT}`
 
 ---
 
@@ -216,9 +218,12 @@ docker compose logs -f storage
 
 ### Port Conflicts
 
-Edit `.env` and restart containers:
+Set unused host ports for RustFS in `.env` and restart containers:
 
 ```bash
+RUSTFS_API_PORT=9100
+RUSTFS_CONSOLE_PORT=9101
+
 docker compose down
 docker compose up -d
 ```
