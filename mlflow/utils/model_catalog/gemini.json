@@ -699,7 +699,8 @@
         "cache_read_per_million_tokens": 0.125,
         "service_tiers": {
           "batch": {
-            "input_per_million_tokens": 0.5
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 10.0
           }
         },
         "modality": {
@@ -723,7 +724,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-3-flash-preview": {
       "mode": "chat",
@@ -2322,6 +2323,14 @@
           "batch": {
             "input_per_million_tokens": 1.0,
             "output_per_million_tokens": 6.0
+          },
+          "flex": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          },
+          "priority": {
+            "input_per_million_tokens": 3.6,
+            "output_per_million_tokens": 21.6
           }
         },
         "modality": {
@@ -2344,7 +2353,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-25"
     },
     "veo-2.0-generate-001": {
       "mode": "video_generation",
