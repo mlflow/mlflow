@@ -1105,10 +1105,11 @@ class LiveSpan(Span):
             exception: The exception to record. Can be an Exception instance or a string
                 describing the exception.
         """
+        if isinstance(exception, str):
+            exception = Exception(exception)
+
         if isinstance(exception, Exception):
             self.add_event(SpanEvent.from_exception(exception))
-        elif isinstance(exception, str):
-            self.add_event(SpanEvent.from_exception(Exception(exception)))
         else:
             raise MlflowException(
                 "The `exception` parameter must be an Exception instance or a string.",
