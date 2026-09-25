@@ -146,6 +146,8 @@ def test_is_databricks_uri(uri, expected):
     [
         ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
         ("arn:aws-us-gov:sagemaker:us-gov-west-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-cn:sagemaker:cn-north-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-fake:sagemaker:us-east-1:123456789012:mlflow-tracking-server/test", False),
         ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/", False),
         ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
         ("sagemaker:/us-east-1", False),

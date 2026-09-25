@@ -23,6 +23,17 @@ _uc_model_URI_PREFIX = "/Models/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
+# Keep in sync with the partition IDs in botocore/data/endpoints.json.
+_AWS_ARN_PARTITIONS = {
+    "aws",
+    "aws-cn",
+    "aws-eusc",
+    "aws-iso",
+    "aws-iso-b",
+    "aws-iso-e",
+    "aws-iso-f",
+    "aws-us-gov",
+}
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
@@ -93,7 +104,7 @@ def is_sagemaker_mlflow_tracking_uri(uri: str) -> bool:
     return (
         len(parts) == 6
         and parts[0] == "arn"
-        and (parts[1] == "aws" or parts[1].startswith("aws-"))
+        and parts[1] in _AWS_ARN_PARTITIONS
         and parts[2] == "sagemaker"
         and bool(parts[3])
         and bool(parts[4])
