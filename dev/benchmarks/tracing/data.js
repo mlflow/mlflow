@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790322461904,
+  "lastUpdate": 1790328148380,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "wnoah1833@gmail.com",
-            "name": "dfgvaetyj3456356-hash",
-            "username": "dfgvaetyj3456356-hash"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bd48f307152a9534dbe607c297fc5beae05cc1a5",
-          "message": "Enforce upload artifact size for chunked requests (#23712)\n\nSigned-off-by: Security Researcher <security@example.com>\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Security Researcher <security@example.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>",
-          "timestamp": "2026-06-01T10:56:58Z",
-          "tree_id": "ce047e76d1281d2e80d40d8aa09fd98be15414bb",
-          "url": "https://github.com/mlflow/mlflow/commit/bd48f307152a9534dbe607c297fc5beae05cc1a5"
-        },
-        "date": 1780311645632,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 47.51168030000201,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 26.648230441178182,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 23.79014475409992,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 27.281761843135104,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 26.061870283018713,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.680901400000039,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 33.60287960000505,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "kadyrbekovhamit@gmail.com",
+            "name": "kadyrbekovhamit-cyber",
+            "username": "kadyrbekovhamit-cyber"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "569176474291d6ab1ccea531b723d65f70049e34",
+          "message": "Fix `ndcg_at_k` document ID collisions (#26041)\n\nSigned-off-by: Xamit Kadirbekov <kadyrbekovhamit@gmail.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
+          "timestamp": "2026-09-25T09:19:18Z",
+          "tree_id": "f8f9d99f2da27241703b817888f4a6a89d259de4",
+          "url": "https://github.com/mlflow/mlflow/commit/569176474291d6ab1ccea531b723d65f70049e34"
+        },
+        "date": 1790328145243,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.8407813,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.81356084906149,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.477873047621025,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.5359079519973875,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.8595618214293905,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.738619399994832,
             "unit": "ms"
           }
         ]
