@@ -204,10 +204,16 @@ on its contents, whatever the tier grant says - `DENY` on the container, or a
 
 :::note
 This ordering governs operations on a **named** resource, which are refused with
-`403` when a grant is missing. Search and list endpoints behave differently: they
-return only the resources the caller may see, so an unauthorized search yields an
-empty result rather than an error. That is existing behaviour and is not changed
-by the sub-resource tiers.
+`403` when a grant is missing. Search and list endpoints usually behave
+differently: they return only the rows the caller may see, so an unauthorized
+search yields an empty result rather than an error.
+
+A search is refused with `403` instead when its **filter selects on a tier the
+caller is denied** - for example a trace search filtering on `run_id` or on an
+assessment field, or a logged-model search filtering on `source_run_id`. Dropping
+the matching rows would still disclose which rows matched, so the request is
+refused rather than narrowed. The same route returns an empty result for a filter
+that names no denied tier.
 :::
 
 The last row depends on configuration, and is worth understanding because it is
