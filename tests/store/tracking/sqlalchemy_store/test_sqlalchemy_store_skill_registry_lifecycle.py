@@ -389,10 +389,13 @@ def test_latest_skill_version_does_not_return_concurrently_deleted_version(store
             ).update({SqlSkillVersion.status: SkillStatus.DELETED.value})
         return original_skill_version_query(session)
 
-    with mock.patch.object(store, "_skill_version_query", side_effect=delete_version_before_lookup):
+    with mock.patch.object(
+        store, "_skill_version_query", side_effect=delete_version_before_lookup
+    ) as skill_version_query_mock:
         with pytest.raises(MlflowException, match="No resolved latest version") as exc:
             store.get_latest_skill_version("reviewer")
 
+    assert skill_version_query_mock.call_count == 1
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
