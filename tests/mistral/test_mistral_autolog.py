@@ -351,6 +351,7 @@ async def test_tracing_headers_parent_gateway_span_without_double_counting(is_as
     if user_headers is not None:
         assert sent_headers["X-Custom"] == "my-value"
     assert span.inputs.get("http_headers") == user_headers
+    assert "traceparent" not in (span.inputs.get("http_headers") or {})
 
     # A gateway span using the propagated context is a child, so its repeated usage is skipped.
     with set_tracing_context_from_http_request_headers(sent_headers):

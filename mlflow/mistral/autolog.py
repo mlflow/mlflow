@@ -125,6 +125,7 @@ def _inject_tracing_headers(kwargs, span):
     try:
         if tracing_headers := _get_tracing_headers_from_span(span):
             existing = kwargs.get("http_headers") or {}
+            # Replace the mapping so inputs captured before injection keep the user's headers.
             kwargs["http_headers"] = tracing_headers | dict(existing)
     except Exception:
         _logger.debug("Failed to inject tracing headers", exc_info=True)
