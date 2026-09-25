@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -471,6 +472,11 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    if not artifacts_only:
+        from mlflow.tracing.trace_rollup_service import validate_sql_trace_rollup_startup
+
+        validate_sql_trace_rollup_startup(file_store_path)
+
     # Check if job execution can be enabled (requirements met)
     job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
@@ -480,25 +486,44 @@ def _run_server(
             _check_requirements(file_store_path)
             job_execution_enabled = True
         except Exception as e:
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                raise MlflowException(
+                    "SQL trace rollups require an available SQL job-execution backend."
+                ) from e
             _logger.warning(
                 f"MLflow job execution requirements not met ({e!s}). "
                 "Server will start without job execution support. "
                 "Errors will be surfaced at job invocation time."
             )
 
-    if app_name == "basic-auth":
-        # Generate the token here (before forking uvicorn workers) so that all worker processes
-        # and job subprocesses share the same token. Server-internal callers of the in-server
-        # gateway (job workers, and the MLflow Assistant's gateway provider) authenticate their
-        # own requests with it, so it must exist on any auth-enabled server, independent of
-        # whether job execution is available.
+        if job_execution_enabled:
+            from mlflow.server.jobs.executor_registry import validate_executor_config
+            from mlflow.server.jobs.utils import get_job_execution_engine
+
+            validate_executor_config()
+            # Validate the engine selection before the server is spawned below, so an
+            # invalid value fails fast instead of leaving an unmanaged server running.
+            get_job_execution_engine()
+
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                from mlflow.tracing.trace_rollup_service import (
+                    validate_and_resolve_sql_trace_rollup_schedule,
+                )
+
+                validate_and_resolve_sql_trace_rollup_schedule()
+
+    if app_name == "basic-auth" and job_execution_enabled:
+        # Generate the token here (before forking uvicorn workers) so that all
+        # worker processes and job subprocesses share the same token.
         env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
 
-        # Key for signing and verifying MLflow Assistant delegation credentials. Generated here so
-        # all worker processes share it, but deliberately excluded from the job runner env below so
-        # that code running in a job subprocess (e.g. a user-supplied scorer) cannot mint one. A
-        # delegation credential is honored on any route, so its signing key must stay inside the
-        # server workers that mint and verify it, never reaching an untrusted subprocess.
+    if app_name == "basic-auth":
+        # Key for signing and verifying MLflow Assistant delegation credentials. Generated for any
+        # auth-enabled server, since the Assistant does not depend on job execution. Shared across
+        # worker processes but deliberately excluded from the job runner env below so that code in a
+        # job subprocess (e.g. a user-supplied scorer) cannot mint one. A delegation credential is
+        # honored on any route, so its signing key must stay inside the server workers that mint and
+        # verify it, never reaching an untrusted subprocess.
         env_map[_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name] = secrets.token_hex(32)
 
     if job_execution_enabled:
@@ -531,15 +556,21 @@ def _run_server(
 
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
-        from mlflow.server.jobs.utils import _launch_job_runner
+        from mlflow.server.jobs.utils import _launch_job_execution_runner
 
         server_uri = f"http://{host}:{port}"
         job_env = {
             **env_map,
+            # Periodic services initialize the primary store once from the supported public
+            # server configuration instead of resolving it indirectly through MLFLOW_TRACKING_URI
+            # (which intentionally points back to this HTTP server for normal job code).
+            "MLFLOW_BACKEND_STORE_URI": file_store_path,
             # Set tracking URI environment variable for job runner
             # so that all job processes inherit it.
             MLFLOW_TRACKING_URI.name: server_uri,
         }
+        if default_artifact_root:
+            job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] = default_artifact_root
         # Withhold the Assistant delegation signing key from the job runner (and thus from any
         # user-supplied code a job runs): only the server workers that mint and verify delegation
         # credentials may hold it. Job subprocesses authenticate their own gateway calls with the
@@ -551,6 +582,6 @@ def _run_server(
         # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
         if not MLFLOW_GATEWAY_URI.is_set():
             job_env[MLFLOW_GATEWAY_URI.name] = server_uri
-        _launch_job_runner(job_env, server_proc.pid)
+        _launch_job_execution_runner(job_env, server_proc.pid)
 
     server_proc.wait()
