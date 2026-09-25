@@ -4,7 +4,6 @@ import ast
 import inspect
 import json
 import logging
-import re
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
@@ -128,6 +127,28 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
+def _extract_params_from_signature(signature: str) -> str:
+    """
+    Extract the parameter list from a signature string such as "(inputs, outputs) -> bool".
+
+    Defaults and annotations can contain parentheses themselves (e.g. "(keywords=('a', 'b'))"),
+    so the closing parenthesis is the first ")" that yields a parseable parameter list.
+    """
+    if signature.startswith("("):
+        for i, char in enumerate(signature):
+            if char != ")":
+                continue
+            try:
+                ast.parse(f"def _f{signature[: i + 1]}: pass")
+            except SyntaxError:
+                continue
+            return signature[1:i].strip()
+
+    raise MlflowException(
+        f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+    )
+
+
 def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
     """
     Recreate a function from its source code, signature, and name.
@@ -142,14 +163,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     """
     import mlflow
 
-    # Parse the signature to build the function definition
-    sig_match = re.match(r"\((.*?)\)", signature)
-    if not sig_match:
-        raise MlflowException(
-            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
-        )
-
-    params_str = sig_match.group(1).strip()
+    params_str = _extract_params_from_signature(signature)
 
     # Build the function definition with future annotations to defer type hint evaluation
     func_def = "from __future__ import annotations\n"
