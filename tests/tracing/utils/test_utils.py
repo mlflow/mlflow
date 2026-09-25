@@ -752,6 +752,7 @@ def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost, manua
     ):
         span.end()
 
+    assert SpanAttributeKey.LLM_COST in span._span.attributes
     assert span.get_attribute(SpanAttributeKey.LLM_COST) == manual_cost
     mock_litellm_cost.assert_not_called()
 
