@@ -505,6 +505,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/typesafe',
+                  label: 'TypeSafe AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/xai-grok',
                   label: 'xAI / Grok',
                 },
