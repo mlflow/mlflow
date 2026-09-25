@@ -128,9 +128,6 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
 
 
 def _extract_params_from_signature(signature: str) -> str:
-    """
-    Extract the parameter list from a signature string such as "(inputs, outputs) -> bool".
-    """
     if signature.startswith("("):
         try:
             func_def = ast.parse(f"def _f{signature}: pass").body[0]
