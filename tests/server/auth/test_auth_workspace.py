@@ -2867,6 +2867,52 @@ def _run_artifact_proxy(validator, artifact_path, method="GET"):
 
 
 @pytest.mark.parametrize(
+    ("rows", "run_artifact_update", "experiment_artifact_update"),
+    [
+        # a positive run grant decides the run's artifacts, exactly as it decides UpdateRun
+        ([("experiment", "1", READ.name), ("run", "*", EDIT.name)], True, False),
+        ([("experiment", "1", READ.name), ("run", "*", MANAGE.name)], True, False),
+        # and a lower or denied run grant still withholds them from an experiment EDITor
+        ([("experiment", "1", EDIT.name), ("run", "*", READ.name)], False, True),
+        ([("experiment", "1", EDIT.name), ("run", "*", DENY.name)], False, True),
+        # with no run grant the experiment decides, as before
+        ([("experiment", "1", EDIT.name)], True, True),
+        ([("experiment", "1", READ.name)], False, False),
+    ],
+)
+def test_artifact_proxy_follows_the_run_tier_for_run_artifacts(
+    workspace_permission_setup, monkeypatch, rows, run_artifact_update, experiment_artifact_update
+):
+    # An artifact under ``<experiment>/<run_id>/artifacts/`` is the run's payload, so it is gated
+    # like any other run mutation: experiment READ plus the run tier's action. Previously the
+    # experiment was required at ``can_update`` too, so a positive run grant could restrict but
+    # never escalate -- a caller could update the run itself but not write its artifacts.
+    #
+    # An artifact directly under the experiment names no child tier, so it keeps the experiment's
+    # own action level and a run grant must not buy access to it.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", rows)
+
+    assert (
+        _run_artifact_proxy(
+            "validate_can_update_experiment_artifact_proxy",
+            "1/abc123/artifacts/model.pkl",
+            method="PUT",
+        )
+        is run_artifact_update
+    )
+    assert (
+        _run_artifact_proxy(
+            "validate_can_update_experiment_artifact_proxy", "1/plain.txt", method="PUT"
+        )
+        is experiment_artifact_update
+    )
+
+
+@pytest.mark.parametrize(
     "artifact_path",
     ["1", "1/", "workspaces/team-a/1", "%31", "1/plain.txt"],
     ids=["bare-root", "root-slash", "workspace-prefixed-root", "encoded-root", "child-file"],
@@ -2950,7 +2996,7 @@ def test_artifact_proxy_honors_child_tier_deny(workspace_permission_setup, tier,
     )
     # FastAPI dispatch must not be the softer path.
     assert (
-        auth_module._authorize_fastapi_artifact_proxy_child(
+        auth_module._authorize_fastapi_artifact_proxy(
             f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
         )
         is False
@@ -2998,7 +3044,7 @@ def test_artifact_proxy_child_tier_survives_path_encoding(
     )
     # FastAPI dispatch must not be the softer path.
     assert (
-        auth_module._authorize_fastapi_artifact_proxy_child(
+        auth_module._authorize_fastapi_artifact_proxy(
             f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", username, None, "read"
         )
         is False
