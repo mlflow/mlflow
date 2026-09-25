@@ -459,7 +459,9 @@ class SearchUtils:
                         f"Found {token.value}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return token.value
+                if token.ttype == TokenType.Literal.Number.Integer:
+                    return int(token.value)
+                return float(token.value)
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
@@ -706,7 +708,8 @@ class SearchUtils:
             lhs = getattr(run.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         elif cls.is_dataset(key_type, comparator):
             if key == "context":
                 return any(
@@ -755,7 +758,8 @@ class SearchUtils:
             lhs = getattr(model.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(model.info, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         else:
             raise MlflowException(
                 f"Invalid model search expression type '{key_type}'",
@@ -2542,7 +2546,8 @@ class SearchLoggedModelsUtils(SearchUtils):
             lhs = model.tags.get(key, None)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(model, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         elif hasattr(model, key):
             lhs = getattr(model, key)
         else:

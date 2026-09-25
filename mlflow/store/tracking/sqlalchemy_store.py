@@ -10201,6 +10201,10 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                         raise MlflowException.invalid_parameter_value(
                             f"Invalid comparator for numeric attribute: {comparator}"
                         )
+                    if isinstance(value, float):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {str(value)!r}"
+                        )
                     try:
                         value = int(value)
                     except (TypeError, ValueError):
@@ -10775,6 +10779,10 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
                 ):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for numeric attribute: {comparator}"
+                    )
+                if isinstance(value, float):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid value for numeric attribute '{key}': {str(value)!r}"
                     )
                 try:
                     value = int(value)

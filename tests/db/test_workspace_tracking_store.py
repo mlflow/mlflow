@@ -4,6 +4,7 @@ import uuid
 import pytest
 import sqlalchemy as sa
 
+from mlflow.entities import ViewType
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
@@ -117,6 +118,57 @@ def test_search_datasets_time_filter_binds_integers(psycopg3_store):
         )
 
         assert dataset.dataset_id in {dataset.dataset_id for dataset in results}
+
+
+def test_search_runs_time_filter_binds_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"filter-{uuid.uuid4().hex}")
+        run = psycopg3_store.create_run(
+            exp_id,
+            user_id="test-user",
+            start_time=1234,
+            tags=[],
+            run_name="numeric-filter",
+        )
+
+        results = psycopg3_store.search_runs(
+            [exp_id],
+            filter_string="attributes.start_time = 1234",
+            run_view_type=ViewType.ALL,
+        )
+
+        assert [result.info.run_id for result in results] == [run.info.run_id]
+
+
+def test_search_mcp_registry_time_filters_bind_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        name = f"io.github.test/server-{uuid.uuid4().hex}"
+        version = psycopg3_store.create_mcp_server_version({
+            "name": name,
+            "version": "1.0.0",
+            "title": "Test server",
+        })
+        endpoint = psycopg3_store.create_mcp_access_endpoint(
+            server_name=name,
+            url="https://example.com/mcp",
+            server_version=version.version,
+        )
+
+        servers = psycopg3_store.search_mcp_servers(
+            filter_string=f"name = '{name}' AND created_at > 0"
+        )
+        versions = psycopg3_store.search_mcp_server_versions(
+            name,
+            filter_string="created_at > 0",
+        )
+        endpoints = psycopg3_store.search_mcp_access_endpoints(
+            server_name=name,
+            filter_string="created_at > 0",
+        )
+
+        assert [server.name for server in servers] == [name]
+        assert [result.version for result in versions] == [version.version]
+        assert [result.id for result in endpoints] == [endpoint.id]
 
 
 def test_search_model_versions_version_number_filter_binds_integers(psycopg3_registry_store):
