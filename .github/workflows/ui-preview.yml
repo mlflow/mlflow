@@ -99,7 +99,7 @@ jobs:
         && (github.event.action != 'labeled' || github.event.label.name == 'ui-preview')
         && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
       )
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 30
