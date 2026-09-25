@@ -44,4 +44,45 @@ describe('OpenCode initialization failure', () => {
       warning.mockRestore();
     }
   });
+
+  it('retries after a transient initialization failure and resumes message handling', async () => {
+    process.env = {
+      ...originalEnv,
+      MLFLOW_TRACKING_URI: 'databricks',
+      MLFLOW_EXPERIMENT_ID: '123',
+    };
+    delete process.env.MLFLOW_TRACE_LOCATION;
+    (init as jest.Mock).mockReset();
+    (init as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('temporary initialization failure');
+    });
+    const warning = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const messages = jest.fn().mockResolvedValue({ data: [] });
+    const hooks = await MLflowTracingPlugin({
+      client: { session: { messages } },
+    } as unknown as PluginInput);
+    const idleEvent = {
+      event: { type: 'session.idle', properties: { sessionID: 'session-2' } },
+    } as Parameters<NonNullable<typeof hooks.event>>[0];
+
+    try {
+      await hooks.event!(idleEvent);
+      expect(init).toHaveBeenCalledTimes(1);
+      expect(messages).not.toHaveBeenCalled();
+
+      await hooks.event!(idleEvent);
+      expect(init).toHaveBeenCalledTimes(2);
+      expect(messages).toHaveBeenCalledTimes(1);
+
+      await hooks.event!(idleEvent);
+      expect(init).toHaveBeenCalledTimes(2);
+      expect(messages).toHaveBeenCalledTimes(2);
+      expect(warning).toHaveBeenCalledTimes(1);
+      expect(warning).toHaveBeenCalledWith(
+        '[mlflow] OpenCode tracing is disabled: temporary initialization failure',
+      );
+    } finally {
+      warning.mockRestore();
+    }
+  });
 });
