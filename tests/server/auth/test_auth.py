@@ -44,7 +44,14 @@ from mlflow.server.auth import (
     _find_fastapi_validator,
     _re_compile_path,
 )
-from mlflow.server.auth.permissions import NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.permissions import (
+    DENY,
+    EDIT,
+    NO_PERMISSIONS,
+    READ,
+    RESOURCE_TYPE_TRACE,
+    USE,
+)
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     LIST_USERS,
@@ -5606,6 +5613,50 @@ def test_otel_experiment_permission(fastapi_client, monkeypatch):
         auth=(user2, password2),
     )
     assert response.status_code != 403
+
+
+def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch):
+    # The OTLP handler persists the submitted spans, so `POST /v1/traces` is a trace create and
+    # must refuse a `(trace, *, DENY)` holder exactly as StartTrace and StartTraceV3 do. Before
+    # the veto was added, experiment EDIT alone carried the request.
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(user1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("otel_trace_veto_test")
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, user2, "experiment", experiment_id, EDIT.name
+    )
+
+    def post_spans():
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=b"",
+            auth=(user2, password2),
+        )
+
+    # experiment EDIT alone passes the permission check
+    assert post_spans().status_code != 403
+
+    grant_role_permission(fastapi_client.tracking_uri, user2, RESOURCE_TYPE_TRACE, "*", DENY.name)
+    assert post_spans().status_code == 403
+
+    # and the same request over the Flask StartTrace route agrees
+    response = requests.post(
+        f"{fastapi_client.tracking_uri}/api/2.0/mlflow/traces",
+        json={
+            "experiment_id": experiment_id,
+            "timestamp_ms": 1,
+            "request_metadata": [],
+            "tags": [],
+        },
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
 
 
 def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
