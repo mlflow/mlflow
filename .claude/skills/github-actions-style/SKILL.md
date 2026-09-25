@@ -32,13 +32,13 @@ be costly or error-prone to reproduce.
 
 ## Use `ubuntu-slim` for Lightweight Tasks
 
-Prefer `ubuntu-slim` over `ubuntu-latest` for simple jobs (e.g., labeling, commenting, notifications).
+Prefer `ubuntu-slim` over `ubuntu-24.04` for simple jobs (e.g., labeling, commenting, notifications).
 
-Note: `ubuntu-slim` has a 15-minute timeout limit. Use `ubuntu-latest` for long-running jobs (e.g., polling).
+Note: `ubuntu-slim` has a 15-minute timeout limit. Use `ubuntu-24.04` for long-running jobs (e.g., polling).
 
 ```yaml
 # Bad
-runs-on: ubuntu-latest
+runs-on: ubuntu-24.04
 
 # Good
 runs-on: ubuntu-slim

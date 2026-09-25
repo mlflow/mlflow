@@ -27,7 +27,7 @@ jobs:
   uv:
     # Skip scheduled runs on forks
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
