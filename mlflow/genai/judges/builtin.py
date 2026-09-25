@@ -115,7 +115,7 @@ def is_context_relevant(
 
     """
     from mlflow.genai.judges.prompts.relevance_to_query import (
-        RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
+        RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -136,7 +136,7 @@ def is_context_relevant(
     elif _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
+            instructions=RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={"input": request, "output": context},
             feedback_value_type=Literal["yes", "no"],
             assessment_name=assessment_name,
@@ -212,7 +212,7 @@ def is_context_sufficient(
     """
     from mlflow.genai.judges.prompts.context_sufficiency import (
         CONTEXT_SUFFICIENCY_FEEDBACK_NAME,
-        CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
+        CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -232,7 +232,7 @@ def is_context_sufficient(
     elif _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
+            instructions=CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={
                 "input": request,
                 "ground_truth": expected_response or expected_facts or "",
@@ -321,7 +321,7 @@ def is_correct(
     """
     from mlflow.genai.judges.prompts.correctness import (
         CORRECTNESS_FEEDBACK_NAME,
-        CORRECTNESS_PROMPT_INSTRUCTIONS,
+        CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -346,7 +346,7 @@ def is_correct(
     elif _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=CORRECTNESS_PROMPT_INSTRUCTIONS,
+            instructions=CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={
                 "input": request,
                 "output": response,
@@ -432,7 +432,7 @@ def is_grounded(
     """
     from mlflow.genai.judges.prompts.groundedness import (
         GROUNDEDNESS_FEEDBACK_NAME,
-        GROUNDEDNESS_PROMPT_INSTRUCTIONS,
+        GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -451,7 +451,7 @@ def is_grounded(
     elif _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=GROUNDEDNESS_PROMPT_INSTRUCTIONS,
+            instructions=GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={
                 "input": request,
                 "output": response,
@@ -574,7 +574,7 @@ def is_tool_call_efficient(
     """
     from mlflow.genai.judges.prompts.tool_call_efficiency import (
         TOOL_CALL_EFFICIENCY_FEEDBACK_NAME,
-        TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS,
+        TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -584,7 +584,7 @@ def is_tool_call_efficient(
     if _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS,
+            instructions=TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={
                 "request": request,
                 "available_tools": available_tools,
@@ -693,7 +693,7 @@ def is_tool_call_correct(
     from mlflow.genai.judges.prompts.tool_call_correctness import (
         TOOL_CALL_CORRECTNESS_FEEDBACK_NAME,
         get_prompt,
-        get_prompt_instructions,
+        get_typesafe_prompt_instructions,
     )
 
     model = model or get_default_model()
@@ -702,7 +702,7 @@ def is_tool_call_correct(
     if _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=get_prompt_instructions(
+            instructions=get_typesafe_prompt_instructions(
                 has_expected_calls=expected_tool_calls is not None,
                 include_arguments=include_arguments,
                 check_order=check_order,
@@ -784,7 +784,7 @@ def is_safe(
     """
     from mlflow.genai.judges.prompts.safety import (
         SAFETY_ASSESSMENT_NAME,
-        SAFETY_PROMPT_INSTRUCTIONS,
+        SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -798,7 +798,7 @@ def is_safe(
     elif _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=SAFETY_PROMPT_INSTRUCTIONS,
+            instructions=SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={"content": content},
             feedback_value_type=Literal["yes", "no"],
             assessment_name=assessment_name,
@@ -867,7 +867,7 @@ def meets_guidelines(
     """
     from mlflow.genai.judges.prompts.guidelines import (
         GUIDELINES_FEEDBACK_NAME,
-        GUIDELINES_PROMPT_INSTRUCTIONS,
+        GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -884,7 +884,7 @@ def meets_guidelines(
     elif _is_typesafe_model(model):
         feedback = _invoke_typesafe_judge(
             model,
-            instructions=GUIDELINES_PROMPT_INSTRUCTIONS,
+            instructions=GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
             state={"guidelines": guidelines, "guidelines_context": context},
             feedback_value_type=Literal["yes", "no"],
             assessment_name=name or GUIDELINES_FEEDBACK_NAME,

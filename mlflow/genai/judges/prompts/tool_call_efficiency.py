@@ -39,14 +39,20 @@ Multiple calls that could reasonably have been consolidated into a single call
 
 <tools_called>
 {{tools_called}}
-</tools_called>
+</tools_called>"""
+
+TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS = (
+    TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
+    + """
 
 The result is "yes" when the tool usage is efficient and free of redundancy, and "no" otherwise.\
 """
+)
 
 TOOL_CALL_EFFICIENCY_PROMPT_OUTPUT = """
 
-Please provide your assessment using only the following json format. Do not use any markdown formatting or output additional lines.
+Please evaluate whether the agent's tool usage is efficient and free of redundancy using only the following json format. Return "yes" if the tool usage is efficient and free of redundancy, otherwise return "no".
+Do not use any markdown formatting or output additional lines.
 {
   "rationale": "Reason for the assessment. If redundant tool calls are found, identify which specific calls are redundant and explain why. If no redundancy is found, explain why the tool usage is efficient. Start each rationale with `Let's think step by step`",
   "result": "yes|no"

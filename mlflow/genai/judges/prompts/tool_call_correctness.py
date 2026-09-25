@@ -13,9 +13,10 @@ if TYPE_CHECKING:
 
 TOOL_CALL_CORRECTNESS_FEEDBACK_NAME = "tool_call_correctness"
 
-# Shared chat output format for all prompt variants
+# Shared output format for all prompt variants
 _OUTPUT_FORMAT = """
-Please provide your assessment using only the following json format. Do not use any markdown formatting or output additional lines.
+Please evaluate whether the agent's tool calls and their arguments are correct and reasonable using only the following json format. Return "yes" if the tool calls and arguments are correct and reasonable, otherwise return "no".
+Do not use any markdown formatting or output additional lines.
 {
   "rationale": "Reason for the assessment. If incorrect or unreasonable tool calls are found, identify which specific calls or arguments are problematic and explain why. If all tool calls and arguments are correct, explain why they are appropriate. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
@@ -100,10 +101,7 @@ Evaluate:
 
 <available_tools>
 {{available_tools}}
-</available_tools>
-
-The result is "yes" if the tool calls and arguments are correct and reasonable, and "no" otherwise.\
-"""
+</available_tools>"""
 
 # Preamble variants
 _GROUND_TRUTH_FREE_PREAMBLE = """\
@@ -149,13 +147,12 @@ def _get_prompt_rubric(
     return preamble, criteria.replace("{{ordering_instruction}}", ordering)
 
 
-def get_prompt_instructions(
+def get_typesafe_prompt_instructions(
     *,
     has_expected_calls: bool,
     include_arguments: bool = True,
     check_order: bool = False,
 ) -> str:
-    """Build canonical rubric instructions that reference structured evaluation state."""
     preamble, criteria = _get_prompt_rubric(
         has_expected_calls=has_expected_calls,
         include_arguments=include_arguments,
@@ -167,7 +164,11 @@ def get_prompt_instructions(
         else ""
     )
     return format_prompt(
-        _PROMPT_TEMPLATE,
+        _PROMPT_TEMPLATE
+        + """
+
+The result is "yes" if the tool calls and arguments are correct and reasonable, and "no" otherwise.\
+""",
         preamble=preamble,
         evaluation_criteria=criteria,
         expected_section=expected_section,
@@ -177,9 +178,14 @@ def get_prompt_instructions(
     )
 
 
-# Used by ToolCallCorrectness.instructions property for serialization.
-TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS = get_prompt_instructions(
-    has_expected_calls=False,
+# Used by ToolCallCorrectness.instructions property for serialization
+TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS = (
+    _GROUND_TRUTH_FREE_PREAMBLE
+    + "\n\nFocus only on the choice of tools and the arguments passed to them. Do NOT judge "
+    "whether the tools'\noutputs or implementations are correct.\n\nEvaluate:\n\n"
+    + _GROUND_TRUTH_FREE_CRITERIA
+    + "\n\n<request>\n{{request}}\n</request>\n\n<available_tools>\n{{available_tools}}\n"
+    "</available_tools>\n\n<tools_called>\n{{tools_called}}\n</tools_called>"
 )
 
 
@@ -220,19 +226,33 @@ def get_prompt(
     """
     available_tools_str = format_available_tools(available_tools)
     tools_called_str = format_tools_called(tools_called)
-    return format_prompt(
-        get_prompt_instructions(
-            has_expected_calls=expected_calls is not None,
-            include_arguments=include_arguments,
-            check_order=check_order,
+    ordering = ORDERING_INSTRUCTION_CHECK if check_order else ORDERING_INSTRUCTION_IGNORE
+
+    if expected_calls is None:
+        preamble = _GROUND_TRUTH_FREE_PREAMBLE
+        criteria = _GROUND_TRUTH_FREE_CRITERIA.replace("{{ordering_instruction}}", ordering)
+        expected_section = ""
+    elif include_arguments:
+        preamble = _FULL_EXPECTATIONS_PREAMBLE
+        criteria = _FULL_EXPECTATIONS_CRITERIA.replace("{{ordering_instruction}}", ordering)
+        expected_calls_str = _format_expected_calls(expected_calls, include_arguments)
+        expected_section = (
+            f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
         )
-        + _OUTPUT_FORMAT,
+    else:
+        preamble = _PARTIAL_EXPECTATIONS_PREAMBLE
+        criteria = _PARTIAL_EXPECTATIONS_CRITERIA.replace("{{ordering_instruction}}", ordering)
+        expected_calls_str = _format_expected_calls(expected_calls, include_arguments)
+        expected_section = (
+            f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
+        )
+
+    return format_prompt(
+        _PROMPT_TEMPLATE + _OUTPUT_FORMAT,
+        preamble=preamble,
+        evaluation_criteria=criteria,
+        expected_section=expected_section,
         request=request,
         available_tools=available_tools_str,
         tools_called=tools_called_str,
-        expected_calls=(
-            _format_expected_calls(expected_calls, include_arguments)
-            if expected_calls is not None
-            else ""
-        ),
     )

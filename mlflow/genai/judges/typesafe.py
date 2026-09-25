@@ -39,11 +39,17 @@ _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
 
 
 @dataclass
-class _AnswerSpec:
-    answer_type: Literal["noul", "choice"]
-    positive_value: Any | None = None
-    negative_value: Any | None = None
-    choices: dict[str, Any] | None = None
+class _NoulSpec:
+    answer_type: Literal["noul"] = "noul"
+
+
+@dataclass
+class _ChoiceSpec:
+    choices: dict[str, Any]
+    answer_type: Literal["choice"] = "choice"
+
+
+_AnswerSpec = _NoulSpec | _ChoiceSpec
 
 
 def _is_typesafe_model(model_uri: str) -> bool:
@@ -188,9 +194,7 @@ def _serialize_state(state: dict[str, Any]) -> dict[str, Any]:
 
 def _build_question(feedback_value_type: Any) -> tuple[dict[str, Any], _AnswerSpec]:
     if feedback_value_type is bool:
-        return {"type": "noul"}, _AnswerSpec(
-            answer_type="noul", positive_value=True, negative_value=False
-        )
+        return {"type": "noul"}, _NoulSpec()
 
     if get_origin(feedback_value_type) is not Literal:
         raise MlflowException(
@@ -227,7 +231,7 @@ def _build_question(feedback_value_type: Any) -> tuple[dict[str, Any], _AnswerSp
         criteria[label] = _describe_literal(value)
     return (
         {"type": "choice", "criteria": criteria},
-        _AnswerSpec(answer_type="choice", choices=choices),
+        _ChoiceSpec(choices=choices),
     )
 
 
@@ -292,33 +296,34 @@ def _parse_response(
             raise ValueError
 
         metadata = {"typesafe.model": model}
-        if answer_spec.answer_type == "noul":
-            probability = _number(answer["noul"], minimum=0, maximum=1)
-            metadata["typesafe.probability"] = json.dumps(probability)
-            value = answer_spec.positive_value if probability >= 0.5 else answer_spec.negative_value
-        else:
-            choices = answer_spec.choices
-            assert choices is not None
-            choice = answer["choice"]
-            if not isinstance(choice, str) or choice not in choices:
-                raise ValueError
-            probabilities = _probabilities(answer["probabilities"], set(choices))
-            confidence = _number(answer["confidence"], minimum=0, maximum=1)
-            metadata["typesafe.probabilities"] = json.dumps(
-                probabilities, ensure_ascii=False, sort_keys=True, allow_nan=False
-            )
-            metadata["typesafe.confidence"] = json.dumps(confidence)
-            if "legend" in answer:
-                legend = answer["legend"]
-                if (
-                    not isinstance(legend, dict)
-                    or set(legend) != set(choices)
-                    or any(not isinstance(key, str) for key in legend)
-                    or any(not isinstance(description, str) for description in legend.values())
-                ):
+        match answer_spec:
+            case _NoulSpec():
+                probability = _number(answer["noul"], minimum=0, maximum=1)
+                metadata["typesafe.probability"] = json.dumps(probability)
+                value = probability >= 0.5
+            case _ChoiceSpec(choices=choices):
+                choice = answer["choice"]
+                if not isinstance(choice, str) or choice not in choices:
                     raise ValueError
-                metadata["typesafe.legend"] = json.dumps(legend, ensure_ascii=False, sort_keys=True)
-            value = choices[choice]
+                probabilities = _probabilities(answer["probabilities"], set(choices))
+                confidence = _number(answer["confidence"], minimum=0, maximum=1)
+                metadata["typesafe.probabilities"] = json.dumps(
+                    probabilities, ensure_ascii=False, sort_keys=True, allow_nan=False
+                )
+                metadata["typesafe.confidence"] = json.dumps(confidence)
+                if "legend" in answer:
+                    legend = answer["legend"]
+                    if (
+                        not isinstance(legend, dict)
+                        or set(legend) != set(choices)
+                        or any(not isinstance(key, str) for key in legend)
+                        or any(not isinstance(description, str) for description in legend.values())
+                    ):
+                        raise ValueError
+                    metadata["typesafe.legend"] = json.dumps(
+                        legend, ensure_ascii=False, sort_keys=True
+                    )
+                value = choices[choice]
 
         input_tokens, output_tokens = _parse_usage(response.get("usage"), metadata)
         return value, metadata, input_tokens, output_tokens
