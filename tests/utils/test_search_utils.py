@@ -175,17 +175,32 @@ def test_float_numeric_attribute_value_is_parsed_as_float():
     assert isinstance(condition["value"], float)
 
 
-def test_float_numeric_attribute_is_not_truncated_for_logged_models():
-    model = LoggedModel(
-        experiment_id="0",
-        model_id="model-id",
-        name="model",
-        artifact_location="file:///tmp/model",
-        creation_timestamp=1,
-        last_updated_timestamp=1,
-    )
+@pytest.mark.parametrize(
+    ("filter_string", "expected_model_ids"),
+    [
+        ("creation_timestamp = 1.5", []),
+        ("creation_timestamp > 1.5", ["model-2"]),
+        ("creation_timestamp >= 1.5", ["model-2"]),
+    ],
+)
+def test_float_numeric_attribute_is_not_truncated_for_logged_models(
+    filter_string, expected_model_ids
+):
+    models = [
+        LoggedModel(
+            experiment_id="0",
+            model_id=f"model-{timestamp}",
+            name=f"model-{timestamp}",
+            artifact_location=f"file:///tmp/model-{timestamp}",
+            creation_timestamp=timestamp,
+            last_updated_timestamp=timestamp,
+        )
+        for timestamp in (1, 2)
+    ]
 
-    assert SearchLoggedModelsUtils.filter_logged_models([model], "creation_timestamp = 1.5") == []
+    filtered = SearchLoggedModelsUtils.filter_logged_models(models, filter_string)
+
+    assert [model.model_id for model in filtered] == expected_model_ids
 
 
 @pytest.mark.parametrize(
