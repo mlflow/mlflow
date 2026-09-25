@@ -1,6 +1,7 @@
 import contextlib
 import io
 import os
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable
 
 import click
@@ -208,33 +209,48 @@ def _collect_tools(commands: dict[str, click.Command]) -> list["FunctionTool"]:
     return tools
 
 
-def create_mcp() -> "FastMCP":
+def create_mcp(categories: Iterable[str] | None = None) -> "FastMCP":
+    """
+    Build the MLflow MCP server.
+
+    Args:
+        categories: Tool categories to expose. When ``None``, the categories are read from the
+            ``MLFLOW_MCP_TOOLS`` environment variable (the stdio ``mlflow mcp run`` behavior).
+    """
     from fastmcp import FastMCP
+
+    if categories is None:
+        is_enabled = _is_tool_enabled
+    else:
+        enabled_categories = {category.lower() for category in categories}
+
+        def is_enabled(category: str) -> bool:
+            return category in enabled_categories
 
     tools: list["FunctionTool"] = []
 
     # Traces CLI tools (genai)
-    if _is_tool_enabled("traces"):
+    if is_enabled("traces"):
         tools.extend(_collect_tools(traces_cli.commands))
 
     # Scorers CLI tools (genai)
-    if _is_tool_enabled("scorers"):
+    if is_enabled("scorers"):
         tools.extend(_collect_tools(scorers_cli.commands))
 
     # Experiment tracking tools (genai)
-    if _is_tool_enabled("experiments"):
+    if is_enabled("experiments"):
         tools.extend(_collect_tools(mlflow.experiments.commands.commands))
 
     # Run management tools (genai)
-    if _is_tool_enabled("runs"):
+    if is_enabled("runs"):
         tools.extend(_collect_tools(mlflow.runs.commands.commands))
 
     # Model serving tools (ml)
-    if _is_tool_enabled("models"):
+    if is_enabled("models"):
         tools.extend(_collect_tools(models_cli.commands.commands))
 
     # Deployment tools (ml)
-    if _is_tool_enabled("deployments"):
+    if is_enabled("deployments"):
         tools.extend(_collect_tools(deployments_cli.commands.commands))
 
     mcp = FastMCP(

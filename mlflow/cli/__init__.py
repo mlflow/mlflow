@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_SERVER_ENABLE_MCP,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -538,6 +539,14 @@ def _validate_static_prefix(ctx, param, value):
     help="Enable backwards compatible workspaces mode for logical isolation of experiments, "
     + "registered models, and prompts.",
 )
+@click.option(
+    "--enable-mcp",
+    is_flag=True,
+    default=False,
+    help="Serve the MLflow MCP server over Streamable HTTP at /mcp (experimental). Exposes the "
+    + "traces, scorers, experiments and runs tools to remote MCP clients. Requires the default "
+    + "uvicorn server and the fastmcp package.",
+)
 def server(
     ctx,
     backend_store_uri,
@@ -566,6 +575,7 @@ def server(
     secrets_cache_max_size,
     workspace_store_uri,
     enable_workspaces,
+    enable_mcp,
 ):
     """Run the MLflow tracking server (UI + REST API).
 
@@ -588,7 +598,7 @@ def server(
       Storage   --backend-store-uri, --registry-store-uri, --default-artifact-root, ...
       Network   --host, --port, --workers, --static-prefix
       Security  --allowed-hosts, --cors-allowed-origins, --x-frame-options, ...
-      Advanced  --app-name, --expose-prometheus, --enable-workspaces, ...
+      Advanced  --app-name, --expose-prometheus, --enable-workspaces, --enable-mcp, ...
 
     \b
     Full guide: https://mlflow.org/docs/latest/self-hosting/architecture/tracking-server
@@ -636,6 +646,20 @@ def server(
     ):
         enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
     assert_server_workspace_env_unset()
+
+    if (
+        ctx
+        and not enable_mcp
+        and ctx.get_parameter_source("enable_mcp") != ParameterSource.COMMANDLINE
+    ):
+        enable_mcp = MLFLOW_SERVER_ENABLE_MCP.get()
+    # The MCP endpoint is an ASGI app mounted on the FastAPI wrapper, which only the uvicorn
+    # server runs; gunicorn and waitress serve the bare Flask app.
+    if enable_mcp and (gunicorn_opts is not None or waitress_opts is not None):
+        raise click.UsageError(
+            "'--enable-mcp' requires the default uvicorn server and cannot be combined with "
+            "'--gunicorn-opts' or '--waitress-opts'."
+        )
 
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
@@ -687,6 +711,7 @@ def server(
     # Keep environment flag in sync with the resolved boolean so server-side gating
     # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
     os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
+    os.environ[MLFLOW_SERVER_ENABLE_MCP.name] = "true" if enable_mcp else "false"
     if enable_workspaces and workspace_store_uri:
         os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
     elif workspace_store_uri:

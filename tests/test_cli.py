@@ -23,6 +23,7 @@ from mlflow.entities import Metric, ViewType, Workspace
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SERVER_ENABLE_MCP,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE_STORE_URI,
 )
@@ -219,6 +220,41 @@ def test_server_gunicorn_options():
     )
     assert result.exit_code != 0
     assert "Cannot specify multiple server options" in result.output
+
+
+@pytest.mark.parametrize(
+    "server_opt",
+    [
+        pytest.param(
+            "--gunicorn-opts",
+            marks=pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows"),
+        ),
+        "--waitress-opts",
+    ],
+)
+def test_server_enable_mcp_rejects_flask_only_servers(server_opt: str):
+    with pytest.raises(click.UsageError, match="'--enable-mcp' requires the default uvicorn"):
+        CliRunner().invoke(
+            server,
+            ["--enable-mcp", server_opt, "--timeout 120"],
+            catch_exceptions=False,
+            standalone_mode=False,
+        )
+
+
+def test_server_enable_mcp_sets_environment_flag(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_MCP.name, "false")
+    with (
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+        mock.patch("mlflow.server.handlers.initialize_backend_stores"),
+    ):
+        result = CliRunner().invoke(
+            server, ["--enable-mcp"], catch_exceptions=False, standalone_mode=False
+        )
+
+    assert result.exit_code == 0
+    run_server_mock.assert_called_once()
+    assert MLFLOW_SERVER_ENABLE_MCP.get() is True
 
 
 def test_server_initializes_backend_store_when_tracking_enabled(monkeypatch, tmp_path):

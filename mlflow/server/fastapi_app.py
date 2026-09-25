@@ -13,7 +13,7 @@ import os
 import shutil
 import time
 import typing
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import anyio
 from fastapi import FastAPI, Request
@@ -24,7 +24,10 @@ from starlette.middleware.wsgi import WSGIResponder, build_environ
 from starlette.types import Receive, Scope, Send
 
 from mlflow.assistant.providers.base import assistant_sandbox_enabled
-from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_REMOTE_ASSISTANT,
+    MLFLOW_SERVER_ENABLE_MCP,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
@@ -242,7 +245,14 @@ async def _lifespan(app: FastAPI):
             "assistant will run its Bash tool on the server host. Install Docker, or set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
         )
-    yield
+
+    async with AsyncExitStack() as stack:
+        # The MCP app is attached as a plain route, which does not forward lifespan events, so
+        # its session manager is started and stopped here alongside the server's own lifespan.
+        if MLFLOW_SERVER_ENABLE_MCP.get():
+            mcp_app = app.state.mcp_app
+            await stack.enter_async_context(mcp_app.lifespan(mcp_app))
+        yield
 
 
 def create_fastapi_app(flask_app: Flask = flask_app):
@@ -298,6 +308,18 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
 
     fastapi_app.include_router(server_info_router, prefix=static_prefix)
+
+    if MLFLOW_SERVER_ENABLE_MCP.get():
+        # Imported lazily: it pulls in the MLflow CLI command modules and needs the optional
+        # fastmcp package, neither of which a server without the endpoint should load.
+        from mlflow.mcp.server_app import create_server_mcp_app
+
+        # Streamable HTTP answers on a single exact path. A Starlette mount would redirect
+        # `/mcp` to `/mcp/` (307), which MCP clients don't follow, so the app is added as a
+        # route on the full prefixed path and built to match that same path internally.
+        mcp_path = _add_static_prefix("/mcp")
+        fastapi_app.state.mcp_app = create_server_mcp_app(mcp_path)
+        fastapi_app.add_route(mcp_path, fastapi_app.state.mcp_app)
 
     # Mount the entire Flask application at the root path.
     # Must come AFTER include_router so native FastAPI routes take precedence.
