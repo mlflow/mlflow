@@ -5671,7 +5671,7 @@ def list_mutation_conditions():
     return jsonify({"mutation_conditions": [c.to_json() for c in conditions]})
 
 
-def _optional_condition_param(params: dict, name: str) -> str | None:
+def _optional_condition_param(params: dict[str, Any], name: str) -> str | None:
     """Read an optional condition filter string, rejecting non-string input.
 
     A non-string would otherwise reach the parser and fail with a message about

@@ -1,9 +1,8 @@
-"""Unit tests for ``mlflow.server.auth.conditions`` -- the pure half of
-condition-based access control.
-
-No store, no request, no Flask. These tests are the security core: every other
-phase trusts that a parsed condition means what it says here.
-"""
+# Unit tests for ``mlflow.server.auth.conditions`` -- the pure half of
+# condition-based access control.
+#
+# No store, no request, no Flask. These tests are the security core: every other
+# phase trusts that a parsed condition means what it says here.
 
 import pytest
 
@@ -77,7 +76,7 @@ def test_parse_resource_accepts(filter_string):
 @pytest.mark.parametrize("empty", [None, "", "   "])
 @pytest.mark.parametrize("namespace", [NAMESPACE_REQUEST, NAMESPACE_RESOURCE])
 def test_parse_empty_is_unconstrained(empty, namespace):
-    """ "No condition" and "a condition constraining nothing" are the same thing."""
+    # "No condition" and "a condition constraining nothing" are the same thing.
     assert parse_condition(empty, namespace) == ()
 
 
@@ -124,7 +123,7 @@ def test_parse_rejects_ordering_comparators(comparator):
 
 
 def test_allowed_comparators_are_exclusion_capable():
-    """``!=`` and ``NOT IN`` are what let the RFC omit a separate deny form."""
+    # ``!=`` and ``NOT IN`` are what let the RFC omit a separate deny form.
     assert {"!=", "NOT IN"} <= ALLOWED_COMPARATORS
 
 
@@ -211,7 +210,7 @@ def test_request_delete_shape_gates_on_key_but_not_value():
 
 
 def test_request_batch_any_failure_denies():
-    """A bulk request must not be a way around a restriction that holds for one."""
+    # A bulk request must not be a way around a restriction that holds for one.
     clauses = parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST)
     assert evaluate_request(clauses, RequestValues(tags=(("ok", "1"),))) is True
     assert evaluate_request(clauses, RequestValues(tags=(("ok", "1"), ("lifecycle", "2")))) is False
@@ -413,7 +412,7 @@ def test_context_for_mirrors_request_values():
 
 
 def test_needs_resource_values_short_circuits():
-    """Two common ways to answer no, and each avoids reading a resource at all."""
+    # Two common ways to answer no, and each avoids reading a resource at all.
     create = context_for("run", None, ConditionScope.CREATE)
     mutate = context_for("run", "r1", ConditionScope.MUTATE)
 
@@ -456,7 +455,7 @@ def test_clause_describe_round_trips_readably():
 
 
 def test_clause_is_hashable_and_comparable():
-    """``Clause`` is a NamedTuple so loaded conditions can be cached and compared."""
+    # ``Clause`` is a NamedTuple so loaded conditions can be cached and compared.
     a = Clause("tag_key", None, "=", "x")
     b = Clause("tag_key", None, "=", "x")
     assert a == b

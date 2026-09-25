@@ -430,10 +430,12 @@ def _parse_comparison(comparison: Comparison, namespace: str) -> Clause:
         and tokens[2].value.upper().strip() == "IN"
     ):
         comparator_value = "NOT IN"
-        raw_lhs, value_token = tokens[0].value, tokens[3]
+        raw_lhs = tokens[0].value
+        value_token = tokens[3]
     elif len(tokens) == 3:
         comparator_value = tokens[1].value.upper().strip()
-        raw_lhs, value_token = tokens[0].value, tokens[2]
+        raw_lhs = tokens[0].value
+        value_token = tokens[2]
     else:
         raise MlflowException(
             f"Invalid clause '{comparison}' in condition. Expected the form "
@@ -491,7 +493,7 @@ def parse_condition(filter_string: str | None, namespace: str) -> tuple[Clause, 
     condition that constrains nothing" are the same thing, and both mean
     unconstrained.
 
-    Every clause is ANDed. ``OR`` is rejected, because a condition is a restriction
+    Every clause is combined with ``AND``. ``OR`` is rejected, because a condition is a restriction
     and a disjunction of restrictions is a weaker restriction -- which reads as
     though it tightened something while loosening it.
     """

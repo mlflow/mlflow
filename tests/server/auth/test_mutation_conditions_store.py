@@ -1,9 +1,8 @@
-"""Store tests for mutation conditions (condition-based access control).
-
-Covers CRUD, the partial-update contract, write-time validation, cascade, and the
-runtime loader -- including that per-user conditions are picked up with no
-special-casing (D10).
-"""
+# Store tests for mutation conditions (condition-based access control).
+#
+# Covers CRUD, the partial-update contract, write-time validation, cascade, and the
+# runtime loader -- including that per-user conditions are picked up with no
+# special-casing (D10).
 
 import pytest
 from sqlalchemy import event
@@ -48,7 +47,7 @@ def test_add_and_get(store, role):
 
 
 def test_add_with_only_one_condition(store, role):
-    """Either may be absent -- a role may restrict values, targets, or both."""
+    # Either may be absent -- a role may restrict values, targets, or both.
     value_only = store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", None)
     assert value_only.target_condition is None
 
@@ -57,7 +56,7 @@ def test_add_with_only_one_condition(store, role):
 
 
 def test_duplicate_role_resource_type_rejected(store, role):
-    """At most one of each condition per (role, resource_type), per the RFC."""
+    # At most one of each condition per (role, resource_type), per the RFC.
     store.add_mutation_conditions(role.id, "registered_model", "tag_key != 'a'")
     with pytest.raises(MlflowException, match="already exist"):
         store.add_mutation_conditions(role.id, "registered_model", "tag_key != 'b'")
@@ -177,7 +176,7 @@ def test_unsupported_resource_type_rejected(store, role, resource_type):
     ],
 )
 def test_supported_resource_types_accepted(store, role, resource_type):
-    """Includes prompt and prompt_version at full parity with the model types (D2)."""
+    # Includes prompt and prompt_version at full parity with the model types (D2).
     assert store.add_mutation_conditions(role.id, resource_type, "tag_key != 'a'")
 
 

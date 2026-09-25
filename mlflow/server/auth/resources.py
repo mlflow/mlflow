@@ -32,7 +32,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from contextvars import ContextVar
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -84,8 +84,6 @@ def version_resource_id(name: str, version: str) -> str:
 
 
 def _split_version_resource_id(resource_id: str) -> tuple[str, str]:
-    from urllib.parse import unquote
-
     name, _, version = resource_id.rpartition("/")
     return unquote(name), version
 
@@ -147,7 +145,7 @@ def _in_flask_request() -> bool:
         return False
 
 
-def _cache(g_attr: str, var: ContextVar) -> dict:
+def _cache(g_attr: str, var: ContextVar) -> dict[str, Any]:
     if _in_flask_request():
         from flask import g
 
@@ -163,11 +161,11 @@ def _cache(g_attr: str, var: ContextVar) -> dict:
     return cache
 
 
-def _entities() -> dict:
+def _entities() -> dict[str, Any]:
     return _cache(_G_ENTITY_ATTR, _ENTITY_CACHE)
 
 
-def _attrs() -> dict:
+def _attrs() -> dict[str, Any]:
     return _cache(_G_ATTRS_ATTR, _ATTRS_CACHE)
 
 

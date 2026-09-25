@@ -1,9 +1,8 @@
-"""Route and client tests for the mutation-conditions admin API.
-
-Phase 1's reviewable claim is that conditions can be authored and read back while
-nothing enforces them -- so these tests cover the API surface and its authorization,
-not evaluation (see ``test_conditions.py`` for that).
-"""
+# Route and client tests for the mutation-conditions admin API.
+#
+# Phase 1's reviewable claim is that conditions can be authored and read back while
+# nothing enforces them -- so these tests cover the API surface and its authorization,
+# not evaluation (see ``test_conditions.py`` for that).
 
 from contextlib import contextmanager
 
@@ -84,7 +83,8 @@ def role(client, monkeypatch):
 
 
 def _non_admin(client, monkeypatch):
-    username, password = random_str(), random_str()
+    username = random_str()
+    password = random_str()
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.create_user(username, password)
     return username, password
@@ -124,15 +124,13 @@ def test_add_with_only_a_value_condition(client, monkeypatch, role):
 
 def test_add_with_only_a_target_condition(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        created = client.add_mutation_conditions(
-            role.id, "run", target_condition="tags.a = '1'"
-        )
+        created = client.add_mutation_conditions(role.id, "run", target_condition="tags.a = '1'")
     assert created.value_condition is None
     assert created.target_condition == "tags.a = '1'"
 
 
 def test_prompt_parity_round_trip(client, monkeypatch, role):
-    """D2: prompt and prompt_version are first-class, at parity with the model types."""
+    # D2: prompt and prompt_version are first-class, at parity with the model types.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.add_mutation_conditions(role.id, "prompt", "alias LIKE 'dev-%'")
         client.add_mutation_conditions(role.id, "prompt_version", "tag_key != 'x'")
@@ -195,7 +193,7 @@ def test_malformed_condition_rejected(client, monkeypatch, role):
 
 
 def test_reserved_tag_key_rejected_in_value_condition(client, monkeypatch, role):
-    """D4: an admin must not be able to block MLflow's own tag writes."""
+    # D4: an admin must not be able to block MLflow's own tag writes.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="reserved tag keys"):
             client.add_mutation_conditions(role.id, "run", "tag_key = 'mlflow.runName'")

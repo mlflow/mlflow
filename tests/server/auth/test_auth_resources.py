@@ -1,10 +1,9 @@
-"""Tests for ``mlflow.server.auth.resources`` -- the auth layer's single resource
-read path, and its request-scoped caches.
-
-The laziness and the memoization are the design here, so a regression would be silent
-rather than loud: these tests assert *how many* store calls happen, and that nothing
-survives the request.
-"""
+# Tests for ``mlflow.server.auth.resources`` -- the auth layer's single resource
+# read path, and its request-scoped caches.
+#
+# The laziness and the memoization are the design here, so a regression would be silent
+# rather than loud: these tests assert *how many* store calls happen, and that nothing
+# survives the request.
 
 import threading
 from unittest import mock
@@ -407,7 +406,7 @@ def test_caches_are_per_thread(registry):
     def other_thread():
         seen["sizes"] = auth_resources.cache_sizes()
 
-    thread = threading.Thread(target=other_thread)
+    thread = threading.Thread(target=other_thread, name="auth-resources-cache-probe")
     thread.start()
     thread.join()
 
