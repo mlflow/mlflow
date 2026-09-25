@@ -14,27 +14,43 @@ import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateCo
 export const AssessmentPaneToggle = ({
   assessmentCount = 0,
   compact = false,
+  assessmentTarget = 'trace',
 }: {
   assessmentCount?: number;
   compact?: boolean;
+  assessmentTarget?: 'trace' | 'session';
 }): JSX.Element | null => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled } =
     useModelTraceExplorerViewState();
   const hasAssessments = assessmentCount > 0;
-  const label = hasAssessments
-    ? intl.formatMessage(
-        {
-          defaultMessage: 'Assess trace ({assessmentCount, plural, one {# assessment} other {# assessments}})',
-          description: 'Accessible label and tooltip for assessing a trace when the trace has assessments',
-        },
-        { assessmentCount },
-      )
-    : intl.formatMessage({
-        defaultMessage: 'Assess trace',
-        description: 'Accessible label and tooltip for assessing a trace',
-      });
+  const label =
+    assessmentTarget === 'session'
+      ? hasAssessments
+        ? intl.formatMessage(
+            {
+              defaultMessage: 'Assess session ({assessmentCount, plural, one {# assessment} other {# assessments}})',
+              description: 'Accessible label and tooltip for assessing a session when it has assessments',
+            },
+            { assessmentCount },
+          )
+        : intl.formatMessage({
+            defaultMessage: 'Assess session',
+            description: 'Accessible label and tooltip for assessing a session',
+          })
+      : hasAssessments
+        ? intl.formatMessage(
+            {
+              defaultMessage: 'Assess trace ({assessmentCount, plural, one {# assessment} other {# assessments}})',
+              description: 'Accessible label and tooltip for assessing a trace when the trace has assessments',
+            },
+            { assessmentCount },
+          )
+        : intl.formatMessage({
+            defaultMessage: 'Assess trace',
+            description: 'Accessible label and tooltip for assessing a trace',
+          });
 
   if (assessmentsPaneExpanded) {
     return null;

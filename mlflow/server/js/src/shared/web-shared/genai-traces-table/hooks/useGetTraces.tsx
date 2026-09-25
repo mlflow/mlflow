@@ -38,6 +38,7 @@ export function useGetTraces(getTrace?: GetTraceFunction, traceInfos?: ModelTrac
 
   const data = useArrayMemo(compact(queries.map((query) => query.data)));
   const isLoading = queries.some((query) => query.isLoading);
+  const error = queries.find((query) => query.error)?.error;
   const invalidateSingleTraceQuery = useCallback(
     (traceId?: string) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY, traceId] });
@@ -48,6 +49,7 @@ export function useGetTraces(getTrace?: GetTraceFunction, traceInfos?: ModelTrac
   return {
     data,
     isLoading,
+    error,
     invalidateSingleTraceQuery,
   };
 }

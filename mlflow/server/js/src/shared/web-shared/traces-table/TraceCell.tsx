@@ -29,7 +29,7 @@ import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import { SourceCellRenderer } from '../genai-traces-table/cellRenderers/Source/SourceRenderer';
 import type { SessionHrefGetter } from './types';
 import type { To } from 'react-router';
-import { formatTraceDuration } from './formatTraceDuration';
+import { formatTraceDuration, formatTraceDurationTotal } from './formatTraceDuration';
 
 // Module-local static analytics-id namespace. The `@databricks/no-dynamic-property-value` lint rule
 // requires every `componentId` to be statically determinable, so a runtime-injected prefix isn't
@@ -176,6 +176,18 @@ const TraceActivator = forwardRef<HTMLElement, TraceActivatorProps>(function Tra
 });
 
 const EmptyValue = () => <Typography.Text color="secondary">-</Typography.Text>;
+
+const SessionAggregateValue = ({ value }: { value: React.ReactNode }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, maxWidth: '100%' }}>
+      <span aria-hidden css={{ color: theme.colors.textSecondary }}>
+        Σ
+      </span>
+      <span css={truncateCss}>{value}</span>
+    </span>
+  );
+};
 
 const TraceTextCell = ({ value }: { value?: string }) => {
   if (!value) {
@@ -607,6 +619,11 @@ export const TraceDurationCell: React.MemoExoticComponent<(props: { trace: Model
   },
 );
 
+export const SessionDurationCell = ({ traces }: { traces: ModelTraceInfoV3[] }): JSX.Element => {
+  const duration = formatTraceDurationTotal(traces.map((trace) => trace.execution_duration));
+  return duration === null ? <EmptyValue /> : <SessionAggregateValue value={duration} />;
+};
+
 type TokenUsage = {
   input_tokens?: number;
   output_tokens?: number;
@@ -651,28 +668,16 @@ export const TraceTokensCell: React.MemoExoticComponent<(props: { trace: ModelTr
   },
 );
 
-/** Session token count, aggregated across all traces in the collapsed session header. */
-export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> =
-  memo(function SessionTokensCell({ traces }: { traces: ModelTraceInfoV3[] }) {
-    const usage = traces.reduce<TokenUsage>((totals, trace) => {
-      const traceUsage = getTraceTokenUsage(trace) ?? {};
-      return {
-        input_tokens:
-          totals.input_tokens === undefined && traceUsage.input_tokens === undefined
-            ? undefined
-            : (totals.input_tokens ?? 0) + (traceUsage.input_tokens ?? 0),
-        output_tokens:
-          totals.output_tokens === undefined && traceUsage.output_tokens === undefined
-            ? undefined
-            : (totals.output_tokens ?? 0) + (traceUsage.output_tokens ?? 0),
-        total_tokens:
-          totals.total_tokens === undefined && traceUsage.total_tokens === undefined
-            ? undefined
-            : (totals.total_tokens ?? 0) + (traceUsage.total_tokens ?? 0),
-      };
-    }, {});
-    return <TokenUsageCell usage={usage} />;
+export const SessionTokensCell = ({ traces }: { traces: ModelTraceInfoV3[] }): JSX.Element => {
+  const tokenCounts = traces.flatMap((trace) => {
+    const totalTokens = getTraceTokenUsage(trace)?.total_tokens;
+    return typeof totalTokens === 'number' && Number.isFinite(totalTokens) ? [totalTokens] : [];
   });
+  if (tokenCounts.length === 0) {
+    return <EmptyValue />;
+  }
+  return <SessionAggregateValue value={tokenCounts.reduce((total, count) => total + count, 0)} />;
+};
 
 /** Total cost in USD in a tag, with an input/output breakdown on hover. */
 export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
@@ -701,6 +706,17 @@ export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTrac
     );
   },
 );
+
+export const SessionCostCell = ({ traces }: { traces: ModelTraceInfoV3[] }): JSX.Element => {
+  const costs = traces.flatMap((trace) => {
+    const totalCost = getTraceCost(trace)?.total_cost;
+    return typeof totalCost === 'number' && Number.isFinite(totalCost) ? [totalCost] : [];
+  });
+  if (costs.length === 0) {
+    return <EmptyValue />;
+  }
+  return <SessionAggregateValue value={formatCostUSD(costs.reduce((total, cost) => total + cost, 0))} />;
+};
 
 // Tags prefixed `mlflow.` are machine-set metadata (e.g. `mlflow.trace.sizeBytes`), not user tags —
 // hidden here to match the shared tags renderer and avoid noise.

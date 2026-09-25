@@ -13,9 +13,13 @@ import {
   DatabaseIcon,
   FullscreenExitIcon,
   FullscreenIcon,
+  ForkHorizontalIcon,
   LinkIcon,
   PlusIcon,
   SearchIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  SpeechBubbleIcon,
   Tag,
   Tooltip,
   Typography,
@@ -29,6 +33,7 @@ import { useAssistant } from '@mlflow/mlflow/src/assistant';
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
 import { ModelTraceExplorerCustomViewSelector } from './ModelTraceExplorerCustomViewSelector';
 import { isTraceCostType } from '../ModelTraceExplorerCostHoverCard';
+import { formatCostUSD } from '../CostUtils';
 import { ModelTraceExplorerAssistantButton } from './ModelTraceExplorerAssistantButton';
 import { ModelTraceExplorerSkeleton } from '../ModelTraceExplorerSkeleton';
 import {
@@ -40,7 +45,12 @@ import { useCustomViewAssistantConnector } from '../custom-view/assistant/Custom
 import { useOptionalCustomViewDefinition } from '../custom-view/CustomViewDefinitionContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
-import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
+import {
+  CostMetadataItem,
+  type HeaderTokenUsage,
+  TokenUsageMetadataItem,
+} from './right-pane/ModelTraceExplorerRightPaneHeader';
+import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
 import { useLocation } from '../RoutingUtils';
 
@@ -50,6 +60,7 @@ const MAX_DRAWER_WIDTH_RATIO = 0.9;
 const DRAWER_CLOSE_ANIMATION_MS = 180;
 const TRACE_METADATA_MIN_WIDTH = 960;
 const LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 800;
+const TRACK_SESSIONS_DOCUMENTATION_URL = 'https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/';
 // Targets the design system Drawer.Content node (it renders these data attributes from the
 // Content componentId below), used by the Global rules that reproduce managed's header layout.
 const DRAWER_CONTENT_SELECTOR =
@@ -71,7 +82,7 @@ const formatHeaderDuration = (value: string): string => {
   return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
 };
 
-const formatHeaderCost = (cost: number): string => `$${cost.toFixed(2)}`;
+const formatHeaderCost = (cost: number): string => formatCostUSD(cost, 4);
 
 const resolveWidthToPixels = (width: number | string, viewportWidth = window.innerWidth): number => {
   if (typeof width === 'number') {
@@ -97,6 +108,8 @@ const drawerSlideOutAnimation = keyframes({
 
 export interface ModelTraceExplorerDrawerProps {
   children: React.ReactNode;
+  headerBanner?: React.ReactNode;
+  navigationLabel?: React.ReactNode;
   selectPreviousEval: () => void;
   selectNextEval: () => void;
   isPreviousAvailable: boolean;
@@ -105,6 +118,18 @@ export interface ModelTraceExplorerDrawerProps {
   isLoading?: boolean;
   experimentId?: string;
   traceInfo?: ModelTraceInfoV3;
+  drawerViewMode?: 'trace' | 'session';
+  onDrawerViewModeChange?: (viewMode: 'trace' | 'session') => void;
+  sessionId?: string;
+  sessionMetrics?: {
+    tokenUsage?: HeaderTokenUsage;
+    cost?: { input_cost: number; output_cost: number; total_cost: number };
+    latencySeconds?: number;
+    goal?: string;
+    persona?: string;
+  };
+  shareUrl?: string;
+  sessionNavigationEnabled?: boolean;
   renderManagedAddToDatasetDropdown?: (params: {
     children: React.ReactNode;
     onOpenChange: (open: boolean) => void;
@@ -119,9 +144,17 @@ export const ModelTraceExplorerDrawer = ({
   isNextAvailable,
   handleClose,
   children,
+  headerBanner,
+  navigationLabel,
   isLoading,
   experimentId,
   traceInfo,
+  drawerViewMode = 'trace',
+  onDrawerViewModeChange,
+  sessionId,
+  sessionMetrics,
+  shareUrl: providedShareUrl,
+  sessionNavigationEnabled = true,
   renderManagedAddToDatasetDropdown,
 }: ModelTraceExplorerDrawerProps): JSX.Element => {
   const { getPrefixedClassName, theme } = useDesignSystemTheme();
@@ -134,6 +167,13 @@ export const ModelTraceExplorerDrawer = ({
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [isFlagForReviewDropdownOpen, setIsFlagForReviewDropdownOpen] = useState(false);
   const [isFlagForReviewTooltipOpen, setIsFlagForReviewTooltipOpen] = useState(false);
+  const [sessionModeButtonWidth, setSessionModeButtonWidth] = useState(0);
+  const disabledSessionModeButtonRef = useCallback((element: HTMLButtonElement | null) => {
+    if (element && typeof element.getBoundingClientRect === 'function') {
+      setSessionModeButtonWidth(element.getBoundingClientRect().width);
+    }
+  }, []);
+  const isTraceView = drawerViewMode === 'trace';
   const fullscreenActionButtonCss = isFullscreen
     ? {
         '&&, &&:hover, &&:active': {
@@ -193,7 +233,7 @@ export const ModelTraceExplorerDrawer = ({
 
   const location = useLocation();
   const locationPath = `${location.pathname}${location.search}${location.hash}`;
-  const shareUrl = `${window.location.origin}${locationPath}`;
+  const shareUrl = providedShareUrl ?? `${window.location.origin}${locationPath}`;
   const {
     copy: copyShareLink,
     tooltipMessage,
@@ -201,22 +241,32 @@ export const ModelTraceExplorerDrawer = ({
     handleTooltipOpenChange,
   } = useCopyController(
     shareUrl,
-    intl.formatMessage({
-      defaultMessage: 'Copy link to trace',
-      description: 'Tooltip for the copy link to trace button',
-    }),
+    isTraceView
+      ? intl.formatMessage({
+          defaultMessage: 'Copy link to trace',
+          description: 'Tooltip for the copy link to trace button',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'Copy link to session',
+          description: 'Tooltip for the copy link to session button',
+        }),
   );
   const {
-    copy: copyTraceId,
-    tooltipMessage: traceIdTooltipMessage,
-    tooltipOpen: traceIdTooltipOpen,
-    handleTooltipOpenChange: handleTraceIdTooltipOpenChange,
+    copy: copyDisplayedId,
+    tooltipMessage: displayedIdTooltipMessage,
+    tooltipOpen: displayedIdTooltipOpen,
+    handleTooltipOpenChange: handleDisplayedIdTooltipOpenChange,
   } = useCopyController(
-    traceInfo?.trace_id ?? '',
-    intl.formatMessage({
-      defaultMessage: 'Copy trace ID',
-      description: 'Tooltip for copying the trace ID from the trace drawer header',
-    }),
+    isTraceView ? (traceInfo?.trace_id ?? '') : (sessionId ?? ''),
+    isTraceView
+      ? intl.formatMessage({
+          defaultMessage: 'Copy trace ID',
+          description: 'Tooltip for copying the trace ID from the trace drawer header',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'Copy session ID',
+          description: 'Tooltip for copying the session ID from the session drawer header',
+        }),
   );
   const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -308,6 +358,9 @@ export const ModelTraceExplorerDrawer = ({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (!isTraceView && !sessionNavigationEnabled) {
+        return;
+      }
       if (e.target instanceof HTMLElement) {
         if (e.target.role === 'tab') {
           return;
@@ -327,7 +380,7 @@ export const ModelTraceExplorerDrawer = ({
         selectNextEval();
       }
     },
-    [isPreviousAvailable, isNextAvailable, selectPreviousEval, selectNextEval],
+    [isPreviousAvailable, isNextAvailable, isTraceView, selectPreviousEval, selectNextEval, sessionNavigationEnabled],
   );
 
   useEffect(() => {
@@ -338,7 +391,10 @@ export const ModelTraceExplorerDrawer = ({
   }, [handleKeyDown]);
 
   const showAddToDatasetButton = Boolean(
-    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) && experimentId && traceInfo,
+    isTraceView &&
+    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) &&
+    experimentId &&
+    traceInfo,
   );
   const addToDatasetLabel = intl.formatMessage({
     defaultMessage: 'Add to dataset',
@@ -406,7 +462,7 @@ export const ModelTraceExplorerDrawer = ({
     </Tooltip>
   ) : null;
   const flagForReviewButton =
-    renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
+    isTraceView && renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
       <Tooltip
         componentId="mlflow.evaluations_review.modal.flag_for_review.tooltip"
         content={sendToReviewLabel}
@@ -440,12 +496,29 @@ export const ModelTraceExplorerDrawer = ({
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
-  const analyzeTraceLabel = intl.formatMessage({
-    defaultMessage: 'Analyze trace',
-    description: 'Button label for asking the assistant to analyze a trace',
-  });
-  const analyzeTracePrompt =
-    traceInfo?.state === 'ERROR'
+  const analyzeLabel = isTraceView
+    ? intl.formatMessage({
+        defaultMessage: 'Analyze trace',
+        description: 'Button label for asking the assistant to analyze a trace',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Analyze session',
+        description: 'Button label for asking the assistant to analyze a trace session',
+      });
+  const analyzePrompt = !isTraceView
+    ? sessionId
+      ? intl.formatMessage(
+          {
+            defaultMessage: 'Analyze session {sessionId}.',
+            description: 'Prompt sent to the assistant for analyzing a trace session',
+          },
+          { sessionId },
+        )
+      : intl.formatMessage({
+          defaultMessage: 'Analyze this session.',
+          description: 'Prompt sent to the assistant for analyzing a trace session without an available ID',
+        })
+    : traceInfo?.state === 'ERROR'
       ? intl.formatMessage(
           {
             defaultMessage: 'Debug the error in trace {traceId}.',
@@ -465,27 +538,50 @@ export const ModelTraceExplorerDrawer = ({
             defaultMessage: 'Analyze this trace.',
             description: 'Prompt sent to the assistant for analyzing a trace when its ID is unavailable',
           });
-  const handleAnalyzeTrace = useCallback(() => {
+  const handleAnalyze = useCallback(() => {
     openPanel();
-    // Send the analyze prompt immediately rather than only prefilling it, so the
-    // assistant starts working on the trace without a second click.
-    sendMessageWhenReady(analyzeTracePrompt);
-  }, [openPanel, sendMessageWhenReady, analyzeTracePrompt]);
+    sendMessageWhenReady(analyzePrompt);
+  }, [openPanel, sendMessageWhenReady, analyzePrompt]);
   const findInTraceLabel = intl.formatMessage({
     defaultMessage: 'Find in trace',
     description: 'Accessible label and tooltip for opening the trace search row',
   });
-  const closeTracePanelLabel = intl.formatMessage({
-    defaultMessage: 'Close trace panel',
-    description: 'Accessible label and tooltip for closing the trace drawer',
+  const closeTracePanelLabel = isTraceView
+    ? intl.formatMessage({
+        defaultMessage: 'Close trace panel',
+        description: 'Accessible label and tooltip for closing the trace drawer',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Close session panel',
+        description: 'Accessible label and tooltip for closing the session drawer',
+      });
+  const previousTraceLabel = isTraceView
+    ? intl.formatMessage({
+        defaultMessage: 'Previous trace',
+        description: 'Accessible label and tooltip for navigating to the previous trace',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Previous session',
+        description: 'Accessible label and tooltip for navigating to the previous trace session',
+      });
+  const nextTraceLabel = isTraceView
+    ? intl.formatMessage({
+        defaultMessage: 'Next trace',
+        description: 'Accessible label and tooltip for navigating to the next trace',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Next session',
+        description: 'Accessible label and tooltip for navigating to the next trace session',
+      });
+  const sessionNavigationDisabledLabel = intl.formatMessage({
+    defaultMessage: 'Group traces by session to navigate between sessions',
+    description: 'Tooltip explaining why session navigation is disabled',
   });
-  const previousTraceLabel = intl.formatMessage({
-    defaultMessage: 'Previous trace',
-    description: 'Accessible label and tooltip for navigating to the previous trace',
-  });
-  const nextTraceLabel = intl.formatMessage({
-    defaultMessage: 'Next trace',
-    description: 'Accessible label and tooltip for navigating to the next trace',
+  const traceViewModeLabel = intl.formatMessage({ defaultMessage: 'Trace', description: 'Trace drawer mode' });
+  const sessionViewModeLabel = intl.formatMessage({ defaultMessage: 'Session', description: 'Session drawer mode' });
+  const sessionViewDisabledLabel = intl.formatMessage({
+    defaultMessage: 'Session view is unavailable because this trace has no session ID.',
+    description: 'Explanation for why session view is disabled',
   });
   const fullscreenLabel = isFullscreen
     ? intl.formatMessage({
@@ -497,6 +593,11 @@ export const ModelTraceExplorerDrawer = ({
         description: 'Accessible label and tooltip for expanding the trace drawer to full screen',
       });
   const displayedTraceId = traceInfo?.trace_id.replace(/^tr-/, '').slice(0, 8);
+  const displayedSessionId = sessionId?.slice(0, 8);
+  const displayedId = isTraceView ? displayedTraceId : displayedSessionId;
+  const hasSessionMetadata =
+    (sessionMetrics?.latencySeconds !== undefined && sessionMetrics.latencySeconds > 0) ||
+    Boolean(sessionMetrics?.tokenUsage || sessionMetrics?.cost || sessionMetrics?.goal || sessionMetrics?.persona);
   const formattedExecutionDuration = traceInfo?.execution_duration
     ? formatHeaderDuration(traceInfo.execution_duration)
     : undefined;
@@ -569,9 +670,10 @@ export const ModelTraceExplorerDrawer = ({
           },
           [`${DRAWER_CONTENT_SELECTOR} > div:first-of-type`]: {
             boxSizing: 'border-box',
-            height: 48,
-            minHeight: 48,
-            padding: `0 ${theme.spacing.md}px`,
+            height: headerBanner ? 48 + theme.spacing.xl : 48,
+            minHeight: headerBanner ? 48 + theme.spacing.xl : 48,
+            alignItems: headerBanner ? 'stretch' : 'center',
+            padding: headerBanner ? 0 : `0 ${theme.spacing.md}px`,
             borderBottom: `1px solid ${theme.colors.border}`,
             marginBottom: 0,
           },
@@ -622,27 +724,57 @@ export const ModelTraceExplorerDrawer = ({
               display: 'flex',
               alignItems: 'center',
               gap: theme.spacing.sm,
+              position: 'relative',
               minWidth: 0,
               width: '100%',
               height: '100%',
+              padding: headerBanner ? `${theme.spacing.xl}px ${theme.spacing.md}px 0` : 0,
+              boxSizing: 'border-box',
             }}
           >
-            <Tooltip componentId="mlflow.evaluations_review.modal.previous-tooltip" content={previousTraceLabel}>
+            {headerBanner && (
+              <div
+                css={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  height: theme.spacing.xl,
+                  padding: `0 ${theme.spacing.md}px`,
+                  boxSizing: 'border-box',
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  borderBottom: `1px solid ${theme.colors.border}`,
+                }}
+              >
+                {headerBanner}
+              </div>
+            )}
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.previous-tooltip"
+              content={!isTraceView && !sessionNavigationEnabled ? sessionNavigationDisabledLabel : previousTraceLabel}
+            >
               <Button
                 componentId="mlflow.evaluations_review.modal.previous_eval"
                 aria-label={previousTraceLabel}
                 icon={<ChevronLeftIcon css={headerIconCss} />}
-                disabled={!isPreviousAvailable}
+                disabled={!sessionNavigationEnabled || !isPreviousAvailable}
                 onClick={() => selectPreviousEval()}
                 size="small"
               />
             </Tooltip>
-            <Tooltip componentId="mlflow.evaluations_review.modal.next-tooltip" content={nextTraceLabel}>
+            {navigationLabel}
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.next-tooltip"
+              content={!isTraceView && !sessionNavigationEnabled ? sessionNavigationDisabledLabel : nextTraceLabel}
+            >
               <Button
                 componentId="mlflow.evaluations_review.modal.next_eval"
                 aria-label={nextTraceLabel}
                 icon={<ChevronRightIcon css={headerIconCss} />}
-                disabled={!isNextAvailable}
+                disabled={!sessionNavigationEnabled || !isNextAvailable}
                 onClick={() => selectNextEval()}
                 size="small"
               />
@@ -677,25 +809,108 @@ export const ModelTraceExplorerDrawer = ({
                 flex: '1 1 auto',
               }}
             >
-              <Typography.Text css={{ whiteSpace: 'nowrap' }}>
-                <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
-              </Typography.Text>
-              {displayedTraceId && traceInfo && (
+              {onDrawerViewModeChange ? (
+                <div css={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                  <SegmentedControlGroup
+                    componentId="mlflow.trace-explorer.drawer-view-mode"
+                    name="trace-explorer-drawer-view-mode"
+                    value={drawerViewMode}
+                    onChange={(event) => {
+                      if (event.target.value === 'trace' || event.target.value === 'session') {
+                        onDrawerViewModeChange(event.target.value);
+                      }
+                    }}
+                    size="small"
+                    newStyleFlagOverride
+                  >
+                    <SegmentedControlButton
+                      value="trace"
+                      aria-label={traceViewModeLabel}
+                      icon={
+                        <Tooltip
+                          componentId="mlflow.trace-explorer.trace-view-mode-tooltip"
+                          content={traceViewModeLabel}
+                          delayDuration={0}
+                        >
+                          <ForkHorizontalIcon css={headerIconCss} />
+                        </Tooltip>
+                      }
+                    />
+                    <SegmentedControlButton
+                      ref={!sessionId ? disabledSessionModeButtonRef : undefined}
+                      value="session"
+                      aria-label={sessionViewModeLabel}
+                      disabled={!sessionId}
+                      icon={
+                        <Tooltip
+                          componentId="mlflow.trace-explorer.session-view-mode-tooltip"
+                          content={sessionViewModeLabel}
+                          delayDuration={0}
+                        >
+                          <SpeechBubbleIcon css={headerIconCss} />
+                        </Tooltip>
+                      }
+                    />
+                  </SegmentedControlGroup>
+                  {!sessionId && (
+                    <Tooltip
+                      componentId="mlflow.trace-explorer.session-view-disabled-tooltip"
+                      maxWidth={320}
+                      content={
+                        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                          <span>{sessionViewDisabledLabel}</span>
+                          <Typography.Link
+                            componentId="mlflow.trace-explorer.session-view-disabled-documentation-link"
+                            href={TRACK_SESSIONS_DOCUMENTATION_URL}
+                            openInNewTab
+                          >
+                            <FormattedMessage
+                              defaultMessage="Learn how to track sessions"
+                              description="Link to documentation for adding session IDs to traces"
+                            />
+                          </Typography.Link>
+                        </div>
+                      }
+                    >
+                      <span
+                        role="button"
+                        aria-disabled="true"
+                        aria-label={sessionViewDisabledLabel}
+                        tabIndex={0}
+                        css={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          bottom: 0,
+                          width: sessionModeButtonWidth,
+                          zIndex: 1,
+                          cursor: 'not-allowed',
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                </div>
+              ) : (
+                <Typography.Text css={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
+                </Typography.Text>
+              )}
+              {displayedId && (
                 <Tooltip
                   componentId="mlflow.evaluations_review.modal.trace-id-tooltip"
-                  content={traceIdTooltipMessage}
-                  open={traceIdTooltipOpen}
-                  onOpenChange={handleTraceIdTooltipOpenChange}
+                  content={displayedIdTooltipMessage}
+                  open={displayedIdTooltipOpen}
+                  onOpenChange={handleDisplayedIdTooltipOpenChange}
                   maxWidth={400}
                 >
                   <Tag
                     componentId="mlflow.evaluations_review.modal.trace-id"
                     color="default"
-                    onClick={copyTraceId}
+                    onClick={copyDisplayedId}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        copyTraceId();
+                        copyDisplayedId();
                       }
                     }}
                     role="button"
@@ -707,12 +922,72 @@ export const ModelTraceExplorerDrawer = ({
                       color="secondary"
                       css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}
                     >
-                      {displayedTraceId}
+                      {displayedId}
                     </Typography.Text>
                   </Tag>
                 </Tooltip>
               )}
-              {showTraceMetadata && traceStatus && (
+              {!isTraceView && displayedSessionId && hasSessionMetadata && (
+                <div
+                  css={{
+                    width: 1,
+                    height: theme.spacing.lg,
+                    flexShrink: 0,
+                    backgroundColor: theme.colors.border,
+                    marginLeft: theme.spacing.xs,
+                    marginRight: theme.spacing.xs,
+                  }}
+                />
+              )}
+              {!isTraceView && sessionMetrics?.latencySeconds !== undefined && sessionMetrics.latencySeconds > 0 && (
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, whiteSpace: 'nowrap' }}>
+                  <ClockIcon css={statusIconCss} />
+                  <Typography.Text size="sm" color="secondary">
+                    {spanTimeFormatter(sessionMetrics.latencySeconds * 1e6)}
+                  </Typography.Text>
+                </div>
+              )}
+              {!isTraceView && sessionMetrics?.tokenUsage && (
+                <TokenUsageMetadataItem tokenUsage={sessionMetrics.tokenUsage} />
+              )}
+              {!isTraceView && sessionMetrics?.cost && (
+                <CostMetadataItem cost={sessionMetrics.cost} formatTotalCost={formatHeaderCost} />
+              )}
+              {!isTraceView && sessionMetrics?.goal && (
+                <Tooltip componentId="mlflow.trace-explorer.session-goal-tooltip" content={sessionMetrics.goal}>
+                  <Tag
+                    componentId="mlflow.trace-explorer.session-goal"
+                    color="default"
+                    css={{ margin: 0, maxWidth: 160 }}
+                  >
+                    <Typography.Text size="sm" color="secondary" ellipsis>
+                      <FormattedMessage
+                        defaultMessage="Goal: {goal}"
+                        description="Simulation goal shown in the session drawer header"
+                        values={{ goal: sessionMetrics.goal }}
+                      />
+                    </Typography.Text>
+                  </Tag>
+                </Tooltip>
+              )}
+              {!isTraceView && sessionMetrics?.persona && (
+                <Tooltip componentId="mlflow.trace-explorer.session-persona-tooltip" content={sessionMetrics.persona}>
+                  <Tag
+                    componentId="mlflow.trace-explorer.session-persona"
+                    color="default"
+                    css={{ margin: 0, maxWidth: 160 }}
+                  >
+                    <Typography.Text size="sm" color="secondary" ellipsis>
+                      <FormattedMessage
+                        defaultMessage="Persona: {persona}"
+                        description="Simulation persona shown in the session drawer header"
+                        values={{ persona: sessionMetrics.persona }}
+                      />
+                    </Typography.Text>
+                  </Tag>
+                </Tooltip>
+              )}
+              {isTraceView && showTraceMetadata && traceStatus && (
                 <>
                   <div
                     css={{
@@ -740,7 +1015,7 @@ export const ModelTraceExplorerDrawer = ({
                   </div>
                 </>
               )}
-              {showTraceMetadata && formattedExecutionDuration && (
+              {isTraceView && showTraceMetadata && formattedExecutionDuration && (
                 <div
                   css={{
                     display: 'flex',
@@ -756,34 +1031,38 @@ export const ModelTraceExplorerDrawer = ({
                   </Typography.Text>
                 </div>
               )}
-              {showTraceMetadata && typeof totalTokens === 'number' && Number.isFinite(totalTokens) && (
+              {isTraceView && showTraceMetadata && typeof totalTokens === 'number' && Number.isFinite(totalTokens) && (
                 <TokenUsageMetadataItem tokenUsage={{ ...traceTokenUsage, total_tokens: totalTokens }} />
               )}
-              {showTraceMetadata && isTraceCostType(traceCost) && (
+              {isTraceView && showTraceMetadata && isTraceCostType(traceCost) && (
                 <CostMetadataItem cost={traceCost} formatTotalCost={formatHeaderCost} />
               )}
             </div>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexShrink: 0 }}>
-              <Tooltip componentId="mlflow.evaluations_review.modal.find-tooltip" content={findInTraceLabel}>
-                <Button
-                  componentId="mlflow.evaluations_review.modal.find-button"
-                  icon={<SearchIcon css={headerIconCss} />}
-                  onClick={handleFindClick}
-                  aria-pressed={isSearchVisible}
-                  aria-label={findInTraceLabel}
-                  size="small"
-                  css={fullscreenActionButtonCss}
-                >
-                  {isFullscreen ? (
-                    <FormattedMessage
-                      defaultMessage="Find"
-                      description="Visible label for finding content in a trace"
-                    />
-                  ) : undefined}
-                </Button>
-              </Tooltip>
-              {addToDatasetButton}
-              {flagForReviewButton}
+              {isTraceView && (
+                <>
+                  <Tooltip componentId="mlflow.evaluations_review.modal.find-tooltip" content={findInTraceLabel}>
+                    <Button
+                      componentId="mlflow.evaluations_review.modal.find-button"
+                      icon={<SearchIcon css={headerIconCss} />}
+                      onClick={handleFindClick}
+                      aria-pressed={isSearchVisible}
+                      aria-label={findInTraceLabel}
+                      size="small"
+                      css={fullscreenActionButtonCss}
+                    >
+                      {isFullscreen ? (
+                        <FormattedMessage
+                          defaultMessage="Find"
+                          description="Visible label for finding content in a trace"
+                        />
+                      ) : undefined}
+                    </Button>
+                  </Tooltip>
+                  {addToDatasetButton}
+                  {flagForReviewButton}
+                </>
+              )}
               <Tooltip
                 componentId="mlflow.evaluations_review.modal.copy-link-tooltip"
                 content={tooltipMessage}
@@ -807,22 +1086,28 @@ export const ModelTraceExplorerDrawer = ({
                 </Button>
               </Tooltip>
             </div>
-            <ModelTraceExplorerCustomViewSelector
-              value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
-              onValueChange={setTraceExplorerDisplayMode}
-              onCreateCustomView={handleCreateCustomView}
-              isCustomViewEnabled={isCustomViewEnabled}
-              canCreateCustomView={canCreateCustomView}
-              compact={compactPrimaryActions}
-              componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
-            />
+            {isTraceView && (
+              <ModelTraceExplorerCustomViewSelector
+                value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
+                onValueChange={setTraceExplorerDisplayMode}
+                onCreateCustomView={handleCreateCustomView}
+                isCustomViewEnabled={isCustomViewEnabled}
+                canCreateCustomView={canCreateCustomView}
+                compact={compactPrimaryActions}
+                componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
+              />
+            )}
             {canUseAssistant && (
               <ModelTraceExplorerAssistantButton
-                componentId="mlflow.evaluations_review.modal.analyze-trace"
-                onClick={handleAnalyzeTrace}
-                ariaLabel={compactPrimaryActions ? analyzeTraceLabel : undefined}
+                componentId={
+                  isTraceView
+                    ? 'mlflow.evaluations_review.modal.analyze-trace'
+                    : 'mlflow.evaluations_review.modal.analyze-session'
+                }
+                onClick={handleAnalyze}
+                ariaLabel={compactPrimaryActions ? analyzeLabel : undefined}
               >
-                {compactPrimaryActions ? undefined : analyzeTraceLabel}
+                {compactPrimaryActions ? undefined : analyzeLabel}
               </ModelTraceExplorerAssistantButton>
             )}
             <div
@@ -867,9 +1152,10 @@ export const ModelTraceExplorerDrawer = ({
             },
             '&>div:first-of-type': {
               boxSizing: 'border-box',
-              height: 48,
-              minHeight: 48,
-              padding: `0 ${theme.spacing.md}px`,
+              height: headerBanner ? 48 + theme.spacing.xl : 48,
+              minHeight: headerBanner ? 48 + theme.spacing.xl : 48,
+              alignItems: headerBanner ? 'stretch' : 'center',
+              padding: headerBanner ? 0 : `0 ${theme.spacing.md}px`,
               borderBottom: `1px solid ${theme.colors.border}`,
               marginBottom: 0,
               '&>button': {
@@ -888,6 +1174,7 @@ export const ModelTraceExplorerDrawer = ({
           <ModelTraceExplorerRightPaneHeaderActionsProvider
             openAddToDatasetModal={showAddToDatasetButton ? handleAddToDatasetClick : undefined}
             experimentId={experimentId}
+            sessionGroupingEnabled={Boolean(onDrawerViewModeChange)}
             isSearchVisible={isSearchVisible}
             traceExplorerDisplayMode={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
             setTraceExplorerDisplayMode={setTraceExplorerDisplayMode}

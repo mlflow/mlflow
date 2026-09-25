@@ -32,15 +32,14 @@ import { useGetDeleteTracesAction } from '../../components/experiment-page/compo
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3Logs } from '../../components/experiment-page/components/traces-v3/TracesV3Logs';
 import {
-  CursorIcon,
-  FilterIcon,
-  SchemaIcon,
-  SlidersIcon,
+  ForkHorizontalIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  SpeechBubbleIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import Routes from '../../routes';
-import { keyframes } from '@emotion/react';
 
 const defaultCustomDefaultSelectedColumns = (column: TracesTableColumn) => {
   if (column.type === TracesTableColumnType.ASSESSMENT || column.type === TracesTableColumnType.EXPECTATION) {
@@ -143,27 +142,6 @@ const ExperimentChatSessionsPageImpl = () => {
 
 const ExperimentChatSessionsMovedPage = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
-  const cursorClickAnimation = keyframes({
-    '0%, 15%': { opacity: 0, transform: 'translate(32px, 20px) scale(1)' },
-    '30%': { opacity: 1, transform: 'translate(8px, 4px) scale(1)' },
-    '42%': { opacity: 1, transform: 'translate(8px, 4px) scale(0.85)' },
-    '55%, 78%': { opacity: 1, transform: 'translate(8px, 4px) scale(1)' },
-    '100%': { opacity: 0, transform: 'translate(8px, 4px) scale(1)' },
-  });
-  const toggleAnimation = keyframes({
-    '0%, 40%': { backgroundColor: theme.colors.backgroundPrimary },
-    '52%, 82%': { backgroundColor: theme.colors.actionDefaultBackgroundPress },
-    '100%': { backgroundColor: theme.colors.backgroundPrimary },
-  });
-  const illustrationButtonStyles = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: theme.general.heightSm,
-    border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-    borderRadius: theme.borders.borderRadiusSm,
-    color: theme.colors.textSecondary,
-  } as const;
 
   return (
     <div
@@ -197,7 +175,7 @@ const ExperimentChatSessionsMovedPage = ({ experimentId }: { experimentId: strin
           </Typography.Text>
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage='Click the "Group by session" button to see the session-level view.'
+              defaultMessage='Select "Sessions" in the Traces/Sessions switcher to see the session-level view.'
               description="Instruction explaining how to access the session-level view in the Traces tab"
             />
           </Typography.Text>
@@ -211,46 +189,17 @@ const ExperimentChatSessionsMovedPage = ({ experimentId }: { experimentId: strin
             />
           </Link>
         </div>
-        <div aria-hidden css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <div css={{ ...illustrationButtonStyles, width: theme.general.heightSm }}>
-            <FilterIcon />
-          </div>
-          <div css={{ position: 'relative' }}>
-            <div
-              css={{
-                ...illustrationButtonStyles,
-                width: theme.general.heightSm,
-                animation: `${toggleAnimation} 2400ms ease-in-out infinite`,
-                '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-              }}
-            >
-              <SchemaIcon />
-            </div>
-            <CursorIcon
-              css={{
-                position: 'absolute',
-                right: 0,
-                bottom: 0,
-                animation: `${cursorClickAnimation} 2400ms ease-in-out infinite`,
-                '@media (prefers-reduced-motion: reduce)': { display: 'none', animation: 'none' },
-              }}
-            />
-          </div>
-          <div
-            css={{
-              ...illustrationButtonStyles,
-              gap: theme.spacing.xs,
-              padding: `0 ${theme.spacing.sm}px`,
-            }}
+        <div aria-hidden css={{ pointerEvents: 'none' }}>
+          <SegmentedControlGroup
+            name="mlflow.chat-sessions.moved-view-switcher"
+            componentId="mlflow.chat-sessions.moved-view-switcher"
+            value="sessions"
+            newStyleFlagOverride
+            analyticsEvents={[]}
           >
-            <SlidersIcon />
-            <Typography.Text>
-              <FormattedMessage
-                defaultMessage="Display"
-                description="Display control in session migration illustration"
-              />
-            </Typography.Text>
-          </div>
+            <SegmentedControlButton value="traces" tabIndex={-1} icon={<ForkHorizontalIcon />} />
+            <SegmentedControlButton value="sessions" tabIndex={-1} icon={<SpeechBubbleIcon />} />
+          </SegmentedControlGroup>
         </div>
       </div>
     </div>

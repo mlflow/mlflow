@@ -32,7 +32,11 @@ export {
   searchMlflowTracesQueryFn,
   SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
-export { getEvalTabTotalTracesLimit, shouldEnableSessionGrouping } from './utils/FeatureUtils';
+export {
+  getEvalTabTotalTracesLimit,
+  shouldEnableSessionGrouping,
+  shouldEnableSessionViewInTraceDrawer,
+} from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
 export { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 export { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
@@ -142,6 +146,7 @@ export type { GetTraceFunction } from './hooks/useGetTrace';
 export { useFetchTraceV4LazyQuery, useFetchTraceV4Query, getTraceV4QueryKey } from './hooks/useFetchTraceV4';
 export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
 export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
+export { GenAIChatSessionsEmptyState } from './sessions-table/GenAIChatSessionsEmptyState';
 export { groupTracesBySession } from './sessions-table/utils';
 export { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 export { useGetTraces } from './hooks/useGetTraces';
