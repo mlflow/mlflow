@@ -3513,6 +3513,9 @@ def validate_can_batch_get_traces():
 
 
 def validate_can_delete_traces():
+    # Destroys the traces and, through the assessments FK (ondelete=CASCADE), their assessments,
+    # so both tiers carry ``delete`` with the experiment as fallback -- the same shape
+    # DeleteExperiment uses for the cascade that subsumes this route.
     experiment_id = _get_request_param("experiment_id")
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     return authorize(
@@ -3520,7 +3523,10 @@ def validate_can_delete_traces():
         experiment,
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
-            Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_TRACE, "*", "delete", fallback_if_no_grant=(experiment,)),
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT, "*", "delete", fallback_if_no_grant=(experiment,)
+            ),
         ],
     )
 
