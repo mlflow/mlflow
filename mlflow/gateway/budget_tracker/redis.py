@@ -33,8 +33,10 @@ _logger = logging.getLogger(__name__)
 # Redis key prefix for all budget tracker keys
 _KEY_PREFIX = "mlflow:budget:"
 
-# Lua script: atomically initialize or roll a window only if the stored
-# window_start differs (or the key doesn't exist).
+# Lua script: atomically initialize or roll a window only if the stored window
+# no longer describes the same budget period (or the key doesn't exist).
+# The duration is stored with the bounds so that a duration edit rolls the
+# window even when the new bounds happen to start at the same instant.
 # Returns {created, cumulative_spend, exceeded} so callers don't need a
 # separate round-trip to read back the state.
 _ENSURE_WINDOW_LUA = """
@@ -42,9 +44,13 @@ local wkey = KEYS[1]
 local new_start = ARGV[1]
 local new_end = ARGV[2]
 local ttl = tonumber(ARGV[3])
+local duration_unit = ARGV[4]
+local duration_value = ARGV[5]
 
-local current_start = redis.call('HGET', wkey, 'window_start')
-if current_start == new_start then
+local current = redis.call('HMGET', wkey, 'window_start', 'duration_unit', 'duration_value')
+if current[1] == new_start
+    and current[2] == duration_unit
+    and current[3] == duration_value then
     local spend = redis.call('HGET', wkey, 'cumulative_spend') or '0.0'
     local exceeded = redis.call('HGET', wkey, 'exceeded') or '0'
     return {0, spend, exceeded}
@@ -53,6 +59,8 @@ end
 redis.call('HSET', wkey,
     'window_start', new_start,
     'window_end', new_end,
+    'duration_unit', duration_unit,
+    'duration_value', duration_value,
     'cumulative_spend', '0.0',
     'exceeded', '0')
 
@@ -84,6 +92,17 @@ end
 
 return {tostring(new_spend), 0}
 """
+
+
+def _window_duration_matches(stored: dict[str, str], policy: GatewayBudgetPolicy) -> bool:
+    """Whether a stored window's bounds were computed from this policy's duration.
+
+    Window bounds come from the duration, so a window written by a process that has
+    not picked up a duration edit yet describes a different budget period than the
+    one this policy defines.
+    """
+    stored_duration = (stored.get("duration_unit"), stored.get("duration_value"))
+    return stored_duration == (policy.duration.unit.value, str(policy.duration.value))
 
 
 def _window_key(policy_id: str) -> str:
@@ -184,6 +203,8 @@ class RedisBudgetTracker(BudgetTracker):
             window_start.isoformat(),
             window_end.isoformat(),
             ttl_seconds,
+            policy.duration.unit.value,
+            str(policy.duration.value),
         )
 
         created = int(result[0])
@@ -304,6 +325,13 @@ class RedisBudgetTracker(BudgetTracker):
                 continue
 
             if not (stored := self._client.hgetall(_window_key(pid))):
+                continue
+
+            if not _window_duration_matches(stored, policy):
+                # The window was written by a process still on an older version of this
+                # policy. Its bounds and this budget_amount measure different periods,
+                # so the next refresh or recorded cost has to roll it before it can be
+                # compared against this limit.
                 continue
 
             window = self._build_window(policy, stored)
