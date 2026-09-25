@@ -1,11 +1,20 @@
 import type { PluginInput } from '@opencode-ai/plugin';
-import { init } from '@mlflow/core';
-import { MLflowTracingPlugin } from '../src';
 
 jest.mock('@mlflow/core', () => ({ init: jest.fn() }));
 
+type InitMock = jest.MockedFunction<typeof import('@mlflow/core').init>;
+type PluginFactory = typeof import('../src').MLflowTracingPlugin;
+
 describe('OpenCode initialization failure', () => {
   const originalEnv = process.env;
+  let init: InitMock;
+  let MLflowTracingPlugin: PluginFactory;
+
+  beforeEach(async () => {
+    jest.resetModules();
+    init = (await import('@mlflow/core')).init as InitMock;
+    ({ MLflowTracingPlugin } = await import('../src'));
+  });
 
   afterAll(() => {
     process.env = originalEnv;
@@ -18,7 +27,7 @@ describe('OpenCode initialization failure', () => {
       MLFLOW_EXPERIMENT_ID: '123',
       MLFLOW_TRACE_LOCATION: 'invalid',
     };
-    (init as jest.Mock).mockImplementation(() => {
+    init.mockImplementation(() => {
       throw new Error('Invalid MLFLOW_TRACE_LOCATION: expected catalog.schema.table_prefix');
     });
     const warning = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -52,8 +61,7 @@ describe('OpenCode initialization failure', () => {
       MLFLOW_EXPERIMENT_ID: '123',
     };
     delete process.env.MLFLOW_TRACE_LOCATION;
-    (init as jest.Mock).mockReset();
-    (init as jest.Mock).mockImplementationOnce(() => {
+    init.mockImplementationOnce(() => {
       throw new Error('temporary initialization failure');
     });
     const warning = jest.spyOn(console, 'error').mockImplementation(() => {});
