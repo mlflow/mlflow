@@ -39,6 +39,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
+    should_compute_cost_client_side,
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -683,6 +684,23 @@ def test_get_spans_table_name_for_trace_no_destination():
 
         result = get_active_spans_table_name()
         assert result is None
+
+
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [
+        ("databricks", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://tracking.example.com", False),
+    ],
+)
+def test_should_compute_cost_client_side(tracking_uri, expected):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value=tracking_uri
+    ):
+        assert should_compute_cost_client_side() is expected
 
 
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
