@@ -4153,6 +4153,51 @@ def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
         ]
 
 
+def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="run", tags=[]
+    )
+    num_models = 5
+    for i in range(num_models):
+        model = store.create_logged_model(
+            experiment_id=exp_id,
+            name=f"model-{i}",
+            source_run_id=run.info.run_id,
+            tags=[LoggedModelTag("tag", f"v{i}")],
+            params=[LoggedModelParameter("param", f"v{i}")],
+        )
+        store.log_metric(
+            run.info.run_id,
+            Metric("accuracy", float(i), timestamp=123, step=0, model_id=model.model_id),
+        )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        models = store.search_logged_models(experiment_ids=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(models) == num_models
+    # Eager loading must still populate the entities, not just suppress the queries.
+    assert all(m.tags and m.params and m.metrics for m in models)
+
+    statements = [s.replace('"', "").replace("`", "") for s in statements]
+    for table in ("logged_model_tags", "logged_model_params", "logged_model_metrics"):
+        child_selects = [
+            s
+            for s in statements
+            if s.lstrip().startswith("select") and re.search(rf"\bfrom\s+{table}\b", s)
+        ]
+        # One batched `WHERE model_id IN (...)` load per relationship, not one per model.
+        assert len(child_selects) == 1, f"{table}: {len(child_selects)} SELECTs"
+
+
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 
