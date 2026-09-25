@@ -1,5 +1,6 @@
 import inspect
 import io
+import math
 import sys
 from unittest import mock
 
@@ -359,6 +360,23 @@ def test_ndcg_at_k():
     targets = pd.Series([["a", "b"]])
     result = ndcg_at_k(k=3).eval_fn(predictions, targets)
     assert result.scores[0] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("prediction", "target", "k", "expected"),
+    [
+        # 1 of 5 relevant docs retrieved: IDCG@5 must use 5 positions, not 1
+        (["1"], ["1", "2", "3", "4", "5"], 5, 1 / sum(1 / math.log2(i + 2) for i in range(5))),
+        # 2 of 3 relevant docs retrieved at the top
+        (["1", "2"], ["1", "2", "3"], 3, (1 + 1 / math.log2(3)) / (1 + 1 / math.log2(3) + 0.5)),
+        # fewer relevant docs than k: IDCG is capped at the number of relevant docs
+        (["1"], ["1"], 5, 1.0),
+        (["1", "2"], ["1", "2"], 5, 1.0),
+    ],
+)
+def test_ndcg_at_k_penalizes_fewer_than_k_retrieved_docs(prediction, target, k, expected):
+    result = ndcg_at_k(k).eval_fn(pd.Series([prediction]), pd.Series([target]))
+    assert result.scores[0] == pytest.approx(expected)
 
 
 def test_bleu():

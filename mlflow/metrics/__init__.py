@@ -306,8 +306,8 @@ def ndcg_at_k(k) -> EvaluationMetric:
     we use binary relevance here. The relevance score for documents in the ground truth is 1,
     and the relevance score for documents not in the ground truth is 0.
 
-    The NDCG score is calculated using sklearn.metrics.ndcg_score with the following edge cases
-    on top of the sklearn implementation:
+    The ideal DCG is always computed over ``k`` positions, so retrieving fewer than ``k``
+    documents lowers the score. The following edge cases are also handled:
 
     1. If no ground truth doc IDs are provided and no documents are retrieved, the score is 1.
     2. If no ground truth doc IDs are provided and documents are retrieved, the score is 0.
