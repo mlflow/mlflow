@@ -130,19 +130,14 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
 def _extract_params_from_signature(signature: str) -> str:
     """
     Extract the parameter list from a signature string such as "(inputs, outputs) -> bool".
-
-    Defaults and annotations can contain parentheses themselves (e.g. "(keywords=('a', 'b'))"),
-    so the closing parenthesis is the first ")" that yields a parseable parameter list.
     """
     if signature.startswith("("):
-        for i, char in enumerate(signature):
-            if char != ")":
-                continue
-            try:
-                ast.parse(f"def _f{signature[: i + 1]}: pass")
-            except SyntaxError:
-                continue
-            return signature[1:i].strip()
+        try:
+            func_def = ast.parse(f"def _f{signature}: pass").body[0]
+        except SyntaxError:
+            pass
+        else:
+            return ast.unparse(func_def.args)
 
     raise MlflowException(
         f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
