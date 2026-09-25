@@ -5,6 +5,9 @@ import pytest
 import sqlalchemy as sa
 
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
@@ -76,6 +79,48 @@ def test_experiment_id_filters_bind_integers(psycopg3_store):
             source_type=EntityAssociationType.EVALUATION_DATASET,
         )
         assert associations.to_list() == []
+
+
+@pytest.mark.parametrize("base_filter", [None, 'tags.base = "true"'])
+def test_trace_filter_correlation_binds_integer_experiment_ids(psycopg3_store, base_filter):
+    # psycopg v3 rejects a VARCHAR bind compared with trace_info.experiment_id (INTEGER).
+    # The public API accepts string IDs, but the SQL filter must bind them as integers.
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"correlation-{uuid.uuid4().hex}")
+
+        result = psycopg3_store.calculate_trace_filter_correlation(
+            experiment_ids=[exp_id],
+            filter_string1='tags.has_error = "true"',
+            filter_string2='tags.primary_span_type = "TOOL"',
+            base_filter=base_filter,
+        )
+
+        assert result.total_count == 0
+        assert result.filter1_count == 0
+        assert result.filter2_count == 0
+        assert result.joint_count == 0
+
+        psycopg3_store.start_trace(
+            TraceInfo(
+                trace_id=f"tr-{uuid.uuid4().hex}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=1234,
+                execution_duration=100,
+                state=TraceState.OK,
+                tags={"base": "true", "has_error": "true", "primary_span_type": "TOOL"},
+            )
+        )
+        result = psycopg3_store.calculate_trace_filter_correlation(
+            experiment_ids=[exp_id],
+            filter_string1='tags.has_error = "true"',
+            filter_string2='tags.primary_span_type = "TOOL"',
+            base_filter=base_filter,
+        )
+
+        assert result.total_count == 1
+        assert result.filter1_count == 1
+        assert result.filter2_count == 1
+        assert result.joint_count == 1
 
 
 def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):

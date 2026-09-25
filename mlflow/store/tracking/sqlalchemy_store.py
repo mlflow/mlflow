@@ -5535,7 +5535,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker() as session:
             experiment_ids = self._filter_experiment_ids(session, [int(e) for e in experiment_ids])
-            experiment_ids = [str(e) for e in experiment_ids]
+            # Keep IDs as integers when filtering trace_info.experiment_id. psycopg v3
+            # rejects VARCHAR parameters compared with this INTEGER column.
 
             filter1_combined = (
                 f"{base_filter} and {filter_string1}" if base_filter else filter_string1
@@ -5571,7 +5572,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 total_count=counts.total_count,
             )
 
-    def _build_trace_filter_subquery(self, session, experiment_ids: list[str], filter_string: str):
+    def _build_trace_filter_subquery(self, session, experiment_ids: list[int], filter_string: str):
         """Build a subquery for traces that match a given filter in the specified experiments."""
         stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
 
@@ -5603,7 +5604,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def _get_trace_correlation_counts(
         self,
         session,
-        experiment_ids: list[str],
+        experiment_ids: list[int],
         filter1_subquery,
         filter2_subquery,
         base_filter: str | None = None,
