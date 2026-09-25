@@ -193,6 +193,7 @@ _DEP_TYPE_MODEL_ENDPOINT = "DATABRICKS_MODEL_ENDPOINT"
 _DEP_TYPE_UC_FUNCTION = "DATABRICKS_UC_FUNCTION"
 _DEP_TYPE_UC_CONNECTION = "DATABRICKS_UC_CONNECTION"
 _DEP_TYPE_TABLE = "DATABRICKS_TABLE"
+_DEP_TYPE_UC_MODEL_SERVICE = "DATABRICKS_UC_MODEL_SERVICE"
 
 # Pre-compiled regex patterns for better performance in search operations
 _CATALOG_PATTERN = re.compile(r"catalog\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
@@ -319,6 +320,13 @@ def get_model_version_dependencies(model_dir):
                 databricks_dependencies,
                 ResourceType.TABLE.value,
                 _DEP_TYPE_TABLE,
+            )
+        )
+        dependencies.extend(
+            _fetch_langchain_dependency_from_model_resources(
+                databricks_dependencies,
+                ResourceType.UC_MODEL_SERVICE.value,
+                _DEP_TYPE_UC_MODEL_SERVICE,
             )
         )
     else:

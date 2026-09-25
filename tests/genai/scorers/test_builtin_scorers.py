@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 from unittest import mock
 from unittest.mock import Mock, call, patch
 
@@ -56,6 +57,8 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
+
+_EVALUATED_SENTINEL = "EVALUATED_USER_DATA_SENTINEL"
 
 
 @pytest.fixture
@@ -261,6 +264,39 @@ def test_retrieval_relevance_with_custom_model(sample_rag_trace):
             (retriever_span_ids[0], 1),
             (retriever_span_ids[1], 0),
         ]
+
+
+def test_retrieval_relevance_invokes_typesafe():
+    inference_params = {"temperature": 0}
+    extra_headers = {"X-Test": "value"}
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers._invoke_typesafe_judge",
+        return_value=Feedback(name="retrieval_relevance", value="yes"),
+    ) as mock_invoke:
+        RetrievalRelevance(
+            model="typesafe:/jev-latest",
+            inference_params=inference_params,
+            extra_headers=extra_headers,
+        )._compute_span_relevance(
+            "span-id",
+            _EVALUATED_SENTINEL,
+            [{"content": _EVALUATED_SENTINEL}],
+        )
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert _EVALUATED_SENTINEL not in kwargs["instructions"]
+    assert kwargs["state"] == {
+        "input": _EVALUATED_SENTINEL,
+        "doc": _EVALUATED_SENTINEL,
+    }
+    assert kwargs["feedback_value_type"] == Literal["yes", "no"]
+    assert kwargs["assessment_name"] == "retrieval_relevance"
+    assert kwargs["inference_params"] == inference_params
+    assert kwargs["extra_headers"] == extra_headers
+    assert "json format" not in kwargs["instructions"].lower()
+    assert "rationale" not in kwargs["instructions"].lower()
 
 
 def test_retrieval_sufficiency(sample_rag_trace):
@@ -2467,6 +2503,40 @@ def test_equivalence_passes_inference_params():
         mock_invoke.assert_called_once()
         _, kwargs = mock_invoke.call_args
         assert kwargs["inference_params"] == inference_params
+
+
+def test_equivalence_invokes_typesafe():
+    actual_output = f"actual_{_EVALUATED_SENTINEL}"
+    expected_output = f"expected_{_EVALUATED_SENTINEL}"
+    inference_params = {"temperature": 0}
+    extra_headers = {"X-Test": "value"}
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers._invoke_typesafe_judge",
+        return_value=Feedback(name="equivalence", value="yes"),
+    ) as mock_invoke:
+        Equivalence(
+            model="typesafe:/jev-latest",
+            inference_params=inference_params,
+            extra_headers=extra_headers,
+        )(
+            outputs=actual_output,
+            expectations={"expected_response": expected_output},
+        )
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert _EVALUATED_SENTINEL not in kwargs["instructions"]
+    assert kwargs["state"] == {
+        "output": actual_output,
+        "expected_output": expected_output,
+    }
+    assert kwargs["feedback_value_type"] == Literal["yes", "no"]
+    assert kwargs["assessment_name"] == "equivalence"
+    assert kwargs["inference_params"] == inference_params
+    assert kwargs["extra_headers"] == extra_headers
+    assert "json format" not in kwargs["instructions"].lower()
+    assert "rationale" not in kwargs["instructions"].lower()
 
 
 def test_retrieval_relevance_passes_inference_params(sample_rag_trace):

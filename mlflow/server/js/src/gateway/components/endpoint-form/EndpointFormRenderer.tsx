@@ -52,6 +52,8 @@ export interface EndpointFormRendererProps {
   componentId?: string;
   /** When true, adapts layout for use inside containers like modals */
   embedded?: boolean;
+  /** Keep the provider fixed when creating an endpoint for a specific evaluator. */
+  providerDisabled?: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ export const EndpointFormRenderer = ({
   onNameBlur,
   componentId = `mlflow.gateway.endpoint`,
   embedded = false,
+  providerDisabled = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -270,6 +273,7 @@ export const EndpointFormRenderer = ({
                   rules={{ required: 'Provider is required' }}
                   render={({ field, fieldState }) => (
                     <ProviderSelect
+                      disabled={providerDisabled}
                       value={field.value}
                       onChange={(value) => {
                         field.onChange(value);

@@ -33,6 +33,7 @@ from mlflow.environment_variables import (
     MLFLOW_SANDBOX_DOCKER_IMAGE,
     MLFLOW_SANDBOX_EGRESS_PROXY,
 )
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 
 _logger = logging.getLogger(__name__)
 
@@ -164,6 +165,23 @@ def _get_client():
     return client
 
 
+def _minimal_sandbox_dockerfile(context_dir: str) -> str:
+    """Build the Dockerfile for the fallback sandbox image, matched to the server's environment.
+
+    The image is built to match the server that launches it, so a sandboxed ``mlflow`` command
+    speaks the same API as the server rather than whatever the base image ships or the latest PyPI
+    release happens to be: the base image uses the server's Python minor version, and MLflow is
+    installed the same way the model-build and job backends install it (from ``MLFLOW_HOME`` or the
+    development branch for a source build, otherwise pinned to the server's released version). The
+    install step may copy source into ``context_dir`` for the ``MLFLOW_HOME`` case.
+    """
+    from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, _pip_mlflow_install_step
+
+    base_image = PYTHON_SLIM_BASE_IMAGE.format(version=get_major_minor_py_version(PYTHON_VERSION))
+    install_step = _pip_mlflow_install_step(context_dir, os.environ.get("MLFLOW_HOME"))
+    return f"FROM {base_image}\n{install_step}\n"
+
+
 def _ensure_image(client, image: str) -> None:
     """Build a minimal sandbox image if ``image`` is not already present locally."""
     import docker.errors
@@ -175,14 +193,13 @@ def _ensure_image(client, image: str) -> None:
         pass
 
     _logger.info("Sandbox image %s not found locally; building a minimal one.", image)
-    # This fallback build installs from the default package index only. It does not forward the
-    # operator's PIP_INDEX_URL/PIP_EXTRA_INDEX_URL: a private-index URL can embed credentials
-    # (https://user:pass@mirror/...) and Docker records build args in the image history, so
-    # forwarding them would persist those credentials in the built image. Operators behind a
-    # private mirror or an air-gapped index should build and provide their own image instead.
-    dockerfile = "FROM python:3.11-slim\nRUN pip install --no-cache-dir mlflow\n"
+    # This fallback build does not forward the operator's PIP_INDEX_URL/PIP_EXTRA_INDEX_URL: a
+    # private-index URL can embed credentials (https://user:pass@mirror/...) and Docker records
+    # build args in the image history, so forwarding them would persist those credentials in the
+    # built image. Operators behind a private mirror or an air-gapped index should build and
+    # provide their own image instead.
     with tempfile.TemporaryDirectory(prefix="mlflow-sandbox-image-") as ctx:
-        Path(ctx, "Dockerfile").write_text(dockerfile)
+        Path(ctx, "Dockerfile").write_text(_minimal_sandbox_dockerfile(ctx))
         client.images.build(path=ctx, tag=image, rm=True)
 
 
