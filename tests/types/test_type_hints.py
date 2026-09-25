@@ -545,8 +545,6 @@ def test_dict_in_pyfunc_output():
 
 
 def test_infer_signature_from_type_hints_reports_the_underlying_error():
-    # The generic message must carry the specific reason from the type hint check,
-    # otherwise the user is told the hint is unsupported without being told why.
     with pytest.raises(
         MlflowException,
         match=r"Error: Type hint `list` doesn.t contain a collection element type",
