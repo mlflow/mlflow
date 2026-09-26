@@ -36,6 +36,7 @@ from mlflow.tracing.provider import (
     _get_tracer,
     _initialize_tracer_provider,
     _IsolatedRandomIdGenerator,
+    _Uuid7TraceIdGenerator,
     detach_span_from_context,
     is_tracing_enabled,
     start_span_in_context,
@@ -112,6 +113,7 @@ def test_set_destination_mlflow_experiment(monkeypatch):
     processors = tracer.span_processor._span_processors
     assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+    assert not isinstance(_provider_wrapper.get().id_generator, _Uuid7TraceIdGenerator)
 
 
 def test_set_destination_databricks(monkeypatch):
@@ -145,6 +147,7 @@ def test_set_destination_databricks_uc():
     assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
     assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
     assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+    assert not isinstance(_provider_wrapper.get().id_generator, _Uuid7TraceIdGenerator)
 
 
 def test_set_destination_databricks_unity_catalog_rejected(monkeypatch):
@@ -912,6 +915,46 @@ def test_isolated_random_id_generator_not_affected_by_random_seed(monkeypatch):
 
     assert trace_id_1 != trace_id_2
     assert span_id_1 != span_id_2
+
+
+def test_uuid7_trace_id_generator_delegates_span_id_generation():
+    delegate = mock.Mock(spec=RandomIdGenerator)
+    delegate.generate_span_id.return_value = 12345
+    generator = _Uuid7TraceIdGenerator(delegate)
+
+    trace_id = generator.generate_trace_id()
+    trace_id_hex = trace.format_trace_id(trace_id)
+
+    assert len(trace_id_hex) == 32
+    assert "-" not in trace_id_hex
+    assert (trace_id >> 76) & 0xF == 7
+    assert (trace_id >> 62) & 0x3 == 2
+    assert generator.generate_span_id() == 12345
+    delegate.generate_span_id.assert_called_once_with()
+
+
+@pytest.mark.parametrize("use_isolated_generator", [False, True])
+def test_tracer_provider_uses_uuid7_trace_ids_for_unity_catalog(
+    monkeypatch, use_isolated_generator
+):
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    monkeypatch.setenv(
+        "MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR",
+        str(use_isolated_generator),
+    )
+    mlflow.tracing.reset()
+    _MLFLOW_TRACE_USER_DESTINATION.set(
+        UnityCatalog(catalog_name="catalog", schema_name="schema", table_prefix="prefix")
+    )
+    _initialize_tracer_provider()
+
+    id_generator = _provider_wrapper.get().id_generator
+    assert isinstance(id_generator, _Uuid7TraceIdGenerator)
+    expected_delegate_type = (
+        _IsolatedRandomIdGenerator if use_isolated_generator else RandomIdGenerator
+    )
+    assert isinstance(id_generator._delegate, expected_delegate_type)
 
 
 def test_tracer_provider_uses_isolated_random_id_generator_when_env_var_set(monkeypatch):

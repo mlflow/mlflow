@@ -1080,8 +1080,9 @@ MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT = _BooleanEnvironmentVariable(
 )
 
 #: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
-#: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
-#: ``random.seed()`` causes duplicate trace/span ID errors.
+#: generation, making it immune to ``random.seed()`` calls in user code. Trace IDs for
+#: ``UnityCatalog`` table-prefix destinations use UUIDv7 regardless of this setting. Enable this
+#: when ``random.seed()`` causes duplicate trace/span ID errors.
 #:
 #: .. note::
 #:     In global-provider mode (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), if an existing

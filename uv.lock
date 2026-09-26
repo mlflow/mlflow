@@ -4519,6 +4519,7 @@ dependencies = [
     { name = "sqlparse" },
     { name = "starlette" },
     { name = "typing-extensions" },
+    { name = "uuid-utils" },
     { name = "uvicorn" },
     { name = "waitress", marker = "sys_platform == 'win32'" },
 ]
@@ -4794,6 +4795,7 @@ requires-dist = [
     { name = "tiktoken", marker = "extra == 'gateway'", specifier = "<1" },
     { name = "tiktoken", marker = "extra == 'genai'", specifier = "<1" },
     { name = "typing-extensions", specifier = ">=4.0.0,<5" },
+    { name = "uuid-utils", specifier = ">=0.17.0,<2" },
     { name = "uvicorn", specifier = "<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'gateway'", specifier = "<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'genai'", specifier = "<1" },
