@@ -8,6 +8,7 @@ import {
   RUN_COLOR_ACTION_INITIALIZE_RUN_COLORS,
   RUN_COLOR_ACTION_SET_RUN_COLOR,
 } from '../../../reducers/RunColorReducer';
+import { safeSetItem } from '../../../../common/utils/LocalStorageUtils';
 
 const STORAGE_KEY = 'experimentRunColors';
 
@@ -53,8 +54,7 @@ export const useSaveExperimentRunColor = () => {
       if (groupUuid) {
         const colors = loadSavedColors();
         colors[groupUuid] = colorValue;
-        // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
+        safeSetItem(window.localStorage, STORAGE_KEY, JSON.stringify(colors), 'run colors');
       }
     },
     [dispatch],
