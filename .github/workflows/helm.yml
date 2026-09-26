@@ -5,6 +5,12 @@ on:
     branches: [master, "branch-[0-9]+.[0-9]+"]
     paths:
       - .github/workflows/helm.yml
+      - .github/workflows/publish-helm.yml
+      - .github/workflows/push-images.yml
+      - dev/publish_helm.py
+      - dev/update_mlflow_versions.py
+      - tests/dev/test_publish_helm.py
+      - tests/dev/test_update_mlflow_versions.py
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
@@ -13,6 +19,12 @@ on:
   pull_request:
     paths:
       - .github/workflows/helm.yml
+      - .github/workflows/publish-helm.yml
+      - .github/workflows/push-images.yml
+      - dev/publish_helm.py
+      - dev/update_mlflow_versions.py
+      - tests/dev/test_publish_helm.py
+      - tests/dev/test_update_mlflow_versions.py
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
@@ -43,6 +55,14 @@ jobs:
 
       - name: Lint
         run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Test release packaging and version updates
+        run: |
+          uv pip install --system pytest pyyaml packaging pydantic
+          python -m pytest --noconftest -o addopts='' \
+            tests/dev/test_publish_helm.py tests/dev/test_update_mlflow_versions.py
 
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"

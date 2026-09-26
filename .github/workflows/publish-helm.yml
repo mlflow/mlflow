@@ -1,0 +1,93 @@
+name: Publish Helm chart
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      dry_run:
+        description: Package and verify locally without accessing GHCR
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable release tag (vX.Y.Z)
+        required: true
+        type: string
+      dry_run:
+        description: Package and verify locally without accessing GHCR
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: publish-helm-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  publish:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # Keep the publisher from the workflow ref for recovery of historical releases.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Install publisher dependencies
+        run: uv pip install --system pyyaml
+
+      - name: Validate release and resolve tag
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          python dev/publish_helm.py resolve "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.release.outputs.commit }}
+          path: release-source
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        if: "!inputs.dry_run"
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish and verify chart
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_SHA: ${{ steps.release.outputs.commit }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          else
+            printf '%s' "$GH_TOKEN" | helm registry login ghcr.io \
+              --username "$GITHUB_ACTOR" --password-stdin
+          fi
+          python dev/publish_helm.py publish "$RELEASE_TAG" \
+            --chart-dir release-source/charts --source-sha "$RELEASE_SHA" "${args[@]}"

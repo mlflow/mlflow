@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
+      contents: read
       packages: write # to push to ghcr.io
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -131,3 +132,14 @@ jobs:
             docker tag model-server:latest $tag
             docker push $tag
           done
+
+  publish-helm:
+    needs: push-images
+    if: github.repository == 'mlflow/mlflow' && startsWith(github.ref_name, 'v') && !contains(github.ref_name, 'rc') && !github.event.release.prerelease
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish-helm.yml
+    with:
+      release_tag: ${{ github.event.release.tag_name }}
+      dry_run: false
