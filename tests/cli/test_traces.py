@@ -118,6 +118,32 @@ def test_search_command_with_fields(runner):
         assert "OK" in result.output
 
 
+def test_search_command_default_table_shows_execution_duration(runner):
+    trace_location = TraceLocation(
+        type=TraceLocationType.MLFLOW_EXPERIMENT,
+        mlflow_experiment=MlflowExperimentLocation(experiment_id="1"),
+    )
+    trace = Trace(
+        info=TraceInfo(
+            trace_id="tr-123",
+            state=TraceState.OK,
+            request_time=1700000000000,
+            execution_duration=1234,
+            trace_location=trace_location,
+        ),
+        data=TraceData(spans=[]),
+    )
+
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.return_value = PagedList([trace], None)
+        result = runner.invoke(commands, ["search", "--experiment-id", "1"])
+
+    assert result.exit_code == 0
+    header, _, row = result.output.splitlines()[:3]
+    assert "1.2s" in row
+    assert "info.execution_duration_ms" in header
+
+
 def test_get_command_with_fields(runner):
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,
