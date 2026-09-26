@@ -1,0 +1,6 @@
+{"timestamp":"2026-04-05T10:00:00Z","type":"session_meta","payload":{"id":"priced-session","model":"gpt-4o","cwd":"/tmp/test","originator":"codex-tui","cli_version":"0.118.0","source":"cli"}}
+{"timestamp":"2026-04-05T10:00:00Z","type":"event_msg","payload":{"type":"task_started"}}
+{"timestamp":"2026-04-05T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}}
+{"timestamp":"2026-04-05T10:00:01Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi there"}]}}
+{"timestamp":"2026-04-05T10:00:02Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":1000000,"output_tokens":1000000,"total_tokens":2000000}}}}
+{"timestamp":"2026-04-05T10:00:02Z","type":"event_msg","payload":{"type":"task_complete"}}
