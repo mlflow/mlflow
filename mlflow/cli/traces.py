@@ -462,7 +462,7 @@ def delete_traces(
     mlflow traces delete --experiment-id 1 --max-timestamp-millis 1700000000000 --max-traces 100
     """
     client = TracingClient()
-    trace_id_list = trace_ids.split(",") if trace_ids else None
+    trace_id_list = [t.strip() for t in trace_ids.split(",")] if trace_ids else None
 
     count = client.delete_traces(
         experiment_id=experiment_id,
