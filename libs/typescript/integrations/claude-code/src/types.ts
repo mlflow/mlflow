@@ -107,7 +107,7 @@ export interface StopHookInput {
 /**
  * SubagentStop hook input, as defined by the Claude Code hooks reference
  * (https://code.claude.com/docs/en/hooks#subagentstop): the common hook fields
- * plus `agent_id` (the finished sub-agent), `agent_type` (its agent type) and
+ * plus `agent_id` (the stopping sub-agent), `agent_type` (its agent type) and
  * `agent_transcript_path` (the sub-agent's own transcript). `transcript_path`
  * is the MAIN session transcript. Only the fields used here are typed.
  */

@@ -423,8 +423,8 @@ function createLlmAndToolSpans(
 
         if (background) {
           // The agent is still running when this result is written; its
-          // transcript would be partial. The SubagentStop hook traces it as
-          // its own trace once it finishes (see subagentTracing.ts).
+          // transcript would be partial. The SubagentStop hook traces each of
+          // its stops as its own trace (see subagentTracing.ts).
           if (agentId) {
             toolSpan.setAttribute('agent_id', agentId);
           } else {
@@ -475,8 +475,6 @@ function createLlmAndToolSpans(
 export interface TranscriptTraceOptions {
   /** Root span name. Default: `claude_code_conversation`. */
   rootSpanName?: string;
-  /** Root span inputs. Default: `{ prompt: <last user message text> }`. */
-  rootInputs?: Record<string, unknown>;
   /** Extra trace tags, merged into the trace info's tags. */
   tags?: Record<string, string>;
 }
@@ -518,7 +516,7 @@ export async function processTranscript(
 
     const parentSpan = startSpan({
       name: options.rootSpanName ?? 'claude_code_conversation',
-      inputs: options.rootInputs ?? { prompt: userPromptText },
+      inputs: { prompt: userPromptText },
       startTimeNs: convStartNs ?? undefined,
       spanType: SpanType.AGENT,
     });

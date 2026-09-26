@@ -3,12 +3,15 @@
  *
  * The parent's Stop hook sees only the launch receipt of a background agent,
  * so it records a marker on the tool span and leaves the agent alone (see
- * `isBackgroundLaunch`). When the agent finishes, Claude Code fires the
- * SubagentStop hook; this module turns the agent's own transcript into a
- * separate trace. Sync agents stay nested inside the parent's Stop trace and
- * are ignored here, as are Claude Code's internal agents (no Agent tool call
- * in the parent). A resumed agent stops more than once and yields one trace
- * per stop, each covering the turn since its latest prompt.
+ * `isBackgroundLaunch`). Claude Code fires the SubagentStop hook each time
+ * the agent ends a turn; this module turns that stop's work in the agent's
+ * own transcript into a separate trace. The window is processTranscript's:
+ * from the agent's latest plain user entry (launch prompt, SendMessage
+ * resume, or task-notification wake-up) to the end, so each stop yields one
+ * trace and a resumed agent yields several, all tagged with its agent_id.
+ * Sync agents stay nested inside the parent's Stop trace and are ignored
+ * here, as are Claude Code's internal agents (no Agent tool call in the
+ * parent).
  */
 
 import { existsSync } from 'node:fs';
@@ -30,7 +33,6 @@ const TAG_PARENT_TOOL_USE_ID = 'mlflow.claude_code.parent_tool_use_id';
 export interface AgentLaunch {
   toolUseId: string;
   result: ToolResultInfo;
-  toolInput: Record<string, unknown>;
 }
 
 /**
@@ -52,7 +54,7 @@ export function findAgentLaunch(
       }
       const toolUse = findToolUse(transcript, toolUseId);
       if (toolUse && isAgentLaunchTool(toolUse.name)) {
-        return { toolUseId, result, toolInput: toolUse.input ?? {} };
+        return { toolUseId, result };
       }
     }
   }
@@ -105,7 +107,6 @@ export async function processSubagentTranscript(input: SubagentStopHookInput): P
 
     await processTranscript(input.agent_transcript_path, input.session_id, {
       rootSpanName: input.agent_type ? `subagent_${input.agent_type}` : 'subagent',
-      rootInputs: launch.toolInput,
       tags,
     });
   } catch (err) {

@@ -139,12 +139,7 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
     const root = roots[0];
     expect(root.name).toBe('subagent_Explore');
     expect(root.spanType).toBe('AGENT');
-    expect(root.inputs).toEqual({
-      description: 'Research auth',
-      prompt: 'Find the auth module',
-      subagent_type: 'Explore',
-      run_in_background: true,
-    });
+    expect(root.inputs).toEqual({ prompt: 'Find the auth module' });
     expect(root.outputs.response).toBe('The auth module is auth.py.');
 
     const llms = getSpansByType('LLM');
@@ -167,6 +162,32 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
     });
     expect(flushTraces).toHaveBeenCalledTimes(1);
     expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it('traces only the latest window of a resumed agent', async () => {
+    const { mainPath, agentPath } = layOutSession(
+      'with-background-subagent.jsonl',
+      'subagent-bg5678-resumed.jsonl',
+      BACKGROUND_AGENT_ID,
+    );
+
+    await processSubagentTranscript(
+      subagentStopInput({ transcript_path: mainPath, agent_transcript_path: agentPath }),
+    );
+
+    const roots = getSpans().filter((s) => s.parentId == null);
+    expect(roots).toHaveLength(1);
+    expect(roots[0].inputs).toEqual({ prompt: 'Also list the auth tests' });
+    expect(roots[0].outputs.response).toBe('The auth tests are in tests/test_auth.py.');
+    expect(getSpansByName('tool_Glob')).toHaveLength(1);
+    expect(getSpansByName('tool_Grep')).toHaveLength(0);
+
+    const llms = getSpansByType('LLM');
+    expect(llms).toHaveLength(2);
+    const usage = llms.map((s) => s.attributes['mlflow.chat.tokenUsage'] as Record<string, number>);
+    expect(usage.reduce((acc, u) => acc + u.input_tokens, 0)).toBe(820);
+    expect(usage.reduce((acc, u) => acc + u.output_tokens, 0)).toBe(20);
+    expect(mockTraceInfo.tags['mlflow.claude_code.agent_id']).toBe(BACKGROUND_AGENT_ID);
   });
 
   it('names the root span "subagent" when the agent type is unknown', async () => {
