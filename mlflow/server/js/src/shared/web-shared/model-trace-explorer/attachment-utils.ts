@@ -1,14 +1,57 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { getArtifactProxyDownloadUrl, isEligibleArtifactProxyUri } from '@mlflow/mlflow/src/common/utils/artifactProxy';
+import { useTraceArtifactLocation } from './contexts/TraceArtifactLocationContext';
 import { exceedsRenderSizeLimit } from '../media-rendering-utils';
 import { fetchOrFail, getAjaxUrl } from './ModelTraceExplorer.request.utils';
 
-async function getTraceAttachment(requestId: string, attachmentId: string): Promise<ArrayBuffer | undefined> {
+/** Tag holding the artifact root that the server itself resolves trace attachments against. */
+const MLFLOW_ARTIFACT_LOCATION_TAG = 'mlflow.artifactLocation';
+
+/** Server-side prefix under the trace artifact root where attachments are stored. */
+const TRACE_ATTACHMENT_PATH_PREFIX = 'attachments';
+
+/**
+ * Reads `mlflow.artifactLocation` off a trace info. Trace tags arrive either as a
+ * `{key, value}` list (tracking API) or as a plain object (notebook / V3 payloads).
+ */
+export function getTraceArtifactLocation(
+  traceInfo?: { tags?: { key: string; value: string }[] | { [key: string]: string } } | null,
+): string | undefined {
+  const tags = traceInfo?.tags;
+  if (!tags) {
+    return undefined;
+  }
+  if (Array.isArray(tags)) {
+    return tags.find((tag) => tag.key === MLFLOW_ARTIFACT_LOCATION_TAG)?.value;
+  }
+  return tags[MLFLOW_ARTIFACT_LOCATION_TAG];
+}
+
+/**
+ * Builds the URL used to fetch a single trace attachment.
+ *
+ * When the trace's stored artifact location is an eligible MLflow artifact-proxy URI, the
+ * attachment is read straight from it, mirroring how the server resolves the same request
+ * (`get_trace_artifact_handler` joins `attachments/<path>` onto the trace artifact repo).
+ * Otherwise this falls back to the tracking endpoint.
+ */
+export function getTraceAttachmentUrl(traceId: string, attachmentId: string, traceArtifactLocation?: string): string {
+  if (isEligibleArtifactProxyUri(traceArtifactLocation)) {
+    return getArtifactProxyDownloadUrl(traceArtifactLocation, `${TRACE_ATTACHMENT_PATH_PREFIX}/${attachmentId}`);
+  }
+  return getAjaxUrl(
+    `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
+  );
+}
+
+async function getTraceAttachment(
+  requestId: string,
+  attachmentId: string,
+  traceArtifactLocation?: string,
+): Promise<ArrayBuffer | undefined> {
   try {
-    const url = getAjaxUrl(
-      `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(requestId)}&path=${encodeURIComponent(attachmentId)}`,
-    );
-    const response = await fetchOrFail(url);
+    const response = await fetchOrFail(getTraceAttachmentUrl(requestId, attachmentId, traceArtifactLocation));
     return await response.arrayBuffer();
   } catch {
     return undefined;
@@ -18,10 +61,13 @@ async function getTraceAttachment(requestId: string, attachmentId: string): Prom
 /**
  * Programmatically fetches a blob and triggers a browser download.
  */
-export async function fetchAndDownload(traceId: string, attachmentId: string, contentType: string) {
-  const url = getAjaxUrl(
-    `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
-  );
+export async function fetchAndDownload(
+  traceId: string,
+  attachmentId: string,
+  contentType: string,
+  traceArtifactLocation?: string,
+) {
+  const url = getTraceAttachmentUrl(traceId, attachmentId, traceArtifactLocation);
   const response = await fetchOrFail(url);
   const arrayBuffer = await response.arrayBuffer();
   const blob = new Blob([arrayBuffer], { type: contentType });
@@ -74,6 +120,7 @@ export function useAttachmentUrl(uri: string | null): {
   triggerDownload?: () => Promise<void>;
 } {
   const parsed = uri ? parseAttachmentUri(uri) : null;
+  const traceArtifactLocation = useTraceArtifactLocation(parsed?.traceId);
 
   // If the URI encodes a size that exceeds the render limit, skip the fetch entirely
   // and let callers show a download link immediately.
@@ -99,7 +146,7 @@ export function useAttachmentUrl(uri: string | null): {
     setError(false);
     setUrl(null);
 
-    getTraceAttachment(parsed.traceId, parsed.attachmentId).then(
+    getTraceAttachment(parsed.traceId, parsed.attachmentId, traceArtifactLocation).then(
       (data) => {
         if (revoked) {
           return;
@@ -130,15 +177,15 @@ export function useAttachmentUrl(uri: string | null): {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uri]);
+  }, [uri, traceArtifactLocation]);
 
   const triggerDownload = useCallback(() => {
     if (parsed) {
-      return fetchAndDownload(parsed.traceId, parsed.attachmentId, parsed.contentType);
+      return fetchAndDownload(parsed.traceId, parsed.attachmentId, parsed.contentType, traceArtifactLocation);
     }
     return Promise.resolve();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uri]);
+  }, [uri, traceArtifactLocation]);
 
   return {
     url,

@@ -3,8 +3,8 @@ import { useCallback, useEffect } from 'react';
 import { fetchOrFail } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { exceedsRenderSizeLimit } from '../../media-rendering-utils';
 import { useQuery } from '../../query-client/queryClient';
-import { fetchAndDownload } from '../attachment-utils';
-import { getAjaxUrl } from '../ModelTraceExplorer.request.utils';
+import { fetchAndDownload, getTraceAttachmentUrl } from '../attachment-utils';
+import { useTraceArtifactLocation } from '../contexts/TraceArtifactLocationContext';
 
 const TRACE_ATTACHMENT_QUERY_KEY = 'traceAttachment';
 
@@ -30,14 +30,12 @@ export const useTraceAttachment = ({
 }) => {
   // Skip the fetch when we already know the content exceeds the render limit
   const skipFetch = size !== undefined && exceedsRenderSizeLimit(contentType, size);
+  const traceArtifactLocation = useTraceArtifactLocation(traceId);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [TRACE_ATTACHMENT_QUERY_KEY, traceId, attachmentId],
+    queryKey: [TRACE_ATTACHMENT_QUERY_KEY, traceId, attachmentId, traceArtifactLocation],
     queryFn: async () => {
-      const url = getAjaxUrl(
-        `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
-      );
-      const response = await fetchOrFail(url);
+      const response = await fetchOrFail(getTraceAttachmentUrl(traceId, attachmentId, traceArtifactLocation));
       const blob = await response.blob();
       return {
         objectUrl: URL.createObjectURL(new Blob([blob], { type: contentType })),
@@ -57,8 +55,8 @@ export const useTraceAttachment = ({
   }, [data?.objectUrl]);
 
   const triggerDownload = useCallback(
-    () => fetchAndDownload(traceId, attachmentId, contentType),
-    [traceId, attachmentId, contentType],
+    () => fetchAndDownload(traceId, attachmentId, contentType, traceArtifactLocation),
+    [traceId, attachmentId, contentType, traceArtifactLocation],
   );
 
   return {
