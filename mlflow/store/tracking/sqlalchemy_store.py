@@ -1057,8 +1057,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             self._check_experiment_is_active(experiment)
 
             run_id = uuid.uuid4().hex
+            artifact_location_base = next(
+                (t.value for t in (tags or []) if t.key == "mlflow.artifacts_location_uri_override",
+                experiment.artifact_location
+            )
             artifact_location = append_to_uri_path(
-                experiment.artifact_location,
+                artifact_location_base,
                 run_id,
                 SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
