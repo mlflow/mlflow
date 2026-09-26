@@ -137,6 +137,7 @@ def test_search_command_default_table_shows_execution_duration(runner):
     with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
         mock_client.return_value.search_traces.return_value = PagedList([trace], None)
         result = runner.invoke(commands, ["search", "--experiment-id", "1"])
+        mock_client.return_value.search_traces.assert_called_once()
 
     assert result.exit_code == 0
     header, _, row = result.output.splitlines()[:3]
