@@ -3151,3 +3151,12 @@ def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
+
+
+def test_column_schema_enforcement_keeps_a_column_named_zero():
+    # Enforcing a signature against the very DataFrame it was inferred from must not
+    # drop anything. Integer column labels are what pd.DataFrame(ndarray) produces.
+    pdf = pd.DataFrame(np.array([[2, 0, 1], [5, 3, 4]]), columns=[2, 0, 1])
+    signature = infer_signature(pdf)
+    assert signature.inputs.input_names() == [2, 0, 1]
+    assert list(_enforce_schema(pdf, signature.inputs).columns) == [2, 0, 1]

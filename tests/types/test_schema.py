@@ -2114,3 +2114,26 @@ def test_convert_dataclass_to_schema_invalid():
 def test_infer_schema_with_anytype(data, expected_schema):
     inferred_schema = _infer_schema(data)
     assert inferred_schema == expected_schema
+
+
+def test_input_names_keep_a_falsy_column_name():
+    # A column is unnamed only when its name is None, which is what has_input_names()
+    # already checks. 0 and "" are names: a DataFrame built from a numpy array carries
+    # integer column labels, so a schema inferred from one can hold the name 0 at any
+    # position.
+    schema = Schema([
+        ColSpec(DataType.long, name=2),
+        ColSpec(DataType.long, name=0),
+        ColSpec(DataType.string, name=""),
+    ])
+    assert schema.input_names() == [2, 0, ""]
+    assert schema.required_input_names() == [2, 0, ""]
+
+
+def test_optional_input_names_keep_a_falsy_column_name():
+    schema = Schema([
+        ColSpec(DataType.long, name=2),
+        ColSpec(DataType.long, name=0, required=False),
+    ])
+    assert schema.required_input_names() == [2]
+    assert schema.optional_input_names() == [0]
