@@ -76,14 +76,43 @@ function findToolUse(transcript: TranscriptEntry[], toolUseId: string): ToolUseB
   return undefined;
 }
 
+type SubagentRef = Pick<SubagentStopHookInput, 'transcript_path' | 'agent_id'>;
+
 /**
- * Trace a finished background sub-agent as its own trace (SubagentStop hook).
+ * The background launch of the sub-agent, or undefined for sync, internal, or
+ * unknown agents. Throws when the main transcript cannot be read.
+ */
+function findBackgroundLaunch(input: SubagentRef): AgentLaunch | undefined {
+  const launch = findAgentLaunch(readTranscript(input.transcript_path), input.agent_id);
+  return launch && isBackgroundLaunch(launch.result) ? launch : undefined;
+}
+
+/**
+ * True when the stopping sub-agent was launched in the background by the
+ * parent, i.e. when processSubagentTranscript would trace it. Only reads the
+ * main transcript: no MLflow connection, no logging, and false (never a
+ * throw) when the transcript is missing or unreadable.
+ *
+ * Consumers that must connect to MLflow before tracing can call this first
+ * and skip the connection when it returns false; processSubagentTranscript
+ * applies the same rule itself.
+ */
+export function isBackgroundSubagent(input: SubagentRef): boolean {
+  try {
+    return findBackgroundLaunch(input) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Trace a stopping background sub-agent as its own trace (SubagentStop hook).
  * Does nothing for sync, internal, or unknown agents.
  */
 export async function processSubagentTranscript(input: SubagentStopHookInput): Promise<void> {
   try {
-    const launch = findAgentLaunch(readTranscript(input.transcript_path), input.agent_id);
-    if (!launch || !isBackgroundLaunch(launch.result)) {
+    const launch = findBackgroundLaunch(input);
+    if (!launch) {
       // Expected: the parent's Stop trace owns sync agents, internal agents
       // have no Agent tool call, and a sync agent's result may not be written
       // yet when its SubagentStop fires.

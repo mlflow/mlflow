@@ -1,6 +1,6 @@
 export { processTranscript } from './tracing.js';
 export type { TranscriptTraceOptions } from './tracing.js';
-export { processSubagentTranscript } from './subagentTracing.js';
+export { isBackgroundSubagent, processSubagentTranscript } from './subagentTracing.js';
 export {
   isTracingEnabled,
   ensureInitialized,

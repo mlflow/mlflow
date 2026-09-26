@@ -26,7 +26,11 @@ jest.mock('@mlflow/core', () =>
 );
 
 // Import after mock
-import { findAgentLaunch, processSubagentTranscript } from '../src/subagentTracing';
+import {
+  findAgentLaunch,
+  isBackgroundSubagent,
+  processSubagentTranscript,
+} from '../src/subagentTracing';
 import { processTranscript } from '../src/tracing';
 import { isBackgroundLaunch } from '../src/toolResults';
 import { readTranscript } from '../src/transcript';
@@ -289,6 +293,39 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
 
     expect(getSpans().filter((s) => s.parentId == null)[0].name).toBe('subagent_Explore');
     expect(mockTraceInfo.tags['mlflow.claude_code.parent_tool_use_id']).toBe('toolu_bg_001');
+  });
+});
+
+describe('isBackgroundSubagent', () => {
+  it('is true for an agent the parent launched in the background', () => {
+    const { mainPath } = backgroundSession();
+    expect(isBackgroundSubagent({ transcript_path: mainPath, agent_id: BACKGROUND_AGENT_ID })).toBe(
+      true,
+    );
+  });
+
+  it('is false for a sync agent', () => {
+    const { mainPath } = layOutSession(
+      'with-subagent-file.jsonl',
+      'subagent-abc1234.jsonl',
+      'abc1234',
+    );
+    expect(isBackgroundSubagent({ transcript_path: mainPath, agent_id: 'abc1234' })).toBe(false);
+  });
+
+  it('is false for an agent the parent never launched', () => {
+    const { mainPath } = backgroundSession();
+    expect(isBackgroundSubagent({ transcript_path: mainPath, agent_id: 'internal-agent' })).toBe(
+      false,
+    );
+  });
+
+  it('is false, without stderr, when the main transcript is missing', () => {
+    const missing = resolve(tmpdir(), 'cc-subagent-missing', 'session.jsonl');
+    expect(isBackgroundSubagent({ transcript_path: missing, agent_id: BACKGROUND_AGENT_ID })).toBe(
+      false,
+    );
+    expect(consoleError).not.toHaveBeenCalled();
   });
 });
 
