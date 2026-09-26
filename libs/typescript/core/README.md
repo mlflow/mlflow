@@ -34,6 +34,18 @@ mlflow.init({
 });
 ```
 
+For a Databricks experiment that stores traces in Unity Catalog, set its existing trace
+location before calling `init()`:
+
+```bash
+export MLFLOW_TRACE_LOCATION=my_catalog.my_schema.my_table_prefix
+```
+
+When non-empty, the value must have three non-empty parts. You can also pass the `traceLocation`
+object to `init()`; an explicit object takes precedence over the environment variable.
+The SDK does not discover the UC location from the experiment or create it. Without
+this setting (or with an empty value), traces use the experiment-backed path instead of the UC table.
+
 Create a trace:
 
 ```typescript

@@ -10,6 +10,7 @@
  *   3. Set environment variables:
  *      export MLFLOW_TRACKING_URI=http://localhost:5000
  *      export MLFLOW_EXPERIMENT_ID=123
+ *      # For a UC-backed experiment: export MLFLOW_TRACE_LOCATION=catalog.schema.table_prefix
  *   4. Run opencode normally - tracing happens automatically
  */
 
@@ -29,7 +30,7 @@ import {
 // last processed count to determine if new messages need tracing.
 const processedMessageCounts = new Map<string, number>();
 
-// Silent plugin - no console output to avoid TUI interference
+// Avoid routine console output so the plugin does not interrupt the TUI.
 const DEBUG = process.env.MLFLOW_OPENCODE_DEBUG === 'true';
 
 // Constants
@@ -51,6 +52,7 @@ const TRACE_USER_METADATA_KEY = 'mlflow.trace.user';
 
 // SDK initialization state
 let initialized = false;
+let lastInitializationWarning: string | null = null;
 
 interface ApiResponse<T> {
   data?: T;
@@ -113,6 +115,8 @@ interface Message {
 /**
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
+ * MLFLOW_TRACE_LOCATION is optional and resolved by the core SDK. If init()
+ * fails, a later event retries it; repeated warnings are suppressed.
  */
 function ensureInitialized(): boolean {
   if (initialized) {
@@ -139,13 +143,16 @@ function ensureInitialized(): boolean {
   try {
     init({ trackingUri, experimentId });
     initialized = true;
+    lastInitializationWarning = null;
     if (DEBUG) {
       console.error('[mlflow] SDK initialized successfully');
     }
     return true;
   } catch (error) {
-    if (DEBUG) {
-      console.error('[mlflow] Failed to initialize SDK:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (message !== lastInitializationWarning) {
+      console.error(`[mlflow] OpenCode tracing is disabled: ${message}`);
+      lastInitializationWarning = message;
     }
     return false;
   }
