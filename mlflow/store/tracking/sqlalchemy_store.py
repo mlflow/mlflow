@@ -3730,8 +3730,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 ]
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
+                # Select distinct model IDs rather than whole metric rows. A model
+                # can log the same metric at several steps, runs or datasets, and
+                # joining those rows would duplicate the model before OFFSET/LIMIT
+                # is applied, so a page could hold fewer models than requested and
+                # pagination could stop while matches remain.
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
+                    session
+                    .query(SqlLoggedModelMetric.model_id)
+                    .filter(*metric_filters)
+                    .distinct()
+                    .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -3804,7 +3813,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 models, session, experiment_ids, filter_string, datasets
             )
             models = self._apply_order_by_search_logged_models(models, session, order_by)
-            models = models.offset(offset).limit(max_results + 1).all()
+            models = (
+                models
+                .options(
+                    # Eagerly load the relationships read by `to_mlflow_entity` so that a page
+                    # of results costs a fixed number of queries instead of three per model.
+                    # Use a select in load rather than a joined load to limit memory overhead.
+                    selectinload(SqlLoggedModel.tags),
+                    selectinload(SqlLoggedModel.params),
+                    selectinload(SqlLoggedModel.metrics),
+                )
+                .offset(offset)
+                .limit(max_results + 1)
+                .all()
+            )
 
             if len(models) > max_results:
                 token = SearchLoggedModelsPaginationToken(
@@ -5522,7 +5544,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker() as session:
             experiment_ids = self._filter_experiment_ids(session, [int(e) for e in experiment_ids])
-            experiment_ids = [str(e) for e in experiment_ids]
+            # Keep IDs as integers when filtering trace_info.experiment_id. psycopg v3
+            # rejects VARCHAR parameters compared with this INTEGER column.
 
             filter1_combined = (
                 f"{base_filter} and {filter_string1}" if base_filter else filter_string1
@@ -5558,7 +5581,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 total_count=counts.total_count,
             )
 
-    def _build_trace_filter_subquery(self, session, experiment_ids: list[str], filter_string: str):
+    def _build_trace_filter_subquery(self, session, experiment_ids: list[int], filter_string: str):
         """Build a subquery for traces that match a given filter in the specified experiments."""
         stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
 
@@ -5590,7 +5613,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def _get_trace_correlation_counts(
         self,
         session,
-        experiment_ids: list[str],
+        experiment_ids: list[int],
         filter1_subquery,
         filter2_subquery,
         base_filter: str | None = None,
@@ -10183,16 +10206,21 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for string attribute: {comparator}"
                     )
-                # TODO: ``creation_time``/``last_update_time`` values are never coerced
-                # to int here either, which hits the same psycopg v3 VARCHAR-bind issue
-                # as experiment_id above. See
-                # https://github.com/mlflow/mlflow/issues/25574.
-                if SearchExperimentsUtils.is_numeric_attribute(
-                    type_, key, comparator
-                ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid comparator for numeric attribute: {comparator}"
-                    )
+                if SearchExperimentsUtils.is_numeric_attribute(type_, key, comparator):
+                    if comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparator for numeric attribute: {comparator}"
+                        )
+                    if isinstance(value, float):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {str(value)!r}"
+                        )
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
             attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)
@@ -10754,12 +10782,24 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}"
                 )
-            if SearchEvaluationDatasetsUtils.is_numeric_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for numeric attribute: {comparator}"
-                )
+            if key in SearchEvaluationDatasetsUtils.NUMERIC_ATTRIBUTES:
+                if (
+                    comparator
+                    not in SearchEvaluationDatasetsUtils.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+                ):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for numeric attribute: {comparator}"
+                    )
+                if isinstance(value, float):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid value for numeric attribute '{key}': {str(value)!r}"
+                    )
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid value for numeric attribute '{key}': {value!r}"
+                    )
             attr = getattr(SqlEvaluationDataset, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)

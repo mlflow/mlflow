@@ -108,7 +108,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
             default_exp = (
                 session
                 .query(SqlExperiment)
-                .filter(SqlExperiment.experiment_id == store.DEFAULT_EXPERIMENT_ID)
+                .filter(SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID))
                 .first()
             )
             if default_exp:
@@ -526,6 +526,15 @@ def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
         filter_string=f"last_update_time = {exp2.last_update_time}"
     )
     assert [e.experiment_id for e in experiments] == [exp_id2]
+
+
+def test_search_experiments_filter_by_time_attribute_rejects_non_integer(store: SqlAlchemyStore):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value for numeric attribute 'creation_time': '1.5'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="creation_time > 1.5")
 
 
 def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):

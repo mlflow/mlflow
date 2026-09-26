@@ -826,6 +826,13 @@ def test_search_model_versions(store):
     # search using version
     assert set(search_versions("version_number=2")) == {2}
     assert set(search_versions("version_number<=3")) == {1, 2, 3}
+    assert set(search_versions("version_number='2'")) == {2}
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value for numeric attribute 'version_number': 1.5",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        search_versions("version_number=1.5")
 
     # search using run_id_1 should return version 1
     assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
@@ -1934,10 +1941,11 @@ def test_get_model_version_by_alias(store):
     assert mv.aliases == ["test_alias"]
 
 
-def test_delete_model_version_deletes_alias(store):
+@pytest.mark.parametrize("version", [2, "2"])
+def test_delete_model_version_deletes_alias(store, version):
     model_name = "DeleteModelVersionDeletesAlias_TestMod"
     _setup_and_test_aliases(store, model_name)
-    store.delete_model_version(model_name, 2)
+    store.delete_model_version(model_name, version)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
     with pytest.raises(
