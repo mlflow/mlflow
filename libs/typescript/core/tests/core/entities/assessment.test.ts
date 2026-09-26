@@ -1,5 +1,6 @@
 import {
   AssessmentSourceType,
+  Expectation,
   Feedback,
   STACK_TRACE_TRUNCATION_LENGTH,
   STACK_TRACE_TRUNCATION_PREFIX,
@@ -7,6 +8,8 @@ import {
   assessmentToJson,
   assertFeedbackPayload,
   isFeedback,
+  isExpectation,
+  serializeV4TraceLocation,
   standardizeSourceType,
   truncateStackTrace,
 } from '../../../src/core/entities/assessment';
@@ -65,21 +68,82 @@ describe('assessment entities', () => {
     expect(() => assertFeedbackPayload({ error: 'failed' })).not.toThrow();
   });
 
-  it('leaves expectation assessments opaque so TraceInfo does not drop them', () => {
+  it('parses expectation assessments into typed entities', () => {
     const raw = {
       assessment_name: 'expected_response',
+      source: { source_type: 'HUMAN', source_id: 'reviewer' },
       expectation: { value: 'Paris' },
     };
     const parsed = assessmentFromJson(raw);
-    expect(parsed).toEqual(raw);
+    expect(parsed).toBeInstanceOf(Expectation);
+    expect((parsed as Expectation).value).toBe('Paris');
     expect(assessmentToJson(parsed)).toEqual(raw);
+  });
+
+  it('serializes structured expectation values like the Python SDK', () => {
+    const expectation = new Expectation({
+      name: 'expected_response',
+      value: { answer: 'Paris', citations: ['source-1'] },
+    });
+
+    expect(expectation.toJson().expectation).toEqual({
+      serialized_value: {
+        serialization_format: 'JSON_FORMAT',
+        value: '{"answer":"Paris","citations":["source-1"]}',
+      },
+    });
+    expect(Expectation.fromJson(expectation.toJson()).value).toEqual({
+      answer: 'Paris',
+      citations: ['source-1'],
+    });
+  });
+
+  it('defaults expectation sources to HUMAN and rejects null values', () => {
+    expect(new Expectation({ name: 'answer', value: 'Paris' }).source.sourceType).toBe('HUMAN');
+    expect(() => new Expectation({ name: 'answer', value: null as never })).toThrow(
+      /logExpectation requires/,
+    );
+  });
+
+  it('serializes UC schema and table-prefix locations for V4 assessments', () => {
+    expect(serializeV4TraceLocation('cat.sch')).toEqual({
+      type: 'UC_SCHEMA',
+      uc_schema: { catalog_name: 'cat', schema_name: 'sch' },
+    });
+    expect(serializeV4TraceLocation('cat.sch.tbl')).toEqual({
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: {
+        catalog_name: 'cat',
+        schema_name: 'sch',
+        table_prefix: 'tbl',
+      },
+    });
+    expect(() => serializeV4TraceLocation('cat')).toThrow(/Invalid UC location/);
+  });
+
+  it('reconstructs a V4 trace ID from an assessment response', () => {
+    const parsed = Feedback.fromJson({
+      assessment_name: 'correctness',
+      trace_id: 'abcdef',
+      trace_location: {
+        type: 'UC_TABLE_PREFIX',
+        uc_table_prefix: {
+          catalog_name: 'cat',
+          schema_name: 'sch',
+          table_prefix: 'tbl',
+        },
+      },
+      feedback: { value: true },
+    });
+    expect(parsed.traceId).toBe('trace:/cat.sch.tbl/abcdef');
   });
 
   it('exports isFeedback for public Assessment narrowing', () => {
     const feedback = new Feedback({ name: 'correctness', value: true });
-    const opaque = { assessment_name: 'expected_response', expectation: { value: 'Paris' } };
+    const expectation = new Expectation({ name: 'expected_response', value: 'Paris' });
     expect(isFeedback(feedback)).toBe(true);
-    expect(isFeedback(opaque)).toBe(false);
+    expect(isFeedback(expectation)).toBe(false);
+    expect(isExpectation(expectation)).toBe(true);
   });
 
   it('maps string error overload to ASSESSMENT_ERROR like Python Feedback', () => {

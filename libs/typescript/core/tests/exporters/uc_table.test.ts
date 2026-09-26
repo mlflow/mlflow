@@ -38,6 +38,7 @@ import {
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceState } from '../../src/core/entities/trace_state';
 import { DATABRICKS_UC_TABLE_HEADER, TraceMetadataKey } from '../../src/core/constants';
+import { Expectation, Feedback } from '../../src/core/entities/assessment';
 
 const testHost = 'https://dbc-12345.cloud.databricks.com';
 const testToken = 'test-token';
@@ -137,6 +138,60 @@ describe('MlflowClient UC methods', () => {
       },
     });
     expect(returned.traceLocation.ucTablePrefix?.otelSpansTableName).toBe('cat.sch.tbl_otel_spans');
+  });
+
+  it.each([
+    {
+      method: 'logFeedback',
+      invoke: (traceId: string) =>
+        client.logFeedback({ traceId, name: 'correctness', value: true }),
+      value: { feedback: { value: true } },
+      entity: Feedback,
+    },
+    {
+      method: 'logExpectation',
+      invoke: (traceId: string) =>
+        client.logExpectation({ traceId, name: 'expected_answer', value: 'Paris' }),
+      value: { expectation: { value: 'Paris' } },
+      entity: Expectation,
+    },
+  ])('$method POSTs directly to the V4 assessment endpoint', async ({ invoke, value, entity }) => {
+    const location = 'cat.sch.tbl';
+    const otelTraceId = 'abcdef1234567890abcdef1234567890';
+    const traceId = `trace:/${location}/${otelTraceId}`;
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.post(
+        `${testHost}/api/4.0/mlflow/traces/${location}/${otelTraceId}/assessments`,
+        async ({ request }) => {
+          capturedBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({
+            ...capturedBody,
+            assessment_id: 'a-1',
+          });
+        },
+      ),
+    );
+
+    const created = await invoke(traceId);
+
+    expect(capturedBody).toMatchObject({
+      assessment_name: expect.any(String),
+      trace_id: otelTraceId,
+      trace_location: {
+        type: 'UC_TABLE_PREFIX',
+        uc_table_prefix: {
+          catalog_name: 'cat',
+          schema_name: 'sch',
+          table_prefix: 'tbl',
+        },
+      },
+      ...value,
+    });
+    expect(capturedBody).not.toHaveProperty('assessment');
+    expect(created).toBeInstanceOf(entity);
+    expect(created.traceId).toBe(traceId);
+    expect(created.assessmentId).toBe('a-1');
   });
 
   it('exportOtlpSpansToUc constructs an OTLP proto exporter with the UC table header', async () => {
