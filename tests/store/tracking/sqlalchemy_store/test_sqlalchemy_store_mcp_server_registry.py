@@ -1,10 +1,14 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
+import sqlalchemy
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlMCPServerAlias, SqlMCPServerVersion
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
 pytestmark = pytest.mark.notrackingurimock
@@ -1565,6 +1569,112 @@ def test_set_mcp_server_alias_to_deleted_version_raises(store):
     store.delete_mcp_server_version("io.github.test/server", "1.0.0")
     with pytest.raises(MlflowException, match="Cannot set alias"):
         store.set_mcp_server_alias("io.github.test/server", "stable", "1.0.0")
+
+
+def _get_alias_rows(store, name):
+    with store.ManagedSessionMaker() as session:
+        rows = session.query(SqlMCPServerAlias).filter(SqlMCPServerAlias.name == name).all()
+        return [(row.alias, row.version) for row in rows]
+
+
+def _get_version_status(store, name, version):
+    with store.ManagedSessionMaker() as session:
+        return (
+            session
+            .query(SqlMCPServerVersion.status)
+            .filter(SqlMCPServerVersion.name == name, SqlMCPServerVersion.version == version)
+            .scalar()
+        )
+
+
+def _run_after_concurrent_version_reads(store, operations):
+    """
+    Run the operations in parallel threads, holding each thread right after its first read
+    of the MCP server version row until every thread has done that read. This forces the
+    interleaving where all operations start from the same version state.
+    """
+    barrier = threading.Barrier(len(operations), timeout=30)
+    thread_state = threading.local()
+
+    def wait_after_version_read(conn, cursor, statement, parameters, context, executemany):
+        if (
+            getattr(thread_state, "wait_for_version_read", False)
+            and statement.lstrip().upper().startswith("SELECT")
+            and "FROM MCP_SERVER_VERSIONS" in statement.upper()
+        ):
+            thread_state.wait_for_version_read = False
+            barrier.wait()
+
+    def run(operation):
+        thread_state.wait_for_version_read = True
+        try:
+            operation()
+            return "SUCCESS"
+        except MlflowException as e:
+            return e.error_code
+
+    sqlalchemy.event.listen(store.engine, "after_cursor_execute", wait_after_version_read)
+    try:
+        with ThreadPoolExecutor(
+            max_workers=len(operations), thread_name_prefix="mcp-registry-race"
+        ) as executor:
+            return list(executor.map(run, operations))
+    finally:
+        sqlalchemy.event.remove(store.engine, "after_cursor_execute", wait_after_version_read)
+
+
+def test_concurrent_set_alias_and_delete_version_leave_no_alias_on_deleted_version(store):
+    name = "io.github.test/server"
+    store.create_mcp_server_version(_server_json(name, "1.0.0"))
+
+    results = _run_after_concurrent_version_reads(
+        store,
+        [
+            lambda: store.set_mcp_server_alias(name, "stable", "1.0.0"),
+            lambda: store.delete_mcp_server_version(name, "1.0.0"),
+        ],
+    )
+
+    assert sorted(results) in (["INVALID_PARAMETER_VALUE", "SUCCESS"], ["SUCCESS", "SUCCESS"])
+    assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
+    assert _get_alias_rows(store, name) == []
+
+
+def test_concurrent_delete_mcp_server_version_returns_conflict(store):
+    name = "io.github.test/server"
+    store.create_mcp_server_version(_server_json(name, "1.0.0"))
+
+    results = _run_after_concurrent_version_reads(
+        store,
+        [
+            lambda: store.delete_mcp_server_version(name, "1.0.0"),
+            lambda: store.delete_mcp_server_version(name, "1.0.0"),
+        ],
+    )
+
+    assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
+    assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
+
+
+def test_set_mcp_server_alias_retries_integrity_error(store):
+    name = "io.github.test/server"
+    store.create_mcp_server_version(_server_json(name, "1.0.0"))
+    flushes = 0
+
+    def fail_first_flush(session, flush_context, instances):
+        nonlocal flushes
+        flushes += 1
+        if flushes == 1:
+            raise sqlalchemy.exc.IntegrityError("forced alias conflict", None, None)
+
+    sqlalchemy.event.listen(sqlalchemy.orm.Session, "before_flush", fail_first_flush)
+    try:
+        store.set_mcp_server_alias(name, "stable", "1.0.0")
+    finally:
+        sqlalchemy.event.remove(sqlalchemy.orm.Session, "before_flush", fail_first_flush)
+
+    assert flushes == 2
+    assert _get_alias_rows(store, name) == [("stable", "1.0.0")]
 
 
 def test_delete_mcp_server_alias(store):
