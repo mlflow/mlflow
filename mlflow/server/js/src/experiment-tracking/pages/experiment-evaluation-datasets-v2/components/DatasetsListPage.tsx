@@ -15,6 +15,7 @@ import { useDatasetDelete } from '../hooks/useDatasetDelete';
 import { useSlashFocusSearch } from '../hooks/useSlashFocusSearch';
 import { pollUntilDone } from '../utils/pollUntilDone';
 import { DEFAULT_DATASET_PAGE_SIZE } from '../utils/constants';
+import { useExperimentPageRevampContext } from '../../experiment-page-tabs/ExperimentPageRevampContext';
 
 interface DatasetsListPageProps {
   experimentId: string;
@@ -24,6 +25,7 @@ const Q_PARAM = 'q';
 
 export const DatasetsListPage = ({ experimentId }: DatasetsListPageProps) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   const intl = useIntl();
   const navigate = useNavigate();
   const { notify, notificationContainer } = useDatasetNotifications();
@@ -184,10 +186,8 @@ export const DatasetsListPage = ({ experimentId }: DatasetsListPageProps) => {
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
-        // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
-        // on the right (24px) and bottom (8px); only top and left need padding here.
-        paddingTop: theme.spacing.md,
-        paddingLeft: theme.spacing.md,
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
         gap: theme.spacing.md,
       }}
     >

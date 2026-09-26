@@ -25,6 +25,7 @@ import { DatasetDetailKebabMenu } from './DatasetDetailKebabMenu';
 import { SidePanelResizeHandle } from './SidePanelResizeHandle';
 import { TraceModal } from './TraceModal';
 import { DEFAULT_RECORD_PAGE_SIZE } from '../utils/constants';
+import { useExperimentPageRevampContext } from '../../experiment-page-tabs/ExperimentPageRevampContext';
 
 /**
  * OSS implementation of `useNavigationBlock` — what universe gets from
@@ -77,6 +78,7 @@ export interface DatasetDetailPageContentProps {
 
 export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: DatasetDetailPageContentProps) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   const intl = useIntl();
   const { notify, notificationContainer } = useDatasetNotifications();
   const searchInputRef = useRef<InputRef>(null);
@@ -284,10 +286,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
-        // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
-        // on the right (24px) and bottom (8px); only top and left need padding here.
-        paddingTop: theme.spacing.md,
-        paddingLeft: theme.spacing.md,
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
       }}
     >
       <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -306,12 +306,14 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
             paddingRight: panelOpen ? theme.spacing.lg : 0,
           }}
         >
-          <DatasetsBreadcrumbs
-            experimentId={experimentId}
-            datasetName={dataset.name}
-            dataset={dataset}
-            rightActions={<DatasetDetailKebabMenu experimentId={experimentId} dataset={dataset} notify={notify} />}
-          />
+          {!revampEnabled && (
+            <DatasetsBreadcrumbs
+              experimentId={experimentId}
+              datasetName={dataset.name}
+              dataset={dataset}
+              rightActions={<DatasetDetailKebabMenu experimentId={experimentId} dataset={dataset} notify={notify} />}
+            />
+          )}
 
           {records.error instanceof Error && (
             <Alert
