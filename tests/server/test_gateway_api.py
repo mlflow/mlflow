@@ -50,6 +50,7 @@ from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.portkey import PortkeyProvider
 from mlflow.gateway.providers.utils import provider_call_duration_ms
+from mlflow.gateway.rate_limit import reset_rate_limiters
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.ssrf import assert_public_upstream_url, upstream_ssrf_protection
 from mlflow.server.fastapi_app import add_gateway_timing_middleware
@@ -4130,3 +4131,121 @@ def test_invocations_passes_username_to_budget_enforcement(store: SqlAlchemyStor
     mock_on_complete.assert_called()
     assert mock_on_complete.call_args.kwargs["username"] == "alice@example.com"
     assert mock_on_complete.call_args.kwargs["endpoint_id"] == "test-endpoint-id"
+
+
+# ==================== Per-endpoint rate limiting ====================
+
+
+@pytest.fixture
+def rate_limit_clock():
+    reset_rate_limiters()
+    now = [1000.0]
+    with mock.patch("mlflow.gateway.rate_limit.time.monotonic", side_effect=lambda: now[0]):
+        yield now
+    reset_rate_limiters()
+
+
+def _post_chat(client: TestClient, endpoint_name: str):
+    return client.post(
+        "/gateway/mlflow/v1/chat/completions",
+        json={"model": endpoint_name, "messages": [{"role": "user", "content": "Hi"}]},
+    )
+
+
+def test_chat_completions_rejects_calls_over_the_rate_limit(
+    store: SqlAlchemyStore, rate_limit_clock
+):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    mock_response = chat.ResponsePayload(
+        id="test-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+    mock_endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id",
+        endpoint_name="rate-limited-endpoint",
+        models=[],
+        calls_per_minute=2,
+    )
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        client = TestClient(app)
+        assert _post_chat(client, "rate-limited-endpoint").status_code == 200
+        assert _post_chat(client, "rate-limited-endpoint").status_code == 200
+
+        limited = _post_chat(client, "rate-limited-endpoint")
+        assert limited.status_code == 429
+        assert limited.headers["Retry-After"] == "60"
+        assert "rate-limited-endpoint" in limited.json()["detail"]
+        assert mock_provider.chat.await_count == 2
+
+        # Once the window has passed, calls are served again.
+        rate_limit_clock[0] += 60
+        assert _post_chat(client, "rate-limited-endpoint").status_code == 200
+        assert mock_provider.chat.await_count == 3
+
+
+def test_chat_completions_without_rate_limit_is_unthrottled(
+    store: SqlAlchemyStore, rate_limit_clock
+):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    mock_response = chat.ResponsePayload(
+        id="test-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+    mock_endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="unlimited-endpoint", models=[]
+    )
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        client = TestClient(app)
+        for _ in range(5):
+            assert _post_chat(client, "unlimited-endpoint").status_code == 200
+        assert mock_provider.chat.await_count == 5

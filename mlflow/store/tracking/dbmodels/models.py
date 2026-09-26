@@ -3023,6 +3023,12 @@ class SqlGatewayEndpoint(Base):
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.
     """
+    calls_per_minute = Column(Integer, nullable=True)
+    """
+    Rate limit: `Integer`. Maximum number of requests allowed per minute for this
+    endpoint. NULL disables rate limiting. Equivalent to the legacy gateway's
+    ``limit: {calls: N, renewal_period: minute}`` route configuration.
+    """
     workspace = Column(
         String(63),
         nullable=False,

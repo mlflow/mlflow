@@ -68,6 +68,8 @@ class GatewayEndpointConfig:
         routing_strategy: Optional routing strategy (e.g., FALLBACK).
         fallback_config: Optional fallback configuration from GatewayEndpoint entity.
         experiment_id: Optional experiment ID for tracing (if usage tracking is enabled).
+        calls_per_minute: Optional per-endpoint request rate limit. None disables
+            rate limiting.
     """
 
     endpoint_id: str
@@ -77,6 +79,7 @@ class GatewayEndpointConfig:
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
     usage_tracking: bool = False
+    calls_per_minute: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
