@@ -11,7 +11,8 @@ import {
   type LiveSpan,
 } from '@mlflow/core';
 
-import type { SubagentGroup, TokenUsage, ToolResultInfo, TranscriptEntry } from './types.js';
+import type { SubagentGroup, TokenUsage, TranscriptEntry } from './types.js';
+import { findToolResults } from './toolResults.js';
 import {
   LLM_COST_ATTRIBUTE,
   TRACE_COST_METADATA,
@@ -44,81 +45,6 @@ import {
 
 const NANOSECONDS_PER_MS = 1e6;
 const NANOSECONDS_PER_S = 1e9;
-
-// ============================================================================
-// Tool result finding
-// ============================================================================
-
-/**
- * Find tool results following the current assistant response.
- * Returns a mapping from tool_use_id to result info.
- */
-function findToolResults(
-  transcript: TranscriptEntry[],
-  startIdx: number,
-): Record<string, ToolResultInfo> {
-  const results: Record<string, ToolResultInfo> = {};
-  // Claude Code splits a single assistant turn into multiple JSONL entries
-  // (one per content block) that share the same message.id. Treat them as
-  // one turn so parallel tool_uses in the same turn all find their results.
-  const currentMessageId = transcript[startIdx]?.message?.id;
-
-  for (let i = startIdx + 1; i < transcript.length; i++) {
-    const entry = transcript[i];
-    if (entry.type === 'assistant') {
-      if (currentMessageId && entry.message?.id === currentMessageId) {
-        continue;
-      }
-      break;
-    }
-    if (entry.type !== 'user') {
-      continue;
-    }
-
-    // Entry-level toolUseResult (used in real Claude Code transcripts)
-    const entryToolUseResult =
-      entry.toolUseResult && typeof entry.toolUseResult === 'object' ? entry.toolUseResult : {};
-
-    const content = entry.message?.content;
-    if (!Array.isArray(content)) {
-      continue;
-    }
-
-    for (const part of content) {
-      if (typeof part !== 'object' || part == null || !('type' in part)) {
-        continue;
-      }
-      if (part.type !== 'tool_result') {
-        continue;
-      }
-
-      const toolResult = part as {
-        type: 'tool_result';
-        tool_use_id?: string;
-        content?: string;
-        is_error?: boolean;
-        toolUseResult?: { agentId?: string };
-      };
-
-      const toolUseId = toolResult.tool_use_id;
-      if (!toolUseId) {
-        continue;
-      }
-
-      // Check both entry-level and content-level toolUseResult for agentId
-      const partToolUseResult = toolResult.toolUseResult ?? {};
-      const agentId = entryToolUseResult.agentId ?? partToolUseResult.agentId;
-
-      results[toolUseId] = {
-        content: toolResult.content ?? '',
-        isError: toolResult.is_error ?? false,
-        agentId,
-      };
-    }
-  }
-
-  return results;
-}
 
 // ============================================================================
 // Input message reconstruction
