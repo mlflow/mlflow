@@ -179,7 +179,7 @@ dev = [
   "mlflow-test-plugin",
 ]
 lint = [
-  "ruff==0.16.4",
+  "ruff==0.16.9",
   "pre-commit==4.6.1",
   "toml==0.10.2",
   "types-toml",
@@ -256,9 +256,10 @@ docs = [
 
 [tool.uv]
 exclude-newer = "P7D"
+# Allow the latest Ruff release through the cooldown for this explicit version update.
+exclude-newer-package = { torch = false, torchvision = false, sqlalchemy = false, ruff = "2026-09-25T00:00:00Z" }
 # TODO: Remove `sqlalchemy = false` once SQLAlchemy 2.1.0 (released 2026-09-24) clears the 7-day
 # cooldown, so the `database` CI job exercises the psycopg v3 default driver.
-exclude-newer-package = { torch = false, torchvision = false, sqlalchemy = false }
 required-version = ">=0.12.16"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
@@ -302,7 +303,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.16.4"
+required-version = "0.16.9"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }
