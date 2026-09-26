@@ -330,6 +330,17 @@ class Span:
 
         raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
 
+    def __getattr__(self, name: str) -> NoReturn:
+        # Only reached when normal lookup fails. Keeps `hasattr(span, "get")`
+        # False and makes `span.get` itself raise, unlike defining a real method.
+        if name == "get":
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute 'get'; a span is not a dict. "
+                "Use attribute access such as `span.name`, `span.inputs`, `span.outputs`, "
+                "or `span.attributes`, or `span.get_attribute(key)` for a span attribute."
+            )
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
     def get_attribute(self, key: str) -> Any | None:
         """
         Get a single attribute value from the span.
@@ -1394,7 +1405,10 @@ class LazySpan(Span):
 
     def __getattr__(self, name: str):
         self._ensure_materialized()
-        return object.__getattribute__(self, name)
+        try:
+            return object.__getattribute__(self, name)
+        except AttributeError:
+            return super().__getattr__(name)
 
     def __repr__(self):
         if self.__dict__.get("_materialized"):
