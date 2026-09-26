@@ -118,6 +118,19 @@ def test_search_command_with_fields(runner):
         assert "OK" in result.output
 
 
+def test_search_command_strips_spaces_in_order_by(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.return_value = PagedList([], None)
+        result = runner.invoke(
+            commands,
+            ["search", "--experiment-id", "1", "--order-by", "timestamp_ms DESC, status"],
+        )
+
+    assert result.exit_code == 0
+    _, kwargs = mock_client.return_value.search_traces.call_args
+    assert kwargs["order_by"] == ["timestamp_ms DESC", "status"]
+
+
 def test_get_command_with_fields(runner):
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,

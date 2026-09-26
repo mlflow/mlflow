@@ -669,7 +669,7 @@ langchain:
           "transformers",
           "torch",
           "torchvision",
-          "openai",
+          "openai<3",
           "google-search-results",
           "psutil",
           "faiss-cpu",
@@ -721,7 +721,7 @@ langchain:
     maximum: "1.3.17"
     requirements:
       ">= 0.0.0": [
-          "openai",
+          "openai<3",
           "google-search-results",
           "faiss-cpu",
           # Required to run tests/openai/mock_openai.py

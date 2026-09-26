@@ -30,7 +30,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.telemetry.events import LoadPromptEvent
+from mlflow.telemetry.events import LoadPromptEvent, RegisterModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import get_active_trace_id, get_current_active_span
@@ -65,6 +65,7 @@ PROMPT_API_MIGRATION_MSG = (
 )
 
 
+@record_usage_event(RegisterModelEvent)
 def register_model(
     model_uri,
     name,
@@ -136,7 +137,12 @@ def register_model(
             rfr = RandomForestRegressor(**params).fit(X, y)
             signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(
+                rfr,
+                name="sklearn-model",
+                signature=signature,
+                skops_trusted_types=["sklearn.tree._tree.Tree"],
+            )
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print(f"Name: {mv.name}")
