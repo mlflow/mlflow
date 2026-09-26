@@ -2024,6 +2024,7 @@ def test_span_record_exception_with_string():
 
     # Verify span status is ERROR
     assert test_span.status.status_code == SpanStatusCode.ERROR
+    assert test_span.status.description == "Exception: Something went wrong"
 
     # Verify exception event was added
     exception_events = [event for event in test_span.events if "exception" in event.name.lower()]
