@@ -146,12 +146,15 @@ container, which is what steps 3 and 5 cover.
    max, and the highest-priority permission wins
    (`MANAGE` > `EDIT` > `USE` > `READ`) - except that a matching `DENY` wins
    outright, whatever it is folded with.
-5. **The most specific tier decides, then the container** - the sub-resource tier is
-   consulted first, and if it holds **any** grant that grant decides. Only when the
-   tier holds no grant at all does the container decide. Tiers are **not** max'd
-   together, so a tier grant overrides its container whether it is more or less
-   permissive, and a `(run, *, DENY)` is not rescued by `(experiment, 42, MANAGE)`.
-   A tier with no grant at all is silent, and the next tier speaks.
+5. **The tier decides; the container is its fallback** - the sub-resource tier is
+   consulted first. If it holds **any** grant, that grant decides the action and the
+   container's own level is not consulted for it. The container decides **only when
+   the tier holds no grant at all** - that is the fallback. Tiers are therefore
+   **not** max'd together, so a tier grant overrides its container whether it is more
+   or less permissive, and `(run, *, DENY)` is not rescued by
+   `(experiment, 42, MANAGE)`. In a longer chain - an `assessment` inside a `trace`
+   inside an `experiment` - each tier holding no grant is silent and the next one
+   decides. The step 3 READ check applies either way: a tier grant does not waive it.
 6. **Server `default_permission`** (defaults to `READ`) - a floor max'd into the
    resolution result, and the final answer when no role grant matches at all. The
    floor does **not** lift `NO_PERMISSIONS` - when the resolver returns it for a
