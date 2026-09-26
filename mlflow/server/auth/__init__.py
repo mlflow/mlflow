@@ -2726,16 +2726,30 @@ def validate_can_create_model_version():
     return True
 
 
-def _create_not_denied(username: str, created_type: str, resource_id: str = "*") -> bool:
+def _create_not_denied(
+    username: str,
+    created_type: str,
+    resource_id: str = "*",
+    *,
+    conditions: "Sequence[ConditionContext]" = (),
+) -> bool:
     return authorize(
         username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [Requirement(created_type, resource_id or "*", ACTION_NOT_DENIED)],
+        conditions=conditions,
     )
 
 
-def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> bool:
-    return _create_not_denied(authenticate_request().username, created_type, resource_id)
+def _workspace_create_not_denied(
+    created_type: str,
+    resource_id: str = "*",
+    *,
+    conditions: "Sequence[ConditionContext]" = (),
+) -> bool:
+    return _create_not_denied(
+        authenticate_request().username, created_type, resource_id, conditions=conditions
+    )
 
 
 def validate_can_create_experiment() -> bool:
@@ -2771,7 +2785,23 @@ def validate_can_create_registered_model() -> bool:
     created_type = (
         RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
-    return _workspace_create_not_denied(created_type, msg.name)
+    # CREATE scope, and no resource id: nothing exists yet, so only the request
+    # conditions apply. A resource condition is vacuous on a create by construction --
+    # there is no prior state for it to describe -- rather than by a special case here.
+    # ``created_type`` is the family the body will actually produce, so a prompt
+    # condition governs a prompt create and not an ordinary model create (D2).
+    return _workspace_create_not_denied(
+        created_type,
+        msg.name,
+        conditions=[
+            context_for(
+                created_type,
+                None,
+                ConditionScope.CREATE,
+                _request_values_for_current_request(msg),
+            )
+        ],
+    )
 
 
 def validate_can_create_mcp_server(username: str, name: str = "*") -> bool:
@@ -4913,9 +4943,20 @@ def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
 
 
-def _extract_tag_key_value() -> RequestValues:
+def _extract_tag_key_value(message=None) -> RequestValues:
     """A single ``key``/``value`` tag pair, the shape most Set*Tag routes use."""
     return RequestValues(tags=((_get_request_param("key"), _get_request_param("value")),))
+
+
+def _extract_created_registered_model_tags(message=None) -> RequestValues:
+    """The tags a ``CreateRegisteredModel`` body will store.
+
+    A create carries a repeated ``tags`` field rather than one pair, and every tag in it
+    must satisfy the condition: allowing a bulk create to set a tag that a single
+    set-tag call could not would make the restriction trivially avoidable.
+    """
+    message = message if message is not None else _get_request_message(CreateRegisteredModel())
+    return RequestValues(tags=tuple((tag.key, tag.value) for tag in message.tags))
 
 
 #: Request-value extractors, keyed on the proto request class (D3). Keyed on the class
@@ -4923,11 +4964,16 @@ def _extract_tag_key_value() -> RequestValues:
 #: REST duplication of every route, and because the coverage guard can then compare this
 #: map against the proto definitions directly.
 #:
+#: Each extractor takes an optional already-parsed message, so a validator that had to
+#: parse the body anyway -- to classify which family it is creating, say -- does not pay
+#: for a second parse.
+#:
 #: An absent entry means "this route sets no tag or alias", which is why the coverage
 #: guard in the tests has to assert the map is complete: a mutating route that names a
 #: tag and has no extractor here is silently ungated by request conditions.
 REQUEST_VALUE_EXTRACTORS = {
     SetRegisteredModelTag: _extract_tag_key_value,
+    CreateRegisteredModel: _extract_created_registered_model_tags,
 }
 
 
@@ -5108,7 +5154,7 @@ REQUEST_VALUE_EXTRACTOR_ROUTES = {
 }
 
 
-def _request_values_for_current_request() -> RequestValues:
+def _request_values_for_current_request(message=None) -> RequestValues:
     """The tags and aliases this request sets, or empty if the route sets none.
 
     Empty is the safe default only because request clauses are vacuous on absence
@@ -5119,7 +5165,7 @@ def _request_values_for_current_request() -> RequestValues:
     extractor = REQUEST_VALUE_EXTRACTOR_ROUTES.get((request.path, request.method))
     if extractor is None:
         return RequestValues()
-    return extractor()
+    return extractor(message)
 
 
 TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {

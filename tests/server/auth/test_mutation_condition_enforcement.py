@@ -10,6 +10,7 @@
 # the request-scoped cache, and resource-condition evaluation.
 
 import pytest
+import requests
 
 from mlflow import MlflowClient, MlflowException
 from mlflow.environment_variables import (
@@ -18,6 +19,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
 )
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
@@ -253,6 +255,129 @@ def test_a_second_role_cannot_lift_the_first_roles_restriction(server, auth_clie
     _assert_denied(
         lambda: _set_tag(server, username, password, monkeypatch, name, "lifecycle", "x")
     )
+
+
+# ---- Create scope ----------------------------------------------------------
+
+
+def _create_model(server, username, password, monkeypatch, name, tags=None):
+    with User(username, password, monkeypatch):
+        MlflowClient(server).create_registered_model(name, tags=tags)
+
+
+def test_create_condition_denies_a_disallowed_tag_in_the_body(server, auth_client, monkeypatch):
+    """§7.1 case 3. A create carries a repeated tags field, so the condition has to be
+    evaluated against every tag the body will store.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        _create_model(
+            server, username, password, monkeypatch, f"m-{random_str()}", {"lifecycle": "prod"}
+        )
+
+
+def test_create_allows_a_body_whose_tags_all_pass(server, auth_client, monkeypatch):
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+    name = f"m-{random_str()}"
+
+    _create_model(server, username, password, monkeypatch, name, {"team": "analytics"})
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_registered_model(name).tags["team"] == "analytics"
+
+
+def test_create_denies_when_any_one_tag_of_several_fails(server, auth_client, monkeypatch):
+    """A bulk body must not be a way around a restriction that holds for a single tag."""
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        _create_model(
+            server,
+            username,
+            password,
+            monkeypatch,
+            f"m-{random_str()}",
+            {"team": "analytics", "lifecycle": "prod", "owner": "me"},
+        )
+
+
+def test_create_with_no_tags_is_not_denied_by_a_tag_condition(server, auth_client, monkeypatch):
+    """D20 on the request side: a body that names no tag has nothing for a tag_key clause
+    to object to, so the clause is vacuous rather than denying.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+    name = f"m-{random_str()}"
+
+    _create_model(server, username, password, monkeypatch, name)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_registered_model(name).name == name
+
+
+def test_a_resource_condition_does_not_gate_a_create(server, auth_client, monkeypatch):
+    """A create has no prior state, so a resource condition cannot apply to it. If it
+    did, a target condition would make creation impossible for the role.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+    )
+    name = f"m-{random_str()}"
+
+    _create_model(server, username, password, monkeypatch, name)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_registered_model(name).name == name
+
+
+def test_a_registered_model_condition_does_not_gate_a_prompt_create(
+    server, auth_client, monkeypatch
+):
+    """D2. The create route is shared, and the family comes from the body, so a
+    condition on `registered_model` must not govern a prompt create.
+    """
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        # Broad grants on both families, restricted on only one.
+        auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
+        auth_client.add_role_permission(role.id, "prompt", "*", "EDIT")
+        auth_client.assign_role(username, role.id)
+        auth_client.add_mutation_conditions(
+            role.id, "registered_model", value_condition="tag_key != 'lifecycle'"
+        )
+
+    # The same disallowed tag key: denied for a registered model, allowed for a prompt,
+    # because the condition is scoped to the registered_model family alone.
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        _create_model(
+            server, username, password, monkeypatch, f"m-{random_str()}", {"lifecycle": "prod"}
+        )
+
+    # Posted directly: the client refuses to register a prompt through the model API, but
+    # the route is shared and the server must classify from the body.
+    response = requests.post(
+        f"{server}/api/2.0/mlflow/registered-models/create",
+        json={
+            "name": f"p-{random_str()}",
+            "tags": [
+                {"key": "lifecycle", "value": "prod"},
+                {"key": IS_PROMPT_TAG_KEY, "value": "true"},
+            ],
+        },
+        auth=(username, password),
+        timeout=60,
+    )
+    assert response.status_code == 200, response.text
 
 
 # ---- Reads are never gated -------------------------------------------------
