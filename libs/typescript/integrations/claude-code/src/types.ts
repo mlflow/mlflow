@@ -30,6 +30,7 @@ export interface ToolResultBlock {
   is_error?: boolean;
   toolUseResult?: {
     status?: string;
+    isAsync?: boolean;
     agentId?: string;
     totalDurationMs?: number;
   };
@@ -85,6 +86,7 @@ export interface ToolUseResultInfo {
   commandName?: string;
   agentId?: string;
   status?: string;
+  isAsync?: boolean;
   totalDurationMs?: number;
 }
 
@@ -104,6 +106,16 @@ export interface StopHookInput {
   transcript_path: string;
 }
 
+/**
+ * SubagentStop hook input. `transcript_path` is the MAIN session transcript;
+ * the sub-agent's own transcript is `agent_transcript_path`.
+ */
+export interface SubagentStopHookInput extends StopHookInput {
+  agent_id: string;
+  agent_type?: string;
+  agent_transcript_path: string;
+}
+
 // ============================================================================
 // Internal types
 // ============================================================================
@@ -112,6 +124,8 @@ export interface ToolResultInfo {
   content: string;
   isError: boolean;
   agentId?: string;
+  status?: string;
+  isAsync?: boolean;
 }
 
 export interface SubagentGroup {

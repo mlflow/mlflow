@@ -12,7 +12,7 @@ import {
 } from '@mlflow/core';
 
 import type { SubagentGroup, TokenUsage, TranscriptEntry } from './types.js';
-import { findToolResults } from './toolResults.js';
+import { findToolResults, isBackgroundLaunch } from './toolResults.js';
 import {
   LLM_COST_ATTRIBUTE,
   TRACE_COST_METADATA,
@@ -412,10 +412,19 @@ function createLlmAndToolSpans(
 
         // If this is a Task tool, try to read sub-agent transcript
         const agentId = toolResultInfo?.agentId;
-        const subagentPath = getSubagentTranscriptPath(transcriptPath, agentId);
+        const background = toolResultInfo != null && isBackgroundLaunch(toolResultInfo);
+        const subagentPath = background ? null : getSubagentTranscriptPath(transcriptPath, agentId);
         const toolInput = toolUse.input ?? {};
 
-        if (subagentPath) {
+        if (background) {
+          // The agent is still running when this result is written; its
+          // transcript would be partial. The SubagentStop hook traces it as
+          // its own trace once it finishes (see subagentTracing.ts).
+          if (agentId) {
+            toolSpan.setAttribute('agent_id', agentId);
+          }
+          toolSpan.setAttribute('background', true);
+        } else if (subagentPath) {
           createSubagentSpansFromFile(
             toolSpan,
             subagentPath,
@@ -451,9 +460,26 @@ function createLlmAndToolSpans(
 // ============================================================================
 
 /**
+ * Overrides for tracing a transcript that is not a top-level conversation
+ * (a background sub-agent's own transcript).
+ */
+export interface TranscriptTraceOptions {
+  /** Root span name. Default: `claude_code_conversation`. */
+  rootSpanName?: string;
+  /** Root span inputs. Default: `{ prompt: <last user message text> }`. */
+  rootInputs?: Record<string, unknown>;
+  /** Extra trace tags, merged into the trace info's tags. */
+  tags?: Record<string, string>;
+}
+
+/**
  * Process a Claude conversation transcript and create an MLflow trace with spans.
  */
-export async function processTranscript(transcriptPath: string, sessionId?: string): Promise<void> {
+export async function processTranscript(
+  transcriptPath: string,
+  sessionId?: string,
+  options: TranscriptTraceOptions = {},
+): Promise<void> {
   try {
     const transcript = readTranscript(transcriptPath);
     if (!transcript.length) {
@@ -482,8 +508,8 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
     setModelRates(await loadCatalogRates());
 
     const parentSpan = startSpan({
-      name: 'claude_code_conversation',
-      inputs: { prompt: userPromptText },
+      name: options.rootSpanName ?? 'claude_code_conversation',
+      inputs: options.rootInputs ?? { prompt: userPromptText },
       startTimeNs: convStartNs ?? undefined,
       spanType: SpanType.AGENT,
     });
@@ -540,6 +566,9 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         }
 
         trace.info.traceMetadata = metadata;
+        if (options.tags) {
+          Object.assign(trace.info.tags, options.tags);
+        }
       }
     } catch (err) {
       console.error('[mlflow] Failed to update trace metadata:', err);

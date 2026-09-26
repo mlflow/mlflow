@@ -37,7 +37,7 @@ export function toolResultsInEntry(entry: TranscriptEntry): Record<string, ToolR
       tool_use_id?: string;
       content?: string;
       is_error?: boolean;
-      toolUseResult?: { agentId?: string };
+      toolUseResult?: { agentId?: string; status?: string; isAsync?: boolean };
     };
 
     const toolUseId = toolResult.tool_use_id;
@@ -45,18 +45,29 @@ export function toolResultsInEntry(entry: TranscriptEntry): Record<string, ToolR
       continue;
     }
 
-    // Check both entry-level and content-level toolUseResult for agentId
+    // Check both entry-level and content-level toolUseResult for agent fields
     const partToolUseResult = toolResult.toolUseResult ?? {};
-    const agentId = entryToolUseResult.agentId ?? partToolUseResult.agentId;
 
     results[toolUseId] = {
       content: toolResult.content ?? '',
       isError: toolResult.is_error ?? false,
-      agentId,
+      agentId: entryToolUseResult.agentId ?? partToolUseResult.agentId,
+      status: entryToolUseResult.status ?? partToolUseResult.status,
+      isAsync: entryToolUseResult.isAsync ?? partToolUseResult.isAsync,
     };
   }
 
   return results;
+}
+
+/**
+ * True when the tool result is the launch receipt of a background sub-agent
+ * (Agent tool with `run_in_background: true`). Claude Code writes that result
+ * immediately, while the agent keeps running; the agent is traced on its own
+ * by the SubagentStop hook, never inside the parent's Stop trace.
+ */
+export function isBackgroundLaunch(info: ToolResultInfo): boolean {
+  return info.status === 'async_launched';
 }
 
 /**
