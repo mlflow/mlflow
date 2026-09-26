@@ -7,8 +7,15 @@ import type { Endpoint } from '../../gateway/types';
 
 jest.mock('../../gateway/hooks/useEndpointsQuery');
 jest.mock('../../gateway/components/endpoint-form', () => ({
-  CreateEndpointModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
-    open ? <div data-testid="create-endpoint-modal">Create Endpoint Modal</div> : null,
+  CreateEndpointModal: ({ open, onSuccess }: { open: boolean; onSuccess: (endpoint: Endpoint) => void }) =>
+    open ? (
+      <div data-testid="create-endpoint-modal">
+        Create Endpoint Modal
+        <button type="button" onClick={() => onSuccess(mockTypesafeEndpoint)}>
+          Complete endpoint creation
+        </button>
+      </div>
+    ) : null,
 }));
 
 const mockEndpoints: Endpoint[] = [
@@ -65,6 +72,32 @@ const mockEndpoints: Endpoint[] = [
     ],
   },
 ];
+
+const mockTypesafeEndpoint: Endpoint = {
+  ...mockEndpoints[0],
+  endpoint_id: 'ep-typesafe',
+  name: 'typesafe-endpoint',
+  model_mappings: [
+    {
+      ...mockEndpoints[0].model_mappings[0],
+      mapping_id: 'mm-typesafe',
+      endpoint_id: 'ep-typesafe',
+      model_definition: {
+        ...mockEndpoints[0].model_mappings[0].model_definition!,
+        model_definition_id: 'md-typesafe',
+        provider: 'typesafe',
+        model_name: 'jev-latest',
+      },
+    },
+  ],
+};
+
+const mixedProviderEndpoint: Endpoint = {
+  ...mockTypesafeEndpoint,
+  endpoint_id: 'ep-mixed',
+  name: 'mixed-provider-endpoint',
+  model_mappings: [...mockTypesafeEndpoint.model_mappings, ...mockEndpoints[0].model_mappings],
+};
 
 describe('EndpointSelector', () => {
   const mockOnEndpointSelect = jest.fn();
@@ -193,5 +226,120 @@ describe('EndpointSelector', () => {
     // Combobox should be rendered but listbox should not be present
     expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  test('excludes pure and mixed endpoints when any model mapping uses an excluded provider', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [...mockEndpoints, mockTypesafeEndpoint, mixedProviderEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector excludeProviders={['typesafe']} onEndpointSelect={mockOnEndpointSelect} />,
+    );
+
+    await userEvent.click(screen.getByRole('combobox'));
+
+    const listbox = screen.getByRole('listbox');
+    expect(within(listbox).getByText('openai-endpoint')).toBeInTheDocument();
+    expect(within(listbox).getByText('anthropic-endpoint')).toBeInTheDocument();
+    expect(within(listbox).queryByText('typesafe-endpoint')).not.toBeInTheDocument();
+    expect(within(listbox).queryByText('mixed-provider-endpoint')).not.toBeInTheDocument();
+  });
+
+  test('auto-selects the first endpoint without an excluded provider', () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint, mixedProviderEndpoint, ...mockEndpoints],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector
+        excludeProviders={['typesafe']}
+        autoSelectFirstEndpoint
+        onEndpointSelect={mockOnEndpointSelect}
+      />,
+    );
+
+    expect(mockOnEndpointSelect).toHaveBeenCalledTimes(1);
+    expect(mockOnEndpointSelect).toHaveBeenCalledWith('openai-endpoint');
+  });
+
+  test('does not select a newly created endpoint that uses an excluded provider', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+    const onEndpointCreated = jest.fn();
+
+    renderWithDesignSystem(
+      <EndpointSelector
+        excludeProviders={['typesafe']}
+        onEndpointSelect={mockOnEndpointSelect}
+        onEndpointCreated={onEndpointCreated}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(screen.getByText('Create new endpoint'));
+    await userEvent.click(screen.getByRole('button', { name: 'Complete endpoint creation' }));
+
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+    expect(mockOnEndpointSelect).not.toHaveBeenCalled();
+    expect(onEndpointCreated).toHaveBeenCalledWith(mockTypesafeEndpoint);
+  });
+
+  test('clears an existing excluded endpoint and removes it from the dropdown', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [...mockEndpoints, mockTypesafeEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    const onEndpointNotFound = jest.fn();
+    renderWithDesignSystem(
+      <EndpointSelector
+        excludeProviders={['typesafe']}
+        currentEndpointName="typesafe-endpoint"
+        onEndpointSelect={mockOnEndpointSelect}
+        onEndpointNotFound={onEndpointNotFound}
+      />,
+    );
+
+    expect(screen.getByText('typesafe-endpoint')).toBeInTheDocument();
+    expect(screen.getByText('(typesafe / jev-latest)')).toBeInTheDocument();
+    expect(onEndpointNotFound).not.toHaveBeenCalled();
+    expect(mockOnEndpointSelect).toHaveBeenCalledWith('');
+
+    await userEvent.click(screen.getByRole('combobox'));
+
+    expect(within(screen.getByRole('listbox')).queryByText('typesafe-endpoint')).not.toBeInTheDocument();
+  });
+
+  test('replaces an existing excluded endpoint when auto-selection is enabled', () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint, ...mockEndpoints],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector
+        excludeProviders={['typesafe']}
+        currentEndpointName="typesafe-endpoint"
+        autoSelectFirstEndpoint
+        onEndpointSelect={mockOnEndpointSelect}
+      />,
+    );
+
+    expect(mockOnEndpointSelect).toHaveBeenCalledWith('openai-endpoint');
   });
 });

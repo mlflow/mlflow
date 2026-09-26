@@ -6,7 +6,13 @@ import { AddGuardrailModal } from './AddGuardrailModal';
 import { useCreateGuardrail } from '../../hooks/useCreateGuardrail';
 import { GatewayApi } from '../../api';
 
-const mockEndpoints: Array<{ endpoint_id: string; name: string }> = [];
+type MockEndpoint = {
+  endpoint_id: string;
+  name: string;
+  model_mappings?: Array<{ model_definition?: { provider: string } }>;
+};
+
+const mockEndpoints: MockEndpoint[] = [];
 
 jest.mock('../../hooks/useCreateGuardrail');
 let mockEndpointsLoading = false;
@@ -43,7 +49,7 @@ jest.mock('../../../experiment-tracking/pages/experiment-scorers/api', () => ({
 }));
 
 const mockCreateGuardrail = jest.fn<any>();
-const setMockEndpoints = (endpoints: Array<{ endpoint_id: string; name: string }>) => {
+const setMockEndpoints = (endpoints: MockEndpoint[]) => {
   mockEndpoints.length = 0;
   mockEndpoints.push(...endpoints);
 };
@@ -235,6 +241,24 @@ describe('AddGuardrailModal', () => {
 
   test('shows no-endpoint guidance when no alternate endpoint is available', async () => {
     setMockEndpoints([{ endpoint_id: 'e-123', name: 'my-endpoint' }]);
+    renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);
+
+    expect(screen.getByText('You need another endpoint to use guardrails.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Select guardrail model' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create Guardrail' })).toBeDisabled();
+  });
+
+  test('shows no-endpoint guidance when the only alternate endpoint uses TypeSafe', async () => {
+    setMockEndpoints([
+      { endpoint_id: 'e-123', name: 'my-endpoint' },
+      {
+        endpoint_id: 'e-typesafe',
+        name: 'typesafe-endpoint',
+        model_mappings: [{ model_definition: { provider: 'typesafe' } }],
+      },
+    ]);
     renderWithDesignSystem(<AddGuardrailModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Safety').closest('[role="option"]')!);

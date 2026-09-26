@@ -293,9 +293,10 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
                   />
                 </Typography.Text>
                 <EndpointSelector
+                  excludeProviders={['typesafe']}
                   currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointModel)}
                   onEndpointSelect={(endpointName) => {
-                    setCurrentEndpointModel(formatGatewayModelFromEndpoint(endpointName));
+                    setCurrentEndpointModel(endpointName ? formatGatewayModelFromEndpoint(endpointName) : undefined);
                   }}
                   autoSelectFirstEndpoint
                 />
