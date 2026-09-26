@@ -959,8 +959,11 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[x] = pd.Series(
-                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]], name=x
+                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]],
+                index=pf_input.index,
+                name=x,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -986,8 +989,11 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[name] = pd.Series(
-                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]],
+                index=pf_input.index,
+                name=name,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 

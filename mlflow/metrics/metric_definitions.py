@@ -407,21 +407,16 @@ def _precision_at_k_eval_fn(k):
 
 
 def _expand_duplicate_retrieved_docs(predictions, targets):
+    original_targets = frozenset(targets)
+    expanded_targets = {(doc_id, 1) for doc_id in original_targets}
     counter = {}
     expanded_predictions = []
-    expanded_targets = targets
     for doc_id in predictions:
-        if doc_id not in counter:
-            counter[doc_id] = 1
-            expanded_predictions.append(doc_id)
-        else:
-            counter[doc_id] += 1
-            new_doc_id = (
-                f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
-            )
-            expanded_predictions.append(new_doc_id)
-            if doc_id in expanded_targets:
-                expanded_targets.add(new_doc_id)
+        counter[doc_id] = counter.get(doc_id, 0) + 1
+        occurrence_id = (doc_id, counter[doc_id])
+        expanded_predictions.append(occurrence_id)
+        if doc_id in original_targets:
+            expanded_targets.add(occurrence_id)
     return expanded_predictions, expanded_targets
 
 
