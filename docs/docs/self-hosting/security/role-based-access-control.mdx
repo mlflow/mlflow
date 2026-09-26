@@ -202,23 +202,6 @@ Anything that leaves the container below `READ` therefore blocks every operation
 on its contents, whatever the tier grant says - `DENY` on the container, or a
 `NO_PERMISSIONS` floor.
 
-:::note
-This ordering governs operations on a **named** resource, which are refused with
-`403` when a grant is missing.
-
-Search and list endpoints do not answer uniformly, and that predates these tiers:
-some refuse a request that names a container the caller cannot read, while others
-return only the rows the caller may see. Check the endpoint rather than assuming
-either shape.
-
-The tiers add one rule of their own. A search is refused when its **filter selects
-on a tier the caller is denied** - for example a trace search filtering on `run_id`
-or on an assessment field, or a logged-model search filtering on `source_run_id`.
-Row filtering keys on the **container**, so it cannot honour a denial on the tier
-the filter names: it would return those rows rather than drop them, so the request
-is refused up front instead.
-:::
-
 The last row depends on configuration, and is worth understanding because it is
 the common case. With no grant on the experiment, step 3 falls through to
 `default_permission`: on a default server that is `READ`, which satisfies the
