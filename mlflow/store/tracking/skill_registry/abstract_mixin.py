@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.store.entities.paged_list import PagedList
@@ -75,6 +77,20 @@ class SkillRegistryMixin:
         status: str = "active",
         created_by: str | None = None,
     ) -> SkillVersion:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def bulk_register_skills(
+        self,
+        skill_definitions: list[dict[str, Any]],
+        organization: str = "",
+        created_by: str | None = None,
+    ) -> list[SkillVersion]:
+        """Atomically register standalone skills from one Git repository and ref.
+
+        Reuse the highest active version with matching source, ref, subpath, and digest.
+        Otherwise create a version using ordinary registration's allocation and defaults.
+        Results follow input order; any failure rolls back the entire batch.
+        """
         raise NotImplementedError(self.__class__.__name__)
 
     def get_skill_version(
