@@ -27,9 +27,29 @@ Before writing any code:
 
 ### 4. Verify installation
 
+First, verify the real application:
+
 - Run the application end-to-end via its normal entry point.
-- Confirm at least one trace is emitted to {{ tracking_uri }}.
+- Confirm at least one application trace is emitted to {{ tracking_uri }}.
 - Confirm no runtime errors.
+
+If missing credentials, services, or user-specific data prevent the real
+application from running, do not block setup. Emit exactly one synthetic
+verification trace by running the command below instead. It uses the MLflow
+environment that launched this setup agent and does not call a real service.
+Do not add a setup-only file to the repository.
+
+```bash
+{{ synthetic_trace_command }}
+```
+
+Validate whichever path ran:
+
+- Real application: confirm the trace represents the application operation and
+  has meaningful inputs, outputs, and expected child spans.
+- Synthetic fallback: confirm the trace is emitted and renders in Pretty view.
+  Report that this validates only the MLflow connection and trace rendering,
+  not the application's instrumentation.
 
 If MLflow calls hang during verification (e.g. because the tracking server is
 slow or unreachable), set `MLFLOW_HTTP_REQUEST_MAX_RETRIES=0` and

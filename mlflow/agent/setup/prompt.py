@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import shlex
+import sys
 from importlib import resources
 from pathlib import Path
 
@@ -102,11 +104,21 @@ def build_prompt(
         tracking_uri=tracking_uri,
         server_setup=server_setup,
     )
+    synthetic_trace_args = [
+        sys.executable,
+        "-m",
+        "mlflow.agent.setup._synthetic_trace",
+        "--tracking-uri",
+        tracking_uri,
+    ]
+    if experiment_id:
+        synthetic_trace_args.extend(["--experiment-id", experiment_id])
     return _render(
         _read_template("instrument.md"),
         repo_root=str(repo_root),
         skills_intro=skills_intro,
         no_overwrite_bullet=no_overwrite_bullet,
         tracking_uri=f"`{tracking_uri}`",
+        synthetic_trace_command=shlex.join(synthetic_trace_args),
         language_steps=language_steps,
     )
