@@ -234,6 +234,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -247,7 +248,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "computer-use-preview": {
       "mode": "chat",
@@ -3554,6 +3555,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.5,
             "input_per_million_tokens": 10.0,
             "output_per_million_tokens": 40.0
           }
@@ -3567,7 +3569,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-10-23",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-1-mini": {
       "mode": "image_generation",
@@ -3582,6 +3584,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 0.25,
             "input_per_million_tokens": 2.5,
             "output_per_million_tokens": 8.0
           }
@@ -3595,7 +3598,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-1.5": {
       "mode": "image_generation",
@@ -3612,6 +3615,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -3625,7 +3629,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-1.5-2025-12-16": {
       "mode": "image_generation",
@@ -3642,6 +3646,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -3655,7 +3660,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2": {
       "mode": "image_generation",
@@ -3670,6 +3675,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3682,7 +3688,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2-2026-04-21": {
       "mode": "image_generation",
@@ -3691,6 +3697,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3703,7 +3710,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-flare": {
       "mode": "image_generation",
@@ -3712,6 +3719,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3724,7 +3732,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-flare-2026-09-08": {
       "mode": "image_generation",
@@ -3733,6 +3741,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3745,7 +3754,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-sunburst": {
       "mode": "image_generation",
@@ -3754,6 +3763,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3766,7 +3776,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-sunburst-2026-09-08": {
       "mode": "image_generation",
@@ -3775,6 +3785,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3787,7 +3798,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-realtime": {
       "mode": "chat",

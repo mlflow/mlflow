@@ -189,6 +189,17 @@ def test_signature_with_defaults():
     assert recreated(2, 3) == 8  # 2^3
 
 
+def test_signature_with_parentheses_in_defaults():
+    source = "return sep.join(parts) + suffix"
+    signature = "(parts=('a', 'b'), sep=str('-'), suffix=')') -> str"
+    func_name = "join_parts"
+
+    recreated = recreate_function(source, signature, func_name)
+
+    assert recreated() == "a-b)"
+    assert recreated(("x", "y"), "+", "") == "x+y"
+
+
 def test_complex_signature():
     source = """if data is None:
     data = []

@@ -2733,6 +2733,76 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
 
 
 @pytest.mark.parametrize(
+    ("complex_type", "values"),
+    [
+        (Array(DataType.string), [["a"], ["b"], ["c"], ["d"]]),
+        (
+            Object([Property("value", DataType.string)]),
+            [{"value": value} for value in "abcd"],
+        ),
+        (Map(value_type=DataType.string), [{"key": value} for value in "abcd"]),
+    ],
+)
+@pytest.mark.parametrize("named", [False, True])
+@pytest.mark.parametrize(
+    "index", [range(4), pd.Index(["first", "second", "third", "fourth"], name="row_id")]
+)
+def test_pyfunc_model_preserves_nondefault_dataframe_index(complex_type, values, named, index):
+    df = pd.DataFrame({"scalar": [1.0, 2.0, 3.0, 4.0], "complex": values}, index=index)
+    filtered_df = df.iloc[2:]
+    schema = Schema([
+        ColSpec(DataType.double, name="scalar" if named else None),
+        ColSpec(complex_type, name="complex" if named else None),
+    ])
+    model = Model()
+    model.signature = ModelSignature(inputs=schema)
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    pd.testing.assert_frame_equal(pyfunc_model.predict(filtered_df), filtered_df)
+
+
+@pytest.mark.parametrize("named", [False, True])
+def test_pyfunc_model_preserves_nondefault_dataframe_index_scalar_only(named):
+    df = pd.DataFrame(
+        {"scalar": [1, 2, 3, 4]},
+        index=pd.Index(["first", "second", "third", "fourth"], name="row_id"),
+        dtype=np.int32,
+    )
+    filtered_df = df.iloc[2:]
+    schema = Schema([ColSpec(DataType.double, name="scalar" if named else None)])
+    model = Model()
+    model.signature = ModelSignature(inputs=schema)
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    pd.testing.assert_frame_equal(pyfunc_model.predict(filtered_df), filtered_df.astype(float))
+
+
+@pytest.mark.parametrize("named", [False, True])
+def test_loaded_pyfunc_model_preserves_nondefault_dataframe_index(tmp_path, named):
+    class IdentityModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    df = pd.DataFrame(
+        {"scalar": [3.0, 4.0], "complex": [["c"], ["d"]]},
+        index=pd.Index(["third", "fourth"], name="row_id"),
+    )
+    schema = Schema([
+        ColSpec(DataType.double, name="scalar" if named else None),
+        ColSpec(Array(DataType.string), name="complex" if named else None),
+    ])
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=IdentityModel(),
+        signature=ModelSignature(inputs=schema),
+        pip_requirements=["mlflow"],
+    )
+
+    pd.testing.assert_frame_equal(mlflow.pyfunc.load_model(model_path).predict(df), df)
+
+
+@pytest.mark.parametrize(
     ("data", "schema"),
     [
         (
