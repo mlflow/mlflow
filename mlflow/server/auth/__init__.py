@@ -2351,29 +2351,34 @@ def _validate_can_read_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_read
 
 
-def _validate_can_update_registered_model_or_prompt():
-    """Base grant check, then the conditions that narrow it.
+def _authorize_registry_entry(action: str, scope: ConditionScope = ConditionScope.MUTATE) -> bool:
+    """Grants then conditions for a shared registry-entry route, in one call.
 
-    The legacy registry surface has no ``Requirement`` list, so it calls the
-    conditions half directly rather than through ``authorize`` -- wiring conditions
-    only into ``authorize`` would leave this route, one of the RFC's three primary
-    use cases, ungated (§4.1, D1).
+    The legacy-surface counterpart to ``authorize(..., conditions=...)``: this surface
+    has no ``Requirement`` list, so it cannot go through ``authorize`` and would
+    otherwise be left ungated, taking two of the RFC's three primary use cases with it
+    (§4.1, D1).
+
+    The ``and`` is load-bearing in both directions. It preserves the ordering invariant
+    -- conditions are consulted only after a grant check has passed, so they can never
+    confer access -- and its short-circuit means a denied request never loads conditions
+    or reads the resource.
+
+    Having one entry point rather than an open-coded pair per validator is the point: a
+    new registry validator gets the conditions half by default instead of having to
+    remember it, and forgetting it would be silently fail-open.
     """
     authz = _registry_entry_authz_from_request()
-    if not authz.permission.can_update:
-        return False
-    return authorize_on_conditions(
+    name = _get_request_param("name")
+    return action_met(action, authz.permission) and authorize_on_conditions(
         authenticate_request().username,
         authz.workspace,
-        [
-            context_for(
-                authz.resource_type,
-                _get_request_param("name"),
-                ConditionScope.MUTATE,
-                _request_values_for_current_request(),
-            )
-        ],
+        [context_for(authz.resource_type, name, scope, _request_values_for_current_request())],
     )
+
+
+def _validate_can_update_registered_model_or_prompt():
+    return _authorize_registry_entry("update")
 
 
 def _validate_can_delete_registered_model_or_prompt():
