@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790417560074,
+  "lastUpdate": 1790440921193,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "hkawamura0130@gmail.com",
-            "name": "Harutaka Kawamura",
-            "username": "harupy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77769e5f3022ba92da4f5a9a9cba7b31d0ede758",
-          "message": "Drop infeasible \"Don't crash without the tracking server\" rule from `instrument.md` (#23806)\n\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-05T10:43:08Z",
-          "tree_id": "1a1500b49d3c2252d290283fb92b0722f1388d7d",
-          "url": "https://github.com/mlflow/mlflow/commit/77769e5f3022ba92da4f5a9a9cba7b31d0ede758"
-        },
-        "date": 1780656411787,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 48.356248699995774,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.212847999999184,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.050338129032664,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.96634946296247,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 21.925436440679345,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.914751399998067,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 20.16155420000132,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73396868+r14dd@users.noreply.github.com",
+            "name": "Riad Mukhtarov",
+            "username": "r14dd"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8407b5400e08bc0c80eead0acb414526f2b25e76",
+          "message": "Handle mixed text and `functionCall` parts in `GeminiAdapter` (#26109)\n\nSigned-off-by: Riad Mukhtarov <riad.mrv@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>",
+          "timestamp": "2026-09-26T16:38:18Z",
+          "tree_id": "186a2ca49dcbd61a3ada40c8df3fb956e790f7c3",
+          "url": "https://github.com/mlflow/mlflow/commit/8407b5400e08bc0c80eead0acb414526f2b25e76"
+        },
+        "date": 1790440918282,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 54.08987699999841,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.730445639999289,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.765753134454358,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.772723574999636,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.0567859714293215,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.605001200009156,
             "unit": "ms"
           }
         ]
