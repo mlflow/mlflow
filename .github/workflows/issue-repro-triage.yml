@@ -1,0 +1,133 @@
+name: Issue reproduction triage
+
+cache-mode: none
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Positive GitHub issue number to investigate"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  investigate:
+    if: >-
+      github.repository == 'mlflow/mlflow' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Validate issue number
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          if ! [[ "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "issue_number must be a positive integer" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify trusted checkout
+        id: checkout
+        env:
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          checkout_sha="$(git rev-parse HEAD)"
+          test "$checkout_sha" = "$EVENT_SHA"
+          echo "sha=$checkout_sha" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Fetch bounded issue context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPOSITORY/issues/$ISSUE_NUMBER" > issue-raw.json
+          jq -e 'select(.state == "open" and (has("pull_request") | not)) |
+            {number, state, title, body, labels: [.labels[].name]}' \
+            issue-raw.json > issue.json
+          rm issue-raw.json
+
+      - name: Build offline reproduction image
+        run: |
+          docker build --pull=false \
+            --file dev/issue_repro_runtime/Dockerfile \
+            --tag mlflow-issue-repro:local .
+
+      - name: Run reproduction triage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          CHECKOUT_SHA: ${{ steps.checkout.outputs.sha }}
+          EVENT_SHA: ${{ github.sha }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python dev/issue_repro_triage.py \
+            --issue issue.json \
+            --repository "$REPOSITORY" \
+            --issue-number "$ISSUE_NUMBER" \
+            --event-sha "$EVENT_SHA" \
+            --checkout-sha "$CHECKOUT_SHA" \
+            --out report.json
+
+      - name: Validate and summarize report
+        env:
+          CHECKOUT_SHA: ${{ steps.checkout.outputs.sha }}
+          EVENT_SHA: ${{ github.sha }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          test "$(wc -c < report.json)" -le 32768
+          jq -e \
+            --arg repository "$REPOSITORY" \
+            --argjson issue_number "$ISSUE_NUMBER" \
+            --arg event_sha "$EVENT_SHA" \
+            --arg checkout_sha "$CHECKOUT_SHA" \
+            '.binding == {
+              repository: $repository,
+              issue_number: $issue_number,
+              event_sha: $event_sha,
+              checkout_sha: $checkout_sha
+            } and
+            (.proposed_outcome == "ready" or
+             .proposed_outcome == "requires-further-triage")' \
+            report.json > /dev/null
+          outcome="$(jq -r '.proposed_outcome' report.json)"
+          {
+            echo "## Issue reproduction triage"
+            echo
+            echo "Proposed outcome: \`$outcome\`"
+            echo
+            echo "Checked commit: \`$CHECKOUT_SHA\`"
+            echo
+            echo "Download the compact report artifact for sanitized evidence."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload compact triage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: issue-repro-triage-${{ inputs.issue_number }}-${{ github.sha }}
+          path: report.json
+          if-no-files-found: error
+          retention-days: 3
