@@ -3730,8 +3730,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 ]
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
+                # Select distinct model IDs rather than whole metric rows. A model
+                # can log the same metric at several steps, runs or datasets, and
+                # joining those rows would duplicate the model before OFFSET/LIMIT
+                # is applied, so a page could hold fewer models than requested and
+                # pagination could stop while matches remain.
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
+                    session
+                    .query(SqlLoggedModelMetric.model_id)
+                    .filter(*metric_filters)
+                    .distinct()
+                    .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
