@@ -82,7 +82,7 @@ jobs:
     # `.github/policy.rego`'s require-explicit-permissions rule.
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Resolve PR number

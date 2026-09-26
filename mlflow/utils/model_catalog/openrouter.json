@@ -1550,9 +1550,9 @@
         "max_tokens": 384000
       },
       "pricing": {
-        "input_per_million_tokens": 0.084,
-        "output_per_million_tokens": 0.168,
-        "cache_read_per_million_tokens": 0.0168
+        "input_per_million_tokens": 0.049,
+        "output_per_million_tokens": 0.098,
+        "cache_read_per_million_tokens": 0.0098
       },
       "capabilities": {
         "function_calling": true,
@@ -1675,9 +1675,9 @@
         "max_tokens": 384000
       },
       "pricing": {
-        "input_per_million_tokens": 0.91263,
-        "output_per_million_tokens": 1.82526,
-        "cache_read_per_million_tokens": 0.0760525
+        "input_per_million_tokens": 0.844944,
+        "output_per_million_tokens": 1.689888,
+        "cache_read_per_million_tokens": 0.070412
       },
       "capabilities": {
         "function_calling": true,
@@ -4168,9 +4168,9 @@
         "max_tokens": 209715
       },
       "pricing": {
-        "input_per_million_tokens": 0.55,
-        "output_per_million_tokens": 1.65,
-        "cache_read_per_million_tokens": 0.055
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.05
       },
       "capabilities": {
         "function_calling": true,
@@ -4179,7 +4179,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-09-25"
     },
     "mistralai/mistral-large-2512:batch": {
       "mode": "chat",
@@ -10593,9 +10593,9 @@
         "max_tokens": 943718
       },
       "pricing": {
-        "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.5,
-        "cache_read_per_million_tokens": 0.05
+        "input_per_million_tokens": 0.045,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.0285
       },
       "capabilities": {
         "function_calling": true,
@@ -10604,7 +10604,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-22"
+      "last_updated_at": "2026-09-25"
     },
     "z-ai/glm-5.3-flash:batch": {
       "mode": "chat",
