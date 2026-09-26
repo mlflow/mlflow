@@ -1,4 +1,5 @@
 import json
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,6 +21,7 @@ from mlflow.genai.discovery.entities import (
 )
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
+    _cluster_and_identify,
     _dedup_issues,
     _is_non_issue,
     build_issue_discovery_scorer,
@@ -1184,6 +1186,156 @@ def _make_dedup_response(
         for i, indices in enumerate(groups)
     ]
     return _make_litellm_response(json.dumps({"groups": group_objects}))
+
+
+@pytest.mark.parametrize(
+    ("severities", "max_issues", "expected_indices"),
+    [
+        pytest.param(["high", "high", "high", "high"], 2, [[0, 1], [2]], id="stable-ties"),
+        pytest.param(["low", "low", "medium", "high"], 2, [[4], [3]], id="high-last"),
+        pytest.param(["high", "low", "medium", "low"], 2, [[0, 1], [3]], id="high-first"),
+        pytest.param(["low", "low", "medium", "high"], 3, [[4], [3], [0, 1]], id="cutoff-tie"),
+        pytest.param(["low", "low", "medium", "high"], 4, [[0, 1], [2], [3], [4]], id="at-limit"),
+    ],
+)
+@pytest.mark.parametrize(
+    "empty_refinement", [False, True], ids=["explicit-groups", "empty-response"]
+)
+def test_cluster_and_identify_limits_combined_refined_issues(
+    severities, max_issues, expected_indices, empty_refinement, caplog, monkeypatch
+):
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    labels = [f"Tool {i} failed" for i in range(5)]
+    analyses = [
+        _ConversationAnalysis(full_rationale=label, affected_trace_ids=[f"trace-{i}"])
+        for i, label in enumerate(labels)
+    ]
+    initial_response = _make_litellm_response(
+        json.dumps({
+            "groups": [
+                {"name": "Shared failure", "indices": [0, 1]},
+                {"name": "Unrelated failures", "indices": [2, 3, 4]},
+            ]
+        })
+    )
+    refinement_response = _make_litellm_response(
+        ""
+        if empty_refinement
+        else json.dumps({"groups": [{"name": f"Failure {i}", "indices": [i]} for i in range(3)]})
+    )
+
+    severity_by_group = dict(zip([(0, 1), (2,), (3,), (4,)], severities))
+    severity_by_group[(2, 3, 4)] = "not_an_issue"
+
+    def summarize(indices, *args, **kwargs):
+        return create_identified_issue(
+            example_indices=indices,
+            severity=severity_by_group[tuple(indices)],
+        )
+
+    with (
+        caplog.at_level(logging.INFO, logger="mlflow.genai.discovery.pipeline"),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(labels, list(range(5))),
+        ) as mock_extract,
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster", side_effect=summarize
+        ) as mock_summary,
+        patch(
+            "mlflow.genai.discovery.clustering._call_llm",
+            side_effect=[initial_response, refinement_response],
+        ) as mock_cluster,
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm", return_value=_make_dedup_response([])
+        ) as mock_dedup,
+    ):
+        result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
+
+    assert [issue.example_indices for issue in result] == expected_indices
+    limit_logs = [
+        record
+        for record in caplog.records
+        if record.name == "mlflow.genai.discovery.pipeline" and "max_issues" in record.getMessage()
+    ]
+    if max_issues < 4:
+        assert [(record.levelno, record.args) for record in limit_logs] == [
+            (logging.INFO, (4, max_issues, 4 - max_issues))
+        ]
+    else:
+        assert limit_logs == []
+    mock_extract.assert_called_once()
+    assert mock_summary.call_count == 5
+    assert mock_cluster.call_count == 2
+    mock_dedup.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("severities", "max_issues", "expected_indices"),
+    [
+        (["high", "high", "high"], 2, [[0], [1]]),
+        (["low", "medium", "high"], 2, [[2], [1]]),
+        (["medium", "high", "high"], 2, [[1], [2]]),
+        (["low", "medium", "high"], 3, [[0], [1], [2]]),
+        (["low", "medium", "high"], 4, [[0], [1], [2]]),
+    ],
+)
+def test_cluster_and_identify_limits_rejected_singleton_merge(
+    severities, max_issues, expected_indices, caplog, monkeypatch
+):
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    analyses = [
+        _ConversationAnalysis(full_rationale=f"Failure {i}", affected_trace_ids=[f"trace-{i}"])
+        for i in range(3)
+    ]
+    grouped_response = _make_litellm_response(
+        json.dumps({"groups": [{"name": "Unrelated failures", "indices": [0, 1, 2]}]})
+    )
+
+    def summarize(indices, *args, **kwargs):
+        return create_identified_issue(
+            example_indices=indices,
+            severity="not_an_issue" if len(indices) > 1 else severities[indices[0]],
+        )
+
+    with (
+        caplog.at_level(logging.INFO, logger="mlflow.genai.discovery.pipeline"),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=([f"Failure {i}" for i in range(3)], [0, 1, 2]),
+        ) as mock_extract,
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster", side_effect=summarize
+        ) as mock_summary,
+        patch(
+            "mlflow.genai.discovery.clustering.summarize_cluster", side_effect=summarize
+        ) as mock_refinement_summary,
+        patch(
+            "mlflow.genai.discovery.clustering._call_llm", return_value=grouped_response
+        ) as mock_cluster,
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm", return_value=_make_dedup_response([])
+        ) as mock_dedup,
+    ):
+        result = _cluster_and_identify(analyses, DEFAULT_MODEL, max_issues, categories=[])
+
+    assert [issue.example_indices for issue in result] == expected_indices
+    limit_logs = [
+        record
+        for record in caplog.records
+        if record.name == "mlflow.genai.discovery.pipeline" and "max_issues" in record.getMessage()
+    ]
+    if max_issues < 3:
+        assert [(record.levelno, record.args) for record in limit_logs] == [
+            (logging.INFO, (3, 2, 1))
+        ]
+    else:
+        assert limit_logs == []
+    mock_extract.assert_called_once()
+    assert mock_summary.call_count == 4
+    mock_refinement_summary.assert_called_once()
+    assert mock_cluster.call_count == 2
+    mock_dedup.assert_called_once()
 
 
 def test_dedup_issues_empty():

@@ -514,7 +514,7 @@ def _cluster_and_identify(
     analysis_labels: dict[int, str] = {}
     for label, analysis_idx in zip(labels, label_to_analysis):
         analysis_labels.setdefault(analysis_idx, label)
-    return _merge_singleton_issues(
+    identified = _merge_singleton_issues(
         identified,
         analysis_labels,
         analyses,
@@ -523,6 +523,16 @@ def _cluster_and_identify(
         categories=categories,
         token_counter=token_counter,
     )
+    # Refinement can expand groups or restore singletons after a rejected merge.
+    if len(identified) > max_issues:
+        _logger.info(
+            "Found %d issues; retaining %d by severity and omitting %d to respect max_issues.",
+            len(identified),
+            max_issues,
+            len(identified) - max_issues,
+        )
+        identified = sorted(identified, key=lambda issue: issue.severity, reverse=True)[:max_issues]
+    return identified
 
 
 def _build_issues(
