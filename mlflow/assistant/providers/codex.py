@@ -25,6 +25,7 @@ from mlflow.assistant.providers.base import (
     load_config_or_default,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
+from mlflow.assistant.providers.tool_executor import is_remote_caller
 from mlflow.assistant.types import Event, Message, TextBlock
 from mlflow.server.assistant.session import (
     clear_container_id,
@@ -39,6 +40,14 @@ from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 _logger = logging.getLogger(__name__)
 
 _CODEX_BINARY = "codex"
+
+
+def _codex_sandbox_mode() -> str:
+    # A remote caller is capped at the restricted profile: codex runs confined to the workspace
+    # rather than with full host access, even inside the assistant's sandbox container. A local
+    # caller (operator on the server host) keeps full access.
+    return "workspace-write" if is_remote_caller() else "danger-full-access"
+
 
 # In the sandbox, if codex cannot reach the API it streams "Reconnecting..." error events
 # continuously (it never gives up on its own), so the container's no-output idle-timeout never
@@ -81,9 +90,11 @@ class CodexProvider(AssistantProvider):
 
     @property
     def allows_remote_access(self) -> bool:
-        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
-        # it runs isolated in a container, so it can safely serve remote clients.
-        return assistant_sandbox_enabled()
+        # Local-only. The Codex CLI authenticates with host-side credentials (an interactive login
+        # or an API key on the server) that belong to the operator, not the remote caller. Even
+        # when sandboxed there is no per-user credential to run it as, so it must never serve
+        # remote clients; only the Gateway provider does.
+        return False
 
     def is_available(self) -> bool:
         # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
@@ -209,7 +220,7 @@ class CodexProvider(AssistantProvider):
             "exec",
             "--json",
             "--sandbox",
-            "danger-full-access",
+            _codex_sandbox_mode(),
             "--skip-git-repo-check",
         ]
 
@@ -402,7 +413,7 @@ class CodexProvider(AssistantProvider):
             "exec",
             "--json",
             "--sandbox",
-            "danger-full-access",
+            _codex_sandbox_mode(),
             "--skip-git-repo-check",
         ]
         input_files: dict[str, str] = {}
