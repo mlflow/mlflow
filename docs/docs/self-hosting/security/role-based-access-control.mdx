@@ -122,9 +122,11 @@ in another is worse than no grant, so the server refuses it at the source
 rather than dropping it later.
 :::
 
-Editing a run in experiment 42, to show how the two combine. The first five rows
-hold in any configuration, because an explicit grant on the experiment settles the
-container check:
+Editing a run in experiment 42, to show how the two combine. The first five rows have
+an explicit grant on the experiment, so the container check is settled whatever
+`default_permission` is. They assume that default is `READ` or `NO_PERMISSIONS`: a
+higher default floors positive grants upward, which would raise row 2's
+`(run, *, READ)` and let it edit after all.
 
 | Grants                                        | Read run  | Edit run  | Why                                                |
 | --------------------------------------------- | --------- | --------- | -------------------------------------------------- |
@@ -187,7 +189,10 @@ container, which is what steps 3 and 5 cover.
    inside an `experiment` - each tier holding no grant is silent and the next one
    decides. The step 3 READ check applies either way: a tier grant does not waive it.
 6. **Server `default_permission`** (defaults to `READ`) - a floor max'd into the
-   resolution result, and the final answer when no role grant matches at all. The
+   resolution result, and the final answer when no role grant matches at all. It
+   floors a tier grant as readily as a container grant, so a default above `READ`
+   raises a deliberately narrow tier grant and a tier cannot be used to restrict
+   below the default - use `DENY`, which is exempt. The
    floor does **not** lift `NO_PERMISSIONS` - when the resolver returns it for a
    workspace-boundary reason (no workspace membership, missing workspace, lookup
    error), that deny stands - and it does not lift `DENY` either, since flooring an
