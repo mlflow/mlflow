@@ -3,6 +3,7 @@ import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import { map } from 'lodash';
+import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
@@ -26,10 +27,17 @@ const ExperimentPageRoutePathToTabNameMap = map(
 );
 
 // Gets exact tab name based on given pathname
-const getTabNameFromRoutePath = (pathname: string) =>
-  ExperimentPageRoutePathToTabNameMap
+const getTabNameFromRoutePath = (pathname: string) => {
+  const tabName = ExperimentPageRoutePathToTabNameMap
     // Find the first route path that matches the given pathname
     .find(({ routePath }) => Boolean(matchPath(routePath, pathname)))?.tabName;
+  // The Sessions view is deprecated in favor of the Traces tab's session grouping, so single
+  // chat session routes resolve to the Traces tab when session grouping is enabled.
+  if (tabName === ExperimentPageTabName.SingleChatSession && shouldEnableSessionGrouping()) {
+    return ExperimentPageTabName.Traces;
+  }
+  return tabName;
+};
 
 // Maps exact tab names to top-level tab names
 const getTopLevelTab = (tabName?: ExperimentPageTabName) => {

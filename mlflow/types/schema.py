@@ -6,7 +6,7 @@ import json
 import string
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from dataclasses import is_dataclass
+from dataclasses import fields, is_dataclass
 from enum import Enum
 from types import UnionType
 from typing import Any, TypedDict, Union, get_args, get_origin
@@ -1477,9 +1477,7 @@ def _convert_dataclass_to_nested_object(dataclass):
     """
     Convert a nested dataclass to an Object type used within a ColSpec.
     """
-    properties = []
-    for field_name, field_type in dataclass.__annotations__.items():
-        properties.append(_convert_field_to_property(field_name, field_type))
+    properties = [_convert_field_to_property(field.name, field.type) for field in fields(dataclass)]
     return Object(properties=properties)
 
 

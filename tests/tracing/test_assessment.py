@@ -795,11 +795,16 @@ def test_search_traces_with_assessments():
         return_type="list",
         order_by=["timestamp_ms"],
     )
-    # Verify the results
+    # Verify the results. trace_1 and trace_2 can be created within the same
+    # millisecond, and search tie-breaks equal timestamp_ms on the (random)
+    # request_id, so result position is not creation order. Key by trace id
+    # instead of asserting on a fixed position.
     assert len(traces) == 2
-    assert len(traces[0].info.assessments) == 3
+    traces_by_id = {trace.info.trace_id: trace for trace in traces}
 
-    assessments = {a.name: a for a in traces[0].info.assessments}
+    trace_1 = traces_by_id[span_1.trace_id]
+    assert len(trace_1.info.assessments) == 3
+    assessments = {a.name: a for a in trace_1.info.assessments}
     assert assessments["feedback_1"].trace_id == span_1.trace_id
     assert assessments["feedback_1"].name == "feedback_1"
     assert assessments["feedback_1"].value == 1.0
@@ -810,8 +815,9 @@ def test_search_traces_with_assessments():
     assert assessments["feedback_2"].name == "feedback_2"
     assert assessments["feedback_2"].value == 1.0
 
-    assert len(traces[1].info.assessments) == 1
-    assessment = traces[1].info.assessments[0]
+    trace_2 = traces_by_id[span_2.trace_id]
+    assert len(trace_2.info.assessments) == 1
+    assessment = trace_2.info.assessments[0]
     assert assessment.trace_id == span_2.trace_id
     assert assessment.name == "feedback_3"
     assert assessment.value == 1.0

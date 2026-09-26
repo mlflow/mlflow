@@ -610,13 +610,47 @@ def test_list_builtin_scorers_shows_all_available_scorers(runner):
     result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
     assert result.exit_code == 0
 
-    expected_scorers = get_all_scorers()
-    expected_names = {scorer.name for scorer in expected_scorers}
+    # The catalog is a superset of get_all_scorers(): it also includes scorers with
+    # required constructor arguments, which get_all_scorers() cannot instantiate.
+    default_names = {scorer.name for scorer in get_all_scorers()}
 
     data = json.loads(result.output)
     actual_names = {s["name"] for s in data["scorers"]}
 
-    assert actual_names == expected_names
+    assert default_names <= actual_names
+    assert {"guidelines", "regex_match", "response_length"} <= actual_names
+    assert {"guidelines", "regex_match", "response_length"}.isdisjoint(default_names)
+
+
+def test_list_builtin_scorers_includes_data_contract(runner):
+    result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
+    assert result.exit_code == 0
+
+    scorers = {s["name"]: s for s in json.loads(result.output)["scorers"]}
+
+    # Constructor-arg scorer surfaces its required args and data contract.
+    assert scorers["guidelines"]["required_args"] == ["guidelines"]
+    assert scorers["regex_match"]["required_args"] == ["pattern"]
+    assert scorers["regex_match"]["required_columns"] == ["outputs"]
+
+    # Retrieval scorers require RETRIEVER trace data.
+    assert scorers["retrieval_groundedness"]["required_columns"] == ["inputs", "trace"]
+
+    # Session-level scorers are flagged and require trace data; single-turn are not.
+    assert scorers["user_frustration"]["session_level"] is True
+    assert scorers["user_frustration"]["required_columns"] == ["trace"]
+    assert scorers["correctness"]["session_level"] is False
+    assert scorers["correctness"]["required_args"] == []
+
+
+def test_list_builtin_scorers_table_has_new_columns(runner):
+    result = runner.invoke(commands, ["list", "--builtin"])
+    assert result.exit_code == 0
+
+    for header in ("Scorer Name", "Requires", "Session", "Args", "Description"):
+        assert header in result.output
+    # The arg-requiring scorer that get_all_scorers() omits is present.
+    assert "guidelines" in result.output
 
 
 def test_list_scorers_mutually_exclusive_flags(runner, experiment):

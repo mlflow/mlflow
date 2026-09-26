@@ -4,6 +4,23 @@ import { tmpdir } from 'node:os';
 
 import type { TranscriptEntry } from '../src/types';
 
+// Keep unit tests offline and deterministic: disable the remote model-catalog
+// lookup so processTranscript prices with the bundled snapshot. Restored in
+// afterAll so the override does not leak into other test files in the worker.
+const ORIGINAL_CATALOG_URI = process.env.MLFLOW_MODEL_CATALOG_URI;
+
+beforeAll(() => {
+  process.env.MLFLOW_MODEL_CATALOG_URI = '';
+});
+
+afterAll(() => {
+  if (ORIGINAL_CATALOG_URI === undefined) {
+    delete process.env.MLFLOW_MODEL_CATALOG_URI;
+  } else {
+    process.env.MLFLOW_MODEL_CATALOG_URI = ORIGINAL_CATALOG_URI;
+  }
+});
+
 // ============================================================================
 // Mock @mlflow/core
 // ============================================================================
@@ -63,6 +80,7 @@ jest.mock('@mlflow/core', () => {
         setAttribute: jest.fn((key: string, value: any) => {
           span.attributes[key] = value;
         }),
+        getAttribute: jest.fn((key: string): unknown => span.attributes[key] as unknown),
         setOutputs: jest.fn((outputs: any) => {
           span.outputs = outputs;
         }),
@@ -104,6 +122,7 @@ jest.mock('@mlflow/core', () => {
       getInstance: jest.fn(() => ({
         getTrace: jest.fn(() => ({
           info: mockTraceInfo,
+          spanDict: new Map(Object.entries(mockSpans)),
         })),
       })),
     },
@@ -228,6 +247,58 @@ describe('processTranscript', () => {
   // Token usage
   // --------------------------------------------------------------------------
 
+  describe('cost', () => {
+    it('sets mlflow.llm.cost on LLM spans and aggregates to trace metadata', async () => {
+      await processTranscript(resolve(FIXTURES_DIR, 'with-usage.jsonl'), 'test-session-usage');
+
+      const llms = getSpansByType('LLM');
+      expect(llms).toHaveLength(1);
+      // claude-sonnet-4 @ input=10, cacheRead=40, cacheWrite=100, output=25:
+      // input_cost = 10*3e-6 + 40*0.3e-6 + 100*3.75e-6 = 0.000417; output = 25*15e-6 = 0.000375.
+      const cost = llms[0].attributes['mlflow.llm.cost'];
+      expect(cost).toBeDefined();
+      expect(cost.input_cost).toBeCloseTo(0.000417, 9);
+      expect(cost.output_cost).toBeCloseTo(0.000375, 9);
+      expect(cost.total_cost).toBeCloseTo(0.000792, 9);
+
+      // Trace-level cost mirrors the single LLM turn's cost breakdown.
+      const traceCost = JSON.parse(mockTraceInfo.traceMetadata['mlflow.trace.cost']);
+      expect(traceCost.input_cost).toBeCloseTo(0.000417, 9);
+      expect(traceCost.output_cost).toBeCloseTo(0.000375, 9);
+      expect(traceCost.total_cost).toBeCloseTo(0.000792, 9);
+    });
+
+    it('does not set cost for unknown models', async () => {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-cost-'));
+      const transcriptPath = resolve(tmpDir, 'unknown-model.jsonl');
+      const entries: TranscriptEntry[] = [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'Hi' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello' }],
+            model: 'some-other-model',
+            usage: { input_tokens: 10, output_tokens: 5 },
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+      ];
+      writeFileSync(transcriptPath, entries.map((e) => JSON.stringify(e)).join('\n'));
+
+      await processTranscript(transcriptPath, 'unknown-model-session');
+
+      const llms = getSpansByType('LLM');
+      expect(llms).toHaveLength(1);
+      expect(llms[0].attributes['mlflow.llm.cost']).toBeUndefined();
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.cost']).toBeUndefined();
+    });
+  });
+
   describe('token usage', () => {
     it('preserves cache tokens as separate fields and excludes cache from total', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'with-usage.jsonl'), 'test-session-usage');
@@ -276,6 +347,22 @@ describe('processTranscript', () => {
       expect(tokenUsage.total_tokens).toBe(10);
       expect(tokenUsage).not.toHaveProperty('cache_read_input_tokens');
       expect(tokenUsage).not.toHaveProperty('cache_creation_input_tokens');
+    });
+
+    it('records usage and cost for tool, thinking, and split assistant messages', async () => {
+      await processTranscript(resolve(FIXTURES_DIR, 'usage-gaps.jsonl'), 'usage-gaps-session');
+      const llms = getSpansByType('LLM');
+      expect(llms).toHaveLength(3);
+      const usageKey = 'mlflow.chat.tokenUsage';
+      const usageField = (field: string) =>
+        llms.map((llm) => Number(llm.attributes[usageKey][field]));
+      expect(usageField('input_tokens')).toEqual(Array(3).fill(10));
+      expect(usageField('output_tokens')).toEqual(Array(3).fill(25));
+      expect(llms[2].endTimeNs! - llms[2].startTimeNs!).toBe(2_500_000_000);
+      const root = getSpansByName('claude_code_conversation')[0];
+      expect(root.endTimeNs).toBeGreaterThanOrEqual(Math.max(...llms.map((llm) => llm.endTimeNs!)));
+      const traceCost = JSON.parse(mockTraceInfo.traceMetadata['mlflow.trace.cost']);
+      expect(traceCost.total_cost).toBeCloseTo(0.000792 * 3, 9);
     });
   });
 

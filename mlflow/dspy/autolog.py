@@ -1,4 +1,3 @@
-import importlib
 import logging
 
 from packaging.version import Version
@@ -9,6 +8,7 @@ from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -76,7 +76,9 @@ def autolog(
         if not any(isinstance(c, MlflowCallback) for c in dspy.settings.callbacks):
             dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
         # DSPy token tracking has an issue before 3.0.4: https://github.com/stanfordnlp/dspy/pull/8831
-        if Version(importlib.metadata.version("dspy")) >= Version("3.0.4"):
+        if (dspy_version := get_installed_version("dspy")) is not None and dspy_version >= Version(
+            "3.0.4"
+        ):
             dspy.settings.configure(track_usage=True)
 
     else:
@@ -189,10 +191,9 @@ def _patched_compile(original, self, *args, **kwargs):
     save_dspy_module_state(program, "best_model.json")
 
     # Teleprompter.get_params is introduced in dspy 2.6.15
+    dspy_version = get_installed_version("dspy")
     params = (
-        self.get_params()
-        if Version(importlib.metadata.version("dspy")) >= Version("2.6.15")
-        else {}
+        self.get_params() if dspy_version is not None and dspy_version >= Version("2.6.15") else {}
     )
     # Construct the dict of arguments passed to the compile call
     inputs = construct_full_inputs(original, self, *args, **kwargs)

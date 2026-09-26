@@ -6,8 +6,16 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment, GetExperiment
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.server_info import SERVER_INFO_ENDPOINT, _clear_server_info_cache
 
 ACTIVE_WORKSPACE = "team-a"
+
+
+@pytest.fixture(autouse=True)
+def clear_server_info_cache():
+    _clear_server_info_cache()
+    yield
+    _clear_server_info_cache()
 
 
 def test_supports_workspaces_queries_endpoint():
@@ -17,9 +25,7 @@ def test_supports_workspaces_queries_endpoint():
     response.status_code = 200
     response.json.return_value = {"workspaces_enabled": True}
 
-    with mock.patch(
-        "mlflow.store.workspace_rest_store_mixin.http_request", return_value=response
-    ) as mock_http:
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response) as mock_http:
         assert store.supports_workspaces is True
         # Cached result prevents additional requests
         assert store.supports_workspaces is True
@@ -27,7 +33,7 @@ def test_supports_workspaces_queries_endpoint():
     mock_http.assert_called_once()
     _, kwargs = mock_http.call_args
     assert kwargs["host_creds"] is creds
-    assert kwargs["endpoint"] == "/api/3.0/mlflow/server-info"
+    assert kwargs["endpoint"] == SERVER_INFO_ENDPOINT
     assert kwargs["method"] == "GET"
     assert kwargs["timeout"] == 3
     assert kwargs["max_retries"] == 0
@@ -41,7 +47,7 @@ def test_supports_workspaces_returns_false_on_failure():
     response.status_code = 404
     response.text = "not found"
 
-    with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request", return_value=response):
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response):
         assert store.supports_workspaces is False
 
 
@@ -52,7 +58,7 @@ def test_supports_workspaces_handles_missing_json_keys():
     response.status_code = 200
     response.json.return_value = {}
 
-    with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request", return_value=response):
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response):
         assert store.supports_workspaces is False
 
 
@@ -60,7 +66,7 @@ def test_supports_workspaces_returns_false_for_databricks_uri():
     creds = MlflowHostCreds("databricks")
     store = RestStore(lambda: creds)
 
-    with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request") as mock_http:
+    with mock.patch("mlflow.utils.server_info.http_request") as mock_http:
         assert store.supports_workspaces is False
         # Should not probe the server for Databricks URIs
         mock_http.assert_not_called()
@@ -73,9 +79,60 @@ def test_supports_workspaces_raises_on_server_error():
     response.status_code = 500
     response.text = "Internal Server Error"
 
-    with mock.patch("mlflow.store.workspace_rest_store_mixin.http_request", return_value=response):
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response):
         with pytest.raises(MlflowException, match="Failed to query.*500"):
             store.supports_workspaces
+
+
+def test_supports_workspaces_raises_internal_error_on_request_exception():
+    creds = MlflowHostCreds("https://example")
+    store = RestStore(lambda: creds)
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=ConnectionError("connection refused"),
+    ):
+        with pytest.raises(MlflowException, match="Failed to query.*connection refused"):
+            store.supports_workspaces
+
+
+def test_supports_workspaces_raises_internal_error_on_malformed_json():
+    creds = MlflowHostCreds("https://example")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock(status_code=200)
+    response.json.side_effect = ValueError("bad json")
+
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response):
+        with pytest.raises(MlflowException, match="Invalid JSON returned"):
+            store.supports_workspaces
+
+
+def test_supports_workspaces_shares_successful_result_across_store_instances():
+    creds1 = MlflowHostCreds("https://example")
+    creds2 = MlflowHostCreds("https://example")
+    store1 = RestStore(lambda: creds1)
+    store2 = RestStore(lambda: creds2)
+    response = mock.MagicMock(status_code=200)
+    response.json.return_value = {"workspaces_enabled": True}
+
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response) as mock_http:
+        assert store1.supports_workspaces is True
+        assert store2.supports_workspaces is True
+
+    mock_http.assert_called_once()
+
+
+def test_supports_workspaces_does_not_share_different_path_prefixes():
+    store1 = RestStore(lambda: MlflowHostCreds("https://example"))
+    store2 = RestStore(lambda: MlflowHostCreds("https://example/mlflow"))
+    response = mock.MagicMock(status_code=200)
+    response.json.return_value = {"workspaces_enabled": True}
+
+    with mock.patch("mlflow.utils.server_info.http_request", return_value=response) as mock_http:
+        assert store1.supports_workspaces is True
+        assert store2.supports_workspaces is True
+
+    assert mock_http.call_count == 2
 
 
 def test_rest_store_workspace_guard():

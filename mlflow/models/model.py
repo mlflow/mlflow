@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.run_outputs import RunOutputs
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
@@ -28,6 +29,8 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.telemetry.events import LogModelEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
@@ -1058,6 +1061,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
+    @record_usage_event(LogModelEvent)
     def log(
         cls,
         artifact_path,
@@ -1194,9 +1198,15 @@ class Model:
 
             with _use_logged_model(model=model):
                 if run_id is not None:
-                    client.log_outputs(
-                        run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
-                    )
+                    model_output = LoggedModelOutput(model.model_id, step=step)
+                    client.log_outputs(run_id=run_id, models=[model_output])
+                    # Update in-memory active run outputs to keep cached state in sync
+                    active_run = mlflow.active_run()
+                    if active_run is not None and active_run.info.run_id == run_id:
+                        if active_run.outputs is None:
+                            active_run._outputs = RunOutputs(model_outputs=[model_output])
+                        else:
+                            active_run.outputs.model_outputs.append(model_output)
                     log_model_metrics_for_step(
                         client=client, model_id=model.model_id, run_id=run_id, step=step
                     )

@@ -39,6 +39,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
+    should_compute_cost_client_side,
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -685,6 +686,77 @@ def test_get_spans_table_name_for_trace_no_destination():
         assert result is None
 
 
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [
+        ("databricks", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://tracking.example.com", False),
+    ],
+)
+def test_should_compute_cost_client_side(tracking_uri, expected):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value=tracking_uri
+    ):
+        assert should_compute_cost_client_side() is expected
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+def test_sagemaker_cost_computed_when_span_ends(mock_litellm_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == {
+        CostKey.INPUT_COST: 100.0,
+        CostKey.OUTPUT_COST: 100.0,
+        CostKey.TOTAL_COST: 200.0,
+    }
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+@pytest.mark.parametrize(
+    "manual_cost",
+    [
+        None,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    ],
+)
+def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost, manual_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+    span.set_attribute(SpanAttributeKey.LLM_COST, manual_cost)
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert SpanAttributeKey.LLM_COST in span._span.attributes
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == manual_cost
+    mock_litellm_cost.assert_not_called()
+
+
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
@@ -757,6 +829,20 @@ def test_builtin_cost_fallback_when_litellm_unavailable():
     assert result["total_cost"] == pytest.approx(0.0075)
 
 
+def test_builtin_cost_fallback_for_typesafe_preview_model():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "jev-preview",
+            {"input_tokens": 1_000_000, "output_tokens": 0},
+            model_provider="typesafe",
+        )
+    assert result == {
+        "input_cost": pytest.approx(0.042),
+        "output_cost": 0,
+        "total_cost": pytest.approx(0.042),
+    }
+
+
 def test_builtin_cost_fallback_returns_none_for_unknown_model():
     with mock.patch.dict("sys.modules", {"litellm": None}):
         result = calculate_cost_by_model_and_token_usage(
@@ -777,6 +863,47 @@ def test_builtin_cost_fallback_with_cache_tokens():
         )
     assert result is not None
     assert result["input_cost"] == pytest.approx(0.00225)
+
+
+def test_builtin_cost_prices_1hr_cache_creation_higher():
+    # claude-haiku-4-5 publishes a 1-hour cache-creation rate higher than the 5-minute rate,
+    # so pricing part of the cache-creation tokens at the 1-hour rate raises the input cost.
+    model = "claude-haiku-4-5"
+    base_usage = {
+        "input_tokens": 1000,
+        "output_tokens": 100,
+        "cache_creation_input_tokens": 300,
+    }
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        without_1hr = calculate_cost_by_model_and_token_usage(
+            model, base_usage, model_provider="anthropic"
+        )
+        with_1hr = calculate_cost_by_model_and_token_usage(
+            model,
+            {**base_usage, "cache_creation_input_tokens_above_1hr": 300},
+            model_provider="anthropic",
+        )
+    assert without_1hr is not None
+    assert with_1hr is not None
+    assert with_1hr["input_cost"] > without_1hr["input_cost"]
+
+
+def test_1hr_cache_creation_not_forwarded_to_litellm(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 300,
+        "cache_creation_input_tokens_above_1hr": 100,
+    }
+    calculate_cost_by_model_and_token_usage("gpt-4o", usage)
+    mock_litellm_cost.assert_called()
+    # litellm's cost_per_token does not accept the MLflow-specific 1-hour breakdown kwarg.
+    assert all(
+        "cache_creation_input_tokens_above_1hr" not in call.kwargs
+        for call in mock_litellm_cost.call_args_list
+    )
 
 
 def test_builtin_cost_fallback_with_provider():
@@ -814,7 +941,7 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     litellm.suppress_debug_info = False
 
     calculate_cost_by_model_and_token_usage(
-        model_name="databricks-claude-sonnet-4-5",
+        model_name="unknown-model",
         usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
     )
 
@@ -831,7 +958,7 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
     _logger.setLevel(logging.DEBUG)
     try:
         calculate_cost_by_model_and_token_usage(
-            model_name="databricks-claude-sonnet-4-5",
+            model_name="unknown-model",
             usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
         )
     finally:
@@ -839,8 +966,6 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
 
     captured = capsys.readouterr()
     assert "Provider List" in captured.out
-    # During the call to calculate cost, suppress was set to False
-    # We are asserting that suppress is reset to the original value after
     assert litellm.suppress_debug_info is True
 
 
@@ -856,3 +981,44 @@ def test_dump_span_attribute_value_handles_circular_reference():
     loaded = json.loads(result)
     assert isinstance(loaded, str)
     assert "run_context" in loaded
+
+
+def test_dump_span_attribute_value_handles_type_error():
+    value = {frozenset({"listener"}): "handler"}
+
+    with pytest.raises(TypeError, match="frozenset"):
+        json.dumps(value)
+
+    result = dump_span_attribute_value(value)
+
+    # Must not raise; fall back result is a valid JSON string containing repr(value).
+    assert result == json.dumps(repr(value), ensure_ascii=False)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_provider", "expected_provider"),
+    [
+        ("databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks/databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks-claude-opus-4-8", "databricks", "databricks"),
+        ("gpt-4o", None, None),
+    ],
+)
+def test_cost_calculation_uses_expected_provider(model_name, model_provider, expected_provider):
+    with mock.patch("litellm.cost_per_token", wraps=litellm.cost_per_token) as cost_per_token:
+        result = calculate_cost_by_model_and_token_usage(
+            model_name,
+            {TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+            model_provider,
+        )
+
+    kwargs = {
+        "model": model_name,
+        "prompt_tokens": 1_000,
+        "completion_tokens": 500,
+    }
+    if expected_provider:
+        kwargs["custom_llm_provider"] = expected_provider
+    cost_per_token.assert_called_once_with(**kwargs)
+    assert result is not None
+    assert result[CostKey.TOTAL_COST] > 0

@@ -9,6 +9,7 @@ from mlflow.entities import (
     DatasetInput,
     InputTag,
     LifecycleStage,
+    LoggedModel,
     Metric,
     Param,
     Run,
@@ -23,7 +24,16 @@ from mlflow.entities import (
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
-from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
+from mlflow.utils.search_utils import (
+    SearchEvaluationDatasetsUtils,
+    SearchExperimentsUtils,
+    SearchLoggedModelsUtils,
+    SearchMCPAccessEndpointUtils,
+    SearchMCPServerUtils,
+    SearchMCPServerVersionUtils,
+    SearchTraceUtils,
+    SearchUtils,
+)
 
 
 @pytest.mark.parametrize(
@@ -100,7 +110,7 @@ from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
         ),
         (
             "attribute.start_time >= 1234",
-            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": "1234"}],
+            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": 1234}],
         ),
         (
             "run.status = 'RUNNING'",
@@ -137,6 +147,60 @@ from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
 )
 def test_filter(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "filter_string"),
+    [
+        (SearchUtils, "attributes.start_time > 1234"),
+        (SearchExperimentsUtils, "creation_time > 1234"),
+        (SearchEvaluationDatasetsUtils, "created_time > 1234"),
+        (SearchLoggedModelsUtils, "creation_timestamp > 1234"),
+        (SearchMCPServerUtils, "created_at > 1234"),
+        (SearchMCPServerVersionUtils, "created_at > 1234"),
+        (SearchMCPAccessEndpointUtils, "created_at > 1234"),
+    ],
+)
+def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_string):
+    [condition] = search_utils.parse_search_filter(filter_string)
+
+    assert condition["value"] == 1234
+    assert isinstance(condition["value"], int)
+
+
+def test_float_numeric_attribute_value_is_parsed_as_float():
+    [condition] = SearchUtils.parse_search_filter("attributes.start_time > 1234.5")
+
+    assert condition["value"] == 1234.5
+    assert isinstance(condition["value"], float)
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_model_ids"),
+    [
+        ("creation_timestamp = 1.5", []),
+        ("creation_timestamp > 1.5", ["model-2"]),
+        ("creation_timestamp >= 1.5", ["model-2"]),
+    ],
+)
+def test_float_numeric_attribute_is_not_truncated_for_logged_models(
+    filter_string, expected_model_ids
+):
+    models = [
+        LoggedModel(
+            experiment_id="0",
+            model_id=f"model-{timestamp}",
+            name=f"model-{timestamp}",
+            artifact_location=f"file:///tmp/model-{timestamp}",
+            creation_timestamp=timestamp,
+            last_updated_timestamp=timestamp,
+        )
+        for timestamp in (1, 2)
+    ]
+
+    filtered = SearchLoggedModelsUtils.filter_logged_models(models, filter_string)
+
+    assert [model.model_id for model in filtered] == expected_model_ids
 
 
 @pytest.mark.parametrize(
@@ -386,6 +450,74 @@ def test_correct_filtering(filter_string, matching_runs):
     assert set(filtered_runs) == {runs[i] for i in matching_runs}
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "matching_runs"),
+    [
+        ("datasets.digest IN ('06409663', 'A1B2C3D4')", [0, 1]),
+        ("datasets.name IN ('123', 'MyDataset')", [0, 1]),
+        ("datasets.context IN ('2024', 'Train')", [0, 1]),
+        ("datasets.digest IN ('06409663')", [0]),
+        ("datasets.name IN ('MyDataset')", [1]),
+        ("datasets.context IN ('Train')", [1]),
+    ],
+)
+def test_dataset_in_clause_with_digits_and_uppercase(filter_string, matching_runs):
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_id="r1",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=0,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(metrics=[], params=[], tags=[]),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="123",
+                            digest="06409663",
+                            source_type="src",
+                            source="s",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "2024")],
+                    )
+                ]
+            ),
+        ),
+        Run(
+            run_info=RunInfo(
+                run_id="r2",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=0,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(metrics=[], params=[], tags=[]),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="MyDataset",
+                            digest="A1B2C3D4",
+                            source_type="src",
+                            source="s",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "Train")],
+                    )
+                ]
+            ),
+        ),
+    ]
+    filtered_runs = SearchUtils.filter(runs, filter_string)
+    assert set(filtered_runs) == {runs[i] for i in matching_runs}
+
+
 def test_filter_runs_by_start_time():
     runs = [
         Run(
@@ -405,6 +537,7 @@ def test_filter_runs_by_start_time():
     assert SearchUtils.filter(runs, "attribute.start_time >= 0") == runs
     assert SearchUtils.filter(runs, "attribute.start_time > 1") == runs[2:]
     assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
+    assert SearchUtils.filter(runs, "attribute.start_time = 1.5") == []
 
 
 def test_filter_runs_by_user_id():

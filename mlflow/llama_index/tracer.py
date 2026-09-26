@@ -241,17 +241,24 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     detach_span_from_context(token)
                 return None  # Keep the span in open_spans
             elif self._stream_resolver.is_streaming_result(result):
-                # If the result is a generator, we keep the span in progress for streaming
-                # and end it when the generator is exhausted.
-                is_pended = self._stream_resolver.register_stream_span(span, result)
-                if is_pended:
-                    self._pending_spans[id_] = llama_span
-                    # We still need to detach the span from the context, otherwise it will
-                    # be considered as "active"
-                    detach_span_from_context(token)
-                else:
-                    # If the span is not pended successfully, end it immediately
-                    _end_span(span=span, outputs=result, token=token)
+                # In llama-index-core >= 0.14.17 a descendant LLM stream may be resolved
+                # before this ancestor span exits. If so, its resolution was already recorded
+                # and we close it here instead of pending it (which would leave it open and
+                # the trace stuck in IN_PROGRESS).
+                if not self._stream_resolver.resolve_pending_parent(
+                    span, token=token, open_span_ids=self._open_mlflow_span_ids()
+                ):
+                    # If the result is a generator, we keep the span in progress for streaming
+                    # and end it when the generator is exhausted.
+                    is_pended = self._stream_resolver.register_stream_span(span, result)
+                    if is_pended:
+                        self._pending_spans[id_] = llama_span
+                        # We still need to detach the span from the context, otherwise it will
+                        # be considered as "active"
+                        detach_span_from_context(token)
+                    else:
+                        # If the span is not pended successfully, end it immediately
+                        _end_span(span=span, outputs=result, token=token)
             else:
                 _end_span(span=span, outputs=result, token=token)
 
@@ -283,8 +290,17 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
-        self._stream_resolver.resolve(span, event)
+        self._stream_resolver.resolve(span, event, open_span_ids=self._open_mlflow_span_ids())
         self._pending_spans.pop(event.span_id, None)
+
+    def _open_mlflow_span_ids(self) -> set[str]:
+        """MLflow span IDs of the currently open (still executing) LlamaIndex spans."""
+        with self.lock:
+            return {
+                llama_span._mlflow_span.span_id
+                for llama_span in self.open_spans.values()
+                if llama_span is not None and llama_span._mlflow_span is not None
+            }
 
     def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
@@ -568,6 +584,12 @@ class StreamResolver:
 
     def __init__(self):
         self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator]] = {}
+        # Maps a span_id -> (status, output_text) for ancestor spans whose descendant
+        # stream was resolved before the ancestor exited and registered as a pending
+        # stream. In llama-index-core >= 0.14.17, the LLM stream end event can fire and
+        # resolve the stream before the enclosing query-engine spans exit. Such ancestors
+        # are closed immediately when they register instead of being left open forever.
+        self._pending_parent_resolutions: dict[str, tuple[SpanStatusCode, str | None]] = {}
 
     def is_streaming_result(self, result: Any) -> bool:
         return (
@@ -616,7 +638,67 @@ class StreamResolver:
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True
 
-    def resolve(self, span: LiveSpan, event: _StreamEndEvent):
+    def _record_pending_resolution(
+        self,
+        parent_id: str | None,
+        resolution: tuple[SpanStatusCode, str | None],
+        open_span_ids: set[str] | None,
+    ) -> None:
+        """
+        Record a resolution for an ancestor span that has not registered as a pending
+        stream yet, so it is closed immediately when it exits (see resolve_pending_parent).
+
+        Only record when the parent genuinely still needs resolving, i.e. it is still open
+        (executing) and awaiting resolution. A parent that is absent (root, parent_id is
+        None) or already closed does not need resolving through this mechanism, and
+        recording for it would leave a stale entry that could later close an unrelated span.
+        """
+        if parent_id is None:
+            return
+        if open_span_ids is not None and parent_id not in open_span_ids:
+            return
+        self._pending_parent_resolutions[parent_id] = resolution
+
+    def resolve_pending_parent(
+        self,
+        span: LiveSpan,
+        token: Any | None = None,
+        open_span_ids: set[str] | None = None,
+    ) -> bool:
+        """
+        Close a span whose descendant stream was already resolved out-of-order.
+
+        In llama-index-core >= 0.14.17 the LLM stream end event can fire before the
+        enclosing query-engine spans exit. When that happens, `resolve()` records the
+        resolution for the not-yet-registered ancestor. This method is called when such
+        an ancestor finally exits: it closes the span immediately (detaching its OTel
+        token) instead of pending it, and propagates the resolution to the next ancestor
+        so the whole chain is finalized as each span exits.
+
+        Args:
+            span: The span that is about to be pended as a stream.
+            token: The OTel context token for the span, detached when the span is closed.
+            open_span_ids: MLflow span IDs of the currently open spans, used to decide
+                whether the next ancestor still needs a recorded resolution.
+
+        Returns:
+            True if a recorded resolution was found and the span was closed, False otherwise.
+        """
+        resolution = self._pending_parent_resolutions.pop(span.span_id, None)
+        if resolution is None:
+            return False
+
+        status, output_text = resolution
+        # The span was never pended, so it still holds an active OTel token. End it once
+        # here (passing the token so it is detached) and do not register/pend it again.
+        _end_span(span=span, status=status, outputs=output_text, token=token)
+
+        self._record_pending_resolution(span.parent_id, resolution, open_span_ids)
+        return True
+
+    def resolve(
+        self, span: LiveSpan, event: _StreamEndEvent, open_span_ids: set[str] | None = None
+    ):
         """
         Finish the streaming span and recursively resolve the parent spans that
         returns the same (or derived) stream.
@@ -654,3 +736,13 @@ class StreamResolver:
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
                 _end_span(span=span, status=status, outputs=output_text)
+
+        # In llama-index-core >= 0.14.17 the LLM stream end event can fire before the
+        # enclosing query-engine spans exit and register as pending streams. Record the
+        # resolution for the first ancestor that has not registered yet so it can be
+        # closed immediately when it exits (see resolve_pending_parent). Without this, such
+        # ancestors would stay open and the trace would be stuck in the IN_PROGRESS state.
+        # On the fully-resolved path (all ancestors already closed by the loop above), the
+        # loop stops at the root or a non-streaming ancestor that no longer needs resolving,
+        # so _record_pending_resolution skips it.
+        self._record_pending_resolution(span.parent_id, (status, output_text), open_span_ids)

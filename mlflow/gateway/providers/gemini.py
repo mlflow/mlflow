@@ -10,8 +10,10 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     ProviderAdapter,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    parse_base64_data_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -49,6 +51,48 @@ GENERATION_CONFIGS = [
     "frequencyPenalty",
     "presencePenalty",
 ]
+
+
+def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
+    """Translate a user message's content into Gemini ``parts``.
+
+    A string becomes a single text part (unchanged behavior). A multimodal list has each
+    part translated: text -> ``{"text": ...}``, ``image_url`` base64 data URL ->
+    ``{"inlineData": {"mimeType": ..., "data": ...}}``. Non-base64 image URLs fall back to
+    a text note since the judge image tool only ever emits base64 data URLs. Any other part
+    type is passed through unchanged rather than coerced to empty text, so a non-text part
+    (e.g. ``input_audio``) isn't silently dropped.
+    """
+    if not isinstance(content, list):
+        return [{"text": content}]
+
+    parts: list[dict[str, Any]] = []
+    for part in content:
+        if part.get("type") == "text":
+            parts.append({"text": part.get("text", "")})
+        elif part.get("type") == "image_url":
+            url = part.get("image_url", {}).get("url", "")
+            if parsed := parse_base64_data_url(url):
+                mime, data = parsed
+                parts.append({"inlineData": {"mimeType": mime, "data": data}})
+            else:
+                parts.append({"text": f"[unsupported image reference: {url}]"})
+        else:
+            parts.append(part)
+    return parts
+
+
+def _tool_result_to_response(content: Any) -> dict[str, Any]:
+    """Coerce OpenAI tool message content into a Gemini ``functionResponse.response``.
+
+    OpenAI tool content is free-form and usually plain text, but Gemini requires an object,
+    so a JSON object passes through and anything else is wrapped as ``{"result": ...}``.
+    """
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return {"result": content}
+    return parsed if isinstance(parsed, dict) else {"result": parsed}
 
 
 class GeminiAdapter(ProviderAdapter):
@@ -135,16 +179,19 @@ class GeminiAdapter(ProviderAdapter):
                                 "name": tool_call["function"]["name"],
                                 "args": json.loads(tool_call["function"]["arguments"]),
                             }
+                            part = {"functionCall": fc}
                             if tool_call["id"] in call_id_to_thought_signature_map:
-                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                part["thoughtSignature"] = call_id_to_thought_signature_map[
                                     tool_call["id"]
                                 ]
 
-                            gemini_function_calls.append({"functionCall": fc})
+                            gemini_function_calls.append(part)
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
-                    contents.append({"role": role, "parts": [{"text": message["content"]}]})
+                    # _to_gemini_parts translates multimodal list content (e.g. an image_url
+                    # part) to Gemini parts; string content stays a single text part.
+                    contents.append({"role": role, "parts": _to_gemini_parts(message["content"])})
             elif role == "system":
                 if system_message is None:
                     system_message = {"parts": []}
@@ -159,7 +206,7 @@ class GeminiAdapter(ProviderAdapter):
                                 "id": call_id,
                                 # the function name field is required by Gemini request format
                                 "name": call_id_to_function_name_map[call_id],
-                                "response": json.loads(message["content"]),
+                                "response": _tool_result_to_response(message["content"]),
                             }
                         }
                     ],
@@ -228,8 +275,14 @@ class GeminiAdapter(ProviderAdapter):
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
-            thought_sig = function_call.get("thoughtSignature") or function_call.get(
-                "thought_signature"
+            # Gemini 3.x places thoughtSignature at the Part level, next to functionCall.
+            # Some older responses nested it inside functionCall instead, so fall back to
+            # that location too.
+            thought_sig = (
+                part.get("thoughtSignature")
+                or part.get("thought_signature")
+                or function_call.get("thoughtSignature")
+                or function_call.get("thought_signature")
             )
             if call_id is None:
                 # Gemini model response might not contain function call id,
@@ -287,12 +340,24 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def _build_chat_usage(cls, usage_metadata: dict[str, Any]) -> chat_schema.ChatUsage:
+        extra = {
+            key: value
+            for key, value in usage_metadata.items()
+            if key
+            not in {
+                "promptTokenCount",
+                "candidatesTokenCount",
+                "totalTokenCount",
+                "cachedContentTokenCount",
+            }
+        }
         prompt_tokens_details = None
         if "cachedContentTokenCount" in usage_metadata:
             prompt_tokens_details = chat_schema.PromptTokensDetails(
                 cached_tokens=usage_metadata["cachedContentTokenCount"]
             )
         return chat_schema.ChatUsage(
+            **extra,
             prompt_tokens=usage_metadata.get("promptTokenCount"),
             completion_tokens=usage_metadata.get("candidatesTokenCount"),
             total_tokens=usage_metadata.get("totalTokenCount"),
@@ -683,6 +748,10 @@ class GeminiProvider(BaseProvider):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("x-goog-api-key", None)
+            else:
+                # Never forward client auth headers: they would be sent alongside the
+                # provider credential (e.g. Vertex AI's OAuth bearer token) and shadow it.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers

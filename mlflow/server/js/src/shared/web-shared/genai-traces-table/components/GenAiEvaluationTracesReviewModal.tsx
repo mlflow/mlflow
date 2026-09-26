@@ -15,8 +15,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
-import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
-import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawer';
+import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorerEntrypoint';
+import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawerEntrypoint';
 import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
 import { shouldUseModelTraceExplorerDrawerUI } from '../../model-trace-explorer/FeatureUtils';
 import { useModelTraceExplorerContext } from '../../model-trace-explorer/ModelTraceExplorerContext';
@@ -128,15 +128,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     }, [evaluations, nextEvaluationIdx, onChangeEvaluationId]);
 
     const evaluation = useMemo(() => evaluations?.find(findEval), [evaluations, findEval]);
-    const nextEvaluation = useMemo(
-      () => (nextEvaluationIdx && evaluations ? evaluations?.[nextEvaluationIdx] : undefined),
-      [evaluations, nextEvaluationIdx],
-    );
-    const previousEvaluation = useMemo(
-      () => (previousEvaluationIdx && evaluations ? evaluations?.[previousEvaluationIdx] : undefined),
-      [evaluations, previousEvaluationIdx],
-    );
-
     const tracesTableConfig = useGenAITracesTableConfig();
 
     // --- Auto-polling until trace is complete if the backend supports returning partial spans ---
@@ -165,18 +156,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       getTrace,
       shouldFetchTraceBySearchParamId ? selectedEvaluationId : undefined,
     );
-
-    // Prefetching the next and previous traces to optimize performance
-    // prettier-ignore
-    useGetTrace({
-      getTrace,
-      traceInfo: nextEvaluation?.currentRunValue?.traceInfo,
-    });
-    // prettier-ignore
-    useGetTrace({
-      getTrace,
-      traceInfo: previousEvaluation?.currentRunValue?.traceInfo,
-    });
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);

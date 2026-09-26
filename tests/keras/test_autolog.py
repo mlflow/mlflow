@@ -1,5 +1,6 @@
 import json
 import math
+import re
 
 import keras
 import numpy as np
@@ -60,7 +61,9 @@ def test_default_autolog_behavior():
 
     # Assert training configs are logged correctly.
     assert int(model_info["batch_size"]) == batch_size
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
 
     assert "loss" in run_metrics
@@ -149,7 +152,9 @@ def test_custom_autolog_behavior(
 
     # Assert training configs are logged correctly.
     assert int(model_info["batch_size"]) == batch_size
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
 
     assert "loss" in run_metrics

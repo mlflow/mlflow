@@ -48,8 +48,8 @@ def test_eval_results_file():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny does not support the np or pandas dependencies",
 )
-def test_create_promptlab_run(db_uri):
-    store = _get_store(db_uri)
+def test_create_promptlab_run(db_uri, tmp_path):
+    store = _get_store(db_uri, artifact_uri=tmp_path.as_uri())
     exp_id = store.create_experiment("test_create_promptlab_run")
     run = _create_promptlab_run_impl(
         store,

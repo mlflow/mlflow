@@ -171,6 +171,26 @@ def test_document_source_proto_conversion():
     assert source2.source_data["content"] == "Test content"
 
 
+def test_unspecified_source_proto_conversion():
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.UNSPECIFIED, source_data={"note": "no source"}
+    )
+
+    proto = source.to_proto()
+    assert proto.source_type == ProtoDatasetRecordSource.SourceType.Value("SOURCE_TYPE_UNSPECIFIED")
+
+    source2 = DatasetRecordSource.from_proto(proto)
+    assert isinstance(source2, DatasetRecordSource)
+    assert source2.source_type == DatasetRecordSourceType.UNSPECIFIED
+    assert source2.source_data == {"note": "no source"}
+
+
+def test_source_from_proto_without_source_type():
+    source = DatasetRecordSource.from_proto(ProtoDatasetRecordSource())
+    assert source.source_type == DatasetRecordSourceType.UNSPECIFIED
+    assert source.source_data == {}
+
+
 def test_dataset_record_source_to_from_dict():
     source = DatasetRecordSource(source_type="CODE", source_data={"file": "example.py", "line": 42})
 

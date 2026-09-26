@@ -158,6 +158,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
+from mlflow.store.tracking.mcp_server_registry.rest_mixin import RestMCPServerRegistryMixin
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import (
@@ -194,7 +195,9 @@ _logger = logging.getLogger(__name__)
 # RestGatewayStoreMixin provides concrete implementations of those methods. For Python's MRO
 # to correctly resolve the Gateway methods to RestGatewayStoreMixin's implementations,
 # RestGatewayStoreMixin must appear first in the parent class list.
-class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
+class RestStore(
+    WorkspaceRestStoreMixin, RestGatewayStoreMixin, RestMCPServerRegistryMixin, AbstractStore
+):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -544,27 +547,63 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 raise MlflowNotImplementedException()
             raise
 
-    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+    def batch_get_traces(
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. Should be None for OSS backend.
+            experiment_ids: Optional list of experiment IDs to scope the query to. Forwarded
+                to the remote backend only when explicitly set; a value of None is not
+                forwarded, since it has different semantics (no restriction) than an
+                explicit empty list (deny all, which is resolved locally without a request).
 
         Returns:
             List of Trace objects.
         """
-        req_body = message_to_json(BatchGetTraces(trace_ids=trace_ids))
+        if experiment_ids is not None and not experiment_ids:
+            return []
+        request = BatchGetTraces(trace_ids=trace_ids)
+        if experiment_ids is not None:
+            request.experiment_ids.extend(experiment_ids)
+        req_body = message_to_json(request)
         response_proto = self._call_endpoint(
             BatchGetTraces, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet"
         )
         return [Trace.from_proto(proto) for proto in response_proto.traces]
 
     def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> list[TraceInfo]:
-        req_body = message_to_json(BatchGetTraceInfos(trace_ids=trace_ids))
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. Should be None for OSS backend.
+            experiment_ids: Optional list of experiment IDs to scope the query to. Forwarded
+                to the remote backend only when explicitly set; a value of None is not
+                forwarded, since it has different semantics (no restriction) than an
+                explicit empty list (deny all, which is resolved locally without a request).
+
+        Returns:
+            List of TraceInfo objects.
+        """
+        if experiment_ids is not None and not experiment_ids:
+            return []
+        request = BatchGetTraceInfos(trace_ids=trace_ids)
+        if experiment_ids is not None:
+            request.experiment_ids.extend(experiment_ids)
+        req_body = message_to_json(request)
         response_proto = self._call_endpoint(
             BatchGetTraceInfos,
             req_body,
@@ -2477,15 +2516,3 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
 
         verify_rest_response(response, OTLP_TRACES_PATH)
         return spans
-
-    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation.
-
-        Args:
-            location: Experiment ID of an MLflow experiment.
-            spans: List of Span entities to log.
-
-        Returns:
-            List of logged Span entities.
-        """
-        return self.log_spans(location, spans)

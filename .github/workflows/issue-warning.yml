@@ -4,17 +4,23 @@ on:
   issues:
     types: [opened, edited]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   prepend-warning:
     if: >-
       github.repository == 'mlflow/mlflow' &&
-      github.event.issue.created_at >= '2026-03-10T00:00:00Z'
+      github.event.issue.created_at >= '2026-03-10T00:00:00Z' &&
+      !contains(github.event.issue.body, '<!-- issue-warning -->')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -26,11 +32,6 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO: ${{ github.repository }}
         run: |
-          if echo "$ISSUE_BODY" | grep -qF '<!-- issue-warning -->'; then
-            echo "Warning already present, skipping."
-            exit 0
-          fi
-
           body="<!-- issue-warning -->
           > [!WARNING]
           > Before submitting a PR, please make sure that:

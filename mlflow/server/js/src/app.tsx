@@ -13,7 +13,8 @@ import { Provider } from 'react-redux';
 import store from './store';
 import { useI18nInit } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
-import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { createMlflowQueryClient } from '@mlflow/mlflow/src/shared/web-shared/query-client/createMlflowQueryClient';
 import { createApolloClient } from './graphql/client';
 import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
@@ -30,7 +31,7 @@ export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const apolloClient = useMemo(() => createApolloClient(), []);
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const queryClient = useMemo(() => new QueryClient(), []);
+  const queryClient = useMemo(() => createMlflowQueryClient(), []);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();

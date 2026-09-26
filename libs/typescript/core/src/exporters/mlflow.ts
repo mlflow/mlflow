@@ -23,6 +23,7 @@ import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
+import { resolveEnvironmentMetadata } from '../core/utils/environment';
 
 /**
  * Generate a MLflow-compatible trace ID for the given span.
@@ -57,6 +58,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
 
       // Build trace metadata, merging context-injected values
       const traceMetadata: Record<string, string> = {
+        ...resolveEnvironmentMetadata(),
         [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION,
       };
       const ctxMetadata = getConfiguredTraceMetadata();

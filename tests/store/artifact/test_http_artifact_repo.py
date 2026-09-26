@@ -185,6 +185,26 @@ def test_log_artifact(
         mock_abort.assert_called_once()
 
 
+def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_repo, tmp_path):
+    file_path = tmp_path.joinpath("small.txt")
+    file_path.write_text("0")
+
+    with (
+        mock.patch.object(http_artifact_repo, "_is_multipart_upload_enabled", return_value=False),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.os.path.getsize",
+            side_effect=AssertionError("getsize should not be called"),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_put,
+    ):
+        http_artifact_repo.log_artifact(file_path)
+
+    mock_put.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("ignore_tls", "expected_verify"),
     [

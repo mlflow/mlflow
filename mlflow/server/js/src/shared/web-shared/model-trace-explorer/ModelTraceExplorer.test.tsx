@@ -275,6 +275,55 @@ describe('ModelTraceExplorer', () => {
     expect(await screen.findByText('event-level-attribute')).toBeInTheDocument();
   });
 
+  it('should keep the events tab active when jumping to the next search match (#24763)', async () => {
+    const secondEventsSpan: ModelTraceSpanV2 = {
+      ...MOCK_EVENTS_SPAN,
+      context: { span_id: 'events_span_2', trace_id: '1' },
+      parent_id: 'events_span',
+      name: 'events_span_2',
+      events: [
+        {
+          name: 'event1',
+          attributes: { 'event1-attr1': 'shared-event-marker-second-span' },
+        },
+      ],
+    };
+    const trace = {
+      data: {
+        spans: [
+          { ...MOCK_EVENTS_SPAN, events: [{ name: 'event1', attributes: { 'event1-attr1': 'shared-event-marker' } }] },
+          secondEventsSpan,
+        ],
+      },
+      info: {},
+    };
+
+    render(<TestComponent modelTrace={trace} />);
+
+    const searchBar = screen.getByPlaceholderText('Search');
+    await userEvent.type(searchBar, 'shared-event-marker');
+
+    // first match: events tab open on the first span
+    expect(await screen.findByText('shared-event-marker')).toBeInTheDocument();
+
+    // Clearing search and selecting another span should apply that span's default tab.
+    // This also verifies that selecting a search match on the already-selected node
+    // does not leave a stale tab-reset bypass behind.
+    await userEvent.clear(searchBar);
+    await userEvent.click(screen.getAllByText('events_span_2')[0]);
+    expect(await screen.findByTestId('model-trace-explorer-content-tab')).toBeInTheDocument();
+
+    await userEvent.type(searchBar, 'shared-event-marker');
+
+    // jump to the next match, which is on the second span
+    const nextButton = await screen.findByTestId('next-search-match');
+    await userEvent.click(nextButton);
+
+    // the events tab should stay active for the new span, instead of resetting to the default tab
+    expect(await screen.findByText('2 / 2')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Events/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('should default to content tab when the selected node does not have chats', async () => {
     const trace = {
       data: {

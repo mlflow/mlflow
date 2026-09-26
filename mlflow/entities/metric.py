@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, cast
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -12,15 +16,15 @@ class Metric(_MlflowObject):
 
     def __init__(
         self,
-        key,
-        value,
-        timestamp,
-        step,
+        key: str,
+        value: float,
+        timestamp: int,
+        step: int,
         model_id: str | None = None,
         dataset_name: str | None = None,
         dataset_digest: str | None = None,
         run_id: str | None = None,
-    ):
+    ) -> None:
         if (dataset_name, dataset_digest).count(None) == 1:
             raise MlflowException(
                 "Both dataset_name and dataset_digest must be provided if one is provided",
@@ -37,27 +41,27 @@ class Metric(_MlflowObject):
         self._run_id = run_id
 
     @property
-    def key(self):
+    def key(self) -> str:
         """String key corresponding to the metric name."""
         return self._key
 
     @property
-    def value(self):
+    def value(self) -> float:
         """Float value of the metric."""
         return self._value
 
     @property
-    def timestamp(self):
+    def timestamp(self) -> int:
         """Metric timestamp as an integer (milliseconds since the Unix epoch)."""
         return self._timestamp
 
     @property
-    def step(self):
+    def step(self) -> int:
         """Integer metric step (x-coordinate)."""
         return self._step
 
     @property
-    def model_id(self):
+    def model_id(self) -> str | None:
         """ID of the Model associated with the metric."""
         return self._model_id
 
@@ -76,7 +80,7 @@ class Metric(_MlflowObject):
         """String. Run ID associated with the metric."""
         return self._run_id
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoMetric:
         metric = ProtoMetric()
         metric.key = self.key
         metric.value = self.value
@@ -93,7 +97,7 @@ class Metric(_MlflowObject):
         return metric
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoMetric) -> Metric:
         return cls(
             proto.key,
             proto.value,
@@ -105,13 +109,13 @@ class Metric(_MlflowObject):
             run_id=proto.run_id or None,
         )
 
-    def __eq__(self, __o):
+    def __eq__(self, __o: object) -> bool:
         if isinstance(__o, self.__class__):
             return self.__dict__ == __o.__dict__
 
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((
             self._key,
             self._value,
@@ -123,7 +127,7 @@ class Metric(_MlflowObject):
             self._run_id,
         ))
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> dict[str, Any]:
         """
         Convert the Metric object to a dictionary.
 
@@ -142,7 +146,7 @@ class Metric(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, metric_dict):
+    def from_dictionary(cls, metric_dict: dict[str, Any]) -> Metric:
         """
         Create a Metric object from a dictionary.
 
@@ -163,7 +167,7 @@ class Metric(_MlflowObject):
 
 
 class MetricWithRunId(Metric):
-    def __init__(self, metric: Metric, run_id):
+    def __init__(self, metric: Metric, run_id: str) -> None:
         super().__init__(
             key=metric.key,
             value=metric.value,
@@ -173,10 +177,12 @@ class MetricWithRunId(Metric):
         self._run_id = run_id
 
     @property
-    def run_id(self):
-        return self._run_id
+    def run_id(self) -> str:
+        # `_run_id` is always set to a string by this subclass's `__init__`, while the
+        # attribute is inherited with an optional type from `Metric`, hence the cast.
+        return cast(str, self._run_id)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "value": self.value,
@@ -185,7 +191,7 @@ class MetricWithRunId(Metric):
             "run_id": self.run_id,
         }
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoMetricWithRunId:
         metric = ProtoMetricWithRunId()
         metric.key = self.key
         metric.value = self.value

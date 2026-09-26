@@ -1,33 +1,36 @@
 function getSleepLength(iterationCount, numPendingJobs) {
-  if (iterationCount <= 5 && numPendingJobs <= 5) {
-    // It's likely that this job was triggered with other quick jobs.
-    // To minimize the wait time, shorten the polling interval for the first 5 iterations.
-    return 5 * 1000; // 5 seconds
+  if (iterationCount <= 2) {
+    // Poll twice at 15-second intervals to detect early failures and completions promptly,
+    // regardless of the number of pending jobs.
+    return 15 * 1000;
   }
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, core }) => {
+  let rateLimitRemaining;
+  github.hook.after("request", (response) => {
+    rateLimitRemaining = response.headers["x-ratelimit-remaining"];
+  });
+
   const {
     repo: { owner, repo },
   } = context;
-  const { sha } = context.payload.pull_request.head;
+  const pullRequest = context.payload.pull_request;
+  const { sha } = pullRequest.head;
 
   const STATE = {
+    failure: "failure",
     pending: "pending",
     success: "success",
-    failure: "failure",
+    skipped: "skipped",
   };
+  const STATUS_ORDER = Object.values(STATE);
 
-  const IGNORED_WORKFLOWS = new Set([".github/workflows/rerun.yml"]);
+  const IGNORED_WORKFLOWS = new Set([".github/workflows/trigger-rerun.yml"]);
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function logRateLimit() {
-    const { data: rateLimit } = await github.rest.rateLimit.get();
-    console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
   }
 
   function isNewerRun(newRun, existingRun) {
@@ -80,27 +83,38 @@ module.exports = async ({ github, context }) => {
           ? STATE.failure
           : status !== "completed"
           ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
+          : conclusion === "success"
           ? STATE.success
+          : conclusion === "skipped"
+          ? STATE.skipped
           : STATE.failure,
     }));
 
     // Workflow runs (e.g., GitHub Actions)
-    const workflowRuns = (
-      await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
-        owner,
-        repo,
-        head_sha: ref,
-        per_page: 100,
-      })
-    ).filter(
-      ({ path, event }) =>
-        // Exclude this workflow to avoid self-checking
-        path !== ".github/workflows/protect.yml" &&
-        // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic" &&
-        !IGNORED_WORKFLOWS.has(path)
-    );
+    let workflowRuns;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      workflowRuns = (
+        await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+          owner,
+          repo,
+          head_sha: ref,
+          per_page: 100,
+        })
+      ).filter(
+        ({ path, event }) =>
+          // Exclude this workflow to avoid self-checking
+          path !== ".github/workflows/protect.yml" &&
+          // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
+          event !== "dynamic" &&
+          !IGNORED_WORKFLOWS.has(path)
+      );
+      if (workflowRuns.length > 0) break;
+      core.warning(`No workflow runs found (attempt ${attempt}/3)`);
+      if (attempt < 3) await sleep(5000);
+    }
+    if (workflowRuns.length === 0) {
+      throw new Error(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+    }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -118,13 +132,15 @@ module.exports = async ({ github, context }) => {
         // Use run-level status directly (0 extra API calls).
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
-          url: run.html_url,
+          url: `${run.html_url}/attempts/${run.run_attempt}?pr=${pullRequest.number}`,
           pendingJobs: 0,
           status:
             run.conclusion === "cancelled"
               ? STATE.failure
-              : run.conclusion === "success" || run.conclusion === "skipped"
+              : run.conclusion === "success"
               ? STATE.success
+              : run.conclusion === "skipped"
+              ? STATE.skipped
               : STATE.failure,
         });
       } else {
@@ -145,7 +161,7 @@ module.exports = async ({ github, context }) => {
         }
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
-          url: run.html_url,
+          url: `${run.html_url}/attempts/${run.run_attempt}?pr=${pullRequest.number}`,
           pendingJobs: failed ? 0 : pendingJobs,
           status: failed ? STATE.failure : STATE.pending,
         });
@@ -158,13 +174,23 @@ module.exports = async ({ github, context }) => {
   const start = new Date();
   let iterationCount = 0;
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
-  await logRateLimit();
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
+    if (rateLimitRemaining !== undefined) {
+      console.log(`Rate limit remaining: ${rateLimitRemaining}`);
+    }
+    checks.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status, url }) => {
-      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
+      const icon =
+        status === STATE.success
+          ? "✅"
+          : status === STATE.skipped
+          ? "⏭️"
+          : status === STATE.failure
+          ? "❌"
+          : "🕒";
       console.log(`- ${name.padEnd(longest)}: ${icon} ${status}${url ? ` (${url})` : ""}`);
     });
 
@@ -174,12 +200,14 @@ module.exports = async ({ github, context }) => {
       );
     }
 
-    if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
-      console.log("All checks passed");
+    if (
+      checks.length > 0 &&
+      checks.every(({ status }) => status === STATE.success || status === STATE.skipped)
+    ) {
+      console.log("All checks passed or were skipped");
       return;
     }
 
-    await logRateLimit();
     const pendingJobs = checks
       .filter(({ status }) => status === STATE.pending)
       .reduce((sum, check) => sum + check.pendingJobs, 0);

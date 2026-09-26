@@ -9,9 +9,9 @@
 #   --tag        model-catalog/latest
 #   --catalog-dir mlflow/utils/model_catalog
 #
-# The script creates the release if it doesn't exist, then uploads
-# every *.json file in the catalog directory as a release asset,
-# overwriting any existing asset with the same name.
+# The script creates the release if it doesn't exist, then synchronizes its JSON
+# assets with the catalog directory. Existing assets with the same name are
+# overwritten, and stale JSON assets are deleted.
 
 set -euo pipefail
 
@@ -59,6 +59,16 @@ gh release upload "$TAG" \
   --repo "$REPO" \
   --clobber \
   "$CATALOG_DIR"/*.json
+
+# Remove catalog assets whose source files no longer exist. Do this after the
+# upload succeeds so a transient upload failure does not delete valid assets.
+asset_names=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+while IFS= read -r asset_name; do
+  if [[ "$asset_name" == *.json && ! -f "$CATALOG_DIR/$asset_name" ]]; then
+    echo "Deleting stale asset $asset_name ..."
+    gh release delete-asset "$TAG" "$asset_name" --repo "$REPO" --yes
+  fi
+done <<< "$asset_names"
 
 echo "Done. Assets available at:"
 echo "  https://github.com/$REPO/releases/tag/$(echo "$TAG" | sed 's|/|%2F|g')"
