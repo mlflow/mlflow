@@ -24,6 +24,13 @@ _SANDBOX_HOME_MAX_AGE_SECONDS = 24 * 60 * 60
 class Session:
     """Session state for assistant conversations."""
 
+    # The authenticated user who owns this session, or None on a no-auth server. Sessions are
+    # only ever loaded on behalf of their owner (see the API layer), so the session id alone is
+    # not enough to read or drive another user's conversation. Sessions written on a no-auth
+    # server (owner None) become unowned once auth is enabled: no authenticated user matches None,
+    # so they are no longer loadable through the API. That is intentional (ephemeral tempdir
+    # sessions, reaped within a day), not a claim path for the first caller.
+    owner: str | None = None
     context: dict[str, Any] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
     pending_message: Message | None = None
@@ -82,6 +89,7 @@ class Session:
             Dictionary representation of session
         """
         return {
+            "owner": self.owner,
             "context": self.context,
             "messages": [msg.model_dump() for msg in self.messages],
             "pending_message": self.pending_message.model_dump() if self.pending_message else None,
@@ -106,6 +114,7 @@ class Session:
         pending_msg = Message.model_validate(pending) if pending else None
 
         return cls(
+            owner=data.get("owner"),
             context=data.get("context", {}),
             messages=messages,
             pending_message=pending_msg,
@@ -192,17 +201,22 @@ class SessionManager:
         return Session.from_dict(data)
 
     @staticmethod
-    def create(context: dict[str, Any] | None = None, working_dir: Path | None = None) -> Session:
+    def create(
+        context: dict[str, Any] | None = None,
+        working_dir: Path | None = None,
+        owner: str | None = None,
+    ) -> Session:
         """Create a new session.
 
         Args:
             context: Initial context data, or None
             working_dir: Working directory for the session
+            owner: The authenticated user who owns the session, or None on a no-auth server
 
         Returns:
             New Session instance
         """
-        return Session(context=context or {}, working_dir=working_dir)
+        return Session(owner=owner, context=context or {}, working_dir=working_dir)
 
 
 def get_process_file(session_id: str) -> Path:
