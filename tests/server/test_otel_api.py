@@ -1,4 +1,5 @@
 import asyncio
+import gzip
 import threading
 from abc import ABC
 from unittest import mock
@@ -8,9 +9,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from prometheus_client import REGISTRY
 
 from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -548,3 +552,171 @@ async def test_otlp_export_works_for_store_that_only_implements_log_spans(monkey
         )
 
     assert status_code == 200
+
+
+def _build_multi_span_otlp_payload(span_count=3):
+    request = ExportTraceServiceRequest()
+    resource_span = request.resource_spans.add()
+    scope_span = resource_span.scope_spans.add()
+
+    trace_id = b"\x00" * 15 + b"\x01"
+    root_span = scope_span.spans.add()
+    root_span.trace_id = trace_id
+    root_span.span_id = b"\x01" * 8
+    root_span.name = "span-root"
+
+    for i in range(1, span_count):
+        child = scope_span.spans.add()
+        child.trace_id = trace_id
+        child.span_id = b"\x02" * 7 + bytes([i])
+        child.parent_span_id = root_span.span_id
+        child.name = f"span-{i}"
+
+    return request.SerializeToString()
+
+
+def _metric(name, labels=None):
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+_OTLP_LABELS = {"protocol": "otlp"}
+_PROTOBUF_HEADERS = {"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": "1"}
+
+
+def _make_store(side_effect=None):
+    class _Store(_DummyTrackingStore):
+        def log_spans(self, experiment_id, spans):
+            if side_effect is not None:
+                raise side_effect
+
+    return _Store
+
+
+def test_otlp_prometheus_metrics(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    def _set_store(side_effect=None):
+        monkeypatch.setattr(
+            "mlflow.server.otel_api._get_tracking_store",
+            lambda: _make_store(side_effect)(),
+        )
+
+    client = _make_test_client()
+
+    def snap():
+        return {
+            "spans": _metric("mlflow_spans_ingested_total", _OTLP_LABELS),
+            "errors": _metric("mlflow_trace_ingestion_server_errors_total", _OTLP_LABELS),
+            "duration_count": _metric("mlflow_otlp_request_duration_seconds_count"),
+            "payload_sum": _metric("mlflow_otlp_request_payload_bytes_sum"),
+            "spans_per_req_sum": _metric("mlflow_otlp_spans_per_request_sum"),
+        }
+
+    def delta(before, after, key):
+        return after[key] - before[key]
+
+    # -- successful 5-span ingestion --
+    _set_store()
+    before = snap()
+    payload = _build_multi_span_otlp_payload(span_count=5)
+    resp = client.post(OTLP_TRACES_PATH, content=payload, headers=_PROTOBUF_HEADERS)
+    after = snap()
+
+    assert resp.status_code == 200
+    assert delta(before, after, "spans") == 5
+    assert delta(before, after, "errors") == 0
+    assert delta(before, after, "duration_count") == 1
+    assert delta(before, after, "payload_sum") > 0
+    assert delta(before, after, "spans_per_req_sum") == 5
+
+    # -- generic server error (RuntimeError) --
+    _set_store(RuntimeError("DB connection lost"))
+    before = snap()
+    resp = client.post(OTLP_TRACES_PATH, content=_build_otlp_payload(), headers=_PROTOBUF_HEADERS)
+    after = snap()
+
+    assert resp.status_code == 422
+    assert delta(before, after, "errors") == 1
+    assert delta(before, after, "spans") == 0
+    assert delta(before, after, "duration_count") == 1
+
+    # -- NotImplementedError (501) --
+    _set_store(NotImplementedError("not supported"))
+    before = snap()
+    resp = client.post(OTLP_TRACES_PATH, content=_build_otlp_payload(), headers=_PROTOBUF_HEADERS)
+    after = snap()
+
+    assert resp.status_code == 501
+    assert delta(before, after, "errors") == 1
+    assert delta(before, after, "duration_count") == 1
+
+    # -- MlflowException 5xx increments error counter --
+    _set_store(MlflowException("Persistence layer unavailable", error_code=INTERNAL_ERROR))
+    before = snap()
+    resp = client.post(OTLP_TRACES_PATH, content=_build_otlp_payload(), headers=_PROTOBUF_HEADERS)
+    after = snap()
+
+    assert resp.status_code == 500
+    assert "Persistence layer unavailable" in resp.json()["message"]
+    assert delta(before, after, "errors") == 1
+    assert delta(before, after, "spans") == 0
+    assert delta(before, after, "duration_count") == 1
+
+    # -- MlflowException 4xx does NOT increment error counter --
+    _set_store(MlflowException("Invalid parameter value", error_code=INVALID_PARAMETER_VALUE))
+    before = snap()
+    resp = client.post(OTLP_TRACES_PATH, content=_build_otlp_payload(), headers=_PROTOBUF_HEADERS)
+    after = snap()
+
+    assert resp.status_code == 400
+    assert "Invalid parameter value" in resp.json()["message"]
+    assert delta(before, after, "errors") == 0
+
+    # -- client errors (bad content-type, malformed payload) never count as server errors --
+    _set_store()
+    before = snap()
+    client.post(OTLP_TRACES_PATH, content=b"bad", headers=_PROTOBUF_HEADERS)
+    client.post(
+        OTLP_TRACES_PATH,
+        content=b"x",
+        headers={"Content-Type": "text/plain", "X-MLflow-Experiment-Id": "1"},
+    )
+    after = snap()
+
+    assert delta(before, after, "errors") == 0
+    assert delta(before, after, "duration_count") == 2
+
+    # -- payload byte tracking --
+    _set_store()
+    payload = _build_otlp_payload()
+    before = snap()
+    client.post(OTLP_TRACES_PATH, content=payload, headers=_PROTOBUF_HEADERS)
+    after = snap()
+
+    assert delta(before, after, "payload_sum") == len(payload)
+
+    # -- payload bytes tracks wire size even when compressed --
+    payload = _build_multi_span_otlp_payload(span_count=50)
+    compressed = gzip.compress(payload)
+    before = snap()
+    client.post(
+        OTLP_TRACES_PATH,
+        content=compressed,
+        headers={**_PROTOBUF_HEADERS, "Content-Encoding": "gzip"},
+    )
+    after = snap()
+
+    assert delta(before, after, "payload_sum") == len(compressed)
+
+    # -- counters accumulate across requests --
+    before = snap()
+    client.post(
+        OTLP_TRACES_PATH, content=_build_multi_span_otlp_payload(3), headers=_PROTOBUF_HEADERS
+    )
+    client.post(
+        OTLP_TRACES_PATH, content=_build_multi_span_otlp_payload(7), headers=_PROTOBUF_HEADERS
+    )
+    after = snap()
+
+    assert delta(before, after, "spans") == 10
+    assert delta(before, after, "spans_per_req_sum") == 10
