@@ -63,6 +63,7 @@ THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
     "mlflow.genai.scorers.trulens",
     "mlflow.genai.scorers.trulens.scorers.agent_trace",
     "mlflow.genai.scorers.phoenix",
+    "mlflow.genai.scorers.inspect_ai",
 })
 
 
