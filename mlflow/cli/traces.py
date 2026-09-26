@@ -291,7 +291,7 @@ def search_traces(
     mlflow traces search --experiment-id 1 --no-include-spans
     """
     client = TracingClient()
-    order_by_list = order_by.split(",") if order_by else None
+    order_by_list = [o.strip() for o in order_by.split(",")] if order_by else None
 
     # Set the sql_warehouse_id in the environment variable
     if sql_warehouse_id is not None:
