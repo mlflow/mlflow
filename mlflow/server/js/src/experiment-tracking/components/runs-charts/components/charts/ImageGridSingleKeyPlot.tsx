@@ -24,7 +24,16 @@ export const ImageGridSingleKeyPlot = ({
     return <EmptyImageGridPlot />;
   }
   return (
-    <div css={{ display: 'flex', justifyContent: 'flex-start', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+    <div
+      css={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+        flexWrap: 'wrap',
+        gap: theme.spacing.xs,
+        height: '100%',
+        minHeight: 0,
+      }}
+    >
       {displayRuns.map((run: RunsChartsRunData) => {
         // There is exactly one key in this plot
         const imageMetadataByStep = Object.values(run.images[cardConfig.imageKeys[0]]).reduce(
@@ -43,6 +52,12 @@ export const ImageGridSingleKeyPlot = ({
               border: `1px solid transparent`,
               borderRadius: theme.borders.borderRadiusSm,
               padding: theme.spacing.sm,
+              // Column so the run header keeps its natural height and the media
+              // absorbs the remainder of the card.
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '100%',
+              minHeight: 0,
               '&:hover': {
                 border: `1px solid ${theme.colors.border}`,
                 backgroundColor: theme.colors.tableBackgroundUnselectedHover,
