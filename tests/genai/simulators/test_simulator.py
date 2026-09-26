@@ -459,6 +459,39 @@ def test_reassignment_with_dataframe(simple_test_case):
     assert simulator.test_cases == [{"goal": "Goal from DataFrame", "persona": "Analyst"}]
 
 
+def test_reassignment_from_evaluation_dataset_to_list_clears_source_dataset():
+    dataset = create_mock_evaluation_dataset([{"goal": "Original goal"}])
+    simulator = ConversationSimulator(test_cases=dataset, max_turns=2)
+
+    simulator.test_cases = [{"goal": "New goal"}]
+
+    assert simulator._source_dataset is None
+    assert simulator._get_dataset_name() == "conversational_dataset"
+
+
+def test_reassignment_from_list_to_evaluation_dataset_sets_source_dataset(simple_test_case):
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=2)
+    dataset = create_mock_evaluation_dataset([{"goal": "Managed goal"}])
+    dataset.name = "managed-dataset"
+
+    simulator.test_cases = dataset
+
+    assert simulator._source_dataset is dataset
+    assert simulator._get_dataset_name() == "managed-dataset"
+
+
+def test_invalid_reassignment_preserves_source_dataset():
+    dataset = create_mock_evaluation_dataset([{"goal": "Original goal"}])
+    simulator = ConversationSimulator(test_cases=dataset, max_turns=2)
+    original_test_cases = simulator.test_cases
+
+    with pytest.raises(ValueError, match="test_cases cannot be empty"):
+        simulator.test_cases = []
+
+    assert simulator._source_dataset is dataset
+    assert simulator.test_cases == original_test_cases
+
+
 @pytest.mark.parametrize(
     ("invalid_test_cases", "expected_error"),
     [
