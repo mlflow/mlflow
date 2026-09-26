@@ -7,7 +7,12 @@ import mlflow
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    ENDPOINT_NOT_FOUND,
+    NOT_IMPLEMENTED,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.uri import (
@@ -148,12 +153,28 @@ class RunsArtifactRepository(ArtifactRepository):
         def iter_models() -> Iterator[LoggedModel]:
             page_token: str | None = None
             while True:
-                page = client.search_logged_models(
-                    experiment_ids=[experiment_id],
-                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
-                    filter_string=f"name = '{name}'",
-                    page_token=page_token,
-                )
+                try:
+                    page = client.search_logged_models(
+                        experiment_ids=[experiment_id],
+                        # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                        filter_string=f"name = '{name}'",
+                        page_token=page_token,
+                    )
+                except MlflowException as e:
+                    # Older tracking servers (e.g. MLflow 2.x) don't have the logged models APIs.
+                    # In such cases, treat the run as having no associated logged model artifacts.
+                    if e.error_code in {
+                        ErrorCode.Name(ENDPOINT_NOT_FOUND),
+                        ErrorCode.Name(NOT_IMPLEMENTED),
+                    }:
+                        _logger.debug(
+                            "Logged models APIs are unavailable on the tracking server; skipping "
+                            "logged model artifact lookup.",
+                            exc_info=True,
+                        )
+                        return
+                    raise
+
                 yield from page
                 if not page.token:
                     break
