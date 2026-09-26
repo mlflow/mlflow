@@ -6,7 +6,7 @@ import dspy
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
-from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
@@ -27,6 +27,7 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     trace_to_dspy_example,
 )
 from mlflow.genai.judges.optimizers.memalign.optimizer import MemAlignOptimizer
+from mlflow.genai.scorers import ToolCallCorrectness
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
@@ -766,3 +767,64 @@ def test_memalign_optimizer_handles_multi_assessment_traces(mock_judge):
 
         assert len(aligned_judge._episodic_memory) == 3
         assert all(ex._trace_id == "multi_trace" for ex in aligned_judge._episodic_memory)
+
+
+def test_tool_call_correctness_expectations_field_optionality():
+    # "expectations" is optional unless should_exact_match=True (mlflow#22983, Bug 1)
+    optional_fields = {f.name: f for f in ToolCallCorrectness().get_input_fields()}
+    assert optional_fields["expectations"].required is False
+    assert optional_fields["trace"].required is True
+
+    required_fields = {
+        f.name: f for f in ToolCallCorrectness(should_exact_match=True).get_input_fields()
+    }
+    assert required_fields["expectations"].required is True
+
+
+def test_trace_to_dspy_example_without_expectations_when_optional():
+    # Bug 1 (mlflow#22983): traces without expectation-based feedback were filtered
+    # out entirely, leaving zero alignment examples. With expectations optional,
+    # they must produce examples.
+    judge = ToolCallCorrectness()
+    trace = _create_trace_with_assessments(
+        "trace_no_expectations",
+        [_create_human_assessment("tool_call_correctness", "yes", "Looks right", 123)],
+    )
+    examples = trace_to_dspy_example(trace, judge)
+
+    assert len(examples) == 1
+    assert isinstance(examples[0], dspy.Example)
+    assert examples[0]["result"] == "yes"
+    assert "expectations" not in examples[0].keys()
+
+
+def test_trace_to_dspy_example_with_expectations_when_optional():
+    judge = ToolCallCorrectness()
+    trace = _create_trace_with_assessments(
+        "trace_with_expectations",
+        [
+            _create_human_assessment("tool_call_correctness", "no", "Wrong tool", 123),
+            Expectation(
+                name="expected_tool_calls",
+                value=[{"name": "search", "arguments": {"query": "MLflow"}}],
+            ),
+        ],
+    )
+    examples = trace_to_dspy_example(trace, judge)
+
+    assert len(examples) == 1
+    assert examples[0]["result"] == "no"
+    assert examples[0]["expectations"] == {
+        "expected_tool_calls": [{"name": "search", "arguments": {"query": "MLflow"}}]
+    }
+
+
+def test_trace_to_dspy_example_without_expectations_when_required():
+    # With should_exact_match=True, expectations are required, so traces without
+    # them must still be filtered out.
+    judge = ToolCallCorrectness(should_exact_match=True)
+    trace = _create_trace_with_assessments(
+        "trace_exact_no_expectations",
+        [_create_human_assessment("tool_call_correctness", "yes", "Looks right", 123)],
+    )
+    assert trace_to_dspy_example(trace, judge) == []
