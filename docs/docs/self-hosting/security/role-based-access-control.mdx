@@ -95,39 +95,6 @@ Two limits are worth knowing before relying on it:
   [Permission resolution](#permission-resolution) for how a grant on one
   tier overrides another.
 
-#### Permission resolution
-
-For each authorization check, MLflow evaluates the user's effective
-permission as follows:
-
-1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
-2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Grants that apply to the same resource fold via a max, and the
-   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`) -
-   except that a matching `DENY` wins outright, whatever it is folded with.
-   `(workspace, *, MANAGE)` folds into every per-resource check - it grants
-   management of every resource in the workspace, and takes effect before
-   `DENY` is considered. `(workspace, *, USE)` does **not** fold into
-   per-resource checks; it confers workspace membership and create rights
-   only (see [Workspace isolation](#workspace-isolation)).
-
-   When a check consults more than one tier - a sub-resource and the parent
-   it inherits from - the tiers are **not** max'd together. The most
-   specific tier holding **any** grant decides, and the tiers behind it are
-   not consulted. So a `run` grant overrides the experiment it belongs to
-   whether it is higher or lower, and a `(run, *, DENY)` is not rescued by
-   `(experiment, 42, MANAGE)`. A tier with no grant at all is silent, and
-   the next tier speaks.
-
-3. **Server `default_permission`** (defaults to `READ`): a floor max'd
-   into the resolution result. When no role grant matches at all, the
-   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
-   when the resolver returns it for a workspace-boundary reason (no
-   workspace membership, missing workspace, lookup error), that deny
-   stands - and it does not lift `DENY` either, since flooring an explicit
-   deny would void it. See [Workspace isolation](#workspace-isolation) for
-   when the floor applies in multi-workspace mode.
-
 ### Sub-resource tiers
 
 A resource that lives inside another can be granted on separately, so access
@@ -155,29 +122,44 @@ in another is worse than no grant, so the server refuses it at the source
 rather than dropping it later.
 :::
 
-#### Order of evaluation
+### Permission resolution
 
-An operation on a sub-resource is authorized against the tier **and** its
-container, in this order:
+For each authorization check, MLflow evaluates the user's effective permission as
+follows. An operation on a sub-resource is authorized against the tier **and** its
+container, which is what steps 3 and 5 cover.
 
-1. **Platform Admin bypass** - `is_admin = true` allows the request outright.
-2. **Workspace admin** - a `(workspace, *, MANAGE)` grant resolves every
-   resource to `MANAGE`, ahead of every rule below including `DENY`.
-3. **Container READ** - the caller must be able to read the container. This is a
-   separate check from the tier, and it is what bounds a sub-resource grant to
-   the containers the caller can already see. A tier grant names no container,
-   because the grain is wildcard-only, so without this check
+1. **Platform Admin bypass** - `is_admin = true` short-circuits to allow.
+2. **Workspace admin** - a `(workspace, *, MANAGE)` grant resolves every resource in
+   the workspace to `MANAGE`, ahead of every rule below including `DENY`.
+   `(workspace, *, USE)` does **not** fold into per-resource checks; it confers
+   workspace membership and create rights only (see
+   [Workspace isolation](#workspace-isolation)).
+3. **Container READ** - an operation on a sub-resource also requires READ on its
+   container. This is a separate check from the tier, and it is what bounds a
+   sub-resource grant to the containers the caller can already see. A tier grant
+   names no container, because the grain is wildcard-only, so without this check
    `(run, *, READ)` would read every run in every experiment in the workspace.
-   Requiring `READ` costs nothing, because every permission level carrying
-   update, delete or manage already carries read.
-4. **Grants on the same tier fold together** - a matching `DENY` wins,
-   otherwise the most permissive grant applies.
-5. **The tier decides, then the container** - the sub-resource tier is
-   consulted first, and if it holds **any** grant that grant decides. Only
-   when the tier holds no grant at all does the container decide. Tiers are
-   **not** max'd together, so a tier grant overrides its container whether it
-   is more or less permissive.
-6. **`default_permission`** applies when neither holds a grant.
+   Requiring `READ` costs nothing, because every permission level carrying update,
+   delete or manage already carries read.
+4. **Grants on the same tier fold together** - all of the user's roles in the
+   request's workspace contribute. Grants that apply to the same resource fold via a
+   max, and the highest-priority permission wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`) - except that a matching `DENY` wins
+   outright, whatever it is folded with.
+5. **The most specific tier decides, then the container** - the sub-resource tier is
+   consulted first, and if it holds **any** grant that grant decides. Only when the
+   tier holds no grant at all does the container decide. Tiers are **not** max'd
+   together, so a tier grant overrides its container whether it is more or less
+   permissive, and a `(run, *, DENY)` is not rescued by `(experiment, 42, MANAGE)`.
+   A tier with no grant at all is silent, and the next tier speaks.
+6. **Server `default_permission`** (defaults to `READ`) - a floor max'd into the
+   resolution result, and the final answer when no role grant matches at all. The
+   floor does **not** lift `NO_PERMISSIONS` - when the resolver returns it for a
+   workspace-boundary reason (no workspace membership, missing workspace, lookup
+   error), that deny stands - and it does not lift `DENY` either, since flooring an
+   explicit deny would void it. See
+   [Workspace isolation](#workspace-isolation) for when the floor applies in
+   multi-workspace mode.
 
 Steps 5 and 6 are what make a tier grant optional: with no grant on the tier,
 the container decides exactly as it did before these types existed.
