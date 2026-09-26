@@ -6368,6 +6368,12 @@ def create_app(app: Flask = app):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
+    # No-op unless authorization_function is the session authenticator; see
+    # mlflow.server.auth.session.
+    from mlflow.server.auth.session import apply_session_cookie
+
+    app.after_request(apply_session_cookie)
+
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
         fastapi_app = create_fastapi_app(app)
         add_fastapi_permission_middleware(fastapi_app)

@@ -99,6 +99,22 @@ class SqlRolePermission(Base):
         )
 
 
+class SqlSession(Base):
+    """A server-side login session, used only when the auth app's
+    authorization_function is set to
+    ``mlflow.server.auth.session:authenticate_request_session``. Shared
+    across instances so a load-balanced deployment recognizes a session
+    minted by any of them. See https://github.com/mlflow/mlflow/issues/13643.
+    """
+
+    __tablename__ = "sessions"
+
+    session_id = Column(String(255), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    expires_at = Column(Integer, nullable=False)
+    __table_args__ = (Index("idx_sessions_user_id", "user_id"),)
+
+
 class SqlUserRoleAssignment(Base):
     __tablename__ = "user_role_assignments"
 
