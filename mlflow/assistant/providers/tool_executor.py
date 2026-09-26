@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import logging
 import os
 import shlex
@@ -12,6 +13,37 @@ from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
 from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
+
+# Whether the current request comes from a non-localhost (remote) caller. Set per request by the
+# Assistant route layer. Remote callers are capped at the restricted permission profile (no
+# full_access) as defense-in-depth: remote access already requires the sandbox (enforced in the
+# API layer), so remote tool calls run isolated in a container rather than on the host, and this
+# cap additionally stops a remote caller's stored config or an interactive approval from unlocking
+# full_access inside it. A local caller (operator on the server host) keeps their configured
+# permissions. Defaults to False so non-request contexts (e.g. the local CLI) are unrestricted.
+_remote_caller: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "mlflow_assistant_remote_caller", default=False
+)
+
+
+def set_remote_caller(remote: bool) -> None:
+    """Bind whether the current request is from a remote (non-localhost) caller."""
+    _remote_caller.set(remote)
+
+
+def is_remote_caller() -> bool:
+    return _remote_caller.get()
+
+
+def restrict_permissions_for_remote(perms: PermissionsConfig) -> PermissionsConfig:
+    """Cap ``perms`` at the restricted profile for a remote caller; a no-op for a local caller.
+
+    ``full_access`` is the arbitrary-code / out-of-workspace escape hatch, so it is the field a
+    remote caller must never obtain; the workspace-confined file and CLI allowances are unchanged.
+    """
+    if not is_remote_caller() or not perms.full_access:
+        return perms
+    return perms.model_copy(update={"full_access": False})
 
 
 def _uri_without_credentials(name: str, uri: str) -> str | None:
@@ -144,7 +176,10 @@ async def execute_tool(
     tracking_uri: str | None = None,
     permissions: PermissionsConfig | None = None,
 ) -> tuple[str, bool]:
-    perms = permissions or PermissionsConfig()
+    # Cap a remote caller at the restricted profile here as the final enforcement point, so no
+    # caller-supplied permissions (config-derived or an interactive full-access grant) can hand a
+    # remote request full_access, independent of what the provider passed in.
+    perms = restrict_permissions_for_remote(permissions or PermissionsConfig())
 
     if (denial := static_permission_error(tool_name, tool_input, perms, cwd)) is not None:
         return denial, True
@@ -155,12 +190,12 @@ async def execute_tool(
                 return await _execute_bash(
                     tool_input, cwd=cwd, tracking_uri=tracking_uri, full_access=perms.full_access
                 )
-            case "Read":
-                return await asyncio.to_thread(_execute_read, tool_input, cwd=cwd)
-            case "Write":
-                return await asyncio.to_thread(_execute_write, tool_input, cwd=cwd)
-            case "Edit":
-                return await asyncio.to_thread(_execute_edit, tool_input, cwd=cwd)
+            case "Read" | "Write" | "Edit":
+                # When the sandbox is enabled the file tools must run inside the container like
+                # Bash, not on the host, so the container filesystem namespace bounds them.
+                if assistant_sandbox_enabled():
+                    return await _execute_file_tool_in_sandbox(tool_name, tool_input, cwd)
+                return await asyncio.to_thread(_HOST_FILE_TOOLS[tool_name], tool_input, cwd=cwd)
             case _:
                 return f"Unknown tool: {tool_name}", True
     except Exception as e:
@@ -189,15 +224,47 @@ async def _execute_bash(
     return await _execute_bash_on_host(command, cwd, tracking_uri, full_access)
 
 
+def _assistant_delegation_env() -> dict[str, str]:
+    """Env that makes a Bash subprocess's MLflow API calls authenticate as the session owner.
+
+    Mint a short-lived, user-scoped delegation credential for the current per-user identity and
+    point the MLflow client at the provider that forwards it, so a ``mlflow`` command the assistant
+    runs is attributed to the caller instead of hitting an auth-enabled server anonymously (401).
+    Empty on a server without auth (no identity to attribute to), leaving those calls anonymous.
+    """
+    from mlflow.assistant.config import get_config_user
+    from mlflow.environment_variables import _MLFLOW_ASSISTANT_DELEGATION_TOKEN
+    from mlflow.server.assistant.delegation import mint_delegation_credential
+    from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider import (
+        ASSISTANT_DELEGATION_AUTH_NAME,
+    )
+
+    credential = mint_delegation_credential(get_config_user() or "")
+    if not credential:
+        return {}
+    return {
+        "MLFLOW_TRACKING_AUTH": ASSISTANT_DELEGATION_AUTH_NAME,
+        _MLFLOW_ASSISTANT_DELEGATION_TOKEN.name: credential,
+    }
+
+
 async def _execute_bash_on_host(
     command: str,
     cwd: Path | None,
     tracking_uri: str | None,
     full_access: bool,
 ) -> tuple[str, bool]:
+    from mlflow.environment_variables import _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY
+
     env = os.environ.copy()
+    # The delegation signing key must never reach a tool subprocess: a command that could read it
+    # would be able to mint a credential for any user. The subprocess is handed only a pre-minted,
+    # user-scoped credential below.
+    env.pop(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, None)
     if tracking_uri:
         env["MLFLOW_TRACKING_URI"] = tracking_uri
+    # Attribute the tool's MLflow API calls to the session owner (no-op on a no-auth server).
+    env.update(_assistant_delegation_env())
 
     try:
         if full_access:
@@ -272,6 +339,9 @@ async def _execute_bash_in_sandbox(
     for var in ("MLFLOW_REGISTRY_URI",):
         if (value := os.environ.get(var)) and (safe := _uri_without_credentials(var, value)):
             env[var] = to_container_host_uri(safe)
+    # The delegation credential is user-scoped and short-lived, so unlike host secrets it is safe
+    # (and necessary) to forward into the sandbox so the tool's MLflow calls run as the caller.
+    env.update(_assistant_delegation_env())
 
     if full_access:
         sandbox_command = [command]
@@ -348,6 +418,90 @@ def _execute_edit(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[
         return f"Edited {file_path}", False
     except Exception as e:
         return str(e), True
+
+
+_HOST_FILE_TOOLS = {"Read": _execute_read, "Write": _execute_write, "Edit": _execute_edit}
+
+# Each file op runs as a single Python program inside the sandbox container (the image is
+# Python-based, like Bash relies on a shell there). Inputs are passed via the environment, never
+# the command line, so arbitrary file content is not shell-quoted or exposed in the process args.
+# Paths are relative to the workspace mount (cwd), so they resolve to the same files the host tools
+# would use. Edit exits 3 when old_string is absent, matching the host tool's error.
+_SANDBOX_FILE_TOOL_PROGRAMS = {
+    "Read": 'import os,sys\nsys.stdout.write(open(os.environ["MLF_FILE"],encoding="utf-8").read())',
+    "Write": (
+        "import os\n"
+        'p=os.environ["MLF_FILE"]\n'
+        "d=os.path.dirname(p)\n"
+        "if d:\n"
+        "    os.makedirs(d,exist_ok=True)\n"
+        'open(p,"w",encoding="utf-8").write(os.environ["MLF_CONTENT"])'
+    ),
+    "Edit": (
+        "import os,sys\n"
+        'p=os.environ["MLF_FILE"]\n'
+        'old=os.environ["MLF_OLD"]\n'
+        'c=open(p,encoding="utf-8").read()\n'
+        "if old not in c:\n"
+        "    sys.exit(3)\n"
+        'open(p,"w",encoding="utf-8").write(c.replace(old,os.environ["MLF_NEW"],1))'
+    ),
+}
+
+
+async def _execute_file_tool_in_sandbox(
+    tool_name: str, tool_input: dict[str, Any], cwd: Path | None
+) -> tuple[str, bool]:
+    """Run Read/Write/Edit inside the sandbox container instead of on the host.
+
+    File tools are already path-confined to cwd on the host, but when the operator enables the
+    sandbox they must run inside the container like Bash so the container filesystem namespace --
+    not only the host-side path check -- bounds them (closing symlink/TOCTOU escapes and matching
+    the isolation the operator enabled). cwd is bind-mounted read-write as the container workdir,
+    so a path relative to it resolves to the same file.
+    """
+    from mlflow.server.sandbox import SandboxUnavailableError, run_in_sandbox
+
+    if cwd is None:
+        return f"Permission denied: {tool_name} requires a configured project directory", True
+    raw_path = tool_input.get("file_path") or tool_input.get("path", "")
+    if not raw_path:
+        return "No file_path provided", True
+    try:
+        rel = _resolve_file_path(raw_path, cwd).relative_to(cwd.resolve())
+    except (ValueError, OSError, TypeError):
+        return f"Permission denied: malformed path {raw_path!r}", True
+
+    env = {"MLF_FILE": str(rel)}
+    if tool_name == "Write":
+        env["MLF_CONTENT"] = tool_input.get("content", "")
+    elif tool_name == "Edit":
+        env["MLF_OLD"] = tool_input.get("old_string", "")
+        env["MLF_NEW"] = tool_input.get("new_string", "")
+
+    try:
+        result = await asyncio.to_thread(
+            run_in_sandbox,
+            ["python", "-c", _SANDBOX_FILE_TOOL_PROGRAMS[tool_name]],
+            workdir=cwd,
+            environment=env,
+            timeout=120,
+        )
+    except SandboxUnavailableError as e:
+        return f"Sandbox is enabled but {tool_name} could not be run: {e}", True
+
+    if result.timed_out:
+        return f"{tool_name} timed out after 120 seconds", True
+    if tool_name == "Edit" and result.exit_code == 3:
+        return f"old_string not found in {raw_path}", True
+    if result.exit_code != 0:
+        return result.output.strip() or f"Exit code: {result.exit_code}", True
+
+    if tool_name == "Read":
+        return result.output, False
+    if tool_name == "Write":
+        return f"Wrote {len(env['MLF_CONTENT'])} bytes to {raw_path}", False
+    return f"Edited {raw_path}", False
 
 
 def build_tools_schema() -> list[dict[str, Any]]:
