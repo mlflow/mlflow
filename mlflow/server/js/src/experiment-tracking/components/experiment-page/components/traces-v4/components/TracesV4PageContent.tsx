@@ -4,13 +4,16 @@ import { useIntl, FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
   ModelTraceExplorerContextProvider,
+  SESSION_ID_METADATA_KEY,
   type ModelTraceInfoV3,
+  type ModelTraceSearchLocation,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   doesTraceSupportV4API,
   GenAITracesTableProvider,
   MLFLOW_SOURCE_RUN_KEY,
   RunName,
+  shouldEnableSessionViewInTraceDrawer,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
@@ -29,7 +32,11 @@ import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/As
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  SELECTED_TRACE_ID_QUERY_PARAM,
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
@@ -50,6 +57,26 @@ import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-tabl
 interface TracesV4PageContentProps {
   experimentId: string;
 }
+
+interface SelectedTraceSession {
+  sessionId: string;
+  traceId: string;
+  traceLocation?: ModelTraceSearchLocation;
+}
+
+const getTraceDrawerId = (trace: ModelTraceInfoV3): string =>
+  doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id;
+
+const getSelectedTraceSession = (trace: ModelTraceInfoV3): SelectedTraceSession | undefined => {
+  const sessionId = trace.trace_metadata?.[SESSION_ID_METADATA_KEY];
+  return sessionId
+    ? {
+        sessionId,
+        traceId: getTraceDrawerId(trace),
+        traceLocation: trace.trace_location.type === 'INFERENCE_TABLE' ? undefined : trace.trace_location,
+      }
+    : undefined;
+};
 
 const PREVIEW_LINE_CLAMP_BY_DENSITY = {
   small: 1,
@@ -91,6 +118,78 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     flags,
   } = controller;
   const { density, setDensity } = useTracesV4Density(experimentId);
+  const sessionDrawerEnabled = shouldEnableSessionViewInTraceDrawer();
+  const requestedDrawerParams = useMemo(() => new URLSearchParams(search), [search]);
+  const requestedSessionId = requestedDrawerParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM) ?? undefined;
+  const sessionDrawerViewRequested = requestedDrawerParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM) === 'session';
+  const traceFromUrl = useMemo(
+    () => page.traces.find((trace) => getTraceDrawerId(trace) === url.traceId),
+    [page.traces, url.traceId],
+  );
+  const [selectedTraceSession, setSelectedTraceSession] = useState<SelectedTraceSession | undefined>(() =>
+    sessionDrawerViewRequested && requestedSessionId && url.traceId
+      ? { sessionId: requestedSessionId, traceId: url.traceId }
+      : undefined,
+  );
+  const [drawerViewMode, setDrawerViewMode] = useState<'trace' | 'session'>(() =>
+    controller.isGroupedBySession || sessionDrawerViewRequested ? 'session' : 'trace',
+  );
+  const drawerViewModeRef = useRef(drawerViewMode);
+  drawerViewModeRef.current = drawerViewMode;
+  const sessionsOnPage = useMemo(() => {
+    const seen = new Set<string>();
+    return page.traces.flatMap((trace) => {
+      const traceSession = getSelectedTraceSession(trace);
+      if (!traceSession || seen.has(traceSession.sessionId)) {
+        return [];
+      }
+      seen.add(traceSession.sessionId);
+      return [traceSession];
+    });
+  }, [page.traces]);
+  const activeTraceSession = useMemo(
+    () =>
+      selectedTraceSession ??
+      (traceFromUrl ? getSelectedTraceSession(traceFromUrl) : undefined) ??
+      (sessionDrawerViewRequested && requestedSessionId && url.traceId
+        ? { sessionId: requestedSessionId, traceId: url.traceId }
+        : undefined),
+    [requestedSessionId, selectedTraceSession, sessionDrawerViewRequested, traceFromUrl, url.traceId],
+  );
+  const activeSessionIndex = activeTraceSession
+    ? sessionsOnPage.findIndex((session) => session.sessionId === activeTraceSession.sessionId)
+    : -1;
+  const selectSessionAtIndex = useCallback(
+    (index: number) => {
+      const session = sessionsOnPage[index];
+      if (!session) {
+        return;
+      }
+      setSelectedTraceSession(session);
+      setDrawerViewMode('session');
+      url.setTraceId(session.traceId);
+    },
+    [sessionsOnPage, url],
+  );
+  const sessionNavigation = controller.isGroupedBySession
+    ? {
+        onPrevious: activeSessionIndex > 0 ? () => selectSessionAtIndex(activeSessionIndex - 1) : undefined,
+        onNext:
+          activeSessionIndex >= 0 && activeSessionIndex < sessionsOnPage.length - 1
+            ? () => selectSessionAtIndex(activeSessionIndex + 1)
+            : undefined,
+      }
+    : undefined;
+
+  useEffect(() => {
+    if (!sessionDrawerViewRequested) {
+      return;
+    }
+    const next = new URLSearchParams(search);
+    next.delete(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM);
+    next.delete(TRACE_DRAWER_SESSION_ID_QUERY_PARAM);
+    navigate({ pathname, search: next.toString() ? `?${next}` : '', hash }, { replace: true });
+  }, [hash, navigate, pathname, search, sessionDrawerViewRequested]);
 
   // One "Reset to defaults" in the column selector clears standard, assessment, and custom overrides
   // plus the reordered column order.
@@ -229,11 +328,37 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // the bare hex id would fall through to the legacy GetTraceInfo path and be rejected as "Invalid
   // request id". Mirrors v1's `useActiveEvaluation` selection logic.
   const handleTraceSelected = useCallback(
-    (trace: ModelTraceInfoV3) =>
-      url.setTraceId(doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id),
-    [url],
+    (trace: ModelTraceInfoV3) => {
+      const traceSession = sessionDrawerEnabled ? getSelectedTraceSession(trace) : undefined;
+      setSelectedTraceSession(traceSession);
+      setDrawerViewMode(drawerViewModeRef.current === 'session' && traceSession ? 'session' : 'trace');
+      url.setTraceId(getTraceDrawerId(trace));
+    },
+    [sessionDrawerEnabled, url],
   );
-  const closeDrawer = useCallback(() => url.setTraceId(undefined), [url]);
+  const closeDrawer = useCallback(() => {
+    url.setTraceId(undefined);
+    setSelectedTraceSession(undefined);
+  }, [url]);
+  const selectTraceFromExplorer = useCallback(
+    (traceId: string, traceInfo?: ModelTraceInfoV3) => {
+      if (traceInfo) {
+        setSelectedTraceSession(sessionDrawerEnabled ? getSelectedTraceSession(traceInfo) : undefined);
+      }
+      setDrawerViewMode('trace');
+      url.setTraceId(traceId);
+    },
+    [sessionDrawerEnabled, url],
+  );
+  const handleDrawerViewModeChange = useCallback(
+    (viewMode: 'trace' | 'session') => {
+      if (viewMode === 'session' && activeTraceSession) {
+        setSelectedTraceSession({ ...activeTraceSession, traceId: url.traceId ?? activeTraceSession.traceId });
+      }
+      setDrawerViewMode(viewMode);
+    },
+    [activeTraceSession, url.traceId],
+  );
 
   // Open a trace by adding `traceId` to the *current* location rather than resetting to a bare Traces
   // route, so active filters/sort in the URL survive an open (and a Cmd/Ctrl+click into a new tab).
@@ -252,16 +377,37 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const getSessionHref = useCallback<SessionHrefGetter>(
     ({ trace, sessionId }) => {
       const baseUrl = Routes.getExperimentPageTabSingleChatSessionRoute(experimentId, sessionId);
-      return trace.trace_id
-        ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: trace.trace_id }).toString()}`
-        : baseUrl;
+      const searchParams = new URLSearchParams(search);
+      searchParams.delete('traceId');
+      searchParams.delete('spanId');
+      searchParams.delete(SELECTED_TRACE_ID_QUERY_PARAM);
+      searchParams.delete(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM);
+      searchParams.delete(TRACE_DRAWER_SESSION_ID_QUERY_PARAM);
+      if (trace.trace_id) {
+        searchParams.set(SELECTED_TRACE_ID_QUERY_PARAM, trace.trace_id);
+      }
+      const nextSearch = searchParams.toString();
+      return `${baseUrl}${nextSearch ? `?${nextSearch}` : ''}`;
     },
-    [experimentId],
+    [experimentId, search],
   );
 
   // Clicking a grouped session header row navigates to its single-chat-session view (same route the
   // session cell links to).
-  const handleSessionSelected = useCallback<SessionSelectionHandler>(
+  const handleSessionDrawerSelected = useCallback<SessionSelectionHandler>(
+    ({ trace, sessionId }) => {
+      const traceSession = getSelectedTraceSession(trace);
+      setSelectedTraceSession({
+        sessionId,
+        traceId: getTraceDrawerId(trace),
+        traceLocation: traceSession?.traceLocation,
+      });
+      setDrawerViewMode('session');
+      url.setTraceId(getTraceDrawerId(trace));
+    },
+    [url],
+  );
+  const handleLegacySessionSelected = useCallback<SessionSelectionHandler>(
     (session) => {
       const href = getSessionHref(session);
       if (href) {
@@ -430,8 +576,14 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             onSort={url.setSort}
             previewLineClamp={PREVIEW_LINE_CLAMP_BY_DENSITY[density]}
             getTraceHref={getTraceHref}
-            getSessionHref={getSessionHref}
-            onSessionSelected={handleSessionSelected}
+            getSessionHref={sessionDrawerEnabled && controller.isGroupedBySession ? undefined : getSessionHref}
+            onSessionSelected={
+              controller.isGroupedBySession
+                ? sessionDrawerEnabled
+                  ? handleSessionDrawerSelected
+                  : handleLegacySessionSelected
+                : undefined
+            }
             onFilterByTag={controller.onFilterByTag}
             renderRunName={renderRunName}
             onHideColumn={handleHideColumn}
@@ -506,8 +658,18 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             onClose={closeDrawer}
             experimentId={experimentId}
             traces={page.traces}
-            onSelectTrace={url.setTraceId}
+            onSelectTrace={selectTraceFromExplorer}
             runJudgeConfiguration={actions.runJudges?.runJudgeConfiguration}
+            viewModeControl={
+              sessionDrawerEnabled
+                ? {
+                    value: activeTraceSession ? drawerViewMode : 'trace',
+                    onChange: handleDrawerViewModeChange,
+                  }
+                : undefined
+            }
+            session={activeTraceSession}
+            sessionNavigation={sessionNavigation}
           />
 
           {actions.runJudges?.RunJudgesModal}

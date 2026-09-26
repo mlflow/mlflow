@@ -106,12 +106,14 @@ export function ModelTraceExplorerDefaultSpanView({
   searchFilter,
   activeMatch,
   defaultRenderMode,
+  maxVisibleChatMessages,
 }: {
   activeSpan: ModelTraceSpanNode | undefined;
   className?: string;
   searchFilter: string;
   activeMatch: SearchMatch | null;
   defaultRenderMode: ModelTraceExplorerRenderMode;
+  maxVisibleChatMessages?: number;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
   const [sectionRenderModes, setSectionRenderModes] = useState<
@@ -261,7 +263,7 @@ export function ModelTraceExplorerDefaultSpanView({
       if (section === 'inputs' && inputChatMessages.length > 0) {
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-            <ModelTraceExplorerChatSections messages={inputChatMessages} />
+            <ModelTraceExplorerChatSections messages={inputChatMessages} maxVisibleMessages={maxVisibleChatMessages} />
             {renderNonChatFields(section, inputList, inputHasTopLevelChatPayload)}
           </div>
         );
@@ -270,7 +272,7 @@ export function ModelTraceExplorerDefaultSpanView({
       if (section === 'outputs' && outputChatMessages.length > 0) {
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-            <ModelTraceExplorerConversation messages={outputChatMessages} />
+            <ModelTraceExplorerConversation messages={outputChatMessages} maxVisibleMessages={maxVisibleChatMessages} />
             {renderNonChatFields(section, outputList, outputHasTopLevelChatPayload)}
           </div>
         );

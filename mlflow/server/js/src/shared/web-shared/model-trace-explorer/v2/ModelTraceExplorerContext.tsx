@@ -52,6 +52,7 @@ export interface ModelTraceExplorerContextValue {
   /** When set, content can show an Add to dataset affordance that calls openModal. */
   addToDatasetAction?: AddToDatasetAction;
   rightPaneHeaderActions?: ReactNode;
+  sessionGroupingEnabled?: boolean;
   experimentId?: string;
   drawerWidth?: string | number;
   isSearchVisible?: boolean;
@@ -127,6 +128,7 @@ export const ModelTraceExplorerAddToDatasetProvider: React.FC<{
 export const ModelTraceExplorerRightPaneHeaderActionsProvider: React.FC<{
   openAddToDatasetModal?: () => void;
   rightPaneHeaderActions?: ReactNode;
+  sessionGroupingEnabled?: boolean;
   experimentId?: string;
   isSearchVisible?: boolean;
   traceExplorerDisplayMode?: ModelTraceExplorerDisplayMode;
@@ -135,6 +137,7 @@ export const ModelTraceExplorerRightPaneHeaderActionsProvider: React.FC<{
 }> = ({
   openAddToDatasetModal,
   rightPaneHeaderActions,
+  sessionGroupingEnabled,
   experimentId,
   isSearchVisible = false,
   traceExplorerDisplayMode = 'default',
@@ -147,6 +150,7 @@ export const ModelTraceExplorerRightPaneHeaderActionsProvider: React.FC<{
       ...parent,
       addToDatasetAction: openAddToDatasetModal ? { openModal: openAddToDatasetModal } : parent.addToDatasetAction,
       rightPaneHeaderActions,
+      sessionGroupingEnabled,
       experimentId,
       isSearchVisible,
       traceExplorerDisplayMode,
@@ -156,6 +160,7 @@ export const ModelTraceExplorerRightPaneHeaderActionsProvider: React.FC<{
       parent,
       openAddToDatasetModal,
       rightPaneHeaderActions,
+      sessionGroupingEnabled,
       experimentId,
       isSearchVisible,
       traceExplorerDisplayMode,

@@ -38,6 +38,10 @@ describe('ExperimentChatSessionsPage', () => {
     renderPage();
 
     expect(screen.getByText('The Sessions view has moved to the Traces tab.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Select "Sessions" in the Traces/Sessions switcher to see the session-level view.'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('radio', { hidden: true })[1]).toBeChecked();
 
     const link = screen.getByRole('link', { name: 'View Sessions in Traces tab →' });
     expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/123/traces'));

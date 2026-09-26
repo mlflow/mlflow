@@ -65,3 +65,23 @@ export const formatTraceDuration = (duration: string): string | null => {
   const ms = parseDurationToMs(duration);
   return ms === null ? null : formatDurationMs(ms);
 };
+
+/** Avoid showing a misleading partial session duration when any loaded turn lacks a valid value. */
+export const formatTraceDurationTotal = (durations: Array<string | undefined>): string | null => {
+  if (durations.length === 0) {
+    return null;
+  }
+
+  let totalMs = 0;
+  for (const duration of durations) {
+    if (!duration) {
+      return null;
+    }
+    const durationMs = parseDurationToMs(duration);
+    if (durationMs === null) {
+      return null;
+    }
+    totalMs += durationMs;
+  }
+  return formatDurationMs(totalMs);
+};

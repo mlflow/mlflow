@@ -460,6 +460,7 @@ export const useSearchMlflowTraces = ({
   sqlWarehouseId,
   filterByAssessmentSourceRun = false,
   enablePagination = true,
+  fetchAllPages = false,
   refetchInterval,
 }: {
   locations: ModelTraceSearchLocation[];
@@ -498,6 +499,8 @@ export const useSearchMlflowTraces = ({
    * to join on inputs.
    */
   enablePagination?: boolean;
+  /** Drains every search continuation page before returning data. */
+  fetchAllPages?: boolean;
   /**
    * Optional React Query refetch interval (ms). When set, the underlying query
    * is polled at this interval. Pass `false` to disable polling.
@@ -558,6 +561,7 @@ export const useSearchMlflowTraces = ({
     loggedModelId,
     sqlWarehouseId,
     enablePagination,
+    fetchAllPages,
     refetchInterval,
   });
 
@@ -670,6 +674,7 @@ export const searchMlflowTracesQueryFn = async ({
   orderBy,
   loggedModelId,
   sqlWarehouseId,
+  fetchAllPages,
 }: {
   signal?: AbortSignal;
   locations?: ModelTraceSearchLocation[];
@@ -679,6 +684,7 @@ export const searchMlflowTracesQueryFn = async ({
   orderBy?: string[];
   loggedModelId?: string;
   sqlWarehouseId?: string;
+  fetchAllPages?: boolean;
 }): Promise<ModelTraceInfoV3[]> => {
   const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
 
@@ -689,6 +695,7 @@ export const searchMlflowTracesQueryFn = async ({
       locations,
       filter,
       pageSize: pageSizeProp,
+      fetchAllPages,
     });
   }
   let allTraces: ModelTraceInfoV3[] = [];
@@ -738,6 +745,7 @@ interface UseSearchMlflowTracesInnerParams {
   sqlWarehouseId?: string;
   enabled?: boolean;
   enablePagination?: boolean;
+  fetchAllPages?: boolean;
   refetchInterval?: number | false;
 }
 
@@ -865,11 +873,13 @@ const useSearchMlflowTracesInner = ({
   sqlWarehouseId,
   enabled = true,
   enablePagination = true,
+  fetchAllPages = false,
   refetchInterval,
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
-  const usingInfinitePagination = !usingV4APIs && shouldUseInfinitePaginatedTraces() && enablePagination;
+  const usingInfinitePagination =
+    !usingV4APIs && shouldUseInfinitePaginatedTraces() && enablePagination && !fetchAllPages;
 
   const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 
@@ -900,6 +910,7 @@ const useSearchMlflowTracesInner = ({
         loggedModelId,
         sqlWarehouseQueryKey,
         pageSize: pageSizeProp,
+        fetchAllPages,
       },
     ],
     queryFn: ({ signal }) =>
@@ -912,6 +923,7 @@ const useSearchMlflowTracesInner = ({
         orderBy,
         loggedModelId,
         sqlWarehouseId,
+        fetchAllPages,
       }),
   });
 

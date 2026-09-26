@@ -400,7 +400,11 @@ export const ModelTraceExplorerRightPaneHeader = ({
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
   const { experimentId: experimentIdFromParams } = useParams();
-  const { experimentId: experimentIdFromContext, rightPaneHeaderActions } = useModelTraceExplorerContext();
+  const {
+    experimentId: experimentIdFromContext,
+    rightPaneHeaderActions,
+    sessionGroupingEnabled,
+  } = useModelTraceExplorerContext();
   const experimentId = experimentIdFromContext ?? experimentIdFromParams;
   const activeSpanTitle = typeof activeSpan.title === 'string' ? activeSpan.title : undefined;
   const hasException = getSpanExceptionCount(activeSpan) > 0;
@@ -411,7 +415,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
   const cost = activeSpan.cost;
 
   const sessionId =
-    isRootSpan && isV3ModelTraceInfo(modelTraceInfo)
+    !sessionGroupingEnabled && isRootSpan && isV3ModelTraceInfo(modelTraceInfo)
       ? modelTraceInfo.trace_metadata?.[SESSION_ID_METADATA_KEY]
       : undefined;
   const traceId = isV3ModelTraceInfo(modelTraceInfo)

@@ -86,8 +86,8 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }): JSX.El
             message={message}
             css={{
               maxWidth: '80%',
-              alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end',
-              borderWidth: 2,
+              alignSelf: message.role === 'assistant' ? 'flex-end' : 'flex-start',
+              border: `2px solid ${theme.colors.border}`,
               borderRadius: theme.borders.borderRadiusMd,
             }}
           />
@@ -107,8 +107,8 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }): JSX.El
             message={message}
             css={{
               maxWidth: '80%',
-              alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end',
-              borderWidth: 2,
+              alignSelf: message.role === 'assistant' ? 'flex-end' : 'flex-start',
+              border: `2px solid ${theme.colors.border}`,
               borderRadius: theme.borders.borderRadiusMd,
             }}
           />
@@ -123,6 +123,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }): JSX.El
       searchFilter=""
       activeMatch={null}
       defaultRenderMode="default"
+      maxVisibleChatMessages={1}
     />
   );
 };

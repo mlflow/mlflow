@@ -10,10 +10,12 @@ export function ModelTraceExplorerChatSections({
   messages,
   tools,
   className,
+  maxVisibleMessages,
 }: {
   messages?: ModelTraceChatMessage[] | null;
   tools?: ModelTraceChatTool[];
   className?: string;
+  maxVisibleMessages?: number;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
   const visibleTools = tools ?? [];
@@ -51,7 +53,9 @@ export function ModelTraceExplorerChatSections({
         </ModelTraceExplorerCollapsibleSection>
       )}
 
-      {hasMessages && <ModelTraceExplorerConversation messages={visibleMessages} />}
+      {hasMessages && (
+        <ModelTraceExplorerConversation messages={visibleMessages} maxVisibleMessages={maxVisibleMessages} />
+      )}
     </div>
   );
 }
