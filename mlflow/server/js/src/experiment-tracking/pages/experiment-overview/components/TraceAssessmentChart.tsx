@@ -51,6 +51,12 @@ const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElemen
   );
 };
 
+type DistributionTooltipRenderProps = {
+  active?: boolean;
+  payload?: React.ComponentProps<typeof ScrollableTooltip>['payload'];
+  label?: string | number;
+};
+
 export interface TraceAssessmentChartProps {
   assessmentName: string;
   lineColor?: string;
@@ -136,24 +142,30 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
     />
   );
 
-  const distributionTooltipContent = (
-    <ScrollableTooltip
-      formatter={distributionTooltipFormatter}
-      componentId="mlflow.overview.quality.assessment.view_traces_link"
-      linkConfig={
-        enableTraceNavigation
-          ? {
-              linkText: (
-                <FormattedMessage
-                  defaultMessage="View traces with this score"
-                  description="Link text to navigate to traces filtered by assessment score"
-                />
-              ),
-              onLinkClick: handleViewTraces,
-            }
-          : undefined
-      }
-    />
+  const distributionTooltipRenderer = useCallback(
+    ({ active, payload, label }: DistributionTooltipRenderProps) => (
+      <ScrollableTooltip
+        active={active}
+        payload={payload}
+        label={String(label ?? '')}
+        formatter={distributionTooltipFormatter}
+        componentId="mlflow.overview.quality.assessment.view_traces_link"
+        linkConfig={
+          enableTraceNavigation
+            ? {
+                linkText: (
+                  <FormattedMessage
+                    defaultMessage="View traces with this score"
+                    description="Link text to navigate to traces filtered by assessment score"
+                  />
+                ),
+                onLinkClick: handleViewTraces,
+              }
+            : undefined
+        }
+      />
+    ),
+    [distributionTooltipFormatter, enableTraceNavigation, handleViewTraces],
   );
 
   const hasData = timeSeriesChartData.length > 0 || distributionChartData.length > 0;
@@ -204,7 +216,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
               width={80}
             />
             <Tooltip
-              content={distributionTooltipContent}
+              content={distributionTooltipRenderer}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               wrapperStyle={{ pointerEvents: 'auto' }}
             />
