@@ -1052,6 +1052,24 @@ MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EXPORTER", True)
 
+#: When set to ``True``, MLflow will attempt to export trace spans directly to the Databricks
+#: Zerobus OTLP ingest endpoint instead of the MLflow REST ``log_spans`` API. Trace-level
+#: metadata (TraceInfo) continues to flow through the existing MLflow backend path. Service
+#: principal credentials (``client_id`` + ``client_secret``) must be configured for the
+#: Databricks tracking URI, and the Zerobus endpoint must be resolvable, or the exporter falls
+#: back to the standard UC table path. This feature is experimental and DEFAULT OFF.
+#: (default: ``False``)
+MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT", False
+)
+
+#: Explicit Zerobus OTLP ingest endpoint override. When set, ``resolve_zerobus_endpoint`` uses
+#: this value instead of auto-assembling the endpoint from workspace metadata. The value must
+#: pass the ``is_zerobus_host`` validator. Takes effect only when
+#: ``MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT`` is ``True``.
+#: (default: ``None``)
+MLFLOW_ZEROBUS_ENDPOINT = _EnvironmentVariable("MLFLOW_ZEROBUS_ENDPOINT", str, None)
+
 #: By default, MLflow uses an isolated TracerProvider instance to generate traces, instead of the
 #: OpenTelemetry's singleton TracerProvider. Set this to False to let MLflow share the same OTel
 # TracerProvider and allow mixing MLflow SDK and Otel SDK to generate a single trace.
