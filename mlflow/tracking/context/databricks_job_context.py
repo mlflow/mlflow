@@ -5,6 +5,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_JOB_TYPE,
+    MLFLOW_DATABRICKS_TASK_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
     MLFLOW_DATABRICKS_WORKSPACE_ID,
     MLFLOW_DATABRICKS_WORKSPACE_URL,
@@ -20,6 +21,7 @@ class DatabricksJobRunContext(RunContextProvider):
     def tags(self):
         job_id = databricks_utils.get_job_id()
         job_run_id = databricks_utils.get_job_run_id()
+        task_run_id = databricks_utils.get_task_run_id()
         job_type = databricks_utils.get_job_type()
         webapp_url = databricks_utils.get_webapp_url()
         workspace_url = databricks_utils.get_workspace_url()
@@ -36,6 +38,8 @@ class DatabricksJobRunContext(RunContextProvider):
             tags[MLFLOW_DATABRICKS_JOB_ID] = job_id
         if job_run_id is not None:
             tags[MLFLOW_DATABRICKS_JOB_RUN_ID] = job_run_id
+        if task_run_id is not None:
+            tags[MLFLOW_DATABRICKS_TASK_RUN_ID] = task_run_id
         if job_type is not None:
             tags[MLFLOW_DATABRICKS_JOB_TYPE] = job_type
         if webapp_url is not None:
