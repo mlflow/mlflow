@@ -896,6 +896,39 @@ def resolve_permissions(
     return [fold_grants_for_key(grants, key) for key in keys]
 
 
+def _resolve_requirement_decisions_in_workspace(
+    username: str, workspace_name: str, requirements: "Sequence[Requirement]"
+) -> "list[tuple[Permission, str]]":
+    """The governing permission AND its action per requirement, in a resolved workspace.
+
+    Split from :func:`_resolve_requirement_decisions` for the same reason
+    ``_role_permission_for_known_workspace`` is split from ``_role_permission_for``: a
+    caller that already holds the resource -- because it had to fetch it to classify it
+    -- would otherwise pay a second lookup to rediscover the workspace it already knows.
+    """
+    keys = requirements_to_grant_load_keys(requirements)
+    permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
+    absent = _absent_permission(workspace_name)
+    return [
+        governing_permission_and_action(
+            requirement, permissions, auth_config.default_permission, absent
+        )
+        for requirement in requirements
+    ]
+
+
+def resolve_requirements_in_workspace(
+    username: str, workspace_name: str, requirements: "Sequence[Requirement]"
+) -> "list[Permission]":
+    """The permission governing each requirement, in an already-resolved workspace."""
+    return [
+        permission
+        for permission, _action in _resolve_requirement_decisions_in_workspace(
+            username, workspace_name, requirements
+        )
+    ]
+
+
 def _resolve_requirement_decisions(
     username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
 ) -> "list[tuple[Permission, str]] | None":
@@ -909,15 +942,7 @@ def _resolve_requirement_decisions(
     workspace_name = get_anchor_workspace(*anchor)
     if workspace_name is None:
         return None
-    keys = requirements_to_grant_load_keys(requirements)
-    permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
-    absent = _absent_permission(workspace_name)
-    return [
-        governing_permission_and_action(
-            requirement, permissions, auth_config.default_permission, absent
-        )
-        for requirement in requirements
-    ]
+    return _resolve_requirement_decisions_in_workspace(username, workspace_name, requirements)
 
 
 def resolve_requirements(
@@ -934,13 +959,40 @@ def resolve_requirements(
 
 
 def authorize(
-    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+    username: str,
+    anchor: "tuple[str, str]",
+    requirements: "Sequence[Requirement]",
+    *,
+    conditions: "Sequence[ConditionContext]" = (),
+    workspace: "str | None" = None,
 ) -> bool:
-    """Allow only if EVERY requirement is met by the permission that governs it."""
-    decisions = _resolve_requirement_decisions(username, anchor, requirements)
-    if decisions is None:
+    """Allow only if EVERY requirement is met, and every applicable condition passes.
+
+    The two halves are not symmetric and must stay in this order. Grants *add*: the
+    requirements decide whether the operation is permitted at all. Conditions
+    *subtract*: they can only narrow what a grant already allowed, never widen it. So
+    the requirement check runs first and a failure returns without loading a single
+    condition or reading a single resource.
+
+    ``conditions`` defaults to empty, which is exactly today's behaviour -- an operation
+    that declares none is unaffected, which is what lets the existing call sites stay
+    as they are.
+
+    ``workspace`` lets a caller that already resolved the workspace -- typically because
+    it fetched the resource to classify it -- skip rediscovering it from the anchor.
+
+    Each requirement is checked against the action its *governing* rung carries, not the
+    action it was written with: a fallback rung may require a different one.
+    """
+    workspace_name = workspace if workspace is not None else get_anchor_workspace(*anchor)
+    if workspace_name is None:
         return False
-    return all(action_met(action, permission) for permission, action in decisions)
+    decisions = _resolve_requirement_decisions_in_workspace(
+        username, workspace_name, requirements
+    )
+    if not all(action_met(action, permission) for permission, action in decisions):
+        return False
+    return authorize_on_conditions(username, workspace_name, conditions)
 
 
 def _parsed_condition(filter_string: str, namespace: str):
@@ -1557,61 +1609,63 @@ def _get_permission_from_prompt_name() -> Permission:
     )
 
 
-class _RegistryEntryAuthz(NamedTuple):
-    """What a registry-entry route needs to authorize, from one resolution.
+class _RegistryEntryTarget(NamedTuple):
+    """What a registry-entry route is acting on, from one classification.
 
-    ``_get_permission_from_registered_model_or_prompt_name`` computed the family and
-    the workspace internally and returned only the permission. Conditions need all
-    three: evaluating a prompt's condition against ``registered_model`` would apply
-    the wrong role's restriction (D2), and the workspace decides which conditions
-    load at all.
+    The shared registry routes cannot name their resource type statically -- a prompt IS
+    a registered model, distinguished only by a marker tag -- so the entity has to be
+    fetched and classified before grants can be resolved. That fetch also yields the
+    workspace, so both come back together rather than being rediscovered separately.
     """
 
-    permission: Permission
     resource_type: str
     workspace: "str | None"
 
 
-def _registered_model_or_prompt_authz(name: str) -> _RegistryEntryAuthz:
-    """Resolve a persisted registry entity's permission in its actual namespace."""
-    username = authenticate_request().username
+def _registry_entry_target(name: str) -> _RegistryEntryTarget:
+    """Classify a persisted registry entity. Raises if it does not exist."""
     rm = auth_resources.fetch_registered_model_strict(name)
-    resource_type = "prompt" if rm._is_prompt() else "registered_model"
-    workspace_name = getattr(rm, "workspace", None)
-    permission = _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+    return _RegistryEntryTarget(
+        "prompt" if rm._is_prompt() else "registered_model",
+        getattr(rm, "workspace", None),
     )
-    return _RegistryEntryAuthz(permission, resource_type, workspace_name)
 
 
-def _get_registered_model_or_prompt_permission(name: str) -> Permission:
-    return _registered_model_or_prompt_authz(name).permission
+def _registry_entry_target_from_request() -> _RegistryEntryTarget:
+    """Classify the entity a shared registry route names, tolerating absence.
 
-
-def _registry_entry_authz_from_request() -> _RegistryEntryAuthz:
-    """Resolve a shared model-registry route in a single DB round-trip.
-
-    A name that does not resolve falls back to the ``registered_model`` family, which
-    is what the pre-conditions code did: the entity is absent, so there is no marker
-    tag to read, and a create-shaped request has no prior state to classify. The
-    workspace is unknown in that case, and a resource condition on an absent resource
-    denies anyway.
+    A name that does not resolve falls back to the ``registered_model`` family with an
+    unknown workspace, which is what the pre-conditions code did: there is no marker tag
+    to read on an entity that is not there. An unknown workspace denies, both for grants
+    and for conditions.
     """
-    name = _get_request_param("name")
     try:
-        return _registered_model_or_prompt_authz(name)
+        return _registry_entry_target(_get_request_param("name"))
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, "registered_model", name, None)
+    return _RegistryEntryTarget("registered_model", None)
+
+
+def _get_registered_model_or_prompt_permission(name: str) -> Permission:
+    """Resolve a persisted registry entity's permission in its actual namespace."""
+    target = _registry_entry_target(name)
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(
+            authenticate_request().username, target.resource_type, name, target.workspace
+        )
     )
-    return _RegistryEntryAuthz(permission, "registered_model", None)
 
 
 def _get_permission_from_registered_model_or_prompt_name() -> Permission:
-    return _registry_entry_authz_from_request().permission
+    """Resolve permission for a shared model-registry route in a single DB round-trip."""
+    name = _get_request_param("name")
+    target = _registry_entry_target_from_request()
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(
+            authenticate_request().username, target.resource_type, name, target.workspace
+        )
+    )
 
 
 def validate_can_register_scorer():
@@ -2352,28 +2406,29 @@ def _validate_can_read_registered_model_or_prompt():
 
 
 def _authorize_registry_entry(action: str, scope: ConditionScope = ConditionScope.MUTATE) -> bool:
-    """Grants then conditions for a shared registry-entry route, in one call.
+    """Authorize a shared registry-entry route: grants and conditions, one call.
 
-    The legacy-surface counterpart to ``authorize(..., conditions=...)``: this surface
-    has no ``Requirement`` list, so it cannot go through ``authorize`` and would
-    otherwise be left ungated, taking two of the RFC's three primary use cases with it
-    (§4.1, D1).
-
-    The ``and`` is load-bearing in both directions. It preserves the ordering invariant
-    -- conditions are consulted only after a grant check has passed, so they can never
-    confer access -- and its short-circuit means a denied request never loads conditions
-    or reads the resource.
+    Goes through ``authorize`` like the rest of the surface. The two things this route
+    cannot state statically come from the classification: the resource type, because a
+    prompt is distinguishable from a registered model only by a marker tag, and the
+    workspace, which the same fetch already yielded -- passing it avoids rediscovering it
+    through the anchor lookup, which would read the same entity a second time through a
+    different cache.
 
     Having one entry point rather than an open-coded pair per validator is the point: a
     new registry validator gets the conditions half by default instead of having to
     remember it, and forgetting it would be silently fail-open.
     """
-    authz = _registry_entry_authz_from_request()
+    target = _registry_entry_target_from_request()
     name = _get_request_param("name")
-    return action_met(action, authz.permission) and authorize_on_conditions(
+    return authorize(
         authenticate_request().username,
-        authz.workspace,
-        [context_for(authz.resource_type, name, scope, _request_values_for_current_request())],
+        (target.resource_type, name),
+        [Requirement(target.resource_type, name, action)],
+        conditions=[
+            context_for(target.resource_type, name, scope, _request_values_for_current_request())
+        ],
+        workspace=target.workspace,
     )
 
 
