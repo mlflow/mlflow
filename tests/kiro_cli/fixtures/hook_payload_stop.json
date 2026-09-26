@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "stop",
+  "cwd": "/home/user/project",
+  "session_id": "test-session-001"
+}

@@ -1,0 +1,28 @@
+{
+  "session_id": "test-session-001",
+  "cwd": "/home/user/my-project",
+  "session_state": {
+    "agent_name": "kiro_default",
+    "rts_model_state": {
+      "model_info": {
+        "model_id": "claude-sonnet-4",
+        "context_window_tokens": 200000
+      }
+    },
+    "conversation_metadata": {
+      "user_turn_metadatas": [
+        {
+          "loop_id": "loop-001",
+          "message_ids": ["msg-001", "msg-002"],
+          "turn_duration": {"secs": 5, "nanos": 0},
+          "end_timestamp": "2025-01-15T10:00:05.000Z",
+          "input_token_count": 100,
+          "output_token_count": 20,
+          "context_usage_percentage": 0.006,
+          "metering_usage": [{"value": 1, "unit": "credit", "unitPlural": "credits"}],
+          "end_reason": "Completed"
+        }
+      ]
+    }
+  }
+}
