@@ -4302,6 +4302,97 @@ def test_update_secret(mlflow_client_with_secrets):
     assert updated.secret_name == "test-key"
 
 
+@pytest.mark.parametrize("provider", [None, "openai"])
+@pytest.mark.parametrize(
+    ("original_auth_config", "updated_auth_config"),
+    [
+        ({"api_base": "https://original.example/v1"}, {"api_base": "https://new.example/v1"}),
+        ({"auth_mode": "api_key"}, {"api_base": "https://new.example/v1"}),
+    ],
+    ids=["change", "add"],
+)
+def test_update_secret_api_base_requires_credentials(
+    mlflow_client_with_secrets, provider, original_auth_config, updated_auth_config, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    store = mlflow_client_with_secrets._tracking_client.store
+    base_url = mlflow_client_with_secrets.tracking_uri
+    secret_input = {
+        "secret_name": "destination-update-key",
+        "secret_value": {"api_key": "original-key"},
+        "auth_config": original_auth_config,
+    }
+    if provider is not None:
+        secret_input["provider"] = provider
+    response = requests.post(f"{base_url}/api/3.0/mlflow/gateway/secrets/create", json=secret_input)
+    assert response.status_code == 200
+    secret_id = response.json()["secret"]["secret_id"]
+    original = store.get_secret_info(secret_id)
+    assert original.provider == provider
+
+    update = {"secret_id": secret_id, "auth_config": updated_auth_config}
+    response = requests.post(f"{base_url}/api/3.0/mlflow/gateway/secrets/update", json=update)
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    unchanged = store.get_secret_info(secret_id)
+    assert unchanged.auth_config == original_auth_config
+    assert unchanged.masked_values == original.masked_values
+
+    # An empty credential map also means "keep the stored credentials" over REST.
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/update",
+        json={**update, "secret_value": {}},
+    )
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/update",
+        json={**update, "secret_value": {"api_key": "replacement-key"}},
+    )
+    assert response.status_code == 200
+    updated = store.get_secret_info(secret_id)
+    assert updated.auth_config == updated_auth_config
+    assert updated.provider == provider
+    assert updated.masked_values != original.masked_values
+
+
+@pytest.mark.parametrize(
+    "updated_auth_config",
+    [
+        {"api_base": "https://original.example/v2"},
+        {"api_base": "https://original.example:8443/v1"},
+        {"auth_mode": "api_key"},
+    ],
+    ids=["path", "port", "reset-to-default"],
+)
+def test_update_secret_same_hostname_or_reset_does_not_require_credentials(
+    mlflow_client_with_secrets, updated_auth_config, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    store = mlflow_client_with_secrets._tracking_client.store
+    base_url = mlflow_client_with_secrets.tracking_uri
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "same-host-key",
+            "secret_value": {"api_key": "original-key"},
+            "auth_config": {"api_base": "https://original.example/v1"},
+        },
+    )
+    assert response.status_code == 200
+    secret_id = response.json()["secret"]["secret_id"]
+    original_masked_values = store.get_secret_info(secret_id).masked_values
+
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/update",
+        json={"secret_id": secret_id, "auth_config": updated_auth_config},
+    )
+    assert response.status_code == 200
+    assert store.get_secret_info(secret_id).auth_config == updated_auth_config
+    assert store.get_secret_info(secret_id).masked_values == original_masked_values
+
+
 def test_list_secret_infos(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 

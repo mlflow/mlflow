@@ -65,6 +65,12 @@ To update credentials for a provider:
 
 All endpoints using this connection will automatically use the new credentials without requiring any configuration changes.
 
+### Changing the API Base URL
+
+When changing the hostname of a saved connection’s API Base URL, re-enter the credentials before saving. If the authentication method stays the same, also re-enter any optional credential fields that were previously set, because the update replaces the stored credentials.
+
+For REST API updates, setting `auth_config.api_base` to a different hostname requires a non-empty `secret_value` in the same request. Otherwise, MLflow rejects the update with `INVALID_PARAMETER_VALUE`. Changes to the path, scheme, or port, and clearing `api_base` to use the provider default, do not require credential re-entry.
+
 ### Deleting Connections
 
 When deleting a connection:
