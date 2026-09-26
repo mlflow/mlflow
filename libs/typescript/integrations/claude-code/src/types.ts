@@ -30,7 +30,6 @@ export interface ToolResultBlock {
   is_error?: boolean;
   toolUseResult?: {
     status?: string;
-    isAsync?: boolean;
     agentId?: string;
     totalDurationMs?: number;
   };
@@ -86,7 +85,6 @@ export interface ToolUseResultInfo {
   commandName?: string;
   agentId?: string;
   status?: string;
-  isAsync?: boolean;
   totalDurationMs?: number;
 }
 
@@ -107,8 +105,11 @@ export interface StopHookInput {
 }
 
 /**
- * SubagentStop hook input. `transcript_path` is the MAIN session transcript;
- * the sub-agent's own transcript is `agent_transcript_path`.
+ * SubagentStop hook input, as defined by the Claude Code hooks reference
+ * (https://code.claude.com/docs/en/hooks#subagentstop): the common hook fields
+ * plus `agent_id` (the finished sub-agent), `agent_type` (its agent type) and
+ * `agent_transcript_path` (the sub-agent's own transcript). `transcript_path`
+ * is the MAIN session transcript. Only the fields used here are typed.
  */
 export interface SubagentStopHookInput extends StopHookInput {
   agent_id: string;
@@ -125,7 +126,6 @@ export interface ToolResultInfo {
   isError: boolean;
   agentId?: string;
   status?: string;
-  isAsync?: boolean;
 }
 
 export interface SubagentGroup {

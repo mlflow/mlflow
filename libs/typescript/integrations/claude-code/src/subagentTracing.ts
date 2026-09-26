@@ -14,40 +14,52 @@
 import { existsSync } from 'node:fs';
 
 import { processTranscript } from './tracing.js';
-import { isBackgroundLaunch, toolResultsInEntry } from './toolResults.js';
+import { isAgentLaunchTool, isBackgroundLaunch, toolResultsInEntry } from './toolResults.js';
 import { readTranscript } from './transcript.js';
-import type { SubagentStopHookInput, ToolResultInfo, TranscriptEntry } from './types.js';
+import type {
+  SubagentStopHookInput,
+  ToolResultInfo,
+  ToolUseBlock,
+  TranscriptEntry,
+} from './types.js';
 
 const TAG_AGENT_ID = 'mlflow.claude_code.agent_id';
 const TAG_AGENT_TYPE = 'mlflow.claude_code.agent_type';
 const TAG_PARENT_TOOL_USE_ID = 'mlflow.claude_code.parent_tool_use_id';
 
-interface AgentLaunch {
+export interface AgentLaunch {
   toolUseId: string;
   result: ToolResultInfo;
-  toolInput?: Record<string, unknown>;
+  toolInput: Record<string, unknown>;
 }
 
 /**
- * Find the parent's tool result that launched `agentId`. The first match in
- * transcript order is the launch; later results naming the same agent (for
- * example a SendMessage resume) do not change how the agent was started.
+ * Find the parent's `Agent` (legacy: `Task`) tool result that launched
+ * `agentId`. Classification follows the launch: the first matching launch in
+ * main-transcript order decides sync vs. background, so an agent later
+ * resumed in the other mode (SendMessage) keeps its launch classification.
+ * Results of other tools never count as a launch, nor does a result whose
+ * tool_use cannot be found (its tool name is unknown).
  */
-function findAgentLaunch(transcript: TranscriptEntry[], agentId: string): AgentLaunch | undefined {
+export function findAgentLaunch(
+  transcript: TranscriptEntry[],
+  agentId: string,
+): AgentLaunch | undefined {
   for (const entry of transcript) {
     for (const [toolUseId, result] of Object.entries(toolResultsInEntry(entry))) {
-      if (result.agentId === agentId) {
-        return { toolUseId, result, toolInput: findToolUseInput(transcript, toolUseId) };
+      if (result.agentId !== agentId) {
+        continue;
+      }
+      const toolUse = findToolUse(transcript, toolUseId);
+      if (toolUse && isAgentLaunchTool(toolUse.name)) {
+        return { toolUseId, result, toolInput: toolUse.input ?? {} };
       }
     }
   }
   return undefined;
 }
 
-function findToolUseInput(
-  transcript: TranscriptEntry[],
-  toolUseId: string,
-): Record<string, unknown> | undefined {
+function findToolUse(transcript: TranscriptEntry[], toolUseId: string): ToolUseBlock | undefined {
   for (const entry of transcript) {
     const content = entry.type === 'assistant' ? entry.message?.content : undefined;
     if (!Array.isArray(content)) {
@@ -55,7 +67,7 @@ function findToolUseInput(
     }
     for (const part of content) {
       if (part?.type === 'tool_use' && part.id === toolUseId) {
-        return part.input;
+        return part;
       }
     }
   }
@@ -70,8 +82,9 @@ export async function processSubagentTranscript(input: SubagentStopHookInput): P
   try {
     const launch = findAgentLaunch(readTranscript(input.transcript_path), input.agent_id);
     if (!launch || !isBackgroundLaunch(launch.result)) {
-      // Expected: the parent's Stop trace owns sync agents, and internal
-      // agents have no Agent tool call to attach to.
+      // Expected: the parent's Stop trace owns sync agents, internal agents
+      // have no Agent tool call, and a sync agent's result may not be written
+      // yet when its SubagentStop fires.
       return;
     }
 

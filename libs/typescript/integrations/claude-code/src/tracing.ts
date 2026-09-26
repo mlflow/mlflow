@@ -12,7 +12,7 @@ import {
 } from '@mlflow/core';
 
 import type { SubagentGroup, TokenUsage, TranscriptEntry } from './types.js';
-import { findToolResults, isBackgroundLaunch } from './toolResults.js';
+import { findToolResults, isAgentLaunchTool, isBackgroundLaunch } from './toolResults.js';
 import {
   LLM_COST_ATTRIBUTE,
   TRACE_COST_METADATA,
@@ -410,10 +410,15 @@ function createLlmAndToolSpans(
           },
         });
 
-        // If this is a Task tool, try to read sub-agent transcript
+        // An Agent (legacy: Task) launch nests the sub-agent's transcript,
+        // unless the agent was launched in the background. Other tools that
+        // carry an agentId (SendMessage resuming an agent) nest nothing.
         const agentId = toolResultInfo?.agentId;
-        const background = toolResultInfo != null && isBackgroundLaunch(toolResultInfo);
-        const subagentPath = background ? null : getSubagentTranscriptPath(transcriptPath, agentId);
+        const launchesAgent = isAgentLaunchTool(toolName);
+        const background =
+          launchesAgent && toolResultInfo != null && isBackgroundLaunch(toolResultInfo);
+        const subagentPath =
+          launchesAgent && !background ? getSubagentTranscriptPath(transcriptPath, agentId) : null;
         const toolInput = toolUse.input ?? {};
 
         if (background) {
@@ -422,6 +427,10 @@ function createLlmAndToolSpans(
           // its own trace once it finishes (see subagentTracing.ts).
           if (agentId) {
             toolSpan.setAttribute('agent_id', agentId);
+          } else {
+            console.error(
+              `[mlflow] Background agent receipt for tool_use ${toolUseId} has no agentId; its SubagentStop trace cannot be linked`,
+            );
           }
           toolSpan.setAttribute('background', true);
         } else if (subagentPath) {

@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
-import { copyFileSync, mkdirSync, mkdtempSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
-import type { SubagentStopHookInput } from '../src/types';
+import type { SubagentStopHookInput, TranscriptEntry } from '../src/types';
 
 // Keep unit tests offline and deterministic (see tracing.test.ts).
 const ORIGINAL_CATALOG_URI = process.env.MLFLOW_MODEL_CATALOG_URI;
@@ -26,8 +26,10 @@ jest.mock('@mlflow/core', () =>
 );
 
 // Import after mock
-import { processSubagentTranscript } from '../src/subagentTracing';
+import { findAgentLaunch, processSubagentTranscript } from '../src/subagentTracing';
 import { processTranscript } from '../src/tracing';
+import { isBackgroundLaunch } from '../src/toolResults';
+import { readTranscript } from '../src/transcript';
 import { startSpan, flushTraces } from '@mlflow/core';
 import {
   getChildSpans,
@@ -67,6 +69,39 @@ function backgroundSession() {
     BACKGROUND_AGENT_ID,
   );
 }
+
+function appendEntries(path: string, entries: TranscriptEntry[]): void {
+  appendFileSync(path, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+}
+
+/** A later turn in which the parent resumes the agent with SendMessage. */
+const SEND_MESSAGE_TURN: TranscriptEntry[] = [
+  {
+    type: 'assistant',
+    message: {
+      id: 'msg_main_3',
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_send_001',
+          name: 'SendMessage',
+          input: { to: BACKGROUND_AGENT_ID, message: 'Also check the tests' },
+        },
+      ],
+    },
+    timestamp: '2025-02-01T09:00:04.000Z',
+  },
+  {
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [{ type: 'tool_result', tool_use_id: 'toolu_send_001', content: 'Message sent.' }],
+    },
+    toolUseResult: { agentId: BACKGROUND_AGENT_ID, status: 'completed' },
+    timestamp: '2025-02-01T09:00:05.000Z',
+  },
+];
 
 function subagentStopInput(overrides: Partial<SubagentStopHookInput>): SubagentStopHookInput {
   return {
@@ -164,12 +199,16 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
       }),
     );
 
+    const launch = findAgentLaunch(readTranscript(mainPath), 'abc1234');
+    expect(launch?.toolUseId).toBe('toolu_task_file_001');
+    expect(isBackgroundLaunch(launch!.result)).toBe(false);
     expect(startSpan).not.toHaveBeenCalled();
     expect(consoleError).not.toHaveBeenCalled();
   });
 
   it('traces nothing for an agent the parent never launched', async () => {
     const { mainPath, agentPath } = backgroundSession();
+    expect(findAgentLaunch(readTranscript(mainPath), 'internal-agent')).toBeUndefined();
 
     await processSubagentTranscript(
       subagentStopInput({
@@ -199,6 +238,37 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
     expect(consoleError).toHaveBeenCalledTimes(1);
     expect(consoleError.mock.calls[0][0]).toMatch(/^\[mlflow\] Sub-agent transcript not found/);
   });
+
+  it('never treats a SendMessage result as a launch', () => {
+    const dir = mkdtempSync(resolve(tmpdir(), 'cc-subagent-'));
+    const mainPath = resolve(dir, 'session.jsonl');
+    writeFileSync(mainPath, '');
+    const [sendMessageUse, sendMessageResult] = SEND_MESSAGE_TURN;
+    appendEntries(mainPath, [
+      sendMessageUse,
+      {
+        ...sendMessageResult,
+        toolUseResult: { agentId: BACKGROUND_AGENT_ID, status: 'async_launched' },
+      },
+    ]);
+
+    expect(findAgentLaunch(readTranscript(mainPath), BACKGROUND_AGENT_ID)).toBeUndefined();
+  });
+
+  it('keeps the background launch classification after a SendMessage resume', async () => {
+    const { mainPath, agentPath } = backgroundSession();
+    appendEntries(mainPath, SEND_MESSAGE_TURN);
+
+    const launch = findAgentLaunch(readTranscript(mainPath), BACKGROUND_AGENT_ID);
+    expect(launch?.toolUseId).toBe('toolu_bg_001');
+
+    await processSubagentTranscript(
+      subagentStopInput({ transcript_path: mainPath, agent_transcript_path: agentPath }),
+    );
+
+    expect(getSpans().filter((s) => s.parentId == null)[0].name).toBe('subagent_Explore');
+    expect(mockTraceInfo.tags['mlflow.claude_code.parent_tool_use_id']).toBe('toolu_bg_001');
+  });
 });
 
 describe('processTranscript (Stop hook) with a background agent', () => {
@@ -216,5 +286,75 @@ describe('processTranscript (Stop hook) with a background agent', () => {
     expect(getChildSpans(agentTools[0].spanId)).toHaveLength(0);
     expect(getSpansByType('AGENT')).toHaveLength(1);
     expect(getSpansByName('tool_Grep')).toHaveLength(0);
+    // Agent tags belong to the sub-agent's own trace, never to the parent.
+    expect(mockTraceInfo.tags).toEqual({});
+  });
+
+  it('nests nothing under a SendMessage result that carries the agentId', async () => {
+    // The agent file exists on disk, so only the launch-tool rule keeps it out.
+    const { mainPath } = backgroundSession();
+    appendEntries(mainPath, SEND_MESSAGE_TURN);
+
+    await processTranscript(mainPath, 'bg-session');
+
+    const sendMessages = getSpansByName('tool_SendMessage');
+    expect(sendMessages).toHaveLength(1);
+    expect(getChildSpans(sendMessages[0].spanId)).toHaveLength(0);
+    expect(sendMessages[0].attributes.background).toBeUndefined();
+    expect(getSpansByName('tool_Agent')[0].attributes.background).toBe(true);
+    expect(getSpansByType('AGENT')).toHaveLength(1);
+  });
+
+  it('reports a background receipt without agentId and still marks it background', async () => {
+    const dir = mkdtempSync(resolve(tmpdir(), 'cc-subagent-'));
+    const mainPath = resolve(dir, 'session.jsonl');
+    writeFileSync(mainPath, '');
+    appendEntries(mainPath, [
+      {
+        type: 'user',
+        message: { role: 'user', content: 'Run it in the background' },
+        timestamp: '2025-02-01T09:00:00.000Z',
+      },
+      {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'toolu_bg_noid',
+              name: 'Agent',
+              input: { prompt: 'Work', run_in_background: true },
+            },
+          ],
+        },
+        timestamp: '2025-02-01T09:00:01.000Z',
+      },
+      {
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: 'toolu_bg_noid',
+              content: 'Async agent launched successfully.',
+            },
+          ],
+        },
+        toolUseResult: { status: 'async_launched' },
+        timestamp: '2025-02-01T09:00:02.000Z',
+      },
+    ]);
+
+    await processTranscript(mainPath, 'bg-session');
+
+    const agentTool = getSpansByName('tool_Agent')[0];
+    expect(agentTool.attributes.background).toBe(true);
+    expect(agentTool.attributes.agent_id).toBeUndefined();
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(consoleError.mock.calls[0][0]).toMatch(
+      /^\[mlflow\] Background agent receipt .* no agentId/,
+    );
   });
 });

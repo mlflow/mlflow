@@ -20,7 +20,8 @@ import ImageBox from "@site/src/components/ImageBox";
 
 - User prompts and assistant responses
 - Tool calls (file reads/edits, bash, web fetches, etc.) with their inputs and outputs
-- Subagent invocations with the full nested trace of every step they ran
+- Synchronous subagent invocations, nested in the session trace with every step they ran
+- Background subagents (`run_in_background: true`), recorded by the plugin's `SubagentStop` hook as their own trace once they finish
 - Skill usage
 - Per-call and per-session token usage and cost
 - Latency and timing for each step

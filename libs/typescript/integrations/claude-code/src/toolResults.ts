@@ -1,6 +1,7 @@
 /**
  * Tool-result collection from Claude Code transcripts: the one place that
- * decides how a user entry's tool_result blocks map to ToolResultInfo.
+ * decides how a user entry's tool_result blocks map to ToolResultInfo, and
+ * which results count as a sub-agent launch.
  */
 
 import type { ToolResultInfo, TranscriptEntry } from './types.js';
@@ -15,29 +16,29 @@ export function toolResultsInEntry(entry: TranscriptEntry): Record<string, ToolR
     return results;
   }
 
-  // Entry-level toolUseResult (used in real Claude Code transcripts)
-  const entryToolUseResult =
-    entry.toolUseResult && typeof entry.toolUseResult === 'object' ? entry.toolUseResult : {};
-
   const content = entry.message?.content;
   if (!Array.isArray(content)) {
     return results;
   }
+  const toolResultParts = content.filter(
+    (part) => typeof part === 'object' && part != null && part.type === 'tool_result',
+  );
 
-  for (const part of content) {
-    if (typeof part !== 'object' || part == null || !('type' in part)) {
-      continue;
-    }
-    if (part.type !== 'tool_result') {
-      continue;
-    }
+  // Entry-level toolUseResult (used in real Claude Code transcripts) describes
+  // the entry's single tool result. With several tool_result parts it cannot
+  // be attributed to one of them, so only part-level fields apply.
+  const entryToolUseResult =
+    toolResultParts.length === 1 && entry.toolUseResult && typeof entry.toolUseResult === 'object'
+      ? entry.toolUseResult
+      : {};
 
+  for (const part of toolResultParts) {
     const toolResult = part as {
       type: 'tool_result';
       tool_use_id?: string;
       content?: string;
       is_error?: boolean;
-      toolUseResult?: { agentId?: string; status?: string; isAsync?: boolean };
+      toolUseResult?: { agentId?: string; status?: string };
     };
 
     const toolUseId = toolResult.tool_use_id;
@@ -53,7 +54,6 @@ export function toolResultsInEntry(entry: TranscriptEntry): Record<string, ToolR
       isError: toolResult.is_error ?? false,
       agentId: entryToolUseResult.agentId ?? partToolUseResult.agentId,
       status: entryToolUseResult.status ?? partToolUseResult.status,
-      isAsync: entryToolUseResult.isAsync ?? partToolUseResult.isAsync,
     };
   }
 
@@ -61,8 +61,18 @@ export function toolResultsInEntry(entry: TranscriptEntry): Record<string, ToolR
 }
 
 /**
- * True when the tool result is the launch receipt of a background sub-agent
- * (Agent tool with `run_in_background: true`). Claude Code writes that result
+ * Tools whose result launches a sub-agent: `Agent`, and `Task`, its name in
+ * older Claude Code versions. Results of other tools that carry an `agentId`
+ * (for example `SendMessage` resuming an agent) are not launches.
+ */
+export function isAgentLaunchTool(toolName: string | undefined): boolean {
+  return toolName === 'Agent' || toolName === 'Task';
+}
+
+/**
+ * True when the `Agent` tool result is the launch receipt of a background
+ * sub-agent (`run_in_background: true`). Decided on
+ * `status === 'async_launched'` alone. Claude Code writes that result
  * immediately, while the agent keeps running; the agent is traced on its own
  * by the SubagentStop hook, never inside the parent's Stop trace.
  */
