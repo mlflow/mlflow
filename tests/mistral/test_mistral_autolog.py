@@ -35,9 +35,21 @@ import mlflow.mistral
 from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.distributed import (
+    _get_tracing_headers_from_span,
+    set_tracing_context_from_http_request_headers,
+)
+from mlflow.tracing.utils import aggregate_usage_from_spans
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
+
+
+@pytest.fixture(autouse=True)
+def reset_mistral_autolog():
+    yield
+    mlflow.mistral.autolog(disable=True)
+
 
 DUMMY_CHAT_COMPLETION_REQUEST = {
     "model": "test_model",
@@ -315,3 +327,48 @@ async def test_chat_complete_async_autolog():
         TokenUsageKey.OUTPUT_TOKENS: 18,
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
+
+
+@pytest.mark.parametrize("is_async", [False, True])
+@pytest.mark.parametrize("user_headers", [None, {"X-Custom": "my-value"}])
+@pytest.mark.asyncio
+async def test_tracing_headers_parent_gateway_span_without_double_counting(is_async, user_headers):
+    mlflow.mistral.autolog()
+    request = DUMMY_CHAT_COMPLETION_REQUEST.copy()
+    if user_headers is not None:
+        request["http_headers"] = user_headers
+    request_path = CHAT_DO_REQUEST_ASYNC_PATH if is_async else CHAT_DO_REQUEST_PATH
+    with patch(
+        request_path,
+        return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
+    ) as mock_request:
+        client = Mistral(api_key="test_key")
+        if is_async:
+            await client.chat.complete_async(**request)
+        else:
+            client.chat.complete(**request)
+
+    span = get_traces()[0].data.spans[0]
+    sent_headers = mock_request.call_args.kwargs["request"].headers
+    # Stored spans do not retain the live sampling flag, so compare the trace and span IDs.
+    assert (
+        sent_headers["traceparent"].split("-")[:3]
+        == _get_tracing_headers_from_span(span)["traceparent"].split("-")[:3]
+    )
+    if user_headers is not None:
+        assert sent_headers["X-Custom"] == "my-value"
+    assert span.inputs.get("http_headers") == user_headers
+    assert "traceparent" not in (span.inputs.get("http_headers") or {})
+
+    # A gateway span using the propagated context is a child, so its repeated usage is skipped.
+    with set_tracing_context_from_http_request_headers(sent_headers):
+        with mlflow.start_span("gateway") as gateway_span:
+            gateway_span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE, span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+            )
+
+    assert gateway_span.trace_id == span.trace_id
+    assert gateway_span.parent_id == span.span_id
+    assert aggregate_usage_from_spans([span, gateway_span]) == span.get_attribute(
+        SpanAttributeKey.CHAT_USAGE
+    )

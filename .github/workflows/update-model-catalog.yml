@@ -36,7 +36,7 @@ env:
 jobs:
   sync:
     if: github.repository == 'mlflow/mlflow' && github.event_name != 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -99,7 +99,7 @@ jobs:
   create-pr:
     needs: sync
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.sync.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
