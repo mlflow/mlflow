@@ -184,7 +184,7 @@ mlflow traces search --experiment-id <ID> --order-by "timestamp_ms DESC"
 
 # Extract specific fields for efficient queries
 mlflow traces search --experiment-id <ID> \\
-    --extract-fields "info.trace_id,info.state,info.execution_duration,info.request_preview"
+    --extract-fields "info.trace_id,info.state,info.execution_duration_ms,info.request_preview"
 
 # Get full trace details (spans, attributes, assessments)
 mlflow traces get --trace-id <TRACE_ID>

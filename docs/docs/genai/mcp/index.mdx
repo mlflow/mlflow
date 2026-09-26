@@ -165,7 +165,7 @@ get_trace(
 
 - `info.trace_id`: Unique trace identifier
 - `info.state`: Trace status
-- `info.execution_duration`: Total execution time
+- `info.execution_duration_ms`: Total execution time
 - `info.request_preview`: Truncated request preview
 - `info.response_preview`: Truncated response preview
 
@@ -191,7 +191,7 @@ get_trace(
 
 ```bash
 # Get basic trace info
-info.trace_id,info.state,info.execution_duration
+info.trace_id,info.state,info.execution_duration_ms
 
 # Get all assessments
 info.assessments.*

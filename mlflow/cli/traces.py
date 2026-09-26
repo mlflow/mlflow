@@ -111,7 +111,7 @@ def commands():
     info.trace_id                           # Unique trace identifier
     info.experiment_id                      # MLflow experiment ID
     info.request_time                       # Request timestamp (milliseconds)
-    info.execution_duration                 # Total execution time (milliseconds)
+    info.execution_duration_ms              # Total execution time (milliseconds)
     info.state                              # Trace status: OK, ERROR, etc.
     info.client_request_id                  # Optional client-provided request ID
     info.request_preview                    # Truncated request preview
@@ -161,7 +161,7 @@ def commands():
       data.spans.*.name                       # Span operation names
       data.spans.*.attributes.mlflow.spanType # Span types
       data.spans.*.events.*.name              # Event names
-      info.trace_id,info.state,info.execution_duration  # Multiple fields
+      info.trace_id,info.state,info.execution_duration_ms  # Multiple fields
     """
 
 
@@ -331,7 +331,7 @@ def search_traces(
             "info.trace_id",
             "info.request_time",
             "info.state",
-            "info.execution_duration",
+            "info.execution_duration_ms",
             "info.request_preview",
             "info.response_preview",
         ]
