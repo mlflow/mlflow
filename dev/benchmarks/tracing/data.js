@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790356755111,
+  "lastUpdate": 1790387304097,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "hkawamura0130@gmail.com",
-            "name": "Harutaka Kawamura",
-            "username": "harupy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3ef6586befc75361f717a77cc38926ff5ae7bd14",
-          "message": "Always record `AgentSetupEvent` telemetry (#23798)\n\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-05T12:57:35+09:00",
-          "tree_id": "ba63490f818e77bba8c29fc144f56584612e2cea",
-          "url": "https://github.com/mlflow/mlflow/commit/3ef6586befc75361f717a77cc38926ff5ae7bd14"
-        },
-        "date": 1780631928063,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 43.79150130000227,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.342375285713093,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.202078444441703,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 16.35151799999741,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 23.79557359999846,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 16.38246520000166,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 21.014988800010315,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyficowley@gmail.com",
+            "name": "Cyrus Cowley",
+            "username": "cyficowley"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d6e8ec0f66d3eed4df43fdae919287a9fcaaf00f",
+          "message": "Add end-to-end telemetry events for log_model and register_model (#25923)\n\nSigned-off-by: Cyrus Cowley <cyrus.cowley@databricks.com>\nSigned-off-by: Cyrus Cowley <cyficowley@gmail.com>\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Cyrus Cowley <cyrus.cowley@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>\nCo-authored-by: Joshua Wong <joshua.wong@databricks.com>",
+          "timestamp": "2026-09-26T01:44:31Z",
+          "tree_id": "afb658f9ad0c454a600ace3732170e4adf1a3308",
+          "url": "https://github.com/mlflow/mlflow/commit/d6e8ec0f66d3eed4df43fdae919287a9fcaaf00f"
+        },
+        "date": 1790387299976,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 88.0889795999991,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.8958987000013225,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.02187919871616,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.214779986390506,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.413401835934195,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.817743000003854,
             "unit": "ms"
           }
         ]
