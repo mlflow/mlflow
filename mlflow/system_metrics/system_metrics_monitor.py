@@ -4,6 +4,8 @@ import logging
 import threading
 
 from mlflow.environment_variables import (
+    MLFLOW_SYSTEM_METRICS_INCLUDE_CHILD_PROCESSES,
+    MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS,
     MLFLOW_SYSTEM_METRICS_NODE_ID,
     MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
@@ -14,6 +16,7 @@ from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
 from mlflow.system_metrics.metrics.network_monitor import NetworkMonitor
+from mlflow.system_metrics.metrics.process_monitor import ProcessMonitor
 from mlflow.system_metrics.metrics.rocm_monitor import ROCMMonitor
 
 _logger = logging.getLogger(__name__)
@@ -69,6 +72,12 @@ class SystemMetricsMonitor:
 
         if gpu_monitor := self._initialize_gpu_monitor():
             self.monitors.append(gpu_monitor)
+
+        # Add process-level monitor if enabled
+        if MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS.get():
+            include_children = MLFLOW_SYSTEM_METRICS_INCLUDE_CHILD_PROCESSES.get()
+            self.monitors.append(ProcessMonitor(include_children=include_children))
+            _logger.info(f"Process metrics enabled (include_children={include_children})")
 
         self.sampling_interval = MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL.get() or sampling_interval
         self.samples_before_logging = (
