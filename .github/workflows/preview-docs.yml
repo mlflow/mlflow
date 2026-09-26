@@ -22,7 +22,7 @@ cache-mode: none
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: write # To post comments on PRs
       actions: write # To delete artifacts

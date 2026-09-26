@@ -672,6 +672,95 @@ def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_
     assert model == model_value
 
 
+@pytest.mark.parametrize("json_encoded", [False, True])
+@pytest.mark.parametrize(
+    ("attributes", "expected_model"),
+    [
+        ({"llm.response.model_name": "jev-1.13.0"}, "jev-1.13.0"),
+        ({"llm.request.model_name": "jev-latest"}, "jev-latest"),
+        ({"llm.model_name": "legacy-model"}, "legacy-model"),
+        ({"embedding.model_name": "embedding-model"}, "embedding-model"),
+        (
+            {
+                "llm.response.model_name": "jev-1.13.0",
+                "llm.request.model_name": "jev-latest",
+                "llm.model_name": "legacy-model",
+            },
+            "jev-1.13.0",
+        ),
+        (
+            {"llm.request.model_name": "jev-latest", "llm.model_name": "jev-1.13.0"},
+            "jev-1.13.0",
+        ),
+        (
+            {"llm.response.model_name": "", "llm.request.model_name": "jev-latest"},
+            "jev-latest",
+        ),
+        (
+            {"llm.response.model_name": None, "llm.request.model_name": "jev-latest"},
+            "jev-latest",
+        ),
+    ],
+)
+def test_translate_openinference_model_name(attributes, expected_model, json_encoded):
+    span = mock.Mock(spec=Span)
+    span.to_dict.return_value = {
+        "attributes": {
+            key: json.dumps(value) if json_encoded else value for key, value in attributes.items()
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    assert json.loads(result["attributes"][SpanAttributeKey.MODEL]) == expected_model
+
+
+@pytest.mark.parametrize("redacted", [False, True])
+def test_translate_openinference_structured_inputs_outputs(redacted):
+    inputs = {
+        "state": {"ticket": "I was charged twice"},
+        "model": "jev-latest",
+        "questions": {"billing": {"type": "noul", "instructions": "Is this about billing?"}},
+    }
+    outputs = {
+        "model": "jev-1.13.0",
+        "answers": {"billing": {"type": "noul", "noul": 0.98}},
+        "usage": {"input_tokens": 10, "output_tokens": 0},
+    }
+    span = mock.Mock(spec=Span)
+    span.to_dict.return_value = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.provider": "typesafe",
+            "llm.request.model_name": "jev-latest",
+            "llm.response.model_name": "jev-1.13.0",
+            "input.value": json.dumps("__REDACTED__" if redacted else inputs),
+            "output.value": json.dumps("__REDACTED__" if redacted else outputs),
+            "llm.token_count.prompt": 10,
+            "llm.token_count.completion": 0,
+            "llm.token_count.total": 10,
+        }
+    }
+
+    attributes = translate_span_when_storing(span)["attributes"]
+
+    assert json.loads(attributes[SpanAttributeKey.MODEL]) == "jev-1.13.0"
+    assert json.loads(attributes[SpanAttributeKey.MODEL_PROVIDER]) == "typesafe"
+    assert json.loads(attributes[SpanAttributeKey.SPAN_TYPE]) == SpanType.LLM
+    assert json.loads(attributes[SpanAttributeKey.INPUTS]) == (
+        "__REDACTED__" if redacted else inputs
+    )
+    assert json.loads(attributes[SpanAttributeKey.OUTPUTS]) == (
+        "__REDACTED__" if redacted else outputs
+    )
+    assert json.loads(attributes[SpanAttributeKey.CHAT_USAGE]) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 0,
+        TokenUsageKey.TOTAL_TOKENS: 10,
+    }
+    assert SpanAttributeKey.MESSAGE_FORMAT not in attributes
+
+
 @pytest.mark.parametrize(
     ("translator", "provider_value"),
     [
@@ -732,6 +821,13 @@ def test_translate_model_name_from_inputs_outputs(
             {
                 SpanAttributeKey.MODEL: json.dumps("existing-model"),
                 "gen_ai.response.model": '"new-model"',
+            },
+            "existing-model",
+        ),
+        (
+            {
+                SpanAttributeKey.MODEL: json.dumps("existing-model"),
+                "llm.response.model_name": '"jev-1.13.0"',
             },
             "existing-model",
         ),
@@ -822,6 +918,27 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
         "output_cost": 40.0,
         "total_cost": 50.0,
     }
+
+
+def test_translate_preserves_client_computed_cost():
+    cost = {"input_cost": 1.0, "output_cost": 2.0, "total_cost": 3.0}
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            SpanAttributeKey.MODEL: json.dumps("gpt-4o-mini"),
+            SpanAttributeKey.CHAT_USAGE: json.dumps({"input_tokens": 10, "output_tokens": 20}),
+            SpanAttributeKey.LLM_COST: json.dumps(cost),
+        }
+    }
+
+    with mock.patch(
+        "mlflow.tracing.otel.translation.calculate_cost_by_model_and_token_usage"
+    ) as calculate_cost:
+        result = translate_span_when_storing(span)
+
+    assert json.loads(result["attributes"][SpanAttributeKey.LLM_COST]) == cost
+    calculate_cost.assert_not_called()
 
 
 @pytest.mark.parametrize(

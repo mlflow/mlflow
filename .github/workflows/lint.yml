@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-latest]
         run-macos:
           - ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
         exclude:
@@ -42,7 +42,7 @@ jobs:
       contents: read
       pull-requests: read
     cache-mode: write
-    name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
+    name: ${{ matrix.os == 'ubuntu-24.04' && 'lint' || 'lint-macos' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,7 +82,7 @@ jobs:
               key: pre-commit-${{ matrix.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
               restore-keys: pre-commit-${{ matrix.os }}-
       - name: Add problem matchers
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           for f in .github/workflows/matchers/*.json; do
             echo "::add-matcher::$f"
@@ -107,12 +107,12 @@ jobs:
           uv run --no-sync pytest dev/clint dev/pypi .claude/skills
 
       - name: Check function signatures
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        if: matrix.os == 'ubuntu-24.04' && github.event_name == 'pull_request'
         run: |
           uv run --no-project dev/check_function_signatures.py --base-revision HEAD^1
 
       - name: Check whitespace-only changes
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        if: matrix.os == 'ubuntu-24.04' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -120,10 +120,11 @@ jobs:
         run: |
           uv run --no-project dev/check_whitespace_only.py \
             --repo $REPO \
-            --pr $PR_NUMBER
+            --pr $PR_NUMBER \
+            --base-revision HEAD^1
 
       - name: Check uv.lock changes
-        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        if: matrix.os == 'ubuntu-24.04' && github.event_name == 'pull_request'
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           if echo "$files" | grep -q '^uv.lock$' && echo "$files" | grep -q '^pyproject.toml$'; then

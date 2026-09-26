@@ -7,7 +7,7 @@ function getSleepLength(iterationCount, numPendingJobs) {
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, core }) => {
   let rateLimitRemaining;
   github.hook.after("request", (response) => {
     rateLimitRemaining = response.headers["x-ratelimit-remaining"];
@@ -18,18 +18,6 @@ module.exports = async ({ github, context }) => {
   } = context;
   const pullRequest = context.payload.pull_request;
   const { sha } = pullRequest.head;
-
-  // TODO: Remove this once stacked PRs support force-merging.
-  // The `unprotect` label bypasses this check on stacked PRs, which can't be
-  // force-merged like regular PRs (`gh pr merge --admin`). The `stack` property
-  // is only present while the PR belongs to a stack.
-  if (pullRequest.labels.some(({ name }) => name === "unprotect")) {
-    if (pullRequest.stack) {
-      console.log("The `unprotect` label is present on a stacked PR. Skipping this check.");
-      return;
-    }
-    console.log("Ignoring the `unprotect` label: it is only valid on stacked PRs.");
-  }
 
   const STATE = {
     failure: "failure",
@@ -103,21 +91,31 @@ module.exports = async ({ github, context }) => {
     }));
 
     // Workflow runs (e.g., GitHub Actions)
-    const workflowRuns = (
-      await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
-        owner,
-        repo,
-        head_sha: ref,
-        per_page: 100,
-      })
-    ).filter(
-      ({ path, event }) =>
-        // Exclude this workflow to avoid self-checking
-        path !== ".github/workflows/protect.yml" &&
-        // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic" &&
-        !IGNORED_WORKFLOWS.has(path)
-    );
+    let workflowRuns;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      workflowRuns = (
+        await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+          owner,
+          repo,
+          head_sha: ref,
+          per_page: 100,
+        })
+      ).filter(
+        ({ path, event }) =>
+          // Exclude this workflow to avoid self-checking
+          path !== ".github/workflows/protect.yml" &&
+          // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
+          event !== "dynamic" &&
+          !IGNORED_WORKFLOWS.has(path)
+      );
+      if (workflowRuns.length > 0) break;
+      core.warning(`No workflow runs found (attempt ${attempt}/3)`);
+      if (attempt < 3) await sleep(5000);
+    }
+    if (workflowRuns.length === 0) {
+      core.setFailed(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+      return;
+    }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -180,6 +178,7 @@ module.exports = async ({ github, context }) => {
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
+    if (!checks) return;
     if (rateLimitRemaining !== undefined) {
       console.log(`Rate limit remaining: ${rateLimitRemaining}`);
     }
@@ -198,9 +197,10 @@ module.exports = async ({ github, context }) => {
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
-      throw new Error(
+      core.setFailed(
         "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
       );
+      return;
     }
 
     if (
@@ -219,5 +219,6 @@ module.exports = async ({ github, context }) => {
     await sleep(sleepLength);
   }
 
-  throw new Error("Timeout");
+  core.setFailed("Timeout");
+  return;
 };

@@ -37,7 +37,7 @@ cache-mode: none
 
 jobs:
   core_tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -81,7 +81,13 @@ jobs:
           # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
           # container builds. The protobuf version in the test environment has no effect on the
           # containers, making cross-version testing unnecessary and wasteful of disk space.
+          # The deselected job integration tests validate subprocess timing and job scheduling,
+          # not protobuf compatibility, and their fixed deadlines are unreliable in this broad
+          # matrix.
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
+            --deselect=tests/server/jobs/test_jobs.py::test_job_queue_parallelism \
+            --deselect=tests/server/jobs/test_jobs.py::test_job_retry_on_transient_error \
+            --deselect=tests/server/jobs/test_endpoint.py::test_job_submit \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \

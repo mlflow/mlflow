@@ -1782,14 +1782,16 @@ def test_create_model_version_uses_native_when_no_dependencies(store, tmp_path):
 def test_create_model_version_translates_dependencies_to_governance(store, tmp_path):
     # The MLflow resource dependencies are translated into the governance DependencyList on the
     # CreateModelVersion request, mirroring the legacy UCMR server: vector-index and table both
-    # become a table securable, UC function a function, UC connection a connection; model-endpoint
-    # (and any other kind) has no governance representation and is dropped.
+    # become a table securable, UC function a function, UC connection a connection; model-endpoint,
+    # UC model service (no governance securable exists for it), and any other kind have no
+    # governance representation and are dropped.
     mlflow_deps = [
         {"type": "DATABRICKS_VECTOR_INDEX", "name": "catalog.schema.index"},
         {"type": "DATABRICKS_TABLE", "name": "catalog.schema.table"},
         {"type": "DATABRICKS_UC_FUNCTION", "name": "catalog.schema.fn"},
         {"type": "DATABRICKS_UC_CONNECTION", "name": "my_connection"},
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "my_endpoint"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "catalog.schema.svc"},
         {"type": "SOME_UNKNOWN_KIND", "name": "whatever"},
     ]
     native_mv = ModelVersionInfo(

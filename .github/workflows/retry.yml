@@ -2,8 +2,8 @@ name: Retry
 
 on:
   schedule:
-    # Weekdays, 09:00–17:30 JST.
-    - cron: "0,30 9-17 * * 1-5"
+    # Weekdays, 08:00–19:40 JST.
+    - cron: "*/20 8-19 * * 1-5"
       timezone: Asia/Tokyo
   workflow_dispatch:
     inputs:
@@ -47,9 +47,8 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
           cutoff=$(jq -nr 'now - 3 * 24 * 60 * 60 | strftime("%Y-%m-%dT%H:%M:%SZ")')
-          # TODO: Extend eligibility to other bot and human PRs.
           candidates=$(gh api graphql --paginate \
-            -f search="repo:$GH_REPO is:pr is:open draft:false author:app/copilot-swe-agent author:app/dependabot created:>=$cutoff" \
+            -f search="repo:$GH_REPO is:pr is:open draft:false label:auto-rerun created:>=$cutoff" \
             -f query='
               query($search: String!, $endCursor: String) {
                 search(query: $search, type: ISSUE, first: 100, after: $endCursor) {
@@ -58,14 +57,12 @@ jobs:
                       number
                       mergeable
                       headRefOid
-                      autoMergeRequest { enabledAt }
                     }
                   }
                   pageInfo { hasNextPage endCursor }
                 }
               }' \
             --jq '.data.search.nodes[] |
-              select(.autoMergeRequest != null) |
               select(.mergeable != "CONFLICTING") |
               [.number, .headRefOid] | @tsv')
 
@@ -77,7 +74,7 @@ jobs:
           result=0
           while IFS=$'\t' read -r number sha; do
             [[ -n "$number" ]] || continue
-            echo "::group::PR #$number"
+            echo "::group::https://github.com/$GH_REPO/pull/$number"
             if ! bash "$RUNNER_TEMP/retry.sh" "${args[@]}" "$GH_REPO" "$sha"; then
               result=1
             fi
