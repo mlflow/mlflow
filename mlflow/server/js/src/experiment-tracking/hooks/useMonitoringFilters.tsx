@@ -154,6 +154,13 @@ export function startTimeLabelToStartEndTime(
   startTime: string | undefined;
   endTime: string | undefined;
 } {
+  const startOfUtcDay = (daysAgo: number): string => {
+    const startTime = new Date(dateNow);
+    startTime.setUTCHours(0, 0, 0, 0);
+    startTime.setUTCDate(startTime.getUTCDate() - daysAgo);
+    return startTime.toISOString();
+  };
+
   switch (startTimeLabel) {
     case 'LAST_HOUR':
       return {
@@ -167,12 +174,12 @@ export function startTimeLabelToStartEndTime(
       };
     case 'LAST_7_DAYS':
       return {
-        startTime: new Date(new Date(dateNow).setUTCDate(new Date().getUTCDate() - 7)).toISOString(),
+        startTime: startOfUtcDay(7),
         endTime: dateNow.toISOString(),
       };
     case 'LAST_30_DAYS':
       return {
-        startTime: new Date(new Date(dateNow).setUTCDate(new Date().getUTCDate() - 30)).toISOString(),
+        startTime: startOfUtcDay(30),
         endTime: dateNow.toISOString(),
       };
     case 'LAST_YEAR':
