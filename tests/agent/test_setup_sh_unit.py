@@ -63,10 +63,12 @@ def test_parse_args():
     result = run_shell(
         """
 parse_args "$@"
-printf '%s\n' "$TRACKING_URI" "$EXPERIMENT_NAME" "$AGENT_NAME"
+printf '%s\n' "$TRACKING_URI" "$WORKSPACE_ID" "$EXPERIMENT_NAME" "$AGENT_NAME"
 """,
         "--tracking-uri",
         "mlflow.example.com/",
+        "--workspace-id",
+        "123456789",
         "--experiment-name",
         "tracing-test",
         "--agent",
@@ -76,6 +78,7 @@ printf '%s\n' "$TRACKING_URI" "$EXPERIMENT_NAME" "$AGENT_NAME"
     assert result.returncode == 0, result.stderr
     assert result.stdout.splitlines() == [
         "mlflow.example.com/",
+        "123456789",
         "tracing-test",
         "codex",
     ]
@@ -186,6 +189,7 @@ def test_build_host_only_databricks_prompt_includes_host():
 backend=databricks
 PROFILE=
 WORKSPACE_URL=https://workspace.example.com
+WORKSPACE_ID=123456789
 TRACKING_URI=databricks
 EXPERIMENT_ID=42
 EXPERIMENT_NAME=/Users/test/tracing-test
@@ -197,6 +201,7 @@ build_agent_prompt
 
     assert result.returncode == 0, result.stderr
     assert "DATABRICKS_HOST=https://workspace.example.com" in result.stdout
+    assert "DATABRICKS_WORKSPACE_ID=123456789" in result.stdout
 
 
 def test_json_tag_value():
@@ -280,6 +285,82 @@ def test_json_warehouse_rows_lists_running_warehouses_first(warehouse_json: str)
         "stopped-1|Stopped Warehouse|STOPPED",
         "stopped-2|Another Stopped Warehouse|STOPPED",
     ]
+
+
+@pytest.mark.parametrize(
+    "profiles_json",
+    [
+        pytest.param(
+            """{
+  "profiles": [
+    {
+      "name": "DEFAULT",
+      "host": "https://workspace-a.example.com",
+      "workspace_id": "111"
+    },
+    {
+      "name": "OTHER",
+      "host": "https://workspace-b.example.com"
+    }
+  ]
+}""",
+            id="pretty",
+        ),
+        pytest.param(
+            '{"profiles":[{"workspace_id":"111","host":"https://workspace-a.example.com",'
+            '"name":"DEFAULT"},{"host":"https://workspace-b.example.com","name":"OTHER"}]}',
+            id="compact-reordered",
+        ),
+    ],
+)
+def test_json_databricks_profile_rows(profiles_json: str):
+    result = run_shell("printf '%s\n' \"$1\" | json_databricks_profile_rows", profiles_json)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "DEFAULT|https://workspace-a.example.com|111",
+        "OTHER|https://workspace-b.example.com|",
+    ]
+
+
+def test_json_databricks_profile_rows_without_jq(tmp_path: Path):
+    for command in ("awk", "sed", "tr"):
+        (tmp_path / command).symlink_to(Path("/usr/bin") / command)
+    profiles_json = (
+        '{"profiles":[{"workspace_id":"111","host":"https://workspace-a.example.com",'
+        '"name":"DEFAULT"},{"host":"https://workspace-b.example.com","name":"OTHER"}]}'
+    )
+    result = run_shell(
+        """
+PATH=$1
+printf '%s\n' "$2" | json_databricks_profile_rows
+""",
+        str(tmp_path),
+        profiles_json,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "DEFAULT|https://workspace-a.example.com|111",
+        "OTHER|https://workspace-b.example.com|",
+    ]
+
+
+def test_json_databricks_profile_workspace_id_without_jq(tmp_path: Path):
+    for command in ("awk", "sed"):
+        (tmp_path / command).symlink_to(Path("/usr/bin") / command)
+    profile_json = '{"details":{"configuration":{"workspace_id":{"value":"111"}}}}'
+    result = run_shell(
+        """
+PATH=$1
+printf '%s\n' "$2" | json_databricks_profile_workspace_id
+""",
+        str(tmp_path),
+        profile_json,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "111\n"
 
 
 @pytest.mark.parametrize("value", ["catalog.schema.extra", ".schema", "catalog."])
@@ -392,7 +473,7 @@ WORKSPACE_URL=https://workspace-a.example.com
 WORKSPACE_URL_EXPLICIT=true
 PROFILE=
 DATABRICKS_CONFIG_PROFILE=OTHER
-run_with_spinner() { spinner_output='DEFAULT|https://workspace-b.example.com'; }
+run_with_spinner() { spinner_output='DEFAULT|https://workspace-b.example.com|'; }
 resolve_databricks_profile
 printf '%s\n' "$PROFILE" "$WORKSPACE_URL"
 """
@@ -409,7 +490,7 @@ PROFILE=DEFAULT
 PROFILE_EXPLICIT=true
 WORKSPACE_URL=
 DATABRICKS_HOST=https://workspace-b.example.com
-run_with_spinner() { spinner_output='DEFAULT|https://workspace-a.example.com'; }
+run_with_spinner() { spinner_output='DEFAULT|https://workspace-a.example.com|111'; }
 resolve_databricks_profile
 printf '%s\n' "$PROFILE" "$WORKSPACE_URL"
 """
@@ -426,7 +507,7 @@ PROFILE=DEFAULT
 PROFILE_EXPLICIT=true
 WORKSPACE_URL=https://workspace-b.example.com
 WORKSPACE_URL_EXPLICIT=true
-run_with_spinner() { spinner_output='DEFAULT|https://workspace-a.example.com'; }
+run_with_spinner() { spinner_output='DEFAULT|https://workspace-a.example.com|111'; }
 resolve_databricks_profile
 """
     )
@@ -435,11 +516,106 @@ resolve_databricks_profile
     assert "points to https://workspace-a.example.com" in result.stderr
 
 
+def test_workspace_id_matches_profile_with_different_spog_host():
+    result = run_shell(
+        """
+PROFILE=
+WORKSPACE_URL=https://spog.example.com
+WORKSPACE_ID=111
+run_with_spinner() { spinner_output='dogfood|https://workspace.example.com|111'; }
+resolve_databricks_profile
+printf '%s\n' "$PROFILE" "$WORKSPACE_URL" "$WORKSPACE_ID"
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["dogfood", "https://workspace.example.com", "111"]
+
+
+def test_workspace_id_prefers_profile_with_matching_host():
+    result = run_shell(
+        """
+PROFILE=
+WORKSPACE_URL=https://spog.example.com
+WORKSPACE_ID=111
+run_with_spinner() {
+    spinner_output='alias|https://workspace.example.com|111
+spog|https://spog.example.com|111'
+}
+resolve_databricks_profile
+printf '%s\n' "$PROFILE" "$WORKSPACE_URL"
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["spog", "https://spog.example.com"]
+
+
+def test_workspace_id_matches_legacy_profile_via_auth_describe(tmp_path: Path):
+    databricks = tmp_path / "databricks"
+    databricks.write_text(
+        """#!/bin/sh
+printf '%s\n' '{"details":{"configuration":{"workspace_id":{"value":"111"}}}}'
+"""
+    )
+    databricks.chmod(0o755)
+    result = run_shell(
+        """
+DATABRICKS_BIN=$1
+PROFILE=
+WORKSPACE_URL=https://spog.example.com
+WORKSPACE_ID=111
+run_with_spinner() { spinner_output='dogfood|https://workspace.example.com|'; }
+resolve_databricks_profile
+printf '%s\n' "$PROFILE" "$WORKSPACE_URL"
+""",
+        str(databricks),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["dogfood", "https://workspace.example.com"]
+
+
+def test_explicit_profile_accepts_spog_host_for_matching_workspace_id():
+    result = run_shell(
+        """
+PROFILE=dogfood
+PROFILE_EXPLICIT=true
+WORKSPACE_URL=https://spog.example.com
+WORKSPACE_URL_EXPLICIT=true
+WORKSPACE_ID=111
+run_with_spinner() { spinner_output='dogfood|https://workspace.example.com|111'; }
+resolve_databricks_profile
+printf '%s\n' "$PROFILE" "$WORKSPACE_URL"
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["dogfood", "https://workspace.example.com"]
+
+
+def test_explicit_profile_rejects_different_workspace_id():
+    result = run_shell(
+        """
+PROFILE=dogfood
+PROFILE_EXPLICIT=true
+WORKSPACE_URL=https://spog.example.com
+WORKSPACE_URL_EXPLICIT=true
+WORKSPACE_ID=222
+run_with_spinner() { spinner_output='dogfood|https://workspace.example.com|111'; }
+resolve_databricks_profile
+"""
+    )
+
+    assert result.returncode != 0
+    assert "points to workspace ID 111, not 222" in result.stderr
+
+
 def test_dbx_json_passes_host_through_environment(tmp_path: Path):
     databricks = tmp_path / "databricks"
     databricks.write_text(
         r"""#!/bin/sh
-printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
+printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_WORKSPACE_ID:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
 """
     )
     databricks.chmod(0o755)
@@ -449,6 +625,7 @@ printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
 DATABRICKS_BIN=$1
 PROFILE=
 WORKSPACE_URL=https://workspace.example.com
+WORKSPACE_ID=111
 DATABRICKS_CONFIG_PROFILE=AMBIENT
 export DATABRICKS_CONFIG_PROFILE
 dbx_json experiments get-experiment 42
@@ -458,7 +635,7 @@ dbx_json experiments get-experiment 42
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
-        "https://workspace.example.com||experiments get-experiment 42 --output json"
+        "https://workspace.example.com|111||experiments get-experiment 42 --output json"
     )
 
 
@@ -466,7 +643,7 @@ def test_dbx_json_clears_ambient_host_for_profile(tmp_path: Path):
     databricks = tmp_path / "databricks"
     databricks.write_text(
         r"""#!/bin/sh
-printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
+printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_WORKSPACE_ID:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
 """
     )
     databricks.chmod(0o755)
@@ -477,8 +654,9 @@ DATABRICKS_BIN=$1
 PROFILE=selected
 WORKSPACE_URL=https://workspace.example.com
 DATABRICKS_HOST=https://ambient.example.com
+DATABRICKS_WORKSPACE_ID=999
 DATABRICKS_CONFIG_PROFILE=AMBIENT
-export DATABRICKS_HOST DATABRICKS_CONFIG_PROFILE
+export DATABRICKS_HOST DATABRICKS_WORKSPACE_ID DATABRICKS_CONFIG_PROFILE
 dbx_json experiments get-experiment 42
 """,
         str(databricks),
@@ -486,7 +664,7 @@ dbx_json experiments get-experiment 42
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
-        "|AMBIENT|experiments get-experiment 42 --output json --profile selected"
+        "||AMBIENT|experiments get-experiment 42 --output json --profile selected"
     )
 
 
