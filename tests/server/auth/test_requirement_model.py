@@ -383,6 +383,7 @@ def _invoke_scorer_requirements(experiment_id, scorer_pattern):
     return [
         Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
         Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+        Requirement(RESOURCE_TYPE_SCORER, scorer_pattern, ACTION_NOT_DENIED),
         Requirement(
             RESOURCE_TYPE_SCORER_VERSION,
             "*",
@@ -401,14 +402,16 @@ def test_invoke_scorer_is_vetoed_by_a_deny_on_the_named_scorer():
     assert decide(requirements, rows) is False
 
 
-def test_invoke_scorer_version_grant_overrides_a_scorer_deny():
-    # Tier override, downward as well as upward: the version's own grant decides and the
-    # scorer behind it is never consulted. This is why the version requirement CHAINS to the
-    # scorer here, where a create vetoes the two independently.
+def test_invoke_scorer_version_grant_does_not_rescue_a_scorer_deny():
+    # Tier override decides WHICH tier supplies the action, and the version's grant does win
+    # that contest -- but the scorer also carries its own veto as a separate requirement, so a
+    # DENY on it is not rescued. Same shape as a run grant failing under an experiment DENY:
+    # folding the parent veto into the fallback chain instead would let the child grant
+    # short-circuit past it.
     requirements = _invoke_scorer_requirements(EXPERIMENT_ID, SCORER_PATTERN)
     rows = [
         grant(RESOURCE_TYPE_EXPERIMENT, "*", EDIT.name),
         grant(RESOURCE_TYPE_SCORER, SCORER_PATTERN, DENY.name),
         grant(RESOURCE_TYPE_SCORER_VERSION, "*", READ.name),
     ]
-    assert decide(requirements, rows) is True
+    assert decide(requirements, rows) is False
