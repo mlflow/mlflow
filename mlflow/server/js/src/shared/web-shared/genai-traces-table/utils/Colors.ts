@@ -2,7 +2,7 @@ import { isNil } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 
-import { KnownEvaluationResultAssessmentStringValue, withAlpha } from '../components/GenAiEvaluationTracesReview.utils';
+import { isFailingValue, isPassingValue, withAlpha } from '../components/GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, AssessmentValueType, RunEvaluationResultAssessment } from '../types';
 
 // Taken from figma: https://www.figma.com/design/2B1KMp9x624WrxaASrSv9B/Tiles-UX?node-id=3205-87588&t=1MwrDNNRIOSODm4D-0
@@ -96,10 +96,10 @@ export const getEvaluationResultIconColor = (
 
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
-    if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.YES) {
+    if (isPassingValue(assessment?.stringValue)) {
       return theme.isDarkMode ? theme.colors.green400 : theme.colors.green600;
     }
-    if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.NO) {
+    if (isFailingValue(assessment?.stringValue)) {
       return theme.isDarkMode ? theme.colors.red400 : theme.colors.red600;
     }
   }
@@ -122,10 +122,10 @@ export const getEvaluationResultAssessmentBackgroundColor = (
 
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
-    if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.YES) {
+    if (isPassingValue(assessment?.stringValue)) {
       return TAG_PASS_COLOR;
     }
-    if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.NO) {
+    if (isFailingValue(assessment?.stringValue)) {
       return theme.isDarkMode ? withAlpha(theme.colors.red800, 0.6) : theme.colors.red200;
     }
     if (!iconOnly && assessment?.errorMessage) {
@@ -156,9 +156,9 @@ export const getEvaluationResultTextColor = (
 
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
-    if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.YES) {
+    if (isPassingValue(assessment?.stringValue)) {
       return theme.isDarkMode ? theme.colors.green400 : theme.colors.green600;
-    } else if (assessment?.stringValue === KnownEvaluationResultAssessmentStringValue.NO) {
+    } else if (isFailingValue(assessment?.stringValue)) {
       return theme.isDarkMode ? theme.colors.red400 : theme.colors.red600;
     } else {
       return theme.colors.textSecondary;
@@ -191,10 +191,10 @@ export const getAssessmentValueBarBackgroundColor = (
 
   if (assessmentInfo.dtype === 'pass-fail') {
     // Return the color based on the assessment value
-    if (assessmentValue === KnownEvaluationResultAssessmentStringValue.YES) {
+    if (isPassingValue(assessmentValue)) {
       return PASS_BARCHART_BAR_COLOR;
     }
-    if (assessmentValue === KnownEvaluationResultAssessmentStringValue.NO) {
+    if (isFailingValue(assessmentValue)) {
       return FAIL_BARCHART_BAR_COLOR;
     }
     return theme.isDarkMode ? theme.colors.grey800 : theme.colors.grey200;
