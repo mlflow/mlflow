@@ -8,6 +8,7 @@
 import { Services } from './services';
 import { getUUID } from '../common/utils/ActionUtils';
 import { getArtifactContent } from '../common/utils/ArtifactUtils';
+import { getArtifactProxyDownloadUrl, isEligibleArtifactProxyUri } from '../common/utils/artifactProxy';
 import yaml from 'js-yaml';
 import type { ModelVersionInfoEntity } from '../experiment-tracking/types';
 import type { KeyValueEntity } from '../common/types';
@@ -109,11 +110,15 @@ export const createModelVersionApi = (
 });
 
 export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
-export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
+export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID(), source?: string) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
   const uriEncodedModelVersion = `version=${encodeURIComponent(version)}`;
-  const artifactLocation = `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
+  // A model version's source is its artifact root, so read the MLmodel file
+  // straight from the artifact server when that root is one the UI can reach.
+  const artifactLocation = isEligibleArtifactProxyUri(source)
+    ? getArtifactProxyDownloadUrl(source, 'MLmodel')
+    : `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
   return {
     type: GET_MODEL_VERSION_ARTIFACT,
     payload: getArtifactContent(artifactLocation),

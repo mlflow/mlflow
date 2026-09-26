@@ -395,6 +395,7 @@ export const ShowArtifactLoggedTableView = React.memo(
     loggedModelId,
     experimentId,
     entityTags,
+    artifactUri,
   }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
@@ -404,7 +405,7 @@ export const ShowArtifactLoggedTableView = React.memo(
     useEffect(() => {
       setLoading(true);
       fetchArtifactUnified(
-        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri },
         getArtifactContent,
       )
         .then((value) => {
@@ -422,7 +423,7 @@ export const ShowArtifactLoggedTableView = React.memo(
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri]);
 
     const data = useMemo<{
       columns: string[];
