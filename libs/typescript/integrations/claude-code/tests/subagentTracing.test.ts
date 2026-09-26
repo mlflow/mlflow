@@ -20,7 +20,9 @@ afterAll(() => {
 });
 
 jest.mock('@mlflow/core', () =>
-  jest.requireActual('./helpers/mlflowCoreMock').createMlflowCoreMock(),
+  jest
+    .requireActual<typeof import('./helpers/mlflowCoreMock')>('./helpers/mlflowCoreMock')
+    .createMlflowCoreMock(),
 );
 
 // Import after mock
@@ -97,7 +99,7 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
       subagentStopInput({ transcript_path: mainPath, agent_transcript_path: agentPath }),
     );
 
-    const roots = getSpans().filter((s) => s.parentId === null);
+    const roots = getSpans().filter((s) => s.parentId == null);
     expect(roots).toHaveLength(1);
     const root = roots[0];
     expect(root.name).toBe('subagent_Explore');
@@ -115,7 +117,7 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
     expect(getSpansByName('tool_Grep')).toHaveLength(1);
     expect(getChildSpans(root.spanId)).toHaveLength(3);
 
-    const usage = llms.map((s) => s.attributes['mlflow.chat.tokenUsage']);
+    const usage = llms.map((s) => s.attributes['mlflow.chat.tokenUsage'] as Record<string, number>);
     const sum = (key: string) => usage.reduce((acc, u) => acc + u[key], 0);
     expect(sum('input_tokens')).toBe(250);
     expect(sum('output_tokens')).toBe(50);
@@ -143,7 +145,7 @@ describe('processSubagentTranscript (SubagentStop hook)', () => {
       }),
     );
 
-    expect(getSpans().filter((s) => s.parentId === null)[0].name).toBe('subagent');
+    expect(getSpans().filter((s) => s.parentId == null)[0].name).toBe('subagent');
     expect(mockTraceInfo.tags['mlflow.claude_code.agent_type']).toBeUndefined();
   });
 

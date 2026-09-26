@@ -4,7 +4,9 @@
  * Usage (the factory runs lazily, so requiring this module inside it is safe):
  *
  *   jest.mock('@mlflow/core', () =>
- *     jest.requireActual('./helpers/mlflowCoreMock').createMlflowCoreMock(),
+ *     jest
+ *       .requireActual<typeof import('./helpers/mlflowCoreMock')>('./helpers/mlflowCoreMock')
+ *       .createMlflowCoreMock(),
  *   );
  *
  * Every span lands in `mockSpans`; all spans share one trace whose info is
@@ -23,6 +25,15 @@ export interface MockSpan {
   startTimeNs?: number;
   endTimeNs?: number;
   exceptions: Error[];
+}
+
+interface MockStartSpanOptions {
+  name: string;
+  parent?: { spanId: string };
+  spanType?: string;
+  inputs?: any;
+  attributes?: Record<string, any>;
+  startTimeNs?: number;
 }
 
 export const mockSpans: Record<string, MockSpan> = {};
@@ -69,7 +80,7 @@ export function getChildSpans(parentId: string) {
 export function createMlflowCoreMock() {
   return {
     init: jest.fn(),
-    startSpan: jest.fn((options: any) => {
+    startSpan: jest.fn((options: MockStartSpanOptions) => {
       const id = `span-${++spanCounter}`;
       const parentId = options.parent ? options.parent.spanId : null;
       const span = {

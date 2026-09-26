@@ -26,7 +26,9 @@ afterAll(() => {
 // ============================================================================
 
 jest.mock('@mlflow/core', () =>
-  jest.requireActual('./helpers/mlflowCoreMock').createMlflowCoreMock(),
+  jest
+    .requireActual<typeof import('./helpers/mlflowCoreMock')>('./helpers/mlflowCoreMock')
+    .createMlflowCoreMock(),
 );
 
 // Import after mock
@@ -34,7 +36,6 @@ import { processTranscript } from '../src/tracing';
 import { startSpan, flushTraces } from '@mlflow/core';
 import {
   getChildSpans,
-  getSpans,
   getSpansByName,
   getSpansByType,
   mockTraceInfo,
