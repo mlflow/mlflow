@@ -8,10 +8,13 @@ import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces
 jest.mock('../../../../common/utils/RoutingUtils', () => ({
   useLocation: jest.fn(),
   matchPath: jest.fn((routePath: string, pathname: string) => {
-    // Anchored match with every `:param` segment replaced by a non-slash matcher, so that
-    // e.g. the chat-sessions list route does not also match a single-chat-session path.
-    const routePattern = routePath.replace(/:[^/]+/g, '[^/]+');
-    return new RegExp(`^${routePattern}$`).test(pathname);
+    // Simple implementation of matchPath for testing
+    if (routePath.includes(':')) {
+      const routePattern = routePath.replace(/:[^/]+/g, '[^/]+');
+      const regex = new RegExp(`^${routePattern}$`);
+      return regex.test(pathname);
+    }
+    return routePath === pathname;
   }),
   createMLflowRoutePath: jest.fn((path) => path),
 }));
@@ -49,6 +52,12 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       pathname: '/experiments/123/review-queue',
       expectedTabName: ExperimentPageTabName.ReviewQueue,
       expectedTopLevelTabName: ExperimentPageTabName.ReviewQueue,
+    },
+    {
+      name: 'should return Datasets tab when on a dataset detail route',
+      pathname: '/experiments/123/datasets/dataset-456',
+      expectedTabName: ExperimentPageTabName.Datasets,
+      expectedTopLevelTabName: ExperimentPageTabName.Datasets,
     },
     {
       name: 'should return undefined when on unknown route',
