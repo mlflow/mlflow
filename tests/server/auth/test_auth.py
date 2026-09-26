@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -43,7 +44,14 @@ from mlflow.server.auth import (
     _find_fastapi_validator,
     _re_compile_path,
 )
-from mlflow.server.auth.permissions import NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.permissions import (
+    DENY,
+    EDIT,
+    NO_PERMISSIONS,
+    READ,
+    RESOURCE_TYPE_TRACE,
+    USE,
+)
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     LIST_USERS,
@@ -1427,6 +1435,60 @@ def test_search_registered_models(client, monkeypatch):
         assert names == [f"rm{i}" for i in readable]
 
 
+def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatch):
+    """A `run_id` filter is a membership oracle that row redaction cannot close.
+
+    `filter_search_model_versions` strips `run_id`/`run_link` from the rows it returns, so filtering
+    ON `run_id` still confirms which versions a denied run produced. This asserts the gate is WIRED,
+    which a direct call to the validator cannot show.
+    """
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("mv_run_filter_exp")
+        run_id = client.create_run(experiment_id).info.run_id
+        rm = client.create_registered_model("mv_run_filter_model")
+        client.create_model_version(rm.name, f"runs:/{run_id}/model", run_id=run_id)
+        # Before the DENY the filter works and the row comes back.
+        assert client.search_model_versions(filter_string=f"run_id = '{run_id}'")
+    grant_role_permission(client.tracking_uri, owner, "run", "*", "DENY")
+    with User(owner, owner_pw, monkeypatch):
+        # Selecting on the denied tier is refused...
+        for filter_string in (f"run_id = '{run_id}'", f"run_id IN ('{run_id}')"):
+            with pytest.raises(MlflowException, match=r"(?i)permission|denied"):
+                client.search_model_versions(filter_string=filter_string)
+        # ...while a filter that names no run is untouched, and its rows are still redacted.
+        versions = client.search_model_versions(filter_string="name = 'mv_run_filter_model'")
+        assert [mv.name for mv in versions] == ["mv_run_filter_model"]
+        assert not versions[0].run_id
+
+
+def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monkeypatch):
+    """`SearchLoggedModels` had no before-request validator at all, so `filter_search_logged_models`
+    was its only authorization -- and that filter drops rows by EXPERIMENT, never inspecting the
+    request's `source_run_id`. Filtering on it therefore confirmed whether a denied run produced any
+    logged model. This asserts the gate is WIRED, which a direct validator call cannot show.
+    """
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("lm_run_filter_exp")
+        run_id = client.create_run(experiment_id).info.run_id
+        client.create_logged_model(experiment_id=experiment_id, name="lm_run_filter_model")
+        # Before the DENY the selector is accepted.
+        client.search_logged_models(
+            experiment_ids=[experiment_id], filter_string=f"source_run_id = '{run_id}'"
+        )
+    grant_role_permission(client.tracking_uri, owner, "run", "*", "DENY")
+    with User(owner, owner_pw, monkeypatch):
+        with pytest.raises(MlflowException, match=r"(?i)permission|denied"):
+            client.search_logged_models(
+                experiment_ids=[experiment_id], filter_string=f"source_run_id = '{run_id}'"
+            )
+        # A filter naming no run is untouched.
+        assert client.search_logged_models(
+            experiment_ids=[experiment_id], filter_string="name = 'lm_run_filter_model'"
+        )
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -2137,6 +2199,60 @@ def test_log_metric_model_id_requires_update(metric_model_authz):
         auth=a.user2,
     )
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    ("route", "extra"),
+    [("/api/2.0/mlflow/runs/log-inputs", {}), ("/api/2.0/mlflow/runs/outputs", {"step": 0})],
+)
+def test_log_inputs_outputs_model_id_requires_update(metric_model_authz, route, extra):
+    """Both routes link logged models to a run via models[].model_id, so they need the same
+    logged-model UPDATE the metric writers require. Gating on the run alone let a caller with
+    UPDATE on their own run attach another user's logged models to it.
+    """
+    a = metric_model_authz
+
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        route,
+        json_payload={"run_id": a.run_id, "models": [{"model_id": a.model_id1, **extra}]},
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # The camelCase `modelId` alias is covered too, since the handler accepts it.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        route,
+        json_payload={"run_id": a.run_id, "models": [{"modelId": a.model_id1, **extra}]},
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # A model in a third user's experiment is denied for the same reason.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        route,
+        json_payload={"run_id": a.run_id, "models": [{"model_id": a.model_id3, **extra}]},
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+
+    # With no models the run tier alone decides, so the actor -- who owns the run -- must NOT be
+    # denied. Asserting "not 403" rather than a specific code because the two routes disagree on
+    # the rest: log-inputs accepts a models-less body (200), while outputs requires models and
+    # returns the handler's own 400. Either way authorization let it through, which is the point.
+    models_absent = _send_rest_tracking_post_request(
+        a.tracking_uri, route, json_payload={"run_id": a.run_id}, auth=a.user2
+    )
+    assert models_absent.status_code != 403
 
 
 @pytest.mark.parametrize(
@@ -3373,6 +3489,132 @@ def test_gateway_secrets_permissions(client, monkeypatch):
             auth=(user1, password1),
         )
         response.raise_for_status()
+
+
+def test_model_version_prompt_marker_cannot_escape_the_prompt_version_tier(client, monkeypatch):
+    """A version's own prompt marker persists regardless of its parent's family.
+
+    So a plain registered model accepts a version marked `is_prompt=true`, which every later read
+    classifies as a prompt version. Authorizing only the parent's tier gated
+    `registered_model_version` while creating a prompt version.
+    """
+    base = client.tracking_uri
+    owner, pw = create_user(base)
+    marked = [{"key": "mlflow.prompt.is_prompt", "value": "true"}]
+    with User(owner, pw, monkeypatch):
+        for name in ("rm-escape-a", "rm-escape-b"):
+            requests.post(
+                url=base + "/api/2.0/mlflow/registered-models/create",
+                json={"name": name},
+                auth=(owner, pw),
+            ).raise_for_status()
+        # The premise: a prompt-marked version really is accepted under a plain registered model.
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/model-versions/create",
+            json={"name": "rm-escape-a", "source": "dummy-source", "tags": marked},
+            auth=(owner, pw),
+        )
+        assert resp.status_code == 200
+        assert any(
+            t["key"] == "mlflow.prompt.is_prompt" for t in resp.json()["model_version"]["tags"]
+        )
+
+    grant_role_permission(base, owner, "prompt_version", "*", "DENY")
+    with User(owner, pw, monkeypatch):
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/model-versions/create",
+            json={"name": "rm-escape-b", "source": "dummy-source", "tags": marked},
+            auth=(owner, pw),
+        )
+        assert resp.status_code == 403
+
+
+def test_duplicate_prompt_tags_do_not_escape_a_model_deny(client, monkeypatch):
+    """The store keeps the LAST duplicate tag value, so `[true, false]` creates a registered model.
+
+    Classifying on `any(... == "true")` sent the veto to the prompt tier instead, letting a caller
+    under a `registered_model` DENY create one anyway.
+    """
+    base = client.tracking_uri
+    owner, pw = create_user(base)
+    grant_role_permission(base, owner, "registered_model", "*", "DENY")
+    tags = [
+        {"key": "mlflow.prompt.is_prompt", "value": "true"},
+        {"key": "mlflow.prompt.is_prompt", "value": "false"},
+    ]
+    with User(owner, pw, monkeypatch):
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/registered-models/create",
+            json={"name": f"m_{uuid.uuid4().hex[:8]}", "tags": tags},
+            auth=(owner, pw),
+        )
+    assert resp.status_code == 403
+    # Reversing the order really does create a prompt, so the DENY above was tier-specific.
+    with User(owner, pw, monkeypatch):
+        resp = requests.post(
+            url=base + "/api/2.0/mlflow/registered-models/create",
+            json={"name": f"p_{uuid.uuid4().hex[:8]}", "tags": list(reversed(tags))},
+            auth=(owner, pw),
+        )
+    assert resp.status_code == 200
+
+
+def test_create_gateway_endpoint_refuses_an_auto_created_experiment(client, monkeypatch):
+    """Usage tracking defaults ON, and the store then auto-creates an experiment.
+
+    So a plain create -- no `experiment_id`, no `usage_tracking` -- reaches
+    `_get_or_create_experiment_id`. Under `(experiment, "*", DENY)` that is an experiment appearing
+    for a caller refused every other experiment operation, which is the hole
+    `_workspace_create_not_denied` closes on `CreateExperiment` itself.
+    """
+    base = client.tracking_uri
+    owner, pw = create_user(base)
+
+    def make_definition():
+        with User(owner, pw, monkeypatch):
+            r = requests.post(
+                url=base + "/api/3.0/mlflow/gateway/secrets/create",
+                json={
+                    "secret_name": f"sec_{uuid.uuid4().hex[:8]}",
+                    "secret_value": {"api_key": "k"},
+                    "provider": "openai",
+                },
+                auth=(owner, pw),
+            )
+            r.raise_for_status()
+            r = requests.post(
+                url=base + "/api/3.0/mlflow/gateway/model-definitions/create",
+                json={
+                    "name": f"def_{uuid.uuid4().hex[:8]}",
+                    "secret_id": r.json()["secret"]["secret_id"],
+                    "provider": "openai",
+                    "model_name": "m",
+                },
+                auth=(owner, pw),
+            )
+            r.raise_for_status()
+            return r.json()["model_definition"]["model_definition_id"]
+
+    def create_endpoint():
+        with User(owner, pw, monkeypatch):
+            return requests.post(
+                url=base + "/api/3.0/mlflow/gateway/endpoints/create",
+                json={
+                    "name": f"ep_{uuid.uuid4().hex[:8]}",
+                    "model_configs": [
+                        {"model_definition_id": make_definition(), "linkage_type": "PRIMARY"}
+                    ],
+                },
+                auth=(owner, pw),
+            )
+
+    # The premise: with no denial the plain create really does attach an auto-created experiment.
+    resp = create_endpoint()
+    resp.raise_for_status()
+    assert resp.json()["endpoint"]["experiment_id"]
+
+    grant_role_permission(base, owner, "experiment", "*", "DENY")
+    assert create_endpoint().status_code == 403
 
 
 def test_gateway_endpoints_permissions(client, monkeypatch):
@@ -5373,6 +5615,50 @@ def test_otel_experiment_permission(fastapi_client, monkeypatch):
     assert response.status_code != 403
 
 
+def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch):
+    # The OTLP handler persists the submitted spans, so `POST /v1/traces` is a trace create and
+    # must refuse a `(trace, *, DENY)` holder exactly as StartTrace and StartTraceV3 do. Before
+    # the veto was added, experiment EDIT alone carried the request.
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(user1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("otel_trace_veto_test")
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, user2, "experiment", experiment_id, EDIT.name
+    )
+
+    def post_spans():
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=b"",
+            auth=(user2, password2),
+        )
+
+    # experiment EDIT alone passes the permission check
+    assert post_spans().status_code != 403
+
+    grant_role_permission(fastapi_client.tracking_uri, user2, RESOURCE_TYPE_TRACE, "*", DENY.name)
+    assert post_spans().status_code == 403
+
+    # and the same request over the Flask StartTrace route agrees
+    response = requests.post(
+        f"{fastapi_client.tracking_uri}/api/2.0/mlflow/traces",
+        json={
+            "experiment_id": experiment_id,
+            "timestamp_ms": 1,
+            "request_metadata": [],
+            "tags": [],
+        },
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+
 def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
     monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
@@ -7034,11 +7320,21 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
 
 
 def test_validate_can_create_mcp_server_delegates_to_shared_helper():
-    with mock.patch.object(
-        auth_module, "_can_create_in_workspace", return_value=True
-    ) as mock_helper:
+    """Both halves take the identity FastAPI supplied -- neither may re-authenticate.
+
+    The container check is `_can_create_in_workspace`; the created type's §5d veto is
+    `_create_not_denied`, which defaults to the wildcard when no name is supplied; the root
+    create route passes the name from the body instead. This validator is called from the FastAPI
+    middleware, which has already resolved the caller, so a Flask `authenticate_request()` inside
+    either half would read the wrong request state.
+    """
+    with (
+        mock.patch.object(auth_module, "_can_create_in_workspace", return_value=True) as container,
+        mock.patch.object(auth_module, "_create_not_denied", return_value=True) as veto,
+    ):
         result = auth_module.validate_can_create_mcp_server("alice")
-        mock_helper.assert_called_once_with("alice")
+        container.assert_called_once_with("alice")
+        veto.assert_called_once_with("alice", auth_module.RESOURCE_TYPE_MCP_SERVER, "*")
         assert result is True
 
 
@@ -7076,7 +7372,7 @@ def test_read_predicate_honors_grant_default_workspace_access(
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def list_role_grants_for_user_in_workspace(self, user_id, workspace, resource_type):
+        def list_grants(self, user_id, workspace, resource_types):
             return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
@@ -7215,6 +7511,9 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
     monkeypatch.setattr(auth_module, "_get_mcp_server_permission", permission_helper)
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+    # Auto-creating the parent is also vetoable on the mcp_server and mcp_server_version
+    # types; that veto needs a live grants query, and this test pins the recheck lambda.
+    monkeypatch.setattr(auth_module, "_mcp_auto_create_not_denied", lambda _user, _name: True)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is True
@@ -7513,6 +7812,231 @@ def test_mcp_server_version_create_on_existing_requires_update(fastapi_client, m
             auth=(owner, owner_pw),
         )
         assert resp.status_code == 200
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_version_deny_applies_after_creation(fastapi_client, monkeypatch, prefix):
+    """A version DENY must survive creation.
+
+    The path validator consulted `mcp_server_version` only on POST /{name}/versions; every other
+    nested route fell through to the parent server's permission. So a caller holding
+    (mcp_server_version, *, DENY) could still list versions, read one, mutate or delete it, and
+    resolve an alias to a version -- the tier existed only at creation time.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/version-deny"
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+    # The owner keeps MANAGE on the server itself; only the version tier is denied.
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": owner,
+            "resource_type": "mcp_server_version",
+            "resource_id": "*",
+            "permission": "DENY",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(owner, owner_pw, monkeypatch):
+        version_routes = (
+            ("GET", f"{prefix}/{server_name}/versions"),
+            ("GET", f"{prefix}/{server_name}/versions/1"),
+            ("DELETE", f"{prefix}/{server_name}/versions/1"),
+            ("GET", f"{prefix}/{server_name}/aliases/prod"),
+        )
+        for method, route in version_routes:
+            resp = requests.request(
+                method, url=fastapi_client.tracking_uri + route, auth=(owner, owner_pw)
+            )
+            assert resp.status_code == 403, f"{method} {route} returned {resp.status_code}"
+
+        # The parent server itself is untouched: the veto is scoped to the version tier.
+        resp = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}", auth=(owner, owner_pw)
+        )
+        assert resp.status_code == 200
+
+
+def _mcp_version_content_in(blob: str) -> list[str]:
+    present = [
+        field
+        for field in ("resolved_version", "server_version", "server_alias")
+        if f'"{field}"' in blob and f'"{field}": null' not in blob
+    ]
+    # A populated list, not the redacted `null`.
+    if '"tools": [' in blob:
+        present.append("tools")
+    return present
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_access_endpoint_withholds_a_denied_version(fastapi_client, monkeypatch, prefix):
+    """An access endpoint embeds the version it resolves to, so the version tier must reach it.
+
+    `MCPAccessEndpointResponse` carries `resolved_version` (the whole version object, tools and all)
+    plus a `tools` copy and the `server_version`/`server_alias` that name it, and
+    `MCPServerResponse.access_endpoints` carries the same as a nested summary. Four of these routes
+    had no response filter registered at all, so `(mcp_server_version, "*", DENY)` did not stop any
+    of them.
+
+    The endpoint row is the subject of its own route, so the denied version is redacted out of the
+    row and the row itself survives -- read redacts the passenger, it does not deny the subject.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    base = fastapi_client.tracking_uri
+    server_name = f"com.test/endpoint-redact{prefix.count('ajax')}"
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=base + prefix, json={"name": server_name}, auth=(owner, owner_pw)
+        ).raise_for_status()
+        requests.post(
+            url=f"{base}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        created = requests.post(
+            url=f"{base}{prefix}/{server_name}/endpoints",
+            json={"url": "https://endpoint.example.com", "server_version": "1.0.0"},
+            auth=(owner, owner_pw),
+        )
+        created.raise_for_status()
+        endpoint_id = created.json()["id"]
+
+    carriers = (
+        ("GET", f"{prefix}/{server_name}/endpoints/{endpoint_id}", None),
+        ("GET", f"{prefix}/{server_name}/endpoints", None),
+        ("GET", f"{prefix}/endpoints", None),
+        ("GET", f"{prefix}/{server_name}", None),
+        ("GET", prefix, None),
+        ("PATCH", f"{prefix}/{server_name}", {"description": "d"}),
+    )
+    # Without the veto the content is there to withhold -- otherwise the assertions below would pass
+    # against an empty response and prove nothing.
+    with User(owner, owner_pw, monkeypatch):
+        for method, route, body in carriers:
+            resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
+            assert resp.status_code == 200, f"{method} {route}"
+            carried = _mcp_version_content_in(resp.text)
+            assert carried, f"{method} {route} carried no version content"
+
+    requests.post(
+        url=f"{base}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": owner,
+            "resource_type": "mcp_server_version",
+            "resource_id": "*",
+            "permission": "DENY",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+    with User(owner, owner_pw, monkeypatch):
+        for method, route, body in carriers:
+            resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
+            # The row survives; only the version passenger is withheld.
+            assert resp.status_code == 200, f"{method} {route} returned {resp.status_code}"
+            assert endpoint_id in resp.text or method == "PATCH", f"{method} {route} lost the row"
+            leaked = _mcp_version_content_in(resp.text)
+            assert not leaked, f"{method} {route} disclosed {leaked}"
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_access_endpoint_version_selectors_honor_the_version_tier(
+    fastapi_client, monkeypatch, prefix
+):
+    """An access endpoint resolves a version and serves its content, so selecting one is a
+    version-tier operation even though the path says `endpoints`.
+
+    The path validator consulted `mcp_server_version` only for `versions/` and `aliases/`, so
+    `server_version`/`server_alias` -- accepted in the create and update bodies and as query
+    selectors on both endpoint searches -- reached the version tier with only the parent server's
+    permission checked.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    base = fastapi_client.tracking_uri
+    server_name = f"com.test/endpoint-selectors{prefix.count('ajax')}"
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=base + prefix, json={"name": server_name}, auth=(owner, owner_pw)
+        ).raise_for_status()
+        requests.post(
+            url=f"{base}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        created = requests.post(
+            url=f"{base}{prefix}/{server_name}/endpoints",
+            json={"url": "https://endpoint.example.com", "server_version": "1.0.0"},
+            auth=(owner, owner_pw),
+        )
+        # Selecting a version is allowed before the veto exists, and the handler still parses the
+        # body the validator now reads ahead of it.
+        assert created.status_code == 200, created.text
+        endpoint_id = created.json()["id"]
+    requests.post(
+        url=f"{base}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": owner,
+            "resource_type": "mcp_server_version",
+            "resource_id": "*",
+            "permission": "DENY",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+    with User(owner, owner_pw, monkeypatch):
+        selecting = (
+            (
+                "POST",
+                f"{prefix}/{server_name}/endpoints",
+                {"url": "https://other.example.com", "server_version": "1.0.0"},
+            ),
+            (
+                "POST",
+                f"{prefix}/{server_name}/endpoints",
+                {"url": "https://other.example.com", "server_alias": "prod"},
+            ),
+            (
+                "PATCH",
+                f"{prefix}/{server_name}/endpoints/{endpoint_id}",
+                {"server_version": "1.0.0"},
+            ),
+            ("GET", f"{prefix}/{server_name}/endpoints?server_version=1.0.0", None),
+            ("GET", f"{prefix}/{server_name}/endpoints?server_alias=prod", None),
+            # The cross-server search names no server, so it anchors on the workspace instead.
+            ("GET", f"{prefix}/endpoints?server_version=1.0.0", None),
+        )
+        for method, route, body in selecting:
+            resp = requests.request(method, url=base + route, json=body, auth=(owner, owner_pw))
+            assert resp.status_code == 403, f"{method} {route} returned {resp.status_code}"
+        # A `status` filter resolves against the VERSION's status column, not the endpoint -- an
+        # endpoint response carries no status of its own -- so it selects rows by version state,
+        # which is a membership oracle the passenger redaction cannot close.
+        for route in (
+            f"{prefix}/{server_name}/endpoints?filter_string=status+%3D+'active'",
+            f"{prefix}/endpoints?filter_string=status+%3D+'active'",
+        ):
+            resp = requests.get(url=base + route, auth=(owner, owner_pw))
+            assert resp.status_code == 403, f"{route} returned {resp.status_code}"
+        # A filter naming no version is untouched, as is a request carrying no selector at all.
+        for route in (
+            f"{prefix}/{server_name}/endpoints",
+            f"{prefix}/{server_name}/endpoints?filter_string=transport_type+%3D+'streamable-http'",
+        ):
+            resp = requests.get(url=base + route, auth=(owner, owner_pw))
+            assert resp.status_code == 200, f"{route} returned {resp.status_code}"
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])

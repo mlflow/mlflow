@@ -39,7 +39,10 @@ flowchart LR
 - **Resource** - a target entity in MLflow that permissions are
   managed on, such as an experiment, a registered model, a prompt,
   a scorer, or an AI Gateway resource (a secret, an endpoint,
-  or a model definition).
+  or a model definition). Some resources live **inside** another one - a
+  run inside an experiment, a version inside a registered model - and are
+  granted on their own tier; see
+  [Sub-resource tiers](#sub-resource-tiers).
 - **Role** - a named bundle of permissions on resources.
 
 ## Roles
@@ -61,6 +64,7 @@ The grantable permission levels for resource-scoped permissions are:
 | `USE`      | Yes      | Yes     | No         | No         | No         |
 | `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
 | `MANAGE`   | Yes      | Yes     | Yes        | Yes        | Yes        |
+| `DENY`     | No       | No      | No         | No         | No         |
 
 `USE` is for consuming a resource without modifying it (invoking a gateway
 endpoint, referencing a model definition, creating new experiments /
@@ -74,34 +78,130 @@ it. The effective permission when no role grant matches is the server's
 `default_permission` (`READ` by default; see
 [Permission resolution](#permission-resolution)).
 
-Because grants are folded via a max (see
-[Permission resolution](#permission-resolution)), RBAC has no
-explicit-deny override. To restrict access to a
-specific resource, grant access more narrowly (per-resource or
-resource-type wildcard) rather than holding a broad workspace-level grant
-and trying to except the resource.
+`DENY` is an explicit-deny override. Unlike the levels above it is not a
+point on the capability ladder: it carries no capabilities, and it wins over
+any positive grant that applies to the same resource, so it can carve an
+exception out of a broad grant. `(experiment, *, EDIT)` together with
+`(experiment, 42, DENY)` edits every experiment except 42.
 
-#### Permission resolution
+Two limits are worth knowing before relying on it:
 
-For each authorization check, MLflow evaluates the user's effective
-permission as follows:
+- A **workspace administrator is not restrictable**. A
+  `(workspace, *, MANAGE)` grant short-circuits resolution to `MANAGE`
+  before `DENY` is considered, so it cannot be excepted this way. Remove the
+  workspace grant instead.
+- `DENY` applies at the tier it is granted on. It does not cascade from a
+  parent to an unrelated resource type; see
+  [Permission resolution](#permission-resolution) for how a grant on one
+  tier overrides another.
 
-1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
-2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Grants that apply to the resource fold via a max, and the
-   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`).
-   `(workspace, *, MANAGE)` folds into every per-resource check - it grants
-   management of every resource in the workspace. `(workspace, *, USE)`
-   does **not** fold into per-resource checks; it confers workspace
-   membership and create rights only (see
+### Sub-resource tiers
+
+A resource that lives inside another can be granted on separately, so access
+to the container and access to its contents are not the same decision. The
+sub-resource types are:
+
+| Tier                       | Inside                     |
+| -------------------------- | -------------------------- |
+| `run`                      | `experiment`               |
+| `trace`                    | `experiment`               |
+| `assessment`               | `experiment` (via a trace) |
+| `logged_model`             | `experiment`               |
+| `review_queue`             | `experiment`               |
+| `registered_model_version` | `registered_model`         |
+| `prompt_version`           | `prompt`                   |
+| `scorer_version`           | `scorer`                   |
+| `mcp_server_version`       | `mcp_server`               |
+
+:::note
+Sub-resource tiers are **wildcard grain only**. A grant must use the `*`
+pattern - `(run, *, DENY)` is valid, while `(run, r-abc123, READ)` is
+rejected with a 400. A per-id grant here could be honoured on a point route
+but not in a search, and a grant that holds in one place and silently lapses
+in another is worse than no grant, so the server refuses it at the source
+rather than dropping it later.
+:::
+
+Editing a run in experiment 42, to show how the two combine. The first five rows have
+an explicit grant on the experiment, so the container check is settled whatever
+`default_permission` is. They assume that default is `READ` or `NO_PERMISSIONS`: a
+higher default floors positive grants upward, which would raise row 2's
+`(run, *, READ)` and let it edit after all.
+
+| Grants                                        | Read run  | Edit run  | Why                                                |
+| --------------------------------------------- | --------- | --------- | -------------------------------------------------- |
+| `(experiment, 42, EDIT)`                      | yes       | yes       | no run grant, so the container decides             |
+| `(experiment, 42, EDIT)` + `(run, *, READ)`   | yes       | no        | the run tier decides, and it is lower              |
+| `(experiment, 42, READ)` + `(run, *, EDIT)`   | yes       | yes       | the run tier decides, and it is higher             |
+| `(experiment, 42, MANAGE)` + `(run, *, DENY)` | no        | no        | `DENY` on the tier is not rescued by the container |
+| `(experiment, 42, DENY)` + `(run, *, MANAGE)` | no        | no        | `DENY` on the container blocks every tier grant    |
+| `(run, *, EDIT)` alone                        | see below | see below | the container check falls to `default_permission`  |
+
+The shape to remember: **the tier grant sets the verb, the container grants set
+the reach.** `(experiment, 42, READ)` + `(run, *, MANAGE)` deletes runs in
+experiment 42 and nowhere else, even though the run grant names no experiment.
+
+Anything that leaves the container below `READ` therefore blocks every operation
+on its contents, whatever the tier grant says - `DENY` on the container, or a
+`NO_PERMISSIONS` floor.
+
+The last row depends on configuration, and is worth understanding because it is
+the common case. With no grant on the experiment, the container check falls through
+to `default_permission`: on a default server that is `READ`, which satisfies the
+container check, so a `run` grant alone is enough to edit runs. Set
+`default_permission = NO_PERMISSIONS`, or run in multi-workspace mode where an
+absent grant is a denial rather than a default, and the same grant is refused.
+
+[Permission resolution](#permission-resolution) below gives the full ordering these
+rows follow.
+
+### Permission resolution
+
+For each authorization check, MLflow evaluates the user's effective permission as
+follows. An operation on a sub-resource is authorized against the tier **and** its
+container, which is what steps 3 and 5 cover.
+
+1. **Platform Admin bypass** - `is_admin = true` short-circuits to allow.
+2. **Workspace admin** - a `(workspace, *, MANAGE)` grant resolves every resource in
+   the workspace to `MANAGE`, ahead of every rule below including `DENY`.
+   `(workspace, *, USE)` does **not** fold into per-resource checks; it confers
+   workspace membership and create rights only (see
    [Workspace isolation](#workspace-isolation)).
-3. **Server `default_permission`** (defaults to `READ`): a floor max'd
-   into the resolution result. When no role grant matches at all, the
-   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
-   when the resolver returns it for a workspace-boundary reason (no
-   workspace membership, missing workspace, lookup error), that deny
-   stands. See [Workspace isolation](#workspace-isolation) for when the
-   floor applies in multi-workspace mode.
+3. **Container READ** - an operation on a sub-resource also requires READ on its
+   container. This is a separate check from the tier, and it is what bounds a
+   sub-resource grant to the containers the caller can already see. A tier grant
+   names no container, because the grain is wildcard-only, so without this check
+   `(run, *, READ)` would read every run in every experiment in the workspace.
+   Requiring `READ` costs nothing, because every permission level carrying update,
+   delete or manage already carries read.
+4. **Grants on the same tier fold together** - all of the user's roles in the
+   request's workspace contribute. Grants that apply to the same resource fold via a
+   max, and the highest-priority permission wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`) - except that a matching `DENY` wins
+   outright, whatever it is folded with.
+5. **The tier decides; the container is its fallback** - the sub-resource tier is
+   consulted first. If it holds **any** grant, that grant decides the action and the
+   container's own level is not consulted for it. The container decides **only when
+   the tier holds no grant at all** - that is the fallback. Tiers are therefore
+   **not** max'd together, so a tier grant overrides its container whether it is more
+   or less permissive, and `(run, *, DENY)` is not rescued by
+   `(experiment, 42, MANAGE)`. In a longer chain - an `assessment` inside a `trace`
+   inside an `experiment` - each tier holding no grant is silent and the next one
+   decides. The step 3 READ check applies either way: a tier grant does not waive it.
+6. **Server `default_permission`** (defaults to `READ`) - a floor max'd into the
+   resolution result, and the final answer when no role grant matches at all. It
+   floors a tier grant as readily as a container grant, so a default above `READ`
+   raises a deliberately narrow tier grant and a tier cannot be used to restrict
+   below the default - use `DENY`, which is exempt. The
+   floor does **not** lift `NO_PERMISSIONS` - when the resolver returns it for a
+   workspace-boundary reason (no workspace membership, missing workspace, lookup
+   error), that deny stands - and it does not lift `DENY` either, since flooring an
+   explicit deny would void it. See
+   [Workspace isolation](#workspace-isolation) for when the floor applies in
+   multi-workspace mode.
+
+Steps 5 and 6 are what make a tier grant optional: with no grant on the tier, the
+container decides exactly as it did before these types existed.
 
 ## Workspace isolation
 
@@ -366,10 +466,64 @@ for member in ("alice", "bob", "carol"):
 </TabItem>
 </Tabs>
 
+### 5. Let a reviewer read an experiment but not its traces
+
+Carve the traces out of a grant that would otherwise include them. `DENY` on the
+[sub-resource tier](#sub-resource-tiers) applies to the experiment's traces without
+affecting the experiment or its runs.
+
+```mermaid
+flowchart LR
+    Rev[Reviewer] --> R["exp-reviewer<br/>role"]
+    R --> P1["experiment *<br/>READ"]
+    R --> P2["trace *<br/>DENY"]
+```
+
+```python
+role = auth_client.create_role(name="exp-reviewer", workspace="ml-research")
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="experiment", resource_pattern="*", permission="READ"
+)
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="trace", resource_pattern="*", permission="DENY"
+)
+auth_client.assign_role(username="carol", role_id=role.id)
+```
+
+Carol can read every experiment in the workspace and the runs inside them, while trace
+reads and searches are refused. Note the `*` pattern: sub-resource tiers are wildcard
+grain only, so `resource_pattern="tr-abc123"` is rejected with a 400.
+
+### 6. Let an annotator edit runs without giving away the experiment
+
+The mirror image: a grant on the tier can also widen access, so an annotator can work on
+runs while the experiment itself stays read-only.
+
+```mermaid
+flowchart LR
+    Ann[Annotator] --> R["run-annotator<br/>role"]
+    R --> P1["experiment *<br/>READ"]
+    R --> P2["run *<br/>EDIT"]
+```
+
+```python
+role = auth_client.create_role(name="run-annotator", workspace="ml-research")
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="experiment", resource_pattern="*", permission="READ"
+)
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="run", resource_pattern="*", permission="EDIT"
+)
+auth_client.assign_role(username="dave", role_id=role.id)
+```
+
+Dave can update runs and log to them, but renaming or deleting the experiment is refused —
+the run tier decides run operations outright rather than being max'd against its parent.
+
 ## Admin UI
 
-The admin UI is the operator-facing surface for everything above. It's
-reached from two entry points:
+The admin UI is the operator-facing surface for managing users, roles and
+direct permissions. It's reached from two entry points:
 
 - **Platform Admins** (`is_admin = true`) navigate to `/admin` via the
   sidebar `Manage` entry. The page renders cross-workspace: every user in
