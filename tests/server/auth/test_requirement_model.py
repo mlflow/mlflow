@@ -180,7 +180,7 @@ def test_tier_override_across_keys(label, rows, expected):
 
 
 def test_a_parent_deny_does_not_override_a_present_child_grant():
-    """RFC 0000: a parent NONE denies a child only via fallback, never over a present
+    """A parent NONE denies a child only via fallback, never over a present
     child grant.
     """
     requirement = Requirement(

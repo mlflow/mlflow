@@ -4373,10 +4373,10 @@ def test_delete_traces_is_gated_like_the_experiment_cascade(
 
 
 def test_legacy_resolver_lets_deny_beat_a_positive_grant(workspace_permission_setup):
-    """The regression `4af3cf834` fixed: the store folded grants with ``max`` and
-    ``PERMISSION_PRIORITY[DENY]`` is -1, so a ``DENY`` sharing a role with any positive grant was
-    silently discarded. Both rows below match the ``(experiment, exp-1)`` key -- a wildcard pattern
-    matches every id -- so the fold decides between them, and ``DENY`` must win.
+    """The store folded grants with ``max`` and ``PERMISSION_PRIORITY[DENY]`` is -1, so a
+    ``DENY`` sharing a role with any positive grant was silently discarded. Both rows below
+    match the ``(experiment, exp-1)`` key -- a wildcard pattern matches every id -- so the
+    fold decides between them, and ``DENY`` must win.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -4427,11 +4427,11 @@ def test_legacy_resolver_keeps_the_workspace_admin_bypass(workspace_permission_s
 
 
 def test_legacy_resolver_never_loads_a_child_deny(workspace_permission_setup):
-    """Pins the limit `4af3cf834`'s own message records, so the gap stays visible.
+    """Pins a limit of the legacy resolver, so the gap stays visible.
 
     The legacy callers resolve one resource_type and do not pass the parent, so a ``(run, *, DENY)``
     row is never loaded on those paths -- it cannot veto anything resolved through the experiment
-    tier. Follow-up item 1 (the §5e baseline) is what makes a child tier participate.
+    tier. The sub-resource baseline is what makes a child tier participate.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -4452,8 +4452,8 @@ def test_legacy_resolver_never_loads_a_child_deny(workspace_permission_setup):
 
 
 # =============================================================================
-# The §5e sub-resource baseline: a parent or intermediate veto must not be
-# bypassable by a grant on a higher-priority tier. See follow-up item 1.
+# The sub-resource baseline: a parent or intermediate veto must not be
+# bypassable by a grant on a higher-priority tier.
 # =============================================================================
 
 
@@ -4556,8 +4556,7 @@ def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_
 
 
 # =============================================================================
-# The read predicate (design doc §5f, follow-up items 2 and 6): a list row and a
-# point request must reach the same decision.
+# The read predicate: a list row and a point request must reach the same decision.
 # =============================================================================
 
 
@@ -4684,8 +4683,7 @@ def test_read_predicate_keeps_the_workspace_admin_bypass(workspace_permission_se
 
 
 # =============================================================================
-# Bulk routes (design doc §5g): many resources in one request, one requirement
-# pair per distinct parent. Follow-up item 4.
+# Bulk routes: many resources in one request, one requirement pair per distinct parent.
 # =============================================================================
 
 
@@ -5683,8 +5681,7 @@ def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkey
 
 
 # =============================================================================
-# The review-queue LIST filter must honour the queue tier the detail gate uses
-# (findings 2 + 7, tracker item 2c).
+# The review-queue LIST filter must honour the queue tier the detail gate uses.
 # =============================================================================
 
 
@@ -5981,7 +5978,7 @@ def _run_scorer_list_filter(rows):
 
 def test_scorer_list_filter_honors_a_scorer_deny(workspace_permission_setup):
     """The scorer tier is per-id grain, so a DENY can name ONE scorer. It must drop that row and
-    leave its sibling, which the pre-`e5b3004d4` predicate could not do -- it discarded DENY.
+    leave its sibling, which the earlier predicate could not do -- it discarded DENY.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -6076,7 +6073,7 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
 
 
 # ==========================================================================================
-# Trace assessment redaction (design doc 5h; review finding 9a)
+# Trace assessment redaction
 # ==========================================================================================
 
 
@@ -6684,7 +6681,7 @@ _PROMPT_TAGS = [{"key": "mlflow.prompt.is_prompt", "value": "true"}]
 def test_workspace_creates_honor_a_created_type_deny(
     workspace_permission_setup, validator, tier, path, body
 ):
-    """§5d gives the created type a veto. The child creates had it via
+    """The created type gets a veto. The child creates had it via
     `_authorize_create_in_experiment`; the workspace-scoped creates did not, so a DENY holder kept
     creating resources while being refused every other operation on one.
     """
@@ -6941,10 +6938,9 @@ def test_create_model_version_ignores_a_registry_source_uri(
     """`models:/<name>/<version>` names a registry entry, not a logged model, so it dereferences
     nothing and must not be pushed through the logged-model check.
 
-    Upstream #26037 gates such a source on READ of the SOURCE registered model, which is a
-    parent-tier check and stays as upstream wrote it (parent-tier conversion is a separate PR). That
-    check is stubbed readable here so this test isolates the one thing it is about: the logged-model
-    tier must not see a registry URI.
+    Upstream gates such a source on READ of the SOURCE registered model, which is a parent-tier
+    check and stays as upstream wrote it. That check is stubbed readable here so this test
+    isolates the one thing it is about: the logged-model tier must not see a registry URI.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -8457,9 +8453,9 @@ def test_retention_gate_keeps_each_tier_separate(workspace_permission_setup):
 def test_retention_gate_memoizes_and_fails_closed(workspace_permission_setup):
     """Repeated requirements over one resource collapse to a single entry.
 
-    Item 9's duplicate-requirement concern costs nothing here. Separately: an unresolvable
-    workspace yields False for every requirement, so a caller that withholds on False fails
-    closed with no special case.
+    Duplicate requirements therefore cost nothing. Separately: an unresolvable workspace
+    yields False for every requirement, so a caller that withholds on False fails closed with
+    no special case.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]

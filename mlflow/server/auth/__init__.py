@@ -2368,7 +2368,7 @@ def validate_can_create_experiment() -> bool:
 
 
 def validate_can_create_registered_model() -> bool:
-    """The created type's veto (§5d), on whichever family the request is creating.
+    """The created type's veto, on whichever family the request is creating.
 
     The route is shared: a prompt IS a registered model carrying `mlflow.prompt.is_prompt`. Unlike
     every other shared route -- where `_request_targets_prompt` reads the tag from the PERSISTED
@@ -2378,7 +2378,7 @@ def validate_can_create_registered_model() -> bool:
 
     Note this authorizes the create only. `mlflow.prompt.is_prompt` stays an ordinary tag that
     set-tag and delete-tag can change afterwards, moving an object between families; guarding that
-    belongs to the registry store and is out of scope (description.md §6.1).
+    belongs to the registry store and is out of scope here.
     """
     # The container check first: it needs no request body, and keeping it ahead of the parse
     # preserves the short-circuit callers rely on.
@@ -3401,7 +3401,7 @@ def validate_can_read_model_version_artifact():
 
     The positive gate is left as master's, which resolves the `registered_model` tier for a prompt's
     name too; correcting THAT would change which grant admits a prompt artifact at all, which is
-    parent-tier work outside this PR (description.md §6.2).
+    parent-tier work and is left alone here.
     """
     if not _get_permission_from_model_version().can_read:
         return False
