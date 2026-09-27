@@ -87,9 +87,26 @@ class SkillRegistryMixin:
     ) -> list[SkillVersion]:
         """Atomically register standalone skills from one Git repository and ref.
 
-        Reuse the highest active version with matching source, ref, subpath, and digest.
-        Otherwise create a version using ordinary registration's allocation and defaults.
+        Reuse the highest non-deleted version with matching source, ref, subpath, and digest,
+        preserving its status even when it differs from the requested status. Otherwise create
+        a version with the requested status using ordinary registration's allocation.
         Results follow input order; any failure rolls back the entire batch.
+
+        Args:
+            skill_definitions: Nonempty list of normalized definitions with unique names,
+                Git sources, and digests from the same repository and ref. Each definition's
+                ``status`` must be ``active`` (default) or ``draft`` and must be the same
+                across the batch. Status is validated per definition and applies only to
+                newly created versions.
+            organization: Organization shared by all definitions.
+            created_by: Authenticated creator for new records.
+
+        Returns:
+            Reused or created versions in input order, potentially with different statuses.
+
+        Raises:
+            MlflowException: If metadata, requested status, or batch constraints are invalid,
+                or a skill name conflicts with a packaged member.
         """
         raise NotImplementedError(self.__class__.__name__)
 

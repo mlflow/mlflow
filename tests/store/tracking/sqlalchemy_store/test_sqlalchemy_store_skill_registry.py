@@ -446,12 +446,13 @@ def _bulk_definition(name="reviewer", **overrides):
     }
 
 
-def test_bulk_register_skills_preserves_order_inputs_and_existing_metadata(store):
+@pytest.mark.parametrize("status", ["active", "draft"])
+def test_bulk_register_skills_preserves_order_inputs_and_existing_metadata(store, status):
     store.create_skill("reviewer", organization="acme", description="Keep", created_by="alice")
     existing = store.create_skill_version(
         **_bulk_definition(), organization="acme", created_by="alice"
     )
-    batch = [_bulk_definition("writer"), _bulk_definition()]
+    batch = [_bulk_definition("writer", status=status), _bulk_definition(status=status)]
     original = deepcopy(batch)
     parent = store.get_skill("reviewer", organization="acme")
 
@@ -459,13 +460,13 @@ def test_bulk_register_skills_preserves_order_inputs_and_existing_metadata(store
 
     assert [(v.name, v.version) for v in result] == [("writer", 1), ("reviewer", 1)]
     assert result[0].created_by == "bob"
-    assert result[0].status == SkillStatus.ACTIVE
+    assert result[0].status == status
     assert result[1] == existing
     assert store.get_skill("reviewer", organization="acme") == parent
     assert store.get_skill("writer", organization="acme").created_by == "bob"
     assert store.get_skill("writer", organization="acme").description is None
     assert batch == original
-    assert [v.version for v in store.bulk_register_skills(batch, organization="acme")] == [1, 1]
+    assert store.bulk_register_skills(batch, organization="acme") == result
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkillVersion).count() == 2
     # Ordinary registration still creates a fresh version after an identical bulk import.
@@ -492,44 +493,57 @@ def test_bulk_register_skills_new_version_for_changed_definition(store, changes)
 
 
 @pytest.mark.parametrize("status", ["active", "draft", "deprecated"])
-def test_bulk_register_skills_reuses_highest_active_match(store, status):
+@pytest.mark.parametrize("requested_status", ["active", "draft"])
+def test_bulk_register_skills_reuses_highest_non_deleted_match(store, status, requested_status):
     for _ in range(3):
         store.create_skill_version(**_bulk_definition(), created_by="original")
     with store.ManagedSessionMaker(read_only=False) as session:
         versions = store._get_query(session, SqlSkillVersion)
         versions.filter(SqlSkillVersion.version == 2).update({SqlSkillVersion.status: status})
         versions.filter(SqlSkillVersion.version == 3).update({SqlSkillVersion.status: "deleted"})
-    result = store.bulk_register_skills([_bulk_definition()], created_by="importer")[0]
-    assert result.version == (2 if status == "active" else 1)
-    assert result.status == "active"
+    existing = store.get_skill_version("reviewer", 2)
+    result = store.bulk_register_skills(
+        [_bulk_definition(status=requested_status)], created_by="importer"
+    )[0]
+    assert result == existing
+    assert result.version == 2
+    assert result.status == status
     assert result.created_by == "original"
     assert result.last_updated_by == "original"
+    assert store.get_skill_version("reviewer", 2) == existing
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == 3
 
 
-@pytest.mark.parametrize("status", ["draft", "deprecated"])
-def test_bulk_register_skills_creates_active_version_for_inactive_match(store, status):
-    store.create_skill_version(**_bulk_definition(), created_by="original")
-    with store.ManagedSessionMaker(read_only=False) as session:
-        store._get_query(session, SqlSkillVersion).update({SqlSkillVersion.status: status})
-    result = store.bulk_register_skills([_bulk_definition()], created_by="importer")[0]
-    assert result.version == 2
-    assert result.status == "active"
-    assert result.created_by == "importer"
-    assert store.get_skill_version("reviewer", 1).status == status
-    assert store.bulk_register_skills([_bulk_definition()])[0].version == 2
+@pytest.mark.parametrize("status", ["deprecated", "deleted", "invalid", None])
+def test_bulk_register_skills_invalid_status_does_not_write(store, status):
+    with pytest.raises(MlflowException, match="status") as exc:
+        store.bulk_register_skills([
+            _bulk_definition(),
+            _bulk_definition("writer", status=status),
+        ])
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 0
+        assert store._get_query(session, SqlSkillVersion).count() == 0
 
 
-def test_bulk_register_skills_keeps_deleted_history_and_restarts_after_hard_delete(store):
+@pytest.mark.parametrize("status", ["active", "draft"])
+def test_bulk_register_skills_keeps_deleted_history_and_restarts_after_hard_delete(store, status):
     store.bulk_register_skills([_bulk_definition()])
     with store.ManagedSessionMaker(read_only=False) as session:
         store._get_query(session, SqlSkillVersion).update({SqlSkillVersion.status: "deleted"})
-    assert store.bulk_register_skills([_bulk_definition()])[0].version == 2
+    imported = store.bulk_register_skills([_bulk_definition(status=status)])[0]
+    assert imported.version == 2
+    assert imported.status == status
     with store.ManagedSessionMaker() as session:
         deleted = store._get_query(session, SqlSkillVersion).filter_by(version=1).one()
         assert deleted.status == "deleted"
-    assert store.bulk_register_skills([_bulk_definition()])[0].version == 2
+    assert store.bulk_register_skills([_bulk_definition(status=status)])[0] == imported
     store.delete_skill("reviewer")
-    assert store.bulk_register_skills([_bulk_definition()])[0].version == 1
+    recreated = store.bulk_register_skills([_bulk_definition(status=status)])[0]
+    assert recreated.version == 1
+    assert recreated.status == status
 
 
 @pytest.mark.parametrize(
@@ -547,6 +561,8 @@ def test_bulk_register_skills_keeps_deleted_history_and_restarts_after_hard_dele
         [_bulk_definition(), _bulk_definition()],
         [_bulk_definition(), _bulk_definition("writer", ref="other")],
         [_bulk_definition(), _bulk_definition("writer", source="https://example.com/other.git")],
+        [_bulk_definition(), _bulk_definition("writer", status="draft")],
+        [_bulk_definition(status="draft"), _bulk_definition("writer")],
     ],
 )
 def test_bulk_register_skills_invalid_batch_does_not_write(store, batch):

@@ -556,6 +556,7 @@ class SqlAlchemySkillRegistryMixin:
             )
         definitions = {}
         repository_ref = None
+        status = None
         for definition in skill_definitions:
             if not isinstance(definition, dict) or not isinstance(definition.get("name"), str):
                 raise MlflowException.invalid_parameter_value(
@@ -563,6 +564,14 @@ class SqlAlchemySkillRegistryMixin:
                 )
             name = definition["name"]
             self._validate_skill_identity(name, organization)
+            definition_status = self._validate_skill_version_status(
+                definition.get("status", SkillStatus.ACTIVE.value)
+            )
+            if status is not None and definition_status != status:
+                raise MlflowException.invalid_parameter_value(
+                    "Bulk registration requires the same status for every Skill."
+                )
+            status = definition_status
             fields = {
                 field: definition.get(field) for field in ("source", "ref", "subpath", "digest")
             }
@@ -589,7 +598,7 @@ class SqlAlchemySkillRegistryMixin:
         for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
             try:
                 return self._run_with_deadlock_retry(
-                    self._bulk_register_skills_once, definitions, organization, created_by
+                    self._bulk_register_skills_once, definitions, organization, created_by, status
                 )
             except MlflowException as e:
                 # Persistence helpers chain IntegrityError for creation/allocation collisions;
@@ -601,7 +610,7 @@ class SqlAlchemySkillRegistryMixin:
                 ):
                     raise
 
-    def _bulk_register_skills_once(self, definitions, organization, created_by):
+    def _bulk_register_skills_once(self, definitions, organization, created_by, status):
         results = {}
         with self.ManagedSessionMaker(read_only=False) as session:
             names = sorted(definitions)
@@ -636,7 +645,7 @@ class SqlAlchemySkillRegistryMixin:
                 candidates = (
                     versions
                     .filter(
-                        SqlSkillVersion.status == SkillStatus.ACTIVE.value,
+                        SqlSkillVersion.status != SkillStatus.DELETED.value,
                         *(
                             getattr(SqlSkillVersion, field) == value
                             for field, value in fields.items()
@@ -668,6 +677,7 @@ class SqlAlchemySkillRegistryMixin:
                     organization=organization,
                     version=latest.version + 1 if latest is not None else 1,
                     created_by=created_by,
+                    status=status,
                     **fields,
                 )
         return [results[name] for name in definitions]
