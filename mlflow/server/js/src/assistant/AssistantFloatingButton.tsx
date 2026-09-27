@@ -47,7 +47,7 @@ const useWindowWidth = (): number => {
  */
 export const AssistantFloatingButton = () => {
   const { theme } = useDesignSystemTheme();
-  const { isLocalServer, isPanelOpen, openPanel } = useAssistant();
+  const { isLocalServer, canUseAssistant, isPanelOpen, openPanel } = useAssistant();
   const obstructionWidth = useFloatingObstructionWidth();
   const obstructionHeight = useFloatingObstructionHeight();
   const windowWidth = useWindowWidth();
@@ -77,7 +77,7 @@ export const AssistantFloatingButton = () => {
   // surface is open it doesn't hide the button — it reports the width it reserves (via
   // useRegisterFloatingObstruction) and the button shifts to its left so it stays
   // visible without overlapping. This is generic across any registering surface.
-  if (!isLocalServer || isPanelOpen) {
+  if (!canUseAssistant || isPanelOpen) {
     return null;
   }
 

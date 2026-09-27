@@ -9,3 +9,9 @@ export const TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX = 'mlflow.traces-v4.column-si
 
 /** localStorage namespace for the traces-v4 assessment-column opt-in/opt-out preference. */
 export const TRACE_ASSESSMENT_COLUMN_STORAGE_KEY_PREFIX = 'mlflow.traces-v4.assessment-columns';
+
+/** localStorage namespace for the traces-v4 row-height (density) preference. */
+export const TRACE_DENSITY_STORAGE_KEY_PREFIX = 'mlflow.traces-v4.density';
+
+/** localStorage namespace for the traces-v4 column display order (standard + assessment columns). */
+export const TRACE_COLUMN_ORDER_STORAGE_KEY_PREFIX = 'mlflow.traces-v4.column-order';

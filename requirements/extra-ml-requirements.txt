@@ -79,7 +79,11 @@ ag2<1
 # which causes auto-logging tests to fail.
 dspy!=2.6.9
 # Required by mlflow.litellm
-litellm
+# 1.97.0 ships a broken `Message` pydantic model (unresolved forward ref
+# `ChatCompletionReasoningSummaryTextBlock`), see BerriAI/litellm#36384.
+# 1.98.0 onward does not import on the Python 3.10 we still support:
+# https://github.com/BerriAI/litellm/issues/38892
+litellm!=1.97.0,<1.98.0
 # Required by mlflow.gemini
 google-genai
 # Required by mlflow.groq

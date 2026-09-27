@@ -432,6 +432,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
+            dataset=mlflow_dataset if is_managed_dataset else None,
         )
 
     try:

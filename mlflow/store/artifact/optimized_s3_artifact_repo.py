@@ -22,7 +22,7 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     _compute_num_chunks,
     _validate_chunk_size_aws,
 )
-from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
+from mlflow.store.artifact.s3_artifact_repo import _file_is_directory_marker, _get_s3_client
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -165,6 +165,18 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         else:
             return None
 
+    def _get_multipart_upload_encryption_args(self):
+        extra_args = dict(self._s3_upload_extra_args)
+        if environ_extra_args := self.get_s3_file_upload_extra_args():
+            extra_args.update(environ_extra_args)
+        encryption_arg_names = {
+            "BucketKeyEnabled",
+            "ServerSideEncryption",
+            "SSEKMSKeyId",
+            "SSEKMSEncryptionContext",
+        }
+        return {key: value for key, value in extra_args.items() if key in encryption_arg_names}
+
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
         extra_args.update(self._s3_upload_extra_args)
@@ -219,7 +231,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         # Create multipart upload
         s3_client = cloud_credential_info
         response = s3_client.create_multipart_upload(
-            Bucket=bucket, Key=key, **self._bucket_owner_params
+            Bucket=bucket,
+            Key=key,
+            **self._bucket_owner_params,
+            **self._get_multipart_upload_encryption_args(),
         )
         upload_id = response["UploadId"]
 
@@ -330,8 +345,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
-                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 file_size = int(obj.get("Size"))
+                if _file_is_directory_marker(file_path, file_size):
+                    continue
+
+                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 

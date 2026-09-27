@@ -5,6 +5,7 @@ import random
 import signal
 from io import BytesIO, StringIO
 from typing import Any, NamedTuple
+from unittest import mock
 
 import keras
 import numpy as np
@@ -26,7 +27,7 @@ from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.proto_json_utils import MlflowInvalidInputException, NumpyEncoder
 from mlflow.version import VERSION
 
 from tests.helper_functions import (
@@ -1130,3 +1131,23 @@ def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected)
     expected_data, expected_params = expected
     assert data == expected_data
     assert params == expected_params
+
+
+def test_decode_json_input_rejects_non_utf8_body():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"\x80\x81")
+
+
+def test_decode_json_input_still_rejects_malformed_json():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"{not json")
+
+
+def test_invocations_rejects_non_utf8_csv_body():
+    with pytest.raises(MlflowInvalidInputException, match="valid UTF-8 encoded string"):
+        pyfunc_scoring_server.invocations(
+            b"\x80\x81",
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV,
+            model=mock.MagicMock(),
+            input_schema=None,
+        )

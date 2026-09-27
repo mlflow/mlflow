@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass
 from types import FunctionType
@@ -67,6 +68,8 @@ class JobFunctionMetadata:
     transient_error_classes: list[type[Exception]] | None = None
     python_env: _PythonEnv | None = None
     exclusive: bool | list[str] = False
+    resource_requests: dict[str, str] | None = None
+    resource_limits: dict[str, str] | None = None
 
 
 def job(
@@ -76,6 +79,8 @@ def job(
     python_version: str | None = None,
     pip_requirements: list[str] | None = None,
     exclusive: bool | list[str] = False,
+    resource_requests: dict[str, str] | None = None,
+    resource_limits: dict[str, str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -94,6 +99,8 @@ def job(
         exclusive: (optional) If True, only one instance of this job with the same params
             can run at a time. If a list of parameter names is provided, only those
             parameters are considered when determining exclusivity. Default is False.
+        resource_requests: (optional) Resource requests metadata for executor backends.
+        resource_limits: (optional) Resource limits metadata for executor backends.
     """
     from mlflow.utils import PYTHON_VERSION
     from mlflow.utils.requirements_utils import _parse_requirements
@@ -131,10 +138,48 @@ def job(
             transient_error_classes=transient_error_classes,
             python_env=python_env,
             exclusive=exclusive,
+            resource_requests=resource_requests,
+            resource_limits=resource_limits,
         )
         return fn
 
     return decorator
+
+
+def _current_authenticated_user() -> str | None:
+    # The basic-auth plugin stamps g.mlflow_authenticated_user; recorded as the job
+    # creator for per-job ownership. None when auth is off or no request context.
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
+def _resolve_exclusive_job_timeout(timeout: float | None) -> float:
+    """Return a positive, finite timeout for an exclusive job on the executor engine.
+
+    A caller-supplied positive, finite timeout is used as-is; otherwise the selected executor's
+    configured ``default_timeout`` is used. The result bounds both job execution and the
+    exclusivity lock's staleness, so they always agree.
+    """
+    from mlflow.environment_variables import MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+
+    if timeout is not None and math.isfinite(timeout) and timeout > 0:
+        return timeout
+
+    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    default_timeout = get_executor_registry().get(backend).config.default_timeout
+    if not (default_timeout is not None and math.isfinite(default_timeout) and default_timeout > 0):
+        raise MlflowException.invalid_parameter_value(
+            "An exclusive job needs a positive, finite timeout, but none was given and the "
+            f"{backend!r} executor's configured default_timeout ({default_timeout!r}) is not "
+            "usable."
+        )
+    return default_timeout
 
 
 def submit_job(
@@ -142,6 +187,7 @@ def submit_job(
     params: dict[str, Any],
     timeout: float | None = None,
     extra_envs: dict[str, str] | None = None,
+    creator: str | None = None,
 ) -> JobEntity:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -167,16 +213,29 @@ def submit_job(
         params: The params to be passed to the job function.
         timeout: (optional) The job execution timeout, default None (no timeout)
         extra_envs: (optional) Additional environment variables to set in the job subprocess.
+        creator: (optional) Username to record as the job creator. When omitted, falls back to
+            the authenticated user stamped on ``flask.g`` by the basic-auth plugin.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
-    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
+    from mlflow.environment_variables import (
+        MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
+        MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
+        MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    )
+    from mlflow.genai.scorers.scorer_utils import (
+        params_contain_custom_scorer_code,
+        scorer_params_use_direct_provider_model,
+    )
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+    from mlflow.server.jobs.router import select_executor_backend
     from mlflow.server.jobs.utils import (
         _check_requirements,
         _get_or_init_huey_instance,
         _validate_function_parameters,
+        get_job_execution_engine,
     )
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
@@ -218,13 +277,102 @@ def submit_job(
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
+    # Resolve (and validate) the engine before persisting the job, so a rejected
+    # submission never leaves a runnable PENDING row behind.
+    engine = get_job_execution_engine()
+    if engine == "executor" and extra_envs:
+        # The AbstractJobExecutor.submit_job contract has no extra_envs parameter, so
+        # honoring them would silently drop caller-supplied environment (e.g.
+        # invoke_issue_detection_job passes credentials). Fail loudly instead.
+        # TODO (follow-up, before Huey stops being the default): migrate the only production
+        # caller that uses extra_envs (issue detection) — e.g. pass secret_id/provider in the
+        # job params and resolve them in the executor — so this path is not needed.
+        raise MlflowException(
+            "extra_envs is not yet supported on the executor job-execution engine; "
+            "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
+        )
+
+    # Custom (@scorer decorator) scorers carry inline code that is executed on the server when
+    # the scorer runs. Gate them behind an explicit operator opt-in regardless of engine, since
+    # the code executes on both. This is a security control, so it is enforced at submission.
+    is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
+    if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
+        raise MlflowException.invalid_parameter_value(
+            "Custom scorers defined with the @scorer decorator are disabled on this server "
+            "because they execute arbitrary code. To run them, an operator must set the "
+            "environment variable 'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'."
+        )
+
+    # Select the executor backend for this job so the executor engine (and crash recovery) can
+    # route it to the right backend. Only relevant to the executor engine; the default (Huey)
+    # engine does not use a backend, so it is left unset there.
+    executor_backend = None
+    if engine == "executor":
+        executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
+        runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+        if executor_backend != runner_backend:
+            # The runner does not dispatch per job yet: it runs every job on
+            # MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND and ignores the persisted per-job backend.
+            # Routing custom scorers to a different backend would therefore persist a backend that
+            # is silently never used, so reject the differing config until per-job dispatch lands.
+            raise MlflowException.invalid_parameter_value(
+                f"Routing custom scorers to a separate executor backend is not supported yet: "
+                f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND ({executor_backend!r}) must match "
+                f"MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND ({runner_backend!r}) until the runner "
+                f"dispatches per job."
+            )
+        # Remote executor backends are refused at startup today (see
+        # JobExecutorRegistry.validate_backends), so this check does not fire yet. It is kept as
+        # the model-resolution policy that becomes live once remote execution is supported: a
+        # remote executor gets only a Gateway-scoped token and no provider API keys, so it cannot
+        # resolve a direct-provider model URI unless it opts in via supports_direct_provider_models
+        # (e.g. it provisions provider creds another way). Reject such a scorer before it is
+        # persisted. Resolve the backend the job will actually run on (executor_backend); it
+        # equals runner_backend today because a differing backend is rejected above, but this
+        # stays correct once per-job dispatch honors a separate custom-scorer backend.
+        executor = get_executor_registry().get(executor_backend)
+        if (
+            executor.remote_execution
+            and not executor.supports_direct_provider_models
+            and scorer_params_use_direct_provider_model(fn_meta.name, params)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "The executor backend runs jobs remotely and can only reach models through the "
+                "gateway, but this scorer references a direct-provider model. Use a gateway-backed "
+                "model URI (e.g. 'gateway:/', 'endpoints:/', or 'databricks:/') or a local "
+                "executor backend."
+            )
+
+    if engine == "executor" and fn_meta.exclusive:
+        # The executor engine deduplicates exclusive jobs with a database lock
+        # (mlflow.server.jobs.lock_manager) whose staleness is bounded by the job's timeout (plus a
+        # grace window), so an exclusive job must carry a positive, finite timeout. Callers are not
+        # required to pass one -- the production online-scoring jobs do not -- so fall back to the
+        # selected executor's configured default_timeout and persist the effective value, so
+        # lock expiry and execution use the same number. (The Huey engine uses its own in-process
+        # lock and does not need this.)
+        timeout = _resolve_exclusive_job_timeout(timeout)
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
+    # Resolve it before create_job so the creator is recorded on both engine paths.
+    if creator is None:
+        creator = _current_authenticated_user()
+    job = job_store.create_job(
+        fn_meta.name, serialized_params, timeout, creator=creator, executor_backend=executor_backend
+    )
+
+    if engine == "executor":
+        # Executor engine: the job is persisted as PENDING and the executor runner loop
+        # (mlflow.server.jobs._executor_runner) claims and runs it. Nothing to enqueue here.
+        # Exclusive-job dedup is enforced there at claim time via a per-key database lock. The
+        # default Huey path is unchanged.
+        return job
+
+    # Huey engine (default): enqueue to the per-job Huey execution pool.
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
-
-    # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
     huey_instance.submit_task(
         job.job_id,

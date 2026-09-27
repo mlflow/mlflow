@@ -16,14 +16,16 @@ const renderWithProviders = (ui: React.ReactElement) =>
 describe('TraceAssessmentCell', () => {
   test('renders the most recent assessment value as a tag', () => {
     const trace = makeTrace('tr-0', { assessments: [makeFeedbackAssessment('relevance', 'yes')] });
-    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="relevance" />);
+    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="relevance" columnType="categorical" />);
     // 'yes' feedback renders as a "Yes" tag (AssessmentDisplayValue).
     expect(screen.getByText('Yes')).toBeInTheDocument();
   });
 
   test('renders nothing when the trace has no assessment of that name', () => {
     const trace = makeTrace('tr-0', { assessments: [] });
-    const { container } = renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="relevance" />);
+    const { container } = renderWithProviders(
+      <TraceAssessmentCell trace={trace} assessmentName="relevance" columnType="categorical" />,
+    );
     // eslint-disable-next-line testing-library/no-node-access -- asserting the cell renders empty
     expect(container.firstChild).toBeNull();
   });
@@ -32,13 +34,40 @@ describe('TraceAssessmentCell', () => {
     const trace = makeTrace('tr-0', {
       assessments: [makeFeedbackAssessment('relevance', 'yes', { rationale: 'On topic.' })],
     });
-    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="relevance" />);
+    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="relevance" columnType="categorical" />);
 
     // Hovering the trigger opens the detailed hover card (its Rationale section appears)…
     await userEvent.hover(screen.getByText('Yes'));
     expect(await screen.findByText('Rationale')).toBeInTheDocument();
     // …and no separate value tooltip renders on top of it (the redundant tooltip was removed).
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  test('renders numeric score bar for numeric column with number value', () => {
+    const trace = makeTrace('tr-0', { assessments: [makeFeedbackAssessment('score', 0.75)] });
+    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="score" columnType="numeric" />);
+    // Score bar displays the value formatted to 2 decimals
+    expect(screen.getByText('0.75')).toBeInTheDocument();
+  });
+
+  test('renders score bar with 0 value (not a tag)', () => {
+    const trace = makeTrace('tr-0', { assessments: [makeFeedbackAssessment('score', 0)] });
+    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="score" columnType="numeric" />);
+    // Score bar displays 0.00
+    expect(screen.getByText('0.00')).toBeInTheDocument();
+  });
+
+  test('error tag in numeric column (error takes precedence)', () => {
+    const trace = makeTrace('tr-0', {
+      assessments: [
+        makeFeedbackAssessment('score', 0.75, {
+          feedback: { value: null, error: { error_code: 'JUDGE_ERROR', error_message: 'Model failed' } },
+        }),
+      ],
+    });
+    renderWithProviders(<TraceAssessmentCell trace={trace} assessmentName="score" columnType="numeric" />);
+    // Error tag renders instead of the score bar
+    expect(screen.queryByText('0.75')).not.toBeInTheDocument();
   });
 });
 

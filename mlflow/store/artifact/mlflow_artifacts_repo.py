@@ -57,9 +57,17 @@ def _validate_port_mapped_to_hostname(uri_parse):
 def _validate_uri_scheme(parsed_uri):
     allowable_schemes = {"http", "https"}
     if parsed_uri.scheme not in allowable_schemes:
+        # The offending tracking URI may be a credentialed database URI (e.g. the tracking
+        # server's own backend store URI), and callers log this message. Credentials can live
+        # in the userinfo or in the query string (e.g. `?odbc_connect=...PWD=...`), so keep
+        # only the scheme, host, and path.
+        _, _, host_port = parsed_uri.netloc.rpartition("@")
+        redacted_uri = parsed_uri._replace(
+            netloc=host_port, params="", query="", fragment=""
+        ).geturl()
         raise MlflowException(
             "When an mlflow-artifacts URI was supplied, the tracking URI must be a valid "
-            f"http or https URI, but it was currently set to {parsed_uri.geturl()}. "
+            f"http or https URI, but it was currently set to {redacted_uri}. "
             "Perhaps you forgot to set the tracking URI to the running MLflow server. "
             "To set the tracking URI, use either of the following methods:\n"
             "1. Set the MLFLOW_TRACKING_URI environment variable to the desired tracking URI. "

@@ -215,10 +215,8 @@ class CreateMCPServerVersionRequest(BaseModel):
         default=None,
         max_length=_MAX_MCP_TOOLS_PER_LIST,
         description=(
-            "Optional tool definitions for this version. Omitting the field "
-            "(Python NOT_SET) stores null tools unless a client-side caller "
-            "resolved omitted tools before create. Explicit JSON null also "
-            "stores no tools. Pass [] for an empty list, or a tool list."
+            "Optional tool definitions for this version. Omitting the field or passing null "
+            "stores no tools. Pass [] for an empty list, or a list of tool definitions."
         ),
     )
     connect_options: dict[str, ConnectOptionSettings] | None = None

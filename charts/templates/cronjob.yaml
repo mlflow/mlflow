@@ -73,7 +73,7 @@ spec:
                     ;
               env:
                 - name: MLFLOW_TRACKING_URI
-                  value: {{ printf "%s://%s.%s.svc.cluster.local:%v" (ternary "https" "http" .Values.tls.enabled) (include "mlflow.fullname" .) .Release.Namespace .Values.server.value_options.port | quote }}
+                  value: {{ printf "%s://%s.%s.svc.cluster.local:%s" (ternary "https" "http" .Values.tls.enabled) (include "mlflow.fullname" .) .Release.Namespace (include "mlflow.servicePort" .) | quote }}
                 {{- if .Values.mlflow.backendStoreUriFrom }}
                 - name: MLFLOW_BACKEND_STORE_URI
                   valueFrom:

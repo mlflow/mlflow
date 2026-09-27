@@ -34,6 +34,21 @@ export * from './core/constants';
 export type { LiveSpan, Span } from './core/entities/span';
 export type { Trace } from './core/entities/trace';
 export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
+export {
+  AssessmentSourceType,
+  Feedback,
+  assessmentFromJson,
+  assessmentToJson,
+  isFeedback,
+} from './core/entities/assessment';
+export type {
+  Assessment,
+  AssessmentError,
+  AssessmentSource,
+  AssessmentSourceTypeName,
+  FeedbackValueType,
+  SerializedAssessment,
+} from './core/entities/assessment';
 export type { TraceData } from './core/entities/trace_data';
 export type { TraceLocation, UnityCatalogLocation } from './core/entities/trace_location';
 export type { SearchTracesOptions, SearchTracesResult } from './clients';

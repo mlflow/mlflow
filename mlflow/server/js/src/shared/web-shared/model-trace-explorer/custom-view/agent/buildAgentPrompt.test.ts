@@ -32,6 +32,16 @@ describe('buildCustomViewAuthoringGuide', () => {
     }
   });
 
+  test('documents immediate and staged feedback authoring', () => {
+    const guide = buildCustomViewAuthoringGuide();
+    for (const primitive of ['FeedbackThumbsUpDownButtons', 'RadioGroup', 'FeedbackInputText', 'FeedbackSubmit']) {
+      expect(guide).toContain(`"${primitive}"`);
+    }
+    expect(guide).toContain('"$spanRef" markers');
+    expect(guide).toContain('MUST carry a "formId"');
+    expect(guide).toContain('Example — a multi-dimension human-feedback form');
+  });
+
   // A StatCard's `icon`/`tone` are static enums the host never re-resolves, while
   // its `value` is always a bound marker. An example that asserts a verdict —
   // a success check on a status, a warning tint on a latency — teaches the model

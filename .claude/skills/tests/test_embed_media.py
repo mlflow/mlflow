@@ -98,11 +98,11 @@ def test_substitute_strips_markup_for_media_that_never_uploaded(text: str, expec
 def test_rewrite_payload_covers_body_and_inline_comments() -> None:
     payload = {
         "event": "COMMENT",
-        "body": f"Race shown in [the trace]({SHOT})\n\n🤖 Generated with Claude",
+        "body": f"Race shown in [the trace]({SHOT})\n\nNothing else stood out.",
         "comments": [{"path": "a.py", "body": f"🔴 **CRITICAL:** ![x]({SHOT})", "line": 1}],
     }
     result = rewrite_payload(payload, URLS)
-    assert result["body"] == f"Race shown in [the trace]({URL})\n\n🤖 Generated with Claude"
+    assert result["body"] == f"Race shown in [the trace]({URL})\n\nNothing else stood out."
     assert result["comments"][0]["body"] == f"🔴 **CRITICAL:** ![x]({URL})"
 
 
@@ -111,9 +111,9 @@ def test_rewrite_payload_neutralizes_unavailable_media_in_comments() -> None:
     assert rewrite_payload(payload, {}, [SHOT])["comments"][0]["body"] == "the bug"
 
 
-def test_rewrite_payload_preserves_the_trailing_footer() -> None:
-    payload = {"body": f"![x]({SHOT})\n\n🤖 Generated with Claude", "comments": []}
-    assert rewrite_payload(payload, URLS)["body"].endswith("🤖 Generated with Claude")
+def test_rewrite_payload_preserves_trailing_text() -> None:
+    payload = {"body": f"![x]({SHOT})\n\nNothing else stood out.", "comments": []}
+    assert rewrite_payload(payload, URLS)["body"].endswith("Nothing else stood out.")
 
 
 def test_rewrite_payload_tolerates_missing_and_malformed_fields() -> None:
@@ -245,7 +245,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
 
     # One annotation for the run, and the loop stops rather than retrying a dead token.
     out = capsys.readouterr().out
-    assert out.count("::warning::the GitHub token was rejected (401)") == 1
+    assert out.count("::warning::media upload stopped: the credential was rejected (401)") == 1
     assert uploader.call_count == 1
     assert target.read_text() == "evidence: the bug and more"
 
@@ -398,6 +398,14 @@ def test_check_warns_about_a_capture_nothing_cites(tmp_path: Path) -> None:
 def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path) -> None:
     report = check(tmp_path, "[notes]({p})", "notes.txt")
     assert report.errors == ["notes.txt: unsupported extension, so the reference is dropped"]
+
+
+def test_check_rejects_a_cited_file_that_is_empty(tmp_path: Path) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "shot.png").write_bytes(b"")
+    report = embed_media.check_media(media, [f"![the bug]({media / 'shot.png'})"])
+    assert report.errors == ["shot.png: empty, so the reference is dropped"]
 
 
 def test_check_rejects_a_cited_file_over_the_size_cap(tmp_path: Path) -> None:

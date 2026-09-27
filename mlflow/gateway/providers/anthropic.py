@@ -14,6 +14,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     ProviderAdapter,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
     parse_base64_data_url,
@@ -70,6 +71,61 @@ def _normalize_anthropic_input_tokens(
         if TokenUsageKey.TOTAL_TOKENS in token_usage:
             token_usage[TokenUsageKey.TOTAL_TOKENS] += cache_read + cache_creation
     return token_usage
+
+
+def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[str, int] | None:
+    """
+    Extract token usage from an Anthropic Messages response body.
+
+    Anthropic response format:
+    {
+        "usage": {
+            "input_tokens": int,
+            "output_tokens": int,
+            "cache_read_input_tokens": int,
+            "cache_creation_input_tokens": int
+        }
+    }
+    """
+    token_usage = BaseProvider._extract_token_usage_from_dict(
+        result.get("usage"),
+        "input_tokens",
+        "output_tokens",
+        cache_read_key="cache_read_input_tokens",
+        cache_creation_key="cache_creation_input_tokens",
+    )
+    return _normalize_anthropic_input_tokens(token_usage)
+
+
+def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
+    """
+    Extract token usage from an Anthropic Messages streaming chunk.
+
+    Anthropic streaming format:
+    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
+    - message_delta event: {"usage": {"output_tokens": Y}}
+
+    Returns:
+        A dictionary with token usage found in this chunk.
+        Total is calculated by the base class after accumulation.
+    """
+    usage: dict[str, int] = {}
+    for data in parse_sse_lines(chunk):
+        match data:
+            case {
+                "type": "message_start",
+                "message": {"usage": dict(msg_usage)},
+            }:
+                if (input_tokens := msg_usage.get("input_tokens")) is not None:
+                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
+                    usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
+                    usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+    # Anthropic's input_tokens excludes cache tokens; normalize to include them.
+    return _normalize_anthropic_input_tokens(usage) or usage
 
 
 class _UnsupportedSchemaError(Exception):
@@ -577,6 +633,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("x-api-key", None)
+            else:
+                # Never forward client auth headers: they would be sent alongside the
+                # provider credential (e.g. Vertex AI's OAuth bearer token) and shadow it.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -725,57 +785,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]
     ) -> dict[str, int] | None:
-        """
-        Extract token usage from Anthropic passthrough response.
-
-        Anthropic response format:
-        {
-            "usage": {
-                "input_tokens": int,
-                "output_tokens": int,
-                "cache_read_input_tokens": int,
-                "cache_creation_input_tokens": int
-            }
-        }
-        """
-        token_usage = self._extract_token_usage_from_dict(
-            result.get("usage"),
-            "input_tokens",
-            "output_tokens",
-            cache_read_key="cache_read_input_tokens",
-            cache_creation_key="cache_creation_input_tokens",
-        )
-        return _normalize_anthropic_input_tokens(token_usage)
+        return _extract_anthropic_passthrough_token_usage(result)
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
-        """
-        Extract token usage from Anthropic streaming chunks.
-
-        Anthropic streaming format:
-        - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
-        - message_delta event: {"usage": {"output_tokens": Y}}
-
-        Returns:
-            A dictionary with token usage found in this chunk.
-            Total is calculated by the base class after accumulation.
-        """
-        usage: dict[str, int] = {}
-        for data in parse_sse_lines(chunk):
-            match data:
-                case {
-                    "type": "message_start",
-                    "message": {"usage": dict(msg_usage)},
-                }:
-                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
-                        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                    if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
-                        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                    if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
-                        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
-                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
-                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-        # Anthropic's input_tokens excludes cache tokens; normalize to include them.
-        return _normalize_anthropic_input_tokens(usage) or usage
+        return _extract_anthropic_streaming_token_usage(chunk)
 
     async def _proxy(
         self,

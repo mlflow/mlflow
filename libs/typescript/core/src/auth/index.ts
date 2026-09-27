@@ -245,7 +245,7 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
   // Create Databricks SDK Config - it handles all credential resolution
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
   const databricksConfig = new Config({
-    host: options.host,
+    host,
     token: options.databricksToken,
     profile,
     configFile: options.databricksConfigPath,

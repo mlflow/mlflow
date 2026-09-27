@@ -816,6 +816,22 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
         assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
         assert not auth_module.validate_can_create_mcp_server(username)
+        assert not auth_module.validate_can_create_gateway_secret()
+
+
+def test_gateway_secret_create_requires_workspace_create_grant(workspace_permission_setup):
+    # Gateway secret creation crosses the same workspace create boundary as
+    # experiments and registered models (GHSA-4449-4cjp-ffp5).
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    _set_workspace_permission(store, username, USE.name)
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.validate_can_create_gateway_secret()
+
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    with workspace_context.WorkspaceContext("team-a"):
+        assert not auth_module.validate_can_create_gateway_secret()
 
 
 def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
@@ -835,6 +851,7 @@ def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monk
     with workspace_context.WorkspaceContext("team-a"):
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
+        assert auth_module.validate_can_create_gateway_secret()
 
 
 def test_role_grant_resource_type_use_does_not_allow_create(
@@ -855,6 +872,7 @@ def test_role_grant_resource_type_use_does_not_allow_create(
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
+        assert not auth_module.validate_can_create_gateway_secret()
 
 
 def test_experiment_artifact_proxy_validators_respect_permissions(workspace_permission_setup):
@@ -1069,6 +1087,21 @@ def test_create_model_version_source_read_blocks_cross_workspace(
         "/api/2.0/mlflow/model-versions/create",
         method="POST",
         json={"name": "model-xyz", "source": "s3://bucket/x", "model_id": "model-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    # The camelCase proto aliases the handler accepts must be blocked the same way.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "runId": "run-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "modelId": "model-b"},
     ):
         assert not auth_module.validate_can_create_model_version()
 
@@ -1985,6 +2018,25 @@ def test_cross_workspace_access_denied(workspace_permission_setup, monkeypatch):
     ):
         assert not auth_module.validate_can_read_run()
         assert not auth_module.validate_can_update_run()
+
+
+def test_presigned_upload_logged_model_cross_workspace_access_denied(
+    workspace_permission_setup, monkeypatch
+):
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-other-ws": "team-b"},
+        run_experiments={},
+        trace_experiments={},
+        logged_model_experiments={"m-other-ws": "exp-other-ws"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        method="POST",
+        json={"model_id": "m-other-ws", "path": "model.pkl"},
+    ):
+        assert not auth_module.validate_can_update_run_or_logged_model()
 
 
 def test_cross_workspace_registered_model_access_denied(workspace_permission_setup, monkeypatch):

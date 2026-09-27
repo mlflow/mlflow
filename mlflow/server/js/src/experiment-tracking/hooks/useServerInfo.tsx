@@ -12,7 +12,18 @@ interface ServerInfoResponse {
   trace_archival_enabled: boolean;
   multipart_uploads_enabled: boolean;
   multipart_downloads_enabled: boolean;
+  features_enabled?: Record<FeatureKey, boolean>;
 }
+
+/**
+ * Valid keys for the `features_enabled` map in server-info.
+ * Add new entries here when introducing a new runtime feature toggle.
+ */
+export const SERVER_FEATURE_KEYS = {
+  GATEWAY: 'gateway',
+} as const;
+
+export type FeatureKey = (typeof SERVER_FEATURE_KEYS)[keyof typeof SERVER_FEATURE_KEYS];
 
 // Default response when the API call fails (e.g., older server without this endpoint)
 const DEFAULT_RESPONSE: ServerInfoResponse = {
@@ -27,16 +38,44 @@ const DEFAULT_RESPONSE: ServerInfoResponse = {
 let queryClientRef: QueryClient | null = null;
 
 /**
+ * How long to wait for server-info before giving up and using DEFAULT_RESPONSE.
+ *
+ * This is a backstop for a request that never settles, not a latency budget. MlflowRouter holds
+ * the whole UI on a skeleton until this query resolves, and without a bound there is nothing to
+ * resolve it.
+ *
+ * The bound is deliberately generous because the two failure directions are not symmetric. Timing
+ * out late costs a few more seconds of skeleton. Timing out early lands the app in its
+ * "workspaces disabled" fallback against a server that has them enabled, and that state is cached
+ * for the session, so it does not self-correct. This endpoint can also legitimately be slow on a
+ * cold server: it initialises the tracking store and, with proxied artifacts, may construct an
+ * artifact repository client before it answers.
+ */
+export const SERVER_INFO_TIMEOUT_MS = 30_000;
+
+/**
  * Fetches server info from the backend.
- * Returns default response if the request fails.
+ * Returns default response if the request fails or does not respond in time.
  * Uses default headers for OAuth/K8s deployments that rely on cookie-derived headers + Authorization.
  */
 async function fetchServerInfo(): Promise<ServerInfoResponse> {
+  // AbortSignal.timeout would be tidier, but browserslist still includes chrome >= 94 and it
+  // requires 103+.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SERVER_INFO_TIMEOUT_MS);
+
   try {
-    return await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/server-info'));
+    return await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), { signal: controller.signal });
   } catch (error) {
-    // Network error or other failure - return default
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      // Without this the timeout is indistinguishable from a server that reports these defaults.
+      // eslint-disable-next-line no-console
+      console.warn(`MLflow: server-info did not respond within ${SERVER_INFO_TIMEOUT_MS}ms; using defaults.`);
+    }
+    // Network error, abort, or other failure - return default
     return DEFAULT_RESPONSE;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -122,6 +161,24 @@ export const getWorkspacesEnabledSync = (): boolean => {
 export const getMultipartDownloadsEnabledSync = (): boolean => {
   const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
   return cachedData?.multipart_downloads_enabled ?? false;
+};
+
+/**
+ * Subscribes React components to a server feature value and re-renders when server-info loads.
+ * Prefer this hook in React render paths.
+ */
+export const useFeatureEnabled = (key: FeatureKey, defaultValue = true): boolean => {
+  const { data } = useServerInfo();
+  return data?.features_enabled?.[key] ?? defaultValue;
+};
+
+/**
+ * Reads a server feature from the current cache without subscribing to updates.
+ * Use this accessor only where React hooks are unavailable.
+ */
+export const getFeatureEnabledSync = (key: FeatureKey, defaultValue = true): boolean => {
+  const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
+  return cachedData?.features_enabled?.[key] ?? defaultValue;
 };
 
 // For testing purposes - allows resetting the cached state

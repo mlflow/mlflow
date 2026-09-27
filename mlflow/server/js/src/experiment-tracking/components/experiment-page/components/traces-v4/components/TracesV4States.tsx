@@ -1,5 +1,4 @@
-import { DatabaseIcon, Empty } from '@databricks/design-system';
-import { FormattedMessage, type IntlShape } from 'react-intl';
+import { type IntlShape } from 'react-intl';
 import { isSqlWarehouseTimeoutError } from '@databricks/web-shared/genai-traces-table';
 
 /**
@@ -29,43 +28,6 @@ export const makeTracesV4ErrorDescription =
     );
   };
 
-/**
- * V4 search needs a SQL warehouse; prompt the user to pick one rather than firing a doomed query.
- * Product-specific, so it stays MLflow-side and is passed to `TracesTableView` as `customEmptyState`.
- * Centered to match the shared states' layout.
- */
-export const TracesV4NoWarehouseState = () => (
-  <div
-    css={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100%',
-      minHeight: 360,
-      width: '100%',
-      '& > div': {
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-      },
-    }}
-  >
-    <Empty
-      image={<DatabaseIcon />}
-      title={
-        <FormattedMessage
-          defaultMessage="Select a SQL warehouse"
-          description="Title for the state shown when no SQL warehouse is selected for V4 traces"
-        />
-      }
-      description={
-        <FormattedMessage
-          defaultMessage="Choose a SQL warehouse to query traces stored in Unity Catalog."
-          description="Description for the no-SQL-warehouse state on the V4 traces tab"
-        />
-      }
-    />
-  </div>
-);
+// Note: the Databricks build also has a `TracesV4NoWarehouseState` ("select a SQL warehouse" empty
+// state). OSS has no SQL warehouse / Unity Catalog, so that state is unreachable and is dropped here;
+// the search always fires against the MLflow experiment location.

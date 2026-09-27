@@ -18,9 +18,9 @@ import { escapeFilterValue } from './buildTracesV4SearchParams';
  * Scope: the trace-attribute fields available on the V4 API (State, Duration, Trace name, Service
  * name, User, Session, Run name, Source, Input, Output, Span name/type/status), the arbitrary Tag /
  * Metadata key fields (free-text key + value, mirroring v1's `handleTagKey` / `handleMetadataKey`),
- * plus one "Assessment" field whose key is the assessment name, rendered as a combobox that suggests
- * the current page's candidate names and also accepts a freeform-typed name (the v3 pattern). Null
- * (IS_NULL/IS_NOT_NULL) assessment filters stay out of scope (backend-unsupported).
+ * plus "Assessment" and "Expectation" fields whose keys are rendered as comboboxes that suggest
+ * the current page's candidate names and also accept a freeform-typed name (the v3 pattern). Null
+ * (IS_NULL/IS_NOT_NULL) assessment and expectation filters stay out of scope (backend-unsupported).
  */
 
 const NUMERIC_OPERATORS: FilterOp[] = [
@@ -162,9 +162,9 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
           description: 'Placeholder for the metadata-key input in the traces filter',
         }),
       },
-      // One "Assessment" field: the key is the assessment name (combobox suggesting the candidate
-      // names, freeform-typing allowed), free-text value, equality only (the managed V4 backend does
-      // not support null assessment filters, and the value is opaque so comparison ops don't apply).
+      // "Assessment" and "Expectation" fields: their keys are names (combobox suggesting the
+      // candidate names, freeform-typing allowed), free-text values, and equality-only because the
+      // managed V4 backend does not support null filters and their values are opaque.
       {
         id: 'assessment',
         label: intl.formatMessage({ defaultMessage: 'Assessment', description: 'Trace filter field: assessment name' }),
@@ -178,10 +178,41 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
           description: 'Placeholder for the assessment-name key input in the traces filter',
         }),
       },
+      {
+        id: 'expectation',
+        label: intl.formatMessage({
+          defaultMessage: 'Expectation',
+          description: 'Trace filter field: expectation name',
+        }),
+        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+        valueInput: 'text',
+        requiresKey: true,
+        keyInput: 'combobox',
+        keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
+        keyPlaceholder: intl.formatMessage({
+          defaultMessage: 'Expectation name',
+          description: 'Placeholder for the expectation-name key input in the traces filter',
+        }),
+      },
     ],
     [intl, assessmentNames],
   );
 };
+
+/**
+ * Validate a persisted filter clause against the current field set: the field still exists, still
+ * offers the clause's operator, and (for a `requiresKey` field) carries a non-blank key. Used when
+ * restoring a saved view so a clause referencing a field/operator that no longer exists is dropped
+ * rather than silently producing wrong results — and, symmetrically, so the dirty diff normalizes
+ * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
+ */
+export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
+  fields.some(
+    (field) =>
+      field.id === clause.field &&
+      field.operators.includes(clause.operator) &&
+      (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
+  );
 
 /**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the
@@ -265,6 +296,10 @@ const compileClause = (clause: FilterClause): string | undefined => {
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
       // the name is backtick-escaped so dots/spaces survive.
       return `feedback.\`${key ?? ''}\` ${operator} '${v}'`;
+    case 'expectation':
+      // The key is the expectation name; `isClauseComplete` guarantees it's non-blank (requiresKey).
+      // Compiles to an `expectation.\`<name>\`` clause, matching the trace-search DSL.
+      return `expectation.\`${key ?? ''}\` ${operator} '${v}'`;
     default:
       return undefined;
   }

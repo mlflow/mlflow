@@ -29,6 +29,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.context import get_configured_trace_metadata, get_configured_trace_tags
+from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
@@ -109,8 +110,7 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
     for processor in processors:
         try:
             exporter = processor.span_exporter
-            if hasattr(exporter, "_async_queue"):
-                exporter._async_queue.flush(terminate=terminate)
+            flush_exporter(exporter, terminate=terminate)
         except Exception:
             _logger.debug(f"Failed to flush exporter queue for {processor}", exc_info=True)
     if terminate:
@@ -145,9 +145,7 @@ def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
         )
     try:
         processor.force_flush()
-        exporter = processor.span_exporter
-        if hasattr(exporter, "_async_queue"):
-            exporter._async_queue.flush(terminate=True)
+        flush_exporter(processor.span_exporter, terminate=True)
     except Exception:
         _logger.debug(f"Failed to flush processor {processor} before retiring", exc_info=True)
     try:

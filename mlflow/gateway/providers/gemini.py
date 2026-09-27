@@ -10,6 +10,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     ProviderAdapter,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
     parse_base64_data_url,
@@ -79,6 +80,19 @@ def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
         else:
             parts.append(part)
     return parts
+
+
+def _tool_result_to_response(content: Any) -> dict[str, Any]:
+    """Coerce OpenAI tool message content into a Gemini ``functionResponse.response``.
+
+    OpenAI tool content is free-form and usually plain text, but Gemini requires an object,
+    so a JSON object passes through and anything else is wrapped as ``{"result": ...}``.
+    """
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return {"result": content}
+    return parsed if isinstance(parsed, dict) else {"result": parsed}
 
 
 class GeminiAdapter(ProviderAdapter):
@@ -165,12 +179,13 @@ class GeminiAdapter(ProviderAdapter):
                                 "name": tool_call["function"]["name"],
                                 "args": json.loads(tool_call["function"]["arguments"]),
                             }
+                            part = {"functionCall": fc}
                             if tool_call["id"] in call_id_to_thought_signature_map:
-                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                part["thoughtSignature"] = call_id_to_thought_signature_map[
                                     tool_call["id"]
                                 ]
 
-                            gemini_function_calls.append({"functionCall": fc})
+                            gemini_function_calls.append(part)
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
@@ -191,7 +206,7 @@ class GeminiAdapter(ProviderAdapter):
                                 "id": call_id,
                                 # the function name field is required by Gemini request format
                                 "name": call_id_to_function_name_map[call_id],
-                                "response": json.loads(message["content"]),
+                                "response": _tool_result_to_response(message["content"]),
                             }
                         }
                     ],
@@ -254,14 +269,27 @@ class GeminiAdapter(ProviderAdapter):
         # struct.
         # Gemini doc: https://ai.google.dev/api/caching#FunctionCall
 
+        # A candidate can mix text and functionCall parts in any order, e.g. a short
+        # "Let me look that up." followed by the call. Keep both.
         tool_calls = []
+        text_parts = []
         for part in content_parts:
-            function_call = part["functionCall"]
+            if "text" in part:
+                text_parts.append(part["text"])
+            function_call = part.get("functionCall")
+            if not function_call:
+                continue
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
-            thought_sig = function_call.get("thoughtSignature") or function_call.get(
-                "thought_signature"
+            # Gemini 3.x places thoughtSignature at the Part level, next to functionCall.
+            # Some older responses nested it inside functionCall instead, so fall back to
+            # that location too.
+            thought_sig = (
+                part.get("thoughtSignature")
+                or part.get("thought_signature")
+                or function_call.get("thoughtSignature")
+                or function_call.get("thought_signature")
             )
             if call_id is None:
                 # Gemini model response might not contain function call id,
@@ -299,11 +327,13 @@ class GeminiAdapter(ProviderAdapter):
                         thought_signature=thought_sig,
                     )
                 )
+        content = "".join(text_parts) or None
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
                 delta=chat_schema.StreamDelta(
                     role="assistant",
+                    content=content,
                     tool_calls=tool_calls,
                 ),
                 finish_reason=finish_reason,
@@ -312,6 +342,7 @@ class GeminiAdapter(ProviderAdapter):
             index=choice_idx,
             message=chat_schema.ResponseMessage(
                 role="assistant",
+                content=content,
                 tool_calls=tool_calls,
             ),
             finish_reason=finish_reason,
@@ -372,7 +403,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
             if parts := candidate.get("content", {}).get("parts", None):
-                if parts[0].get("functionCall", None):
+                if any(part.get("functionCall") for part in parts):
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
                             parts, finish_reason, idx, False
@@ -433,7 +464,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
             if parts:
-                if parts[0].get("functionCall"):
+                if any(part.get("functionCall") for part in parts):
                     # for gemini model streaming response,
                     # the function call message is not split into chunks
                     # it still contains the full function call arguments data.
@@ -727,6 +758,10 @@ class GeminiProvider(BaseProvider):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("x-goog-api-key", None)
+            else:
+                # Never forward client auth headers: they would be sent alongside the
+                # provider credential (e.g. Vertex AI's OAuth bearer token) and shadow it.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers

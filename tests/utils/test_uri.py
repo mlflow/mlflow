@@ -22,6 +22,7 @@ from mlflow.utils.uri import (
     is_fuse_or_uc_volumes_uri,
     is_http_uri,
     is_local_uri,
+    is_sagemaker_mlflow_tracking_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     resolve_uri_if_local,
@@ -124,12 +125,40 @@ def test_is_local_uri_windows():
     assert not is_local_uri("\\\\server\\aa\\bb")
 
 
-def test_is_databricks_uri():
-    assert is_databricks_uri("databricks")
-    assert is_databricks_uri("databricks:whatever")
-    assert is_databricks_uri("databricks://whatever")
-    assert not is_databricks_uri("mlruns")
-    assert not is_databricks_uri("http://whatever")
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("databricks", True),
+        ("databricks:whatever", True),
+        ("databricks://whatever", True),
+        ("DATABRICKS://PROFILE", True),
+        ("mlruns", False),
+        ("sqlite:////tmp/mlflow.db", False),
+        ("http://whatever", False),
+    ],
+)
+def test_is_databricks_uri(uri, expected):
+    assert is_databricks_uri(uri) == expected
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws-us-gov:sagemaker:us-gov-west-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-cn:sagemaker:cn-north-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-future:sagemaker:us-east-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker::123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker:us-east-1::mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/", False),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server-other/test", False),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://example.com", False),
+    ],
+)
+def test_is_sagemaker_mlflow_tracking_uri(uri, expected):
+    assert is_sagemaker_mlflow_tracking_uri(uri) == expected
 
 
 def test_is_http_uri():

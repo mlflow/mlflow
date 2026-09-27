@@ -138,6 +138,55 @@ export const AssessmentDisplayValue = ({
         <FormattedMessage defaultMessage="No" description="Label for an assessment with a 'no' value" />
       </>
     );
+  } else if (parsedValue === 'pass') {
+    color = 'lime';
+    children = (
+      <>
+        {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
+        <FormattedMessage defaultMessage="Pass" description="Label for an assessment with a 'pass' value" />
+      </>
+    );
+  } else if (parsedValue === 'fail') {
+    color = 'coral';
+    children = (
+      <>
+        {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
+        <FormattedMessage defaultMessage="Fail" description="Label for an assessment with a 'fail' value" />
+      </>
+    );
+  } else if (parsedValue === 'good') {
+    color = 'lime';
+    children = (
+      <>
+        {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
+        <FormattedMessage defaultMessage="Good" description="Label for an assessment with a 'good' value" />
+      </>
+    );
+  } else if (parsedValue === 'bad') {
+    color = 'coral';
+    children = (
+      <>
+        {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
+        <FormattedMessage defaultMessage="Bad" description="Label for an assessment with a 'bad' value" />
+      </>
+    );
+  } else if (parsedValue === true || parsedValue === 'true') {
+    // Match both the JSON boolean and its string form so a stringified `true` gets the same treatment.
+    color = 'lime';
+    children = (
+      <>
+        {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
+        <FormattedMessage defaultMessage="True" description="Label for an assessment with a 'true' boolean value" />
+      </>
+    );
+  } else if (parsedValue === false || parsedValue === 'false') {
+    color = 'coral';
+    children = (
+      <>
+        {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
+        <FormattedMessage defaultMessage="False" description="Label for an assessment with a 'false' boolean value" />
+      </>
+    );
   } else if (typeof parsedValue === 'string') {
     children = parsedValue;
   } else if (parsedValue === null) {
@@ -147,22 +196,6 @@ export const AssessmentDisplayValue = ({
       <>
         {!skipIcons && <DangerIcon css={{ marginRight: theme.spacing.xs }} />}
         <FormattedMessage defaultMessage="Error" description="Label for an assessment with an error" />
-      </>
-    );
-  } else if (parsedValue === true) {
-    color = 'lime';
-    children = (
-      <>
-        {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
-        <FormattedMessage defaultMessage="True" description="Label for an assessment with a 'true' boolean value" />
-      </>
-    );
-  } else if (parsedValue === false) {
-    color = 'coral';
-    children = (
-      <>
-        {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
-        <FormattedMessage defaultMessage="False" description="Label for an assessment with a 'false' boolean value" />
       </>
     );
   }

@@ -41,8 +41,22 @@ SUPPORTED_ACCEPT_ENCODING = "gzip, deflate, identity"
 
 
 @asynccontextmanager
-async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
+async def _aiohttp_post(
+    headers: dict[str, str],
+    base_url: str,
+    path: str,
+    payload: dict[str, Any],
+    *,
+    ssrf_protect: bool = True,
+):
     import aiohttp
+    from fastapi import HTTPException
+
+    from mlflow.gateway.ssrf import (
+        GatewaySSRFProtectionError,
+        assert_public_upstream_url,
+        build_ssrf_guarded_connector,
+    )
 
     # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
@@ -50,19 +64,68 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     # re-serialized below (e.g. a zstd-encoded request body is decompressed before it gets
     # here). And drop X-MLflow-Authorization (MLflow's own RBAC credential on gateway routes)
     # so it is never forwarded to the upstream provider. This is the single egress choke
-    # point all proxy/passthrough paths funnel through.
+    # point all proxy/passthrough paths funnel through, so SSRF protection lives here too:
+    # the upstream host may come from a user-supplied secret `api_base`, so the connection
+    # target is checked at connect time (see mlflow.gateway.ssrf) and redirects are never
+    # followed, as a redirect could otherwise steer the request to an internal address.
     request_headers = {k: v for k, v in headers.items() if k.lower() not in _STRIPPED_HEADERS}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
-    # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines
-    # emitted by some providers during streaming responses.
-    async with aiohttp.ClientSession(headers=request_headers, read_bufsize=2**20) as session:
-        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
-        async with session.post(url, json=payload, timeout=timeout) as response:
-            yield response
+    connector = None
+    if ssrf_protect:
+        try:
+            assert_public_upstream_url(url)
+        except GatewaySSRFProtectionError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        connector = build_ssrf_guarded_connector()
+    try:
+        # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines
+        # emitted by some providers during streaming responses.
+        async with aiohttp.ClientSession(
+            connector=connector, headers=request_headers, read_bufsize=2**20
+        ) as session:
+            timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
+            # ClientSession.__aenter__ opens no connection; the resolver runs while
+            # session.post(...).__aenter__ acquires one, which this try encloses.
+            try:
+                async with session.post(
+                    url, json=payload, timeout=timeout, allow_redirects=False
+                ) as response:
+                    yield response
+            except GatewaySSRFProtectionError as e:
+                raise HTTPException(status_code=502, detail=str(e)) from e
+    finally:
+        # The session owns and closes the connector on exit; this only matters when the
+        # session was replaced by a test double that does not.
+        if connector is not None and not connector.closed:
+            await connector.close()
 
 
-async def send_request(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
+def _error_detail(error_body: Any) -> str:
+    """Return the most specific message an upstream error body carries.
+
+    Providers disagree on the shape: OpenAI-compatible APIs nest the message under
+    ``error``, Amazon Bedrock returns a top-level ``message``, and others use neither,
+    so fall back to the whole body rather than dropping it.
+    """
+    match error_body:
+        case {"error": {"message": str(message)}} if message:
+            return message
+        case {"message": str(message)} if message:
+            return message
+    # aiohttp's json() returns None for an empty body, so report nothing and let the
+    # caller fall back rather than stringifying it.
+    return str(error_body) if error_body else ""
+
+
+async def send_request(
+    headers: dict[str, str],
+    base_url: str,
+    path: str,
+    payload: dict[str, Any],
+    *,
+    ssrf_protect: bool = True,
+):
     """
     Send an HTTP request to a specific URL path with given headers and payload.
 
@@ -71,6 +134,9 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
         base_url: The base URL where the request will be sent.
         path: The specific path of the URL to which the request will be sent.
         payload: The payload (or data) to be included in the request.
+        ssrf_protect: Whether to apply the gateway's upstream SSRF protection (see
+            ``mlflow.gateway.ssrf``). Pass ``False`` only for calls whose target is not
+            user-controlled, such as the server calling itself.
 
     Returns:
         The server's response as a JSON object.
@@ -83,7 +149,9 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
 
     start = time.perf_counter()
     try:
-        async with _aiohttp_post(headers, base_url, path, payload) as response:
+        async with _aiohttp_post(
+            headers, base_url, path, payload, ssrf_protect=ssrf_protect
+        ) as response:
             content_type = response.headers.get("Content-Type")
             if content_type and "application/json" in content_type:
                 js = await response.json()
@@ -134,10 +202,12 @@ async def send_stream_request(
             response.raise_for_status()
         except aiohttp.ClientResponseError as e:
             try:
-                error_body = await response.json()
-                detail = error_body.get("error", {}).get("message", e.message)
+                detail = _error_detail(await response.json()) or e.message
             except Exception:
-                detail = e.message
+                try:
+                    detail = await response.text() or e.message
+                except Exception:
+                    detail = e.message
             raise HTTPException(status_code=e.status, detail=detail)
 
         async for line in response.content:
@@ -196,11 +266,10 @@ async def send_proxy_request(
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
                 try:
-                    error_body = await response.json()
-                    detail = error_body.get("error", {}).get("message") or str(error_body)
+                    detail = _error_detail(await response.json()) or e.message
                 except Exception:
                     try:
-                        detail = await response.text()
+                        detail = await response.text() or e.message
                     except Exception:
                         detail = e.message
                 raise HTTPException(status_code=e.status, detail=detail)

@@ -21,16 +21,16 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   uv:
     # Skip scheduled runs on forks
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         if: github.event_name != 'pull_request'
@@ -38,6 +38,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: write
           permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,10 +91,11 @@ jobs:
             echo "Updating existing PR #$NUMBER on branch $BRANCH"
             git push --force origin "HEAD:$BRANCH"
             gh pr edit "$NUMBER" --body-file /tmp/pr-body.md
+            gh pr edit "$NUMBER" --add-label auto-rerun
             gh pr merge "$NUMBER" --auto --squash
           else
             BRANCH="uv-lock-update-$(date -u +%Y-%m-%dT%H-%M-%S)"
             git push origin "HEAD:$BRANCH"
-            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review)
+            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review --label auto-rerun)
             gh pr merge "$PR_URL" --auto --squash
           fi

@@ -194,11 +194,11 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None, name=No
 
     if isinstance(data, list):
         # If the list is flat, we assume each element is an independent sample.
-        if not isinstance(data[0], (list, np.ndarray)):
+        if data and not isinstance(data[0], (list, np.ndarray)):
             data = [[elm] for elm in data]
 
         return mlflow.data.from_numpy(
-            np.array(data), targets=np.array(targets) if targets else None, name=name
+            np.array(data), targets=np.array(targets) if targets is not None else None, name=name
         )
     elif isinstance(data, np.ndarray):
         return mlflow.data.from_numpy(data, targets=targets, name=name)

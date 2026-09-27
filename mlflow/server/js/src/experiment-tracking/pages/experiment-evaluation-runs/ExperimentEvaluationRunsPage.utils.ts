@@ -147,3 +147,38 @@ export const getNestedRuns = (runs: RunEntity[]): RunEntityWithChildren[] => {
 
   return rootRuns.map((run) => nestChildren(run));
 };
+
+/**
+ * Flattens RunEntityOrGroupData[] into a flat array of RunEntity objects.
+ * Recursively extracts all actual run entities from groups and nested children.
+ */
+export const flattenRunEntityOrGroupData = (runs: RunEntityOrGroupData[]): RunEntity[] => {
+  const hasHierarchy = runs.some((row) => 'subRuns' in row || 'children' in row);
+  if (!hasHierarchy) {
+    return runs as RunEntity[];
+  }
+
+  const flatRuns: RunEntity[] = [];
+
+  const walkRows = (rows: RunEntityOrGroupData[]) => {
+    rows.forEach((row) => {
+      // Extract actual run entities (has 'info' property)
+      if ('info' in row) {
+        flatRuns.push(row);
+      }
+
+      // Recurse into subRuns (for grouped data)
+      if ('subRuns' in row && row.subRuns) {
+        walkRows(row.subRuns);
+      }
+
+      // Recurse into children (for nested parent-child runs)
+      if ('children' in row && row.children) {
+        walkRows(row.children);
+      }
+    });
+  };
+
+  walkRows(runs);
+  return flatRuns;
+};

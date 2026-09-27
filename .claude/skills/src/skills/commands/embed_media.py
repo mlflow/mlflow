@@ -76,7 +76,6 @@ def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
 def rewrite_payload(
     payload: dict[str, Any], urls: dict[str, str], unavailable: Iterable[str] = ()
 ) -> dict[str, Any]:
-    # The schema pins body to end with the Claude footer, so only substitute, never append.
     match payload:
         case {"body": str(body)}:
             payload["body"] = substitute(body, urls, unavailable)
@@ -144,10 +143,14 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
                 )
 
     for name in sorted(cited):
-        cite = str(by_name[name])
+        path = by_name[name]
+        cite = str(path)
+        size = path.stat().st_size
         if Path(name).suffix.lower() not in MIME_TYPES:
             report.errors.append(f"{name}: unsupported extension, so the reference is dropped")
-        elif (size := by_name[name].stat().st_size) > (limit := max_bytes(name)):
+        elif size == 0:
+            report.errors.append(f"{name}: empty, so the reference is dropped")
+        elif size > (limit := max_bytes(name)):
             report.errors.append(
                 f"{name}: {size} bytes exceeds the {limit} byte cap, so the reference is dropped"
             )
@@ -261,12 +264,12 @@ def run(args: argparse.Namespace) -> None:
             try:
                 urls[str(path)] = upload_asset(path, args.repository_id, token)
             except UploadFailed as e:
-                # A rejected credential fails every remaining upload, so stop rather
-                # than retry. The step is continue-on-error, so without an annotation
-                # an expired token would silently stop attaching media on every
-                # future review.
-                if e.status == 401:
-                    print("::warning::the GitHub token was rejected (401); it may have expired")
+                # A fault that is not about this file fails every remaining upload, so
+                # stop rather than retry. The step is continue-on-error, so without an
+                # annotation this would silently stop attaching media on every future
+                # review.
+                if e.fatal:
+                    print(f"::warning::media upload stopped: {e}")
                     break
                 print(f"  failed {e}", file=sys.stderr)
             else:

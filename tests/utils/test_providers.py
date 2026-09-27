@@ -40,6 +40,7 @@ def test_list_provider_names_returns_bundled_providers():
     assert "openai" in providers
     assert "anthropic" in providers
     assert "bedrock" in providers
+    assert providers == sorted(providers)
 
 
 def test_list_provider_names_excludes_non_json():
@@ -67,6 +68,39 @@ def test_load_provider_returns_empty_for_unknown(monkeypatch):
     monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
     _load_bundled_provider.cache_clear()
     assert _load_provider("nonexistent_provider_xyz") == {}
+
+
+def test_typesafe_models_and_credentials(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    assert "typesafe" in get_all_providers()
+    models = get_models("typesafe")
+    assert {model["model"] for model in models} == {
+        "jev-latest",
+        "jev-preview",
+        "jev-1.13.0",
+    }
+    for model in models:
+        assert model["mode"] == "evaluation"
+        assert model["input_cost_per_token"] == pytest.approx(0.042 / 1_000_000)
+        assert model["output_cost_per_token"] == 0
+        assert model["supports_vision"] is False
+        assert model["supports_function_calling"] is False
+
+    config = get_provider_config_response("typesafe")
+    assert config["default_mode"] == "api_key"
+    assert config["auth_modes"][0]["secret_fields"] == [
+        {"name": "api_key", "type": "string", "description": "TypeSafe API Key", "required": True}
+    ]
+    assert config["auth_modes"][0]["config_fields"] == []
+
+    input_cost, output_cost = cost_per_token(
+        model="jev-preview",
+        prompt_tokens=1_000_000,
+        completion_tokens=0,
+        custom_llm_provider="typesafe",
+    )
+    assert input_cost == pytest.approx(0.042)
+    assert output_cost == 0
 
 
 def test_load_provider_flattens_pricing(monkeypatch):
@@ -154,6 +188,23 @@ def test_get_models_filters_by_consolidated_provider():
         openai_models = get_models(provider="openai")
         assert len(openai_models) == 1
         assert openai_models[0]["model"] == "gpt-4o"
+
+
+def test_get_models_includes_responses_mode_and_excludes_unsupported_modes():
+    data = {
+        "bedrock_mantle": {
+            "openai.gpt-5.6-sol": {"mode": "responses"},
+            "openai.gpt-oss-120b": {"mode": "chat"},
+            "some-audio-model": {"mode": "audio_transcription"},
+        },
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        models = get_models(provider="bedrock_mantle")
+        model_names = {m["model"] for m in models}
+
+        assert "openai.gpt-5.6-sol" in model_names
+        assert "openai.gpt-oss-120b" in model_names
+        assert "some-audio-model" not in model_names
 
 
 def test_get_models_does_not_modify_other_providers():
@@ -273,6 +324,7 @@ _MOCK_PROVIDER_DATA = {
             "output_cost_per_token": 2e-6,
             "cache_read_input_token_cost": 5e-7,
             "cache_creation_input_token_cost": 3e-6,
+            "cache_creation_input_token_cost_above_1hr": 4.8e-6,
         },
     },
     "openai": {
@@ -361,6 +413,75 @@ def test_cost_per_token_cache_creation_tokens(mock_model_cost):
     assert output_cost == pytest.approx(0.001)
 
 
+def test_cost_per_token_cache_creation_no_1hr_uses_default_rate(mock_model_cost):
+    input_cost, _ = cost_per_token(
+        model="test-model",
+        prompt_tokens=1000,
+        cache_creation_input_tokens=300,
+    )
+    # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 3e-6 = 0.0009
+    assert input_cost == pytest.approx(0.0016)
+
+
+def test_cost_per_token_cache_creation_1hr_subset_uses_1hr_rate(mock_model_cost):
+    input_cost, _ = cost_per_token(
+        model="test-model",
+        prompt_tokens=1000,
+        cache_creation_input_tokens=300,
+        cache_creation_input_tokens_above_1hr=100,
+    )
+    # regular: 700 * 1e-6 = 0.0007
+    # 5m cache_creation: (300-100) * 3e-6 = 0.0006
+    # 1h cache_creation: 100 * 4.8e-6 = 0.00048
+    assert input_cost == pytest.approx(0.00178)
+
+
+def test_cost_per_token_cache_creation_all_1hr_uses_1hr_rate(mock_model_cost):
+    input_cost, _ = cost_per_token(
+        model="test-model",
+        prompt_tokens=1000,
+        cache_creation_input_tokens=300,
+        cache_creation_input_tokens_above_1hr=300,
+    )
+    # regular: 700 * 1e-6 = 0.0007; 1h cache_creation: 300 * 4.8e-6 = 0.00144
+    assert input_cost == pytest.approx(0.00214)
+
+
+def test_cost_per_token_1hr_subset_falls_back_to_default_cache_rate():
+    no_1hr_data = {
+        "no_1hr_provider": {
+            "test-model": {
+                "input_cost_per_token": 1e-6,
+                "output_cost_per_token": 2e-6,
+                "cache_creation_input_token_cost": 3e-6,
+            }
+        }
+    }
+    with (
+        mock.patch(
+            "mlflow.utils.providers._load_provider",
+            side_effect=lambda p: no_1hr_data.get(p, {}),
+        ),
+        mock.patch(
+            "mlflow.utils.providers._load_bundled_provider",
+            side_effect=lambda p: no_1hr_data.get(p, {}),
+        ),
+        mock.patch(
+            "mlflow.utils.providers._list_provider_names",
+            return_value=list(no_1hr_data.keys()),
+        ),
+    ):
+        input_cost, _ = cost_per_token(
+            model="test-model",
+            prompt_tokens=1000,
+            cache_creation_input_tokens=300,
+            cache_creation_input_tokens_above_1hr=100,
+        )
+        # No 1hr rate published, the 1h subset falls back to the 5-minute cache-creation rate
+        # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 3e-6 = 0.0009
+        assert input_cost == pytest.approx(0.0016)
+
+
 def test_cost_per_token_zero_tokens(mock_model_cost):
     input_cost, output_cost = cost_per_token(
         model="test-model", prompt_tokens=0, completion_tokens=0
@@ -429,6 +550,7 @@ def test_flatten_catalog_entry():
             "output_per_million_tokens": 10.0,
             "cache_read_per_million_tokens": 1.25,
             "cache_write_per_million_tokens": 5.0,
+            "cache_write_1hr_per_million_tokens": 8.0,
         },
         "capabilities": {
             "function_calling": True,
@@ -447,6 +569,7 @@ def test_flatten_catalog_entry():
     assert info["output_cost_per_token"] == pytest.approx(1e-5)
     assert info["cache_read_input_token_cost"] == pytest.approx(1.25e-6)
     assert info["cache_creation_input_token_cost"] == pytest.approx(5e-6)
+    assert info["cache_creation_input_token_cost_above_1hr"] == pytest.approx(8e-6)
     assert info["supports_function_calling"] is True
     assert info["supports_vision"] is True
     assert info["supports_reasoning"] is False

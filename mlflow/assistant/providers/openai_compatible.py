@@ -631,6 +631,14 @@ class OpenAICompatibleProvider(AssistantProvider):
                             )
                         except json.JSONDecodeError:
                             tool_input = {}
+                        if not isinstance(tool_input, dict):
+                            # A model can emit syntactically valid JSON that isn't an
+                            # object (e.g. "[]", "null", "123"), which json.loads decodes
+                            # without raising. Every downstream use (ToolUseBlock's
+                            # input, static_permission_error, execute_tool) requires a
+                            # dict, so this must be normalized here rather than left to
+                            # surface as a validation/attribute error further down.
+                            tool_input = {}
 
                         if tool_name in CLIENT_TOOLS:
                             # Client-executed tool: never runs server-side and never goes

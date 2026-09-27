@@ -311,6 +311,10 @@ module.exports = function () {
         };
 
         jestConfig.resetMocks = false; // ML-20462 Restore resetMocks
+        // Full-page render suites (userEvent + MSW under jsdom) intermittently exceed jest's 5s
+        // default under parallel CI load. Raise the default so heavy-but-finite tests don't flake;
+        // genuinely-hung tests still fail. Per-test `}, N)` overrides remain authoritative.
+        jestConfig.testTimeout = 20000;
         jestConfig.collectCoverageFrom = ['src/**/*.{js,jsx}', '!**/*.test.{js,jsx}', '!**/__tests__/*.{js,jsx}'];
         jestConfig.coverageReporters = ['lcov'];
         jestConfig.setupFiles = ['jest-canvas-mock'];

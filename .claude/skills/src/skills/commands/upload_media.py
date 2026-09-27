@@ -61,10 +61,11 @@ def run(args: argparse.Namespace) -> None:
             print(f"{path}\t{upload_asset(path, repository_id, token)}")
         except UploadFailed as e:
             failed = True
-            # A rejected credential fails every remaining upload, so stop asking, and
-            # name the credential this command actually resolved.
-            if e.status == 401:
-                print(f"failed {path}: {e}; check GH_TOKEN or run `gh auth login`", file=sys.stderr)
+            # A fault that is not about this file fails every remaining upload, so
+            # stop asking, and name the credential this command resolved.
+            if e.fatal:
+                hint = "; check GH_TOKEN or run `gh auth login`" if e.status == 401 else ""
+                print(f"failed {e}{hint}", file=sys.stderr)
                 break
             print(f"failed {e}", file=sys.stderr)
 

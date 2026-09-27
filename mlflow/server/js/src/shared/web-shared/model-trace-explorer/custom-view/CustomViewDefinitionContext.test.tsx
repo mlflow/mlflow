@@ -743,4 +743,63 @@ describe('useCustomViewDefinitionState', () => {
     rerender({ views: refetched, isLoaded: true });
     expect(result.current.views.map((view) => view.id)).toEqual(['a', 'c']);
   });
+
+  describe('autoSelectFirstView', () => {
+    it('selects the first persisted view on load', () => {
+      const { result } = renderHook(() =>
+        useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, undefined, true),
+      );
+
+      expect(result.current.activeViewId).toBe('a');
+      expect(result.current.activeView).toEqual(makeView('a'));
+    });
+
+    it('does not select a view when the flag is off', () => {
+      const { result } = renderHook(() => useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true));
+
+      expect(result.current.activeViewId).toBeUndefined();
+    });
+
+    it('selects the first view after async load', () => {
+      const loaded = [makeView('a'), makeView('b')];
+      const { result, rerender } = renderHook(
+        ({ views, isLoaded }: { views: CustomView[]; isLoaded: boolean }) =>
+          useCustomViewDefinitionState(views, isLoaded, noopPersistView, true, undefined, true),
+        { initialProps: { views: NO_VIEWS, isLoaded: false } },
+      );
+
+      expect(result.current.activeViewId).toBeUndefined();
+
+      rerender({ views: loaded, isLoaded: true });
+      expect(result.current.activeViewId).toBe('a');
+    });
+
+    it('does not steal the empty state after the user starts a new draft', () => {
+      const { result } = renderHook(() =>
+        useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, undefined, true),
+      );
+
+      expect(result.current.activeViewId).toBe('a');
+
+      act(() => result.current.startNewView('My new view'));
+      expect(result.current.isDraft).toBe(true);
+      expect(result.current.activeViewId).toBeUndefined();
+    });
+
+    it('does not re-select after the user deletes the auto-selected view', async () => {
+      const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+      const initialViews = [makeView('a'), makeView('b')];
+      const { result } = renderHook(() =>
+        useCustomViewDefinitionState(initialViews, true, noopPersistView, true, onDeleteView, true),
+      );
+
+      expect(result.current.activeViewId).toBe('a');
+
+      await act(async () => {
+        await result.current.deleteView('a');
+      });
+
+      expect(result.current.activeViewId).toBeUndefined();
+    });
+  });
 });

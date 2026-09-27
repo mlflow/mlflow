@@ -13,16 +13,27 @@ export const DEFAULT_PAGE_SIZE = 25;
  */
 export const TRACE_COLUMN_IDS = [
   'trace_id',
+  'trace_name',
   'start_time',
   'input',
   'output',
+  'user',
   'session',
   'duration',
   'state',
+  'source',
+  'run_name',
   'tokens',
   'cost',
   'tags',
+  'metadata',
 ] as const;
+
+const TRACE_COLUMN_ID_SET = new Set<string>(TRACE_COLUMN_IDS);
+
+/** Narrows an arbitrary id to a known `TraceColumnId`. Shared so the visibility/order hooks can
+ * validate and dedupe persisted column ids against the canonical set. */
+export const isTraceColumnId = (id: string): id is TraceColumnId => TRACE_COLUMN_ID_SET.has(id);
 
 /**
  * Columns the user can sort by. A cursor-paginated search API can only sort server-side, so sorting
@@ -44,7 +55,7 @@ export const DEFAULT_SORT_DIR: SortDirection = 'desc';
 
 /**
  * Seed pixel widths per column, sized from the previous flex intent (input/output carry the most
- * content, so they get the most room; id/session are medium; time/duration/tokens/cost are compact).
+ * content, so they get the most room; identifiers and numeric/status fields are compact).
  * `size` is the initial/reset width; `minSize`/`maxSize` bound dragging. Persisted overrides win over
  * `size` at render time.
  */
@@ -55,14 +66,19 @@ export interface ColumnSizeSpec {
 }
 
 export const COLUMN_SIZES: Record<TraceColumnId, ColumnSizeSpec> = {
+  trace_name: { size: 180, minSize: 100, maxSize: 480 },
   start_time: { size: 120, minSize: 90, maxSize: 320 },
   input: { size: 360, minSize: 160, maxSize: 900 },
   output: { size: 360, minSize: 160, maxSize: 900 },
-  session: { size: 140, minSize: 100, maxSize: 480 },
+  user: { size: 180, minSize: 100, maxSize: 480 },
+  session: { size: 100, minSize: 100, maxSize: 480 },
   duration: { size: 100, minSize: 80, maxSize: 240 },
   state: { size: 96, minSize: 72, maxSize: 240 },
-  trace_id: { size: 220, minSize: 120, maxSize: 480 },
+  source: { size: 180, minSize: 100, maxSize: 480 },
+  run_name: { size: 180, minSize: 100, maxSize: 480 },
+  trace_id: { size: 100, minSize: 100, maxSize: 480 },
   tokens: { size: 110, minSize: 80, maxSize: 220 },
   cost: { size: 110, minSize: 80, maxSize: 220 },
   tags: { size: 200, minSize: 120, maxSize: 600 },
+  metadata: { size: 160, minSize: 120, maxSize: 600 },
 };

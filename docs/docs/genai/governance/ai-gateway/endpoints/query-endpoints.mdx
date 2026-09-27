@@ -12,12 +12,13 @@ Once you've created an endpoint, you can call it through several different API s
 
 ## Supported API Styles
 
-The following table summarizes all the ways you can query gateway endpoints:
+The following table summarizes the available gateway APIs:
 
 | Category        | API Style                          | URL Pattern                                                                                                                 | Description                                                                                                                        |
 | --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Unified**     | MLflow Invocations                 | `POST /gateway/{endpoint_name}/mlflow/invocations`                                                                          | Native MLflow interface supporting chat completions and embeddings. Handles routing features like traffic splitting and fallbacks. |
 | **Unified**     | OpenAI-compatible Chat Completions | `POST /gateway/mlflow/v1/chat/completions`                                                                                  | Drop-in replacement for the OpenAI chat completions API. Use the endpoint name as the `model` parameter.                           |
+| **Unified**     | OpenAI-compatible Models           | `GET /gateway/mlflow/v1/models`                                                                                             | List configured gateway endpoint names in the OpenAI models format.                                                                |
 | **Passthrough** | OpenAI                             | `POST /gateway/openai/v1/chat/completions`<br/>`POST /gateway/openai/v1/embeddings`<br/>`POST /gateway/openai/v1/responses` | Full OpenAI API access including Chat Completions, Embeddings, and Responses endpoints.                                            |
 | **Passthrough** | Anthropic                          | `POST /gateway/anthropic/v1/messages`                                                                                       | Direct access to Anthropic's Messages API.                                                                                         |
 | **Passthrough** | Google Gemini                      | `POST /gateway/gemini/v1beta/models/{endpoint_name}:generateContent`                                                        | Google Gemini's native generateContent API.                                                                                        |
@@ -194,6 +195,39 @@ response = client.chat.completions.create(
     temperature=0.7,
 )
 print(response.choices[0].message.content)
+```
+
+</TabItem>
+</Tabs>
+
+### OpenAI-Compatible Models API
+
+Use `GET /gateway/mlflow/v1/models` to discover named gateway endpoints in the active workspace. The response follows the OpenAI models list format. Each model's `id` is a gateway endpoint name that you can pass as the `model` parameter when querying the endpoint.
+
+When MLflow authentication is enabled, users must authenticate and can list only endpoints they have `USE` permission on. Administrators can list all named endpoints in the active workspace.
+
+The following examples assume the server does not require authentication:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl http://localhost:5000/gateway/mlflow/v1/models
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/mlflow/v1",
+    api_key="not-required",
+)
+
+for model in client.models.list():
+    print(model.id)
 ```
 
 </TabItem>

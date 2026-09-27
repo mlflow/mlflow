@@ -1,9 +1,11 @@
 import asyncio
+import base64
 import json
 import queue
 import time
 from enum import Enum
 from typing import Any, AsyncIterable
+from urllib.parse import quote
 
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
@@ -16,13 +18,71 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
 from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicAdapter
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.anthropic import (
+    AnthropicAdapter,
+    _extract_anthropic_passthrough_token_usage,
+    _extract_anthropic_streaming_token_usage,
+)
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _drop_client_auth_headers,
+)
 from mlflow.gateway.providers.cohere import CohereAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
+
+# HTTP status for the retryable exception frames InvokeModelWithResponseStream can send after
+# the stream has started. Other exception frames map to 502.
+_BEDROCK_STREAM_EXCEPTION_STATUS = {
+    "throttlingException": 429,
+    "serviceUnavailableException": 503,
+    "modelTimeoutException": 408,
+}
+
+
+async def _event_stream_to_anthropic_sse(stream: AsyncIterable[bytes]) -> AsyncIterable[bytes]:
+    """Re-emit a Bedrock InvokeModelWithResponseStream body as Anthropic server-sent events.
+
+    Bedrock streams in the AWS event stream binary format, with each Anthropic streaming event
+    base64-encoded in a ``chunk`` frame. Anthropic clients, and the gateway's usage and trace
+    parsing, expect SSE.
+    """
+    from fastapi import HTTPException
+
+    try:
+        from botocore.eventstream import EventStreamBuffer
+    except ImportError:
+        raise ImportError(
+            "Streaming the Anthropic Messages passthrough on Amazon Bedrock requires boto3. "
+            "Install it with: pip install boto3"
+        )
+
+    buffer = EventStreamBuffer()
+    async for data in stream:
+        buffer.add_data(data)
+        for message in buffer:
+            if message.headers.get(":message-type") != "event":
+                error_type = message.headers.get(":exception-type") or message.headers.get(
+                    ":error-code"
+                )
+                detail = message.payload.decode("utf-8", errors="replace") or message.headers.get(
+                    ":error-message", ""
+                )
+                # HTTPException, like `send_stream_request` raises for an error before the first
+                # frame, so the status also reaches the SSE error chunk the client receives.
+                raise HTTPException(
+                    status_code=_BEDROCK_STREAM_EXCEPTION_STATUS.get(error_type, 502),
+                    detail=f"Amazon Bedrock returned {error_type} while streaming: {detail}",
+                )
+            if message.headers.get(":event-type") != "chunk":
+                continue
+            event = base64.b64decode(json.loads(message.payload)["bytes"])
+            event_type = json.loads(event)["type"]
+            yield b"event: " + event_type.encode() + b"\ndata: " + event + b"\n\n"
 
 
 class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
@@ -58,7 +118,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
 
 
 class AWSTitanAdapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` and the penalty parameters are deliberately left unmapped. Titan's
+    # textGenerationConfig accepts only maxTokenCount, stopSequences, temperature and
+    # topP, so renaming them would forward a key Bedrock still ignores.
     @classmethod
     def completions_to_model(cls, payload, config):
         n = payload.pop("n", 1)
@@ -68,13 +130,25 @@ class AWSTitanAdapter(ProviderAdapter):
                 detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
 
+        # Titan requires topP to be strictly greater than 0, while MLflow accepts 0.
+        top_p = payload.get("top_p")
+        if top_p == 0:
+            raise AIGatewayException(
+                status_code=422,
+                detail=(
+                    "'top_p' must be greater than 0 for AWS Titan models. "
+                    f"Received value: '{top_p}'."
+                ),
+            )
+
         # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
         return {
             "inputText": payload.pop("prompt"),
             "textGenerationConfig": rename_payload_keys(
-                payload, {"max_tokens": "maxTokenCount", "stop": "stopSequences"}
+                payload,
+                {"max_tokens": "maxTokenCount", "stop": "stopSequences", "top_p": "topP"},
             ),
         }
 
@@ -109,7 +183,11 @@ class AWSTitanAdapter(ProviderAdapter):
 
 
 class AI21Adapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` is deliberately left unmapped. Jurassic models expose `topKReturn`,
+    # which controls how many alternative tokens are reported rather than top-k
+    # sampling, so mapping `top_k` onto it would change the response instead of the
+    # sampling behaviour. The penalty parameters are objects here, not scalars, so
+    # they need a structural transform rather than a rename.
     @classmethod
     def completions_to_model(cls, payload, config):
         return rename_payload_keys(
@@ -118,6 +196,7 @@ class AI21Adapter(ProviderAdapter):
                 "stop": "stopSequences",
                 "n": "numResults",
                 "max_tokens": "maxTokens",
+                "top_p": "topP",
             },
         )
 
@@ -181,6 +260,10 @@ AWS_MODEL_PROVIDER_TO_ADAPTER = {
 class AmazonBedrockProvider(BaseProvider):
     DISPLAY_NAME = "Amazon Bedrock"
     CONFIG_TYPE = AmazonBedrockConfig
+
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.ANTHROPIC_MESSAGES: "model/{model}/invoke",
+    }
 
     def get_provider_name(self) -> str:
         return "bedrock"
@@ -753,3 +836,67 @@ class AmazonBedrockProvider(BaseProvider):
         payload = self.adapter_class.completions_to_model(payload, self.config)
         response = self._request(payload)
         return self.adapter_class.model_to_completions(response, self.config)
+
+    # ---- Passthrough ----
+
+    # InvokeModel returns Anthropic models' response bodies and stream events unchanged, so
+    # usage is parsed exactly as for the Anthropic provider.
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        return _extract_anthropic_passthrough_token_usage(result)
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        return _extract_anthropic_streaming_token_usage(chunk)
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        provider_path = self._validate_passthrough_action(action)
+        if self._underlying_provider != AmazonBedrockModelProvider.ANTHROPIC:
+            raise AIGatewayException(
+                status_code=400,
+                detail="The Anthropic Messages passthrough only supports Anthropic models on "
+                f"Amazon Bedrock, but this endpoint uses '{self.config.model.name}'.",
+            )
+        if not self._is_token_auth:
+            raise AIGatewayException(
+                status_code=501,
+                detail="The Anthropic Messages passthrough is only supported for Bedrock API key "
+                "(bearer token) auth.",
+            )
+
+        # Bedrock takes the model and the streaming mode from the URL rather than the body.
+        # Build a new body instead of editing `payload`, which FallbackProvider hands to the
+        # next provider if this one fails.
+        body = {k: v for k, v in payload.items() if k not in ("model", "stream")}
+        body["anthropic_version"] = "bedrock-2023-05-31"
+        # Never forward a client credential, including a credential agent's own key: Bedrock
+        # authenticates with the endpoint's API key.
+        request_headers = {
+            k: v
+            for k, v in _drop_client_auth_headers(headers or {}).items()
+            if k.lower() not in ("host", "content-length")
+        } | self._get_token_auth_headers()
+        base_url = self._get_token_auth_base_url()
+        # Inference profile ARNs contain "/", which has to be escaped in the path.
+        path = provider_path.format(model=quote(self.config.model.name, safe=":"))
+
+        if payload.get("stream"):
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=base_url,
+                # InvokeModelWithResponseStream is served at the InvokeModel path plus this suffix.
+                path=f"{path}-with-response-stream",
+                payload=body,
+            )
+            return self._stream_passthrough_with_usage(_event_stream_to_anthropic_sse(stream))
+        return await send_request(
+            headers=request_headers,
+            base_url=base_url,
+            path=path,
+            payload=body,
+        )

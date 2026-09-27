@@ -9,14 +9,13 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
-from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+from mlflow.openai.utils.chat_schema import _parse_chat_completion_usage, set_span_chat_attributes
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
-    TokenUsageKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.distributed import _get_tracing_headers_from_span
@@ -390,17 +389,7 @@ def _process_last_chunk(
             output = _reconstruct_completion_from_stream(completion_chunks)
             # Set usage information on span if available
             if usage := _get_completion_stream_usage(completion_chunks):
-                usage_dict = {
-                    TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                    TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                    TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-                }
-
-                # Extract cached tokens if available in the streaming chunk
-                if details := getattr(usage, "prompt_tokens_details", None):
-                    if (cached := getattr(details, "cached_tokens", None)) is not None:
-                        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, _parse_chat_completion_usage(usage))
 
         _end_span_on_success(span, inputs, output, is_responses_api)
     except Exception as e:
