@@ -381,7 +381,7 @@ export class LiveTracingContext {
       if (this.sessionId) {
         metadata[TraceMetadataKey.TRACE_SESSION] = this.sessionId;
       }
-      const user = process.env.USER;
+      const user = process.env.USERNAME ?? process.env.USER;
       if (user) {
         metadata[TraceMetadataKey.TRACE_USER] = user;
       }

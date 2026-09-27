@@ -378,7 +378,31 @@ describe('processTranscript', () => {
 
     it('sets trace user from environment', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
-      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe(process.env.USER ?? '');
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe(
+        process.env.USERNAME ?? process.env.USER ?? '',
+      );
+    });
+
+    it('falls back to USERNAME when USER is undefined (Windows)', async () => {
+      const originalUser = process.env.USER;
+      const originalUsername = process.env.USERNAME;
+      delete process.env.USER;
+      process.env.USERNAME = 'windows-user';
+      try {
+        await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'windows-session');
+        expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('windows-user');
+      } finally {
+        if (originalUser === undefined) {
+          delete process.env.USER;
+        } else {
+          process.env.USER = originalUser;
+        }
+        if (originalUsername === undefined) {
+          delete process.env.USERNAME;
+        } else {
+          process.env.USERNAME = originalUsername;
+        }
+      }
     });
 
     it('sets working directory', async () => {
