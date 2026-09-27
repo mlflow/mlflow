@@ -39,6 +39,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.auth.conditions import (
     ALIAS_OWNING_RESOURCE_TYPES,
     ResourceValues,
+    resource_values_shape,
 )
 from mlflow.utils import workspace_context
 
@@ -390,11 +391,22 @@ def _aliases_of(entity, resource_type: str) -> Mapping[str, str]:
 
 
 def values_for_entity(resource_type: str, resource_id: str, entity) -> ResourceValues:
-    return ResourceValues(
-        resource_id=resource_id,
-        tags=_tags_of(entity),
-        aliases=_aliases_of(entity, resource_type),
-    )
+    """Project an entity into the values shape its resource type declares.
+
+    The shape decides what gets projected, so a type that owns no alias produces a value
+    object with no alias field at all -- rather than one carrying an empty mapping that
+    reads the same as "has no aliases right now". The distinction matters because absence
+    fails on the resource side (D20): an empty field and a missing field would deny
+    identically here, but only the missing field says the type could never have one.
+    """
+    shape = resource_values_shape(resource_type)
+    if "aliases" in shape._fields:
+        return shape(
+            resource_id=resource_id,
+            tags=_tags_of(entity),
+            aliases=_aliases_of(entity, resource_type),
+        )
+    return shape(resource_id=resource_id, tags=_tags_of(entity))
 
 
 def attrs_for(resource_type: str, resource_id: str) -> ResourceValues | None:

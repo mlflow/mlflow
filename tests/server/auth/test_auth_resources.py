@@ -15,6 +15,10 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.auth import resources as auth_resources
+from mlflow.server.auth.conditions import (
+    RegisteredModelResourceValues,
+    RegisteredModelVersionResourceValues,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -236,6 +240,11 @@ def test_aliases_populated_only_for_owning_types(registry):
     """D18: aliases are stored on the registry entry, so a version's alias list names
     its *parent's* aliases. Treating them as the version's own state would let one
     alias be governed under two resource types.
+
+    The version's values carry no ``aliases`` field at all, which is stronger than an
+    empty one: an empty mapping says "no aliases right now", while a missing field says
+    the type can never have them. Both deny an alias clause, but only the second makes
+    projecting one a programming error rather than a silent no-op.
     """
     registry.entries["m"] = _registered_model("m", aliases={"champion": "3"})
     registry.versions[("m", "3")] = ModelVersion("m", "3", 0, tags=[], aliases=["champion"])
@@ -246,7 +255,9 @@ def test_aliases_populated_only_for_owning_types(registry):
     )
 
     assert entry.aliases == {"champion": "3"}
-    assert version.aliases == {}
+    assert not hasattr(version, "aliases")
+    assert type(version) is RegisteredModelVersionResourceValues
+    assert type(entry) is RegisteredModelResourceValues
 
 
 def test_trace_tags_are_projected(tracking):

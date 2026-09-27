@@ -281,7 +281,6 @@ from mlflow.server.auth.conditions import (
     NAMESPACE_RESOURCE,
     ConditionContext,
     ConditionScope,
-    RequestValues,
     combine,
     condition_load_types,
     context_for,
@@ -289,6 +288,7 @@ from mlflow.server.auth.conditions import (
     evaluate_resource,
     needs_resource_values,
     parse_condition,
+    request_values_shape,
 )
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
@@ -2407,7 +2407,7 @@ def _validate_can_read_registered_model_or_prompt():
 
 def _authorize_registry_entry(
     action: str,
-    request_values: RequestValues = RequestValues(),
+    tags: "tuple[tuple[str, str | None], ...]" = (),
     scope: ConditionScope = ConditionScope.MUTATE,
 ) -> bool:
     """Authorize a shared registry-entry route: grants and conditions, one call.
@@ -2419,14 +2419,19 @@ def _authorize_registry_entry(
     through the anchor lookup, which would read the same entity a second time through a
     different cache.
 
-    ``request_values`` is supplied by the caller rather than looked up here. Four routes
-    share this helper with four different bodies -- a set-tag has a key and a value, a
-    delete-tag only a key, a rename neither -- so the values belong at the call site that
-    knows which route it is. Defaulting to empty is safe for a route that sets no tag or
-    alias, because a request clause is vacuous on absence (D20).
+    ``tags`` is supplied by the caller rather than looked up here. Four routes share this
+    helper with four different bodies -- a set-tag has a key and a value, a delete-tag only
+    a key, a rename neither -- so the values belong at the call site that knows which route
+    it is. Defaulting to empty is safe for a route that sets no tag, because a request
+    clause is vacuous on absence (D20).
+
+    The values are wrapped in the shape the *classified* type declares, rather than in one
+    named here: the same route serves a registered model and a prompt, and each declares
+    its own shape.
     """
     target = _registry_entry_target_from_request()
     name = _get_request_param("name")
+    request_values = request_values_shape(target.resource_type)(tags=tags)
     return authorize(
         authenticate_request().username,
         (target.resource_type, name),
@@ -2436,12 +2441,12 @@ def _authorize_registry_entry(
     )
 
 
-def _tag_key_and_value_from_request() -> RequestValues:
+def _tag_key_and_value_from_request() -> "tuple[tuple[str, str | None], ...]":
     """The single ``key``/``value`` pair a Set*Tag body carries."""
-    return RequestValues(tags=((_get_request_param("key"), _get_request_param("value")),))
+    return ((_get_request_param("key"), _get_request_param("value")),)
 
 
-def _tag_key_from_request() -> RequestValues:
+def _tag_key_from_request() -> "tuple[tuple[str, str | None], ...]":
     """The ``key`` a Delete*Tag body carries, with no value.
 
     Deletion is gated too (D12): removing a tag a condition reserves is a way of
@@ -2449,7 +2454,7 @@ def _tag_key_from_request() -> RequestValues:
     ``tag_key`` clause applies while a ``tag_value`` clause stays vacuous -- a deletion
     names no value to constrain.
     """
-    return RequestValues(tags=((_get_request_param("key"), None),))
+    return ((_get_request_param("key"), None),)
 
 
 def _validate_can_update_registered_model_or_prompt():
@@ -2822,7 +2827,9 @@ def validate_can_create_registered_model() -> bool:
     #
     # Every tag in the body must satisfy the condition: allowing a bulk create to set a
     # tag that a single set-tag call could not would make the restriction avoidable.
-    request_values = RequestValues(tags=tuple((tag.key, tag.value) for tag in msg.tags))
+    request_values = request_values_shape(created_type)(
+        tags=tuple((tag.key, tag.value) for tag in msg.tags)
+    )
     return _workspace_create_not_denied(
         created_type,
         msg.name,

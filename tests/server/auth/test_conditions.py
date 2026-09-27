@@ -14,13 +14,17 @@ from mlflow.server.auth.conditions import (
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     REQUEST_IDENTIFIERS,
+    REQUEST_VALUES_SHAPES,
     RESOURCE_PREFIXES,
+    RESOURCE_VALUES_SHAPES,
     SUPPORTED_RESOURCE_TYPES,
     Clause,
     ConditionContext,
     ConditionScope,
-    RequestValues,
-    ResourceValues,
+    RegisteredModelRequestValues,
+    RegisteredModelResourceValues,
+    RunRequestValues,
+    RunResourceValues,
     combine,
     condition_load_types,
     context_for,
@@ -28,6 +32,8 @@ from mlflow.server.auth.conditions import (
     evaluate_resource,
     needs_resource_values,
     parse_condition,
+    request_values_shape,
+    resource_values_shape,
     validate_condition,
 )
 
@@ -182,10 +188,10 @@ def test_request_absent_identifier_is_vacuous():
     one route.
     """
     clauses = parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST)
-    assert evaluate_request(clauses, RequestValues()) is True
+    assert evaluate_request(clauses, RunRequestValues()) is True
 
     alias_clauses = parse_condition("alias LIKE 'dev-%'", NAMESPACE_REQUEST)
-    assert evaluate_request(alias_clauses, RequestValues(tags=(("x", "1"),))) is True
+    assert evaluate_request(alias_clauses, RunRequestValues(tags=(("x", "1"),))) is True
 
 
 def test_request_metrics_only_log_batch_is_allowed():
@@ -193,7 +199,7 @@ def test_request_metrics_only_log_batch_is_allowed():
     ``LogBatch`` carries no tags, so a ``tag_key`` condition must not deny it.
     """
     clauses = parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST)
-    assert evaluate_request(clauses, RequestValues()) is True
+    assert evaluate_request(clauses, RunRequestValues()) is True
 
 
 def test_request_delete_shape_gates_on_key_but_not_value():
@@ -204,7 +210,7 @@ def test_request_delete_shape_gates_on_key_but_not_value():
     use case 3. The ``tag_value`` clause is vacuous, because there is no value to
     test; constraining what a delete removes is the resource condition's job.
     """
-    delete = RequestValues(tags=(("lifecycle", None),))
+    delete = RunRequestValues(tags=(("lifecycle", None),))
 
     key_clauses = parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST)
     assert evaluate_request(key_clauses, delete) is False
@@ -216,26 +222,28 @@ def test_request_delete_shape_gates_on_key_but_not_value():
 def test_request_batch_any_failure_denies():
     # A bulk request must not be a way around a restriction that holds for one.
     clauses = parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST)
-    assert evaluate_request(clauses, RequestValues(tags=(("ok", "1"),))) is True
-    assert evaluate_request(clauses, RequestValues(tags=(("ok", "1"), ("lifecycle", "2")))) is False
+    assert evaluate_request(clauses, RunRequestValues(tags=(("ok", "1"),))) is True
+    assert (
+        evaluate_request(clauses, RunRequestValues(tags=(("ok", "1"), ("lifecycle", "2")))) is False
+    )
 
 
 @pytest.mark.parametrize(
     ("filter_string", "values", "expected"),
     [
-        ("tag_key = 'a'", RequestValues(tags=(("a", "1"),)), True),
-        ("tag_key = 'a'", RequestValues(tags=(("b", "1"),)), False),
-        ("tag_key IN ('a', 'b')", RequestValues(tags=(("b", "1"),)), True),
-        ("tag_key NOT IN ('a', 'b')", RequestValues(tags=(("c", "1"),)), True),
-        ("tag_key NOT IN ('a', 'b')", RequestValues(tags=(("a", "1"),)), False),
-        ("tag_value = 'dev'", RequestValues(tags=(("x", "dev"),)), True),
-        ("tag_value = 'dev'", RequestValues(tags=(("x", "prod"),)), False),
-        ("tag_key LIKE 'team-%'", RequestValues(tags=(("team-a", "1"),)), True),
-        ("tag_key LIKE 'team-%'", RequestValues(tags=(("other", "1"),)), False),
-        ("alias = 'champion'", RequestValues(aliases=("champion",)), True),
-        ("alias != 'champion'", RequestValues(aliases=("champion",)), False),
-        ("alias LIKE 'dev-%'", RequestValues(aliases=("dev-1",)), True),
-        ("alias NOT IN ('champion',)", RequestValues(aliases=("dev-1",)), True),
+        ("tag_key = 'a'", RunRequestValues(tags=(("a", "1"),)), True),
+        ("tag_key = 'a'", RunRequestValues(tags=(("b", "1"),)), False),
+        ("tag_key IN ('a', 'b')", RunRequestValues(tags=(("b", "1"),)), True),
+        ("tag_key NOT IN ('a', 'b')", RunRequestValues(tags=(("c", "1"),)), True),
+        ("tag_key NOT IN ('a', 'b')", RunRequestValues(tags=(("a", "1"),)), False),
+        ("tag_value = 'dev'", RunRequestValues(tags=(("x", "dev"),)), True),
+        ("tag_value = 'dev'", RunRequestValues(tags=(("x", "prod"),)), False),
+        ("tag_key LIKE 'team-%'", RunRequestValues(tags=(("team-a", "1"),)), True),
+        ("tag_key LIKE 'team-%'", RunRequestValues(tags=(("other", "1"),)), False),
+        ("alias = 'champion'", RegisteredModelRequestValues(aliases=("champion",)), True),
+        ("alias != 'champion'", RegisteredModelRequestValues(aliases=("champion",)), False),
+        ("alias LIKE 'dev-%'", RegisteredModelRequestValues(aliases=("dev-1",)), True),
+        ("alias NOT IN ('champion',)", RegisteredModelRequestValues(aliases=("dev-1",)), True),
     ],
 )
 def test_request_truth_table(filter_string, values, expected):
@@ -252,7 +260,7 @@ def test_resource_absent_tag_fails():
     condition selects exactly what the same filter string would in a search box.
     """
     clauses = parse_condition("tags.lifecycle = 'dev'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(clauses, ResourceValues("r1")) is False
+    assert evaluate_resource(clauses, RunResourceValues("r1")) is False
 
 
 def test_resource_absence_footgun_is_documented_behaviour():
@@ -261,8 +269,8 @@ def test_resource_absence_footgun_is_documented_behaviour():
     the strict direction, but admins do not expect it.
     """
     clauses = parse_condition("tags.lifecycle != 'prod'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(clauses, ResourceValues("r1")) is False
-    assert evaluate_resource(clauses, ResourceValues("r1", tags={"lifecycle": "dev"})) is True
+    assert evaluate_resource(clauses, RunResourceValues("r1")) is False
+    assert evaluate_resource(clauses, RunResourceValues("r1", tags={"lifecycle": "dev"})) is True
 
 
 def test_absence_semantics_are_opposite_per_namespace():
@@ -273,13 +281,13 @@ def test_absence_semantics_are_opposite_per_namespace():
     """
     assert (
         evaluate_request(
-            parse_condition("tag_key = 'lifecycle'", NAMESPACE_REQUEST), RequestValues()
+            parse_condition("tag_key = 'lifecycle'", NAMESPACE_REQUEST), RunRequestValues()
         )
         is True
     )
     assert (
         evaluate_resource(
-            parse_condition("tags.lifecycle = 'dev'", NAMESPACE_RESOURCE), ResourceValues("r")
+            parse_condition("tags.lifecycle = 'dev'", NAMESPACE_RESOURCE), RunResourceValues("r")
         )
         is False
     )
@@ -294,38 +302,48 @@ def test_resource_prompt_marker_absence_means_not_a_prompt():
     write "models, not prompts" -- would deny every ordinary registered model.
     """
     not_prompt = parse_condition("tags.`mlflow.prompt.is_prompt` != 'true'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(not_prompt, ResourceValues("m")) is True
+    assert evaluate_resource(not_prompt, RunResourceValues("m")) is True
     assert (
-        evaluate_resource(not_prompt, ResourceValues("m", tags={"mlflow.prompt.is_prompt": "true"}))
+        evaluate_resource(
+            not_prompt, RunResourceValues("m", tags={"mlflow.prompt.is_prompt": "true"})
+        )
         is False
     )
 
     is_false = parse_condition("tags.`mlflow.prompt.is_prompt` = 'false'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(is_false, ResourceValues("m")) is True
+    assert evaluate_resource(is_false, RunResourceValues("m")) is True
 
     is_true = parse_condition("tags.`mlflow.prompt.is_prompt` = 'true'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(is_true, ResourceValues("m")) is False
+    assert evaluate_resource(is_true, RunResourceValues("m")) is False
 
 
 @pytest.mark.parametrize(
     ("filter_string", "values", "expected"),
     [
-        ("tags.a = '1'", ResourceValues("r", tags={"a": "1"}), True),
-        ("tags.a = '1'", ResourceValues("r", tags={"a": "2"}), False),
-        ("tags.a IN ('1', '2')", ResourceValues("r", tags={"a": "2"}), True),
-        ("tags.a NOT IN ('1', '2')", ResourceValues("r", tags={"a": "3"}), True),
-        ("tags.a LIKE 'pre%'", ResourceValues("r", tags={"a": "prefix"}), True),
-        ("aliases.champion = '3'", ResourceValues("r", aliases={"champion": "3"}), True),
-        ("aliases.champion = '3'", ResourceValues("r", aliases={"champion": "4"}), False),
-        ("aliases.champion = '3'", ResourceValues("r"), False),
+        ("tags.a = '1'", RunResourceValues("r", tags={"a": "1"}), True),
+        ("tags.a = '1'", RunResourceValues("r", tags={"a": "2"}), False),
+        ("tags.a IN ('1', '2')", RunResourceValues("r", tags={"a": "2"}), True),
+        ("tags.a NOT IN ('1', '2')", RunResourceValues("r", tags={"a": "3"}), True),
+        ("tags.a LIKE 'pre%'", RunResourceValues("r", tags={"a": "prefix"}), True),
+        (
+            "aliases.champion = '3'",
+            RegisteredModelResourceValues("r", aliases={"champion": "3"}),
+            True,
+        ),
+        (
+            "aliases.champion = '3'",
+            RegisteredModelResourceValues("r", aliases={"champion": "4"}),
+            False,
+        ),
+        ("aliases.champion = '3'", RunResourceValues("r"), False),
         (
             "tags.a = '1' AND tags.b = '2'",
-            ResourceValues("r", tags={"a": "1", "b": "2"}),
+            RunResourceValues("r", tags={"a": "1", "b": "2"}),
             True,
         ),
         (
             "tags.a = '1' AND tags.b = '2'",
-            ResourceValues("r", tags={"a": "1"}),
+            RunResourceValues("r", tags={"a": "1"}),
             False,
         ),
     ],
@@ -341,7 +359,7 @@ def test_resource_aliases_empty_for_version_types_denies_alias_clause():
     keyed on the owning type.
     """
     clauses = parse_condition("aliases.champion = '3'", NAMESPACE_RESOURCE)
-    version = ResourceValues("m/3", tags={"a": "1"})
+    version = RunResourceValues("m/3", tags={"a": "1"})
     assert evaluate_resource(clauses, version) is False
 
 
@@ -361,11 +379,11 @@ def test_permissive_condition_never_lifts_another_restriction():
     """
     restrictive = evaluate_request(
         parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST),
-        RequestValues(tags=(("lifecycle", "x"),)),
+        RunRequestValues(tags=(("lifecycle", "x"),)),
     )
     permissive = evaluate_request(
         parse_condition("tag_key != 'unrelated'", NAMESPACE_REQUEST),
-        RequestValues(tags=(("lifecycle", "x"),)),
+        RunRequestValues(tags=(("lifecycle", "x"),)),
     )
     assert restrictive is False
     assert permissive is True
@@ -375,7 +393,7 @@ def test_permissive_condition_never_lifts_another_restriction():
 
 
 def test_contradictory_conditions_fail_closed():
-    values = RequestValues(tags=(("lifecycle", "x"),))
+    values = RunRequestValues(tags=(("lifecycle", "x"),))
     a = evaluate_request(parse_condition("tag_key = 'lifecycle'", NAMESPACE_REQUEST), values)
     b = evaluate_request(parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST), values)
     assert combine([a, b]) is False
@@ -386,9 +404,9 @@ def test_contradictory_conditions_fail_closed():
 
 def test_condition_load_types_dedups():
     contexts = [
-        ConditionContext("run", ConditionScope.MUTATE),
-        ConditionContext("run", ConditionScope.CREATE),
-        ConditionContext("trace", ConditionScope.MUTATE),
+        ConditionContext("run", ConditionScope.MUTATE, RunRequestValues()),
+        ConditionContext("run", ConditionScope.CREATE, RunRequestValues()),
+        ConditionContext("trace", ConditionScope.MUTATE, RunRequestValues()),
     ]
     assert condition_load_types(contexts) == ("run", "trace")
 
@@ -408,7 +426,7 @@ def test_context_for_treats_wildcard_id_as_no_resource():
 
 
 def test_context_for_mirrors_request_values():
-    values = RequestValues(tags=(("a", "1"),))
+    values = RunRequestValues(tags=(("a", "1"),))
     context = context_for("run", "r1", ConditionScope.MUTATE, values)
     assert context.resource_type == "run"
     assert context.scope is ConditionScope.MUTATE
@@ -534,23 +552,59 @@ def test_context_rejects_aliases_for_a_type_that_owns_none(resource_type):
     exercise the route.
     """
     with pytest.raises(MlflowException, match="wiring error"):
-        context_for(resource_type, "x", ConditionScope.MUTATE, RequestValues(aliases=("champion",)))
+        context_for(
+            resource_type,
+            "x",
+            ConditionScope.MUTATE,
+            RegisteredModelRequestValues(aliases=("champion",)),
+        )
 
 
 @pytest.mark.parametrize("resource_type", sorted(ALIAS_OWNING_RESOURCE_TYPES))
 def test_context_allows_aliases_for_the_types_that_own_them(resource_type):
-    context = context_for(
-        resource_type, "x", ConditionScope.MUTATE, RequestValues(aliases=("champion",))
-    )
+    """Built through the table, because each alias-owning type declares its own shape --
+    a prompt is not a registered model even though both carry aliases.
+    """
+    shape = request_values_shape(resource_type)
+    context = context_for(resource_type, "x", ConditionScope.MUTATE, shape(aliases=("champion",)))
     assert context.request.aliases == ("champion",)
 
 
 @pytest.mark.parametrize("resource_type", sorted(SUPPORTED_RESOURCE_TYPES))
 def test_context_allows_tags_for_every_supported_type(resource_type):
-    context = context_for(
-        resource_type, "x", ConditionScope.MUTATE, RequestValues(tags=(("k", "v"),))
-    )
+    """Every supported type carries tags, whichever shape it declares. Built through the
+    table so a type whose shape changes does not silently stop being covered here.
+    """
+    shape = request_values_shape(resource_type)
+    context = context_for(resource_type, "x", ConditionScope.MUTATE, shape(tags=(("k", "v"),)))
     assert context.request.tags == (("k", "v"),)
+
+
+def test_every_supported_type_declares_both_shapes():
+    """A type without an entry would raise KeyError on its first request. Asserted here so
+    adding a supported type fails at once rather than on the route that first uses it.
+    """
+    assert set(REQUEST_VALUES_SHAPES) == set(SUPPORTED_RESOURCE_TYPES)
+    assert set(RESOURCE_VALUES_SHAPES) == set(SUPPORTED_RESOURCE_TYPES)
+
+
+def test_each_type_declares_a_distinct_shape():
+    """One shape per type, not shared between types. Sharing would make a mis-wiring
+    between two types that happen to carry the same fields undetectable.
+    """
+    assert len(set(REQUEST_VALUES_SHAPES.values())) == len(SUPPORTED_RESOURCE_TYPES)
+    assert len(set(RESOURCE_VALUES_SHAPES.values())) == len(SUPPORTED_RESOURCE_TYPES)
+
+
+@pytest.mark.parametrize("resource_type", sorted(SUPPORTED_RESOURCE_TYPES))
+def test_only_alias_owning_types_declare_an_alias_field(resource_type):
+    """The shape is the contract, so it must agree with ALIAS_OWNING_RESOURCE_TYPES (D18)
+    -- otherwise a type could carry a field its conditions can never name, or be unable to
+    carry one they can.
+    """
+    owns = resource_type in ALIAS_OWNING_RESOURCE_TYPES
+    assert ("aliases" in request_values_shape(resource_type)._fields) is owns
+    assert ("aliases" in resource_values_shape(resource_type)._fields) is owns
 
 
 def test_context_rejects_an_unsupported_resource_type():
@@ -583,14 +637,14 @@ def test_clause_is_hashable_and_comparable():
 
 #: identifier -> (values that populate it, a condition those values must VIOLATE)
 _REQUEST_PROBES = {
-    "tag_key": (RequestValues(tags=(("k", "v"),)), "tag_key != 'k'"),
-    "tag_value": (RequestValues(tags=(("k", "v"),)), "tag_value != 'v'"),
-    "alias": (RequestValues(aliases=("a",)), "alias != 'a'"),
+    "tag_key": (RunRequestValues(tags=(("k", "v"),)), "tag_key != 'k'"),
+    "tag_value": (RunRequestValues(tags=(("k", "v"),)), "tag_value != 'v'"),
+    "alias": (RegisteredModelRequestValues(aliases=("a",)), "alias != 'a'"),
 }
 
 _RESOURCE_PROBES = {
-    "tags": (ResourceValues("r", tags={"k": "v"}), "tags.k != 'v'"),
-    "aliases": (ResourceValues("r", aliases={"a": "1"}), "aliases.a != '1'"),
+    "tags": (RunResourceValues("r", tags={"k": "v"}), "tags.k != 'v'"),
+    "aliases": (RegisteredModelResourceValues("r", aliases={"a": "1"}), "aliases.a != '1'"),
 }
 
 

@@ -187,35 +187,177 @@ class Clause(NamedTuple):
 # ---------------------------------------------------------------------------
 
 
-class RequestValues(NamedTuple):
-    """The condition-relevant values a single request carries.
+#: The condition-relevant values a request carries, one shape per resource type.
+#:
+#: One per type rather than one per capability so a type that later diverges is a local
+#: edit -- a field added to the shape that needs it -- instead of a new shared class and a
+#: re-pointing of every type that happened to use the old one. Several are identical
+#: today; that is the cost of keeping them independent, and it is paid once.
+#:
+#: The RFC's vocabulary is tags and aliases only, so what varies today is alias ownership:
+#: the registry entry owns aliases, its versions do not (D18). A type whose shape omits a
+#: field cannot carry it -- the attempt is a ``TypeError`` at the line that made it, not a
+#: value silently ignored later.
+#:
+#: ``tags`` is a sequence of ``(key, value)`` pairs rather than a mapping because a batch
+#: request may set the same key twice, and because a *deletion* names a key with no value,
+#: represented as ``value=None``. That ``None`` is what lets a delete be gated on the key
+#: it removes (D12) while a ``tag_value`` clause stays vacuous over it (D13).
 
-    ``tags`` is a sequence of ``(key, value)`` pairs rather than a mapping because a
-    batch request may set the same key twice, and because a *deletion* names a key
-    with no value -- represented as ``value=None``. That ``None`` is what lets a
-    delete be gated on the key it removes (D12) while a ``tag_value`` clause stays
-    vacuous over it (D13).
-    """
+_TagPairs = tuple[tuple[str, str | None], ...]
 
-    tags: tuple[tuple[str, str | None], ...] = ()
+
+class ExperimentRequestValues(NamedTuple):
+    tags: _TagPairs = ()
+
+
+class RunRequestValues(NamedTuple):
+    tags: _TagPairs = ()
+
+
+class TraceRequestValues(NamedTuple):
+    tags: _TagPairs = ()
+
+
+class LoggedModelRequestValues(NamedTuple):
+    tags: _TagPairs = ()
+
+
+class RegisteredModelRequestValues(NamedTuple):
+    """Owns aliases as well as tags (D18)."""
+
+    tags: _TagPairs = ()
     aliases: tuple[str, ...] = ()
 
-    def is_empty(self) -> bool:
-        return not self.tags and not self.aliases
+
+class RegisteredModelVersionRequestValues(NamedTuple):
+    """No ``aliases``: an alias set on a version belongs to its registry entry (D18)."""
+
+    tags: _TagPairs = ()
 
 
-class ResourceValues(NamedTuple):
-    """The condition-relevant current state of one existing resource.
+class PromptRequestValues(NamedTuple):
+    """Owns aliases as well as tags (D18)."""
 
-    ``aliases`` is populated only for the types that *own* aliases -- the registry
-    entry, not the version (D18). A version's ``aliases`` list names aliases stored
-    on its parent, so treating it as the version's own state would let the same
-    alias be governed under two different resource types.
-    """
+    tags: _TagPairs = ()
+    aliases: tuple[str, ...] = ()
 
+
+class PromptVersionRequestValues(NamedTuple):
+    """No ``aliases``, for the same reason as a model version (D18)."""
+
+    tags: _TagPairs = ()
+
+
+#: The condition-relevant current state of one existing resource, one shape per type.
+#:
+#: ``aliases`` is present only on the types that *own* aliases. A missing field is a
+#: stronger statement than an empty mapping: empty says "none right now", missing says the
+#: type can never have them. Both deny an alias clause, but only the second makes
+#: projecting one a programming error rather than a silent no-op.
+
+
+class ExperimentResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
+class RunResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
+class TraceResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
+class LoggedModelResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
+class RegisteredModelResourceValues(NamedTuple):
     resource_id: str
     tags: Mapping[str, str] = {}
     aliases: Mapping[str, str] = {}
+
+
+class RegisteredModelVersionResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
+class PromptResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+    aliases: Mapping[str, str] = {}
+
+
+class PromptVersionResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
+#: Which shape each resource type declares. The contract a validator is held to, stated
+#: once: the class it must construct, and by omission the fields it cannot set. Every
+#: supported type appears -- a missing entry is a ``KeyError`` at the first request, which
+#: is how a new type is forced to declare its shape rather than silently borrowing another.
+REQUEST_VALUES_SHAPES: "dict[str, type]" = {
+    "experiment": ExperimentRequestValues,
+    "run": RunRequestValues,
+    "trace": TraceRequestValues,
+    "logged_model": LoggedModelRequestValues,
+    "registered_model": RegisteredModelRequestValues,
+    "registered_model_version": RegisteredModelVersionRequestValues,
+    "prompt": PromptRequestValues,
+    "prompt_version": PromptVersionRequestValues,
+}
+
+RESOURCE_VALUES_SHAPES: "dict[str, type]" = {
+    "experiment": ExperimentResourceValues,
+    "run": RunResourceValues,
+    "trace": TraceResourceValues,
+    "logged_model": LoggedModelResourceValues,
+    "registered_model": RegisteredModelResourceValues,
+    "registered_model_version": RegisteredModelVersionResourceValues,
+    "prompt": PromptResourceValues,
+    "prompt_version": PromptVersionResourceValues,
+}
+
+#: Annotation-only unions. There is no single constructible ``RequestValues``: a caller
+#: builds the shape its resource type declares, which is what makes a field the type
+#: cannot carry a ``TypeError`` rather than a silently unused value.
+RequestValues = (
+    ExperimentRequestValues
+    | RunRequestValues
+    | TraceRequestValues
+    | LoggedModelRequestValues
+    | RegisteredModelRequestValues
+    | RegisteredModelVersionRequestValues
+    | PromptRequestValues
+    | PromptVersionRequestValues
+)
+ResourceValues = (
+    ExperimentResourceValues
+    | RunResourceValues
+    | TraceResourceValues
+    | LoggedModelResourceValues
+    | RegisteredModelResourceValues
+    | RegisteredModelVersionResourceValues
+    | PromptResourceValues
+    | PromptVersionResourceValues
+)
+
+
+def request_values_shape(resource_type: str) -> "type":
+    """The request-values class a validator for this type must construct."""
+    return REQUEST_VALUES_SHAPES[resource_type]
+
+
+def resource_values_shape(resource_type: str) -> "type":
+    """The resource-values class this type's state is projected into."""
+    return RESOURCE_VALUES_SHAPES[resource_type]
 
 
 class ConditionContext(NamedTuple):
@@ -236,7 +378,7 @@ class ConditionContext(NamedTuple):
 
     resource_type: str
     scope: ConditionScope
-    request: RequestValues = RequestValues()
+    request: RequestValues
     resource_ids: tuple[str, ...] = ()
 
 
@@ -642,7 +784,12 @@ def _request_lhs_values(clause: Clause, values: RequestValues) -> tuple[str, ...
         present = tuple(v for _, v in values.tags if v is not None)
         return present or None
     if clause.identifier == REQUEST_IDENTIFIER_ALIAS:
-        return values.aliases or None
+        # A tags-only shape has no ``aliases`` field at all, which is a stronger statement
+        # than an empty one: the type cannot set an alias, so a request to it never does,
+        # so the clause never applies. Vacuous is therefore the correct reading and not a
+        # hole -- and such a condition cannot be stored for such a type anyway, because the
+        # store rejects it on the way in.
+        return getattr(values, "aliases", ()) or None
     return None
 
 
@@ -677,7 +824,9 @@ def _resource_lhs(clause: Clause, values: ResourceValues) -> str | None:
     if clause.identifier == RESOURCE_PREFIX_TAGS:
         return values.tags.get(clause.key)
     if clause.identifier == RESOURCE_PREFIX_ALIASES:
-        return values.aliases.get(clause.key)
+        # Missing field -> no alias state -> ``None``, which fails (D20). Fail-closed, the
+        # safe direction on this side, and unreachable for the same reason as above.
+        return getattr(values, "aliases", {}).get(clause.key)
     return None
 
 
@@ -779,26 +928,24 @@ def needs_resource_values(
 
 
 def _validate_request_values_for_resource_type(resource_type: str, request: RequestValues) -> None:
-    """Reject request values a resource type cannot carry.
+    """Reject request values whose shape the resource type does not declare.
 
-    The contract every validator is held to, enforced here because
-    :class:`RequestValues` is a single shape shared by every type while the values are
-    populated at many call sites -- so the shape alone cannot express that a run has no
-    alias to set. Without this, a mis-wired validator would populate a field meaningless
-    for its type and nothing would object; it is currently unreachable only because the
-    store refuses to persist an alias condition for such a type, which is defence in a
-    different file that a later change could undo.
+    The shape itself prevents the common mistake: a validator for a tags-only type
+    cannot pass an alias, because :class:`TagRequestValues` has no such field and the
+    attempt is a ``TypeError`` at the line that made it. What the shape cannot prevent is
+    passing the *wrong shape* -- an alias-owning one where a tags-only one belongs, which
+    would carry a field the type's conditions can never name. That is what this catches.
 
-    Raises rather than denies: this is a wiring bug, not a user error. A raise surfaces it
-    in the tests that exercise the route, and it is fail-closed if one ever reaches
-    production.
+    Raises rather than denies: it is a wiring bug, not a user error. A raise surfaces it
+    in the tests that exercise the route, and is fail-closed if one reaches production.
     """
-    if request.aliases and resource_type not in ALIAS_OWNING_RESOURCE_TYPES:
+    expected = REQUEST_VALUES_SHAPES[resource_type]
+    if type(request) is not expected:
         raise MlflowException(
-            f"Validator wiring error: request values for resource type '{resource_type}' "
-            f"carry aliases, but only {sorted(ALIAS_OWNING_RESOURCE_TYPES)} own aliases. "
-            f"An alias set on a version belongs to its registry entry, so the context for "
-            f"this operation should name that type instead.",
+            f"Validator wiring error: resource type '{resource_type}' declares "
+            f"{expected.__name__}, but got {type(request).__name__}. The shape states which "
+            f"values the type can carry, so passing another means the operation is wired to "
+            f"the wrong type or is trying to set something this type does not have.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -822,7 +969,7 @@ def context_for(
     instead of silently going unread.
     """
     validate_condition_resource_type(resource_type)
-    request = request or RequestValues()
+    request = request if request is not None else REQUEST_VALUES_SHAPES[resource_type]()
     _validate_request_values_for_resource_type(resource_type, request)
     ids: tuple[str, ...] = ()
     if resource_id is not None and resource_id != "*":
