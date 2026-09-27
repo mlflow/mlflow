@@ -79,6 +79,14 @@ class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
         summary = "\n".join(model_summary)
         log_text(summary, artifact_file="model_summary.txt")
 
+    def on_epoch_begin(self, epoch, logs=None):
+        """Track the current epoch for validation metric logging."""
+        self._current_epoch = epoch
+
+    def on_train_end(self, logs=None):
+        """Clear the current epoch after training."""
+        self._current_epoch = None
+
     def on_epoch_end(self, epoch, logs=None):
         """Log metrics at the end of each epoch."""
         if not self.log_every_epoch or logs is None:
@@ -99,4 +107,11 @@ class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
         if logs is None:
             return
         metrics = {"validation_" + k: v for k, v in logs.items()}
-        log_metrics(metrics, synchronous=False, model_id=self.model_id)
+        kwargs = {}
+        if getattr(self, "_current_epoch", None) is not None:
+            kwargs["step"] = (
+                self._current_epoch
+                if self.log_every_epoch
+                else int(self.model.optimizer.iterations.numpy())
+            )
+        log_metrics(metrics, **kwargs, synchronous=False, model_id=self.model_id)
