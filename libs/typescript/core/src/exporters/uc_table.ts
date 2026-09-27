@@ -142,14 +142,28 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
   }
 
   private setUserSessionSpanAttributes(traceInfo: TraceInfo, span: OTelReadableSpan): void {
-    for (const [metadataKey, attributeKey] of [
-      [TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID],
-      [TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID],
-    ]) {
-      const value = traceInfo.traceMetadata[metadataKey];
-      if (value) {
-        span.attributes[attributeKey] = value;
+    const mlflowSpan = InMemoryTraceManager.getInstance().getSpan(
+      traceInfo.traceId,
+      span.spanContext().spanId,
+    );
+    if (!mlflowSpan) {
+      return;
+    }
+
+    const wasAllowingMutations = mlflowSpan.allowMutatingEndedSpan;
+    mlflowSpan.allowMutatingEndedSpan = true;
+    try {
+      for (const [metadataKey, attributeKey] of [
+        [TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID],
+        [TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID],
+      ]) {
+        const value = traceInfo.traceMetadata[metadataKey];
+        if (value) {
+          mlflowSpan.setAttribute(attributeKey, value);
+        }
       }
+    } finally {
+      mlflowSpan.allowMutatingEndedSpan = wasAllowingMutations;
     }
   }
 
