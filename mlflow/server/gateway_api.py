@@ -38,6 +38,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
     PortkeyConfig,
     Provider,
+    TypeSafeConfig,
     VertexAIConfig,
     _AuthConfigKey,
     _OpenAICompatibleConfig,
@@ -68,7 +69,7 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
-from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.schemas import chat, embeddings, models
 from mlflow.gateway.ssrf import upstream_ssrf_protection
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
@@ -416,6 +417,10 @@ def _build_endpoint_config(
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
             mistral_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        )
+    elif model_config.provider == Provider.TYPESAFE:
+        provider_config = TypeSafeConfig(
+            typesafe_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
     elif model_config.provider == Provider.GEMINI:
         provider_config = GeminiConfig(
@@ -986,6 +991,33 @@ async def chat_completions(request: Request):
             raise HTTPException(status_code=400, detail=str(e))
 
 
+@gateway_router.get("/mlflow/v1/models", response_model=None)
+@translate_http_exception
+async def list_models(request: Request) -> models.ResponsePayload:
+    """
+    OpenAI-compatible models listing endpoint.
+
+    The returned model ``id`` is the MLflow gateway endpoint name expected by
+    ``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+    """
+    store = _get_store()
+    _validate_store(store)
+    endpoints = sorted(
+        (endpoint for endpoint in store.list_gateway_endpoints() if endpoint.name),
+        key=lambda endpoint: endpoint.name,
+    )
+    return models.ResponsePayload(
+        data=[
+            models.ModelObject(
+                id=endpoint.name,
+                created=endpoint.created_at // 1000,
+                owned_by="mlflow",
+            )
+            for endpoint in endpoints
+        ],
+    )
+
+
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.OPENAI_PASSTHROUGH_CHAT)
@@ -1158,6 +1190,81 @@ async def openai_passthrough_embeddings(request: Request):
     return await traced_passthrough(
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
     )
+
+
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.TYPESAFE_SYSTEM_ONE], response_model=None)
+@translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.TYPESAFE_PASSTHROUGH_SYSTEM_ONE)
+async def typesafe_passthrough_system_one(request: Request):
+    """Evaluate TypeSafe questions using the credentials and model of a gateway endpoint.
+
+    The request uses TypeSafe's native ``state`` and ``questions`` fields. The ``model``
+    field selects an MLflow gateway endpoint, whose configured model is sent to TypeSafe.
+    """
+    body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    if body.get("stream"):
+        raise HTTPException(
+            status_code=400, detail="TypeSafe System One does not support streaming."
+        )
+
+    store = _get_store()
+    workspace = get_request_workspace()
+    _validate_store(store)
+    headers = dict(request.headers)
+    # DB-backed endpoints have no task type. This placeholder only constructs the
+    # provider configuration; System One bypasses the unified chat schema.
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    if any(model.provider != Provider.TYPESAFE for model in endpoint_config.models):
+        raise HTTPException(
+            status_code=400,
+            detail="TypeSafe System One requires all endpoint models, including fallbacks, "
+            "to use the TypeSafe provider.",
+        )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(
+            action=PassthroughAction.TYPESAFE_SYSTEM_ONE, payload=body, headers=headers
+        )
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_TYPESAFE_SYSTEM_ONE,
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 async def _openai_responses_passthrough_unary(

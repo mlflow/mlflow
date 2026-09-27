@@ -5,6 +5,7 @@ export interface Provider {
 export interface ProviderModel {
   model: string;
   provider: string;
+  mode?: string | null;
   supports_function_calling: boolean;
   supports_vision?: boolean;
   supports_reasoning?: boolean;

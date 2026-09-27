@@ -1,7 +1,6 @@
 ---
-paths:
-  - ".github/workflows/**/*.yml"
-  - ".github/actions/**/*.yml"
+name: github-actions-style
+description: GitHub Actions workflow and composite action conventions for MLflow. Use when writing, modifying, or reviewing workflows in .github/workflows/ or actions in .github/actions/ in this repository.
 ---
 
 # GitHub Actions Workflow Guidelines
@@ -33,13 +32,13 @@ be costly or error-prone to reproduce.
 
 ## Use `ubuntu-slim` for Lightweight Tasks
 
-Prefer `ubuntu-slim` over `ubuntu-latest` for simple jobs (e.g., labeling, commenting, notifications).
+Prefer `ubuntu-slim` over `ubuntu-24.04` for simple jobs (e.g., labeling, commenting, notifications).
 
-Note: `ubuntu-slim` has a 15-minute timeout limit. Use `ubuntu-latest` for long-running jobs (e.g., polling).
+Note: `ubuntu-slim` has a 15-minute timeout limit. Use `ubuntu-24.04` for long-running jobs (e.g., polling).
 
 ```yaml
 # Bad
-runs-on: ubuntu-latest
+runs-on: ubuntu-24.04
 
 # Good
 runs-on: ubuntu-slim
@@ -197,7 +196,7 @@ Set `sparse-checkout-cone-mode: false` only when you need to target individual f
 
 ## `pipefail` Is Already On
 
-Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
+Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
 
 ## Mask Secrets Generated Mid-Job
 
