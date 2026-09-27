@@ -126,7 +126,7 @@ RESOURCE_TYPE_MCP_SERVER = "mcp_server"
 # expressible at workspace scope. The ``e5f6a7b8c9d0`` migration rewrites legacy
 # ``READ`` rows to ``USE`` and fans ``EDIT`` rows out to per-type EDIT grants
 # anchored on ``('workspace', '*', USE)``.
-# Sub-resources (RFC 0000). Each is independently grantable because it has a use case
+# Sub-resources. Each is independently grantable because it has a use case
 # for a permission that differs from its parent's; all are wildcard-only grain (see TYPE).
 RESOURCE_TYPE_RUN = "run"
 RESOURCE_TYPE_TRACE = "trace"

@@ -1,4 +1,4 @@
-# End-to-end tests for the run tier (RFC 0000 re-pointing).
+# End-to-end tests for the run tier.
 #
 # `UpdateRun` was gated on the run's experiment. It is now gated on the run tier with the experiment
 # as fallback, which adds three behaviours over master:

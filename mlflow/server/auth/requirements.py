@@ -14,7 +14,7 @@ Two folds, and they are different operations:
   several rows can match one key. ``DENY`` among them wins; otherwise the highest.
 * **across keys** (:func:`governing_permission`) -- a requirement's own key, then each
   fallback level. The first key holding ANY grant decides and the rest are not consulted
-  (RFC 0000 tier override), so a ``DENY`` is never rescued by a more permissive ancestor.
+  (tier override), so a ``DENY`` is never rescued by a more permissive ancestor.
 """
 
 from typing import TYPE_CHECKING, NamedTuple
@@ -141,7 +141,7 @@ def governing_permission(
     default_permission: str,
     absent: Permission,
 ) -> Permission:
-    """Which key's grant governs ``requirement`` -- RFC 0000's tier override."""
+    """Which key's grant governs ``requirement`` -- the tier override."""
     for key in requirement_to_grant_load_keys(requirement):
         grant = grants[key]
         if grant is not None:
