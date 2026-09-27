@@ -1103,8 +1103,12 @@ def authorize_on_conditions(
             # route at MUTATE scope does. It is the backstop for one that cannot, and for
             # a future wiring bug that forgets to.
             return False
+        # One bulk call for the context's ids rather than one read each. A bulk delete
+        # naming N traces would otherwise cost N round trips to evaluate one condition
+        # (D11); for a single id the bulk path resolves to the same single fetch.
+        resolved = auth_resources.attrs_for_bulk(context.resource_type, context.resource_ids)
         for resource_id in context.resource_ids:
-            values = auth_resources.attrs_for(context.resource_type, resource_id)
+            values = resolved.get(resource_id)
             if values is None:
                 # A condition cannot be satisfied by a resource that is not there, and
                 # denying rather than 404ing keeps the response from revealing which
