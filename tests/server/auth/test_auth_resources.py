@@ -6,6 +6,7 @@
 # survives the request.
 
 import threading
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -529,3 +530,24 @@ def test_cache_key_includes_workspace(registry, monkeypatch):
         auth_resources.attrs_for("registered_model", "m")
 
     assert registry.entry_calls == ["m", "m"], "workspaces must not share a cache entry"
+
+
+def test_projected_values_are_always_strings():
+    """Every comparison in a condition is a string comparison, so a projected value of any
+    other type can satisfy no clause an admin could write. On the resource side that denies
+    every mutation of the type rather than allowing it, so the failure is quiet: the
+    condition looks configured and simply never matches.
+
+    The registry store returns an alias's version as an ``int``, which is how this was
+    found -- ``aliases.champion = '1'`` compared ``1`` against ``'1'``.
+    """
+    entity = SimpleNamespace(
+        _tags={"count": 3, 7: "seven"},
+        aliases={"champion": 1, "candidate": 2},
+    )
+    values = auth_resources.values_for_entity("registered_model", "m", entity)
+
+    assert values.tags == {"count": "3", "7": "seven"}
+    assert values.aliases == {"champion": "1", "candidate": "2"}
+    assert all(isinstance(k, str) and isinstance(v, str) for k, v in values.tags.items())
+    assert all(isinstance(k, str) and isinstance(v, str) for k, v in values.aliases.items())

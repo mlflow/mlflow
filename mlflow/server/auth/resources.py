@@ -353,6 +353,16 @@ def fetch_registered_model_strict(name: str):
 # ---------------------------------------------------------------------------
 
 
+def _as_str_mapping(mapping) -> Mapping[str, str]:
+    """Coerce a mapping's keys and values to ``str``.
+
+    The condition vocabulary compares strings only -- which is also why the comparator
+    allowlist excludes the ordering operators -- so a value arriving as another type can
+    never satisfy a clause, and on the resource side that denies rather than allows.
+    """
+    return {str(k): str(v) for k, v in dict(mapping).items()}
+
+
 def _tags_of(entity) -> Mapping[str, str]:
     """Project tags from ``._tags``, not the public ``tags`` property.
 
@@ -361,15 +371,17 @@ def _tags_of(entity) -> Mapping[str, str]:
     ``tags.mlflow.prompt.is_prompt`` silently see nothing -- and D4 permits exactly that
     key on the resource side. ``SearchUtils`` reads ``._tags`` for the same reason,
     with the reasoning in a comment: "consider all tags including reserved ones".
+
+    Keys and values are coerced to ``str`` for the reason given in :func:`_as_str_mapping`.
     """
     if (private := getattr(entity, "_tags", None)) is not None:
-        return dict(private)
+        return _as_str_mapping(private)
     tags = getattr(entity, "tags", None)
     if isinstance(tags, Mapping):
-        return dict(tags)
+        return _as_str_mapping(tags)
     if tags:
         # A repeated proto field or a list of tag entities.
-        return {t.key: t.value for t in tags}
+        return {str(t.key): str(t.value) for t in tags}
     return {}
 
 
@@ -381,12 +393,19 @@ def _aliases_of(entity, resource_type: str) -> Mapping[str, str]:
     Treating the version's list as its own state would let one alias be governed under
     two different resource types, so a version's ``ResourceValues.aliases`` is always
     empty and an alias clause is keyed on the registry entry.
+
+    The version is coerced to ``str`` because the store returns it as an ``int`` while
+    every comparison in a condition is a string comparison. Left as an ``int`` it would
+    match no clause an admin could write -- ``aliases.champion = '1'`` would compare
+    ``1`` against ``'1'`` and fail -- which on the resource side denies every mutation of
+    the type. The same failure that :func:`validate_condition`'s type cross-check exists
+    to prevent, arriving by a different route.
     """
     if resource_type not in ALIAS_OWNING_RESOURCE_TYPES:
         return {}
     aliases = getattr(entity, "aliases", None)
     if isinstance(aliases, Mapping):
-        return dict(aliases)
+        return {str(alias): str(version) for alias, version in aliases.items()}
     return {}
 
 
