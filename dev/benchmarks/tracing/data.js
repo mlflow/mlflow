@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790473187446,
+  "lastUpdate": 1790510515451,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "hkawamura0130@gmail.com",
-            "name": "Harutaka Kawamura",
-            "username": "harupy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9be56528282675c83ed7828d5b169e7ce119a6e5",
-          "message": "Add arrow-key selector for the multi-agent `mlflow agent setup` prompt (#23803)\n\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-09T14:03:35+09:00",
-          "tree_id": "1eb6e43c6b924422987a6fc7512a98f54e5a8ddf",
-          "url": "https://github.com/mlflow/mlflow/commit/9be56528282675c83ed7828d5b169e7ce119a6e5"
-        },
-        "date": 1780981489900,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.34595854999921,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.41704905714183,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.610254467743154,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 21.107891185184837,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 16.02741885714311,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 39.40225839999982,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.262008800000785,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ruslan@hadrian.io",
+            "name": "Ruslan Hamzatov",
+            "username": "rhamzatov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e7c8954896b47eb7a1a61c95445a02ec7d37c1b8",
+          "message": "Group parallel tool call results into one user turn in `GeminiAdapter` (#26001)\n\nSigned-off-by: Ruslan Hamzatov <ruslan@hadrian.io>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>",
+          "timestamp": "2026-09-27T11:58:01Z",
+          "tree_id": "4305ec0654307122af90980641ca21062e577894",
+          "url": "https://github.com/mlflow/mlflow/commit/e7c8954896b47eb7a1a61c95445a02ec7d37c1b8"
+        },
+        "date": 1790510511190,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.95769000000212,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.164058929823033,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.3183966307624715,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.370675929136225,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.651837690262368,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 23.4183135999956,
             "unit": "ms"
           }
         ]
