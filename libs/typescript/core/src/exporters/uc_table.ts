@@ -147,6 +147,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
       span.spanContext().spanId,
     );
     if (!mlflowSpan) {
+      console.warn(`No MLflow span found for span ${span.name}. Skipping user/session attributes.`);
       return;
     }
 
