@@ -2408,6 +2408,7 @@ def _validate_can_read_registered_model_or_prompt():
 def _authorize_registry_entry(
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    aliases: "tuple[str, ...]" = (),
     scope: ConditionScope = ConditionScope.MUTATE,
 ) -> bool:
     """Authorize a shared registry-entry route: grants and conditions, one call.
@@ -2419,11 +2420,14 @@ def _authorize_registry_entry(
     through the anchor lookup, which would read the same entity a second time through a
     different cache.
 
-    ``tags`` is supplied by the caller rather than looked up here. Four routes share this
-    helper with four different bodies -- a set-tag has a key and a value, a delete-tag only
-    a key, a rename neither -- so the values belong at the call site that knows which route
-    it is. Defaulting to empty is safe for a route that sets no tag, because a request
-    clause is vacuous on absence (D20).
+    ``tags`` and ``aliases`` are supplied by the caller rather than looked up here. The
+    routes sharing this helper carry different bodies -- a set-tag has a key and a value, a
+    delete-tag only a key, an alias route an alias, a rename none of them -- so the values
+    belong at the call site that knows which route it is. Defaulting to empty is safe for a
+    route that sets neither, because a request clause is vacuous on absence (D20).
+
+    An alias is conditioned here, on the registry entry, because that is where it lives
+    (D18): ``SetRegisteredModelAlias`` names a version but mutates the entry's alias map.
 
     The values are wrapped in the shape the *classified* type declares, rather than in one
     named here: the same route serves a registered model and a prompt, and each declares
@@ -2431,7 +2435,7 @@ def _authorize_registry_entry(
     """
     target = _registry_entry_target_from_request()
     name = _get_request_param("name")
-    request_values = request_values_shape(target.resource_type)(tags=tags)
+    request_values = request_values_shape(target.resource_type)(tags=tags, aliases=aliases)
     return authorize(
         authenticate_request().username,
         (target.resource_type, name),
@@ -2470,10 +2474,6 @@ def _validate_can_delete_registered_model_or_prompt_tag():
     return _authorize_registry_entry("update", _tag_key_from_request())
 
 
-def _validate_can_delete_registered_model_or_prompt():
-    return _get_permission_from_registered_model_or_prompt_name().can_delete
-
-
 def _alias_version_requirement_met() -> bool:
     target = _registered_model_or_prompt_target()
     if target is None:
@@ -2492,12 +2492,28 @@ def _alias_version_requirement_met() -> bool:
     )
 
 
+def _alias_from_request() -> "tuple[str, ...]":
+    """The single alias a Set/DeleteRegisteredModelAlias body names.
+
+    Named on the delete side too (D12): an alias governed by a condition must not be
+    removable by a caller who could not have set it, which would otherwise let a governed
+    alias be edited in one direction.
+    """
+    return (_get_request_param("alias"),)
+
+
 def validate_can_set_model_or_prompt_version_alias() -> bool:
-    return _validate_can_update_registered_model_or_prompt() and _alias_version_requirement_met()
+    return (
+        _authorize_registry_entry("update", aliases=_alias_from_request())
+        and _alias_version_requirement_met()
+    )
 
 
 def validate_can_delete_model_or_prompt_version_alias() -> bool:
-    return _validate_can_delete_registered_model_or_prompt() and _alias_version_requirement_met()
+    return (
+        _authorize_registry_entry("delete", aliases=_alias_from_request())
+        and _alias_version_requirement_met()
+    )
 
 
 def _authorize_version_action(action: str) -> bool:

@@ -66,18 +66,21 @@ def auth_client(server):
     return AuthServiceClient(server)
 
 
-def _conditioned_user(auth_client, monkeypatch, *, value_condition=None, target_condition=None):
+def _conditioned_user(
+    auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
+):
     """A non-admin who can update every registered model, narrowed by a condition.
 
-    The grant is deliberately broad (``EDIT`` on ``*``) so that any denial in these
-    tests can only come from the condition -- the invariant under test is that
-    conditions subtract from what a grant allows.
+    The grant is deliberately broad (``*``) so that any denial in these tests can only come
+    from the condition -- the invariant under test is that conditions subtract from what a
+    grant allows. ``permission`` is ``MANAGE`` for the routes that check ``can_delete``,
+    which ``EDIT`` does not carry.
     """
     username, password = random_str(), random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
-        auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
+        auth_client.add_role_permission(role.id, "registered_model", "*", permission)
         auth_client.assign_role(username, role.id)
         if value_condition is not None or target_condition is not None:
             auth_client.add_mutation_conditions(
@@ -463,3 +466,118 @@ def test_a_read_is_not_gated_by_a_condition(server, auth_client, monkeypatch):
     with User(username, password, monkeypatch):
         model = MlflowClient(server).get_registered_model(prod)
     assert model.name == prod
+
+
+# ---- Aliases (RFC use case 3) -----------------------------------------------
+
+
+def _model_with_version(server, monkeypatch, tags=None):
+    """A registered model with one version, so an alias has something to point at."""
+    name = f"model-{random_str()}"
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client = MlflowClient(server)
+        experiment_id = client.create_experiment(f"exp-{random_str()}")
+        run_id = client.create_run(experiment_id).info.run_id
+        client.create_registered_model(name, tags=tags)
+        client.create_model_version(name, f"runs:/{run_id}/model", run_id=run_id)
+    return name
+
+
+def _set_alias(server, username, password, monkeypatch, name, alias, version="1"):
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_registered_model_alias(name, alias, version)
+
+
+def test_setting_a_restricted_alias_is_denied(server, auth_client, monkeypatch):
+    """The RFC's use case 3: an alias the condition reserves cannot be published."""
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="alias != 'champion'"
+    )
+    name = _model_with_version(server, monkeypatch)
+
+    _assert_denied(lambda: _set_alias(server, username, password, monkeypatch, name, "champion"))
+
+
+def test_setting_an_unrestricted_alias_is_allowed(server, auth_client, monkeypatch):
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="alias != 'champion'"
+    )
+    name = _model_with_version(server, monkeypatch)
+
+    _set_alias(server, username, password, monkeypatch, name, "candidate")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_model_version_by_alias(name, "candidate").version == "1"
+
+
+def test_deleting_a_restricted_alias_is_denied(server, auth_client, monkeypatch):
+    """D12 on the alias side. Removing a reserved alias is a way of escaping the
+    restriction, so the delete is gated on the alias it names just as the set is.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="alias != 'champion'", permission="MANAGE"
+    )
+    name = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_registered_model_alias(name, "champion", "1")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_registered_model_alias(name, "champion")
+
+
+def test_deleting_an_unrestricted_alias_is_allowed(server, auth_client, monkeypatch):
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="alias != 'champion'", permission="MANAGE"
+    )
+    name = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_registered_model_alias(name, "candidate", "1")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_registered_model_alias(name, "candidate")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_registered_model(name).aliases == {}
+
+
+def test_a_tag_clause_does_not_gate_an_alias_route(server, auth_client, monkeypatch):
+    """D20 vacuity, in the direction that matters here: an alias route sets no tag, so a
+    `tag_key` clause has nothing to judge and must not deny it.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+    name = _model_with_version(server, monkeypatch)
+
+    _set_alias(server, username, password, monkeypatch, name, "champion")
+
+
+def test_an_alias_clause_does_not_gate_a_tag_route(server, auth_client, monkeypatch):
+    """The mirror of the above: a tag route sets no alias."""
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="alias != 'champion'"
+    )
+    name = _model_with_version(server, monkeypatch)
+
+    _set_tag(server, username, password, monkeypatch, name, "lifecycle", "prod")
+
+
+def test_a_resource_alias_condition_gates_the_alias_route(server, auth_client, monkeypatch):
+    """A resource condition reads the entry's current alias map, so it can require that an
+    alias already point somewhere before any alias may be moved.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, target_condition="aliases.champion = '1'"
+    )
+    without = _model_with_version(server, monkeypatch)
+
+    _assert_denied(
+        lambda: _set_alias(server, username, password, monkeypatch, without, "candidate")
+    )
+
+    with_alias = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_registered_model_alias(with_alias, "champion", "1")
+
+    _set_alias(server, username, password, monkeypatch, with_alias, "candidate")

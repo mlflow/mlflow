@@ -8883,7 +8883,7 @@ def test_registered_model_delete_requires_delete_on_its_versions(workspace_permi
     ):
         assert auth_module.validate_can_delete_registered_model_or_prompt_cascade() is False
         # The alias route destroys no version and keeps the plain parent check.
-        assert auth_module._validate_can_delete_registered_model_or_prompt() is True
+        assert auth_module._authorize_registry_entry("delete") is True
 
 
 def _run_version_route(validator, name="model-xyz", method="POST"):
