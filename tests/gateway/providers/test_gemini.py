@@ -986,7 +986,7 @@ async def test_gemini_chat_function_calling_parallel_calls():
 
 
 @pytest.mark.asyncio
-async def test_gemini_chat_function_calling_sequential_rounds_are_not_merged():
+async def test_gemini_chat_function_calling_sequential_calls_keep_separate_response_turns():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     payload = chat_function_calling_payload()
     payload["messages"].extend([
