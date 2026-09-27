@@ -2405,7 +2405,11 @@ def _validate_can_read_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_read
 
 
-def _authorize_registry_entry(action: str, scope: ConditionScope = ConditionScope.MUTATE) -> bool:
+def _authorize_registry_entry(
+    action: str,
+    request_values: RequestValues = RequestValues(),
+    scope: ConditionScope = ConditionScope.MUTATE,
+) -> bool:
     """Authorize a shared registry-entry route: grants and conditions, one call.
 
     Goes through ``authorize`` like the rest of the surface. The two things this route
@@ -2415,9 +2419,11 @@ def _authorize_registry_entry(action: str, scope: ConditionScope = ConditionScop
     through the anchor lookup, which would read the same entity a second time through a
     different cache.
 
-    Having one entry point rather than an open-coded pair per validator is the point: a
-    new registry validator gets the conditions half by default instead of having to
-    remember it, and forgetting it would be silently fail-open.
+    ``request_values`` is supplied by the caller rather than looked up here. Four routes
+    share this helper with four different bodies -- a set-tag has a key and a value, a
+    delete-tag only a key, a rename neither -- so the values belong at the call site that
+    knows which route it is. Defaulting to empty is safe for a route that sets no tag or
+    alias, because a request clause is vacuous on absence (D20).
     """
     target = _registry_entry_target_from_request()
     name = _get_request_param("name")
@@ -2425,15 +2431,38 @@ def _authorize_registry_entry(action: str, scope: ConditionScope = ConditionScop
         authenticate_request().username,
         (target.resource_type, name),
         [Requirement(target.resource_type, name, action)],
-        conditions=[
-            context_for(target.resource_type, name, scope, _request_values_for_current_request())
-        ],
+        conditions=[context_for(target.resource_type, name, scope, request_values)],
         workspace=target.workspace,
     )
 
 
+def _tag_key_and_value_from_request() -> RequestValues:
+    """The single ``key``/``value`` pair a Set*Tag body carries."""
+    return RequestValues(tags=((_get_request_param("key"), _get_request_param("value")),))
+
+
+def _tag_key_from_request() -> RequestValues:
+    """The ``key`` a Delete*Tag body carries, with no value.
+
+    Deletion is gated too (D12): removing a tag a condition reserves is a way of
+    escaping the restriction it expresses. The value is ``None`` rather than empty, so a
+    ``tag_key`` clause applies while a ``tag_value`` clause stays vacuous -- a deletion
+    names no value to constrain.
+    """
+    return RequestValues(tags=((_get_request_param("key"), None),))
+
+
 def _validate_can_update_registered_model_or_prompt():
+    """Bodies that carry no tag or alias: `UpdateRegisteredModel`, `RenameRegisteredModel`."""
     return _authorize_registry_entry("update")
+
+
+def _validate_can_set_registered_model_or_prompt_tag():
+    return _authorize_registry_entry("update", _tag_key_and_value_from_request())
+
+
+def _validate_can_delete_registered_model_or_prompt_tag():
+    return _authorize_registry_entry("update", _tag_key_from_request())
 
 
 def _validate_can_delete_registered_model_or_prompt():
@@ -2790,17 +2819,14 @@ def validate_can_create_registered_model() -> bool:
     # there is no prior state for it to describe -- rather than by a special case here.
     # ``created_type`` is the family the body will actually produce, so a prompt
     # condition governs a prompt create and not an ordinary model create (D2).
+    #
+    # Every tag in the body must satisfy the condition: allowing a bulk create to set a
+    # tag that a single set-tag call could not would make the restriction avoidable.
+    request_values = RequestValues(tags=tuple((tag.key, tag.value) for tag in msg.tags))
     return _workspace_create_not_denied(
         created_type,
         msg.name,
-        conditions=[
-            context_for(
-                created_type,
-                None,
-                ConditionScope.CREATE,
-                _request_values_for_current_request(msg),
-            )
-        ],
+        conditions=[context_for(created_type, None, ConditionScope.CREATE, request_values)],
     )
 
 
@@ -4825,8 +4851,8 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
     TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
     GetModelVersionDownloadUri: validate_can_read_model_or_prompt_version,
-    SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
-    DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
+    SetRegisteredModelTag: _validate_can_set_registered_model_or_prompt_tag,
+    DeleteRegisteredModelTag: _validate_can_delete_registered_model_or_prompt_tag,
     SetModelVersionTag: validate_can_update_model_or_prompt_version,
     DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
     SetRegisteredModelAlias: validate_can_set_model_or_prompt_version_alias,
@@ -4941,44 +4967,6 @@ BEFORE_REQUEST_HANDLERS = {
 
 def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
-
-
-def _extract_tag_key_value(message=None) -> RequestValues:
-    """A single ``key``/``value`` tag pair, the shape most Set*Tag routes use."""
-    return RequestValues(tags=((_get_request_param("key"), _get_request_param("value")),))
-
-
-def _extract_created_registered_model_tags(message=None) -> RequestValues:
-    """The tags a ``CreateRegisteredModel`` body will store.
-
-    A create carries a repeated ``tags`` field rather than one pair, and every tag in it
-    must satisfy the condition: allowing a bulk create to set a tag that a single
-    set-tag call could not would make the restriction trivially avoidable.
-    """
-    message = message if message is not None else _get_request_message(CreateRegisteredModel())
-    return RequestValues(tags=tuple((tag.key, tag.value) for tag in message.tags))
-
-
-#: Request-value extractors, keyed on the proto request class (D3). Keyed on the class
-#: rather than the path because that is the only identifier that survives the AJAX and
-#: REST duplication of every route, and because the coverage guard can then compare this
-#: map against the proto definitions directly.
-#:
-#: Each extractor takes an optional already-parsed message, so a validator that had to
-#: parse the body anyway -- to classify which family it is creating, say -- does not pay
-#: for a second parse.
-#:
-#: An absent entry means "this route sets no tag or alias", which is why the coverage
-#: guard in the tests has to assert the map is complete: a mutating route that names a
-#: tag and has no extractor here is silently ungated by request conditions.
-REQUEST_VALUE_EXTRACTORS = {
-    SetRegisteredModelTag: _extract_tag_key_value,
-    CreateRegisteredModel: _extract_created_registered_model_tags,
-}
-
-
-def get_request_value_extractor(request_class):
-    return REQUEST_VALUE_EXTRACTORS.get(request_class)
 
 
 @functools.lru_cache(maxsize=None)
@@ -5142,32 +5130,6 @@ BEFORE_REQUEST_VALIDATORS.update({
 # Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
 # regex matching — the BEFORE_REQUEST_VALIDATORS exact-match lookup won't find them when
 # the real request path contains an actual trace/request ID instead of the template name.
-#: ``(path, method) -> extractor``, built from the proto-keyed map through the same
-#: ``get_endpoints`` walk the validators use, so a route reaches its extractor by the
-#: same key the dispatcher already has. Both the REST and AJAX paths of a route appear,
-#: because ``get_endpoints`` yields both.
-REQUEST_VALUE_EXTRACTOR_ROUTES = {
-    (http_path, method): extractor
-    for http_path, extractor, methods in get_endpoints(get_request_value_extractor)
-    for method in methods
-    if extractor is not None and extractor in REQUEST_VALUE_EXTRACTORS.values()
-}
-
-
-def _request_values_for_current_request(message=None) -> RequestValues:
-    """The tags and aliases this request sets, or empty if the route sets none.
-
-    Empty is the safe default only because request clauses are vacuous on absence
-    (D20): a route with no extractor is simply not constrained by request conditions,
-    which is why the coverage guard has to prove the map is complete rather than
-    trusting this fallback.
-    """
-    extractor = REQUEST_VALUE_EXTRACTOR_ROUTES.get((request.path, request.method))
-    if extractor is None:
-        return RequestValues()
-    return extractor(message)
-
-
 TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     (_re_compile_path(path), method): handler
     for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()

@@ -380,6 +380,74 @@ def test_a_registered_model_condition_does_not_gate_a_prompt_create(
     assert response.status_code == 200, response.text
 
 
+# ---- Delete gating (D12) ---------------------------------------------------
+
+
+def test_deleting_a_reserved_tag_is_denied(server, auth_client, monkeypatch):
+    """D12. Removing a tag a condition reserves is a way of escaping the restriction it
+    expresses, so a delete is gated by the same `tag_key` clause a set is.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+    name = _model_with_tags(server, monkeypatch, {"lifecycle": "prod"})
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_registered_model_tag(name, "lifecycle")
+
+
+def test_deleting_an_unreserved_tag_is_allowed(server, auth_client, monkeypatch):
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+    name = _model_with_tags(server, monkeypatch, {"team": "analytics"})
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_registered_model_tag(name, "team")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert "team" not in MlflowClient(server).get_registered_model(name).tags
+
+
+def test_a_value_clause_does_not_gate_a_delete(server, auth_client, monkeypatch):
+    """A deletion names a key but no value, so a `tag_value` clause has nothing to
+    constrain and stays vacuous.
+
+    The clause is deliberately positive. A negative one like ``tag_value != 'prod'``
+    would pass whether the absent value arrived as ``None`` or as an empty string, so it
+    could not tell a correct implementation from one that invents a value; ``= 'dev'``
+    passes only when the value is genuinely absent.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_value = 'dev'"
+    )
+    name = _model_with_tags(server, monkeypatch, {"lifecycle": "prod"})
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_registered_model_tag(name, "lifecycle")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert "lifecycle" not in MlflowClient(server).get_registered_model(name).tags
+
+
+def test_a_rename_is_not_denied_by_a_tag_condition(server, auth_client, monkeypatch):
+    """A rename carries no tag, so a tag clause is vacuous. This is the route that shares
+    the update validator but has no request values at all.
+    """
+    username, password = _conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+    )
+    name = _model_with_tags(server, monkeypatch)
+    renamed = f"{name}-renamed"
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).rename_registered_model(name, renamed)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_registered_model(renamed).name == renamed
+
+
 # ---- Reads are never gated -------------------------------------------------
 
 
