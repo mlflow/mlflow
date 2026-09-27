@@ -2218,7 +2218,6 @@ def validate_can_list_gateway_model_definitions():
 
 
 def validate_can_read_model_or_prompt_version():
-    """Point reads of a version: the parent must be readable and the version tier may veto."""
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -3150,7 +3149,6 @@ def validate_can_invoke_issue_detection():
 
 
 def validate_can_invoke_genai_evaluate():
-    """UPDATE on the experiment, vetoed by the run tier."""
     return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
 
 
@@ -3627,7 +3625,6 @@ def _authorize_bulk_in_experiments(
 
 
 def validate_can_create_logged_model():
-    """The experiment authorizes the create; a named ``source_run_id`` also needs run READ."""
     msg = _get_request_message(CreateLoggedModel())
     if not _authorize_create_in_experiment(msg.experiment_id, RESOURCE_TYPE_LOGGED_MODEL):
         return False
@@ -3662,7 +3659,6 @@ def validate_can_get_assessment():
 
 
 def validate_can_query_trace_metrics():
-    """Aggregate trace metrics. ``view_type=ASSESSMENTS`` also requires the assessment tier."""
     message = _get_request_message(QueryTraceMetrics())
     experiment_ids = list(message.experiment_ids)
     resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
@@ -3689,7 +3685,6 @@ def validate_can_query_trace_metrics():
 
 
 def validate_can_create_assessment():
-    """An assessment is created inside a trace, so the TRACE authorizes it."""
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
@@ -3708,7 +3703,6 @@ def validate_can_create_assessment():
 
 
 def validate_can_update_assessment():
-    """Update/delete act on an EXISTING assessment, so the assessment tier decides."""
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
@@ -6123,7 +6117,6 @@ def _redact_run_response(resp: Response, response_message, runs_of) -> None:
 
 
 def redact_metric_history_model_ids(resp: Response) -> None:
-    """`GetMetricHistory` returns bare metric rows, each of which may name a logged model."""
     if sender_is_admin():
         return
     if not isinstance(resp.json, dict):
@@ -6282,7 +6275,6 @@ def _withhold_denied_assessments(trace_infos) -> bool:
 
 
 def redact_trace_assessments(resp: Response) -> None:
-    """Withhold ``assessments[]`` from GetTrace / GetTraceInfoV3."""
     if sender_is_admin():
         return
     response_message = GetTrace.Response()
@@ -6298,7 +6290,6 @@ def redact_trace_assessments(resp: Response) -> None:
 
 
 def redact_trace_info_v3_assessments(resp: Response) -> None:
-    """GetTraceInfoV3 carries the same ``trace.trace_info`` shape as GetTrace."""
     if sender_is_admin():
         return
     response_message = GetTraceInfoV3.Response()
@@ -6314,7 +6305,6 @@ def redact_trace_info_v3_assessments(resp: Response) -> None:
 
 
 def redact_batch_trace_assessments(resp: Response) -> None:
-    """BatchGetTraces returns ``traces[]`` of Trace, so the assessments sit one level down."""
     if sender_is_admin():
         return
     response_message = BatchGetTraces.Response()
@@ -6329,7 +6319,6 @@ def redact_batch_trace_assessments(resp: Response) -> None:
 
 
 def redact_batch_trace_info_assessments(resp: Response) -> None:
-    """BatchGetTraceInfos returns ``trace_infos[]`` of TraceInfoV3 directly."""
     if sender_is_admin():
         return
     response_message = BatchGetTraceInfos.Response()
@@ -6344,7 +6333,6 @@ def redact_batch_trace_info_assessments(resp: Response) -> None:
 
 
 def redact_search_traces_v3_assessments(resp: Response) -> None:
-    """SearchTracesV3 returns ``traces[]`` of TraceInfoV3."""
     if sender_is_admin():
         return
     response_message = SearchTracesV3.Response()
