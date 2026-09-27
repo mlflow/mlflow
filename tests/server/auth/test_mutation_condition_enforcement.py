@@ -1048,3 +1048,152 @@ def test_deleting_traces_by_timestamp_is_unaffected_without_a_target_condition(
 
     with User(username, password, monkeypatch):
         MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=2**62)
+
+
+# ---- Experiments and logged models ------------------------------------------
+
+
+def _typed_conditioned_user(
+    auth_client,
+    monkeypatch,
+    resource_type,
+    *,
+    value_condition=None,
+    target_condition=None,
+    permission="EDIT",
+    extra=(),
+):
+    """A user granted `permission` on `resource_type` (plus any `extra` grants), with a
+    condition attached to that type alone.
+    """
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, resource_type, "*", permission)
+        for extra_type, extra_permission in extra:
+            auth_client.add_role_permission(role.id, extra_type, "*", extra_permission)
+        auth_client.assign_role(username, role.id)
+        if value_condition is not None or target_condition is not None:
+            auth_client.add_mutation_conditions(
+                role.id,
+                resource_type,
+                value_condition=value_condition,
+                target_condition=target_condition,
+            )
+    return username, password
+
+
+def test_a_restricted_experiment_tag_is_denied(server, auth_client, monkeypatch):
+    """The legacy experiment surface resolves a Permission directly rather than through a
+    Requirement list, so its conditions are called beside the grant check instead of
+    through `authorize`. This asserts that path is actually wired.
+    """
+    username, password = _typed_conditioned_user(
+        auth_client, monkeypatch, "experiment", value_condition="tag_key != 'locked'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_experiment_tag(experiment_id, "locked", "yes")
+
+
+def test_an_unrestricted_experiment_tag_is_allowed(server, auth_client, monkeypatch):
+    username, password = _typed_conditioned_user(
+        auth_client, monkeypatch, "experiment", value_condition="tag_key != 'locked'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_experiment_tag(experiment_id, "team", "analytics")
+
+
+def test_creating_an_experiment_with_a_restricted_tag_is_denied(server, auth_client, monkeypatch):
+    username, password = _typed_conditioned_user(
+        auth_client, monkeypatch, "experiment", value_condition="tag_key != 'locked'"
+    )
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).create_experiment(f"exp-{random_str()}", tags={"locked": "yes"})
+
+
+def test_a_restricted_logged_model_tag_is_denied(server, auth_client, monkeypatch):
+    username, password = _typed_conditioned_user(
+        auth_client,
+        monkeypatch,
+        "logged_model",
+        value_condition="tag_key != 'certified'",
+        extra=(("experiment", "EDIT"),),
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client = MlflowClient(server)
+        experiment_id = client.create_experiment(f"exp-{random_str()}")
+        model = client.create_logged_model(experiment_id, name=f"m-{random_str()}")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_logged_model_tags(model.model_id, {"certified": "yes"})
+
+
+def test_a_logged_model_tag_batch_is_denied_when_any_tag_fails(server, auth_client, monkeypatch):
+    """`SetLoggedModelTags` takes a repeated field, so the any-fails-denies rule applies
+    here as it does to LogBatch.
+    """
+    username, password = _typed_conditioned_user(
+        auth_client,
+        monkeypatch,
+        "logged_model",
+        value_condition="tag_key != 'certified'",
+        extra=(("experiment", "EDIT"),),
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client = MlflowClient(server)
+        experiment_id = client.create_experiment(f"exp-{random_str()}")
+        model = client.create_logged_model(experiment_id, name=f"m-{random_str()}")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_logged_model_tags(
+                model.model_id, {"notes": "fine", "certified": "yes"}
+            )
+
+
+def test_reads_are_never_gated_across_every_wired_type(server, auth_client, monkeypatch):
+    """§7.1 case 11, generalized past the one route the RFC names.
+
+    Conditions gate mutations only. A condition that would deny every write must leave
+    every read untouched, on each type now wired -- otherwise wiring a route has silently
+    restricted the read path beside it.
+    """
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        for resource_type in ("experiment", "run", "registered_model", "registered_model_version"):
+            auth_client.add_role_permission(role.id, resource_type, "*", "EDIT")
+            # A condition no tag can satisfy, so any leak into a read path denies it.
+            auth_client.add_mutation_conditions(
+                role.id, resource_type, value_condition="tag_key = 'impossible'"
+            )
+        auth_client.assign_role(username, role.id)
+
+    # `_model_with_version` manages its own admin credentials, so it is called outside the
+    # block below rather than nested inside it.
+    name = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        admin = MlflowClient(server)
+        experiment_id = admin.create_experiment(f"exp-{random_str()}")
+        run_id = admin.create_run(experiment_id, tags={"any": "thing"}).info.run_id
+        admin.set_registered_model_tag(name, "lifecycle", "prod")
+
+    with User(username, password, monkeypatch):
+        client = MlflowClient(server)
+        assert client.get_experiment(experiment_id).experiment_id == experiment_id
+        assert client.get_run(run_id).info.run_id == run_id
+        assert client.get_registered_model(name).name == name
+        assert client.get_model_version(name, "1").version == "1"
+        assert client.search_runs([experiment_id])

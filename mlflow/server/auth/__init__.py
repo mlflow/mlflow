@@ -282,6 +282,8 @@ from mlflow.server.auth.conditions import (
     SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
+    ExperimentRequestValues,
+    LoggedModelRequestValues,
     RunRequestValues,
     TraceRequestValues,
     combine,
@@ -1540,11 +1542,18 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _authorize_logged_model(action: str) -> bool:
-    return _authorize_logged_model_id(_get_request_param("model_id"), action)
+def _authorize_logged_model(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
+    return _authorize_logged_model_id(_get_request_param("model_id"), action, tags)
 
 
-def _authorize_logged_model_id(model_id: str, action: str) -> bool:
+def _authorize_logged_model_id(
+    model_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
     model = auth_resources.fetch_logged_model(model_id)
     if model is None:
         return False
@@ -1558,6 +1567,14 @@ def _authorize_logged_model_id(model_id: str, action: str) -> bool:
             Requirement(
                 RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,)
             ),
+        ],
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_LOGGED_MODEL,
+                model_id,
+                ConditionScope.MUTATE,
+                LoggedModelRequestValues(tags=tags),
+            )
         ],
     )
 
@@ -2086,7 +2103,47 @@ def validate_can_read_experiment_by_name():
 
 
 def validate_can_update_experiment():
+    """Bodies that set no tag: `UpdateExperiment`."""
     return _get_permission_from_experiment_id().can_update
+
+
+def _experiment_conditions_permit(tags: "tuple[tuple[str, str | None], ...]") -> bool:
+    """The conditions half alone, for the legacy experiment surface.
+
+    This surface resolves a `Permission` directly rather than through a `Requirement`
+    list, so there is no `authorize` call to pass conditions to. Calling the conditions
+    half beside it keeps the permission resolution on this hot path untouched, at the cost
+    of the grants-then-conditions ordering being expressed by the caller's `and` rather
+    than structurally. Leaving it unwired instead would leave one of the RFC's three use
+    cases ungated (D1).
+    """
+    experiment_id = _get_request_param("experiment_id")
+    return authorize_on_conditions(
+        authenticate_request().username,
+        get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            context_for(
+                RESOURCE_TYPE_EXPERIMENT,
+                experiment_id,
+                ConditionScope.MUTATE,
+                ExperimentRequestValues(tags=tags),
+            )
+        ],
+    )
+
+
+def validate_can_set_experiment_tag():
+    # Grants first, then conditions: a condition may only subtract from what a grant
+    # already allowed, so it is never consulted for an operation the grant denied.
+    return validate_can_update_experiment() and _experiment_conditions_permit(
+        _tag_key_and_value_from_request()
+    )
+
+
+def validate_can_delete_experiment_tag():
+    return validate_can_update_experiment() and _experiment_conditions_permit(
+        _tag_key_from_request()
+    )
 
 
 # Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
@@ -2442,7 +2499,18 @@ def validate_can_read_logged_model():
 
 
 def validate_can_update_logged_model():
+    """Bodies that set no tag."""
     return _authorize_logged_model("update")
+
+
+def validate_can_set_logged_model_tags():
+    """`SetLoggedModelTags` carries a repeated `tags` field, so every tag must pass."""
+    msg = _get_request_message(SetLoggedModelTags())
+    return _authorize_logged_model("update", tuple((tag.key, tag.value) for tag in msg.tags))
+
+
+def validate_can_delete_logged_model_tag():
+    return _authorize_logged_model("delete", _tag_key_from_request())
 
 
 def validate_can_delete_logged_model():
@@ -2964,8 +3032,28 @@ def _workspace_create_not_denied(
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace() and _workspace_create_not_denied(
-        RESOURCE_TYPE_EXPERIMENT
+    # The container check first: it needs no request body, and keeping it ahead of the parse
+    # preserves the short-circuit callers rely on.
+    if not _user_can_create_in_workspace():
+        return False
+    if not has_request_context():
+        # A non-HTTP caller, so there is no body to read tags from. A request condition is
+        # vacuous on absence (D20), so declaring no context is equivalent here and avoids
+        # asserting an empty tag set that the caller never actually sent.
+        return _workspace_create_not_denied(RESOURCE_TYPE_EXPERIMENT)
+    # CREATE scope: the experiment does not exist yet, so only a request condition can
+    # apply. Its tags come from the body, and every one must pass.
+    msg = _get_request_message(CreateExperiment())
+    return _workspace_create_not_denied(
+        RESOURCE_TYPE_EXPERIMENT,
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_EXPERIMENT,
+                None,
+                ConditionScope.CREATE,
+                ExperimentRequestValues(tags=tuple((tag.key, tag.value) for tag in msg.tags)),
+            )
+        ],
     )
 
 
@@ -4409,7 +4497,11 @@ def _authorize_bulk_in_experiments(
 
 def validate_can_create_logged_model():
     msg = _get_request_message(CreateLoggedModel())
-    if not _authorize_create_in_experiment(msg.experiment_id, RESOURCE_TYPE_LOGGED_MODEL):
+    if not _authorize_create_in_experiment(
+        msg.experiment_id,
+        RESOURCE_TYPE_LOGGED_MODEL,
+        tuple((tag.key, tag.value) for tag in msg.tags),
+    ):
         return False
     return not msg.source_run_id or _authorize_run_id(msg.source_run_id, "read")
 
@@ -5046,8 +5138,8 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteExperiment: validate_can_delete_experiment,
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
-    SetExperimentTag: validate_can_update_experiment,
-    DeleteExperimentTag: validate_can_update_experiment,
+    SetExperimentTag: validate_can_set_experiment_tag,
+    DeleteExperimentTag: validate_can_delete_experiment_tag,
     # Routes for runs
     CreateRun: validate_can_create_run,
     GetRun: validate_can_read_run,
@@ -5381,8 +5473,8 @@ LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
-    DeleteLoggedModelTag: validate_can_delete_logged_model,
-    SetLoggedModelTags: validate_can_update_logged_model,
+    DeleteLoggedModelTag: validate_can_delete_logged_model_tag,
+    SetLoggedModelTags: validate_can_set_logged_model_tags,
     ListLoggedModelArtifacts: validate_can_read_logged_model,
     LogLoggedModelParamsRequest: validate_can_update_logged_model,
 }
