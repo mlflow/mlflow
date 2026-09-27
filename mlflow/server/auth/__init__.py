@@ -2514,7 +2514,11 @@ def validate_can_set_logged_model_tags():
 
 
 def validate_can_delete_logged_model_tag():
-    return _authorize_logged_model("delete", _tag_key_from_request())
+    # The key is a PATH parameter here (`/logged-models/<model_id>/tags/<tag_key>`), and it
+    # is named `tag_key`, not `key`. `_get_request_param` merges `view_args`, so the only
+    # thing that matters is asking for the right name -- asking for `key` raises a 400 on a
+    # route that would otherwise work.
+    return _authorize_logged_model("delete", ((_get_request_param("tag_key"), None),))
 
 
 def validate_can_delete_logged_model():

@@ -99,37 +99,56 @@ def recorder(monkeypatch):
     return rec
 
 
-# Each row: the validator, a request body, and the resource type + scope its condition must
-# name. The scope is part of the assertion because a mutating route declaring CREATE scope
-# would skip every resource condition -- a subtler fail-open than declaring none at all.
+# Each row: the validator, the REAL route (path and method) it is registered on, and the
+# resource type + scope its condition must name.
+#
+# The path and method are part of the fixture because the request's shape decides where a
+# value is read from: a POST carries it in the body, a DELETE in the query string or the
+# path, and `_get_request_param` merges `view_args` last. An earlier version of this guard
+# posted a synthetic body to every route, which let `DeleteLoggedModelTag` pass while
+# asking for `key` when its path parameter is named `tag_key` -- the route 400'd in
+# production and the guard was green. Driving the registered shape is what closes that.
+#
+# The scope is asserted because a mutating route declaring CREATE scope would skip every
+# resource condition -- a subtler fail-open than declaring none at all.
 _WIRED_MUTATIONS = [
     # Registered models and prompts.
     (
         "_validate_can_set_registered_model_or_prompt_tag",
+        "/api/2.0/mlflow/registered-models/set-tag",
+        "POST",
         {"name": "m", "key": "k", "value": "v"},
         "registered_model",
         ConditionScope.MUTATE,
     ),
     (
         "_validate_can_delete_registered_model_or_prompt_tag",
+        "/api/2.0/mlflow/registered-models/delete-tag",
+        "DELETE",
         {"name": "m", "key": "k"},
         "registered_model",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_set_model_or_prompt_version_alias",
+        "/api/2.0/mlflow/registered-models/alias",
+        "POST",
         {"name": "m", "alias": "champion", "version": "1"},
         "registered_model",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_delete_model_or_prompt_version_alias",
+        "/api/2.0/mlflow/registered-models/alias",
+        "DELETE",
         {"name": "m", "alias": "champion"},
         "registered_model",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_create_registered_model",
+        "/api/2.0/mlflow/registered-models/create",
+        "POST",
         {"name": "m"},
         "registered_model",
         ConditionScope.CREATE,
@@ -137,12 +156,16 @@ _WIRED_MUTATIONS = [
     # Model versions.
     (
         "validate_can_set_model_or_prompt_version_tag",
+        "/api/2.0/mlflow/model-versions/set-tag",
+        "POST",
         {"name": "m", "version": "1", "key": "k", "value": "v"},
         "registered_model_version",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_delete_model_or_prompt_version_tag",
+        "/api/2.0/mlflow/model-versions/delete-tag",
+        "DELETE",
         {"name": "m", "version": "1", "key": "k"},
         "registered_model_version",
         ConditionScope.MUTATE,
@@ -150,90 +173,184 @@ _WIRED_MUTATIONS = [
     # Runs.
     (
         "validate_can_set_run_tag",
+        "/api/2.0/mlflow/runs/set-tag",
+        "POST",
         {"run_id": "r1", "key": "k", "value": "v"},
         "run",
         ConditionScope.MUTATE,
     ),
-    ("validate_can_delete_run_tag", {"run_id": "r1", "key": "k"}, "run", ConditionScope.MUTATE),
+    (
+        "validate_can_delete_run_tag",
+        "/api/2.0/mlflow/runs/delete-tag",
+        "POST",
+        {"run_id": "r1", "key": "k"},
+        "run",
+        ConditionScope.MUTATE,
+    ),
     (
         "validate_can_log_batch",
+        "/api/2.0/mlflow/runs/log-batch",
+        "POST",
         {"run_id": "r1", "tags": [{"key": "k", "value": "v"}]},
         "run",
         ConditionScope.MUTATE,
     ),
-    ("validate_can_create_run", {"experiment_id": "1"}, "run", ConditionScope.CREATE),
-    # Traces.
+    (
+        "validate_can_create_run",
+        "/api/2.0/mlflow/runs/create",
+        "POST",
+        {"experiment_id": "1"},
+        "run",
+        ConditionScope.CREATE,
+    ),
+    # Traces. The id is a PATH parameter on the tag routes.
     (
         "validate_can_set_trace_tag_by_request_id",
-        {"request_id": "t1", "key": "k", "value": "v"},
+        "/api/2.0/mlflow/traces/t1/tags",
+        "PATCH",
+        {"key": "k", "value": "v"},
         "trace",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_delete_trace_tag_by_request_id",
-        {"request_id": "t1", "key": "k"},
+        "/api/2.0/mlflow/traces/t1/tags?key=k",
+        "DELETE",
+        None,
+        "trace",
+        ConditionScope.MUTATE,
+    ),
+    (
+        "validate_can_set_trace_tag_by_trace_id",
+        "/api/3.0/mlflow/traces/t1/tags",
+        "PATCH",
+        {"key": "k", "value": "v"},
+        "trace",
+        ConditionScope.MUTATE,
+    ),
+    (
+        "validate_can_delete_trace_tag_by_trace_id",
+        "/api/3.0/mlflow/traces/t1/tags?key=k",
+        "DELETE",
+        None,
         "trace",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_delete_traces",
+        "/api/2.0/mlflow/traces/delete-traces",
+        "POST",
         {"experiment_id": "1", "request_ids": ["t1"]},
         "trace",
         ConditionScope.MUTATE,
     ),
-    # Logged models.
+    # Logged models. The tag key is a PATH parameter on the delete, named `tag_key`.
     (
         "validate_can_set_logged_model_tags",
-        {"model_id": "m1", "tags": [{"key": "k", "value": "v"}]},
+        "/api/2.0/mlflow/logged-models/m1/tags",
+        "PATCH",
+        {"tags": [{"key": "k", "value": "v"}]},
         "logged_model",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_delete_logged_model_tag",
-        {"model_id": "m1", "key": "k"},
+        "/api/2.0/mlflow/logged-models/m1/tags/k",
+        "DELETE",
+        None,
         "logged_model",
         ConditionScope.MUTATE,
     ),
     # Experiments -- the legacy surface, which calls the conditions half directly.
     (
         "validate_can_set_experiment_tag",
+        "/api/2.0/mlflow/experiments/set-experiment-tag",
+        "POST",
         {"experiment_id": "1", "key": "k", "value": "v"},
         "experiment",
         ConditionScope.MUTATE,
     ),
     (
         "validate_can_delete_experiment_tag",
+        "/api/2.0/mlflow/experiments/delete-experiment-tag",
+        "POST",
         {"experiment_id": "1", "key": "k"},
         "experiment",
         ConditionScope.MUTATE,
     ),
-    ("validate_can_create_experiment", {"name": "e"}, "experiment", ConditionScope.CREATE),
+    (
+        "validate_can_create_experiment",
+        "/api/2.0/mlflow/experiments/create",
+        "POST",
+        {"name": "e"},
+        "experiment",
+        ConditionScope.CREATE,
+    ),
 ]
 
 
-@pytest.mark.parametrize(("validator", "body", "resource_type", "scope"), _WIRED_MUTATIONS)
+@pytest.mark.parametrize(
+    ("validator", "path", "method", "body", "resource_type", "scope"), _WIRED_MUTATIONS
+)
 def test_every_wired_mutation_declares_a_condition(
-    recorder, monkeypatch, validator, body, resource_type, scope
+    recorder, monkeypatch, validator, path, method, body, resource_type, scope
 ):
     """The guard that makes leaving other validators untouched safe.
 
     Fails if a route stops declaring a context -- which would not otherwise fail anything,
     because the route keeps authorizing exactly as before and only the conditions go quiet.
     """
-    if validator == "validate_can_set_experiment_tag":
-        monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
-    if validator == "validate_can_delete_experiment_tag":
+    if validator in ("validate_can_set_experiment_tag", "validate_can_delete_experiment_tag"):
         monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
     if validator.endswith("_alias"):
         monkeypatch.setattr(auth_module, "_alias_version_requirement_met", lambda: True)
 
-    with auth_module.app.test_request_context("/api/2.0/mlflow/x", method="POST", json=body):
+    with auth_module.app.test_request_context(path, method=method, json=body):
         getattr(auth_module, validator)()
 
     assert recorder.contexts, f"{validator} declared no ConditionContext -- it is fail-open"
     assert resource_type in recorder.types_at(scope), (
         f"{validator} declared no {resource_type} condition at {scope.name} scope; "
         f"got {[(c.resource_type, c.scope.name) for c in recorder.contexts]}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("validator", "path", "method", "body", "resource_type", "scope"), _WIRED_MUTATIONS
+)
+def test_every_wired_mutation_extracts_its_values(
+    recorder, monkeypatch, validator, path, method, body, resource_type, scope
+):
+    """Declaring a context is necessary but not sufficient: it must carry the values the
+    request actually names.
+
+    A route that declares a correctly-typed context and passes nothing looks wired, and
+    then permits everything -- empty values read as vacuous (D20). So every route that
+    names a tag or an alias must be seen to have extracted one. The create rows whose body
+    carries no tag are the exception, and are listed as such.
+    """
+    if validator in ("validate_can_set_experiment_tag", "validate_can_delete_experiment_tag"):
+        monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
+    if validator.endswith("_alias"):
+        monkeypatch.setattr(auth_module, "_alias_version_requirement_met", lambda: True)
+
+    # These bodies deliberately name neither a tag nor an alias.
+    carries_nothing = {
+        "validate_can_create_registered_model",
+        "validate_can_create_run",
+        "validate_can_create_experiment",
+        "validate_can_delete_traces",
+    }
+
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        getattr(auth_module, validator)()
+
+    extracted = [(c.request.tags, getattr(c.request, "aliases", ())) for c in recorder.contexts]
+    if validator in carries_nothing:
+        return
+    assert any(tags or aliases for tags, aliases in extracted), (
+        f"{validator} declared a context but extracted no tag or alias from the request, "
+        f"so its condition is vacuous and permits everything; got {extracted}"
     )
 
 
