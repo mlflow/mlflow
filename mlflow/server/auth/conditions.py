@@ -778,6 +778,31 @@ def needs_resource_values(
     )
 
 
+def _validate_request_values_for_resource_type(resource_type: str, request: RequestValues) -> None:
+    """Reject request values a resource type cannot carry.
+
+    The contract every validator is held to, enforced here because
+    :class:`RequestValues` is a single shape shared by every type while the values are
+    populated at many call sites -- so the shape alone cannot express that a run has no
+    alias to set. Without this, a mis-wired validator would populate a field meaningless
+    for its type and nothing would object; it is currently unreachable only because the
+    store refuses to persist an alias condition for such a type, which is defence in a
+    different file that a later change could undo.
+
+    Raises rather than denies: this is a wiring bug, not a user error. A raise surfaces it
+    in the tests that exercise the route, and it is fail-closed if one ever reaches
+    production.
+    """
+    if request.aliases and resource_type not in ALIAS_OWNING_RESOURCE_TYPES:
+        raise MlflowException(
+            f"Validator wiring error: request values for resource type '{resource_type}' "
+            f"carry aliases, but only {sorted(ALIAS_OWNING_RESOURCE_TYPES)} own aliases. "
+            f"An alias set on a version belongs to its registry entry, so the context for "
+            f"this operation should name that type instead.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def context_for(
     resource_type: str,
     resource_id: str | None,
@@ -791,13 +816,20 @@ def context_for(
     framework off to fetch a resource named ``*``. A wildcard means the operation is
     not scoped to one identified resource, so there is nothing for a resource
     condition to read -- request conditions still apply.
+
+    Also the one place a validator's request values are checked against the type it
+    declared, so the mis-wiring the shared shape cannot prevent fails loudly here
+    instead of silently going unread.
     """
+    validate_condition_resource_type(resource_type)
+    request = request or RequestValues()
+    _validate_request_values_for_resource_type(resource_type, request)
     ids: tuple[str, ...] = ()
     if resource_id is not None and resource_id != "*":
         ids = (resource_id,)
     return ConditionContext(
         resource_type=resource_type,
         scope=scope,
-        request=request or RequestValues(),
+        request=request,
         resource_ids=ids,
     )

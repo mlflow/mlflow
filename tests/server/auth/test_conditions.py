@@ -519,6 +519,49 @@ def test_clause_describe_round_trips_readably():
     assert in_clause.describe() == "tag_key IN ('a', 'b')"
 
 
+# ---- The validator wiring contract -----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "resource_type", ["run", "experiment", "trace", "logged_model", "registered_model_version"]
+)
+def test_context_rejects_aliases_for_a_type_that_owns_none(resource_type):
+    """`RequestValues` is one shape shared by every type, so it cannot express that a run
+    has no alias to set. A mis-wired validator must therefore fail here rather than
+    populate a field that silently goes unread.
+
+    A raise, not a denial: this is a wiring bug and should surface in the tests that
+    exercise the route.
+    """
+    with pytest.raises(MlflowException, match="wiring error"):
+        context_for(resource_type, "x", ConditionScope.MUTATE, RequestValues(aliases=("champion",)))
+
+
+@pytest.mark.parametrize("resource_type", sorted(ALIAS_OWNING_RESOURCE_TYPES))
+def test_context_allows_aliases_for_the_types_that_own_them(resource_type):
+    context = context_for(
+        resource_type, "x", ConditionScope.MUTATE, RequestValues(aliases=("champion",))
+    )
+    assert context.request.aliases == ("champion",)
+
+
+@pytest.mark.parametrize("resource_type", sorted(SUPPORTED_RESOURCE_TYPES))
+def test_context_allows_tags_for_every_supported_type(resource_type):
+    context = context_for(
+        resource_type, "x", ConditionScope.MUTATE, RequestValues(tags=(("k", "v"),))
+    )
+    assert context.request.tags == (("k", "v"),)
+
+
+def test_context_rejects_an_unsupported_resource_type():
+    """The same check the store applies on the way in, applied again at the point a
+    validator declares a type -- a typo there would otherwise load conditions for a type
+    no condition can exist for, and pass vacuously.
+    """
+    with pytest.raises(MlflowException, match="not supported for resource type"):
+        context_for("assessment", "x", ConditionScope.MUTATE)
+
+
 def test_clause_is_hashable_and_comparable():
     # ``Clause`` is a NamedTuple so loaded conditions can be cached and compared.
     a = Clause("tag_key", None, "=", "x")
