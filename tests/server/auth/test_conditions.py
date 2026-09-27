@@ -13,6 +13,8 @@ from mlflow.server.auth.conditions import (
     MAX_CLAUSES,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
+    REQUEST_IDENTIFIERS,
+    RESOURCE_PREFIXES,
     SUPPORTED_RESOURCE_TYPES,
     Clause,
     ConditionContext,
@@ -523,3 +525,53 @@ def test_clause_is_hashable_and_comparable():
     b = Clause("tag_key", None, "=", "x")
     assert a == b
     assert len({a, b}) == 1
+
+
+# ---- Vocabulary/projection consistency -------------------------------------
+#
+# Both projections fall back to ``None`` for an identifier they do not recognise, and the
+# two namespaces then read that fallback in opposite directions: vacuous on the request
+# side, failing on the resource side. So an identifier added to the parser's vocabulary
+# but not to its projection is silently FAIL-OPEN for requests -- the condition parses,
+# stores, and then never restricts anything.
+#
+# These guards are what make the value shapes safe to extend: adding an identifier
+# without projecting it fails here rather than in production.
+
+#: identifier -> (values that populate it, a condition those values must VIOLATE)
+_REQUEST_PROBES = {
+    "tag_key": (RequestValues(tags=(("k", "v"),)), "tag_key != 'k'"),
+    "tag_value": (RequestValues(tags=(("k", "v"),)), "tag_value != 'v'"),
+    "alias": (RequestValues(aliases=("a",)), "alias != 'a'"),
+}
+
+_RESOURCE_PROBES = {
+    "tags": (ResourceValues("r", tags={"k": "v"}), "tags.k != 'v'"),
+    "aliases": (ResourceValues("r", aliases={"a": "1"}), "aliases.a != '1'"),
+}
+
+
+def test_every_request_identifier_has_a_probe():
+    """If a new identifier is added, it must be enrolled below rather than skipped."""
+    assert set(_REQUEST_PROBES) == set(REQUEST_IDENTIFIERS)
+
+
+def test_every_resource_prefix_has_a_probe():
+    assert set(_RESOURCE_PROBES) == set(RESOURCE_PREFIXES)
+
+
+@pytest.mark.parametrize("identifier", sorted(_REQUEST_PROBES))
+def test_every_request_identifier_is_projected(identifier):
+    """A populated value must be able to violate a clause on its own identifier.
+
+    Passing here would mean the projection never saw the value, so the clause was
+    treated as vacuous -- the fail-open case.
+    """
+    values, condition = _REQUEST_PROBES[identifier]
+    assert evaluate_request(parse_condition(condition, NAMESPACE_REQUEST), values) is False
+
+
+@pytest.mark.parametrize("identifier", sorted(_RESOURCE_PROBES))
+def test_every_resource_prefix_is_projected(identifier):
+    values, condition = _RESOURCE_PROBES[identifier]
+    assert evaluate_resource(parse_condition(condition, NAMESPACE_RESOURCE), values) is False
