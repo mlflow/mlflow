@@ -581,3 +581,112 @@ def test_a_resource_alias_condition_gates_the_alias_route(server, auth_client, m
         MlflowClient(server).set_registered_model_alias(with_alias, "champion", "1")
 
     _set_alias(server, username, password, monkeypatch, with_alias, "candidate")
+
+
+# ---- Model versions (tags only, D18) ----------------------------------------
+
+
+def _version_conditioned_user(
+    auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
+):
+    """A user who can mutate every model version, narrowed by a condition on the version type.
+
+    The registered_model grant is the container READ the version routes also require; the
+    condition is attached to the version type alone, so any denial comes from it.
+    """
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, "registered_model", "*", "READ")
+        auth_client.add_role_permission(role.id, "registered_model_version", "*", permission)
+        auth_client.assign_role(username, role.id)
+        if value_condition is not None or target_condition is not None:
+            auth_client.add_mutation_conditions(
+                role.id,
+                "registered_model_version",
+                value_condition=value_condition,
+                target_condition=target_condition,
+            )
+    return username, password
+
+
+def test_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
+    """§7.1 case 8."""
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'validated'"
+    )
+    name = _model_with_version(server, monkeypatch)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_model_version_tag(name, "1", "validated", "yes")
+
+
+def test_an_unrestricted_version_tag_is_allowed(server, auth_client, monkeypatch):
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'validated'"
+    )
+    name = _model_with_version(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_model_version_tag(name, "1", "notes", "looks fine")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_model_version(name, "1").tags["notes"] == "looks fine"
+
+
+def test_deleting_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
+    """D12 on the version surface, which checks can_delete rather than can_update."""
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'validated'", permission="MANAGE"
+    )
+    name = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_model_version_tag(name, "1", "validated", "yes")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_model_version_tag(name, "1", "validated")
+
+
+def test_a_version_resource_condition_reads_the_versions_own_tags(server, auth_client, monkeypatch):
+    """The condition targets the version by its composed id, so it must see the version's
+    own tags -- not the parent registry entry's, which are a different resource.
+    """
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.stage = 'candidate'"
+    )
+    # The parent carries the tag; the version does not. A condition on the version must
+    # therefore deny, or it is reading the wrong resource's state.
+    name = _model_with_version(server, monkeypatch, tags={"stage": "candidate"})
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_model_version_tag(name, "1", "notes", "x")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_model_version_tag(name, "1", "stage", "candidate")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_model_version_tag(name, "1", "notes", "x")
+
+
+def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_client, monkeypatch):
+    """D2 across the parent/child boundary: the two are distinct resource types, so a
+    condition on the entry must not travel to its versions.
+    """
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
+        auth_client.add_role_permission(role.id, "registered_model_version", "*", "EDIT")
+        auth_client.assign_role(username, role.id)
+        auth_client.add_mutation_conditions(
+            role.id, "registered_model", value_condition="tag_key != 'validated'"
+        )
+    name = _model_with_version(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_model_version_tag(name, "1", "validated", "yes")

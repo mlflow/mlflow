@@ -2516,7 +2516,19 @@ def validate_can_delete_model_or_prompt_version_alias() -> bool:
     )
 
 
-def _authorize_version_action(action: str) -> bool:
+def _authorize_version_action(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
+    """Authorize a shared model/prompt-version route: grants and conditions, one call.
+
+    A version is tags-only: its ``aliases`` list names aliases stored on the parent, so an
+    alias is conditioned on the parent instead (D18). The version's declared shape has no
+    alias field at all, so this helper cannot accidentally pass one.
+
+    The condition targets the version by its composed id, not the parent's name, so a
+    resource clause reads the version's own tags rather than the entry's.
+    """
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -2527,12 +2539,21 @@ def _authorize_version_action(action: str) -> bool:
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
     container = (container_type, name)
+    resource_id = auth_resources.version_resource_id(name, _get_request_param("version"))
     return authorize(
         authenticate_request().username,
         container,
         [
             Requirement(container_type, name, "read"),
             Requirement(version_type, "*", action, fallback_if_no_grant=(container,)),
+        ],
+        conditions=[
+            context_for(
+                version_type,
+                resource_id,
+                ConditionScope.MUTATE,
+                request_values_shape(version_type)(tags=tags),
+            )
         ],
     )
 
@@ -2666,11 +2687,24 @@ def validate_can_read_model_or_prompt_version():
 
 
 def validate_can_update_model_or_prompt_version():
+    """Bodies that carry no tag: `UpdateModelVersion`, `TransitionModelVersionStage`.
+
+    The stages API stays unconditioned (D15/D16): a stage is not part of the RFC's
+    vocabulary, so there is no clause that could govern one.
+    """
     return _authorize_version_action("update")
 
 
 def validate_can_delete_model_or_prompt_version():
     return _authorize_version_action("delete")
+
+
+def validate_can_set_model_or_prompt_version_tag():
+    return _authorize_version_action("update", _tag_key_and_value_from_request())
+
+
+def validate_can_delete_model_or_prompt_version_tag():
+    return _authorize_version_action("delete", _tag_key_from_request())
 
 
 def _validate_can_manage_registered_model_or_prompt():
@@ -4876,8 +4910,8 @@ BEFORE_REQUEST_HANDLERS = {
     GetModelVersionDownloadUri: validate_can_read_model_or_prompt_version,
     SetRegisteredModelTag: _validate_can_set_registered_model_or_prompt_tag,
     DeleteRegisteredModelTag: _validate_can_delete_registered_model_or_prompt_tag,
-    SetModelVersionTag: validate_can_update_model_or_prompt_version,
-    DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
+    SetModelVersionTag: validate_can_set_model_or_prompt_version_tag,
+    DeleteModelVersionTag: validate_can_delete_model_or_prompt_version_tag,
     SetRegisteredModelAlias: validate_can_set_model_or_prompt_version_alias,
     DeleteRegisteredModelAlias: validate_can_delete_model_or_prompt_version_alias,
     GetModelVersionByAlias: validate_can_read_model_or_prompt_version,
