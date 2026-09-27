@@ -7869,6 +7869,63 @@ def test_mcp_server_version_deny_applies_after_creation(fastapi_client, monkeypa
         assert resp.status_code == 200
 
 
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_version_grant_widens_as_well_as_narrows(fastapi_client, monkeypatch, prefix):
+    """A version grant must be able to raise the action on a version, not only lower it.
+
+    The path validator gated the server at the ACTION level and then consulted the version tier,
+    so the two were ANDed: `(mcp_server_version, *, MANAGE)` could not delete a version unless the
+    server already allowed deletes, making the tier veto-only in practice. On `versions/...` the
+    version is the subject, so the server supplies only the READ baseline and the tier carries the
+    action -- while a server DENY still refuses, because that baseline is a separate requirement
+    rather than another link in the fallback chain.
+    """
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    uri = fastapi_client.tracking_uri
+
+    def _grant(user, resource_type, resource_id, permission):
+        requests.post(
+            url=f"{uri}/api/3.0/mlflow/users/permissions/grant",
+            json={
+                "username": user,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "permission": permission,
+            },
+            auth=admin_auth,
+        ).raise_for_status()
+
+    # (server grant, version grant, expected DELETE status on the version)
+    cases = [
+        ("READ", "MANAGE", 200),
+        ("MANAGE", "READ", 403),
+        ("DENY", "MANAGE", 403),
+    ]
+    for index, (server_perm, version_perm, expected) in enumerate(cases):
+        server_name = f"com.test/tier-override-{index}"
+        with User(owner, owner_pw, monkeypatch):
+            requests.post(
+                url=uri + prefix, json={"name": server_name}, auth=(owner, owner_pw)
+            ).raise_for_status()
+            requests.post(
+                url=f"{uri}{prefix}/{server_name}/versions",
+                json=_version_create_body(server_name),
+                auth=(owner, owner_pw),
+            ).raise_for_status()
+
+        user, user_pw = create_user(uri)
+        _grant(user, "mcp_server", server_name, server_perm)
+        _grant(user, "mcp_server_version", "*", version_perm)
+        with User(user, user_pw, monkeypatch):
+            resp = requests.delete(
+                url=f"{uri}{prefix}/{server_name}/versions/1.0.0", auth=(user, user_pw)
+            )
+        assert resp.status_code == expected, (
+            f"server={server_perm} version={version_perm} returned {resp.status_code}"
+        )
+
+
 def _mcp_version_content_in(blob: str) -> list[str]:
     present = [
         field

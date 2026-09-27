@@ -1629,12 +1629,15 @@ def _mcp_server_version_action_allowed(username: str, name: str, action: str) ->
         username,
         server,
         [
+            # The parent READ baseline is a SEPARATE requirement, not another link in the chain:
+            # folding it in would let a version grant short-circuit past a server DENY.
+            Requirement(RESOURCE_TYPE_MCP_SERVER, name, "read"),
             Requirement(
                 RESOURCE_TYPE_MCP_SERVER_VERSION,
                 "*",
                 action,
                 fallback_if_no_grant=(server,),
-            )
+            ),
         ],
     )
 
@@ -7564,6 +7567,13 @@ def _mcp_path_targets_a_version(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] in ("versions", "aliases")
 
 
+def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
+    # Only `versions/...` makes the version the SUBJECT, so only there does the method name the
+    # action taken ON it. An `aliases/<alias>` write mutates the server's alias map and merely
+    # DISCLOSES a version, so its action is pinned to "read" and the server keeps the write gate.
+    return len(parts) > 2 and parts[2] == "versions"
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -7611,6 +7621,16 @@ def _get_mcp_server_validator(
                     username, name
                 )
             return _authorize_create_mcp_server_version(username, name)
+        if request.method not in ("GET", "POST", "PATCH", "DELETE"):
+            return False
+        if _mcp_path_targets_a_version_as_subject(parts):
+            # The version is the SUBJECT of these routes, so the server contributes only the READ
+            # baseline and the version tier carries the action. Gating the server at the action
+            # level here as well would let a version grant narrow but never widen, which is not
+            # the tier override the rest of the model implements.
+            return _mcp_server_version_action_allowed(
+                username, name, _mcp_version_action(parts, request.method)
+            )
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":
@@ -7624,6 +7644,9 @@ def _get_mcp_server_validator(
         if not allowed:
             return False
         if _mcp_path_targets_a_version(parts):
+            # Reached only for `aliases/...`, where the server is the subject and has just been
+            # gated at the action level. The tier still applies because the route discloses the
+            # version the alias resolves to, but at the "read" that disclosure amounts to.
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
