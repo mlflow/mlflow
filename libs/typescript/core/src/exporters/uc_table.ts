@@ -159,7 +159,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
         [TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID],
       ]) {
         const value = traceInfo.traceMetadata[metadataKey];
-        if (value) {
+        if (value != null) {
           mlflowSpan.setAttribute(attributeKey, value);
         }
       }
