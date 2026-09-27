@@ -13,6 +13,7 @@ import pytest
 import requests
 
 from mlflow import MlflowClient, MlflowException
+from mlflow.entities import Metric, Param, RunTag
 from mlflow.environment_variables import (
     MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -690,3 +691,243 @@ def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_c
 
     with User(username, password, monkeypatch):
         MlflowClient(server).set_model_version_tag(name, "1", "validated", "yes")
+
+
+# ---- Runs (RFC use case 1) --------------------------------------------------
+
+
+def _run_conditioned_user(auth_client, monkeypatch, *, value_condition=None, target_condition=None):
+    """A user who can mutate every run in the workspace, narrowed by a run condition."""
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, "experiment", "*", "EDIT")
+        auth_client.add_role_permission(role.id, "run", "*", "EDIT")
+        auth_client.assign_role(username, role.id)
+        if value_condition is not None or target_condition is not None:
+            auth_client.add_mutation_conditions(
+                role.id,
+                "run",
+                value_condition=value_condition,
+                target_condition=target_condition,
+            )
+    return username, password
+
+
+def _a_run(server, monkeypatch, tags=None):
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client = MlflowClient(server)
+        experiment_id = client.create_experiment(f"exp-{random_str()}")
+        run = client.create_run(experiment_id, tags=tags)
+    return run.info.run_id
+
+
+def test_a_restricted_run_tag_is_denied(server, auth_client, monkeypatch):
+    """§7.1 case 2."""
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_tag(run_id, "approved", "yes")
+
+
+def test_an_unrestricted_run_tag_is_allowed(server, auth_client, monkeypatch):
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_tag(run_id, "notes", "fine")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_run(run_id).data.tags["notes"] == "fine"
+
+
+def test_deleting_a_restricted_run_tag_is_denied(server, auth_client, monkeypatch):
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch, tags={"approved": "yes"})
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_tag(run_id, "approved")
+
+
+def test_logging_a_param_is_not_denied_by_a_tag_condition(server, auth_client, monkeypatch):
+    """`LogParam` shares its validator with the tag routes. A body carrying a param and no
+    tag must not be denied -- the same shape as case 5b, on the route that shares a
+    validator rather than having its own.
+    """
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).log_param(run_id, "alpha", "0.1")
+
+
+def test_a_metrics_only_log_batch_is_not_denied_by_a_tag_condition(
+    server, auth_client, monkeypatch
+):
+    """§7.1 case 5b, the case the tracker flags as most likely to catch a real bug: a batch
+    that writes metrics and no tags has nothing for a `tag_key` clause to judge.
+    """
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).log_batch(run_id, metrics=[Metric("loss", 0.5, 0, 0)])
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_run(run_id).data.metrics["loss"] == 0.5
+
+
+def test_a_log_batch_carrying_a_restricted_tag_is_denied(server, auth_client, monkeypatch):
+    """§7.1 case 5a. The batch path must be gated on the tags it writes, or it is a way
+    around the single-tag route.
+    """
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).log_batch(run_id, tags=[RunTag("approved", "yes")])
+
+
+def test_a_log_batch_is_denied_when_any_one_of_several_tags_fails(server, auth_client, monkeypatch):
+    """A bulk body must not dilute a restriction that holds for one tag."""
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).log_batch(
+                run_id, tags=[RunTag("notes", "fine"), RunTag("approved", "yes")]
+            )
+
+
+def test_creating_a_run_with_a_restricted_tag_is_denied(server, auth_client, monkeypatch):
+    """§7.1 case 4, at CREATE scope."""
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).create_run(experiment_id, tags={"approved": "yes"})
+
+
+def test_creating_a_run_without_tags_is_allowed(server, auth_client, monkeypatch):
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).create_run(experiment_id)
+
+
+def test_a_reserved_tag_key_cannot_be_named_by_a_request_condition(auth_client, monkeypatch):
+    """D17 + D4, and the reason `run_name` needs no extraction.
+
+    The store persists `run_name` as the reserved `mlflow.runName` tag, so if a request
+    condition could name that key, `UpdateRun` would be a way to write a governed tag
+    without going through a tag route. D4 closes it at the authoring end instead: a
+    reserved key is refused on the request side, so no such clause can exist to be
+    bypassed. Asserted here because the guarantee rests on the two rules agreeing -- a
+    change to either would turn this into a live bypass.
+    """
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        with pytest.raises(MlflowException, match=r"reserved tag keys"):
+            auth_client.add_mutation_conditions(
+                role.id, "run", value_condition="tag_key != 'mlflow.runName'"
+            )
+
+        # The resource side permits it, because reading current state reveals nothing the
+        # caller could not already read.
+        auth_client.add_mutation_conditions(
+            role.id, "run", target_condition="tags.mlflow.runName != 'secret'"
+        )
+
+
+def test_an_update_run_rename_is_not_denied_by_a_tag_condition(server, auth_client, monkeypatch):
+    """The companion to the above: `UpdateRun` sets no tag the condition layer sees, so a
+    rename passes under a `tag_key` clause (D20 vacuity).
+    """
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).update_run(run_id, name="renamed")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert MlflowClient(server).get_run(run_id).info.run_name == "renamed"
+
+
+def test_vacuity_holds_under_a_positive_clause(server, auth_client, monkeypatch):
+    """The discriminating form of case 5b.
+
+    A negative clause (`tag_key != 'x'`) passes whether the projection is vacuous or
+    yields a placeholder, so it cannot tell the two apart -- a test written that way stays
+    green even if vacuity breaks. A *positive* clause separates them: if a body carrying no
+    tag were treated as carrying one, `tag_key = 'notes'` would judge that phantom value
+    and deny.
+
+    So this asserts, for each body that sets no tag, that a positive clause does not deny
+    it -- which is only true if the clause genuinely does not apply.
+    """
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key = 'notes'"
+    )
+    run_id = _a_run(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        client = MlflowClient(server)
+        # Metrics-only batch (5b), params-only batch, a param, and a rename: none sets a tag.
+        client.log_batch(run_id, metrics=[Metric("loss", 0.5, 0, 0)])
+        client.log_batch(run_id, params=[Param("beta", "2")])
+        client.log_param(run_id, "alpha", "0.1")
+        client.update_run(run_id, name="renamed")
+
+    # The same clause still bites on a body that *does* set a non-matching tag, so the
+    # condition is live rather than inert.
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_tag(run_id, "other", "x")
+
+
+def test_creating_a_run_without_tags_holds_under_a_positive_clause(
+    server, auth_client, monkeypatch
+):
+    """The same discrimination at CREATE scope."""
+    username, password = _run_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key = 'notes'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).create_run(experiment_id)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).create_run(experiment_id, tags={"other": "x"})

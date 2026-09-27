@@ -279,8 +279,10 @@ from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
+    SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
+    RunRequestValues,
     combine,
     condition_load_types,
     context_for,
@@ -2163,34 +2165,103 @@ def _run_requirement(
     ]
 
 
-def _authorize_run_id(run_id: str, action: str) -> bool:
+def _authorize_run_id(
+    run_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
     resolved = _run_requirement(run_id, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
-    return authorize(authenticate_request().username, anchor, requirements)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        requirements,
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_RUN,
+                run_id,
+                ConditionScope.MUTATE,
+                RunRequestValues(tags=tags),
+            )
+        ],
+    )
 
 
-def _authorize_run(action: str) -> bool:
-    return _authorize_run_id(_get_request_param("run_id"), action)
+def _authorize_run(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
+    return _authorize_run_id(_get_request_param("run_id"), action, tags)
 
 
 def validate_can_update_run():
+    """Bodies that set no tag: `UpdateRun`, `LogModel`, `LogParam`.
+
+    `LogParam` is the case that matters here: a body carrying a param and no tag must not
+    be denied by a `tag_key` clause, which holds because a request clause is vacuous on
+    absence (D20).
+
+    `UpdateRun` carries `run_name`, which the tracking store persists as the reserved
+    `mlflow.runName` tag (D17). It is not extracted as a tag because D4 exempts the
+    reserved prefix on the request side, so no clause can name it and there is nothing to
+    bypass. A future non-reserved field with the same indirection would need extracting
+    here.
+    """
     return _authorize_run("update")
+
+
+def validate_can_set_run_tag():
+    return _authorize_run("update", _tag_key_and_value_from_request())
+
+
+def validate_can_delete_run_tag():
+    return _authorize_run("update", _tag_key_from_request())
 
 
 def _authorize_create_in_experiment_as(
     username: str,
     experiment_id: str,
     created_type: str,
+    *,
     extra: "Sequence[Requirement]" = (),
+    tags: "tuple[tuple[str, str | None], ...]" = (),
 ) -> bool:
     # Takes the username explicitly for the FastAPI validators, which are handed one rather
     # than running inside a Flask request context.
     #
+    # ``extra`` and ``tags`` are keyword-only deliberately: they occupy the same argument
+    # slot by position, carry unrelated meanings, and a positional call that bound one to
+    # the other would fail OPEN -- a veto requirement silently read as a tag list declares
+    # no requirement and conditions nothing.
+    #
     # ``extra`` carries a veto for a type the request writes ALONGSIDE the created one, which a
     # create otherwise never mentions. Kept here rather than inlined at the call site so this
     # stays the single definition of what a create in an experiment requires.
+    #
+    # CREATE scope, and no resource id: the thing being created does not exist yet, so a
+    # resource condition has no state to read and is vacuous here by construction rather
+    # than by special case. Only the request condition can apply.
+    #
+    # `created_type` ranges wider than the condition vocabulary -- `review_queue` is a
+    # sub-resource tier the RFC does not cover -- so a condition is declared only for a
+    # type the feature governs. Skipping the rest is not a gap: the store validates
+    # `resource_type` on write, so no condition row can exist for them. `context_for`
+    # stays strict about an unrecognised type, because there the type is a hand-written
+    # constant and a typo is a wiring bug.
+    conditions = (
+        [
+            context_for(
+                created_type,
+                None,
+                ConditionScope.CREATE,
+                request_values_shape(created_type)(tags=tags),
+            )
+        ]
+        if created_type in SUPPORTED_RESOURCE_TYPES
+        else ()
+    )
     return authorize(
         username,
         (RESOURCE_TYPE_EXPERIMENT, experiment_id),
@@ -2199,22 +2270,45 @@ def _authorize_create_in_experiment_as(
             Requirement(created_type, "*", ACTION_NOT_DENIED),
             *extra,
         ],
+        conditions=conditions,
     )
 
 
 def _authorize_create_in_experiment(
-    experiment_id: str, created_type: str, extra: "Sequence[Requirement]" = ()
+    experiment_id: str,
+    created_type: str,
+    *,
+    extra: "Sequence[Requirement]" = (),
+    tags: "tuple[tuple[str, str | None], ...]" = (),
 ) -> bool:
     return _authorize_create_in_experiment_as(
-        authenticate_request().username, experiment_id, created_type, extra
+        authenticate_request().username,
+        experiment_id,
+        created_type,
+        extra=extra,
+        tags=tags,
     )
 
 
 def validate_can_create_run():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+    """§7.1 case 4. The run's tags come from the body, so a create can be restricted to
+    bodies whose tags all pass -- every tag, so a multi-tag body cannot smuggle one past.
+
+    `run_name` is not extracted: the store persists it as the reserved `mlflow.runName`
+    tag (D17), which D4 exempts from the request side, so no clause can name it.
+    """
+    msg = _get_request_message(CreateRun())
+    return _authorize_create_in_experiment(
+        _get_request_param("experiment_id"),
+        RESOURCE_TYPE_RUN,
+        tags=tuple((tag.key, tag.value) for tag in msg.tags),
+    )
 
 
-def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
+def _validate_can_update_run_and_models(
+    model_ids: set[str],
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
     """UPDATE on the run AND on every logged model the metrics target.
 
     Without the second half, a caller with UPDATE on their own run could inject metrics
@@ -2224,6 +2318,11 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
 
     A nonexistent model_id denies uniformly, so the response cannot be used as an oracle
     for which model ids exist.
+
+    The condition is attached to the run, which is the resource whose tags the batch would
+    write. A metrics-only or params-only batch passes an empty tuple and is therefore
+    vacuous under a `tag_key` clause (D20) -- §7.1 case 5b, the case a naive implementation
+    denies.
     """
     resolved = _run_requirement(_get_request_param("run_id"), "update")
     if resolved is None:
@@ -2243,7 +2342,19 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
                 fallback_if_no_grant=(model_experiment,),
             )
         )
-    return authorize(authenticate_request().username, anchor, requirements)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        requirements,
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_RUN,
+                _get_request_param("run_id"),
+                ConditionScope.MUTATE,
+                RunRequestValues(tags=tags),
+            )
+        ],
+    )
 
 
 def validate_can_log_metric():
@@ -2260,7 +2371,10 @@ def validate_can_log_batch():
     # Parse through the proto (covers the camelCase `modelId` alias on nested metrics).
     msg = _get_request_message(LogBatch())
     model_ids = {m.model_id for m in msg.metrics if m.model_id}
-    return _validate_can_update_run_and_models(model_ids)
+    # Every tag in the batch must pass: a bulk body must not slip past a restriction that
+    # holds for a single tag. A metrics-or-params-only batch yields none (case 5b).
+    tags = tuple((tag.key, tag.value) for tag in msg.tags)
+    return _validate_can_update_run_and_models(model_ids, tags)
 
 
 def validate_can_log_inputs():
@@ -4428,7 +4542,7 @@ def validate_can_start_trace_v3():
         if message.trace.trace_info.assessments
         else ()
     )
-    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE, extra)
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE, extra=extra)
 
 
 def validate_can_link_traces_to_run():
@@ -4879,8 +4993,8 @@ BEFORE_REQUEST_HANDLERS = {
     LogInputs: validate_can_log_inputs,
     LogModel: validate_can_update_run,
     LogOutputs: validate_can_log_outputs,
-    SetTag: validate_can_update_run,
-    DeleteTag: validate_can_update_run,
+    SetTag: validate_can_set_run_tag,
+    DeleteTag: validate_can_delete_run_tag,
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
