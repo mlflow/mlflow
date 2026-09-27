@@ -442,10 +442,16 @@ def test_needs_resource_values_short_circuits():
     assert needs_resource_values([create], {"run"}) is False
     # Configured, but no role has a target condition on this type.
     assert needs_resource_values([mutate], set()) is False
-    # Both present -> the only case that reads.
+    # Both present -> the case that reads.
     assert needs_resource_values([mutate], {"run"}) is True
-    # A wildcard id means no identified resource to read.
-    assert needs_resource_values([context_for("run", "*", ConditionScope.MUTATE)], {"run"}) is False
+
+    # A MUTATE context naming NO resource must still reach the gate, even though there is
+    # nothing to fetch. The gate refuses it (D21): an operation that cannot say which
+    # resources it will change cannot be checked against a condition on them. Answering
+    # False here would return *allow* instead, making a predicate-mode bulk delete a way
+    # around every resource condition -- so this deliberately does not short-circuit.
+    assert needs_resource_values([context_for("run", "*", ConditionScope.MUTATE)], {"run"}) is True
+    assert needs_resource_values([context_for("run", None, ConditionScope.MUTATE)], {"run"}) is True
 
 
 def test_no_none_scope():

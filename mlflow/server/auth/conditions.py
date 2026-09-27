@@ -918,11 +918,16 @@ def needs_resource_values(
     common: no context is at ``MUTATE`` scope (a create has no prior state), or no
     role has a target condition on any type in play (the configured-but-request-only
     case). Either way the resource is never read.
+
+    Deliberately does **not** also require ``resource_ids``. A ``MUTATE`` context that
+    names none still has to reach the gate's target loop, which refuses it (D21) -- an
+    operation that cannot say which resources it will change cannot be checked against a
+    condition on them. Answering "no reads needed" here would return *allow* instead,
+    making a predicate-mode bulk delete a way around every resource condition. The loop
+    denies before fetching anything, so this costs no query.
     """
     return any(
-        context.scope is ConditionScope.MUTATE
-        and context.resource_type in types_with_target
-        and context.resource_ids
+        context.scope is ConditionScope.MUTATE and context.resource_type in types_with_target
         for context in contexts
     )
 

@@ -283,6 +283,7 @@ from mlflow.server.auth.conditions import (
     ConditionContext,
     ConditionScope,
     RunRequestValues,
+    TraceRequestValues,
     combine,
     condition_load_types,
     context_for,
@@ -1088,6 +1089,18 @@ def authorize_on_conditions(
         ]
         if not target_rows:
             continue
+        if not context.resource_ids:
+            # A target condition exists for a type this operation mutates, but the
+            # operation could not name which resources it will touch -- a predicate-mode
+            # bulk delete selecting by timestamp, for instance (D21). The condition cannot
+            # be evaluated, so the operation is refused rather than allowed: iterating an
+            # empty id list would pass every clause vacuously, which is the one direction
+            # this gate must never fail in.
+            #
+            # This is unreachable for a route that names its resource, and every wired
+            # route at MUTATE scope does. It is the backstop for one that cannot, and for
+            # a future wiring bug that forgets to.
+            return False
         for resource_id in context.resource_ids:
             values = auth_resources.attrs_for(context.resource_type, resource_id)
             if values is None:
@@ -4265,6 +4278,17 @@ def validate_can_delete_traces():
     """
     experiment_id = _get_request_param("experiment_id")
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    # §7.1 cases 9a and 9b. The route has two modes: it either names the traces
+    # (``request_ids``) or selects them by timestamp. In the first, every named trace is
+    # conditioned -- one bulk attribute fetch, not one query per id. In the second the set
+    # is not enumerable before the delete, so a resource condition cannot be evaluated
+    # against it and the gate refuses (D21) rather than passing vacuously.
+    #
+    # The refusal only bites when a trace target condition actually exists: with none
+    # configured the gate returns before reaching it, so timestamp-mode deletes behave
+    # exactly as they do today.
+    msg = _get_request_message(DeleteTraces())
+    trace_ids = tuple(msg.request_ids)
     return authorize(
         authenticate_request().username,
         experiment,
@@ -4287,10 +4311,22 @@ def validate_can_delete_traces():
                 ),
             ),
         ],
+        conditions=[
+            ConditionContext(
+                resource_type=RESOURCE_TYPE_TRACE,
+                scope=ConditionScope.MUTATE,
+                request=TraceRequestValues(),
+                resource_ids=trace_ids,
+            )
+        ],
     )
 
 
-def _authorize_trace(trace_id: str, action: str) -> bool:
+def _authorize_trace(
+    trace_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
     trace = auth_resources.fetch_trace_info(trace_id)
     if trace is None:
         return False
@@ -4303,15 +4339,45 @@ def _authorize_trace(trace_id: str, action: str) -> bool:
             Requirement(RESOURCE_TYPE_EXPERIMENT, trace.experiment_id, "read"),
             Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,)),
         ],
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_TRACE,
+                trace_id,
+                ConditionScope.MUTATE,
+                TraceRequestValues(tags=tags),
+            )
+        ],
     )
 
 
 def validate_can_update_trace_by_trace_id():
+    """Bodies that set no tag, addressed by `trace_id`."""
     return _authorize_trace(_get_request_param("trace_id"), "update")
 
 
 def validate_can_update_trace_by_request_id():
+    """Bodies that set no tag, addressed by `request_id`."""
     return _authorize_trace(_get_request_param("request_id"), "update")
+
+
+def validate_can_set_trace_tag_by_trace_id():
+    return _authorize_trace(
+        _get_request_param("trace_id"), "update", _tag_key_and_value_from_request()
+    )
+
+
+def validate_can_set_trace_tag_by_request_id():
+    return _authorize_trace(
+        _get_request_param("request_id"), "update", _tag_key_and_value_from_request()
+    )
+
+
+def validate_can_delete_trace_tag_by_trace_id():
+    return _authorize_trace(_get_request_param("trace_id"), "update", _tag_key_from_request())
+
+
+def validate_can_delete_trace_tag_by_request_id():
+    return _authorize_trace(_get_request_param("request_id"), "update", _tag_key_from_request())
 
 
 def _bulk_requirements_in_experiments(
@@ -5096,10 +5162,10 @@ BEFORE_REQUEST_HANDLERS = {
     BatchGetTraceInfos: validate_can_batch_get_traces,
     DeleteTraces: validate_can_delete_traces,
     DeleteTracesV3: validate_can_delete_traces,
-    SetTraceTag: validate_can_update_trace_by_request_id,
-    SetTraceTagV3: validate_can_update_trace_by_trace_id,
-    DeleteTraceTag: validate_can_update_trace_by_request_id,
-    DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
+    SetTraceTag: validate_can_set_trace_tag_by_request_id,
+    SetTraceTagV3: validate_can_set_trace_tag_by_trace_id,
+    DeleteTraceTag: validate_can_delete_trace_tag_by_request_id,
+    DeleteTraceTagV3: validate_can_delete_trace_tag_by_trace_id,
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
     CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,

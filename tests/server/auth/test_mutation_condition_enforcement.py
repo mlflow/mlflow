@@ -931,3 +931,120 @@ def test_creating_a_run_without_tags_holds_under_a_positive_clause(
     with pytest.raises(MlflowException, match=r"Permission denied"):
         with User(username, password, monkeypatch):
             MlflowClient(server).create_run(experiment_id, tags={"other": "x"})
+
+
+# ---- Traces, including the bulk delete's two modes ---------------------------
+
+
+def _trace_conditioned_user(
+    auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
+):
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, "experiment", "*", permission)
+        auth_client.add_role_permission(role.id, "trace", "*", permission)
+        auth_client.add_role_permission(role.id, "assessment", "*", permission)
+        auth_client.assign_role(username, role.id)
+        if value_condition is not None or target_condition is not None:
+            auth_client.add_mutation_conditions(
+                role.id,
+                "trace",
+                value_condition=value_condition,
+                target_condition=target_condition,
+            )
+    return username, password
+
+
+def _a_trace(server, monkeypatch):
+    """One finished trace, returning its experiment and trace ids."""
+    import mlflow
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        mlflow.set_tracking_uri(server)
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+        mlflow.set_experiment(experiment_id=experiment_id)
+        with mlflow.start_span(name="s"):
+            pass
+        traces = MlflowClient(server).search_traces([experiment_id])
+    return experiment_id, traces[0].info.trace_id
+
+
+def test_a_restricted_trace_tag_is_denied(server, auth_client, monkeypatch):
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'reviewed'"
+    )
+    _, trace_id = _a_trace(server, monkeypatch)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_trace_tag(trace_id, "reviewed", "yes")
+
+
+def test_an_unrestricted_trace_tag_is_allowed(server, auth_client, monkeypatch):
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'reviewed'"
+    )
+    _, trace_id = _a_trace(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).set_trace_tag(trace_id, "notes", "fine")
+
+
+def test_deleting_traces_by_id_is_gated_on_each_trace(server, auth_client, monkeypatch):
+    """§7.1 case 9a. The named traces are conditioned on their own current state."""
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+    )
+    experiment_id, trace_id = _a_trace(server, monkeypatch)
+
+    # The trace does not carry the required tag, so the delete is refused.
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_trace_tag(trace_id, "reviewed", "yes")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
+
+
+def test_deleting_traces_by_timestamp_is_refused_when_a_target_condition_exists(
+    server, auth_client, monkeypatch
+):
+    """§7.1 case 9b and D21.
+
+    Timestamp mode does not name the traces it will delete, so a resource condition cannot
+    be evaluated against them. The gate refuses rather than passing vacuously -- an empty
+    id list would otherwise satisfy every clause and make this mode a way around any
+    resource condition on traces.
+    """
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+    )
+    experiment_id, trace_id = _a_trace(server, monkeypatch)
+    # Even with the tag the condition asks for, the mode itself cannot be checked.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_trace_tag(trace_id, "reviewed", "yes")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=2**62)
+
+
+def test_deleting_traces_by_timestamp_is_unaffected_without_a_target_condition(
+    server, auth_client, monkeypatch
+):
+    """The other half of D21, and what keeps the refusal proportionate: the mode is only
+    refused when a resource condition exists to be evaded. A request condition does not
+    trigger it, and neither does an empty table.
+    """
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_key != 'reviewed'", permission="MANAGE"
+    )
+    experiment_id, _ = _a_trace(server, monkeypatch)
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=2**62)
