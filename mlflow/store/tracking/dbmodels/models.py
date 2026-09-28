@@ -4735,6 +4735,15 @@ AGENT_PLUGIN_VERSION_STRING = (
     .with_variant(MSSQL_VARCHAR(128, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
 )
 
+# Skill registry tag keys must be case-sensitive because filter strings address
+# tags by exact key, e.g. ``tags.team``. MySQL and SQL Server default collations
+# are commonly case-insensitive, so configure tag key PK members explicitly.
+SKILL_REGISTRY_TAG_KEY_STRING = (
+    String(250)
+    .with_variant(MYSQL_VARCHAR(250, collation="utf8mb4_bin"), "mysql")
+    .with_variant(MSSQL_VARCHAR(250, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
+
 
 # ---------------------------------------------------------------------------
 # Skill Registry (RFC-0008) ORM models
@@ -4990,7 +4999,7 @@ class SqlSkillTag(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    key = Column(String(250), nullable=False)
+    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
     value = Column(Text, nullable=True)
 
     skill = relationship(
@@ -5026,7 +5035,7 @@ class SqlSkillVersionTag(Base):
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
     version = Column(Integer, nullable=False)
-    key = Column(String(250), nullable=False)
+    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
     value = Column(Text, nullable=True)
 
     skill_version = relationship(
@@ -5391,7 +5400,7 @@ class SqlAgentPluginTag(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    key = Column(String(250), nullable=False)
+    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
     value = Column(Text, nullable=True)
 
     plugin = relationship(
@@ -5429,7 +5438,7 @@ class SqlAgentPluginVersionTag(Base):
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
     version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
-    key = Column(String(250), nullable=False)
+    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
     value = Column(Text, nullable=True)
 
     plugin_version = relationship(

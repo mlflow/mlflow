@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 import sqlalchemy
-from sqlalchemy.dialects import mssql
+from sqlalchemy.dialects import mssql, mysql
 from sqlalchemy.orm import Session
 
 from mlflow.entities.skill import SkillStatus
@@ -25,10 +25,13 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPluginTag,
+    SqlAgentPluginVersionTag,
     SqlSkill,
     SqlSkillAlias,
     SqlSkillTag,
     SqlSkillVersion,
+    SqlSkillVersionTag,
 )
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
 from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
@@ -181,7 +184,7 @@ def test_search_skills_token_is_bound_to_query(store):
     assert first_page.token is not None
 
     decoded = SkillRegistryPaginationToken.decode(first_page.token)
-    assert decoded.query_scope == "skills"
+    assert decoded.query_scope == "workspace:default:skills"
     assert decoded.offset == 1
 
     second_page = store.search_skills(
@@ -198,6 +201,50 @@ def test_search_skills_token_is_bound_to_query(store):
             order_by=["name DESC"],
             page_token=first_page.token,
         )
+
+
+@pytest.mark.parametrize("target", ["parent", "version"])
+@pytest.mark.parametrize("next_workspace", ["team-a", "team-b"])
+def test_search_tokens_are_bound_to_workspace(store, workspaces_enabled, target, next_workspace):
+    if not workspaces_enabled:
+        pytest.skip("Workspace token binding is only applicable when workspaces are enabled")
+
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            store.create_skill_version("alpha")
+            store.create_skill_version("alpha")
+            store.create_skill_version("beta")
+
+    if target == "parent":
+        search = store.search_skills
+        attribute = "name"
+        first_value = "alpha"
+        second_value = "beta"
+    else:
+
+        def search(**kwargs):
+            return store.search_skill_versions("alpha", **kwargs)
+
+        attribute = "version"
+        first_value = 1
+        second_value = 2
+
+    with WorkspaceContext("team-a"):
+        first_page = search(max_results=1)
+        assert [getattr(item, attribute) for item in first_page] == [first_value]
+        assert first_page.token is not None
+
+    with WorkspaceContext(next_workspace):
+        if next_workspace == "team-a":
+            second_page = search(max_results=1, page_token=first_page.token)
+            assert [getattr(item, attribute) for item in second_page] == [second_value]
+            assert second_page.token is None
+        else:
+            fresh_page = search(max_results=1)
+            assert [getattr(item, attribute) for item in fresh_page] == [first_value]
+            with pytest.raises(MlflowException, match="different query scope") as exc:
+                search(max_results=1, page_token=first_page.token)
+            assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_search_skills_filters_by_derived_status_organization_tags_and_search_text(store):
@@ -391,6 +438,37 @@ def test_skill_tags_can_be_set_updated_deleted_and_filtered(store):
 
     with pytest.raises(MlflowException, match="Tag 'team' not found"):
         store.delete_skill_tag("reviewer", "team", organization="acme")
+
+
+def test_skill_tag_keys_are_case_sensitive(store):
+    store.create_skill("reviewer", organization="acme")
+    store.set_skill_tag("reviewer", "Team", "original", organization="acme")
+    store.set_skill_tag("reviewer", "team", "new", organization="acme")
+
+    assert store.get_skill("reviewer", organization="acme").tags == {
+        "Team": "original",
+        "team": "new",
+    }
+    assert [skill.name for skill in store.search_skills("tags.team = 'new'")] == ["reviewer"]
+
+    store.delete_skill_tag("reviewer", "team", organization="acme")
+    assert store.get_skill("reviewer", organization="acme").tags == {"Team": "original"}
+
+
+@pytest.mark.parametrize(
+    "tag_model",
+    [SqlSkillTag, SqlSkillVersionTag, SqlAgentPluginTag, SqlAgentPluginVersionTag],
+)
+@pytest.mark.parametrize(
+    ("dialect", "expected_collation"),
+    [
+        (mysql.dialect(), "utf8mb4_bin"),
+        (mssql.dialect(), "SQL_Latin1_General_CP1_CS_AS"),
+    ],
+)
+def test_skill_registry_tag_key_columns_are_case_sensitive(tag_model, dialect, expected_collation):
+    tag_key_type = tag_model.__table__.c.key.type.dialect_impl(dialect)
+    assert tag_key_type.collation == expected_collation
 
 
 def test_set_skill_tag_validates_parent_and_tag_payload(store):
@@ -1186,7 +1264,7 @@ def test_search_skill_versions_orders_and_paginates_with_query_bound_tokens(stor
     assert first_page.token is not None
 
     decoded = SkillRegistryPaginationToken.decode(first_page.token)
-    assert decoded.query_scope == "skill_versions:acme/reviewer"
+    assert decoded.query_scope == "workspace:default:skill_versions:acme/reviewer"
     assert decoded.offset == 2
 
     second_page = store.search_skill_versions(
@@ -1241,6 +1319,28 @@ def test_skill_version_tags_can_be_set_updated_deleted_and_filtered(store):
 
     with pytest.raises(MlflowException, match="Tag 'release' not found"):
         store.delete_skill_version_tag("reviewer", 1, "release", organization="acme")
+
+
+def test_skill_version_tag_keys_are_case_sensitive(store):
+    store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
+    store.set_skill_version_tag("reviewer", 1, "Team", "original", organization="acme")
+    store.set_skill_version_tag("reviewer", 1, "team", "new", organization="acme")
+
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {
+        "Team": "original",
+        "team": "new",
+    }
+    assert [
+        version.version
+        for version in store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            filter_string="tags.team = 'new'",
+        )
+    ] == [1]
+
+    store.delete_skill_version_tag("reviewer", 1, "team", organization="acme")
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {"Team": "original"}
 
 
 def test_skill_version_tag_operations_reject_missing_or_deleted_versions(store):
