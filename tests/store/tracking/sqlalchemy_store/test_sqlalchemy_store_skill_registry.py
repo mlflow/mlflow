@@ -22,6 +22,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
 )
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
+from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -107,6 +108,43 @@ def test_skill_icons_round_trip_and_can_be_cleared(store):
     assert unchanged.icons is None
 
 
+def _get_skill_search_text(store, name="reviewer", organization=""):
+    with store.ManagedSessionMaker() as session:
+        return (
+            store
+            ._get_query(session, SqlSkill)
+            .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+            .one()
+            .search_text
+        )
+
+
+def test_skill_search_text_is_persisted_and_recomputed_for_description_only(store):
+    store.create_skill(
+        "reviewer",
+        organization="acme",
+        description="Reviews code",
+        icons=[{"src": "https://example.com/reviewer.svg"}],
+    )
+    assert _get_skill_search_text(store, organization="acme") == "reviewer Reviews code"
+
+    store.update_skill(
+        "reviewer",
+        organization="acme",
+        icons=[{"src": "https://example.com/reviewer-dark.svg"}],
+    )
+    assert _get_skill_search_text(store, organization="acme") == "reviewer Reviews code"
+
+    store.update_skill("reviewer", organization="acme", description="Audits pull requests")
+    assert _get_skill_search_text(store, organization="acme") == "reviewer Audits pull requests"
+
+
+def test_auto_created_skill_version_parent_gets_search_text(store):
+    store.create_skill_version("reviewer", organization="acme")
+
+    assert _get_skill_search_text(store, organization="acme") == "reviewer"
+
+
 def test_search_skills_returns_stable_paginated_results(store):
     store.create_skill("writer", organization="acme")
     store.create_skill("reviewer", organization="acme")
@@ -118,6 +156,134 @@ def test_search_skills_returns_stable_paginated_results(store):
     second_page = store.search_skills(max_results=1, page_token=first_page.token)
     assert [skill.name for skill in second_page] == ["writer"]
     assert second_page.token is None
+
+
+def test_search_skills_token_is_bound_to_query(store):
+    for name in ["auditor", "reviewer", "writer"]:
+        store.create_skill(name, organization="acme")
+
+    first_page = store.search_skills(
+        filter_string="organization = 'acme'",
+        order_by=["name ASC"],
+        max_results=1,
+    )
+    assert [skill.name for skill in first_page] == ["auditor"]
+    assert first_page.token is not None
+
+    decoded = SkillRegistryPaginationToken.decode(first_page.token)
+    assert decoded.query_scope == "skills"
+    assert decoded.offset == 1
+
+    second_page = store.search_skills(
+        filter_string="organization = 'acme'",
+        order_by=["name ASC"],
+        max_results=2,
+        page_token=first_page.token,
+    )
+    assert [skill.name for skill in second_page] == ["reviewer", "writer"]
+
+    with pytest.raises(MlflowException, match="different order_by"):
+        store.search_skills(
+            filter_string="organization = 'acme'",
+            order_by=["name DESC"],
+            page_token=first_page.token,
+        )
+
+
+def test_search_skills_filters_by_derived_status_organization_tags_and_search_text(store):
+    store.create_skill("reviewer", organization="acme", description="Reviews pull requests")
+    store.create_skill_version("reviewer", organization="acme")
+    store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
+    store.set_skill_tag("reviewer", "team", "platform", organization="acme")
+    store.set_skill_tag("reviewer", "priority", "high", organization="acme")
+
+    store.create_skill("draft-helper", organization="acme", description="Draft assistance")
+    store.create_skill_version(
+        "draft-helper", organization="acme", status=SkillStatus.DRAFT.value
+    )
+    store.set_skill_tag("draft-helper", "team", "platform", organization="acme")
+
+    store.create_skill("reviewer", organization="beta", description="Reviews beta code")
+    store.create_skill_version("reviewer", organization="beta")
+    store.set_skill_tag("reviewer", "team", "platform", organization="beta")
+
+    active_acme_platform = store.search_skills(
+        filter_string=(
+            "organization = 'acme' AND status = 'active' AND tags.team = 'platform'"
+        )
+    )
+    assert [(skill.organization, skill.name) for skill in active_acme_platform] == [
+        ("acme", "reviewer")
+    ]
+
+    draft_acme = store.search_skills(
+        filter_string="organization = 'acme' AND status = 'draft'",
+    )
+    assert [skill.name for skill in draft_acme] == ["draft-helper"]
+
+    text_matches = store.search_skills(
+        filter_string="search_text ILIKE '%pull%'",
+        order_by=["name DESC"],
+    )
+    assert [(skill.organization, skill.name) for skill in text_matches] == [
+        ("acme", "reviewer")
+    ]
+
+
+def test_search_skills_filters_source_type_by_latest_resolved_version(store):
+    store.create_skill_version(
+        "git-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/skills.git",
+    )
+    store.create_skill_version(
+        "git-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.ZIP,
+        source="https://example.com/skill.zip",
+        status=SkillStatus.DRAFT.value,
+    )
+    store.create_skill_version(
+        "draft-zip-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/draft.git",
+        status=SkillStatus.DRAFT.value,
+    )
+    store.create_skill_version(
+        "draft-zip-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.ZIP,
+        source="https://example.com/draft.zip",
+        status=SkillStatus.DRAFT.value,
+    )
+    store.create_skill_version(
+        "deleted-git-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/deleted.git",
+        status=SkillStatus.DRAFT.value,
+    )
+    store.delete_skill_version("deleted-git-reviewer", 1, organization="acme")
+
+    git_matches = store.search_skills(
+        filter_string="organization = 'acme' AND source_type = 'git'",
+        order_by=["name ASC"],
+    )
+    assert [skill.name for skill in git_matches] == ["git-reviewer"]
+
+    zip_matches = store.search_skills(
+        filter_string="organization = 'acme' AND source_type = 'zip'",
+        order_by=["name ASC"],
+    )
+    assert [skill.name for skill in zip_matches] == ["draft-zip-reviewer"]
+
+    zip_ordered_matches = store.search_skills(
+        filter_string="organization = 'acme' AND source_type != 'git'",
+        order_by=["source_type ASC", "name ASC"],
+    )
+    assert [skill.name for skill in zip_ordered_matches] == ["draft-zip-reviewer"]
 
 
 @pytest.mark.parametrize(
@@ -203,6 +369,38 @@ def test_skill_queries_load_relationships_on_supported_backends(store):
 
     listed = store.search_skills()
     assert [(skill.name, skill.organization) for skill in listed] == [("reviewer", "acme")]
+
+
+def test_skill_tags_can_be_set_updated_deleted_and_filtered(store):
+    store.create_skill("reviewer", organization="acme")
+    store.create_skill_version("reviewer", organization="acme")
+
+    store.set_skill_tag("reviewer", "team", "platform", organization="acme")
+    assert store.get_skill("reviewer", organization="acme").tags == {"team": "platform"}
+
+    store.set_skill_tag("reviewer", "team", "ml-platform", organization="acme")
+    assert store.get_skill("reviewer", organization="acme").tags == {"team": "ml-platform"}
+    assert [skill.name for skill in store.search_skills("tags.team LIKE 'ml-%'")] == [
+        "reviewer"
+    ]
+
+    store.delete_skill_tag("reviewer", "team", organization="acme")
+    assert store.get_skill("reviewer", organization="acme").tags == {}
+
+    with pytest.raises(MlflowException, match="Tag 'team' not found"):
+        store.delete_skill_tag("reviewer", "team", organization="acme")
+
+
+def test_set_skill_tag_validates_parent_and_tag_payload(store):
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_skill_tag("reviewer", "team", "platform", organization="acme")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_skill_tag("reviewer", "team", organization="acme")
+
+    store.create_skill("reviewer", organization="acme")
+    with pytest.raises(MlflowException, match="key"):
+        store.set_skill_tag("reviewer", None, "platform", organization="acme")
 
 
 @pytest.mark.parametrize("name", ["", "Reviewer", "reviewer_name", "reviewer--tool"])
@@ -483,3 +681,157 @@ def test_deleted_skill_version_is_not_retrievable(store):
         store.get_skill_version("reviewer", 1, organization="acme")
 
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_search_skill_versions_filters_by_stored_status_source_digest_and_tags(store):
+    active_digest = "a" * 64
+    draft_digest = "b" * 64
+    deleted_digest = "c" * 64
+    store.create_skill_version(
+        "reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/skills.git",
+        digest=active_digest,
+    )
+    store.create_skill_version(
+        "reviewer",
+        organization="acme",
+        source_type=SkillSourceType.ZIP,
+        source="https://example.com/skill.zip",
+        digest=draft_digest,
+        status=SkillStatus.DRAFT.value,
+    )
+    store.create_skill_version(
+        "reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/skills.git",
+        digest=deleted_digest,
+        status=SkillStatus.DRAFT.value,
+    )
+    store.set_skill_version_tag("reviewer", 2, "release", "canary", organization="acme")
+    store.delete_skill_version("reviewer", 3, organization="acme")
+
+    assert [
+        version.version
+        for version in store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            filter_string="source_type = 'git'",
+            order_by=["version DESC"],
+        )
+    ] == [1]
+    assert [
+        version.version
+        for version in store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            filter_string="status = 'draft'",
+        )
+    ] == [2]
+    assert [
+        version.version
+        for version in store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            filter_string=f"digest = '{draft_digest}'",
+        )
+    ] == [2]
+    assert [
+        version.version
+        for version in store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            filter_string="version >= 2 AND tags.release = 'canary'",
+        )
+    ] == [2]
+
+
+def test_search_skill_versions_orders_and_paginates_with_query_bound_tokens(store):
+    for _ in range(3):
+        store.create_skill_version("reviewer", organization="acme")
+    store.create_skill_version("other", organization="acme")
+
+    first_page = store.search_skill_versions(
+        "reviewer",
+        organization="acme",
+        order_by=["version DESC"],
+        max_results=2,
+    )
+    assert [version.version for version in first_page] == [3, 2]
+    assert first_page.token is not None
+
+    decoded = SkillRegistryPaginationToken.decode(first_page.token)
+    assert decoded.query_scope == "skill_versions:acme/reviewer"
+    assert decoded.offset == 2
+
+    second_page = store.search_skill_versions(
+        "reviewer",
+        organization="acme",
+        order_by=["version DESC"],
+        max_results=2,
+        page_token=first_page.token,
+    )
+    assert [version.version for version in second_page] == [1]
+    assert second_page.token is None
+
+    with pytest.raises(MlflowException, match="different query scope"):
+        store.search_skill_versions(
+            "other",
+            organization="acme",
+            order_by=["version DESC"],
+            page_token=first_page.token,
+        )
+
+
+@pytest.mark.parametrize(
+    "max_results",
+    [0, -1, 1001, True, "1"],
+)
+def test_search_skill_versions_rejects_invalid_max_results(store, max_results):
+    with pytest.raises(MlflowException, match="max_results") as exc:
+        store.search_skill_versions("reviewer", max_results=max_results)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_skill_version_tags_can_be_set_updated_deleted_and_filtered(store):
+    store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
+
+    store.set_skill_version_tag("reviewer", 1, "release", "canary", organization="acme")
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {
+        "release": "canary"
+    }
+
+    store.set_skill_version_tag("reviewer", 1, "release", "stable", organization="acme")
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {
+        "release": "stable"
+    }
+    assert [
+        version.version
+        for version in store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            filter_string="tags.release = 'stable'",
+        )
+    ] == [1]
+
+    store.delete_skill_version_tag("reviewer", 1, "release", organization="acme")
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {}
+
+    with pytest.raises(MlflowException, match="Tag 'release' not found"):
+        store.delete_skill_version_tag("reviewer", 1, "release", organization="acme")
+
+
+def test_skill_version_tag_operations_reject_missing_or_deleted_versions(store):
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_skill_version_tag("reviewer", 1, "release", "canary", organization="acme")
+
+    store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
+    store.delete_skill_version("reviewer", 1, organization="acme")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_skill_version_tag("reviewer", 1, "release", "canary", organization="acme")
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_skill_version_tag("reviewer", 1, "release", organization="acme")

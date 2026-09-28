@@ -819,7 +819,7 @@ def _validate_skill_alias(alias):
 
 
 def _validate_skill_tag(key, value):
-    _validate_tag(key, value)
+    return _validate_tag(key, value)
 
 
 def _validate_skill_artifact_path(path):

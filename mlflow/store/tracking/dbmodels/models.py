@@ -4762,6 +4762,7 @@ class SqlSkill(Base):
 
     resolved_latest_version = query_expression()
     resolved_status = query_expression()
+    resolved_source_type = query_expression()
 
     __table_args__ = (PrimaryKeyConstraint("workspace", "organization", "name", name="skills_pk"),)
 
@@ -4783,6 +4784,7 @@ class SqlSkill(Base):
             SqlSkillVersion.name.label("name"),
             SqlSkillVersion.version.label("version"),
             SqlSkillVersion.status.label("status"),
+            SqlSkillVersion.source_type.label("source_type"),
             sa.func
             .row_number()
             .over(
@@ -4818,6 +4820,27 @@ class SqlSkill(Base):
         )
 
     @classmethod
+    def resolved_source_type_expression(cls):
+        """Build a SQL expression for the latest-resolved version source type."""
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "resolved_skill_source_type_candidates"
+        )
+        return (
+            sa
+            .select(latest_candidates.c.source_type)
+            .where(
+                sa.and_(
+                    latest_candidates.c.workspace == cls.workspace,
+                    latest_candidates.c.organization == cls.organization,
+                    latest_candidates.c.name == cls.name,
+                    latest_candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+    @classmethod
     def with_resolved_latest(cls, query):
         latest_candidates = cls._resolved_latest_candidates_query().subquery(
             "skill_latest_candidates"
@@ -4833,6 +4856,7 @@ class SqlSkill(Base):
         ).options(
             with_expression(cls.resolved_latest_version, latest_candidates.c.version),
             with_expression(cls.resolved_status, latest_candidates.c.status),
+            with_expression(cls.resolved_source_type, latest_candidates.c.source_type),
         )
 
     def to_mlflow_entity(
