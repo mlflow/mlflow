@@ -23,7 +23,7 @@ from starlette.requests import Request as StarletteRequest
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import MutationConditionSpec
-from mlflow.server.auth.permissions import EDIT, READ
+from mlflow.server.auth.permissions import EDIT, MANAGE, READ
 from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes
 
 _PREFIX = get_mcp_server_api_route_prefixes()[1]
@@ -81,6 +81,11 @@ def _configure(monkeypatch, *, value_condition=None, target_condition=None, perm
     monkeypatch.setattr(auth_module, "store", Store())
     monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda name, user: permission)
     monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda rt, rid: "ws")
+    # The alias and delete branches consult the version tier before reaching conditions. It has
+    # its own tests; stubbing it to allow isolates what these assert. That the grant half still
+    # governs is covered by `test_a_grant_that_denies_is_not_widened_by_a_satisfied_condition`,
+    # which goes through the real permission check.
+    monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
 
 
 def _server_with_tags(monkeypatch, **tags):
@@ -214,3 +219,180 @@ async def test_a_body_naming_no_tag_is_vacuous(monkeypatch):
     """
     _configure(monkeypatch, value_condition="tag_key = 'notes'")
     assert (await _run(f"{_PREFIX}/{_SERVER}/tags", "POST", {})) is True
+
+
+# ---- The rest of the MCP mutation surface ------------------------------------
+#
+# Six routes carry a value a condition can judge: the server's own tags (set and delete), its
+# aliases (set and delete), and a version's tags (set and delete). The grant checks for these
+# return from several different branches of the validator, so conditions are applied once
+# after the grant decision rather than at each of them.
+
+
+def _version_configured(monkeypatch, *, value_condition=None, target_condition=None):
+    """Conditions on `mcp_server_version` rather than on the server."""
+
+    class Store:
+        def get_user(self, username):
+            return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+            return [
+                MutationConditionSpec(
+                    "mcp_server_version",
+                    value_condition=value_condition,
+                    target_condition=target_condition,
+                )
+            ]
+
+    monkeypatch.setattr(auth_module, "store", Store())
+    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda name, user: MANAGE)
+    monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
+    monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda rt, rid: "ws")
+
+
+# ---- Server tag delete: the key is a path segment ----------------------------
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_tag_is_conditioned(monkeypatch):
+    """The DELETE form takes its key from the path, and its grant check returns from a
+    different branch than the POST form -- so wiring one says nothing about the other.
+    """
+    _configure(monkeypatch, value_condition="tag_key != 'owner'", permission=MANAGE)
+    assert (await _run(f"{_PREFIX}/{_SERVER}/tags/owner", "DELETE", None)) is False
+    assert (await _run(f"{_PREFIX}/{_SERVER}/tags/notes", "DELETE", None)) is True
+
+
+@pytest.mark.asyncio
+async def test_a_tag_delete_carries_a_none_value(monkeypatch):
+    """A delete names a key but no value, and that absence must stay an absence rather than
+    becoming an empty string.
+
+    `!=` is the clause that can tell the two apart here, which is the mirror image of the usual
+    trap. An absent value makes the clause vacuous, so it permits; an empty-string placeholder
+    would make `tag_value != ''` FAIL and deny a delete the admin never restricted. With
+    `tag_value = ''` both cases permit, so it proves nothing.
+    """
+    _configure(monkeypatch, value_condition="tag_value != ''", permission=MANAGE)
+    assert (await _run(f"{_PREFIX}/{_SERVER}/tags/notes", "DELETE", None)) is True
+
+
+# ---- Aliases: conditioned on the server, not the version (D18) --------------
+
+
+@pytest.mark.asyncio
+async def test_setting_an_alias_is_conditioned(monkeypatch):
+    _configure(monkeypatch, value_condition="alias != 'production'")
+    assert (
+        await _run(
+            f"{_PREFIX}/{_SERVER}/aliases", "POST", {"alias": "production", "version": "1.0.0"}
+        )
+    ) is False
+    assert (
+        await _run(f"{_PREFIX}/{_SERVER}/aliases", "POST", {"alias": "staging", "version": "1.0.0"})
+    ) is True
+
+
+@pytest.mark.asyncio
+async def test_deleting_an_alias_is_conditioned(monkeypatch):
+    """Gated as well as the set: leaving delete open would let a restricted alias be removed
+    and then recreated elsewhere (D12).
+    """
+    _configure(monkeypatch, value_condition="alias != 'production'", permission=MANAGE)
+    assert (await _run(f"{_PREFIX}/{_SERVER}/aliases/production", "DELETE", None)) is False
+    assert (await _run(f"{_PREFIX}/{_SERVER}/aliases/staging", "DELETE", None)) is True
+
+
+@pytest.mark.asyncio
+async def test_an_alias_condition_does_not_gate_a_tag_route(monkeypatch):
+    """D20 in the permitting direction. Asserted with a positive clause, since `!=` would pass
+    whether the alias is absent or invented.
+    """
+    _configure(monkeypatch, value_condition="alias = 'production'")
+    assert (await _run(f"{_PREFIX}/{_SERVER}/tags", "POST", {"key": "notes", "value": "x"})) is True
+
+
+@pytest.mark.asyncio
+async def test_a_tag_condition_does_not_gate_an_alias_route(monkeypatch):
+    """And the other way around."""
+    _configure(monkeypatch, value_condition="tag_key = 'notes'")
+    assert (
+        await _run(f"{_PREFIX}/{_SERVER}/aliases", "POST", {"alias": "staging", "version": "1.0.0"})
+    ) is True
+
+
+# ---- Version tags: conditioned on the version's own id ----------------------
+
+
+@pytest.mark.asyncio
+async def test_setting_a_version_tag_is_conditioned(monkeypatch):
+    _version_configured(monkeypatch, value_condition="tag_key != 'approved'")
+    base = f"{_PREFIX}/{_SERVER}/versions/1.2.0/tags"
+    assert (await _run(base, "POST", {"key": "approved", "value": "yes"})) is False
+    assert (await _run(base, "POST", {"key": "notes", "value": "yes"})) is True
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_version_tag_is_conditioned(monkeypatch):
+    _version_configured(monkeypatch, value_condition="tag_key != 'approved'")
+    base = f"{_PREFIX}/{_SERVER}/versions/1.2.0/tags"
+    assert (await _run(f"{base}/approved", "DELETE", None)) is False
+    assert (await _run(f"{base}/notes", "DELETE", None)) is True
+
+
+@pytest.mark.asyncio
+async def test_a_version_condition_reads_the_versions_own_state(monkeypatch):
+    """The resource condition must be evaluated against the VERSION, not its server.
+
+    Reading the server's tags here would widen every version condition to its parent: a
+    condition meant to protect one version would be satisfied by a tag on the server.
+    """
+    _version_configured(monkeypatch, target_condition="tags.stage = 'dev'")
+    seen = []
+
+    def attrs_for_bulk(resource_type, ids):
+        seen.append((resource_type, list(ids)))
+        return {
+            i: auth_resources.values_for_entity(
+                resource_type, i, SimpleNamespace(tags={"stage": "prod"}, aliases={})
+            )
+            for i in ids
+        }
+
+    monkeypatch.setattr(auth_resources, "attrs_for_bulk", attrs_for_bulk)
+    allowed = await _run(
+        f"{_PREFIX}/{_SERVER}/versions/1.2.0/tags", "POST", {"key": "notes", "value": "x"}
+    )
+    assert allowed is False
+    assert seen == [("mcp_server_version", ["acme%2Fsearch/1.2.0"])], (
+        f"the version's own id must be read, not the server's; got {seen}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_server_condition_does_not_gate_a_version_tag(monkeypatch):
+    """A condition on `mcp_server` must not reach a version route. The two are separate types
+    precisely so an admin can restrict one without the other.
+    """
+    _configure(monkeypatch, value_condition="tag_key = 'nothing_matches'", permission=MANAGE)
+    monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
+    allowed = await _run(
+        f"{_PREFIX}/{_SERVER}/versions/1.2.0/tags", "POST", {"key": "notes", "value": "x"}
+    )
+    assert allowed is True
+
+
+# ---- Creates carry no tags --------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_creating_a_server_is_not_conditioned(monkeypatch):
+    """`CreateMCPServerRequest` has no tags field, so there is nothing for a request condition
+    to judge and no context is declared. Asserted so the absence is a decision on the record
+    rather than an oversight.
+    """
+    _configure(monkeypatch, value_condition="tag_key = 'nothing_matches'")
+    monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda u, n=None: True)
+    monkeypatch.setattr(auth_module, "_mcp_auto_create_not_denied", lambda u, n: True)
+    assert (await _run(f"{_PREFIX}", "POST", {"name": "acme/search"})) is True

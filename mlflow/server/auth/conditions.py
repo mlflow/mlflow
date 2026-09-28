@@ -115,6 +115,7 @@ SUPPORTED_RESOURCE_TYPES = frozenset({
     "prompt",
     "prompt_version",
     "mcp_server",
+    "mcp_server_version",
 })
 
 #: Types that own aliases, and so supply the ``alias`` clause (D18). A version's
@@ -125,7 +126,11 @@ ALIAS_OWNING_RESOURCE_TYPES = frozenset({"registered_model", "prompt", "mcp_serv
 #: The version types, named so an alias condition mistakenly placed on one can say
 #: which registry entry to condition instead. Kept beside the constant above because
 #: the two encode the same fact about where an alias lives.
-_VERSION_RESOURCE_TYPES = frozenset({"registered_model_version", "prompt_version"})
+_VERSION_RESOURCE_TYPES = frozenset({
+    "registered_model_version",
+    "prompt_version",
+    "mcp_server_version",
+})
 
 
 def validate_condition_resource_type(resource_type: str) -> None:
@@ -237,6 +242,12 @@ class RegisteredModelVersionRequestValues(NamedTuple):
     tags: _TagPairs = ()
 
 
+class McpServerVersionRequestValues(NamedTuple):
+    """No ``aliases``: an MCP server's aliases live on the server, not the version (D18)."""
+
+    tags: _TagPairs = ()
+
+
 class McpServerRequestValues(NamedTuple):
     """An MCP server carries the same entry/version/alias shape as a registry entry, and
     like one it owns the aliases its versions are named by (D18).
@@ -298,6 +309,11 @@ class RegisteredModelVersionResourceValues(NamedTuple):
     tags: Mapping[str, str] = {}
 
 
+class McpServerVersionResourceValues(NamedTuple):
+    resource_id: str
+    tags: Mapping[str, str] = {}
+
+
 class McpServerResourceValues(NamedTuple):
     resource_id: str
     tags: Mapping[str, str] = {}
@@ -329,6 +345,7 @@ REQUEST_VALUES_SHAPES: "dict[str, type]" = {
     "prompt": PromptRequestValues,
     "prompt_version": PromptVersionRequestValues,
     "mcp_server": McpServerRequestValues,
+    "mcp_server_version": McpServerVersionRequestValues,
 }
 
 RESOURCE_VALUES_SHAPES: "dict[str, type]" = {
@@ -341,6 +358,7 @@ RESOURCE_VALUES_SHAPES: "dict[str, type]" = {
     "prompt": PromptResourceValues,
     "prompt_version": PromptVersionResourceValues,
     "mcp_server": McpServerResourceValues,
+    "mcp_server_version": McpServerVersionResourceValues,
 }
 
 #: Annotation-only unions. There is no single constructible ``RequestValues``: a caller

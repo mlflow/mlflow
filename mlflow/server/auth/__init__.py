@@ -285,6 +285,7 @@ from mlflow.server.auth.conditions import (
     ExperimentRequestValues,
     LoggedModelRequestValues,
     McpServerRequestValues,
+    McpServerVersionRequestValues,
     RunRequestValues,
     TraceRequestValues,
     combine,
@@ -8813,54 +8814,119 @@ def _mcp_path_targets_a_version(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] in ("versions", "aliases")
 
 
-def _mcp_path_targets_a_server_tag(parts: list[str], method: str) -> bool:
-    # `POST <ns>/<slug>/tags` sets a tag on the server itself. The DELETE form carries the key
-    # as a fourth segment and is not wired yet, so it is deliberately excluded rather than
-    # matched and then silently passed empty values -- which would read as vacuous (D20).
-    return method == "POST" and len(parts) == 3 and parts[2] == "tags"
+async def _mcp_body(request: StarletteRequest) -> dict:
+    """The request's JSON object, or ``{}``.
 
-
-async def _mcp_server_tag_from_body(request: StarletteRequest) -> "tuple[str, str] | None":
-    """The `(key, value)` a tag write names, or ``None`` if the body does not name one.
-
-    ``None`` rather than a placeholder pair: a body with no tag has nothing for a request
-    condition to judge, and inventing a value would have it judged anyway. The handler
-    rejects such a body on its own terms.
+    Starlette caches the read, so the route handler still parses its own body; the cached
+    copy is also stashed on ``request.state`` the way the other MCP validators do it.
     """
     try:
         body = await request.json()
     except Exception:
-        return None
-    # Starlette caches the read, so the route handler still parses its own body.
+        return {}
     request.state.cached_body = body
-    if not isinstance(body, dict):
-        return None
+    return body if isinstance(body, dict) else {}
+
+
+def _mcp_tag_pair_from_body(body: dict) -> "tuple[tuple[str, str | None], ...]":
     key, value = body.get("key"), body.get("value")
-    return (str(key), str(value)) if isinstance(key, str) and key else None
+    if not isinstance(key, str) or not key:
+        # Nothing for a condition to judge. Returning no pair keeps it vacuous rather than
+        # inventing a value that would then be judged; the handler rejects the body itself.
+        return ()
+    return ((key, str(value) if value is not None else None),)
 
 
-async def _mcp_server_tag_conditions_permit(
-    username: str, name: str, request: StarletteRequest
-) -> bool:
-    """The conditions half for the MCP tag route.
+async def _mcp_condition_context(
+    name: str, parts: "list[str]", request: StarletteRequest
+) -> "ConditionContext | None":
+    """The condition context for an MCP mutation, or ``None`` when none applies.
 
-    Called only after the grant check has passed, so it can subtract but never add -- the
-    same composition the experiment surface uses, and for the same reason: this validator
-    resolves a ``Permission`` directly rather than building a ``Requirement`` list, so there
-    is no list for `authorize` to carry conditions alongside.
+    Built from the path shape in one place so every mutating route on this surface is
+    enumerated together. The alternative -- a check at each of the validator's six early
+    returns -- makes it easy to add a route later and silently leave it ungated.
+
+    Nested segments (``parts[2:]``) are what distinguish the routes; ``parts[0:2]`` is the
+    ``namespace/slug`` server name the caller has already composed.
     """
-    tag = await _mcp_server_tag_from_body(request)
-    return authorize_on_conditions(
-        username,
-        get_anchor_workspace(RESOURCE_TYPE_MCP_SERVER, name),
-        [
-            context_for(
+    nested, method = parts[2:], request.method
+
+    # `tags` on the server itself: `POST <server>/tags`, `DELETE <server>/tags/<key>`.
+    if nested[:1] == ["tags"]:
+        if method == "POST" and len(nested) == 1:
+            tags = _mcp_tag_pair_from_body(await _mcp_body(request))
+        elif method == "DELETE" and len(nested) == 2:
+            # The key is a path segment here, not a body field.
+            tags = ((nested[1], None),)
+        else:
+            return None
+        return context_for(
                 RESOURCE_TYPE_MCP_SERVER,
                 name,
                 ConditionScope.MUTATE,
-                McpServerRequestValues(tags=((tag,) if tag else ())),
+            McpServerRequestValues(tags=tags),
             )
-        ],
+
+    # `aliases` on the server: an alias names a version but is stored on the server, so it is
+    # conditioned on the server (D18) -- exactly as a registry alias is conditioned on the
+    # registry entry rather than the version it points at.
+    if nested[:1] == ["aliases"]:
+        if method == "POST" and len(nested) == 1:
+            alias = (await _mcp_body(request)).get("alias")
+            aliases = (alias,) if isinstance(alias, str) and alias else ()
+        elif method == "DELETE" and len(nested) == 2:
+            aliases = (nested[1],)
+        else:
+            return None
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER,
+            name,
+            ConditionScope.MUTATE,
+            McpServerRequestValues(aliases=aliases),
+        )
+
+    # `versions/<version>/tags`: conditioned on the VERSION's own id, not the server's. Reading
+    # the server's state here would widen every version condition to its parent.
+    if nested[:1] == ["versions"] and len(nested) >= 3 and nested[2] == "tags":
+        version = nested[1]
+        if method == "POST" and len(nested) == 3:
+            tags = _mcp_tag_pair_from_body(await _mcp_body(request))
+        elif method == "DELETE" and len(nested) == 4:
+            tags = ((nested[3], None),)
+        else:
+            return None
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER_VERSION,
+            auth_resources.version_resource_id(name, version),
+            ConditionScope.MUTATE,
+            McpServerVersionRequestValues(tags=tags),
+        )
+
+    # Creates are deliberately absent: neither `CreateMCPServerRequest` nor
+    # `CreateMCPServerVersionRequest` carries tags, so there is no value for a request condition
+    # to judge. Declaring a context with empty values would be indistinguishable from a route
+    # whose extraction is broken, and would read as vacuous either way (D20).
+    return None
+
+
+async def _mcp_conditions_permit(
+    username: str, name: str, parts: "list[str]", request: StarletteRequest
+) -> bool:
+    """Evaluate conditions for an MCP mutation. Called only after the grants have allowed it.
+
+    This surface resolves a ``Permission`` directly rather than building a ``Requirement``
+    list, so there is no list for `authorize` to carry conditions alongside -- the same reason
+    the legacy experiment surface composes them this way.
+    """
+    if len(parts) < 2:
+        return True
+    context = await _mcp_condition_context(name, parts, request)
+    if context is None:
+        return True
+    return authorize_on_conditions(
+        username,
+        get_anchor_workspace(RESOURCE_TYPE_MCP_SERVER, name),
+        [context],
     )
 
 
@@ -8907,6 +8973,14 @@ def _get_mcp_server_validator(
             raise
 
     async def validator(username: str, request: StarletteRequest) -> bool:
+        # Grants first, then conditions: conditions subtract from what a grant allows and can
+        # never add to it, and evaluating them only after an allow keeps that structural rather
+        # than a property of the order the clauses happen to be written in.
+        if not await _grants_permit(username, request):
+            return False
+        return await _mcp_conditions_permit(username, name, parts, request)
+
+    async def _grants_permit(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and _is_mcp_server_version_create_path(parts):
             request.state.mcp_server_can_update_existing_recheck = lambda: (
                 _get_mcp_server_permission(name, username).can_update
@@ -8953,8 +9027,6 @@ def _get_mcp_server_validator(
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
             return _mcp_server_version_action_allowed(username, name, "delete")
-        if _mcp_path_targets_a_server_tag(parts, request.method):
-            return await _mcp_server_tag_conditions_permit(username, name, request)
         return True
 
     return validator

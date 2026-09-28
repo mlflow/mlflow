@@ -69,6 +69,7 @@ _STORAGE_KIND = {
     "trace": "trace",
     "logged_model": "logged_model",
     "mcp_server": "mcp_server",
+    "mcp_server_version": "mcp_server_version",
 }
 
 
@@ -293,6 +294,24 @@ def fetch_mcp_server(name: str):
     )
 
 
+def fetch_mcp_server_version(name: str, version: str):
+    """Fetch one version of an MCP server.
+
+    Keyed on the composed id rather than the pair, so it shares the memo shape every other
+    version fetch uses.
+    """
+
+    def load():
+        try:
+            return _tracking_store().get_mcp_server_version(name, version)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return None
+            raise
+
+    return _memoized("mcp_server_version", version_resource_id(name, version), load)
+
+
 def fetch_registered_model(name: str):
     """Fetch a registry entry, whichever family it turns out to be.
 
@@ -334,6 +353,8 @@ def _fetch_for(resource_type: str, resource_id: str):
         return fetch_model_version(*_split_version_resource_id(resource_id))
     if resource_type == "mcp_server":
         return fetch_mcp_server(resource_id)
+    if resource_type == "mcp_server_version":
+        return fetch_mcp_server_version(*_split_version_resource_id(resource_id))
     return None
 
 
