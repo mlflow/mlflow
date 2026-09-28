@@ -653,6 +653,63 @@ s/"state"[[:space:]]*:/\
 	'
 }
 
+json_databricks_profile_rows() {
+	if command -v jq >/dev/null 2>&1; then
+		jq -r '
+			.profiles[]?
+			| select((.name | type) == "string" and (.host | type) == "string")
+			| [.name, .host, ((.workspace_id // "") | tostring)]
+			| join("|")
+		'
+	else
+		tr '\n' ' ' | sed 's/}[[:space:]]*,[[:space:]]*{/}\
+{/g' | awk '
+			/"name"[[:space:]]*:/ && /"host"[[:space:]]*:/ {
+				name=$0
+				sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", name)
+				sub(/".*$/, "", name)
+				host=$0
+				sub(/^.*"host"[[:space:]]*:[[:space:]]*"/, "", host)
+				sub(/".*$/, "", host)
+				workspace_id=""
+				if ($0 ~ /"workspace_id"[[:space:]]*:/) {
+					workspace_id=$0
+					sub(/^.*"workspace_id"[[:space:]]*:[[:space:]]*/, "", workspace_id)
+					if (workspace_id ~ /^"/) {
+						sub(/^"/, "", workspace_id)
+						sub(/".*$/, "", workspace_id)
+					} else {
+						sub(/[},].*$/, "", workspace_id)
+					}
+				}
+				if (host ~ /^https?:\/\//) print name "|" host "|" workspace_id
+			}
+		'
+	fi
+}
+
+json_databricks_profile_workspace_id() {
+	if command -v jq >/dev/null 2>&1; then
+		jq -r '.details.configuration.workspace_id.value // empty'
+	else
+		sed '
+s/"workspace_id"[[:space:]]*:/\
+"workspace_id":/g
+s/"value"[[:space:]]*:/\
+"value":/g
+' | awk '
+			/"workspace_id"[[:space:]]*:/ { in_workspace_id=1 }
+			in_workspace_id && /"value"[[:space:]]*:/ {
+				line=$0
+				sub(/^.*"value"[[:space:]]*:[[:space:]]*"/, "", line)
+				sub(/".*$/, "", line)
+				print line
+				exit
+			}
+		'
+	fi
+}
+
 json_escape() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
@@ -680,6 +737,7 @@ normalize_tracking_uri() {
 }
 
 WORKSPACE_URL=""
+WORKSPACE_ID=""
 PROFILE=""
 TRACKING_URI=""
 EXPERIMENT_ID=""
@@ -688,6 +746,7 @@ UC_SCHEMA=""
 WAREHOUSE_ID=""
 AGENT_NAME=""
 WORKSPACE_URL_EXPLICIT="false"
+WORKSPACE_ID_EXPLICIT="false"
 PROFILE_EXPLICIT="false"
 
 usage() {
@@ -696,6 +755,7 @@ usage() {
 		"" \
 		"Options:" \
 		"  --workspace-url <url>         Databricks workspace URL" \
+		"  --workspace-id <id>           Databricks workspace ID" \
 		"  --profile <name>              Databricks CLI profile" \
 		"  --tracking-uri <url>          Existing OSS MLflow server" \
 		"  --experiment-id <id>          Existing experiment" \
@@ -713,6 +773,12 @@ parse_args() {
 			[ "$#" -ge 2 ] || die "$1 requires a value."
 			WORKSPACE_URL=$2
 			WORKSPACE_URL_EXPLICIT="true"
+			shift 2
+			;;
+		--workspace-id)
+			[ "$#" -ge 2 ] || die "$1 requires a value."
+			WORKSPACE_ID=$2
+			WORKSPACE_ID_EXPLICIT="true"
 			shift 2
 			;;
 		--profile)
@@ -805,7 +871,11 @@ show_manual_setup() {
 		if [ -n "$PROFILE" ]; then
 			primary_detail "Authenticate with: $DATABRICKS_BIN auth login --host $WORKSPACE_URL --profile $PROFILE"
 		else
-			primary_detail "Set DATABRICKS_HOST=$WORKSPACE_URL and authenticate with: $DATABRICKS_BIN auth login --host $WORKSPACE_URL"
+			primary_detail "Set DATABRICKS_HOST=$WORKSPACE_URL."
+			if [ -n "$WORKSPACE_ID" ]; then
+				primary_detail "Set DATABRICKS_WORKSPACE_ID=$WORKSPACE_ID."
+			fi
+			primary_detail "Authenticate with: $DATABRICKS_BIN auth login --host $WORKSPACE_URL"
 		fi
 		primary_detail "Enable tracing for your framework, run one request, and confirm the trace appears in MLflow."
 		;;
@@ -880,7 +950,7 @@ EOF
 
 choose_backend() {
 	configured_tracking_uri=${MLFLOW_TRACKING_URI:-}
-	if [ -n "$WORKSPACE_URL" ] || [ -n "$PROFILE" ]; then
+	if [ -n "$WORKSPACE_URL" ] || [ -n "$WORKSPACE_ID" ] || [ -n "$PROFILE" ]; then
 		backend="databricks"
 	elif [ -n "$TRACKING_URI" ]; then
 		backend="remote"
@@ -906,18 +976,24 @@ choose_backend() {
 	fi
 }
 
+databricks_cli_is_compatible() {
+	profiles_help=$("$1" auth profiles --help 2>/dev/null) || return 1
+	printf '%s\n' "$profiles_help" | grep -q -- '--workspace-id' || return 1
+	"$1" auth describe --help >/dev/null 2>&1
+}
+
 find_compatible_databricks_cli() {
 	for candidate_dir in "${XDG_BIN_HOME:-}" "$HOME/.local/bin" "${CARGO_HOME:-$HOME/.cargo}/bin"; do
 		[ -n "$candidate_dir" ] || continue
 		candidate="$candidate_dir/databricks"
-		if [ -x "$candidate" ] && "$candidate" auth profiles --help >/dev/null 2>&1; then
+		if [ -x "$candidate" ] && databricks_cli_is_compatible "$candidate"; then
 			printf '%s' "$candidate"
 			return
 		fi
 	done
 	if command -v databricks >/dev/null 2>&1; then
 		candidate=$(command -v databricks)
-		if "$candidate" auth profiles --help >/dev/null 2>&1; then
+		if databricks_cli_is_compatible "$candidate"; then
 			printf '%s' "$candidate"
 		fi
 	fi
@@ -973,9 +1049,9 @@ ensure_databricks_cli() {
 
 dbx_json() {
 	if [ -n "$PROFILE" ]; then
-		DATABRICKS_HOST= "$DATABRICKS_BIN" "$@" --output json --profile "$PROFILE"
+		DATABRICKS_HOST= DATABRICKS_WORKSPACE_ID= "$DATABRICKS_BIN" "$@" --output json --profile "$PROFILE"
 	elif [ -n "$WORKSPACE_URL" ]; then
-		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" "$@" --output json
+		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" DATABRICKS_WORKSPACE_ID="$WORKSPACE_ID" "$DATABRICKS_BIN" "$@" --output json
 	else
 		"$DATABRICKS_BIN" "$@" --output json
 	fi
@@ -983,9 +1059,9 @@ dbx_json() {
 
 databricks_token_user() {
 	if [ -n "$PROFILE" ]; then
-		token_json=$("$DATABRICKS_BIN" auth token "$PROFILE" --output json 2>/dev/null) || return
+		token_json=$(DATABRICKS_HOST= DATABRICKS_WORKSPACE_ID= "$DATABRICKS_BIN" auth token "$PROFILE" --output json 2>/dev/null) || return
 	elif [ -n "$WORKSPACE_URL" ]; then
-		token_json=$(DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
+		token_json=$(DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" DATABRICKS_WORKSPACE_ID="$WORKSPACE_ID" "$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
 	else
 		token_json=$("$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
 	fi
@@ -1013,14 +1089,48 @@ databricks_token_user() {
 }
 
 list_databricks_profiles() {
-	"$DATABRICKS_BIN" auth profiles --skip-validate 2>/dev/null | awk 'NR > 1 && $1 != "" && $2 ~ /^https?:\/\// { print $1 "|" $2 }'
+	"$DATABRICKS_BIN" auth profiles --skip-validate --output json 2>/dev/null | json_databricks_profile_rows | while IFS='|' read -r profile_name profile_host profile_workspace_id; do
+		[ -n "$profile_name" ] || continue
+		profile_host=$(normalize_workspace_url "$profile_host")
+		printf '%s|%s|%s\n' "$profile_name" "$profile_host" "$profile_workspace_id"
+	done
+}
+
+databricks_profile_workspace_id() {
+	DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST= DATABRICKS_WORKSPACE_ID= \
+		"$DATABRICKS_BIN" auth describe --profile "$1" --output json 2>/dev/null | json_databricks_profile_workspace_id
+}
+
+find_databricks_profile_by_workspace_id() {
+	profile_rows=$1
+	target_workspace_id=$2
+	target_workspace_host=${3:-}
+	for matching_host_only in true false; do
+		while IFS='|' read -r profile_name profile_host profile_workspace_id; do
+			[ -n "$profile_name" ] || continue
+			if [ "$matching_host_only" = "true" ]; then
+				[ -n "$target_workspace_host" ] && [ "$profile_host" = "$target_workspace_host" ] || continue
+			else
+				[ "$profile_host" != "$target_workspace_host" ] || continue
+			fi
+			if [ -z "$profile_workspace_id" ]; then
+				profile_workspace_id=$(databricks_profile_workspace_id "$profile_name" || true)
+			fi
+			if [ "$profile_workspace_id" = "$target_workspace_id" ]; then
+				printf '%s|%s|%s' "$profile_name" "$profile_host" "$profile_workspace_id"
+				return
+			fi
+		done <<EOF
+$profile_rows
+EOF
+	done
 }
 
 databricks_auth_valid() {
 	if [ -n "$PROFILE" ]; then
-		"$DATABRICKS_BIN" auth token "$PROFILE" --output json >/dev/null 2>&1
+		DATABRICKS_HOST= DATABRICKS_WORKSPACE_ID= "$DATABRICKS_BIN" auth token "$PROFILE" --output json >/dev/null 2>&1
 	elif [ -n "$WORKSPACE_URL" ]; then
-		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
+		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" DATABRICKS_WORKSPACE_ID="$WORKSPACE_ID" "$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
 	else
 		"$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
 	fi
@@ -1028,11 +1138,14 @@ databricks_auth_valid() {
 
 resolve_databricks_profile() {
 	profile_selection_needed="false"
-	if [ "$WORKSPACE_URL_EXPLICIT" = "false" ] && [ -z "$PROFILE" ] && [ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]; then
+	if [ "$WORKSPACE_URL_EXPLICIT" = "false" ] && [ "$WORKSPACE_ID_EXPLICIT" = "false" ] && [ -z "$PROFILE" ] && [ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]; then
 		PROFILE=$DATABRICKS_CONFIG_PROFILE
 	fi
 	if [ "$PROFILE_EXPLICIT" = "false" ] && [ -z "$WORKSPACE_URL" ] && [ -n "${DATABRICKS_HOST:-}" ]; then
 		WORKSPACE_URL=$DATABRICKS_HOST
+	fi
+	if [ "$WORKSPACE_URL_EXPLICIT" = "false" ] && [ "$PROFILE_EXPLICIT" = "false" ] && [ -z "$WORKSPACE_ID" ] && [ -n "${DATABRICKS_WORKSPACE_ID:-}" ]; then
+		WORKSPACE_ID=$DATABRICKS_WORKSPACE_ID
 	fi
 	if [ -n "$WORKSPACE_URL" ]; then
 		WORKSPACE_URL=$(normalize_workspace_url "$WORKSPACE_URL")
@@ -1055,27 +1168,58 @@ resolve_databricks_profile() {
 	fi
 	if [ -n "$PROFILE" ]; then
 		profile_host=$(printf '%s\n' "$profiles" | awk -F '|' -v profile="$PROFILE" '$1 == profile { print $2; exit }')
+		profile_workspace_id=$(printf '%s\n' "$profiles" | awk -F '|' -v profile="$PROFILE" '$1 == profile { print $3; exit }')
 		if [ -n "$profile_host" ]; then
 			profile_host=$(normalize_workspace_url "$profile_host")
 		fi
-		if [ -n "$WORKSPACE_URL" ] && [ -n "$profile_host" ] && [ "$WORKSPACE_URL" != "$profile_host" ]; then
+		if [ -n "$WORKSPACE_ID" ] && [ -n "$profile_host" ] && [ -z "$profile_workspace_id" ]; then
+			profile_workspace_id=$(databricks_profile_workspace_id "$PROFILE" || true)
+		fi
+		if [ -n "$WORKSPACE_ID" ] && [ -n "$profile_workspace_id" ] && [ "$WORKSPACE_ID" != "$profile_workspace_id" ]; then
+			die "Databricks profile '$PROFILE' points to workspace ID $profile_workspace_id, not $WORKSPACE_ID."
+		fi
+		if [ -n "$WORKSPACE_URL" ] && [ -n "$profile_host" ] && [ "$WORKSPACE_URL" != "$profile_host" ] && [ "$WORKSPACE_ID" != "$profile_workspace_id" ]; then
 			die "Databricks profile '$PROFILE' points to $profile_host, not $WORKSPACE_URL."
 		fi
-		if [ -z "$WORKSPACE_URL" ]; then
+		if [ -n "$profile_host" ]; then
 			WORKSPACE_URL=$profile_host
+		fi
+		if [ -z "$WORKSPACE_ID" ]; then
+			WORKSPACE_ID=$profile_workspace_id
 		fi
 		[ -n "$WORKSPACE_URL" ] || die "Databricks profile '$PROFILE' was not found."
 		return
 	fi
 	if [ -n "$WORKSPACE_URL" ]; then
-		PROFILE=$(printf '%s\n' "$profiles" | awk -F '|' -v host="$WORKSPACE_URL" '$2 == host { print $1; exit }')
+		if [ -n "$WORKSPACE_ID" ]; then
+			profile_match=$(find_databricks_profile_by_workspace_id "$profiles" "$WORKSPACE_ID" "$WORKSPACE_URL")
+		else
+			profile_match=$(printf '%s\n' "$profiles" | awk -F '|' -v host="$WORKSPACE_URL" '$2 == host { print; exit }')
+		fi
+		if [ -n "$profile_match" ]; then
+			PROFILE=${profile_match%%|*}
+			profile_remainder=${profile_match#*|}
+			WORKSPACE_URL=${profile_remainder%%|*}
+			profile_workspace_id=${profile_remainder#*|}
+			if [ -z "$WORKSPACE_ID" ]; then
+				WORKSPACE_ID=$profile_workspace_id
+			fi
+		fi
+		return
+	fi
+	if [ -n "$WORKSPACE_ID" ]; then
+		profile_match=$(find_databricks_profile_by_workspace_id "$profiles" "$WORKSPACE_ID")
+		[ -n "$profile_match" ] || die "No Databricks profile was found for workspace ID $WORKSPACE_ID."
+		PROFILE=${profile_match%%|*}
+		profile_remainder=${profile_match#*|}
+		WORKSPACE_URL=${profile_remainder%%|*}
 		return
 	fi
 	if [ "$loading_manual_selected" = "true" ]; then
 		selected_value="Enter a profile name or workspace URL"
 	else
 		set -- "Enter a profile name or workspace URL"
-		while IFS='|' read -r profile_name profile_url; do
+		while IFS='|' read -r profile_name profile_url profile_workspace_id; do
 			[ -n "$profile_name" ] && set -- "$@" "$profile_name    $(printf '%s' "$profile_url" | sed 's#https\{0,1\}://##')"
 		done <<EOF
 $profiles
@@ -1096,6 +1240,7 @@ EOF
 		if [ -n "$profile_host" ]; then
 			PROFILE=$entered_profile
 			WORKSPACE_URL=$profile_host
+			WORKSPACE_ID=$(printf '%s\n' "$profiles" | awk -F '|' -v profile="$PROFILE" '$1 == profile { print $3; exit }')
 		else
 			case "$entered_profile" in
 			http://* | https://* | *.*)
@@ -1109,6 +1254,7 @@ EOF
 		selected_profile=$(printf '%s' "$selected_value" | awk '{print $1}')
 		PROFILE=$selected_profile
 		WORKSPACE_URL=$(printf '%s\n' "$profiles" | awk -F '|' -v profile="$PROFILE" '$1 == profile { print $2; exit }')
+		WORKSPACE_ID=$(printf '%s\n' "$profiles" | awk -F '|' -v profile="$PROFILE" '$1 == profile { print $3; exit }')
 	fi
 }
 
@@ -1117,9 +1263,9 @@ authenticate_databricks() {
 	if ! databricks_auth_valid; then
 		progress "Sign in to Databricks" "Opening $WORKSPACE_URL in your browser…"
 		if [ -n "$PROFILE" ]; then
-			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" --profile "$PROFILE" <"$TTY_DEVICE" || die "Databricks authentication failed."
+			DATABRICKS_HOST= DATABRICKS_WORKSPACE_ID= "$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" --profile "$PROFILE" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		else
-			DATABRICKS_CONFIG_PROFILE= "$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
+			DATABRICKS_CONFIG_PROFILE= DATABRICKS_WORKSPACE_ID="$WORKSPACE_ID" "$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		fi
 		databricks_auth_valid || die "Databricks authentication could not be verified."
 	fi
@@ -1359,7 +1505,9 @@ configure_databricks() {
 	else
 		TRACKING_URI="databricks"
 		DATABRICKS_HOST=$WORKSPACE_URL
-		export DATABRICKS_HOST
+		DATABRICKS_WORKSPACE_ID=$WORKSPACE_ID
+		DATABRICKS_CONFIG_PROFILE=
+		export DATABRICKS_HOST DATABRICKS_WORKSPACE_ID DATABRICKS_CONFIG_PROFILE
 	fi
 	resolve_databricks_experiment
 	if [ "$experiment_created" = "true" ]; then
@@ -1642,6 +1790,9 @@ build_agent_prompt() {
 			"MLFLOW_EXPERIMENT_ID=$EXPERIMENT_ID"
 		if [ -z "$PROFILE" ]; then
 			printf '%s\n' "DATABRICKS_HOST=$WORKSPACE_URL"
+			if [ -n "$WORKSPACE_ID" ]; then
+				printf '%s\n' "DATABRICKS_WORKSPACE_ID=$WORKSPACE_ID"
+			fi
 		fi
 		if [ -n "$WAREHOUSE_ID" ]; then
 			printf '%s\n' "MLFLOW_TRACING_SQL_WAREHOUSE_ID=$WAREHOUSE_ID"
