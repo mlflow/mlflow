@@ -129,10 +129,17 @@ export function getLastTurnRecords(records: RolloutLine[]): RolloutLine[] {
 }
 
 /**
- * Extract cumulative token usage from the last token_count event in a set of records.
+ * Sum the per-request token usage across a set of records.
+ *
+ * Codex emits a `token_count` event after each model request, where
+ * `info.last_token_usage` is that one request's usage (a separate
+ * `total_token_usage` tracks the cumulative session total). A tool-using turn
+ * makes several billed requests, so the turn's usage is the sum of each
+ * request's `last_token_usage`. Callers pass turn-scoped records, so this sums
+ * one turn. Returns null when no request reported usage.
  */
 export function getTokenUsage(records: RolloutLine[]): TokenUsage | null {
-  let usage: TokenUsage | null = null;
+  let total: TokenUsage | null = null;
   for (const record of records) {
     if (record.type !== 'event_msg') {
       continue;
@@ -141,11 +148,25 @@ export function getTokenUsage(records: RolloutLine[]): TokenUsage | null {
     if (payload.type !== 'token_count') {
       continue;
     }
-    if (payload.info?.last_token_usage) {
-      usage = payload.info.last_token_usage;
+    const usage = payload.info?.last_token_usage;
+    if (!usage) {
+      continue;
+    }
+    if (total == null) {
+      total = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+    }
+    total.input_tokens += usage.input_tokens || 0;
+    total.output_tokens += usage.output_tokens || 0;
+    total.total_tokens += usage.total_tokens || 0;
+    if (usage.cached_input_tokens != null) {
+      total.cached_input_tokens = (total.cached_input_tokens ?? 0) + usage.cached_input_tokens;
+    }
+    if (usage.reasoning_output_tokens != null) {
+      total.reasoning_output_tokens =
+        (total.reasoning_output_tokens ?? 0) + usage.reasoning_output_tokens;
     }
   }
-  return usage;
+  return total;
 }
 
 /**
