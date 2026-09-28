@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html
 import json
 import math
 import re
@@ -55,15 +54,6 @@ _PRIVATE_KEY_RE = re.compile(
 
 class InvalidHandoff(ValueError):
     """Raised when model output or a persisted report violates the contract."""
-
-
-def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in result:
-            raise InvalidHandoff(f"duplicate JSON field: {key}")
-        result[key] = value
-    return result
 
 
 def _object(value: object, fields: set[str], name: str) -> dict[str, Any]:
@@ -243,7 +233,6 @@ def determine_outcome(report: dict[str, Any], *, issue_labels: Iterable[object] 
         not has_enhancement_label(issue_labels)
         and report["issue_kind"] == "bug"
         and report["surface"] == "python_core"
-        and binding["event_sha"] == binding["checkout_sha"]
         and execution["executed_sha"] == binding["checkout_sha"]
         and execution["exit_status"] is not None
         and not execution["timed_out"]
@@ -337,74 +326,3 @@ def validate_handoff(
     if len(encoded_report) > MAX_REPORT_BYTES:
         raise InvalidHandoff("report is oversized")
     return report
-
-
-def load_handoff_json(
-    payload: str | bytes,
-    *,
-    expected_repository: str,
-    expected_issue_number: int,
-    expected_event_sha: str,
-    expected_checkout_sha: str,
-    issue_labels: Iterable[object] = (),
-) -> dict[str, Any]:
-    """Decode bounded model JSON and return a sanitized finalized report."""
-    encoded = payload.encode() if isinstance(payload, str) else payload
-    if not isinstance(encoded, bytes) or len(encoded) > MAX_REPORT_BYTES:
-        raise InvalidHandoff("handoff JSON is oversized")
-    try:
-        value = json.loads(encoded.decode(), object_pairs_hook=_unique_object)
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise InvalidHandoff("malformed handoff JSON") from error
-    return validate_handoff(
-        value,
-        expected_repository=expected_repository,
-        expected_issue_number=expected_issue_number,
-        expected_event_sha=expected_event_sha,
-        expected_checkout_sha=expected_checkout_sha,
-        issue_labels=issue_labels,
-    )
-
-
-def _markdown(value: object) -> str:
-    escaped = html.escape(str(value), quote=True)
-    return re.sub(r"([\\`*_{}\[\]()#+.!|>-])", r"\\\1", escaped)
-
-
-def render_handoff_markdown(report: dict[str, Any]) -> str:
-    """Render only the compact, sanitized report; never raw model context."""
-    execution = report["execution"]
-    fidelity = report["fidelity"]
-    proposed_fix = report["proposed_fix"]
-    lines = [
-        "<!-- issue-repro-triage:v1 -->",
-        "## Reproduction triage",
-        "",
-        f"**Proposed outcome:** `{report['proposed_outcome']}`",
-        f"**Issue:** {_markdown(report['issue_kind'])} / {_markdown(report['surface'])}",
-        f"**Checked commit:** `{report['binding']['checkout_sha']}`",
-        f"**Symptom:** {_markdown(report['claimed_symptom'])}",
-        f"**Fidelity:** {_markdown(fidelity['verdict'])} ({fidelity['confidence']:.2f})",
-        f"**Fix scope:** {_markdown(proposed_fix['scope'])} ({proposed_fix['confidence']:.2f})",
-        f"**Proposed fix:** {_markdown(proposed_fix['summary'] or 'None')}",
-        "",
-        "### Bounded execution evidence",
-        "",
-        f"- Exit status: {_markdown(execution['exit_status'])}",
-        f"- Duration: {execution['duration_seconds']:.3f}s",
-        f"- Timed out: {_markdown(execution['timed_out'])}",
-        f"- Output limited: {_markdown(execution['output_limited'])}",
-        f"- stdout: `{_markdown(execution['stdout_excerpt'] or '(empty)')}`",
-        f"- stderr: `{_markdown(execution['stderr_excerpt'] or '(empty)')}`",
-        "",
-        "### Environment limitations",
-        "",
-        *([f"- {_markdown(item)}" for item in report["environment_limitations"]] or ["- None."]),
-    ]
-    rendered = "\n".join(lines)
-    if len(rendered.encode()) > MAX_REPORT_BYTES:
-        raise InvalidHandoff("rendered report is oversized")
-    return rendered
-
-
-render_report_markdown = render_handoff_markdown

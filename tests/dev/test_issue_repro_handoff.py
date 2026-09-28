@@ -1,4 +1,3 @@
-import copy
 import json
 import sys
 from pathlib import Path
@@ -11,8 +10,6 @@ from issue_repro_handoff import (
     MAX_EXCERPT_BYTES,
     InvalidHandoff,
     has_enhancement_label,
-    load_handoff_json,
-    render_handoff_markdown,
     validate_handoff,
 )
 
@@ -193,32 +190,13 @@ def test_rejects_oversized_excerpt_and_payload():
     with pytest.raises(InvalidHandoff, match="stdout excerpt"):
         _validate(handoff)
 
-    with pytest.raises(InvalidHandoff, match="oversized"):
-        load_handoff_json(
-            " " * (32 * 1024 + 1),
-            expected_repository="mlflow/mlflow",
-            expected_issue_number=42,
-            expected_event_sha=SHA,
-            expected_checkout_sha=SHA,
-        )
+    handoff = _handoff()
+    handoff["claimed_symptom"] = "x" * (32 * 1024 + 1)
+    with pytest.raises(InvalidHandoff, match="claimed symptom"):
+        _validate(handoff)
 
 
-def test_load_rejects_duplicate_fields():
-    payload = json.dumps(_handoff()).replace(
-        '"schema_version": 1', '"schema_version": 1, "schema_version": 1'
-    )
-
-    with pytest.raises(InvalidHandoff, match="duplicate JSON field"):
-        load_handoff_json(
-            payload,
-            expected_repository="mlflow/mlflow",
-            expected_issue_number=42,
-            expected_event_sha=SHA,
-            expected_checkout_sha=SHA,
-        )
-
-
-def test_strips_controls_and_redacts_secrets_before_persistence_and_rendering():
+def test_strips_controls_and_redacts_secrets_before_persistence():
     handoff = _handoff()
     handoff["claimed_symptom"] = "bad\x00 rows; token=plain-secret"
     handoff["execution"].update(
@@ -233,7 +211,6 @@ def test_strips_controls_and_redacts_secrets_before_persistence_and_rendering():
 
     report = _validate(handoff)
     serialized = json.dumps(report)
-    rendered = render_handoff_markdown(report)
 
     for secret in (
         "plain-secret",
@@ -245,23 +222,5 @@ def test_strips_controls_and_redacts_secrets_before_persistence_and_rendering():
         "secret-key",
     ):
         assert secret not in serialized
-        assert secret not in rendered
     assert "\x00" not in serialized
     assert serialized.count("[REDACTED]") >= 6
-
-
-def test_rendering_escapes_markdown_and_html_injection_and_is_bounded():
-    handoff = _handoff()
-    handoff["claimed_symptom"] = "<script>alert(1)</script> [click](javascript:alert(1))"
-    handoff["proposed_fix"]["summary"] = "Use `dangerous()` **now**"
-    report = _validate(handoff)
-
-    first = render_handoff_markdown(report)
-    second = render_handoff_markdown(copy.deepcopy(report))
-
-    assert first == second
-    assert len(first.encode()) <= 32 * 1024
-    assert "<script>" not in first
-    assert "[click](javascript:" not in first
-    assert "&lt;script&gt;" in first
-    assert "\\[click\\]\\(javascript:alert\\(1\\)\\)" in first
