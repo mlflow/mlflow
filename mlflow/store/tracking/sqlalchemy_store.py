@@ -3730,8 +3730,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 ]
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
+                # Select distinct model IDs rather than whole metric rows. A model
+                # can log the same metric at several steps, runs or datasets, and
+                # joining those rows would duplicate the model before OFFSET/LIMIT
+                # is applied, so a page could hold fewer models than requested and
+                # pagination could stop while matches remain.
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
+                    session
+                    .query(SqlLoggedModelMetric.model_id)
+                    .filter(*metric_filters)
+                    .distinct()
+                    .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -5758,7 +5767,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
-                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+                # Keep non-ASCII text unescaped so `trace.text` / `span.content` LIKE filters
+                # can match it: stored as a \uXXXX escape, it never matches the text users type.
+                # MSSQL keeps the escaped form: its `spans.content` column is a non-Unicode
+                # VARCHAR, which would replace characters outside its code page with "?".
+                content_json = json.dumps(
+                    span_dict, cls=TraceJSONEncoder, ensure_ascii=self.db_type == MSSQL
+                )
 
                 model_name = bounded_model_dimension(
                     _try_parse_json_string(span_attributes.get(SpanAttributeKey.MODEL))

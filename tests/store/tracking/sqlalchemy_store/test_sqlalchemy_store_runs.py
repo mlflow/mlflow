@@ -4153,6 +4153,66 @@ def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
         ]
 
 
+def test_search_logged_models_metric_filter_does_not_shrink_pages(store: SqlAlchemyStore):
+    """A metric filter must not let one model occupy several rows before LIMIT.
+
+    Each model below logs the same metric on three datasets, so joining the matching
+    metric rows would emit three rows per model. Deduplication happens after LIMIT,
+    so an unfixed store returns fewer models per page than requested and can stop
+    paginating while matches remain.
+    """
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    expected_names = set()
+    for i in range(4):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        expected_names.add(model.name)
+        for dataset_name in ["train", "val", "test"]:
+            run = store.create_run(
+                experiment_id=exp_id,
+                user_id="user",
+                start_time=0,
+                tags=[],
+                run_name=f"{model.name}-{dataset_name}",
+            )
+            store.log_metric(
+                run.info.run_id,
+                Metric(
+                    "accuracy",
+                    1.0,
+                    timestamp=123,
+                    step=0,
+                    model_id=model.model_id,
+                    dataset_name=dataset_name,
+                    dataset_digest="d",
+                ),
+            )
+
+    filter_string = "metrics.accuracy > 0"
+    max_results = 2
+
+    page = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string=filter_string, max_results=max_results
+    )
+    # The first page must be full: four models match and two were asked for.
+    assert len(page) == max_results
+
+    actual_names = []
+    while True:
+        actual_names.extend(model.name for model in page)
+        if page.token is None:
+            break
+        page = store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string=filter_string,
+            max_results=max_results,
+            page_token=page.token,
+        )
+
+    # Every matching model is returned exactly once across the pages.
+    assert sorted(actual_names) == sorted(expected_names)
+    assert len(actual_names) == len(set(actual_names))
+
+
 def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(
