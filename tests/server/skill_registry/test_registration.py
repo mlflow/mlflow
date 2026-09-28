@@ -3,6 +3,7 @@ import io
 import re
 import tarfile
 import threading
+from dataclasses import replace
 from unittest import mock
 from urllib.parse import quote
 
@@ -18,7 +19,11 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS
 from mlflow.server import handlers
-from mlflow.server.skill_registry import SkillVersionRegistration, register_skill_version
+from mlflow.server.skill_registry import (
+    SkillVersionRegistration,
+    bulk_register_skill_versions,
+    register_skill_version,
+)
 from mlflow.server.skill_registry import registration as registration_module
 from mlflow.utils.workspace_context import WorkspaceContext
 
@@ -643,4 +648,137 @@ def test_mlflow_locations_are_rejected_as_remote_sources(
 def test_invalid_remote_registration_is_rejected_without_a_version(store, fields, message):
     with pytest.raises(MlflowException, match=message):
         register_skill_version(SkillVersionRegistration(name="reviewer", **fields))
+    assert version_rows(store) == 0
+
+
+# --- bulk remote registration -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("status", "existing_status"), [("active", "draft"), ("draft", "active")])
+def test_bulk_registration_normalizes_before_one_store_call(
+    store, no_artifact_serving, status, existing_status
+):
+    existing = register_skill_version(
+        SkillVersionRegistration(
+            name="editor",
+            organization="acme",
+            source="https://example.com/r.git",
+            ref="Main",
+            subpath="skills/Editor",
+            digest=_DIGEST,
+            created_by="original-author",
+            status=existing_status,
+        )
+    )
+    registrations = [
+        SkillVersionRegistration(
+            name="reviewer",
+            source=" https://example.com/r.git ",
+            ref="Main",
+            subpath="skills/Reviewer/",
+            digest="cd" * 32,
+            organization="acme",
+            created_by="importer",
+            status=status,
+        ),
+        SkillVersionRegistration(
+            name="editor",
+            source="https://example.com/r.git",
+            source_type="git",
+            ref="Main",
+            subpath="skills/Editor/",
+            digest=_DIGEST,
+            organization="acme",
+            created_by="importer",
+            status=status,
+        ),
+    ]
+    with mock.patch.object(store, "bulk_register_skills", wraps=store.bulk_register_skills) as bulk:
+        versions = bulk_register_skill_versions(registrations)
+
+    bulk.assert_called_once_with(
+        [
+            {
+                "name": name,
+                "source_type": "git",
+                "source": "https://example.com/r.git",
+                "ref": "Main",
+                "subpath": subpath,
+                "digest": digest,
+                "status": status,
+            }
+            for name, subpath, digest in (
+                ("reviewer", "skills/Reviewer", "cd" * 32),
+                ("editor", "skills/Editor", _DIGEST),
+            )
+        ],
+        organization="acme",
+        created_by="importer",
+    )
+    reviewer, editor = versions
+    assert reviewer.name == "reviewer"
+    assert reviewer.organization == "acme"
+    assert reviewer.created_by == "importer"
+    assert reviewer.status == status
+    assert reviewer.digest == "cd" * 32
+    assert reviewer.source == GitSource(
+        url="https://example.com/r.git", ref="Main", subpath="skills/Reviewer"
+    )
+    assert editor == existing
+    assert bulk_register_skill_versions(registrations) == versions
+    assert version_rows(store) == 2
+    assert registrations[0].source == " https://example.com/r.git "
+    assert registrations[0].subpath == "skills/Reviewer/"
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"name": None}, "'name' must be provided"),
+        ({"digest": "not-a-digest"}, "SHA-256 digest"),
+        ({"source": None}, "must be a remote"),
+        ({"source": "/etc/skills/reviewer"}, "must be a remote"),
+        ({"source": "mlflow-artifacts:/skills/reviewer/x"}, "names content inside MLflow"),
+        ({"source": "oci://ghcr.io/a/b:v1", "source_type": "git"}, "contradicts the 'oci' scheme"),
+        ({"subpath": "../reviewer"}, "Subpath"),
+        ({"organization": "other-org"}, "same organization and authenticated creator"),
+        ({"created_by": "other-author"}, "same organization and authenticated creator"),
+        ({"status": "draft"}, "requires the same status"),
+        ({"status": "deprecated"}, "can be registered as 'active' or 'draft'"),
+        ({"status": "deleted"}, "can be registered as 'active' or 'draft'"),
+    ],
+)
+def test_bulk_registration_validates_all_items_before_store_call(store, fields, message):
+    first = SkillVersionRegistration(
+        name="editor", source="https://example.com/r.git", digest=_DIGEST
+    )
+    second = replace(first, **{"name": "reviewer", **fields})
+    with mock.patch.object(store, "bulk_register_skills", wraps=store.bulk_register_skills) as bulk:
+        with pytest.raises(MlflowException, match=message):
+            bulk_register_skill_versions([first, second])
+    bulk.assert_not_called()
+    assert version_rows(store) == 0
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"digest": None}, "Git source and digest"),
+        ({"source_type": "zip", "source": "https://example.com/a.zip"}, "Git source and digest"),
+        ({"name": "editor"}, "Duplicate Skill name"),
+        ({"ref": "different"}, "same Git repository and ref"),
+    ],
+)
+def test_bulk_registration_preserves_store_batch_validation(store, fields, message):
+    first = SkillVersionRegistration(
+        name="editor", source="https://example.com/r.git", digest=_DIGEST
+    )
+    with pytest.raises(MlflowException, match=message):
+        bulk_register_skill_versions([first, replace(first, **{"name": "reviewer", **fields})])
+    assert version_rows(store) == 0
+
+
+def test_bulk_registration_rejects_empty_batch(store):
+    with pytest.raises(MlflowException, match="nonempty list"):
+        bulk_register_skill_versions([])
     assert version_rows(store) == 0
