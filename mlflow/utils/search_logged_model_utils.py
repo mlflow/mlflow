@@ -102,6 +102,9 @@ def parse_filter_string(filter_string: str | None) -> list[Comparison]:
                     f"Invalid comparison: {stmt}. Expected a comparison with 3 tokens."
                 )
             identifier, op, value = non_whitespace_tokens
+            # Operators are case-insensitive (e.g. `like`, `ilike`, `in`);
+            # normalize before validation and downstream SQL handling (#26216).
+            op = op.upper()
             entity = Entity.from_str(identifier)
             entity.validate_op(op)
             if entity.is_numeric():
