@@ -117,9 +117,10 @@ def test_get_logger_lazy_initialization(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
 
 def test_get_current_user_falls_back_to_username(monkeypatch):
-    monkeypatch.delenv("LOGNAME", raising=False)
-    monkeypatch.delenv("USER", raising=False)
-    monkeypatch.delenv("LNAME", raising=False)
+    def raise_os_error():
+        raise OSError
+
+    monkeypatch.setattr(tracing_module.getpass, "getuser", raise_os_error)
     monkeypatch.setenv("USERNAME", "windows-user")
 
     assert _get_current_user() == "windows-user"
@@ -129,6 +130,7 @@ def test_get_current_user_returns_empty_string_when_user_lookup_fails(monkeypatc
     def raise_os_error():
         raise OSError
 
+    monkeypatch.delenv("USERNAME", raising=False)
     monkeypatch.setattr(tracing_module.getpass, "getuser", raise_os_error)
     assert _get_current_user() == ""
 

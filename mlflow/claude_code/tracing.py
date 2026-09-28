@@ -133,7 +133,7 @@ def _get_current_user() -> str:
     try:
         return getpass.getuser()
     except (ImportError, OSError):
-        return ""
+        return os.environ.get("USERNAME", "")
 
 
 # ============================================================================
