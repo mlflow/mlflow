@@ -27,7 +27,7 @@ cache-mode: none
 
 jobs:
   copilot-setup-steps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -50,8 +50,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .mypy_cache
-          key: mypy-ubuntu-latest-${{ hashFiles('uv.lock', 'pyproject.toml') }}
-          restore-keys: mypy-ubuntu-latest-
+          key: mypy-ubuntu-24.04-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          restore-keys: mypy-ubuntu-24.04-
       - name: Restore install-bin tools
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -60,14 +60,14 @@ jobs:
             !bin/install.py
             !bin/README.md
             !bin/.gitignore
-          key: install-bin-ubuntu-latest-${{ hashFiles('bin/install.py') }}
-          restore-keys: install-bin-ubuntu-latest-
+          key: install-bin-ubuntu-24.04-${{ hashFiles('bin/install.py') }}
+          restore-keys: install-bin-ubuntu-24.04-
       - name: Restore pre-commit hooks
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-ubuntu-latest-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: pre-commit-ubuntu-latest-
+          key: pre-commit-ubuntu-24.04-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: pre-commit-ubuntu-24.04-
       - name: Install dependencies
         run: |
           uv sync --only-group lint
