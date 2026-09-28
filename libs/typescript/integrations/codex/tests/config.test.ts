@@ -2,12 +2,32 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { resolveTracingConfig } from '../src/config';
+import { parseTraceLocation, resolveTracingConfig } from '../src/config';
 
-jest.mock('@mlflow/core', () => ({
-  ...jest.requireActual('@mlflow/core'),
-  init: jest.fn(),
-}));
+jest.mock('@mlflow/core', () => ({ init: jest.fn() }));
+
+describe('parseTraceLocation', () => {
+  it('parses a catalog.schema.table_prefix value', () => {
+    expect(parseTraceLocation('cat.sch.pfx')).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'pfx',
+    });
+    expect(parseTraceLocation('  cat.sch.pfx  ')).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'pfx',
+    });
+  });
+
+  it('returns null for empty or malformed values', () => {
+    expect(parseTraceLocation(undefined)).toBeNull();
+    expect(parseTraceLocation('')).toBeNull();
+    expect(parseTraceLocation('cat.sch')).toBeNull();
+    expect(parseTraceLocation('cat.sch.pfx.extra')).toBeNull();
+    expect(parseTraceLocation('cat..pfx')).toBeNull();
+  });
+});
 
 describe('resolveTracingConfig', () => {
   let tmpHome: string;

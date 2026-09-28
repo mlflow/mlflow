@@ -22,8 +22,7 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
-import { parseUnityCatalogTraceLocation } from '@mlflow/core';
-
+import { parseTraceLocation } from '../config.js';
 import { FAIL, OK, WARN, bold, cyan, dim } from '../ui.js';
 import { selectPrompt } from '../ui-select.js';
 
@@ -257,7 +256,7 @@ function writeTracingConfigIfValid(
     process.exitCode = 1;
     return;
   }
-  if (traceLocation && !parseUnityCatalogTraceLocation(traceLocation)) {
+  if (traceLocation && !parseTraceLocation(traceLocation)) {
     console.error(
       `${FAIL} Invalid trace location: ${bold(traceLocation)} - must be in 'catalog.schema.table_prefix' format.`,
     );
