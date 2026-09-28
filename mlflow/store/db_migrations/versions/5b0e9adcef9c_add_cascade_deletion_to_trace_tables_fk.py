@@ -22,7 +22,7 @@ def upgrade():
         # We have to use batch_alter_table as SQLite does not support
         # ALTER outside of a batch operation.
         with op.batch_alter_table(table, schema=None) as batch_op:
-            batch_op.drop_constraint(fk_tag_constraint_name, type_="foreignkey")
+            batch_op.drop_constraint(fk_tag_constraint_name, type_="foreignkey", if_exists=True)
             batch_op.create_foreign_key(
                 fk_tag_constraint_name,
                 SqlTraceInfo.__tablename__,
