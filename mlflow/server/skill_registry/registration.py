@@ -17,6 +17,7 @@ from mlflow.genai.skill_content.paths import collect_tree
 from mlflow.genai.skill_content.sources import (
     _MLFLOW_PREFIXES,
     OCI_SCHEME,
+    ResolvedSource,
     is_local_path,
     resolve_source_type,
 )
@@ -130,6 +131,68 @@ def register_skill_version(
     return _register_remote(registration)
 
 
+def bulk_register_skill_versions(
+    registrations: list[SkillVersionRegistration],
+) -> list[SkillVersion]:
+    """Normalize remote Git registrations and register the batch atomically.
+
+    Discovery and per-skill digest calculation belong to the client; uploads are not supported.
+    Organization, creator, and status consistency are checked before calling the store. The store
+    registers the normalized batch in one transaction.
+
+    Args:
+        registrations: Nonempty list of registration metadata with unique skill names, Git
+            sources, and client-calculated digests. Every entry must have the same
+            ``organization``, ``created_by``, and ``status`` values. Status must be ``active``
+            or ``draft`` and defaults to ``active``.
+            The caller must populate ``created_by`` from the authenticated principal, never
+            from the request body. Sources must identify the same repository and ref after
+            normalization; skill subpaths may differ.
+
+    Returns:
+        Skill versions in input order. Each entry is either the highest non-deleted exact
+        match reused without modification or a new version with the requested status.
+        Reused versions retain their status, which may differ from the requested status.
+
+    Raises:
+        MlflowException: With ``INVALID_PARAMETER_VALUE`` if organization, creator, or status
+            values differ between entries, any entry requests an invalid status, the list is empty,
+            or registration metadata or batch constraints are invalid. These validation
+            failures occur before any database writes. Store errors, including conflicts
+            with packaged skill names, are propagated and roll back the transaction.
+    """
+    from mlflow.server.handlers import _get_tracking_store
+
+    organization = registrations[0].organization if registrations else ""
+    created_by = registrations[0].created_by if registrations else None
+    status = registrations[0].status if registrations else SkillStatus.ACTIVE.value
+    definitions = []
+    for registration in registrations:
+        _validate_metadata(registration)
+        if registration.organization != organization or registration.created_by != created_by:
+            raise MlflowException.invalid_parameter_value(
+                "Bulk registration requires the same organization and authenticated creator "
+                "for every Skill."
+            )
+        if registration.status != status:
+            raise MlflowException.invalid_parameter_value(
+                "Bulk registration requires the same status for every Skill."
+            )
+        resolved = _resolve_remote_source(registration)
+        definitions.append({
+            "name": registration.name,
+            "source_type": resolved.source_type.value,
+            "source": resolved.source,
+            "ref": resolved.ref,
+            "subpath": resolved.subpath,
+            "digest": registration.digest,
+            "status": registration.status,
+        })
+    return _get_tracking_store().bulk_register_skills(
+        definitions, organization=organization, created_by=created_by
+    )
+
+
 def _validate_metadata(registration: SkillVersionRegistration) -> None:
     if not registration.name:
         raise MlflowException.invalid_parameter_value(
@@ -161,6 +224,21 @@ def _validate_metadata(registration: SkillVersionRegistration) -> None:
 def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
+    resolved = _resolve_remote_source(registration)
+    return _get_tracking_store().create_skill_version(
+        name=registration.name,
+        organization=registration.organization,
+        source_type=resolved.source_type.value,
+        source=resolved.source,
+        ref=resolved.ref,
+        subpath=resolved.subpath,
+        digest=registration.digest,
+        status=registration.status,
+        created_by=registration.created_by,
+    )
+
+
+def _resolve_remote_source(registration: SkillVersionRegistration) -> ResolvedSource:
     source = registration.source
     source_type = registration.source_type
     # Locations inside MLflow are never a client-supplied remote source, whatever type the
@@ -215,17 +293,7 @@ def _register_remote(registration: SkillVersionRegistration) -> SkillVersion:
         # The typed resolver only strips the scheme; the reference grammar is what makes the
         # value an image at all, so a stray path or URL is refused here rather than at pull.
         parse_image_reference(resolved.source)
-    return _get_tracking_store().create_skill_version(
-        name=registration.name,
-        organization=registration.organization,
-        source_type=resolved.source_type.value,
-        source=resolved.source,
-        ref=resolved.ref,
-        subpath=resolved.subpath,
-        digest=registration.digest,
-        status=registration.status,
-        created_by=registration.created_by,
-    )
+    return resolved
 
 
 def _type_named_by_scheme(source: str) -> str | None:
