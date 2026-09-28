@@ -1104,7 +1104,22 @@ def authorize_on_conditions(
         ]
         if not target_rows:
             continue
-        if not context.resource_ids:
+        resource_ids = context.resource_ids
+        if not resource_ids and context.resource_id_resolver is not None:
+            # A cascade: the request names the parent, and the children are enumerated HERE
+            # rather than by the validator, so an unconditioned cascade never pays for it.
+            # This is the only place that knows a target condition actually exists for the
+            # child's type.
+            resource_ids = context.resource_id_resolver()
+            if resource_ids is None:
+                # Enumeration failed or overflowed its bound. Not the same as having no
+                # children: the condition cannot be evaluated, so refuse.
+                return False
+            if not resource_ids:
+                # The parent genuinely holds no children of this type, so there is nothing
+                # for the condition to forbid and the cascade may proceed.
+                continue
+        if not resource_ids:
             # A target condition exists for a type this operation mutates, but the
             # operation could not name which resources it will touch -- a predicate-mode
             # bulk delete selecting by timestamp, for instance (D21). The condition cannot
@@ -1119,8 +1134,8 @@ def authorize_on_conditions(
         # One bulk call for the context's ids rather than one read each. A bulk delete
         # naming N traces would otherwise cost N round trips to evaluate one condition
         # (D11); for a single id the bulk path resolves to the same single fetch.
-        resolved = auth_resources.attrs_for_bulk(context.resource_type, context.resource_ids)
-        for resource_id in context.resource_ids:
+        resolved = auth_resources.attrs_for_bulk(context.resource_type, resource_ids)
+        for resource_id in resource_ids:
             values = resolved.get(resource_id)
             if values is None:
                 # A condition cannot be satisfied by a resource that is not there, and
@@ -2194,26 +2209,59 @@ def validate_can_delete_experiment_tag():
     )
 
 
-def _unenumerated_cascade_contexts(tiers: "Sequence[str]") -> "list[ConditionContext]":
-    """MUTATE contexts for child tiers a cascade destroys without naming them.
+# Which enumerator answers "what children of this parent does the cascade transition?".
+_CASCADE_CHILD_ENUMERATORS = {
+    RESOURCE_TYPE_RUN: lambda parent: auth_resources.runs_of_experiment(parent),
+    RESOURCE_TYPE_TRACE: lambda parent: auth_resources.traces_of_experiment(parent),
+    RESOURCE_TYPE_LOGGED_MODEL: lambda parent: auth_resources.logged_models_of_experiment(parent),
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION: (
+        lambda parent: auth_resources.versions_of_registered_model(parent)
+    ),
+    RESOURCE_TYPE_PROMPT_VERSION: lambda parent: auth_resources.versions_of_registered_model(
+        parent
+    ),
+    RESOURCE_TYPE_MCP_SERVER_VERSION: lambda parent: auth_resources.versions_of_mcp_server(parent),
+}
 
-    A cascade delete reaches rows this request never mentions -- every run in an experiment,
-    every version of a registered model -- and enumerating them is unbounded, so the ids
-    cannot be supplied. Declaring the tier with NO resource id is exactly the D21 case the
-    gate already implements: if a target condition exists for that tier the gate denies,
-    because it cannot prove the condition holds for rows it cannot see; if none exists the
-    context costs nothing and behaviour is unchanged.
 
-    That is deliberately conservative. The alternative is a cascade that destroys a resource a
-    target condition was written to protect, which is the bypass this whole layer exists to
-    prevent. Tiers outside the condition vocabulary are skipped: the store rejects them on
-    write, so no condition row can exist for them.
+def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[ConditionContext]":
+    """MUTATE contexts for the children a cascade transitions.
+
+    A cascade delete or restore reaches rows the request never mentions -- every run in an
+    experiment, every version of a registered model. Each of those children is judged on its
+    own: the child transition has to succeed for the parent's to, so if any child's target
+    condition fails, the parent operation fails with it.
+
+    The children are not enumerated here. Each context carries a RESOLVER that the gate calls
+    only once it knows a target condition actually exists for that tier, so a cascade on a
+    server with no conditions -- or with conditions only on unrelated types -- costs exactly
+    what it did before.
+
+    A tier with no enumerator still gets a context with no ids and no resolver, which the gate
+    refuses when a target condition exists for it. That is the right default for a tier whose
+    children cannot be listed: better to refuse than to let the cascade through unjudged.
+    Tiers outside the condition vocabulary are skipped entirely, since the store rejects them
+    on write and no condition row can exist.
     """
-    return [
-        context_for(tier, None, ConditionScope.MUTATE, request_values_shape(tier)())
-        for tier in tiers
-        if tier in SUPPORTED_RESOURCE_TYPES
-    ]
+    contexts = []
+    for tier in tiers:
+        if tier not in SUPPORTED_RESOURCE_TYPES:
+            continue
+        enumerator = _CASCADE_CHILD_ENUMERATORS.get(tier)
+        contexts.append(
+            context_for(
+                tier,
+                None,
+                ConditionScope.MUTATE,
+                request_values_shape(tier)(),
+                resource_id_resolver=(
+                    (lambda enumerate_children=enumerator: enumerate_children(parent_id))
+                    if enumerator is not None
+                    else None
+                ),
+            )
+        )
+    return contexts
 
 
 # Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
@@ -2263,7 +2311,7 @@ def validate_can_delete_experiment():
                 ExperimentRequestValues(),
             ),
             # The delete transitions every run, trace and logged model the experiment holds.
-            *_unenumerated_cascade_contexts(_EXPERIMENT_CASCADE_TIERS),
+            *_cascade_contexts(experiment_id, _EXPERIMENT_CASCADE_TIERS),
         ],
     )
 
@@ -2867,7 +2915,7 @@ def validate_can_delete_registered_model_or_prompt_cascade():
                 ConditionScope.MUTATE,
                 request_values_shape(container_type)(),
             ),
-            *_unenumerated_cascade_contexts((version_type,)),
+            *_cascade_contexts(name, (version_type,)),
         ],
     )
 
@@ -9157,7 +9205,7 @@ async def _mcp_conditions_permit(
     contexts = [context]
     if request.method == "DELETE" and len(parts) == 2:
         # Deleting the server destroys every version under it, and the path names none of them.
-        contexts += _unenumerated_cascade_contexts((RESOURCE_TYPE_MCP_SERVER_VERSION,))
+        contexts += _cascade_contexts(name, (RESOURCE_TYPE_MCP_SERVER_VERSION,))
     return authorize_on_conditions(
         username,
         get_anchor_workspace(RESOURCE_TYPE_MCP_SERVER, name),

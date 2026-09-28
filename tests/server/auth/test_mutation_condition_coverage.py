@@ -714,3 +714,116 @@ def test_an_issue_detection_projection_survives_a_malformed_trace_id(recorder, m
     assert declared.get("total_traces") == "1", (
         f"the hashable id should still be counted once; got {declared.get('total_traces')}"
     )
+
+
+# ---- Cascade children are judged one by one ---------------------------------
+#
+# A child transition has to succeed for its parent's to, so a child whose target condition
+# fails fails the parent operation with it. That is stronger than refusing whenever a child
+# condition merely exists, and weaker than ignoring the children -- both of which this
+# replaced at different points.
+
+
+def _child_restricted(monkeypatch, child_type, target_condition, children, failing=()):
+    """A target condition on `child_type` only, with `children` as the enumerated set."""
+
+    class Store:
+        def get_user(self, username):
+            return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def is_workspace_admin(self, user_id, workspace):
+            return False
+
+        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+            return [
+                MutationConditionSpec(
+                    child_type, value_condition=None, target_condition=target_condition
+                )
+            ]
+
+    monkeypatch.setattr(auth_module, "store", Store())
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+    monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda *a, **k: _WORKSPACE)
+    # The grant half is allowed unconditionally and has its own tests; these assert the
+    # condition half, so `authorize` passes straight through to it.
+    monkeypatch.setattr(
+        auth_module,
+        "authorize",
+        lambda username, anchor, requirements, *, conditions=(), workspace=None: (
+            auth_module.authorize_on_conditions(username, _WORKSPACE, conditions)
+        ),
+    )
+    monkeypatch.setattr(auth_resources, "runs_of_experiment", lambda _e: children)
+    monkeypatch.setattr(auth_resources, "traces_of_experiment", lambda _e: ())
+    monkeypatch.setattr(auth_resources, "logged_models_of_experiment", lambda _e: ())
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {
+            i: auth_resources.values_for_entity(
+                rt,
+                i,
+                # An explicit non-matching value, not an absent tag: on the RESOURCE side
+                # absence is not vacuous (D20), so a child with no `keep` tag would fail
+                # `tags.keep != 'y'` and the test would pass for the wrong reason.
+                SimpleNamespace(tags={"keep": "y" if i in failing else "n"}, aliases={}),
+            )
+            for i in ids
+        },
+    )
+
+
+def _delete_experiment():
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/delete", method="POST", json={"experiment_id": "1"}
+    ):
+        return auth_module.validate_can_delete_experiment()
+
+
+def test_deleting_an_experiment_denies_when_one_run_fails_its_condition(monkeypatch):
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1", "r2"), failing=("r2",))
+    assert _delete_experiment() is False
+
+
+def test_deleting_an_experiment_permits_when_every_run_passes(monkeypatch):
+    """The reason for enumerating instead of refusing: a run condition must not make every
+    experiment undeletable, only those holding a run the condition protects.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1", "r2"))
+    assert _delete_experiment() is True
+
+
+def test_deleting_an_empty_experiment_is_permitted(monkeypatch):
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ())
+    assert _delete_experiment() is True
+
+
+def test_deleting_an_experiment_denies_when_runs_cannot_be_enumerated(monkeypatch):
+    """`None` is not an empty set. Too many children to bound, or a failed search, means the
+    condition cannot be evaluated -- so refuse rather than cascade unjudged.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", None)
+    assert _delete_experiment() is False
+
+
+def test_deleting_an_experiment_does_not_enumerate_without_a_child_condition(monkeypatch):
+    """Laziness is what makes this affordable: a condition on the EXPERIMENT tier alone must
+    not list the experiment's runs.
+    """
+    _child_restricted(monkeypatch, "experiment", "tags.keep != 'y'", ())
+    calls = []
+    monkeypatch.setattr(auth_resources, "runs_of_experiment", lambda e: calls.append(e) or ())
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {
+            i: auth_resources.values_for_entity(
+                rt, i, SimpleNamespace(tags={"keep": "n"}, aliases={})
+            )
+            for i in ids
+        },
+    )
+    assert _delete_experiment() is True
+    assert calls == [], f"enumerated runs with no run condition configured; {calls}"

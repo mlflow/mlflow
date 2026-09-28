@@ -443,11 +443,11 @@ async def test_deleting_a_server_is_gated_by_a_target_condition(monkeypatch):
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
 
 
-@pytest.mark.asyncio
-async def test_deleting_a_server_refuses_when_a_version_condition_cannot_be_checked(monkeypatch):
-    """Deleting a server destroys every version under it, and the path names none of them. A
-    version target condition therefore cannot be proven to hold, so the delete must refuse
-    (D21) rather than cascade through rows the condition was written to protect.
+def _version_restricted(monkeypatch, children, target_condition="tags.keep != 'y'"):
+    """A condition on the VERSION tier only, with the server itself unrestricted.
+
+    `children` is what enumerating the server's versions returns: a tuple of ids, or None for
+    "could not enumerate".
     """
 
     class Store:
@@ -458,10 +458,9 @@ async def test_deleting_a_server_refuses_when_a_version_condition_cannot_be_chec
             return False
 
         def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
-            # Only the VERSION tier is restricted; the server itself is unrestricted.
             return [
                 MutationConditionSpec(
-                    "mcp_server_version", value_condition=None, target_condition="tags.keep != 'y'"
+                    "mcp_server_version", value_condition=None, target_condition=target_condition
                 )
             ]
 
@@ -469,12 +468,86 @@ async def test_deleting_a_server_refuses_when_a_version_condition_cannot_be_chec
     monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda n, u: MANAGE)
     monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
     monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda rt, rid: "ws")
+    monkeypatch.setattr(auth_resources, "versions_of_mcp_server", lambda name: children)
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_denies_when_a_child_version_fails_its_condition(monkeypatch):
+    """The cascade's children are judged individually, and the child transition has to succeed
+    for the parent's to. One failing version therefore fails the whole server delete.
+    """
+    _version_restricted(monkeypatch, ("acme%2Fsearch/1.0.0", "acme%2Fsearch/2.0.0"))
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {
+            i: auth_resources.values_for_entity(
+                rt,
+                i,
+                # Only the second version is protected; one is enough to refuse.
+                SimpleNamespace(tags={"keep": "y"} if i.endswith("2.0.0") else {}, aliases={}),
+            )
+            for i in ids
+        },
+    )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_permits_when_every_child_passes(monkeypatch):
+    """The point of enumerating rather than refusing outright: a condition on the child tier
+    must not block a cascade whose children all satisfy it.
+    """
+    _version_restricted(monkeypatch, ("acme%2Fsearch/1.0.0", "acme%2Fsearch/2.0.0"))
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {
+            i: auth_resources.values_for_entity(
+                rt, i, SimpleNamespace(tags={"keep": "n"}, aliases={})
+            )
+            for i in ids
+        },
+    )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_childless_server_is_permitted(monkeypatch):
+    """No children means nothing for the child condition to forbid. This must be distinct from
+    "could not enumerate", which denies.
+    """
+    _version_restricted(monkeypatch, ())
     reads = []
     monkeypatch.setattr(
         auth_resources, "attrs_for_bulk", lambda rt, ids: reads.append((rt, list(ids))) or {}
     )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
+    assert reads == [], f"nothing to read when there are no children; read {reads}"
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_denies_when_children_cannot_be_enumerated(monkeypatch):
+    """`None` from the enumerator means the child set could not be established -- too many to
+    bound, or the search failed. The condition cannot be evaluated, so the cascade is refused
+    rather than allowed through unjudged.
+    """
+    _version_restricted(monkeypatch, None)
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
-    assert reads == [], f"should refuse without reading anything; read {reads}"
+
+
+@pytest.mark.asyncio
+async def test_an_unconditioned_cascade_never_enumerates(monkeypatch):
+    """The enumeration is lazy, and that is what keeps this affordable: with no condition on the
+    child tier the server delete must not list the server's versions at all.
+    """
+    _configure(monkeypatch, value_condition="tag_key != 'nope'", permission=MANAGE)
+    calls = []
+    monkeypatch.setattr(
+        auth_resources, "versions_of_mcp_server", lambda name: calls.append(name) or ()
+    )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
+    assert calls == [], f"enumerated children with no child condition configured; {calls}"
 
 
 @pytest.mark.asyncio

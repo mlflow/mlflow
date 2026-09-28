@@ -551,3 +551,99 @@ def test_projected_values_are_always_strings():
     assert values.aliases == {"champion": "1", "candidate": "2"}
     assert all(isinstance(k, str) and isinstance(v, str) for k, v in values.tags.items())
     assert all(isinstance(k, str) and isinstance(v, str) for k, v in values.aliases.items())
+
+
+# ---- Bounded child enumeration for cascades ---------------------------------
+
+
+class _Page(list):
+    """A PagedList stand-in: a list carrying a continuation token."""
+
+    def __init__(self, items, token=None):
+        super().__init__(items)
+        self.token = token
+
+
+def test_collect_ids_pages_until_the_token_runs_out():
+    pages = [_Page(["a", "b"], "t1"), _Page(["c"], None)]
+    seen = []
+
+    def fetch(token):
+        seen.append(token)
+        return pages[len(seen) - 1]
+
+    assert auth_resources._collect_ids(fetch, lambda x: x) == ("a", "b", "c")
+    assert seen == [None, "t1"], "the second page must be requested with the first page's token"
+
+
+def test_collect_ids_returns_none_past_the_bound():
+    """Past the bound the answer is "could not enumerate", NOT a truncated list. A truncated
+    list would be evaluated as if it were the whole set, and the children past the cut would
+    be transitioned without their condition ever being checked.
+    """
+    too_many = _Page([str(i) for i in range(auth_resources.MAX_CASCADE_CHILDREN + 1)], None)
+    assert auth_resources._collect_ids(lambda _token: too_many, lambda x: x) is None
+
+
+def test_collect_ids_distinguishes_no_children_from_unenumerable():
+    assert auth_resources._collect_ids(lambda _token: _Page([], None), lambda x: x) == ()
+
+
+def test_versions_of_registered_model_returns_composed_ids(monkeypatch):
+    """The ids have to be the composed form, or the projection cannot fetch the version back."""
+    store = SimpleNamespace(
+        search_model_versions=lambda filter_string, max_results, page_token: _Page(
+            [SimpleNamespace(name="my/model", version=1)], None
+        )
+    )
+    monkeypatch.setattr(auth_resources, "_registry_store", lambda: store)
+    assert auth_resources.versions_of_registered_model("my/model") == ("my%2Fmodel/1",)
+
+
+def test_versions_of_a_singly_quoted_name_use_double_quotes(monkeypatch):
+    """A name containing a single quote is still enumerable -- by double-quoting it, which is
+    MLflow's own convention.
+    """
+    captured = {}
+
+    def search(filter_string, max_results, page_token):
+        captured["filter"] = filter_string
+        return _Page([SimpleNamespace(name="it's", version=1)], None)
+
+    monkeypatch.setattr(
+        auth_resources, "_registry_store", lambda: SimpleNamespace(search_model_versions=search)
+    )
+    assert auth_resources.versions_of_registered_model("it's") == ("it%27s/1",)
+    assert captured["filter"] == 'name = "it\'s"'
+
+
+def test_versions_of_an_unquotable_name_are_unenumerable(monkeypatch):
+    """A name with both quote styles cannot be expressed in a filter we can trust. It must
+    report "cannot enumerate" -- which denies -- and never an empty set, which the gate would
+    read as "no children" and let the cascade through.
+    """
+    called = []
+    monkeypatch.setattr(
+        auth_resources,
+        "_registry_store",
+        lambda: SimpleNamespace(
+            search_model_versions=lambda *a, **k: called.append(1) or _Page([])
+        ),
+    )
+    assert auth_resources.versions_of_registered_model("""both " and ' """) is None
+    assert called == [], "must refuse before issuing a search it cannot trust"
+
+
+def test_versions_ignore_rows_the_filter_should_not_have_matched(monkeypatch):
+    """Belt and braces: an over-broad filter must not widen the child set."""
+    monkeypatch.setattr(
+        auth_resources,
+        "_registry_store",
+        lambda: SimpleNamespace(
+            search_model_versions=lambda *a, **k: _Page([
+                SimpleNamespace(name="wanted", version=1),
+                SimpleNamespace(name="other", version=9),
+            ])
+        ),
+    )
+    assert auth_resources.versions_of_registered_model("wanted") == ("wanted/1",)

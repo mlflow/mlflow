@@ -31,7 +31,7 @@ fiddly, well-tested parts -- and own the vocabulary here.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from enum import Enum, auto
 from typing import NamedTuple
 
@@ -410,12 +410,20 @@ class ConditionContext(NamedTuple):
     ``resource_ids`` holds **ids, never loaded entities**. The framework pulls
     attributes from them, and only if a resource condition actually exists -- which
     is what keeps the common paths free of extra queries.
+
+    ``resource_id_resolver`` is for a cascade, whose children the request never names. It is
+    called ONLY when a target condition actually exists for this type, which is what keeps an
+    unconditioned cascade from paying for an enumeration it would discard. It returns the
+    child ids, or ``None`` when they could not be enumerated -- and those are different
+    answers: no children lets the cascade proceed, while "could not enumerate" must deny,
+    because a condition that cannot be evaluated must never pass vacuously.
     """
 
     resource_type: str
     scope: ConditionScope
     request: RequestValues
     resource_ids: tuple[str, ...] = ()
+    resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None
 
 
 class MutationConditionSpec(NamedTuple):
@@ -1010,6 +1018,7 @@ def context_for(
     resource_id: str | None,
     scope: ConditionScope,
     request: RequestValues | None = None,
+    resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None,
 ) -> ConditionContext:
     """Build a context, treating a wildcard id as "no specific resource".
 
@@ -1034,4 +1043,5 @@ def context_for(
         scope=scope,
         request=request,
         resource_ids=ids,
+        resource_id_resolver=resource_id_resolver,
     )

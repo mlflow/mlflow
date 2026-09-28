@@ -312,6 +312,126 @@ def fetch_mcp_server_version(name: str, version: str):
     return _memoized("mcp_server_version", version_resource_id(name, version), load)
 
 
+# A cascade's children have to be enumerated to judge each one, and that enumeration is
+# unbounded in principle: an experiment can hold any number of runs. The cap bounds the work,
+# and exceeding it is reported as "cannot enumerate" rather than as "no children" -- the gate
+# then refuses, because a condition that cannot be evaluated must never pass vacuously.
+MAX_CASCADE_CHILDREN = 2000
+
+
+def _collect_ids(fetch_page, id_of) -> "tuple[str, ...] | None":
+    """Page through a search, returning ids -- or ``None`` when there are too many.
+
+    ``None`` and ``()`` mean different things to the caller and must not be conflated: ``()``
+    is "this parent genuinely has no children", which lets the cascade proceed, while ``None``
+    is "the children could not be enumerated", which must deny.
+    """
+    ids: list[str] = []
+    token = None
+    while True:
+        page = fetch_page(token)
+        ids.extend(id_of(entity) for entity in page)
+        if len(ids) > MAX_CASCADE_CHILDREN:
+            return None
+        token = getattr(page, "token", None)
+        if not token:
+            return tuple(ids)
+
+
+def runs_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
+    from mlflow.entities import ViewType
+
+    store = _tracking_store()
+    return _collect_ids(
+        lambda token: store.search_runs(
+            [experiment_id],
+            None,
+            # ALL, not ACTIVE_ONLY: delete transitions the active children and restore
+            # transitions the deleted ones, and this one helper serves both. Judging the
+            # wider set can only deny more, never less.
+            ViewType.ALL,
+            max_results=500,
+            page_token=token,
+        ),
+        lambda run: run.info.run_id,
+    )
+
+
+def traces_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
+    store = _tracking_store()
+    return _collect_ids(
+        lambda token: store.search_traces(
+            experiment_ids=[experiment_id], max_results=500, page_token=token
+        ),
+        lambda trace: trace.request_id,
+    )
+
+
+def logged_models_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
+    store = _tracking_store()
+    return _collect_ids(
+        lambda token: store.search_logged_models(
+            experiment_ids=[experiment_id], max_results=500, page_token=token
+        ),
+        lambda model: model.model_id,
+    )
+
+
+def versions_of_registered_model(name: str) -> "tuple[str, ...] | None":
+    """Every version of a registered model, or ``None`` when they cannot be established.
+
+    The name has to travel inside a search filter string, and a name containing a quote is the
+    dangerous case: a filter that parses but matches nothing returns no rows, which the gate
+    would read as "this model has no versions" and let the cascade through -- a silent
+    fail-OPEN driven by the resource's own name. So a name that cannot be quoted unambiguously
+    is reported as unenumerable instead, and the cascade is refused.
+
+    The quoting mirrors MLflow's own convention (see `mlflow.genai.datasets`): prefer double
+    quotes, fall back to single. The case that convention handles by doubling the quote is
+    NOT used here, because the search parser does not unescape it -- the filter would then
+    match nothing, which is exactly the fail-open above.
+
+    Results are additionally checked against the requested name, so an over-broad filter
+    cannot quietly widen the set either.
+    """
+    if '"' not in name:
+        filter_string = f'name = "{name}"'
+    elif "'" not in name:
+        filter_string = f"name = '{name}'"
+    else:
+        return None
+
+    store = _registry_store()
+
+    def page(token):
+        found = store.search_model_versions(filter_string, max_results=500, page_token=token)
+        kept = [version for version in found if version.name == name]
+        return _same_paging(found, kept)
+
+    return _collect_ids(
+        page,
+        # The composed id, so the projection can fetch the version back.
+        lambda version: version_resource_id(version.name, str(version.version)),
+    )
+
+
+def _same_paging(original, items):
+    """`items` carrying `original`'s continuation token, so filtering a page keeps paging."""
+
+    class _Filtered(list):
+        token = getattr(original, "token", None)
+
+    return _Filtered(items)
+
+
+def versions_of_mcp_server(name: str) -> "tuple[str, ...] | None":
+    store = _tracking_store()
+    return _collect_ids(
+        lambda token: store.search_mcp_server_versions(name, max_results=500, page_token=token),
+        lambda version: version_resource_id(name, str(version.version)),
+    )
+
+
 def fetch_registered_model(name: str):
     """Fetch a registry entry, whichever family it turns out to be.
 
