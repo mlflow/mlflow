@@ -37,7 +37,8 @@ if TYPE_CHECKING:
     from mlflow.server.auth.sqlalchemy_store import RoleGrantRow
 
 # A veto-only requirement: the key must not be denied, and nothing positive is required of
-# it. Not an RFC 0008 verb -- that catalogue has no veto -- so it is a local addition. It
+# it. Not one of the standard action verbs -- that catalogue has no veto -- so it is a local
+# addition. It
 # cannot appear in a grant: grants carry permission LEVELS (uppercase), and this is an
 # action.
 #
@@ -77,7 +78,7 @@ class Requirement(NamedTuple):
     """
 
     resource_type: str
-    resource_id: str | None  # None for create-in-workspace (RFC 0008 convention)
+    resource_id: str | None  # None for create-in-workspace
     action: str  # read | use | update | delete | manage | create | not_denied
     fallback_if_no_grant: "tuple[tuple[str, str], ...]" = ()
 

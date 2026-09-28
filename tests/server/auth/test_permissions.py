@@ -164,7 +164,7 @@ def test_grantable_permission_sets_pin_simplified_model():
     """Pin the two-tier workspace model and the resource-grant set.
 
     Workspace grants accept only USE / MANAGE. Resource grants accept
-    READ / USE / EDIT / MANAGE plus DENY, the sub-resource RFC's absolute deny.
+    READ / USE / EDIT / MANAGE plus DENY, an absolute deny.
     ``NO_PERMISSIONS`` stays excluded: an absent grant plus ``default_permission``
     already expresses "no access". These sets gate every permission write through the
     store, so a regression here would silently re-enable the old
