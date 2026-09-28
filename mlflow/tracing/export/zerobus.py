@@ -96,6 +96,8 @@ def is_zerobus_host(endpoint: str, workspace_id: str) -> bool:
 def resolve_zerobus_endpoint(
     host: str,
     workspace_id: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
 ) -> str | None:
     """Assemble and validate the Zerobus OTLP ingest endpoint for a workspace.
 
@@ -128,7 +130,11 @@ def resolve_zerobus_endpoint(
     try:
         from databricks.sdk import WorkspaceClient
 
-        ws = WorkspaceClient(host=host)
+        # Pass the resolved SP credentials explicitly so the metastore lookup uses the same
+        # identity the exporter mints its Zerobus token with, rather than the databricks-sdk
+        # ambient chain (env vars / ~/.databrickscfg) which may not carry the creds supplied
+        # only via the MLflow tracking URI.
+        ws = WorkspaceClient(host=host, client_id=client_id, client_secret=client_secret)
         summary = ws.metastores.summary()
     except Exception as exc:
         _logger.debug("Failed to fetch metastore summary for Zerobus endpoint resolution: %s", exc)
@@ -431,7 +437,12 @@ def get_zerobus_span_exporter(
         )
         return None
 
-    endpoint = resolve_zerobus_endpoint(host=host, workspace_id=workspace_id)
+    endpoint = resolve_zerobus_endpoint(
+        host=host,
+        workspace_id=workspace_id,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
     if endpoint is None:
         _logger.warning(
             "MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT is set but the Zerobus endpoint could "

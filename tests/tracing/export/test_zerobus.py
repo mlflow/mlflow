@@ -271,6 +271,34 @@ def test_resolve_zerobus_endpoint_cloud_from_global_metastore_id():
     assert result == "12345678.zerobus.us-west-2.cloud.databricks.com"
 
 
+def test_resolve_zerobus_endpoint_passes_service_principal_credentials():
+    with (
+        mock.patch(
+            "mlflow.tracing.export.zerobus.MLFLOW_ZEROBUS_ENDPOINT",
+            new=mock.MagicMock(get=mock.MagicMock(return_value=None)),
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient",
+            return_value=mock.MagicMock(
+                metastores=mock.MagicMock(
+                    summary=mock.MagicMock(return_value=_make_summary("us-west-2", "aws"))
+                )
+            ),
+        ) as mock_ws,
+    ):
+        resolve_zerobus_endpoint(
+            host="https://adb-12345678.cloud.databricks.com",
+            workspace_id="12345678",
+            client_id="sp-client-id",
+            client_secret="sp-secret",
+        )
+    mock_ws.assert_called_once_with(
+        host="https://adb-12345678.cloud.databricks.com",
+        client_id="sp-client-id",
+        client_secret="sp-secret",
+    )
+
+
 # ---------------------------------------------------------------------------
 # build_table_authorization_details
 # ---------------------------------------------------------------------------
