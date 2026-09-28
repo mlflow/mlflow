@@ -266,9 +266,12 @@ def test_process_transript_creates_trace(mock_transcript_file):
 
 
 def test_process_transcript_uses_username_when_user_is_unset(monkeypatch, mock_transcript_file):
-    monkeypatch.delenv("LOGNAME", raising=False)
     monkeypatch.delenv("USER", raising=False)
-    monkeypatch.delenv("LNAME", raising=False)
+    monkeypatch.setattr(
+        tracing_module.getpass,
+        "getuser",
+        lambda: (_ for _ in ()).throw(OSError),
+    )
     monkeypatch.setenv("USERNAME", "windows-user")
 
     trace = process_transcript(mock_transcript_file, "test-session-123")
