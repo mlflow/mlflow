@@ -5,11 +5,14 @@ import { useCreateScheduledScorerMutation } from './hooks/useCreateScheduledScor
 import { convertFormDataToScheduledScorer, type ScorerFormData } from './utils/scorerTransformUtils';
 import ScorerFormRenderer from './ScorerFormRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
+import { LLM_TEMPLATE } from './types';
+import { EDITABLE_TEMPLATES, TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
 
 interface ScorerFormCreateContainerProps {
   experimentId: string;
   onClose: () => void;
   initialScorerType?: ScorerFormData['scorerType'];
+  initialTemplate?: LLM_TEMPLATE;
   initialScope?: ScorerEvaluationScope;
   initialItemId?: string;
 }
@@ -18,6 +21,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
   experimentId,
   onClose,
   initialScorerType = 'llm',
+  initialTemplate = LLM_TEMPLATE.CUSTOM,
   initialScope,
   initialItemId,
 }) => {
@@ -37,10 +41,11 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
       name: '',
       sampleRate: 100,
       filterString: '',
-      llmTemplate: 'Custom',
+      llmTemplate: initialTemplate,
       model: '',
       disableMonitoring: false,
-      isInstructionsJudge: true, // Custom template is an instructions judge
+      instructions: TEMPLATE_INSTRUCTIONS_MAP[initialTemplate] || '',
+      isInstructionsJudge: EDITABLE_TEMPLATES.has(initialTemplate),
       evaluationScope: initialScope ?? ScorerEvaluationScope.TRACES,
     },
   });

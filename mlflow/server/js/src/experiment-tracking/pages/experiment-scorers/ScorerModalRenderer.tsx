@@ -6,7 +6,7 @@ import ScorerFormCreateContainer from './ScorerFormCreateContainer';
 import ScorerFormEditContainer from './ScorerFormEditContainer';
 import type { ScorerEvaluationScope } from './constants';
 import { SCORER_FORM_MODE, type ScorerFormMode } from './constants';
-import type { ScheduledScorer } from './types';
+import type { LLM_TEMPLATE, ScheduledScorer } from './types';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ScorerModalRendererProps {
@@ -16,6 +16,7 @@ interface ScorerModalRendererProps {
   mode: ScorerFormMode;
   existingScorer?: ScheduledScorer;
   initialScorerType?: ScorerFormData['scorerType'];
+  initialTemplate?: LLM_TEMPLATE;
   initialScope?: ScorerEvaluationScope;
   initialItemId?: string;
 }
@@ -27,6 +28,7 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
   mode,
   existingScorer,
   initialScorerType,
+  initialTemplate,
   initialScope,
   initialItemId,
 }) => {
@@ -78,6 +80,7 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
           experimentId={experimentId}
           onClose={onClose}
           initialScorerType={initialScorerType}
+          initialTemplate={initialTemplate}
           initialScope={initialScope}
           initialItemId={initialItemId}
         />

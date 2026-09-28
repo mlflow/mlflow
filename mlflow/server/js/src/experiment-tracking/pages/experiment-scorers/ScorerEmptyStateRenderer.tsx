@@ -3,20 +3,22 @@ import {
   useDesignSystemTheme,
   Empty,
   Button,
-  PlusIcon,
   CodeIcon,
   Spacer,
   GavelIcon,
   Typography,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import NewLLMJudgeDropdown from './NewLLMJudgeDropdown';
+import type { ScorerEvaluationScope } from './constants';
+import type { LLM_TEMPLATE } from './types';
 
 const getScorersDocUrl = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/';
 };
 
 interface ScorerEmptyStateRendererProps {
-  onAddLLMScorerClick: () => void;
+  onAddLLMScorerClick: (template: LLM_TEMPLATE, scope: ScorerEvaluationScope) => void;
   onAddCustomCodeScorerClick: () => void;
 }
 
@@ -70,17 +72,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
         }
         button={
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-            <Button
-              type="primary"
-              icon={<PlusIcon />}
-              componentId="mlflow.experiment-scorers.empty-state-add-llm-scorer-button"
-              onClick={onAddLLMScorerClick}
-            >
-              <FormattedMessage
-                defaultMessage="New LLM judge"
-                description="Button text to add an LLM judge from empty state"
-              />
-            </Button>
+            <NewLLMJudgeDropdown onSelect={onAddLLMScorerClick} />
             <Button
               icon={<CodeIcon />}
               componentId="mlflow.experiment-scorers.empty-state-add-custom-code-scorer-button"
