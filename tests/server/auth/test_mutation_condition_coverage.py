@@ -691,3 +691,26 @@ def test_an_issue_detection_projection_matches_the_handlers_normalization(record
     assert declared.get("total_traces") == "2", (
         "duplicate trace ids must be collapsed as the handler collapses them"
     )
+
+
+def test_an_issue_detection_projection_survives_a_malformed_trace_id(recorder, monkeypatch):
+    """A JSON body can carry a list or object where a trace id belongs, and those are
+    unhashable. Deduplicating them raised TypeError from authorization, before the request was
+    ever judged -- so a malformed body failed as a crash in the auth layer instead of in the
+    handler's own validation.
+    """
+    body = {
+        "experiment_id": "1",
+        "categories": ["toxicity"],
+        "provider": "openai",
+        "model": "gpt",
+        "trace_ids": ["t1", ["nested"], {"k": "v"}, "t1"],
+    }
+    with auth_module.app.test_request_context(
+        "/ajax-api/3.0/mlflow/issues/detect", method="POST", json=body
+    ):
+        auth_module.validate_can_invoke_issue_detection()
+    declared = dict(pair for c in recorder.contexts for pair in (c.request.tags or ()) if pair[0])
+    assert declared.get("total_traces") == "1", (
+        f"the hashable id should still be counted once; got {declared.get('total_traces')}"
+    )

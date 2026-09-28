@@ -22,7 +22,7 @@ import re
 import secrets
 import threading
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable, NamedTuple
@@ -4063,7 +4063,15 @@ def _issue_detection_run_tags(body: "dict | None") -> "tuple[tuple[str, str | No
     # ["t1", "t1"] checked as "2" but stored as "1". A condition would then permit precisely
     # the value it was written to reject.
     provider_name = provider.lower() if isinstance(provider, str) and provider else provider
-    trace_ids = list(dict.fromkeys(raw_trace_ids)) if isinstance(raw_trace_ids, list) else []
+    # Only hashable entries can be deduplicated, and a JSON body can carry a list or object
+    # here. The handler would fail on such a request too, so nothing is persisted either way --
+    # but it must fail in the handler's validation, not as an unhandled TypeError raised from
+    # authorization before the request is ever judged.
+    trace_ids = (
+        list(dict.fromkeys(i for i in raw_trace_ids if isinstance(i, Hashable)))
+        if isinstance(raw_trace_ids, list)
+        else []
+    )
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider_name}:/{model}"
     tags = [
         ("categories", ",".join(categories) if isinstance(categories, list) else str(categories)),
