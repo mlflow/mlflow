@@ -177,7 +177,7 @@ def test_create_run_is_gated_on_the_experiment_with_a_run_veto(
     """
     experiment_id, _ = run_fixture
 
-    # experiment EDIT alone creates, exactly as before the RFC
+    # experiment EDIT alone creates, exactly as before
     allowed, allowed_password = create_user(client.tracking_uri)
     grant_role_permission(
         client.tracking_uri, allowed, RESOURCE_TYPE_EXPERIMENT, experiment_id, EDIT.name

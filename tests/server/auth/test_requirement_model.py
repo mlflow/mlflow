@@ -287,7 +287,7 @@ def test_workspace_admin_is_not_restrictable_by_a_deny():
 
 
 def test_workspace_use_alone_confers_no_resource_access():
-    # Pre-RFC behaviour: workspace USE is membership, not resource access.
+    # Pre-existing behaviour: workspace USE is membership, not resource access.
     rows = [grant(RESOURCE_TYPE_WORKSPACE, "*", USE.name)]
     assert not any(is_workspace_admin_grant(row) for row in rows)
     assert fold_grants_for_key(rows, GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) is None

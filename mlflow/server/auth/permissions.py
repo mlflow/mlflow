@@ -204,7 +204,7 @@ WORKSPACE_GRANTABLE_PERMISSIONS = frozenset({USE.name, MANAGE.name})
 # gateway_*). NO_PERMISSIONS is intentionally excluded: an absent grant combined with
 # the configured ``default_permission`` already expresses "no access"; an explicit
 # NO_PERMISSIONS grant on a resource is no longer supported.
-# ``DENY`` is the sub-resource RFC's absolute deny: it denies within its own tier even
+# ``DENY`` is an absolute deny: it denies within its own tier even
 # where an inherited tier would allow. ``NO_PERMISSIONS`` stays excluded — an absent grant
 # plus ``default_permission`` already expresses "no access".
 RESOURCE_GRANTABLE_PERMISSIONS = frozenset({
