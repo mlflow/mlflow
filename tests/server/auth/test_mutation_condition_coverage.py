@@ -18,7 +18,13 @@ import pytest
 
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
-from mlflow.server.auth.conditions import ConditionScope
+from mlflow.server.auth.conditions import (
+    ConditionContext,
+    ConditionScope,
+    MutationConditionSpec,
+    TraceRequestValues,
+    TraceResourceValues,
+)
 
 _WORKSPACE = "team-a"
 
@@ -384,3 +390,76 @@ def test_a_delete_reaches_the_condition_with_a_none_value(recorder, monkeypatch)
 
     (context,) = recorder.contexts
     assert context.request.tags == (("lifecycle", None),)
+
+
+# ---- The FastAPI funnel ------------------------------------------------------
+#
+# Native FastAPI routes (`/gateway/*`, `/v1/traces`, `/ajax-api/3.0/jobs`, the assistant,
+# the artifact proxy, MCP) bypass Flask's `_before_request` entirely, so they reach the gate
+# with NO Flask request context. `/v1/traces` is OTel trace ingest, and it authorizes as a
+# trace create -- so the CREATE-scope context really does get declared on that path.
+#
+# Nothing in the gate may therefore touch a Flask global. A regression here would be
+# invisible under the test suite's Flask client and break uvicorn deployments only, which is
+# the worst possible place to find out.
+
+
+def _conditioned_store(**kwargs):
+    class Store:
+        def get_user(self, username):
+            return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+            return [MutationConditionSpec("trace", **kwargs)]
+
+    return Store()
+
+
+def test_the_gate_evaluates_a_request_condition_with_no_flask_context(monkeypatch):
+    """The OTel-ingest shape: a CREATE-scope decision taken outside any request context."""
+    from flask import has_request_context
+
+    assert not has_request_context(), "this test must run outside a request context"
+    monkeypatch.setattr(
+        auth_module, "store", _conditioned_store(value_condition="tag_key != 'pii'")
+    )
+    context = ConditionContext(
+        resource_type="trace",
+        scope=ConditionScope.CREATE,
+        request=TraceRequestValues(tags=(("pii", "x"),)),
+    )
+    assert auth_module.authorize_on_conditions("alice", "ws", [context]) is False
+
+
+def test_the_gate_evaluates_a_target_condition_with_no_flask_context(monkeypatch):
+    """The resource-reading half, which is where a Flask `g` access would hide: the caches
+    are keyed on `g` when a request context exists and on ContextVars when it does not.
+    """
+    from flask import has_request_context
+
+    assert not has_request_context()
+    monkeypatch.setattr(
+        auth_module, "store", _conditioned_store(target_condition="tags.reviewed = 'yes'")
+    )
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {i: TraceResourceValues(i, tags={"reviewed": "no"}) for i in ids},
+    )
+    context = ConditionContext(
+        resource_type="trace",
+        scope=ConditionScope.MUTATE,
+        request=TraceRequestValues(),
+        resource_ids=("t1",),
+    )
+    assert auth_module.authorize_on_conditions("alice", "ws", [context]) is False
+
+
+def test_clearing_the_cache_outside_a_request_context_is_safe():
+    """The FastAPI middleware calls this on every request, including ones that never
+    touched a resource. It must not require a Flask context to do so.
+    """
+    from flask import has_request_context
+
+    assert not has_request_context()
+    auth_resources.clear_cache()
