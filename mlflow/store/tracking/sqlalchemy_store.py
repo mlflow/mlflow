@@ -3770,7 +3770,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             models = models.join(subquery)
 
-        parsed_experiment_ids = [self._parse_experiment_id(e) for e in experiment_ids]
+        parsed_experiment_ids = _parse_experiment_ids(experiment_ids)
         if not parsed_experiment_ids:
             exp_filter = sqlalchemy.false()
         else:
