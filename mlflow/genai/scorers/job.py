@@ -25,7 +25,11 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     get_first_trace_in_session,
 )
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    _job_executor_scorer_context,
+)
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
@@ -101,8 +105,12 @@ def run_online_trace_scorer_job(
     ]
 
     tracking_store = _get_tracking_store()
-    processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
-    processor.process_traces()
+    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
+    with _job_executor_scorer_context():
+        processor = OnlineTraceScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store
+        )
+        processor.process_traces()
 
 
 @job(
@@ -136,8 +144,12 @@ def run_online_session_scorer_job(
     ]
 
     tracking_store = _get_tracking_store()
-    processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
-    processor.process_sessions()
+    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
+    with _job_executor_scorer_context():
+        processor = OnlineSessionScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store
+        )
+        processor.process_sessions()
 
 
 @job(name=INVOKE_SCORER_JOB_NAME, max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
@@ -175,8 +187,10 @@ def invoke_scorer_job(
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
-    # Deserialize scorer
-    scorer = Scorer.model_validate_json(serialized_scorer)
+    # Deserialize scorer. Reconstructing a custom scorer executes its code, which is permitted
+    # only in the executor (never in the tracking server process).
+    with _job_executor_scorer_context():
+        scorer = Scorer.model_validate_json(serialized_scorer)
     if scorer_version is not None:
         scorer._set_registration_metadata(
             backend=SCORER_BACKEND_TRACKING,

@@ -11,6 +11,7 @@ import pytest
 from mlflow import server
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -431,6 +432,9 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     # Each server generation is stamped with a boot id (used to reap orphaned sandbox containers
     # left by a previous generation); its value is a random per-boot uuid.
     assert extra_env[_MLFLOW_SERVER_BOOT_ID.name]
+    # The custom-scorer reconstruction marker is forced off for server workers so it can never be
+    # inherited from the ambient environment (the server must never execute custom scorer code).
+    assert extra_env[_MLFLOW_IN_JOB_EXECUTOR.name] == "false"
 
 
 @pytest.mark.parametrize(

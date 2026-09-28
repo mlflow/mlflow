@@ -2978,6 +2978,27 @@ def test_create_gateway_guardrail_rejects_unknown_scorer_version(store: SqlAlche
         )
 
 
+def test_create_gateway_guardrail_rejects_custom_code_scorer(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"guardrail-custom-{uuid.uuid4().hex[:8]}")
+    serialized_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "return len(outputs) > 0",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    })
+    scorer = store.register_scorer(experiment_id, "custom-code-scorer", serialized_scorer)
+
+    with pytest.raises(MlflowException, match="do not support custom scorers"):
+        store.create_gateway_guardrail(
+            name="custom-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+            created_by="test-user",
+        )
+
+
 def test_get_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 

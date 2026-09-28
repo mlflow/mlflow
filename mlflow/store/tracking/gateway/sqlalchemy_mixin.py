@@ -1462,9 +1462,20 @@ class SqlAlchemyGatewayStoreMixin:
         action_endpoint_id: str | None = None,
         created_by: str | None = None,
     ) -> GatewayGuardrail:
+        from mlflow.genai.scorers.base import _serialized_scorer_is_custom_code
+
         with self.ManagedSessionMaker(read_only=False) as session:
             # Ensure the scorer is valid and in the current workspace
-            self._get_scorer_version(session, scorer_id, scorer_version)
+            scorer_version_row = self._get_scorer_version(session, scorer_id, scorer_version)
+
+            # A guardrail runs its scorer in the server process, so custom scorers defined with the
+            # @scorer decorator (whose stored source would be executed there) are not allowed.
+            if _serialized_scorer_is_custom_code(scorer_version_row.serialized_scorer):
+                raise MlflowException(
+                    "Gateway guardrails do not support custom scorers defined with the @scorer "
+                    "decorator. Use a built-in scorer or a judge created with make_judge.",
+                    INVALID_PARAMETER_VALUE,
+                )
 
             guardrail_id = f"gr-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()

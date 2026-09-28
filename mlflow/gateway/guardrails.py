@@ -421,10 +421,21 @@ class JudgeGuardrail(Guardrail):
             InstructionsJudge,  # lazy: heavy transitive deps
         )
         from mlflow.genai.scorers import Scorer  # lazy: heavy transitive deps
+        from mlflow.genai.scorers.base import _serialized_scorer_is_custom_code
 
         action_llm_url = (
             server_url.rstrip("/") if entity.action_endpoint_name and server_url else None
         )
+
+        # A guardrail runs its scorer in the server process. Custom scorers defined with the
+        # @scorer decorator would execute their stored source here, so they are not supported as
+        # guardrails (this also fails closed if such a scorer was somehow registered as one).
+        if _serialized_scorer_is_custom_code(entity.scorer.serialized_scorer):
+            raise MlflowException(
+                "Gateway guardrails do not support custom scorers defined with the @scorer "
+                "decorator. Use a built-in scorer or a judge created with make_judge.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
 
