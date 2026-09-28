@@ -659,10 +659,35 @@ def test_an_issue_detection_run_create_declares_its_derived_tags(recorder, monke
         "/ajax-api/3.0/mlflow/issues/detect", method="POST", json=body
     ):
         auth_module.validate_can_invoke_issue_detection()
-    declared = dict(
-        pair for c in recorder.contexts for pair in (c.request.tags or ()) if pair[0]
-    )
+    declared = dict(pair for c in recorder.contexts for pair in (c.request.tags or ()) if pair[0])
     assert declared.get("categories") == "toxicity,pii"
     assert declared.get("model") == "gateway:/my-endpoint"
     assert declared.get("total_traces") == "3", "an int must be projected as a string"
     assert declared.get("endpoint_name") == "my-endpoint"
+
+
+def test_an_issue_detection_projection_matches_the_handlers_normalization(recorder, monkeypatch):
+    """The handler lowercases the provider and deduplicates the trace ids BEFORE building its
+    tags, so projecting the raw request values would judge a different string than the one
+    stored -- and a condition would permit exactly the value it was written to reject.
+
+    The earlier test used an endpoint name and unique ids, so it could not see either drift.
+    """
+    body = {
+        "experiment_id": "1",
+        "categories": ["toxicity"],
+        "provider": "OpenAI",
+        "model": "gpt",
+        "trace_ids": ["t1", "t1", "t2"],
+    }
+    with auth_module.app.test_request_context(
+        "/ajax-api/3.0/mlflow/issues/detect", method="POST", json=body
+    ):
+        auth_module.validate_can_invoke_issue_detection()
+    declared = dict(pair for c in recorder.contexts for pair in (c.request.tags or ()) if pair[0])
+    assert declared.get("model") == "openai:/gpt", (
+        "the provider must be lowercased as the handler lowercases it"
+    )
+    assert declared.get("total_traces") == "2", (
+        "duplicate trace ids must be collapsed as the handler collapses them"
+    )

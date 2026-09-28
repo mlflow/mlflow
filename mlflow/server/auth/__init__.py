@@ -4055,13 +4055,21 @@ def _issue_detection_run_tags(body: "dict | None") -> "tuple[tuple[str, str | No
     endpoint_name = body.get("endpoint_name")
     model = body.get("model")
     provider = body.get("provider")
-    trace_ids = body.get("trace_ids") or []
-    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    raw_trace_ids = body.get("trace_ids") or []
+    # Both normalizations below mirror the handler EXACTLY, and both matter. It lowercases the
+    # provider and deduplicates the trace ids (order-preserving) BEFORE building these tags, so
+    # projecting the raw values would judge a different string than the one persisted:
+    # provider "OpenAI" would be checked as "OpenAI:/gpt" but stored as "openai:/gpt", and
+    # ["t1", "t1"] checked as "2" but stored as "1". A condition would then permit precisely
+    # the value it was written to reject.
+    provider_name = provider.lower() if isinstance(provider, str) and provider else provider
+    trace_ids = list(dict.fromkeys(raw_trace_ids)) if isinstance(raw_trace_ids, list) else []
+    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider_name}:/{model}"
     tags = [
         ("categories", ",".join(categories) if isinstance(categories, list) else str(categories)),
         ("model", model_name),
         # An int in the handler; every projected value must be a string.
-        ("total_traces", str(len(trace_ids) if isinstance(trace_ids, list) else 0)),
+        ("total_traces", str(len(trace_ids))),
     ]
     if endpoint_name:
         tags.append(("endpoint_name", str(endpoint_name)))
