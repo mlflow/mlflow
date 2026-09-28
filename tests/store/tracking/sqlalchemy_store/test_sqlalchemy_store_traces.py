@@ -78,7 +78,7 @@ from mlflow.tracing.constant import (
     TraceSizeStatsKey,
     TraceTagKey,
 )
-from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils import TraceJSONEncoder, dump_span_attribute_value
 from mlflow.utils.file_utils import TempDir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.time import get_current_time_millis
@@ -905,6 +905,42 @@ def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%90%%"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace3_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="MSSQL stores span content with non-ASCII escaped.")
+@pytest.mark.parametrize("text", ["café", "¿Qué es MLflow?", "什么是MLflow", "🚀 launch"])
+@pytest.mark.parametrize("key", ["trace.text", "span.content"])
+def test_search_traces_with_full_text_filter_non_ascii(store: SqlAlchemyStore, key, text):
+    exp_id = store.create_experiment("test_non_ascii_text_search")
+    trace_id = "trace_non_ascii"
+    _create_trace(store, trace_id, exp_id)
+    _create_trace(store, "trace_ascii", exp_id)
+
+    def make_span(trace_id, span_id, inputs):
+        # Serialize inputs the way the tracing SDK does, rather than with `json.dumps`
+        # defaults like `create_test_span`, which would already escape non-ASCII text.
+        otel_span = OTelReadableSpan(
+            name="chat",
+            context=create_mock_span_context(12345, span_id),
+            attributes={
+                SpanAttributeKey.REQUEST_ID: json.dumps(trace_id),
+                SpanAttributeKey.SPAN_TYPE: json.dumps("LLM"),
+                SpanAttributeKey.INPUTS: dump_span_attribute_value(inputs),
+            },
+            start_time=1_000_000_000,
+            end_time=2_000_000_000,
+            resource=_OTelResource.get_empty(),
+        )
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    store.log_spans(exp_id, [make_span(trace_id, 111, {"question": text})])
+    store.log_spans(exp_id, [make_span("trace_ascii", 222, {"question": "ascii only"})])
+
+    for comparator in ("LIKE", "ILIKE"):
+        traces, _ = store.search_traces([exp_id], filter_string=f'{key} {comparator} "%{text}%"')
+        assert [t.trace_id for t in traces] == [trace_id]
+
+    assert store.get_trace(trace_id).data.spans[0].inputs == {"question": text}
 
 
 def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):

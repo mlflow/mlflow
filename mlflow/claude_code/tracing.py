@@ -128,6 +128,10 @@ def is_tracing_enabled() -> bool:
     return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
 
 
+def _get_current_user() -> str:
+    return os.environ.get("USER", "") or os.environ.get("USERNAME", "")
+
+
 # ============================================================================
 # INPUT/OUTPUT UTILITIES
 # ============================================================================
@@ -520,7 +524,7 @@ def _finalize_trace(
                 in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
 
             metadata = {
-                TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
+                TraceMetadataKey.TRACE_USER: _get_current_user(),
                 "mlflow.trace.working_directory": os.getcwd(),
             }
             if session_id:

@@ -1771,6 +1771,59 @@ MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVari
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
 
+#: Specifies the default job executor backend name.
+#: (default: ``"local"``)
+MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
+    "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
+)
+
+#: Executor backend used for custom scorer jobs. This is forward-looking configuration for
+#: per-job dispatch: until the runner dispatches jobs per backend, this must equal
+#: ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND`` (or be left unset). Setting it to a different backend
+#: does not route jobs there yet; it causes custom scorer job submissions to be rejected.
+#: Validated at startup. Note this only selects *where* a custom scorer would run -- running one
+#: at all still requires ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by
+#: default), otherwise custom scorer jobs are rejected regardless of this backend.
+#: (default: unset, i.e. the default backend)
+MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
+    "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
+)
+
+#: Whether the server may run custom scorers defined with the ``@scorer`` decorator. A custom
+#: scorer carries its function source in its serialized form, and that source is executed (via
+#: ``exec()``) on the tracking server when the scorer is deserialized to run — i.e. it runs
+#: arbitrary user-provided code in the server process. This is off by default: the server does
+#: not yet run that code inside an isolation boundary, so custom scorer jobs are rejected unless
+#: an operator who explicitly accepts that trust boundary sets this to ``True``.
+#: (default: ``False``)
+MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", False
+)
+
+#: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
+#: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
+#: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally
+#: not settable to ``"huey"`` — unset it to use the default. Periodic tasks always run on Huey
+#: regardless of this setting. The executor engine currently supports only single-replica MLflow
+#: deployments; overlapping rolling restarts are also unsupported. Multi-replica coordination will
+#: be supported after scheduler leadership and stale-lease recovery are implemented.
+#: (default: unset, i.e. the default engine)
+MLFLOW_SERVER_JOB_EXECUTION_ENGINE = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_EXECUTION_ENGINE", str, None
+)
+
+#: Default timeout in seconds applied by the executor framework when a job
+#: submission does not specify one explicitly.
+#: (default: ``3600.0``)
+MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT", float, 3600.0
+)
+
+#: Time-to-live in seconds for the short-lived RUNNING job lease used by
+#: recovery logic.
+#: (default: ``60.0``)
+MLFLOW_SERVER_JOB_LEASE_TTL = _EnvironmentVariable("MLFLOW_SERVER_JOB_LEASE_TTL", float, 60.0)
+
 
 #: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
 #: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job

@@ -234,6 +234,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -247,7 +248,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "computer-use-preview": {
       "mode": "chat",
@@ -1593,6 +1594,27 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "gpt-5-codex": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-24"
+    },
     "gpt-5-mini": {
       "mode": "chat",
       "context_window": {
@@ -1994,23 +2016,79 @@
       "pricing": {
         "input_per_million_tokens": 1.25,
         "output_per_million_tokens": 10.0,
-        "cache_read_per_million_tokens": 0.125,
-        "service_tiers": {
-          "priority": {
-            "input_per_million_tokens": 2.5,
-            "output_per_million_tokens": 20.0,
-            "cache_read_per_million_tokens": 0.25
-          }
-        }
+        "cache_read_per_million_tokens": 0.125
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-24"
+    },
+    "gpt-5.1-codex": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-24"
+    },
+    "gpt-5.1-codex-max": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-24"
+    },
+    "gpt-5.1-codex-mini": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.025
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-24"
     },
     "gpt-5.2": {
       "mode": "chat",
@@ -2112,14 +2190,28 @@
       "pricing": {
         "input_per_million_tokens": 1.75,
         "output_per_million_tokens": 14.0,
-        "cache_read_per_million_tokens": 0.175,
-        "service_tiers": {
-          "priority": {
-            "input_per_million_tokens": 3.5,
-            "output_per_million_tokens": 28.0,
-            "cache_read_per_million_tokens": 0.35
-          }
-        }
+        "cache_read_per_million_tokens": 0.175
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-24"
+    },
+    "gpt-5.2-codex": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 272000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175
       },
       "capabilities": {
         "function_calling": true,
@@ -2128,7 +2220,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-24"
     },
     "gpt-5.2-pro": {
       "mode": "responses",
@@ -2206,23 +2298,16 @@
       "pricing": {
         "input_per_million_tokens": 1.75,
         "output_per_million_tokens": 14.0,
-        "cache_read_per_million_tokens": 0.175,
-        "service_tiers": {
-          "priority": {
-            "input_per_million_tokens": 3.5,
-            "output_per_million_tokens": 28.0,
-            "cache_read_per_million_tokens": 0.35
-          }
-        }
+        "cache_read_per_million_tokens": 0.175
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": true,
+        "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-24"
     },
     "gpt-5.3-codex": {
       "mode": "responses",
@@ -3470,6 +3555,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.5,
             "input_per_million_tokens": 10.0,
             "output_per_million_tokens": 40.0
           }
@@ -3483,7 +3569,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-10-23",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-1-mini": {
       "mode": "image_generation",
@@ -3498,6 +3584,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 0.25,
             "input_per_million_tokens": 2.5,
             "output_per_million_tokens": 8.0
           }
@@ -3511,7 +3598,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-1.5": {
       "mode": "image_generation",
@@ -3528,6 +3615,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -3541,7 +3629,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-1.5-2025-12-16": {
       "mode": "image_generation",
@@ -3558,6 +3646,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -3571,7 +3660,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-12-01",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2": {
       "mode": "image_generation",
@@ -3586,6 +3675,7 @@
         },
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3598,7 +3688,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2-2026-04-21": {
       "mode": "image_generation",
@@ -3607,6 +3697,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3619,7 +3710,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-flare": {
       "mode": "image_generation",
@@ -3628,6 +3719,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3640,7 +3732,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-flare-2026-09-08": {
       "mode": "image_generation",
@@ -3649,6 +3741,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3661,7 +3754,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-sunburst": {
       "mode": "image_generation",
@@ -3670,6 +3763,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3682,7 +3776,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-image-2.5-sunburst-2026-09-08": {
       "mode": "image_generation",
@@ -3691,6 +3785,7 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
+            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -3703,7 +3798,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-25"
     },
     "gpt-realtime": {
       "mode": "chat",
@@ -4176,6 +4271,27 @@
       "deprecation_date": "2026-12-11",
       "last_updated_at": "2026-09-15"
     },
+    "o3-deep-research": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 40.0,
+        "cache_read_per_million_tokens": 2.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-24"
+    },
     "o3-mini": {
       "mode": "chat",
       "context_window": {
@@ -4389,6 +4505,27 @@
       "deprecation_date": "2026-10-23",
       "last_updated_at": "2026-09-15"
     },
+    "o4-mini-deep-research": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
+        "max_tokens": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-24"
+    },
     "sora-2": {
       "mode": "video_generation",
       "pricing": {
@@ -4443,7 +4580,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "deprecation_date": "2026-09-24",
+      "last_updated_at": "2026-09-24"
     },
     "text-embedding-3-large": {
       "mode": "embedding",
