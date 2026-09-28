@@ -1,6 +1,7 @@
 """MLflow tracing integration for Claude Code interactions."""
 
 import dataclasses
+import getpass
 import json
 import logging
 import os
@@ -126,6 +127,13 @@ def setup_mlflow() -> None:
 def is_tracing_enabled() -> bool:
     """Check if MLflow Claude tracing is enabled via environment variable."""
     return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
+
+
+def _get_current_user() -> str:
+    try:
+        return getpass.getuser()
+    except Exception:
+        return ""
 
 
 # ============================================================================
@@ -520,7 +528,7 @@ def _finalize_trace(
                 in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
 
             metadata = {
-                TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
+                TraceMetadataKey.TRACE_USER: _get_current_user(),
                 "mlflow.trace.working_directory": os.getcwd(),
             }
             if session_id:

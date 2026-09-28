@@ -5,9 +5,49 @@ import {
   encodeSpanIdToBase64,
   encodeTraceIdToBase64,
   decodeIdFromBase64,
+  getCurrentUser,
   mapArgsToObject,
 } from '../../../src/core/utils';
 describe('utils', () => {
+  describe('getCurrentUser', () => {
+    const originalUser = process.env.USER;
+    const originalUsername = process.env.USERNAME;
+
+    afterEach(() => {
+      if (originalUser === undefined) {
+        delete process.env.USER;
+      } else {
+        process.env.USER = originalUser;
+      }
+      if (originalUsername === undefined) {
+        delete process.env.USERNAME;
+      } else {
+        process.env.USERNAME = originalUsername;
+      }
+    });
+
+    it('prefers USER when set', () => {
+      process.env.USER = 'posix-user';
+      process.env.USERNAME = 'windows-user';
+
+      expect(getCurrentUser()).toBe('posix-user');
+    });
+
+    it('falls back to USERNAME when USER is unset', () => {
+      delete process.env.USER;
+      process.env.USERNAME = 'windows-user';
+
+      expect(getCurrentUser()).toBe('windows-user');
+    });
+
+    it('returns an empty string when no user env var is set', () => {
+      delete process.env.USER;
+      delete process.env.USERNAME;
+
+      expect(getCurrentUser()).toBe('');
+    });
+  });
+
   describe('convertNanoSecondsToHrTime', () => {
     // Using table-driven tests with test.each for time conversion
     test.each([

@@ -8,6 +8,7 @@ import {
   SpanType,
   SpanAttributeKey,
   TraceMetadataKey,
+  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -583,7 +584,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         const metadata: Record<string, string> = {
           ...trace.info.traceMetadata,
           [TraceMetadataKey.TRACE_SESSION]: sessionId,
-          [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
+          [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
           [METADATA_KEY_WORKING_DIRECTORY]: process.cwd(),
         };
 

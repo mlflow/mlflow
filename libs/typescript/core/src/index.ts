@@ -12,6 +12,7 @@ import { flushTraces } from './core/provider';
 import { MlflowClient, MlflowHttpError } from './clients';
 import { InMemoryTraceManager } from './core/trace_manager';
 import { createAuthProvider } from './auth';
+import { getCurrentUser } from './core/utils';
 
 export {
   getLastActiveTraceId,
@@ -27,6 +28,7 @@ export {
   MlflowHttpError,
   InMemoryTraceManager,
   createAuthProvider,
+  getCurrentUser,
 };
 
 // Export entities

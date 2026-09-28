@@ -25,6 +25,7 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   TokenUsageKey,
+  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -142,7 +143,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
       trace.info.traceMetadata = {
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: sessionId,
-        [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
+        [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
       };
     }
   }

@@ -16,6 +16,7 @@ import {
   startSpan,
   flushTraces,
   SpanStatusCode,
+  getCurrentUser,
   type SpanType as SpanTypeEnum,
 } from '@mlflow/core';
 
@@ -387,7 +388,7 @@ export function createMLflowService(
     });
     rootSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
     rootSpan.setAttribute(TraceMetadataKey.TRACE_SESSION, sessionKey);
-    rootSpan.setAttribute(TraceMetadataKey.TRACE_USER, process.env.USER || '');
+    rootSpan.setAttribute(TraceMetadataKey.TRACE_USER, getCurrentUser());
 
     const trace: ActiveTrace = {
       rootSpan,

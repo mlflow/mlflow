@@ -22,6 +22,7 @@ import {
   flushTraces,
   SpanType,
   SpanAttributeKey,
+  getCurrentUser,
 } from '@mlflow/core';
 
 // Track the last processed message count per session to avoid duplicate traces.
@@ -492,7 +493,7 @@ async function processSession(sessionId: string, messages: Message[]): Promise<v
       updateCurrentTrace({
         metadata: {
           [TRACE_SESSION_METADATA_KEY]: sessionId,
-          [TRACE_USER_METADATA_KEY]: process.env.USER || '',
+          [TRACE_USER_METADATA_KEY]: getCurrentUser(),
         },
         requestPreview: userPrompt.slice(0, MAX_PREVIEW_LENGTH),
         ...(finalResponse ? { responsePreview: finalResponse.slice(0, MAX_PREVIEW_LENGTH) } : {}),

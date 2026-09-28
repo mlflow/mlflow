@@ -41,6 +41,7 @@ jest.mock('@mlflow/core', () => {
     SpanAttributeKey: {
       TOKEN_USAGE: 'token_usage',
     },
+    getCurrentUser: jest.fn(() => process.env.USER || process.env.USERNAME || ''),
   };
 });
 
@@ -1022,10 +1023,26 @@ describe('MLflowTracingPlugin', () => {
   });
 
   describe('Trace Metadata', () => {
+    const originalUser = process.env.USER;
+    const originalUsername = process.env.USERNAME;
+
     beforeEach(() => {
       process.env.MLFLOW_TRACKING_URI = 'http://localhost:5000';
       process.env.MLFLOW_EXPERIMENT_ID = 'exp-123';
       process.env.USER = 'test-user';
+    });
+
+    afterEach(() => {
+      if (originalUser === undefined) {
+        delete process.env.USER;
+      } else {
+        process.env.USER = originalUser;
+      }
+      if (originalUsername === undefined) {
+        delete process.env.USERNAME;
+      } else {
+        process.env.USERNAME = originalUsername;
+      }
     });
 
     it('should set trace metadata with session info', async () => {
@@ -1055,6 +1072,27 @@ describe('MLflowTracingPlugin', () => {
           },
           requestPreview: 'Test prompt',
           responsePreview: 'Test response',
+        }),
+      );
+    });
+
+    it('should set trace user from USERNAME when USER is unset', async () => {
+      delete process.env.USER;
+      process.env.USERNAME = 'windows-user';
+      const messages = [
+        createUserMessage('Test prompt'),
+        createAssistantTextMessage('Test response'),
+      ];
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('windows-metadata-session'));
+
+      expect(mlflowTracing.updateCurrentTrace).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            'mlflow.trace.user': 'windows-user',
+          }),
         }),
       );
     });

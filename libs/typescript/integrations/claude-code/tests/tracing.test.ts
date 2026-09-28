@@ -118,6 +118,7 @@ jest.mock('@mlflow/core', () => {
       CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
       CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
     },
+    getCurrentUser: jest.fn(() => process.env.USER || process.env.USERNAME || ''),
     InMemoryTraceManager: {
       getInstance: jest.fn(() => ({
         getTrace: jest.fn(() => ({
@@ -168,6 +169,22 @@ beforeEach(() => {
 });
 
 describe('processTranscript', () => {
+  const originalUser = process.env.USER;
+  const originalUsername = process.env.USERNAME;
+
+  afterEach(() => {
+    if (originalUser === undefined) {
+      delete process.env.USER;
+    } else {
+      process.env.USER = originalUser;
+    }
+    if (originalUsername === undefined) {
+      delete process.env.USERNAME;
+    } else {
+      process.env.USERNAME = originalUsername;
+    }
+  });
+
   // --------------------------------------------------------------------------
   // Basic span hierarchy
   // --------------------------------------------------------------------------
@@ -379,6 +396,15 @@ describe('processTranscript', () => {
     it('sets trace user from environment', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
       expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe(process.env.USER ?? '');
+    });
+
+    it('sets trace user from USERNAME when USER is unset', async () => {
+      delete process.env.USER;
+      process.env.USERNAME = 'windows-user';
+
+      await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
+
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('windows-user');
     });
 
     it('sets working directory', async () => {

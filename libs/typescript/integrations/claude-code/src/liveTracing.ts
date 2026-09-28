@@ -26,6 +26,7 @@ import {
   SpanStatusCode,
   TraceMetadataKey,
   InMemoryTraceManager,
+  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -381,7 +382,7 @@ export class LiveTracingContext {
       if (this.sessionId) {
         metadata[TraceMetadataKey.TRACE_SESSION] = this.sessionId;
       }
-      const user = process.env.USER;
+      const user = getCurrentUser();
       if (user) {
         metadata[TraceMetadataKey.TRACE_USER] = user;
       }
