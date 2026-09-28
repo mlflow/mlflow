@@ -811,13 +811,27 @@ def _request_lhs_values(clause: Clause, values: RequestValues) -> tuple[str, ...
     Returns ``None`` when the request carries nothing of that kind -- which the
     caller reads as "vacuous", not "failed".
     """
+    # D4: `mlflow.*` pairs are excluded from BOTH request projections. A request condition can
+    # never name a reserved key -- authoring rejects it -- so a reserved key must not decide one
+    # either. Because every value must satisfy the clause, leaving them in means MLflow's own
+    # tag writes fail an unrelated positive clause: `tag_key = 'team'` would be failed by the
+    # `mlflow.user` that MLflow itself attaches, denying a create the admin never restricted.
+    # Rejecting a clause that NAMES a reserved key and exempting reserved values from
+    # evaluation are different guarantees, and only the first is enforced at authoring time.
+    #
+    # This removes no expressible policy, precisely because such a clause cannot be written.
+    # The resource side is deliberately unfiltered: reading current `mlflow.*` state is how an
+    # admin says "only prompts".
+    user_tags = tuple(
+        (key, value) for key, value in values.tags if not key.startswith(RESERVED_TAG_PREFIX)
+    )
     if clause.identifier == REQUEST_IDENTIFIER_TAG_KEY:
-        return tuple(key for key, _ in values.tags) or None
+        return tuple(key for key, _ in user_tags) or None
     if clause.identifier == REQUEST_IDENTIFIER_TAG_VALUE:
         # A deletion names a key with no value, so its value is None and a
         # tag_value clause has nothing to test (D13). Constraining what a delete
         # removes is the resource condition's job.
-        present = tuple(v for _, v in values.tags if v is not None)
+        present = tuple(v for _, v in user_tags if v is not None)
         return present or None
     if clause.identifier == REQUEST_IDENTIFIER_ALIAS:
         # A tags-only shape has no ``aliases`` field at all, which is a stronger statement

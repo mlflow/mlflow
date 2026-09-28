@@ -678,3 +678,37 @@ def test_every_request_identifier_is_projected(identifier):
 def test_every_resource_prefix_is_projected(identifier):
     values, condition = _RESOURCE_PROBES[identifier]
     assert evaluate_resource(parse_condition(condition, NAMESPACE_RESOURCE), values) is False
+
+
+# ---- Reserved tags must not decide an unrelated clause ----------------------
+
+
+def test_a_managed_tag_does_not_fail_an_unrelated_positive_clause():
+    """MLflow writes its own `mlflow.*` tags on a create, and a request condition can never
+    name one (authoring rejects it). So a reserved key must not participate in request
+    evaluation either: with `all()` over every pair, `tag_key = 'team'` would otherwise be
+    failed by the `mlflow.user` that MLflow itself added, denying a create the admin never
+    restricted.
+
+    Rejecting a condition that NAMES a reserved key is a different guarantee from exempting
+    reserved values from evaluation; only the first was implemented.
+    """
+    clauses = parse_condition("tag_key = 'team'", NAMESPACE_REQUEST)
+    values = RunRequestValues(tags=(("team", "ml"), ("mlflow.user", "alice")))
+    assert evaluate_request(clauses, values) is True
+
+
+def test_a_managed_tag_value_does_not_fail_an_unrelated_value_clause():
+    """The same for `tag_value`, which the authoring check does not cover at all."""
+    clauses = parse_condition("tag_value = 'ml'", NAMESPACE_REQUEST)
+    values = RunRequestValues(tags=(("team", "ml"), ("mlflow.source.name", "train.py")))
+    assert evaluate_request(clauses, values) is True
+
+
+def test_a_user_tag_is_still_judged_alongside_a_managed_one():
+    """The filter must not become a way through: a disallowed USER tag in the same request
+    still denies, even when a managed tag is present.
+    """
+    clauses = parse_condition("tag_key != 'secret'", NAMESPACE_REQUEST)
+    values = RunRequestValues(tags=(("secret", "x"), ("mlflow.user", "alice")))
+    assert evaluate_request(clauses, values) is False

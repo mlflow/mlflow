@@ -542,3 +542,62 @@ def test_creating_a_model_version_declares_its_tags(recorder, monkeypatch):
         f"the request's tag never reached a condition; declared={declared}"
     )
 
+
+# ---- Trace producers must declare their own tags ----------------------------
+#
+# All three carry tags the handler persists, so a condition gating SetTraceTag is avoidable
+# unless the producers declare the same values.
+
+
+def _declared_tag_keys(recorder, scope):
+    keys = []
+    for c in recorder.contexts:
+        if c.scope is scope:
+            keys.extend(k for k, _ in (c.request.tags or ()))
+    return keys
+
+
+def test_starting_a_trace_declares_its_tags(recorder, monkeypatch):
+    from mlflow.protos.service_pb2 import StartTrace
+
+    msg = StartTrace(experiment_id="1")
+    msg.tags.add(key="approved", value="yes")
+    monkeypatch.setattr(auth_module, "_get_request_message", lambda _proto: msg)
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces", method="POST", json={"experiment_id": "1"}
+    ):
+        auth_module.validate_can_start_trace()
+    assert "approved" in _declared_tag_keys(recorder, ConditionScope.CREATE), (
+        "StartTrace persists its tags but declared none to the condition"
+    )
+
+
+def test_starting_a_trace_v3_declares_its_tags(recorder, monkeypatch):
+    from mlflow.protos.service_pb2 import StartTraceV3
+
+    msg = StartTraceV3()
+    msg.trace.trace_info.trace_location.mlflow_experiment.experiment_id = "1"
+    msg.trace.trace_info.tags["approved"] = "yes"
+    monkeypatch.setattr(auth_module, "_get_request_message", lambda _proto: msg)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces", method="POST", json={"trace": {}}
+    ):
+        auth_module.validate_can_start_trace_v3()
+    assert "approved" in _declared_tag_keys(recorder, ConditionScope.CREATE), (
+        "StartTraceV3 persists trace_info.tags but declared none to the condition"
+    )
+
+
+def test_ending_a_trace_declares_its_tags(recorder, monkeypatch):
+    from mlflow.protos.service_pb2 import EndTrace
+
+    msg = EndTrace(request_id="t1")
+    msg.tags.add(key="approved", value="yes")
+    monkeypatch.setattr(auth_module, "_get_request_message", lambda _proto: msg)
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/traces/t1", method="PATCH", json={"request_id": "t1"}
+    ):
+        auth_module.validate_can_update_trace_by_request_id()
+    assert "approved" in _declared_tag_keys(recorder, ConditionScope.MUTATE), (
+        "EndTrace persists its tags but declared none to the condition"
+    )

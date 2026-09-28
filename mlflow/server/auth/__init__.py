@@ -4507,8 +4507,17 @@ def validate_can_update_trace_by_trace_id():
 
 
 def validate_can_update_trace_by_request_id():
-    """Bodies that set no tag, addressed by `request_id`."""
-    return _authorize_trace(_get_request_param("request_id"), "update")
+    """`EndTrace`, addressed by `request_id`.
+
+    EndTrace does carry tags, and the handler persists them, so they are declared here too --
+    ending a trace is another way to write a tag.
+    """
+    message = _get_request_message(EndTrace())
+    return _authorize_trace(
+        _get_request_param("request_id"),
+        "update",
+        tuple((tag.key, tag.value) for tag in message.tags),
+    )
 
 
 def validate_can_set_trace_tag_by_trace_id():
@@ -4727,7 +4736,14 @@ def validate_can_delete_assessment():
 
 
 def validate_can_start_trace():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_TRACE)
+    # The body's tags are persisted by the handler, so they are declared here: a condition that
+    # gates SetTraceTag would otherwise be avoidable by naming the tag at trace creation.
+    message = _get_request_message(StartTrace())
+    return _authorize_create_in_experiment(
+        _get_request_param("experiment_id"),
+        RESOURCE_TYPE_TRACE,
+        tuple((tag.key, tag.value) for tag in message.tags),
+    )
 
 
 def validate_can_read_traces_by_experiment_ids():
@@ -4763,7 +4779,13 @@ def validate_can_start_trace_v3():
         if message.trace.trace_info.assessments
         else ()
     )
-    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE, extra=extra)
+    # V3 carries its tags as a map on TraceInfo rather than a repeated field.
+    return _authorize_create_in_experiment(
+        experiment_id,
+        RESOURCE_TYPE_TRACE,
+        extra=extra,
+        tags=tuple(message.trace.trace_info.tags.items()),
+    )
 
 
 def validate_can_link_traces_to_run():
