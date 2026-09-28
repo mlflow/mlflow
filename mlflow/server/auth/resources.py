@@ -68,6 +68,7 @@ _STORAGE_KIND = {
     "run": "run",
     "trace": "trace",
     "logged_model": "logged_model",
+    "mcp_server": "mcp_server",
 }
 
 
@@ -278,6 +279,20 @@ def fetch_logged_model(model_id: str):
     )
 
 
+def fetch_mcp_server(name: str):
+    """Fetch an MCP server entry.
+
+    The name is the ``namespace/slug`` pair the routes address it by, which is already the
+    store's key, so no composition is needed -- unlike a registry version, whose id this
+    layer has to build.
+    """
+    return _memoized(
+        "mcp_server",
+        name,
+        lambda: _fetch_or_none(_tracking_store().get_mcp_server, name),
+    )
+
+
 def fetch_registered_model(name: str):
     """Fetch a registry entry, whichever family it turns out to be.
 
@@ -317,6 +332,8 @@ def _fetch_for(resource_type: str, resource_id: str):
         return fetch_registered_model(resource_id)
     if resource_type in ("registered_model_version", "prompt_version"):
         return fetch_model_version(*_split_version_resource_id(resource_id))
+    if resource_type == "mcp_server":
+        return fetch_mcp_server(resource_id)
     return None
 
 
