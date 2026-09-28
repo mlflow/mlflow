@@ -1736,7 +1736,6 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.03,
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.15,
@@ -1745,9 +1744,6 @@
           "flex": {
             "input_per_million_tokens": 0.15,
             "output_per_million_tokens": 1.25
-          },
-          "priority": {
-            "input_per_million_tokens": 0.54
           }
         },
         "modality": {
@@ -1767,7 +1763,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-03-15",
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -2120,12 +2116,27 @@
       "pricing": {
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.1
+          },
+          "priority": {
+            "input_per_million_tokens": 3.6,
+            "output_per_million_tokens": 21.6,
+            "cache_read_per_million_tokens": 0.36
           }
         },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
+          }
+        ],
         "modality": {
           "image": {
             "output_per_million_tokens": 120.0
@@ -2146,7 +2157,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-3-pro-preview": {
       "mode": "chat",
@@ -2252,6 +2263,14 @@
       "pricing": {
         "input_per_million_tokens": 0.5,
         "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.05,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.25,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.025
+          }
+        },
         "modality": {
           "image": {
             "output_per_million_tokens": 60.0
@@ -2272,7 +2291,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-3.1-flash-lite": {
       "mode": "chat",
@@ -2737,6 +2756,11 @@
         "output_per_million_tokens": 7.5,
         "cache_read_per_million_tokens": 0.15,
         "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.75,
+            "cache_read_per_million_tokens": 0.075
+          },
           "flex": {
             "input_per_million_tokens": 0.75,
             "output_per_million_tokens": 3.75,
@@ -2756,7 +2780,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-embedding-001": {
       "mode": "embedding",
@@ -2766,7 +2790,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.12
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2776,7 +2805,7 @@
         "response_schema": false
       },
       "deprecation_date": "2028-05-20",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-embedding-2": {
       "mode": "embedding",
@@ -2872,7 +2901,12 @@
       "mode": "chat",
       "pricing": {
         "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 9.0
+        "output_per_million_tokens": 9.0,
+        "modality": {
+          "video": {
+            "output_per_million_tokens": 17.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2881,7 +2915,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-09-25"
     },
     "gemini-omni-1.1-flash-preview": {
       "mode": "chat",
