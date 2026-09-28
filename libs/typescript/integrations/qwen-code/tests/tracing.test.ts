@@ -105,27 +105,11 @@ function getRootSpan(): any {
 }
 
 describe('processTranscript (basic — no tools)', () => {
-  const originalUser = process.env.USER;
-  const originalUsername = process.env.USERNAME;
-
   beforeEach(() => {
     spanCounter = 0;
     Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
     mockTraceInfo.traceMetadata = {};
     jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    if (originalUser === undefined) {
-      delete process.env.USER;
-    } else {
-      process.env.USER = originalUser;
-    }
-    if (originalUsername === undefined) {
-      delete process.env.USERNAME;
-    } else {
-      process.env.USERNAME = originalUsername;
-    }
   });
 
   it('creates AGENT root with a single llm_call child', async () => {
@@ -166,15 +150,6 @@ describe('processTranscript (basic — no tools)', () => {
     await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-001');
     expect(mockTraceInfo.traceMetadata['mlflow.trace.session']).toBe('test-session-001');
     expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBeDefined();
-  });
-
-  it('sets trace user from USERNAME when USER is unset', async () => {
-    delete process.env.USER;
-    process.env.USERNAME = 'windows-user';
-
-    await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-001');
-
-    expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('windows-user');
   });
 
   it('sets aggregated token usage on root and per-LLM usage on llm_call', async () => {

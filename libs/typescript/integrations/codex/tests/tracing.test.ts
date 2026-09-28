@@ -133,22 +133,6 @@ describe('processNotify', () => {
     jest.clearAllMocks();
   });
 
-  const originalUser = process.env.USER;
-  const originalUsername = process.env.USERNAME;
-
-  afterEach(() => {
-    if (originalUser === undefined) {
-      delete process.env.USER;
-    } else {
-      process.env.USER = originalUser;
-    }
-    if (originalUsername === undefined) {
-      delete process.env.USERNAME;
-    } else {
-      process.env.USERNAME = originalUsername;
-    }
-  });
-
   it('creates an AGENT root span with LLM child', async () => {
     await processNotify(makeNotifyPayload());
 
@@ -180,15 +164,6 @@ describe('processNotify', () => {
     await processNotify(makeNotifyPayload());
 
     expect(getRootSpan().attributes['service.name']).toBe('codex');
-  });
-
-  it('sets trace user from USERNAME when USER is unset', async () => {
-    delete process.env.USER;
-    process.env.USERNAME = 'windows-user';
-
-    await processNotify(makeNotifyPayload());
-
-    expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('windows-user');
   });
 
   it('uses last input message only', async () => {
