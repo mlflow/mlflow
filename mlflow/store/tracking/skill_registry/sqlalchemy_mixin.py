@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import func
@@ -11,6 +12,7 @@ from mlflow.entities.skill import VALID_SKILL_STATUS_TRANSITIONS, RegistryIcon, 
 from mlflow.entities.skill_source import SkillSourceType
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
+from mlflow.genai.skill_content.paths import normalize_subpath
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -494,31 +496,18 @@ class SqlAlchemySkillRegistryMixin:
             self._assert_name_not_a_packaged_member(session, name, organization)
         for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
             try:
-                with self.ManagedSessionMaker(read_only=False) as session:
-                    max_version = (
-                        self
-                        ._get_query(session, SqlSkillVersion)
-                        .with_entities(func.max(SqlSkillVersion.version))
-                        .filter(
-                            SqlSkillVersion.name == name,
-                            SqlSkillVersion.organization == organization,
-                        )
-                        .scalar()
-                    )
-                    version = (max_version or 0) + 1
-                    return self._persist_skill_version(
-                        session=session,
-                        name=name,
-                        organization=organization,
-                        version=version,
-                        source_type=source_type,
-                        source=source,
-                        ref=ref,
-                        subpath=subpath,
-                        digest=digest,
-                        status=status,
-                        created_by=created_by,
-                    )
+                return self._run_with_deadlock_retry(
+                    self._create_skill_version_once,
+                    name=name,
+                    organization=organization,
+                    source_type=source_type,
+                    source=source,
+                    ref=ref,
+                    subpath=subpath,
+                    digest=digest,
+                    status=status,
+                    created_by=created_by,
+                )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                     raise
@@ -537,6 +526,163 @@ class SqlAlchemySkillRegistryMixin:
             f"Giving up after {self.CREATE_SKILL_VERSION_RETRIES} attempts.",
             error_code=RESOURCE_ALREADY_EXISTS,
         )
+
+    def _create_skill_version_once(self, name: str, organization: str, **kwargs) -> SkillVersion:
+        # Retry allocation and persistence together in a fresh transaction after a deadlock.
+        with self.ManagedSessionMaker(read_only=False) as session:
+            max_version = (
+                self
+                ._get_query(session, SqlSkillVersion)
+                .with_entities(func.max(SqlSkillVersion.version))
+                .filter(SqlSkillVersion.name == name, SqlSkillVersion.organization == organization)
+                .scalar()
+            )
+            return self._persist_skill_version(
+                session=session,
+                name=name,
+                organization=organization,
+                version=(max_version or 0) + 1,
+                **kwargs,
+            )
+
+    def bulk_register_skills(
+        self,
+        skill_definitions: list[dict[str, Any]],
+        organization: str = "",
+        created_by: str | None = None,
+    ) -> list[SkillVersion]:
+        if not isinstance(skill_definitions, list) or not skill_definitions:
+            raise MlflowException.invalid_parameter_value(
+                "Skill definitions must be a nonempty list."
+            )
+        definitions = {}
+        repository_ref = None
+        status = None
+        for definition in skill_definitions:
+            if not isinstance(definition, dict) or not isinstance(definition.get("name"), str):
+                raise MlflowException.invalid_parameter_value(
+                    "Each Skill definition must supply a name."
+                )
+            name = definition["name"]
+            self._validate_skill_identity(name, organization)
+            definition_status = self._validate_skill_version_status(
+                definition.get("status", SkillStatus.ACTIVE.value)
+            )
+            if status is not None and definition_status != status:
+                raise MlflowException.invalid_parameter_value(
+                    "Bulk registration requires the same status for every Skill."
+                )
+            status = definition_status
+            fields = {
+                field: definition.get(field) for field in ("source", "ref", "subpath", "digest")
+            }
+            fields["subpath"] = normalize_subpath(fields["subpath"])
+            source_type = definition.get("source_type", SkillSourceType.GIT.value)
+            self._validate_skill_version_source(source_type, **fields)
+            if (
+                source_type != SkillSourceType.GIT.value
+                or not fields["source"]
+                or not fields["digest"]
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    "Bulk registration requires a Git source and digest for every Skill."
+                )
+            if name in definitions:
+                raise MlflowException.invalid_parameter_value(f"Duplicate Skill name: {name!r}.")
+            identity = (fields["source"], fields["ref"])
+            if repository_ref is not None and repository_ref != identity:
+                raise MlflowException.invalid_parameter_value(
+                    "Bulk registration requires the same Git repository and ref for every Skill."
+                )
+            repository_ref = identity
+            definitions[name] = {"source_type": source_type, **fields}
+
+        for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
+            try:
+                return self._run_with_deadlock_retry(
+                    self._bulk_register_skills_once, definitions, organization, created_by, status
+                )
+            except MlflowException as e:
+                # Persistence helpers chain IntegrityError for creation/allocation collisions;
+                # a packaged-member conflict has the same error code but is not retryable.
+                if (
+                    e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+                    or not isinstance(e.__cause__, IntegrityError)
+                    or attempt == self.CREATE_SKILL_VERSION_RETRIES - 1
+                ):
+                    raise
+
+    def _bulk_register_skills_once(self, definitions, organization, created_by, status):
+        results = {}
+        with self.ManagedSessionMaker(read_only=False) as session:
+            names = sorted(definitions)
+            # Start with writes before any snapshot reads. SQLite serializes writers here;
+            # SQL Server takes an exclusive lock even though FOR UPDATE is omitted there.
+            # Sorting every batch identically also reduces deadlocks on row-locking backends.
+            for name in names:
+                self._get_query(session, SqlSkill).filter(
+                    SqlSkill.name == name, SqlSkill.organization == organization
+                ).update(
+                    {SqlSkill.last_updated_at: SqlSkill.last_updated_at}, synchronize_session=False
+                )
+            for name in names:
+                parent = (
+                    self
+                    ._get_query(session, SqlSkill)
+                    .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                    .with_for_update()
+                    .one_or_none()
+                )
+                if parent is None:
+                    self._get_or_create_skill_for_version(session, name, organization, created_by)
+
+            for name in names:
+                self._assert_name_not_a_packaged_member(session, name, organization)
+                fields = definitions[name]
+                versions = self._get_query(session, SqlSkillVersion).filter(
+                    SqlSkillVersion.name == name, SqlSkillVersion.organization == organization
+                )
+                # Locking reads see current committed rows on MySQL even if a prior parent
+                # lookup established an older repeatable-read snapshot during a creation race.
+                candidates = (
+                    versions
+                    .filter(
+                        SqlSkillVersion.status != SkillStatus.DELETED.value,
+                        *(
+                            getattr(SqlSkillVersion, field) == value
+                            for field, value in fields.items()
+                        ),
+                    )
+                    .order_by(SqlSkillVersion.version.desc())
+                    .with_for_update()
+                    .all()
+                )
+                # SQL equality may ignore case under the database's collation. Check all
+                # candidates so a newer false match cannot hide an older exact match.
+                match = next(
+                    (
+                        candidate
+                        for candidate in candidates
+                        if all(
+                            getattr(candidate, field) == value for field, value in fields.items()
+                        )
+                    ),
+                    None,
+                )
+                if match is not None:
+                    results[name] = match.to_mlflow_entity()
+                    continue
+                latest = versions.order_by(SqlSkillVersion.version.desc()).with_for_update().first()
+                results[name] = self._persist_skill_version(
+                    session=session,
+                    name=name,
+                    organization=organization,
+                    version=latest.version + 1 if latest is not None else 1,
+                    created_by=created_by,
+                    status=status,
+                    **fields,
+                )
+        return [results[name] for name in definitions]
 
     def get_skill_version(
         self,

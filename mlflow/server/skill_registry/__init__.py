@@ -8,7 +8,13 @@ which are not transactional with each other. The REST layer parses requests and 
 from mlflow.server.skill_registry.deletion import delete_skill
 from mlflow.server.skill_registry.registration import (
     SkillVersionRegistration,
+    bulk_register_skill_versions,
     register_skill_version,
 )
 
-__all__ = ["SkillVersionRegistration", "delete_skill", "register_skill_version"]
+__all__ = [
+    "SkillVersionRegistration",
+    "bulk_register_skill_versions",
+    "delete_skill",
+    "register_skill_version",
+]

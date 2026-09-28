@@ -1,4 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from threading import Barrier, Event
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 import sqlalchemy
@@ -14,7 +18,12 @@ from mlflow.entities.skill_source import (
     ZipSource,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    TEMPORARILY_UNAVAILABLE,
+    ErrorCode,
+)
 from mlflow.store.tracking.dbmodels.models import (
     SqlSkill,
     SqlSkillAlias,
@@ -22,6 +31,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
 )
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
+from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -422,6 +432,427 @@ def test_create_skill_version_failure_does_not_leave_orphan_parent(store):
 
     with pytest.raises(MlflowException, match="not found"):
         store.get_skill("orphan-skill")
+
+
+def _bulk_definition(name="reviewer", **overrides):
+    return {
+        "name": name,
+        "source_type": "git",
+        "source": "https://example.com/skills.git",
+        "ref": "main",
+        "subpath": f"skills/{name}",
+        "digest": "a" * 64,
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize("status", ["active", "draft"])
+def test_bulk_register_skills_preserves_order_inputs_and_existing_metadata(store, status):
+    store.create_skill("reviewer", organization="acme", description="Keep", created_by="alice")
+    existing = store.create_skill_version(
+        **_bulk_definition(), organization="acme", created_by="alice"
+    )
+    batch = [_bulk_definition("writer", status=status), _bulk_definition(status=status)]
+    original = deepcopy(batch)
+    parent = store.get_skill("reviewer", organization="acme")
+
+    result = store.bulk_register_skills(batch, organization="acme", created_by="bob")
+
+    assert [(v.name, v.version) for v in result] == [("writer", 1), ("reviewer", 1)]
+    assert result[0].created_by == "bob"
+    assert result[0].status == status
+    assert result[1] == existing
+    assert store.get_skill("reviewer", organization="acme") == parent
+    assert store.get_skill("writer", organization="acme").created_by == "bob"
+    assert store.get_skill("writer", organization="acme").description is None
+    assert batch == original
+    assert store.bulk_register_skills(batch, organization="acme") == result
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == 2
+    # Ordinary registration still creates a fresh version after an identical bulk import.
+    assert store.create_skill_version(**_bulk_definition(), organization="acme").version == 2
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"source": "https://example.com/other.git"},
+        {"source": "https://example.com/Skills.git"},
+        {"ref": "release"},
+        {"ref": "Main"},
+        {"subpath": "other/reviewer"},
+        {"subpath": "skills/Reviewer"},
+        {"digest": "b" * 64},
+    ],
+)
+def test_bulk_register_skills_new_version_for_changed_definition(store, changes):
+    store.bulk_register_skills([_bulk_definition()])
+    changed = _bulk_definition(**changes)
+    assert store.bulk_register_skills([changed])[0].version == 2
+    assert store.bulk_register_skills([changed])[0].version == 2
+
+
+@pytest.mark.parametrize(
+    ("first_subpath", "second_subpath"),
+    [
+        ("skills/a/", "skills/a"),
+        ("skills/a", "skills/a/"),
+        (None, ""),
+        ("", None),
+    ],
+)
+def test_bulk_register_skills_reuses_equivalent_subpaths(store, first_subpath, second_subpath):
+    original = store.bulk_register_skills(
+        [_bulk_definition(subpath=first_subpath)], created_by="original"
+    )[0]
+
+    repeated = store.bulk_register_skills(
+        [_bulk_definition(subpath=second_subpath)], created_by="importer"
+    )[0]
+
+    assert repeated.version == original.version
+    assert repeated == original
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == 1
+
+
+@pytest.mark.parametrize("status", ["active", "draft", "deprecated"])
+@pytest.mark.parametrize("requested_status", ["active", "draft"])
+def test_bulk_register_skills_reuses_highest_non_deleted_match(store, status, requested_status):
+    for _ in range(3):
+        store.create_skill_version(**_bulk_definition(), created_by="original")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        versions = store._get_query(session, SqlSkillVersion)
+        versions.filter(SqlSkillVersion.version == 2).update({SqlSkillVersion.status: status})
+        versions.filter(SqlSkillVersion.version == 3).update({SqlSkillVersion.status: "deleted"})
+    existing = store.get_skill_version("reviewer", 2)
+    result = store.bulk_register_skills(
+        [_bulk_definition(status=requested_status)], created_by="importer"
+    )[0]
+    assert result == existing
+    assert result.version == 2
+    assert result.status == status
+    assert result.created_by == "original"
+    assert result.last_updated_by == "original"
+    assert store.get_skill_version("reviewer", 2) == existing
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == 3
+
+
+@pytest.mark.parametrize("status", ["deprecated", "deleted", "invalid", None])
+def test_bulk_register_skills_invalid_status_does_not_write(store, status):
+    with pytest.raises(MlflowException, match="status") as exc:
+        store.bulk_register_skills([
+            _bulk_definition(),
+            _bulk_definition("writer", status=status),
+        ])
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 0
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+@pytest.mark.parametrize("status", ["active", "draft"])
+def test_bulk_register_skills_keeps_deleted_history_and_restarts_after_hard_delete(store, status):
+    store.bulk_register_skills([_bulk_definition()])
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store._get_query(session, SqlSkillVersion).update({SqlSkillVersion.status: "deleted"})
+    imported = store.bulk_register_skills([_bulk_definition(status=status)])[0]
+    assert imported.version == 2
+    assert imported.status == status
+    with store.ManagedSessionMaker() as session:
+        deleted = store._get_query(session, SqlSkillVersion).filter_by(version=1).one()
+        assert deleted.status == "deleted"
+    assert store.bulk_register_skills([_bulk_definition(status=status)])[0] == imported
+    store.delete_skill("reviewer")
+    recreated = store.bulk_register_skills([_bulk_definition(status=status)])[0]
+    assert recreated.version == 1
+    assert recreated.status == status
+
+
+@pytest.mark.parametrize(
+    "batch",
+    [
+        [],
+        None,
+        [None],
+        [_bulk_definition(name=None)],
+        [_bulk_definition(name="UPPER")],
+        [_bulk_definition(digest=None)],
+        [_bulk_definition(digest="invalid")],
+        [_bulk_definition(source=None)],
+        [_bulk_definition(source_type="oci")],
+        [_bulk_definition(), _bulk_definition()],
+        [_bulk_definition(), _bulk_definition("writer", ref="other")],
+        [_bulk_definition(), _bulk_definition("writer", source="https://example.com/other.git")],
+        [_bulk_definition(), _bulk_definition("writer", status="draft")],
+        [_bulk_definition(status="draft"), _bulk_definition("writer")],
+    ],
+)
+def test_bulk_register_skills_invalid_batch_does_not_write(store, batch):
+    with pytest.raises(MlflowException, match="Skill|skill|digest") as exc:
+        store.bulk_register_skills(batch)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 0
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+def test_bulk_register_skills_later_failure_rolls_back_every_new_parent_and_version(store):
+    persist = store._persist_skill_version
+
+    def fail_after_second_insert(*args, **kwargs):
+        result = persist(*args, **kwargs)
+        if kwargs["name"] == "writer":
+            raise MlflowException.invalid_parameter_value("Injected later failure")
+        return result
+
+    with mock.patch.object(
+        store, "_persist_skill_version", side_effect=fail_after_second_insert
+    ) as mock_persist:
+        with pytest.raises(MlflowException, match="Injected later failure"):
+            store.bulk_register_skills([_bulk_definition(), _bulk_definition("writer")])
+    assert mock_persist.call_count == 2
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 0
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+@pytest.mark.parametrize("exhaust", [False, True])
+def test_bulk_register_skills_retries_creation_conflict_as_whole_transaction(store, exhaust):
+    persist = store._persist_skill_version
+    calls = 0
+
+    def conflict_after_second_insert(*args, **kwargs):
+        nonlocal calls
+        result = persist(*args, **kwargs)
+        if kwargs["name"] == "writer":
+            calls += 1
+            if calls == 1 or exhaust:
+                raise MlflowException("allocation collision", RESOURCE_ALREADY_EXISTS) from (
+                    sqlalchemy.exc.IntegrityError("insert", {}, Exception("duplicate key"))
+                )
+        return result
+
+    with mock.patch.object(
+        store, "_persist_skill_version", side_effect=conflict_after_second_insert
+    ) as mock_persist:
+        if exhaust:
+            with pytest.raises(MlflowException, match="allocation collision"):
+                store.bulk_register_skills([_bulk_definition(), _bulk_definition("writer")])
+        else:
+            result = store.bulk_register_skills([_bulk_definition(), _bulk_definition("writer")])
+            assert [v.version for v in result] == [1, 1]
+    assert calls == (store.CREATE_SKILL_VERSION_RETRIES if exhaust else 2)
+    assert mock_persist.call_count == 2 * calls
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == (0 if exhaust else 2)
+        assert store._get_query(session, SqlSkill).count() == (0 if exhaust else 2)
+
+
+@pytest.mark.parametrize("bulk", [False, True], ids=["standalone", "bulk"])
+def test_skill_registration_retries_deadlock_with_a_fresh_transaction(store, bulk):
+    persist = store._persist_skill_version
+    sessions = []
+
+    def deadlock_after_insert(*args, **kwargs):
+        sessions.append(kwargs["session"])
+        result = persist(*args, **kwargs)
+        if len(sessions) == 1:
+            raise MlflowException("deadlock victim", TEMPORARILY_UNAVAILABLE)
+        return result
+
+    with (
+        mock.patch.object(
+            store, "_persist_skill_version", side_effect=deadlock_after_insert
+        ) as mock_persist,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep") as mock_sleep,
+    ):
+        if bulk:
+            result = store.bulk_register_skills([_bulk_definition()])[0]
+        else:
+            result = store.create_skill_version(**_bulk_definition())
+        assert result.version == 1
+    assert mock_persist.call_count == 2
+    mock_sleep.assert_called_once()
+    assert len(sessions) == 2
+    assert sessions[0] is not sessions[1]
+
+
+@pytest.mark.parametrize(
+    ("error_code", "message", "attempts"),
+    [
+        (TEMPORARILY_UNAVAILABLE, "deadlock victim", _DB_WRITE_MAX_DEADLOCK_RETRIES + 1),
+        (TEMPORARILY_UNAVAILABLE, "connection unavailable", 1),
+        (INVALID_PARAMETER_VALUE, "invalid input mentioning deadlock", 1),
+    ],
+)
+def test_create_skill_version_failure_retries_are_bounded(store, error_code, message, attempts):
+    persist = store._persist_skill_version
+    sessions = []
+
+    def fail_after_insert(*args, **kwargs):
+        sessions.append(kwargs["session"])
+        persist(*args, **kwargs)
+        raise MlflowException(message, error_code)
+
+    with (
+        mock.patch.object(
+            store, "_persist_skill_version", side_effect=fail_after_insert
+        ) as mock_persist,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep") as mock_sleep,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        store.create_skill_version(**_bulk_definition())
+
+    assert exc.value.error_code == ErrorCode.Name(error_code)
+    assert mock_persist.call_count == attempts
+    if attempts == 1:
+        mock_sleep.assert_not_called()
+    else:
+        assert mock_sleep.call_count == attempts - 1
+    assert len(sessions) == attempts
+    assert len({id(session) for session in sessions}) == attempts
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 0
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+def test_bulk_register_skills_organization_and_workspace_isolation(store, workspaces_enabled):
+    for _ in range(2):
+        store.create_skill_version(**_bulk_definition(), organization="first", created_by="alice")
+    second = store.bulk_register_skills(
+        [_bulk_definition()], organization="second", created_by="bob"
+    )[0]
+    first = store.bulk_register_skills([_bulk_definition()], organization="first")[0]
+    assert (first.organization, first.version, first.created_by) == ("first", 2, "alice")
+    assert (second.organization, second.version, second.created_by) == ("second", 1, "bob")
+    assert store.get_skill_version("reviewer", 2, organization="first") == first
+    assert store.get_skill_version("reviewer", 1, organization="second") == second
+    changed = _bulk_definition(digest="b" * 64)
+    for organization, version in [("first", 3), ("second", 2)]:
+        result = store.bulk_register_skills([changed], organization=organization)[0]
+        assert (result.organization, result.version) == (organization, version)
+        assert store.get_skill_version("reviewer", version, organization=organization) == result
+    if not workspaces_enabled:
+        return
+    with WorkspaceContext("team-a"):
+        assert store.bulk_register_skills([_bulk_definition()])[0].version == 1
+    with WorkspaceContext("team-b"):
+        result = store.bulk_register_skills([_bulk_definition()])[0]
+        assert result.version == 1
+        assert result.workspace == "team-b"
+    with WorkspaceContext("team-a"):
+        assert store.bulk_register_skills([_bulk_definition()])[0].version == 1
+
+
+@pytest.mark.parametrize("parents_exist", [False, True])
+def test_bulk_register_skills_concurrent_overlapping_batches(store, parents_exist):
+    if parents_exist:
+        store.create_skill("reviewer")
+        store.create_skill("writer")
+    start = Barrier(2)
+
+    def register(batch):
+        with WorkspaceContext("default"):
+            start.wait(timeout=10)
+            return store.bulk_register_skills(batch)
+
+    first = [_bulk_definition("writer"), _bulk_definition()]
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="bulk-import") as executor:
+        calls = [executor.submit(register, first), executor.submit(register, list(reversed(first)))]
+        results = [call.result(timeout=30) for call in calls]
+    assert [(v.name, v.version) for v in results[0]] == [("writer", 1), ("reviewer", 1)]
+    assert [(v.name, v.version) for v in results[1]] == [("reviewer", 1), ("writer", 1)]
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == 2
+
+
+def test_bulk_register_skills_overlaps_an_already_allocated_single_registration(store):
+    store.create_skill("reviewer")
+    allocated = Event()
+    resume = Event()
+    attempted_versions = []
+    persist = store._persist_skill_version
+
+    def pause_first_allocation(*args, **kwargs):
+        if kwargs.get("created_by") == "single":
+            attempted_versions.append(kwargs["version"])
+            if not allocated.is_set():
+                allocated.set()
+                assert resume.wait(timeout=10)
+        return persist(*args, **kwargs)
+
+    def register_single():
+        with WorkspaceContext("default"):
+            return store.create_skill_version(**_bulk_definition(), created_by="single")
+
+    with (
+        mock.patch.object(
+            store, "_persist_skill_version", side_effect=pause_first_allocation
+        ) as mock_persist,
+        ThreadPoolExecutor(max_workers=1, thread_name_prefix="single-before-bulk") as executor,
+    ):
+        single = executor.submit(register_single)
+        try:
+            assert allocated.wait(timeout=10)
+            bulk = store.bulk_register_skills([_bulk_definition()], created_by="bulk")[0]
+        finally:
+            resume.set()
+        registered = single.result(timeout=10)
+
+    assert mock_persist.call_count == 3
+    assert attempted_versions == [1, 2]
+    assert (bulk.version, registered.version) == (1, 2)
+    assert store.get_skill_version("reviewer", 1).created_by == "bulk"
+    assert store.get_skill_version("reviewer", 2).created_by == "single"
+    assert store.bulk_register_skills([_bulk_definition()])[0] == registered
+
+
+@pytest.mark.parametrize("operation", ["single-registration", "deletion"])
+def test_bulk_register_skills_final_state_with_concurrent_writer(store, operation):
+    store.create_skill("reviewer")
+    started = Event()
+    persist = store._persist_skill_version
+
+    def other_write():
+        with WorkspaceContext("default"):
+            started.set()
+            if operation == "deletion":
+                return store.delete_skill("reviewer")
+            return store.create_skill_version(**_bulk_definition(), created_by="single")
+
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="concurrent-skill-write") as executor:
+        future = None
+
+        def persist_and_start_other_writer(*args, **kwargs):
+            nonlocal future
+            if kwargs.get("created_by") == "bulk":
+                result = persist(*args, **kwargs)
+                future = executor.submit(other_write)
+                assert started.wait(timeout=10)
+                return result
+            return persist(*args, **kwargs)
+
+        with mock.patch.object(
+            store, "_persist_skill_version", side_effect=persist_and_start_other_writer
+        ) as mock_persist:
+            assert (
+                store.bulk_register_skills([_bulk_definition()], created_by="bulk")[0].version == 1
+            )
+            result = future.result(timeout=30)
+    if operation == "single-registration":
+        assert mock_persist.call_count == 2
+        assert result.version == 2
+        assert store.get_skill_version("reviewer", 1).created_by == "bulk"
+        assert store.get_skill_version("reviewer", 2) == result
+    else:
+        mock_persist.assert_called_once()
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == (0 if operation == "deletion" else 1)
+        assert store._get_query(session, SqlSkillVersion).count() == (
+            0 if operation == "deletion" else 2
+        )
 
 
 @pytest.mark.parametrize("status", [SkillStatus.DELETED.value, SkillStatus.DEPRECATED.value])

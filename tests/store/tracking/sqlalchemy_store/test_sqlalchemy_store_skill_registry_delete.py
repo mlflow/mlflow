@@ -300,6 +300,28 @@ def test_packaged_plugin_member_names_cannot_receive_standalone_versions(store):
     assert _version_rows(store) == 1
 
 
+def test_bulk_register_packaged_member_conflict_is_not_retried_and_rolls_back(store):
+    definition = {
+        "name": "reviewer",
+        "source_type": "git",
+        "source": "https://example.com/skills.git",
+        "digest": "a" * 64,
+    }
+    store.create_skill_version(**definition, organization="acme")
+    _add_plugin_version(store, [("reviewer", 1)])
+    with mock.patch.object(
+        store, "_bulk_register_skills_once", wraps=store._bulk_register_skills_once
+    ) as attempt:
+        with pytest.raises(MlflowException, match="member of the packaged agent plugin"):
+            store.bulk_register_skills(
+                [{**definition, "name": "another-skill"}, definition], organization="acme"
+            )
+    attempt.assert_called_once()
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("another-skill", organization="acme")
+    assert _version_rows(store) == 1
+
+
 def test_packaged_plugin_member_names_cannot_be_created_standalone(store):
     # The membership row outlives its skill only in tests, but the name is still bound.
     _upload(store)
