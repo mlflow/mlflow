@@ -185,7 +185,7 @@ def load_text(artifact_uri: str) -> str:
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
-        with open(local_artifact) as local_artifact_fd:
+        with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
                 return str(local_artifact_fd.read())
             except Exception:
@@ -219,7 +219,7 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
-        with open(local_artifact) as local_artifact_fd:
+        with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
                 return json.load(local_artifact_fd)
             except json.JSONDecodeError:
