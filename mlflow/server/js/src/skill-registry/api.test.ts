@@ -277,7 +277,37 @@ describe('Skill Registry API', () => {
       expect(new Headers(options?.headers).has('Content-Type')).toBe(false);
     });
 
-    it.each([400, 409])('preserves the backend error message for a %s multipart failure', async (status) => {
+    it.each([
+      {
+        name: 'registerSkill 400',
+        status: 400,
+        invoke: () =>
+          SkillRegistryApi.registerSkill(
+            { name: 'code-review', status: SkillStatus.ACTIVE },
+            new Blob(['archive'], { type: 'application/gzip' }),
+          ),
+      },
+      {
+        name: 'registerSkill 409',
+        status: 409,
+        invoke: () =>
+          SkillRegistryApi.registerSkill(
+            { name: 'code-review', status: SkillStatus.ACTIVE },
+            new Blob(['archive'], { type: 'application/gzip' }),
+          ),
+      },
+      {
+        name: 'createSkillVersion 400',
+        status: 400,
+        invoke: () =>
+          SkillRegistryApi.createSkillVersion(
+            'code-review',
+            { status: SkillStatus.DRAFT },
+            'acme',
+            new Blob(['archive'], { type: 'application/gzip' }),
+          ),
+      },
+    ])('preserves the backend error message for $name', async ({ status, invoke }) => {
       fetchMock.mockResolvedValueOnce(
         new Response(JSON.stringify({ message: 'Skill registration failed' }), {
           status,
@@ -285,12 +315,7 @@ describe('Skill Registry API', () => {
         }),
       );
 
-      await expect(
-        SkillRegistryApi.registerSkill(
-          { name: 'code-review', status: SkillStatus.ACTIVE },
-          new Blob(['archive'], { type: 'application/gzip' }),
-        ),
-      ).rejects.toThrow('Skill registration failed');
+      await expect(invoke()).rejects.toThrow('Skill registration failed');
     });
   });
 });

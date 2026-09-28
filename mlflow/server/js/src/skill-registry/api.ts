@@ -57,14 +57,40 @@ export const buildSkillMultipartBody = (
 
 const skillUrl = (name: string, organization = '') => `${BASE_URL}/${buildSkillIdentityPath(name, organization)}`;
 
+// fetchAPI always sets Content-Type: application/json, which would break the
+// multipart boundary. fetchOrFail is used instead and leaves .response unread,
+// so parse the backend message here rather than changing shared error text.
+async function fetchSkillMultipartJson<T>(url: string, body: FormData): Promise<T> {
+  try {
+    const response = await fetchOrFail(url, {
+      method: HTTPMethods.POST,
+      body,
+    });
+    return response.json() as Promise<T>;
+  } catch (error) {
+    const response = (error as { response?: Response }).response;
+    if (response && !response.bodyUsed) {
+      try {
+        const message = (await response.json()).message;
+        if (typeof message === 'string' && error instanceof Error) {
+          error.message = message;
+        }
+      } catch {
+        // Keep the predefined fetchOrFail message when the body is not JSON.
+      }
+    }
+    throw error;
+  }
+}
+
 function registerSkill(request: RegisterExternalSkillRequest): Promise<RegisterSkillResponse>;
 function registerSkill(request: RegisterUploadedSkillRequest, content: Blob): Promise<RegisterSkillResponse>;
 function registerSkill(request: RegisterSkillRequest, content?: Blob): Promise<RegisterSkillResponse> {
   if (content) {
-    return fetchOrFail(getAjaxUrl(`${BASE_URL}/register`), {
-      method: HTTPMethods.POST,
-      body: buildSkillMultipartBody(request as RegisterUploadedSkillRequest, content),
-    }).then((response) => response.json() as Promise<RegisterSkillResponse>);
+    return fetchSkillMultipartJson<RegisterSkillResponse>(
+      getAjaxUrl(`${BASE_URL}/register`),
+      buildSkillMultipartBody(request as RegisterUploadedSkillRequest, content),
+    );
   }
   return fetchAPI(getAjaxUrl(`${BASE_URL}/register`), {
     method: HTTPMethods.POST,
@@ -90,10 +116,10 @@ function createSkillVersion(
   content?: Blob,
 ): Promise<GetSkillVersionResponse> {
   if (content) {
-    return fetchOrFail(getAjaxUrl(`${skillUrl(name, organization)}/versions`), {
-      method: HTTPMethods.POST,
-      body: buildSkillMultipartBody(request as UploadedSkillVersionRequest, content),
-    }).then((response) => response.json() as Promise<GetSkillVersionResponse>);
+    return fetchSkillMultipartJson<GetSkillVersionResponse>(
+      getAjaxUrl(`${skillUrl(name, organization)}/versions`),
+      buildSkillMultipartBody(request as UploadedSkillVersionRequest, content),
+    );
   }
   return fetchAPI(getAjaxUrl(`${skillUrl(name, organization)}/versions`), {
     method: HTTPMethods.POST,
