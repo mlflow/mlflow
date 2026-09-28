@@ -839,3 +839,54 @@ def test_send_request_uses_timeout_from_env_var(monkeypatch):
 
         _, kwargs = mock_post.call_args
         assert kwargs["timeout"] == 2
+
+
+def test_score_model_endpoints_infer_endpoint_type(set_deployment_envs):
+    from pydantic import BaseModel
+
+    class DummyEndpoint(BaseModel):
+        name: str
+        endpoint_type: str
+
+    with (
+        mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client,
+        mock.patch("mlflow.metrics.genai.model_utils.call_deployments_api") as mock_call_api,
+    ):
+        client = mock_get_deploy_client.return_value
+
+        # Case 1: get_endpoint returns a BaseModel (Pydantic model)
+        client.get_endpoint.return_value = DummyEndpoint(name="my-endpoint", endpoint_type="llm/v1/chat")
+        score_model_on_payload(
+            model_uri="endpoints:/my-endpoint",
+            payload="my prompt",
+            endpoint_type=None,
+        )
+        mock_call_api.assert_called_with("my-endpoint", "my prompt", {}, "llm/v1/chat")
+
+        # Case 2: get_endpoint returns a raw dictionary with "endpoint_type"
+        client.get_endpoint.return_value = {"endpoint_type": "llm/v1/completions"}
+        score_model_on_payload(
+            model_uri="endpoints:/my-endpoint",
+            payload="my prompt",
+            endpoint_type=None,
+        )
+        mock_call_api.assert_called_with("my-endpoint", "my prompt", {}, "llm/v1/completions")
+
+        # Case 3: get_endpoint returns a raw dictionary with "task"
+        client.get_endpoint.return_value = {"task": "llm/v1/embeddings"}
+        score_model_on_payload(
+            model_uri="endpoints:/my-endpoint",
+            payload="my prompt",
+            endpoint_type=None,
+        )
+        mock_call_api.assert_called_with("my-endpoint", "my prompt", {}, "llm/v1/embeddings")
+
+        # Case 4: get_endpoint returns a dictionary without endpoint type or task (fails to infer)
+        client.get_endpoint.return_value = {}
+        with pytest.raises(MlflowException, match="Failed to infer endpoint type for 'endpoints:/my-endpoint'"):
+            score_model_on_payload(
+                model_uri="endpoints:/my-endpoint",
+                payload="my prompt",
+                endpoint_type=None,
+            )
+
