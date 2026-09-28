@@ -618,3 +618,51 @@ def test_ending_a_trace_declares_its_tags(recorder, monkeypatch):
     assert "approved" in _declared_tag_keys(recorder, ConditionScope.MUTATE), (
         "EndTrace persists its tags but declared none to the condition"
     )
+
+
+# ---- The other two run producers --------------------------------------------
+
+
+def test_a_promptlab_run_create_declares_its_tags(recorder, monkeypatch):
+    """PromptLab creates a run with caller-supplied tags, so it is a run create like any other
+    and its tags must be judged. Only the primary CreateRun producer was covered.
+    """
+    body = {
+        "experiment_id": "1",
+        "prompt_template": "t",
+        "prompt_parameters": [],
+        "model_route": "r",
+        "model_input": "i",
+        "tags": [{"key": "pii", "value": "yes"}],
+    }
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow/runs/create-promptlab-run", method="POST", json=body
+    ):
+        auth_module.validate_can_create_promptlab_run()
+    keys = [k for c in recorder.contexts for k, _ in (c.request.tags or ())]
+    assert "pii" in keys, f"the caller's tag never reached a condition; got {keys}"
+
+
+def test_an_issue_detection_run_create_declares_its_derived_tags(recorder, monkeypatch):
+    """Issue detection DERIVES its run tags in the handler rather than passing them through, so
+    the auth layer reconstructs them. Pinning the reconstruction is what makes the coupling
+    survivable: if the handler's tag set changes, this fails rather than a condition going
+    quiet.
+    """
+    body = {
+        "experiment_id": "1",
+        "categories": ["toxicity", "pii"],
+        "endpoint_name": "my-endpoint",
+        "trace_ids": ["t1", "t2", "t3"],
+    }
+    with auth_module.app.test_request_context(
+        "/ajax-api/3.0/mlflow/issues/detect", method="POST", json=body
+    ):
+        auth_module.validate_can_invoke_issue_detection()
+    declared = dict(
+        pair for c in recorder.contexts for pair in (c.request.tags or ()) if pair[0]
+    )
+    assert declared.get("categories") == "toxicity,pii"
+    assert declared.get("model") == "gateway:/my-endpoint"
+    assert declared.get("total_traces") == "3", "an int must be projected as a string"
+    assert declared.get("endpoint_name") == "my-endpoint"

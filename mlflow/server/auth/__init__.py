@@ -4018,6 +4018,56 @@ def validate_can_update_gateway_model_definition():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
+def _promptlab_run_tags(body: "dict | None") -> "tuple[tuple[str, str | None], ...]":
+    """The tags a PromptLab run create will persist.
+
+    Caller-supplied `{"key": ..., "value": ...}` objects, passed to `create_run` unchanged, so
+    they are request values a condition must judge like any other run create.
+    """
+    if not isinstance(body, dict):
+        return ()
+    tags = body.get("tags") or []
+    if not isinstance(tags, list):
+        return ()
+    return tuple(
+        (tag.get("key"), tag.get("value"))
+        for tag in tags
+        if isinstance(tag, dict) and isinstance(tag.get("key"), str) and tag.get("key")
+    )
+
+
+def _issue_detection_run_tags(body: "dict | None") -> "tuple[tuple[str, str | None], ...]":
+    """The non-reserved tags an issue-detection run create will persist.
+
+    Unlike every other producer, these are DERIVED by the handler rather than passed through,
+    so they have to be reconstructed here. That couples this function to the handler: if it
+    changes which tags it builds, a condition silently stops seeing one. The alternative is
+    leaving the route's tags unjudged, which makes a run tag condition avoidable through it, so
+    the coupling is the lesser cost -- but it is a real one, and the handler is the place to
+    look first if a condition ever appears not to apply here.
+
+    `mlflow.runType` is omitted deliberately: reserved keys are excluded from request
+    evaluation anyway (D4).
+    """
+    if not isinstance(body, dict):
+        return ()
+    categories = body.get("categories") or []
+    endpoint_name = body.get("endpoint_name")
+    model = body.get("model")
+    provider = body.get("provider")
+    trace_ids = body.get("trace_ids") or []
+    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    tags = [
+        ("categories", ",".join(categories) if isinstance(categories, list) else str(categories)),
+        ("model", model_name),
+        # An int in the handler; every projected value must be a string.
+        ("total_traces", str(len(trace_ids) if isinstance(trace_ids, list) else 0)),
+    ]
+    if endpoint_name:
+        tags.append(("endpoint_name", str(endpoint_name)))
+    return tuple(tags)
+
+
 def validate_can_invoke_issue_detection():
     """
     Issue detection creates a run in the request's experiment and, when ``secret_id`` is
@@ -4025,9 +4075,13 @@ def validate_can_invoke_issue_detection():
     experiment and USE on the secret, mirroring model-definition creation. The run it
     creates puts this on the same create shape as ``validate_can_create_run``.
     """
-    if not _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN):
-        return False
     body = request.get_json(silent=True)
+    if not _authorize_create_in_experiment(
+        _get_request_param("experiment_id"),
+        RESOURCE_TYPE_RUN,
+        _issue_detection_run_tags(body),
+    ):
+        return False
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
     # An absent or empty secret_id is also a no-op in the handler (no credentials fetched).
     if not secret_id:
@@ -4948,7 +5002,10 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_RUN)
+    # The caller's own tags, which the handler passes to `create_run` unchanged.
+    return _authorize_create_in_experiment(
+        experiment_id, RESOURCE_TYPE_RUN, _promptlab_run_tags(data)
+    )
 
 
 def validate_gateway_proxy():
