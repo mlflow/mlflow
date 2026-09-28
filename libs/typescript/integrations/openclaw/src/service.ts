@@ -36,6 +36,7 @@ const TraceMetadataKey = {
   TRACE_USER: 'mlflow.trace.user',
 } as const;
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
 function getCurrentUser(): string {
   return process.env.USER || process.env.USERNAME || '';
 }

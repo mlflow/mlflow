@@ -46,6 +46,7 @@ import {
   readTranscript,
 } from './transcript.js';
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
 function getCurrentUser(): string {
   return process.env.USER || process.env.USERNAME || '';
 }

@@ -398,10 +398,11 @@ describe('processTranscript', () => {
     });
 
     it('sets trace user from environment', async () => {
+      process.env.USER = 'known-user';
+      process.env.USERNAME = 'windows-user';
+
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
-      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe(
-        process.env.USER || process.env.USERNAME || '',
-      );
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('known-user');
     });
 
     it('sets trace user from USERNAME when USER is unset', async () => {

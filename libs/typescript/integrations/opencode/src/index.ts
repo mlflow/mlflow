@@ -49,6 +49,7 @@ const PART_TYPE_REASONING = 'reasoning';
 const TRACE_SESSION_METADATA_KEY = 'mlflow.trace.session';
 const TRACE_USER_METADATA_KEY = 'mlflow.trace.user';
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
 function getCurrentUser(): string {
   return process.env.USER || process.env.USERNAME || '';
 }
