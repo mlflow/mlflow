@@ -132,7 +132,7 @@ def is_tracing_enabled() -> bool:
 def _get_current_user() -> str:
     try:
         return getpass.getuser()
-    except Exception:
+    except (ImportError, OSError):
         return ""
 
 

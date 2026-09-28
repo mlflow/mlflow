@@ -71,7 +71,6 @@ jest.mock('@mlflow/core', () => {
       OUTPUT_TOKENS: 'output_tokens',
       TOTAL_TOKENS: 'total_tokens',
     },
-    getCurrentUser: jest.fn(() => process.env.USER || process.env.USERNAME || ''),
     InMemoryTraceManager: {
       getInstance: jest.fn(() => ({
         getTrace: jest.fn(() => ({

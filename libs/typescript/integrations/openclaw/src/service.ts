@@ -16,7 +16,6 @@ import {
   startSpan,
   flushTraces,
   SpanStatusCode,
-  getCurrentUser,
   type SpanType as SpanTypeEnum,
 } from '@mlflow/core';
 
@@ -36,6 +35,10 @@ const TraceMetadataKey = {
   TRACE_SESSION: 'mlflow.trace.session',
   TRACE_USER: 'mlflow.trace.user',
 } as const;
+
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
 
 // ---------------------------------------------------------------------------
 // Constants

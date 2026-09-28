@@ -118,7 +118,6 @@ jest.mock('@mlflow/core', () => {
       CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
       CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
     },
-    getCurrentUser: jest.fn(() => process.env.USER || process.env.USERNAME || ''),
     InMemoryTraceManager: {
       getInstance: jest.fn(() => ({
         getTrace: jest.fn(() => ({
@@ -169,8 +168,13 @@ beforeEach(() => {
 });
 
 describe('processTranscript', () => {
-  const originalUser = process.env.USER;
-  const originalUsername = process.env.USERNAME;
+  let originalUser: string | undefined;
+  let originalUsername: string | undefined;
+
+  beforeEach(() => {
+    originalUser = process.env.USER;
+    originalUsername = process.env.USERNAME;
+  });
 
   afterEach(() => {
     if (originalUser === undefined) {

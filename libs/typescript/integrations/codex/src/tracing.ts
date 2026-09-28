@@ -25,7 +25,6 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   TokenUsageKey,
-  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -46,6 +45,10 @@ import {
   getLastTurnRecords,
   readTranscript,
 } from './transcript.js';
+
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
 
 /**
  * Process a Codex notify hook payload and create an MLflow trace.

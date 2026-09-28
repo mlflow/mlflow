@@ -22,7 +22,6 @@ import {
   flushTraces,
   SpanType,
   SpanAttributeKey,
-  getCurrentUser,
 } from '@mlflow/core';
 
 // Track the last processed message count per session to avoid duplicate traces.
@@ -49,6 +48,10 @@ const PART_TYPE_REASONING = 'reasoning';
 // themselves are stable, so this works across the published version range.
 const TRACE_SESSION_METADATA_KEY = 'mlflow.trace.session';
 const TRACE_USER_METADATA_KEY = 'mlflow.trace.user';
+
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
 
 // SDK initialization state
 let initialized = false;

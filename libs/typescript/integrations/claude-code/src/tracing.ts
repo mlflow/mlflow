@@ -8,7 +8,6 @@ import {
   SpanType,
   SpanAttributeKey,
   TraceMetadataKey,
-  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -37,6 +36,7 @@ import {
   METADATA_KEY_WORKING_DIRECTORY,
   buildUsageDict,
   extractContentAndTools,
+  getCurrentUser,
 } from './_internal.js';
 
 // ============================================================================

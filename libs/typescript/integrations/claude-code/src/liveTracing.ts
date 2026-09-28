@@ -26,7 +26,6 @@ import {
   SpanStatusCode,
   TraceMetadataKey,
   InMemoryTraceManager,
-  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -38,6 +37,7 @@ import {
   METADATA_KEY_WORKING_DIRECTORY,
   buildUsageDict,
   extractContentAndTools,
+  getCurrentUser,
   sanitizeForSpan,
 } from './_internal.js';
 

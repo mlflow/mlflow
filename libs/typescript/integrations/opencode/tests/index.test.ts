@@ -41,7 +41,6 @@ jest.mock('@mlflow/core', () => {
     SpanAttributeKey: {
       TOKEN_USAGE: 'token_usage',
     },
-    getCurrentUser: jest.fn(() => process.env.USER || process.env.USERNAME || ''),
   };
 });
 

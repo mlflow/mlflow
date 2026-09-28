@@ -27,7 +27,6 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   TokenUsageKey,
-  getCurrentUser,
   type LiveSpan,
 } from '@mlflow/core';
 
@@ -44,6 +43,10 @@ import {
 } from './transcript.js';
 
 const SUCCESS_STATUS = 'success';
+
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
 
 /**
  * Process a Qwen Code transcript and create an MLflow trace for the last turn.

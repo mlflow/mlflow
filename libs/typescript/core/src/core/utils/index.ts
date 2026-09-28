@@ -3,10 +3,6 @@ import { Span } from '../entities/span';
 import { SpanAttributeKey } from '../constants';
 import { TokenUsage } from '../entities/trace_info';
 
-export function getCurrentUser(): string {
-  return process.env.USER || process.env.USERNAME || '';
-}
-
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent
  * timestamps. This function converts a timestamp in nanoseconds to an `HrTime`
