@@ -117,11 +117,7 @@ def test_get_logger_lazy_initialization(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
 
 def test_get_current_user_falls_back_to_username(monkeypatch):
-    def raise_os_error():
-        raise OSError
-
     monkeypatch.delenv("USER", raising=False)
-    monkeypatch.setattr(tracing_module.getpass, "getuser", raise_os_error)
     monkeypatch.setenv("USERNAME", "windows-user")
 
     assert _get_current_user() == "windows-user"
@@ -135,12 +131,8 @@ def test_get_current_user_prefers_user(monkeypatch):
 
 
 def test_get_current_user_returns_empty_string_when_user_lookup_fails(monkeypatch):
-    def raise_os_error():
-        raise OSError
-
     monkeypatch.delenv("USER", raising=False)
     monkeypatch.delenv("USERNAME", raising=False)
-    monkeypatch.setattr(tracing_module.getpass, "getuser", raise_os_error)
     assert _get_current_user() == ""
 
 
@@ -269,11 +261,6 @@ def test_process_transript_creates_trace(mock_transcript_file):
 
 def test_process_transcript_uses_username_when_user_is_unset(monkeypatch, mock_transcript_file):
     monkeypatch.delenv("USER", raising=False)
-    monkeypatch.setattr(
-        tracing_module.getpass,
-        "getuser",
-        lambda: (_ for _ in ()).throw(OSError),
-    )
     monkeypatch.setenv("USERNAME", "windows-user")
 
     trace = process_transcript(mock_transcript_file, "test-session-123")

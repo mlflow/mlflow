@@ -1,7 +1,6 @@
 """MLflow tracing integration for Claude Code interactions."""
 
 import dataclasses
-import getpass
 import json
 import logging
 import os
@@ -130,12 +129,7 @@ def is_tracing_enabled() -> bool:
 
 
 def _get_current_user() -> str:
-    if user := os.environ.get("USER"):
-        return user
-    try:
-        return getpass.getuser()
-    except (ImportError, OSError):
-        return os.environ.get("USERNAME", "")
+    return os.environ.get("USER", "") or os.environ.get("USERNAME", "")
 
 
 # ============================================================================
