@@ -6,6 +6,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+import pydantic
+
 import mlflow
 from mlflow.entities import SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
@@ -48,6 +50,15 @@ def _extract_caller(request_headers: dict[str, str] | None) -> str | None:
     return None
 
 
+def _dump_payload(value: Any) -> Any:
+    """Serialize pydantic request payloads without None fields so the trace input
+    shows only the fields the caller actually sent, not every optional parameter.
+    """
+    if isinstance(value, pydantic.BaseModel):
+        return value.model_dump(exclude_none=True)
+    return value
+
+
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
     """Unwrap inputs so trace shows the request body directly.
 
@@ -61,10 +72,10 @@ def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
     # This takes precedence to handle cases where functions are called with
     # keyword arguments (e.g., action=..., payload=..., headers=...)
     if "payload" in kwargs:
-        span.set_inputs(kwargs["payload"])
+        span.set_inputs(_dump_payload(kwargs["payload"]))
     # For other endpoints with a single positional argument
     elif len(args) == 1 and not kwargs:
-        span.set_inputs(args[0])
+        span.set_inputs(_dump_payload(args[0]))
 
 
 def _has_traceparent(headers: dict[str, str]) -> bool:

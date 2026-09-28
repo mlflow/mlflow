@@ -64,5 +64,6 @@
   "mlflow.python": "api_reference/python_api/index.html",
   "mlflow.rest": "api_reference/rest-api.html",
   "mlflow.typescript": "api_reference/typescript_api/index.html",
-  "mlflow.llms.deployments.api": "api_reference/llms/deployments/api.html"
+  "mlflow.llms.deployments.api": "api_reference/llms/deployments/api.html",
+  "mlflow.genai.mcp_server_registry.api": "api_reference/genai/mcp-server-registry/api.html"
 }

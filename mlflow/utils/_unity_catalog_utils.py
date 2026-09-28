@@ -93,8 +93,10 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
             )
             for metric in (uc_proto.model_metrics or [])
         ],
-        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-            uc_proto.deployment_job_state
+        deployment_job_state=(
+            ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state)
+            if uc_proto.HasField("deployment_job_state")
+            else None
         ),
     )
 
@@ -113,8 +115,10 @@ def model_version_search_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVers
         status_message=uc_proto.status_message,
         aliases=[],
         tags=[],
-        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-            uc_proto.deployment_job_state
+        deployment_job_state=(
+            ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state)
+            if uc_proto.HasField("deployment_job_state")
+            else None
         ),
     )
 
@@ -424,6 +428,24 @@ def get_full_name_from_sc(name, spark) -> str:
         return f"{catalog}.{name}"
     schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
     return f"{catalog}.{schema}.{name}"
+
+
+def split_uc_model_name(full_name: str) -> tuple[str, str, str]:
+    """Split a Unity Catalog model name into ``(catalog, schema, model)``.
+
+    Raises ``MlflowException`` if ``full_name`` is not a valid three-level UC name.
+    """
+    match full_name.split("."):
+        case [catalog, schema, model] if all((catalog, schema, model)):
+            return catalog, schema, model
+        case _:
+            raise MlflowException(
+                f"Not a valid Unity Catalog model name: '{full_name}'. Unity Catalog model names "
+                "must have three levels (catalog.schema.model). If you are trying to use the "
+                "legacy Workspace Model Registry instead of the recommended Unity Catalog Model "
+                "Registry, set the Model Registry URI to 'databricks' (legacy) instead of "
+                "'databricks-uc'."
+            )
 
 
 def is_databricks_sdk_models_artifact_repository_enabled(host_creds):

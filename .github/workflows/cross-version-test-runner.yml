@@ -3,11 +3,16 @@ on:
   issue_comment:
     types: [created]
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   run:

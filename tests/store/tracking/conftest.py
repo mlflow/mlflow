@@ -31,8 +31,6 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-ARTIFACT_URI = "artifact_folder"
-
 
 def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
     dialect = store._get_dialect()
@@ -79,17 +77,6 @@ def _cleanup_database(store: SqlAlchemyStore):
         # Reset experiment_id to start at 1
         if reset_experiment_id := _get_query_to_reset_experiment_id(store):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
-    store.engine.dispose()
-    return db_path
 
 
 @pytest.fixture

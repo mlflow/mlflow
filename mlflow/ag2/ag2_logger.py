@@ -116,8 +116,6 @@ class MlflowAg2Logger(BaseLogger):
         Patch a function to start and end a span around its invocation.
 
         Args:
-            f: The function to patch.
-            span_name: The name of the span. If None, the function name is used.
             span_type: The type of the span. Default is SpanType.UNKNOWN.
             root_only: If True, only create a span if it is the root of the chat session.
                 When there is an existing root span for the chat session, the function will

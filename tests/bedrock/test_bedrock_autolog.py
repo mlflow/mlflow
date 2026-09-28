@@ -54,6 +54,17 @@ _ANTHROPIC_RESPONSE = {
     },
 }
 
+# Anthropic-native body with prompt caching active. input_tokens excludes cache tokens.
+_ANTHROPIC_CACHED_RESPONSE = {
+    **_ANTHROPIC_RESPONSE,
+    "usage": {
+        "input_tokens": 8,
+        "output_tokens": 12,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 50,
+    },
+}
+
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jamba.html
 _AI21_JAMBA_REQUEST = {
     "messages": [{"role": "user", "content": "Hi"}],
@@ -104,6 +115,19 @@ _AMAZON_NOVA_RESPONSE = {
         "inputTokens": 8,
         "outputTokens": 12,
         "totalTokens": 20,
+    },
+}
+
+# Nova-native body with prompt caching active. Nova reports cache fields with a
+# TokenCount suffix, unlike the Converse API.
+_AMAZON_NOVA_CACHED_RESPONSE = {
+    **_AMAZON_NOVA_RESPONSE,
+    "usage": {
+        "inputTokens": 8,
+        "outputTokens": 12,
+        "totalTokens": 20,
+        "cacheReadInputTokenCount": 100,
+        "cacheWriteInputTokenCount": 0,
     },
 }
 
@@ -192,6 +216,30 @@ def _create_dummy_invoke_model_response(llm_response):
             _AMAZON_NOVA_REQUEST,
             _AMAZON_NOVA_RESPONSE,
             {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
+        (
+            "anthropic.claude-3-5-sonnet-20241022-v2:0",
+            _ANTHROPIC_REQUEST,
+            _ANTHROPIC_CACHED_RESPONSE,
+            {
+                "input_tokens": 158,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 50,
+                "total_tokens": 170,
+            },
+        ),
+        (
+            "us.amazon.nova-lite-v1:0",
+            _AMAZON_NOVA_REQUEST,
+            _AMAZON_NOVA_CACHED_RESPONSE,
+            {
+                "input_tokens": 108,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 0,
+                "total_tokens": 120,
+            },
         ),
         (
             "cohere.command-r-plus-v1:0",
@@ -456,6 +504,19 @@ _CONVERSE_RESPONSE = {
     "stopReason": "end_turn",
     "usage": {"inputTokens": 8, "outputTokens": 12},
     "metrics": {"latencyMs": 551},
+}
+
+# Converse response with prompt caching active. Per the AWS docs, inputTokens contains
+# only the non-cached input tokens.
+_CONVERSE_CACHED_RESPONSE = {
+    **_CONVERSE_RESPONSE,
+    "usage": {
+        "inputTokens": 8,
+        "outputTokens": 12,
+        "totalTokens": 20,
+        "cacheReadInputTokens": 100,
+        "cacheWriteInputTokens": 50,
+    },
 }
 
 _CONVERSE_EXPECTED_CHAT_ATTRIBUTE = [
@@ -758,6 +819,20 @@ _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE = [
             None,
             {"input_tokens": 8, "output_tokens": 2, "total_tokens": 10},
         ),
+        # 5. Conversation with prompt caching active
+        (
+            _CONVERSE_REQUEST,
+            _CONVERSE_CACHED_RESPONSE,
+            _CONVERSE_EXPECTED_CHAT_ATTRIBUTE,
+            None,
+            {
+                "input_tokens": 158,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 50,
+                "total_tokens": 170,
+            },
+        ),
     ],
 )
 def test_bedrock_autolog_converse(
@@ -1031,6 +1106,43 @@ TOKEN_USAGE_EDGE_CASE_DATA = [
         "usage_data": {"inputTokens": "10", "outputTokens": "5"},
         "expected_usage": None,  # Should return None since values are strings
     },
+    # 9. Prompt caching fields. Bedrock reports inputTokens excluding cache tokens, so
+    # input and total must be normalized to include them.
+    {
+        "name": "cache_token_fields",
+        "usage_data": {
+            "inputTokens": 500,
+            "outputTokens": 200,
+            "totalTokens": 700,
+            "cacheReadInputTokens": 10000,
+            "cacheWriteInputTokens": 300,
+        },
+        "expected_usage": {
+            "input_tokens": 10800,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 10000,
+            "cache_creation_input_tokens": 300,
+            "total_tokens": 11000,
+        },
+    },
+    # 10. Zero cache fields keep the reported totals untouched
+    {
+        "name": "zero_cache_token_fields",
+        "usage_data": {
+            "inputTokens": 8,
+            "outputTokens": 12,
+            "totalTokens": 20,
+            "cacheReadInputTokens": 0,
+            "cacheWriteInputTokens": 0,
+        },
+        "expected_usage": {
+            "input_tokens": 8,
+            "output_tokens": 12,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "total_tokens": 20,
+        },
+    },
 ]
 
 
@@ -1251,6 +1363,46 @@ STREAM_TOKEN_USAGE_EDGE_CASES = [
             {"type": "message_stop"},
         ],
         "expected_usage": {"input_tokens": 10, "output_tokens": 12, "total_tokens": 22},
+    },
+    # 7. Cache fields in message_start must survive buffering and be normalized into
+    # input exactly once at stream close
+    {
+        "name": "cache_fields_in_message_start",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {
+                        "input_tokens": 500,
+                        "output_tokens": 1,
+                        "cache_read_input_tokens": 10000,
+                        "cache_creation_input_tokens": 300,
+                    },
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 200},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {
+            "input_tokens": 10800,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 10000,
+            "cache_creation_input_tokens": 300,
+            "total_tokens": 11000,
+        },
     },
 ]
 

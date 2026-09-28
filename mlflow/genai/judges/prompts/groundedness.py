@@ -18,6 +18,15 @@ approximations, or bring in external knowledge.
 <document>{{retrieval_context}}</document>\
 """
 
+GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS = (
+    GROUNDEDNESS_PROMPT_INSTRUCTIONS
+    + """
+
+The result is "yes" if every statement in the claim is supported by the document, and "no" \
+otherwise.\
+"""
+)
+
 GROUNDEDNESS_PROMPT_OUTPUT = """
 
 Please indicate whether each statement in the claim is supported by the document using only the following json format. Do not use any markdown formatting or output additional lines.

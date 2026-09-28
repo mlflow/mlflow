@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/vercel",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Vercel AI SDK integration for MLflow Tracing — SpanProcessor that translates AI SDK span attributes to MLflow format",
   "repository": {
     "type": "git",
@@ -49,7 +49,7 @@
     "@opentelemetry/sdk-trace-base": "^2.1.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "files": [
     "dist/"

@@ -1297,6 +1297,30 @@ def test_delete_experiment_tag():
         assert "a" not in finished_experiment.tags
 
 
+def test_restore_experiment():
+    name = f"restore_experiment_test_{random.randint(1, int(1e6))}"
+    exp_id = mlflow.create_experiment(name)
+    mlflow.delete_experiment(exp_id)
+    deleted_experiment = MlflowClient().get_experiment(exp_id)
+    assert deleted_experiment.lifecycle_stage == "deleted"
+
+    mlflow.restore_experiment(exp_id)
+    restored_experiment = MlflowClient().get_experiment(exp_id)
+    assert restored_experiment.lifecycle_stage == "active"
+
+
+def test_restore_run():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+    mlflow.delete_run(run_id)
+    deleted_run = MlflowClient().get_run(run_id)
+    assert deleted_run.info.lifecycle_stage == "deleted"
+
+    mlflow.restore_run(run_id)
+    restored_run = MlflowClient().get_run(run_id)
+    assert restored_run.info.lifecycle_stage == "active"
+
+
 @pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
 def test_set_experiment_throws_for_unexpected_error(error_code: int):
     with mock.patch(
@@ -1900,7 +1924,9 @@ def test_create_external_model(tmp_path):
     assert mlflow_model.metadata is not None
     assert mlflow_model.metadata.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) is True
 
-    exp_id = mlflow.create_experiment("test")
+    exp_id = mlflow.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     with mlflow.start_run(experiment_id=exp_id) as run:
         pass
     with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None) as m:
@@ -2438,6 +2464,43 @@ def test_log_metric_with_dataset_entity():
         assert run_data.data.metrics["precision"] == 0.92
 
 
+def test_log_model_updates_active_run_outputs():
+    """Test that log_model updates the cached active run's outputs so that
+    log_metric can automatically infer the model_id.
+
+    Regression test for https://github.com/mlflow/mlflow/issues/21836.
+    """
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+
+        # The cached active run should have outputs populated after log_model
+        active = mlflow.active_run()
+        assert active.outputs is not None
+        assert len(active.outputs.model_outputs) == 1
+        assert active.outputs.model_outputs[0].model_id == model_info.model_id
+
+        # _get_model_ids_for_new_metric_if_exist should find the model from cached outputs
+        from mlflow.tracking.fluent import _get_model_ids_for_new_metric_if_exist
+
+        model_ids = _get_model_ids_for_new_metric_if_exist(active, 0)
+        assert model_ids == [model_info.model_id]
+
+        # Logging a second model should append to the existing outputs (the
+        # else branch), not overwrite them
+        model_info_2 = mlflow.pyfunc.log_model(name="model_2", python_model=Model())
+
+        assert len(active.outputs.model_outputs) == 2
+        assert active.outputs.model_outputs[1].model_id == model_info_2.model_id
+
+        model_ids = _get_model_ids_for_new_metric_if_exist(active, 0)
+        assert model_ids == [model_info.model_id, model_info_2.model_id]
+
+
 def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
     # Create an experiment with a tag
     experiment_id = mlflow.create_experiment("test_sgc_experiment")
@@ -2621,8 +2684,10 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
         mock_set_tag.assert_called_once()
 
 
-def test_import_checkpoints_overwrite():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_overwrite")
+def test_import_checkpoints_overwrite(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_overwrite", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2721,8 +2786,11 @@ def test_import_checkpoints_overwrite():
             )
 
 
-def test_import_checkpoints_skip_name_with_invalid_char():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_skip_name_with_invalid_char")
+def test_import_checkpoints_skip_name_with_invalid_char(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_skip_name_with_invalid_char",
+        artifact_location=(tmp_path / "artifacts").as_uri(),
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2752,8 +2820,10 @@ def test_import_checkpoints_skip_name_with_invalid_char():
         assert "ckpt1.a" in warn_msg
 
 
-def test_import_checkpoints_without_run():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_without_run")
+def test_import_checkpoints_without_run(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_without_run", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()

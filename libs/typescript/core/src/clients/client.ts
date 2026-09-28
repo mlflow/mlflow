@@ -1,6 +1,7 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
 import {
+  CreateAssessment,
   CreateExperiment,
   CreateTraceInfoV4,
   DeleteExperiment,
@@ -12,6 +13,16 @@ import {
   SearchTracesV3,
   StartTraceV3,
 } from './spec';
+import {
+  AssessmentSourceType,
+  assertFeedbackPayload,
+  assertMetadataStringMap,
+  Feedback,
+  standardizeSourceType,
+  type AssessmentError,
+  type AssessmentSource,
+  type FeedbackValueType,
+} from '../core/entities/assessment';
 import { makeRawRequest, makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
@@ -321,6 +332,53 @@ export class MlflowClient {
    */
   async uploadTraceData(traceInfo: TraceInfo, traceData: TraceData): Promise<void> {
     await this.artifactsClient.uploadTraceData(traceInfo, traceData);
+  }
+
+  /**
+   * Log feedback on a persisted trace via the V3 assessments API.
+   * Corresponds to Python `mlflow.log_feedback`.
+   *
+   * Databricks Unity Catalog V4 assessment posting is not included in this method.
+   */
+  async logFeedback(params: {
+    traceId: string;
+    name?: string;
+    value?: FeedbackValueType;
+    error?: AssessmentError | string;
+    source?: AssessmentSource;
+    rationale?: string;
+    metadata?: Record<string, string>;
+    spanId?: string;
+  }): Promise<Feedback> {
+    assertFeedbackPayload({ value: params.value, error: params.error });
+    const metadata = assertMetadataStringMap(params.metadata);
+    const source = params.source
+      ? {
+          sourceType: standardizeSourceType(params.source.sourceType),
+          sourceId: params.source.sourceId || 'default',
+        }
+      : { sourceType: AssessmentSourceType.CODE, sourceId: 'default' };
+
+    const feedback = new Feedback({
+      name: params.name,
+      value: params.value,
+      error: params.error,
+      source,
+      rationale: params.rationale,
+      metadata,
+      spanId: params.spanId,
+      traceId: params.traceId,
+    });
+
+    const url = CreateAssessment.getEndpoint(this.hostUrl, params.traceId);
+    const payload: CreateAssessment.Request = { assessment: feedback.toJson() };
+    const response = await makeRequest<CreateAssessment.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+    return Feedback.fromJson(response.assessment);
   }
 
   // === EXPERIMENT METHODS  ===

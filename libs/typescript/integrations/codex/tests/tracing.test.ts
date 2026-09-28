@@ -159,6 +159,12 @@ describe('processNotify', () => {
     expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBeDefined();
   });
 
+  it('sets the OpenTelemetry service name on the root span', async () => {
+    await processNotify(makeNotifyPayload());
+
+    expect(getRootSpan().attributes['service.name']).toBe('codex');
+  });
+
   it('uses last input message only', async () => {
     await processNotify(
       makeNotifyPayload({

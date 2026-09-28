@@ -46,6 +46,7 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: EvaluationDatasetVersion
 
 .. automodule:: mlflow.genai.label_schemas
     :members:

@@ -197,6 +197,21 @@ def test_parse_semver_rejects_invalid_versions(invalid):
         parse_semver(invalid)
 
 
+@pytest.mark.parametrize(
+    "unicode_digit_version",
+    [
+        "١.٠.٠",  # Arabic-Indic digits
+        "1.0.٢",  # mixed ASCII / Arabic-Indic
+        "１.０.０",  # fullwidth digits
+    ],
+)
+def test_parse_semver_rejects_unicode_digits(unicode_digit_version):
+    # SemVer 2.0.0 numeric identifiers are ASCII ``[0-9]`` only; Python ``\d``
+    # would incorrectly accept these Unicode digit forms.
+    with pytest.raises(MlflowException, match="Invalid semantic version"):
+        parse_semver(unicode_digit_version)
+
+
 def test_parse_semver_rejects_versions_longer_than_storage_limit():
     too_long = "1.0.0-" + ("a" * 123)
     with pytest.raises(MlflowException, match="maximum length is 128 characters"):

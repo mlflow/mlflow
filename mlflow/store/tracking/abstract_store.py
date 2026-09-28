@@ -1,3 +1,4 @@
+import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
@@ -10,6 +11,7 @@ from mlflow.entities import (
     Issue,
     IssueSeverity,
     IssueStatus,
+    LifecycleStage,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -40,9 +42,9 @@ from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
-    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -376,13 +378,25 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise MlflowNotImplementedException()
 
-    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+    def batch_get_traces(
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" for UC schema.
+            experiment_ids: Optional list of experiment IDs to scope the query. When
+                provided, only traces belonging to these experiments are returned.
+                ``SqlAlchemyStore`` enforces this directly against the database.
+                ``RestStore`` forwards it to the remote backend when explicitly set,
+                so it takes effect there if the remote server enforces it. Not
+                supported against a Databricks-hosted backend, since that API has no
+                corresponding field.
 
         Returns:
             List of Trace objects.
@@ -393,7 +407,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         raise MlflowNotImplementedException()
 
     def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> list[TraceInfo]:
         """
         Get trace metadata (TraceInfo) for given trace IDs without loading spans.
@@ -404,6 +421,13 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" for UC schema.
+            experiment_ids: Optional list of experiment IDs to scope the query. When
+                provided, only traces belonging to these experiments are returned.
+                ``SqlAlchemyStore`` enforces this directly against the database.
+                ``RestStore`` forwards it to the remote backend when explicitly set,
+                so it takes effect there if the remote server enforces it. Not
+                supported against a Databricks-hosted backend, since that API has no
+                corresponding field.
 
         Returns:
             List of TraceInfo objects containing only metadata (no spans).
@@ -780,6 +804,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         Asynchronously log multiple span entities to the tracking store.
 
+        The default implementation offloads ``log_spans()`` to a worker thread so
+        async callers do not stall the event loop. Stores that implement
+        ``log_spans()`` inherit this behavior.
+
         Args:
             location: The location to log spans to.
             spans: List of Span entities to log. Spans may belong to different traces.
@@ -787,7 +815,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         Returns:
             List of logged Span entities.
         """
-        raise NotImplementedError
+        return await asyncio.to_thread(self.log_spans, location, spans)
 
     def log_metric(self, run_id, metric):
         """
@@ -921,8 +949,27 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             for metric in metrics_for_run
         ]
 
+    @staticmethod
+    def _evenly_spaced_indices(total: int, max_results: int) -> list[int]:
+        """Return at most ``max_results`` evenly spaced indices into a sequence of ``total`` items,
+        always including the first and last index.
+        """
+        if total <= 0:
+            return []
+        if total <= max_results:
+            return list(range(total))
+        if max_results == 1:
+            return [total - 1]
+        step = (total - 1) / (max_results - 1)
+        return sorted({round(i * step) for i in range(max_results)})
+
     def get_metric_history_bulk_interval(
-        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+        self,
+        run_ids: list[str],
+        metric_key: str,
+        max_results: int,
+        start_step: int | None,
+        end_step: int | None,
     ) -> list[MetricWithRunId]:
         """
         Return a list of metric objects for a given metric across multiple runs,
@@ -932,13 +979,17 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         to limit the result size, and returns metrics for the sampled steps. The
         sampling preserves min/max steps to maintain data boundaries.
 
+        Each run is sampled independently, so runs with differing history lengths may return
+        different steps. Consumers should align runs by step value rather than by index.
+
         Args:
             run_ids: List of unique identifiers for runs.
             metric_key: Metric name to retrieve across runs.
             max_results: Maximum number of steps to sample from the step range.
-            start_step: Starting step of the range (inclusive). If None, starts from 0.
-            end_step: Ending step of the range (inclusive). If None, uses the maximum
-                step found across all runs.
+            start_step: Starting step of the range (inclusive). Must be provided together with
+                end_step; if both are None the full range is used (starting from 0).
+            end_step: Ending step of the range (inclusive). Must be provided together with
+                start_step; if both are None the full range is used (up to the maximum step).
 
         Returns:
             A list of `MetricWithRunId` objects containing metric data for the sampled
@@ -948,6 +999,12 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         # get a list of all steps for all runs. this is necessary
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
+        if (start_step is None) != (end_step is None):
+            raise MlflowException.invalid_parameter_value(
+                "Both start_step and end_step must be provided together, "
+                "or neither should be provided."
+            )
+        max_results = max(1, max_results)
         all_runs = [
             [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
         ]
@@ -985,15 +1042,24 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             sampled_steps.add(all_steps[end_idx - 1])
 
         steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        # Bound the rows returned per run to roughly the requested sample size. ``steps`` already
+        # holds at most ~``max_results`` distinct steps, so ``len(steps)`` is the expected result
+        # size when one value is logged per step. Capping here keeps the response bounded when many
+        # values share a single step (e.g. the default ``step=0``), which would otherwise return
+        # up to ``MAX_RESULTS_GET_METRIC_HISTORY`` rows for that step and cause large memory spikes.
+        # The rows are sampled evenly across the run's full ordered history rather than truncated,
+        # so steps at the end of the range are not crowded out by steps holding many values.
+        per_run_max_results = max(max_results, len(steps))
+        step_set = set(steps)
         metrics_with_run_ids = []
         for run_id in run_ids:
+            run_metrics = sorted(
+                (m for m in self.get_metric_history(run_id, metric_key) if m.step in step_set),
+                key=lambda metric: (metric.step, metric.timestamp),
+            )
             metrics_with_run_ids.extend(
-                self.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
-                )
+                MetricWithRunId(run_id=run_id, metric=run_metrics[i])
+                for i in self._evenly_spaced_indices(len(run_metrics), per_run_max_results)
             )
         return metrics_with_run_ids
 
@@ -1636,6 +1702,30 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         result: list[ScorerVersion] = []
         for exp_id in experiment_ids:
             result.extend(self.list_scorers(exp_id))
+        return result
+
+    def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        """
+        Given a bounded, caller-supplied batch of experiment IDs, return the
+        subset that exist and are ACTIVE. This is NOT a general-purpose search:
+        the caller must already know exactly which IDs it's asking about, and
+        the result size is capped by the input size. For open-ended enumeration
+        (e.g. "all active experiments in a workspace", where the result size is
+        unknown ahead of time), use ``search_experiments`` instead.
+
+        The default impl checks each ID individually via ``get_experiment``;
+        ``SqlAlchemyStore`` overrides with a chunked batch query.
+        """
+        result: list[str] = []
+        for exp_id in experiment_ids:
+            try:
+                experiment = self.get_experiment(exp_id)
+            except MlflowException as exc:
+                if exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+                continue
+            if experiment.lifecycle_stage == LifecycleStage.ACTIVE:
+                result.append(exp_id)
         return result
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:

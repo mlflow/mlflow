@@ -19,7 +19,7 @@ API_HTML = """
     />
     <link
       rel="shortcut icon"
-      href="../_static/favicon.ico"
+      href="../../_static/favicon.ico"
     />
     <title>MLflow AI Gateway - Swagger UI</title>
   </head>

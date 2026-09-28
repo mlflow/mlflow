@@ -1,3 +1,5 @@
+from enum import Enum
+
 import pydantic
 import pytest
 
@@ -237,6 +239,20 @@ def test_pydantic_to_response_format_sets_additional_properties_on_nested_object
     assert schema["$defs"]["Address"]["additionalProperties"] is False
 
 
+def test_pydantic_to_response_format_removes_keywords_from_ref_nodes():
+    class Severity(str, Enum):
+        LOW = "low"
+        HIGH = "high"
+
+    class Result(pydantic.BaseModel):
+        severity: Severity = pydantic.Field(description="Severity of the result")
+
+    result = pydantic_to_response_format(Result)
+    schema = result["json_schema"]["schema"]
+
+    assert schema["properties"]["severity"] == {"$ref": "#/$defs/Severity"}
+
+
 def test_enforce_strict_json_schema_detects_objects_without_explicit_type():
     # Object nodes that omit an explicit "type": "object" (identified by the presence
     # of "properties") must still get additionalProperties=False under strict mode.
@@ -250,3 +266,23 @@ def test_enforce_strict_json_schema_detects_objects_without_explicit_type():
 
     assert schema["additionalProperties"] is False
     assert schema["properties"]["nested"]["additionalProperties"] is False
+
+
+def test_enforce_strict_json_schema_preserves_free_form_map_fields():
+    class ModelWithTags(pydantic.BaseModel):
+        tags: dict[str, str]
+
+    schema = pydantic_to_response_format(ModelWithTags)["json_schema"]["schema"]
+
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["tags"]["additionalProperties"] == {"type": "string"}
+
+
+def test_enforce_strict_json_schema_does_not_modify_schema_maps():
+    class ModelWithPropertiesField(pydantic.BaseModel):
+        properties: str
+
+    schema = pydantic_to_response_format(ModelWithPropertiesField)["json_schema"]["schema"]
+
+    assert "additionalProperties" not in schema["properties"]
+    assert schema["properties"]["properties"]["type"] == "string"

@@ -1,6 +1,3 @@
-# /// script
-# dependencies = ["texttable"]
-# ///
 """Generate RST documentation from protobuf JSON definitions."""
 
 from __future__ import annotations
@@ -8,11 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
+from fastapi import FastAPI
 from texttable import Texttable
 
 _logger = logging.getLogger(__name__)
@@ -40,6 +39,17 @@ def _gen_h2(link_id: str, title: str) -> str:
 
 {title}
 {"-" * len(title)}
+
+"""
+
+
+def _gen_h3(link_id: str, title: str) -> str:
+    return f"""
+
+.. _{link_id}:
+
+{title}
+{"~" * len(title)}
 
 """
 
@@ -88,6 +98,73 @@ class MsgType(Enum):
 
 def _gen_id(full_path: list[str]) -> str:
     return "".join(full_path)
+
+
+def _sanitize_identifier(value: str) -> str:
+    sanitized = re.sub(r"[^0-9A-Za-z]+", "", value)
+    return sanitized or "section"
+
+
+def _normalize_doc_text(text: str | None) -> str:
+    if not text:
+        return ""
+    return dedent(text).strip()
+
+
+def _format_fastapi_description(text: str | None) -> str:
+    description = _normalize_doc_text(text)
+    if not description:
+        return ""
+    description = re.sub(r":func:`([^`]+)`", r"``\1``", description)
+    lines = []
+    skip_section = False
+    for line in description.splitlines():
+        if line in {"Args:", "Returns:", "Raises:"}:
+            skip_section = True
+            continue
+        if skip_section:
+            if not line or line.startswith((" ", "\t")):
+                continue
+            skip_section = False
+        if line.strip() == "Example:":
+            lines.append("Example::")
+            lines.append("")
+            continue
+        lines.append(line)
+    return "\n".join(lines).rstrip()
+
+
+def _humanize_name(value: str) -> str:
+    text = value.strip("_")
+    text = re.sub(r"[_-]+", " ", text)
+    text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
+    text = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", text)
+    words = []
+    for word in text.split():
+        upper = word.upper()
+        if upper == "DOC":
+            continue
+        if upper == "MLFLOW":
+            words.append("MLflow")
+        elif upper == "OPENAI":
+            words.append("OpenAI")
+        elif upper in {"API", "HTTP", "JSON", "MCP", "SSE"}:
+            words.append(upper)
+        else:
+            words.append(word.capitalize())
+    return " ".join(words) or value
+
+
+def _get_fastapi_title(operation: dict[str, Any]) -> str:
+    return _humanize_name(operation.get("summary") or operation["operationId"])
+
+
+def _get_fastapi_category(operation: dict[str, Any]) -> str | None:
+    if tags := operation.get("tags"):
+        tag = tags[0]
+        name = _humanize_name(tag) if tag.islower() else tag
+        return f"{name} APIs"
+    return None
 
 
 class Field:
@@ -443,6 +520,321 @@ class Service:
         return "".join(method.to_rst() for method in sorted_methods)
 
 
+@dataclass
+class SchemaSection:
+    """A rendered OpenAPI schema section."""
+
+    id: str
+    title: str
+    description: str
+    fields: list[Field]
+
+    def _generate_field_table(self) -> str:
+        tbl = Texttable(max_width=200)
+        tbl.add_rows([Field.table_header()] + [field.to_table() for field in self.fields])
+        return tbl.draw()
+
+    def to_rst(self, *, nested: bool = False) -> str:
+        if not self.fields and not self.description:
+            return ""
+        title = (_gen_h3 if nested else _gen_h2)(self.id, self.title)
+        body = f"\n\n{self.description}\n\n" if self.description else "\n\n"
+        if self.fields:
+            body += self._generate_field_table()
+        return title + body
+
+
+@dataclass
+class FastAPIEndpoint:
+    """A FastAPI endpoint rendered in the same format as proto-backed methods."""
+
+    id: str
+    title: str
+    description: str
+    path: str
+    method: str
+    request_sections: list[SchemaSection]
+    response_sections: list[SchemaSection]
+    category: str | None
+
+    def to_rst(self) -> str:
+        title = (_gen_h2 if self.category else _gen_h1)(self.id, self.title)
+        tbl = Texttable(max_width=200)
+        tbl.add_rows([["Endpoint", "HTTP Method"], [f"``{self.path}``", f"``{self.method}``"]])
+        body_parts = [tbl.draw()]
+        if self.description:
+            body_parts.append(self.description)
+        section = ("" if self.category else _gen_break()) + title
+        section += "\n\n".join(body_parts) + "\n\n"
+        for schema in [*self.request_sections, *self.response_sections]:
+            if rendered := schema.to_rst(nested=self.category is not None):
+                section += rendered
+        return section
+
+
+class JSONSchemaRegistry:
+    """Convert OpenAPI schemas into RST sections."""
+
+    def __init__(self, components: dict[str, dict[str, Any]] | None = None) -> None:
+        self.components = dict(components or {})
+        self.sections: dict[str, SchemaSection] = {}
+        self.building_sections: set[str] = set()
+
+    def _field(self, *, context: str, name: str, description: str, field_type: str) -> Field:
+        return Field([context, name], name, description, field_type)
+
+    def _section_id(self, key: str) -> str:
+        return f"fastapi{_sanitize_identifier(key)}"
+
+    def _resolve_ref_key(self, ref: str) -> str:
+        if ref.startswith("#/components/schemas/") or ref.startswith("#/$defs/"):
+            return ref.rsplit("/", 1)[-1]
+        raise ValueError(f"Unsupported schema reference: {ref}")
+
+    def _schema_for_ref(self, ref: str) -> tuple[str, dict[str, Any]]:
+        key = self._resolve_ref_key(ref)
+        schema = self.components.get(key)
+        if schema is None:
+            raise KeyError(f"Schema not found for reference: {ref}")
+        return key, schema
+
+    def _schema_title(self, key: str, schema: dict[str, Any]) -> str:
+        title = schema.get("title")
+        return _humanize_name(title) if title else _humanize_name(key)
+
+    def _format_type(self, schema: dict[str, Any]) -> str:
+        if ref := schema.get("$ref"):
+            key, target = self._schema_for_ref(ref)
+            section = self.ensure_section(key, target)
+            if key in self.building_sections:
+                return f":ref:`{self._section_id(key)}`"
+            if not section.fields and not section.description:
+                return self._format_type(target)
+            return f":ref:`{self._section_id(key)}`"
+        if any_of := schema.get("anyOf"):
+            parts = [self._format_type(part) for part in any_of if part.get("type") != "null"]
+            if any(part.get("type") == "null" for part in any_of):
+                parts.append("``NULL``")
+            return " OR ".join(parts) if parts else "``JSON``"
+        if one_of := schema.get("oneOf"):
+            return " OR ".join(self._format_type(part) for part in one_of) or "``JSON``"
+        if all_of := schema.get("allOf"):
+            parts = [self._format_type(part) for part in all_of]
+            return " / ".join(parts) if parts else "``JSON``"
+        if enum := schema.get("enum"):
+            return " OR ".join(f"``{value}``" for value in enum)
+        schema_type = schema.get("type")
+        if schema_type == "array":
+            item_type = self._format_type(schema.get("items", {}))
+            return f"An array of {item_type}"
+        if schema_type == "object":
+            if schema.get("additionalProperties") is not None and not schema.get("properties"):
+                return "``MAP``"
+            return "``OBJECT``"
+        if schema_type:
+            return f"``{str(schema_type).upper()}``"
+        return "``JSON``"
+
+    def _collect_fields(self, schema: dict[str, Any], *, context: str) -> list[Field]:
+        if ref := schema.get("$ref"):
+            key, resolved = self._schema_for_ref(ref)
+            return self.ensure_section(key, resolved).fields
+
+        if all_of := schema.get("allOf"):
+            merged_fields: list[Field] = []
+            seen = set()
+            for part in all_of:
+                for field in self._collect_fields(part, context=context):
+                    if field.name in seen:
+                        continue
+                    seen.add(field.name)
+                    merged_fields.append(field)
+            return merged_fields
+
+        properties = schema.get("properties", {})
+        required = set(schema.get("required", []))
+        fields: list[Field] = []
+        for name, property_schema in properties.items():
+            field_type = self._format_type(property_schema)
+            description = Field._normalize_description(property_schema.get("description", ""))
+            if name in required:
+                description = f"{description} This field is required.".strip()
+            fields.append(
+                self._field(
+                    context=context,
+                    name=name,
+                    description=description,
+                    field_type=field_type,
+                )
+            )
+        return fields
+
+    def ensure_section(self, key: str, schema: dict[str, Any] | None = None) -> SchemaSection:
+        if key in self.sections:
+            return self.sections[key]
+        resolved_schema = schema or self.components[key]
+        section = SchemaSection(
+            id=self._section_id(key),
+            title=self._schema_title(key, resolved_schema),
+            description=Field._normalize_description(resolved_schema.get("description", "")),
+            fields=[],
+        )
+        self.sections[key] = section
+        self.building_sections.add(key)
+        try:
+            section.fields = self._collect_fields(resolved_schema, context=key)
+        finally:
+            self.building_sections.remove(key)
+        return section
+
+    def build_section_from_openapi(
+        self,
+        *,
+        title: str,
+        schema: dict[str, Any] | None,
+        context: str,
+        parameter_fields: list[Field] | None = None,
+        description: str = "",
+    ) -> SchemaSection | None:
+        fields = list(parameter_fields or [])
+        if schema:
+            schema_fields = self._collect_fields(schema, context=context)
+            fields.extend(schema_fields)
+            if ref := schema.get("$ref"):
+                key, resolved = self._schema_for_ref(ref)
+                self.ensure_section(key, resolved)
+                description = description or resolved.get("description", "")
+            if not schema_fields:
+                fields.append(
+                    self._field(
+                        context=context,
+                        name="value",
+                        description="",
+                        field_type=self._format_type(schema),
+                    )
+                )
+        if not fields:
+            return None
+        return SchemaSection(
+            id=self._section_id(context),
+            title=title,
+            description=Field._normalize_description(description),
+            fields=fields,
+        )
+
+    def sorted_sections(self) -> list[SchemaSection]:
+        return sorted(self.sections.values(), key=lambda section: section.title.lower())
+
+
+def _build_parameter_fields(
+    parameters: list[dict[str, Any]],
+    registry: JSONSchemaRegistry,
+    *,
+    context: str,
+) -> list[Field]:
+    fields: list[Field] = []
+    for parameter in parameters:
+        schema = parameter.get("schema", {})
+        description = Field._normalize_description(parameter.get("description", ""))
+        location = parameter.get("in", "query")
+        prefix = f"{location.capitalize()} parameter."
+        description = f"{prefix} {description}" if description else prefix
+        if parameter.get("required"):
+            description = f"{description} This field is required."
+        fields.append(
+            registry._field(
+                context=context,
+                name=parameter["name"],
+                description=description,
+                field_type=registry._format_type(schema),
+            )
+        )
+    return fields
+
+
+def _get_content_schema(content_wrapper: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    content = content_wrapper.get("content") or {}
+    for media_type in ("application/json", "application/x-www-form-urlencoded"):
+        if media_type in content:
+            return content[media_type].get("schema"), content_wrapper.get("description", "")
+    if content:
+        first_content = next(iter(content.values()))
+        return first_content.get("schema"), content_wrapper.get("description", "")
+    return None, ""
+
+
+def _get_request_body_schema(operation: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    return _get_content_schema(operation.get("requestBody") or {})
+
+
+def _get_success_response_schema(operation: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    responses = operation.get("responses") or {}
+    for status in sorted(responses):
+        if status.startswith("2"):
+            return _get_content_schema(responses[status])
+    return None, ""
+
+
+def _build_fastapi_endpoint_docs(
+    app: FastAPI | None = None,
+) -> tuple[list[FastAPIEndpoint], list[SchemaSection]]:
+    if app is None:
+        from mlflow.server.gateway_api import gateway_router
+        from mlflow.server.mcp_server_api import mcp_server_router
+        from mlflow.server.otel_api import otel_router
+
+        app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+        app.include_router(otel_router)
+        app.include_router(gateway_router)
+        app.include_router(mcp_server_router, prefix="/api/3.0/mlflow/mcp-servers")
+
+    openapi = app.openapi()
+    registry = JSONSchemaRegistry(openapi.get("components", {}).get("schemas", {}))
+    endpoints: list[FastAPIEndpoint] = []
+
+    for full_path, path_item in openapi["paths"].items():
+        for method, operation in path_item.items():
+            method = method.upper()
+            route_context = f"{method.lower()}-{full_path}"
+            parameter_fields = _build_parameter_fields(
+                operation.get("parameters", []),
+                registry,
+                context=f"{route_context}-params",
+            )
+
+            request_schema, request_description = _get_request_body_schema(operation)
+            request_section = registry.build_section_from_openapi(
+                title="Request Structure",
+                schema=request_schema,
+                context=f"{route_context}-request",
+                parameter_fields=parameter_fields,
+                description=request_description,
+            )
+            response_schema, response_description = _get_success_response_schema(operation)
+            response_section = registry.build_section_from_openapi(
+                title="Response Structure",
+                schema=response_schema,
+                context=f"{route_context}-response",
+                description=response_description,
+            )
+
+            description = _format_fastapi_description(operation.get("description"))
+            endpoints.append(
+                FastAPIEndpoint(
+                    id=f"fastapi{_sanitize_identifier(f'{method}-{full_path}')}",
+                    title=_get_fastapi_title(operation),
+                    description=description,
+                    path=full_path,
+                    method=method,
+                    request_sections=[request_section] if request_section else [],
+                    response_sections=[response_section] if response_section else [],
+                    category=_get_fastapi_category(operation),
+                )
+            )
+
+    return endpoints, registry.sorted_sections()
+
+
 class API:
     """Main API class for generating REST API documentation."""
 
@@ -461,6 +853,8 @@ class API:
         self.services: list[Service] | None = None
         self.messages: list[Message] | None = None
         self.enums: list[ProtoEnum] | None = None
+        self.fastapi_endpoints: list[FastAPIEndpoint] = []
+        self.fastapi_schemas: list[SchemaSection] = []
         self.api_version = api_version
 
     def __repr__(self) -> str:
@@ -556,6 +950,14 @@ class API:
         self.connect_methods_messages()
         _logger.info(f"Finished Connecting Messages -> Services under {self.name} API")
 
+    def set_fastapi_docs(
+        self,
+        fastapi_endpoints: list[FastAPIEndpoint],
+        fastapi_schemas: list[SchemaSection],
+    ) -> None:
+        self.fastapi_endpoints = fastapi_endpoints
+        self.fastapi_schemas = fastapi_schemas
+
     def write_rst(self, method_order: list[str] | None = None) -> None:
         if self.services is None or self.messages is None or self.enums is None:
             raise ValueError("Must call set_all() before write_rst()")
@@ -567,16 +969,32 @@ class API:
             raise ValueError("No services or messages found - check doc_public.json")
 
         services_rst = [s.to_rst(method_order) for s in self.services]
+        fastapi_rst = [
+            endpoint.to_rst() for endpoint in self.fastapi_endpoints if endpoint.category is None
+        ]
+        categories = dict.fromkeys(
+            endpoint.category for endpoint in self.fastapi_endpoints if endpoint.category
+        )
+        for category in categories:
+            fastapi_rst.append(_gen_h1(f"fastapi{_sanitize_identifier(category)}", category))
+            fastapi_rst.extend(
+                endpoint.to_rst()
+                for endpoint in self.fastapi_endpoints
+                if endpoint.category == category
+            )
         enums_rst = [s.to_rst() for s in self.enums]
         generic_messages_rst = [s.to_rst() for s in self.messages if s.type == MsgType.GENERIC]
+        fastapi_schemas_rst = [s.to_rst() for s in self.fastapi_schemas]
 
         with self.dst_path.open("w") as f:
             f.write(_gen_page_title(f"{self.name} API"))
             f.write(self.description)
             f.write("\n.. contents:: Table of Contents\n    :local:\n    :depth: 1")
             f.write("".join(services_rst))
+            f.write("".join(fastapi_rst))
             f.write(_gen_h1(self.name + "add", "Data Structures"))
             f.write("".join(generic_messages_rst))
+            f.write("".join(fastapi_schemas_rst))
             f.write("".join(enums_rst))
             f.write("\n")
 
@@ -856,6 +1274,8 @@ def main() -> None:
         valid_proto_files=MLFLOW_PROTOS,
     )
     mlflow_api.set_all(proto_files, SERVICE_ORDER)
+    fastapi_endpoints, fastapi_schemas = _build_fastapi_endpoint_docs()
+    mlflow_api.set_fastapi_docs(fastapi_endpoints, fastapi_schemas)
     mlflow_api.write_rst(VALID_MLFLOW_MESSAGES)
 
 

@@ -67,7 +67,7 @@ from mlflow.entities.mcp_server import (
     MCPStatus,
     MCPTool,
 )
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import Prompt
 from mlflow.entities.param import Param
@@ -204,6 +204,7 @@ __all__ = [
     "MCPAccessEndpoint",
     "MCPRemoteTransportType",
     "MCPServer",
+    "ConnectOptionSettings",
     "MCPServerVersion",
     "MCPStatus",
     "MCPTool",

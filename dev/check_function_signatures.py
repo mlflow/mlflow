@@ -277,16 +277,9 @@ class FunctionSignatureExtractor(ast.NodeVisitor):
         self.functions[".".join(names)] = node
 
 
-def get_changed_python_files(base_branch: str = "master") -> list[Path]:
-    # In GitHub Actions PR context, we need to fetch the base branch first
-    if is_github_actions():
-        # Fetch the base branch to ensure we have it locally
-        subprocess.check_call(
-            ["git", "fetch", "origin", f"{base_branch}:{base_branch}"],
-        )
-
+def get_changed_python_files(base_revision: str = "master") -> list[Path]:
     result = subprocess.check_output(
-        ["git", "diff", "--name-only", f"{base_branch}...HEAD"], text=True
+        ["git", "diff", "--name-only", base_revision, "HEAD"], text=True
     )
     files = [s.strip() for s in result.splitlines()]
     return [Path(f) for f in files if f]
@@ -307,9 +300,9 @@ def get_file_content_at_revision(file_path: Path, revision: str) -> str | None:
         return None
 
 
-def compare_signatures(base_branch: str = "master") -> list[Error]:
+def compare_signatures(base_revision: str = "master") -> list[Error]:
     errors: list[Error] = []
-    for file_path in get_changed_python_files(base_branch):
+    for file_path in get_changed_python_files(base_revision):
         # Ignore non-Python files
         if not file_path.suffix == ".py":
             continue
@@ -322,7 +315,7 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
         if any(part.startswith("_") and part != "__init__.py" for part in file_path.parts):
             continue
 
-        base_content = get_file_content_at_revision(file_path, base_branch)
+        base_content = get_file_content_at_revision(file_path, base_revision)
         if base_content is None:
             # Find not found in the base branch, likely added in the current branch
             continue
@@ -359,21 +352,21 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
 
 @dataclass
 class Args:
-    base_branch: str
+    base_revision: str
 
 
 def parse_args() -> Args:
     parser = argparse.ArgumentParser(
         description="Check for breaking changes in Python function signatures"
     )
-    parser.add_argument("--base-branch", default=os.environ.get("GITHUB_BASE_REF", "master"))
+    parser.add_argument("--base-revision", default=os.environ.get("GITHUB_BASE_REF") or "master")
     args = parser.parse_args()
-    return Args(base_branch=args.base_branch)
+    return Args(base_revision=args.base_revision)
 
 
 def main() -> None:
     args = parse_args()
-    errors = compare_signatures(args.base_branch)
+    errors = compare_signatures(args.base_revision)
     for error in errors:
         print(error.format(github=is_github_actions()))
 

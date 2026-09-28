@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 import {
+  Button,
   Overflow,
+  PencilIcon,
   Tag,
   Typography,
   useDesignSystemTheme,
@@ -29,6 +31,7 @@ import {
   type TokenUsage,
 } from './ModelTraceExplorerTokenUsageHoverCard';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerUpdateTraceContext } from './contexts/UpdateTraceContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
 import { ModelTraceHeaderStatusTag } from './ModelTraceHeaderStatusTag';
@@ -45,6 +48,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   const [showCopyError, setShowCopyError] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
+  const { onEditTags } = useModelTraceExplorerUpdateTraceContext();
   const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
   const [modelTraceId, modelTraceIdToDisplay] = useMemo(() => {
@@ -158,7 +162,10 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           traceMetadata={(modelTraceInfo as ModelTraceInfoV3)?.trace_metadata}
           getTruncatedLabel={getTruncatedLabel}
         />
-        {tags.length > 0 && (
+        {/* Render the Tags section when there are tags, or when the caller opted into editing (so the
+            "Add tags" affordance shows even with zero tags). With `onEditTags` undefined the condition
+            collapses to the prior `tags.length > 0`, leaving v3 and other consumers unchanged. */}
+        {(tags.length > 0 || Boolean(onEditTags)) && (
           <div
             css={{
               display: 'flex',
@@ -171,29 +178,52 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             <Typography.Text size="md" color="secondary">
               <FormattedMessage defaultMessage="Tags" description="Label for the tags section" />
             </Typography.Text>
-            <Overflow noMargin>
-              {tags.map(([key, value]) => {
-                const fullText = `${key}: ${value}`;
+            {tags.length > 0 && (
+              <Overflow noMargin>
+                {tags.map(([key, value]) => {
+                  const fullText = `${key}: ${value}`;
 
-                return (
-                  <Tooltip
-                    key={key}
-                    componentId="shared.model-trace-explorer.header-details.tooltip"
-                    content={fullText}
-                  >
-                    <Tag
-                      componentId="shared.model-trace-explorer.header-details.tag"
-                      onClick={() => {
-                        handleTagClick(fullText);
-                      }}
-                      css={{ cursor: 'pointer' }}
+                  return (
+                    <Tooltip
+                      key={key}
+                      componentId="shared.model-trace-explorer.header-details.tooltip"
+                      content={fullText}
                     >
-                      {getTruncatedLabel(`${key}: ${value}`)}
-                    </Tag>
-                  </Tooltip>
-                );
-              })}
-            </Overflow>
+                      <Tag
+                        componentId="shared.model-trace-explorer.header-details.tag"
+                        onClick={() => {
+                          handleTagClick(fullText);
+                        }}
+                        css={{ cursor: 'pointer' }}
+                      >
+                        {getTruncatedLabel(`${key}: ${value}`)}
+                      </Tag>
+                    </Tooltip>
+                  );
+                })}
+              </Overflow>
+            )}
+            {onEditTags && (
+              <Button
+                componentId="shared.model-trace-explorer.header-details.edit-tags"
+                size="small"
+                type="tertiary"
+                icon={<PencilIcon />}
+                onClick={() => onEditTags(modelTraceInfo)}
+              >
+                {tags.length > 0 ? (
+                  <FormattedMessage
+                    defaultMessage="Edit"
+                    description="Label for the button that edits a trace's tags"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Add tags"
+                    description="Label for the button that adds tags to a trace with none"
+                  />
+                )}
+              </Button>
+            )}
           </div>
         )}
       </div>

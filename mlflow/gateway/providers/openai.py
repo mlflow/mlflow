@@ -12,6 +12,7 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.gateway.providers.utils import (
@@ -249,6 +250,9 @@ class OpenAIProvider(BaseProvider):
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("authorization", None)
                 result_headers.pop("api-key", None)
+            else:
+                # Never forward client auth headers to the upstream provider.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers

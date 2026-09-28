@@ -45,13 +45,13 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 
 From zero to full-stack LLMOps in minutes. No complex setup or major code changes required. [Get Started →](https://mlflow.org/docs/latest/genai/tracing/quickstart/)
 
-> **Fastest start — set up tracing with our CLI**
+> **Fastest start — set up tracing with the MLflow setup wizard**
 >
 > ```bash
-> uvx mlflow@latest agent setup
+> curl -LsSf https://mlflow.org/wizard/setup.sh | sh
 > ```
 >
-> One command installs the MLflow skills and launches your coding agent of choice to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
+> Run this from your project's Git repository with Claude Code, Codex, or OpenCode installed. The wizard guides you through connecting to an MLflow server or Databricks workspace, then launches your coding agent to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
 
 **1. Start MLflow Server**
 
@@ -296,6 +296,7 @@ MLflow can be used in a variety of environments, including your local environmen
     <td align="center" width="130"><a href="https://aws.amazon.com/sagemaker-ai/experiments/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/amazon-sagemaker-logo.png" height="40"><br><sub><b>Amazon SageMaker</b></sub></a></td>
     <td align="center" width="130"><a href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/azure-ml-logo.png" height="40"><br><sub><b>Azure ML</b></sub></a></td>
     <td align="center" width="130"><a href="https://nebius.com/services/managed-mlflow"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/nebius-logo.png" height="40"><br><sub><b>Nebius</b></sub></a></td>
+    <td align="center" width="130"><a href="https://www.redhat.com/en/products/ai/openshift-ai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/rhoai-logo.png" height="40"><br><sub><b>Red Hat OpenShift AI</b></sub></a></td>
     <td align="center" width="130"><a href="https://mlflow.org/docs/latest/ml/tracking/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/kubernetes-logo.png" height="40"><br><sub><b>Self-Hosted</b></sub></a></td>
   </tr>
 </table>
@@ -303,11 +304,11 @@ MLflow can be used in a variety of environments, including your local environmen
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
-- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the right bottom.
+- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the bottom right.
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 - For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-  or join us on [Slack](https://mlflow.org/slack).
+  or join us on [Slack](https://go.mlflow.org/slack).
 
 ## 🤝 Contributing
 

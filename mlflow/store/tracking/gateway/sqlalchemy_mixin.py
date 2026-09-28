@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import aliased, joinedload
 
 from mlflow.entities import (
     FallbackConfig,
@@ -63,7 +63,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
-    SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
 )
@@ -87,7 +86,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -100,6 +99,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.validation import _parse_experiment_id
 
 
 def _validate_one_of(
@@ -111,6 +111,31 @@ def _validate_one_of(
             f"Exactly one of {param1_name} or {param2_name} must be provided",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT.value, BudgetTargetScope.USER.value)
+
+
+def _normalize_budget_target_value(
+    target_scope: str | None, target_value: str | None
+) -> str | None:
+    """Enforce the budget policy target_value/target_scope invariant at the store layer.
+
+    ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
+    or username to match; without one the policy silently never matches any request
+    and thus never enforces). Policies with any other scope must not carry one, so a
+    stray ``target_value`` is dropped. This mirrors the REST handler validation so
+    direct/programmatic store callers cannot persist a policy that violates the
+    invariant.
+    """
+    if target_scope in _TARGETED_BUDGET_SCOPES:
+        if not target_value:
+            raise MlflowException(
+                message=f"target_value is required when target_scope is {target_scope}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return target_value
+    return None
 
 
 class SqlAlchemyGatewayStoreMixin:
@@ -684,7 +709,9 @@ class SqlAlchemyGatewayStoreMixin:
                     last_updated_by=created_by,
                     routing_strategy=routing_strategy.value if routing_strategy else None,
                     fallback_config_json=fallback_config_json,
-                    experiment_id=int(experiment_id) if experiment_id else None,
+                    experiment_id=_parse_experiment_id(experiment_id)
+                    if experiment_id is not None
+                    else None,
                     usage_tracking=usage_tracking,
                 )
             )
@@ -796,7 +823,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             if experiment_id is not None:
-                sql_endpoint.experiment_id = int(experiment_id)
+                sql_endpoint.experiment_id = _parse_experiment_id(experiment_id)
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
@@ -1209,8 +1236,21 @@ class SqlAlchemyGatewayStoreMixin:
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
+        scope_value = (
+            target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
+        )
+        target_value = _normalize_budget_target_value(scope_value, target_value)
         with self.ManagedSessionMaker(read_only=False) as session:
+            if scope_value == BudgetTargetScope.ENDPOINT.value:
+                # An ENDPOINT policy referencing a nonexistent endpoint would never
+                # match any request (a REJECT cap that silently never rejects), so
+                # require the endpoint to exist up front. USER targets are free-form
+                # usernames and are not validated against any table.
+                self._get_entity_or_raise(
+                    session, SqlGatewayEndpoint, {"endpoint_id": target_value}, "GatewayEndpoint"
+                )
             budget_policy_id = f"bp-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
@@ -1223,9 +1263,7 @@ class SqlAlchemyGatewayStoreMixin:
                     budget_amount=budget_amount,
                     duration_unit=duration.unit.value,
                     duration_value=duration.value,
-                    target_scope=target_scope.value
-                    if isinstance(target_scope, BudgetTargetScope)
-                    else target_scope,
+                    target_scope=scope_value,
                     budget_action=budget_action.value
                     if isinstance(budget_action, BudgetAction)
                     else budget_action,
@@ -1233,6 +1271,7 @@ class SqlAlchemyGatewayStoreMixin:
                     last_updated_at=current_time,
                     created_by=created_by,
                     last_updated_by=created_by,
+                    target_value=target_value,
                 )
             )
 
@@ -1264,6 +1303,7 @@ class SqlAlchemyGatewayStoreMixin:
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_budget_policy = self._get_entity_or_raise(
@@ -1283,16 +1323,45 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_budget_policy.duration_unit = duration.unit.value
                 sql_budget_policy.duration_value = duration.value
             if target_scope is not None:
-                sql_budget_policy.target_scope = (
+                scope_value = (
                     target_scope.value
                     if isinstance(target_scope, BudgetTargetScope)
                     else target_scope
                 )
+                # A target only makes sense within the scope it was written for (an
+                # endpoint ID is meaningless as a username and vice versa), so a scope
+                # switch never silently adopts the previous target; the caller must
+                # provide a new one.
+                if scope_value != sql_budget_policy.target_scope:
+                    sql_budget_policy.target_value = None
+                sql_budget_policy.target_scope = scope_value
             if budget_action is not None:
                 sql_budget_policy.budget_action = (
                     budget_action.value
                     if isinstance(budget_action, BudgetAction)
                     else budget_action
+                )
+            if target_value is not None:
+                sql_budget_policy.target_value = target_value
+            # Enforce the target_value/scope invariant on the resulting row: ENDPOINT-
+            # and USER-scoped policies must always carry a target (a targeted policy
+            # with target_value=None silently never matches any request, so reject it
+            # rather than persist a dead policy), and any other scope must not.
+            sql_budget_policy.target_value = _normalize_budget_target_value(
+                sql_budget_policy.target_scope, sql_budget_policy.target_value
+            )
+            # An ENDPOINT target must reference an existing endpoint; validate whenever
+            # this update introduced or changed it. USER targets are free-form
+            # usernames and are not validated against any table.
+            if (
+                target_value is not None
+                and sql_budget_policy.target_scope == BudgetTargetScope.ENDPOINT.value
+            ):
+                self._get_entity_or_raise(
+                    session,
+                    SqlGatewayEndpoint,
+                    {"endpoint_id": sql_budget_policy.target_value},
+                    "GatewayEndpoint",
                 )
 
             sql_budget_policy.last_updated_at = get_current_time_millis()
@@ -1341,29 +1410,45 @@ class SqlAlchemyGatewayStoreMixin:
         start_time_ms: int,
         end_time_ms: int,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
+        username: str | None = None,
     ) -> float:
         with self.ManagedSessionMaker() as session:
             query = (
                 session
-                .query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
-                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
+                .query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0))
                 .join(
                     SqlTraceMetadata,
                     SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
                 )
                 .filter(
-                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
                     SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
                     SqlTraceInfo.timestamp_ms >= start_time_ms,
                     SqlTraceInfo.timestamp_ms < end_time_ms,
                 )
             )
 
+            if endpoint_id is not None:
+                query = query.filter(SqlTraceMetadata.value == endpoint_id)
+
             if workspace is not None:
                 query = query.join(
                     SqlExperiment,
                     SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
                 ).filter(SqlExperiment.workspace == workspace)
+
+            if username is not None:
+                # Filter to traces whose recorded auth username matches the username.
+                # Uses a separate aliased join because SqlTraceMetadata is already
+                # joined above for the gateway-endpoint marker.
+                user_metadata = aliased(SqlTraceMetadata)
+                query = query.join(
+                    user_metadata,
+                    user_metadata.request_id == SqlTraceInfo.request_id,
+                ).filter(
+                    user_metadata.key == TraceMetadataKey.AUTH_USERNAME,
+                    user_metadata.value == username,
+                )
 
             return float(query.scalar())
 

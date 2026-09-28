@@ -255,7 +255,7 @@ class AutologgingEventLogger:
         """
         _logger.debug(
             "Original function invocation completed successfully during execution of patched API"
-            " call '%s.%s' for %s autologging. Original function was invoked with with"
+            " call '%s.%s' for %s autologging. Original function was invoked with"
             " args '%s' and kwargs '%s'",
             patch_obj,
             function_name,

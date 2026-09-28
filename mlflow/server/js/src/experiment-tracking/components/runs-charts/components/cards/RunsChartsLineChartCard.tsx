@@ -39,7 +39,7 @@ import { useLineChartGlobalConfig } from '../hooks/useLineChartGlobalConfig';
 import { useNodeLevelMetricsFilterContext } from '../../../run-page/node-level-metric-charts/contexts/NodeLevelMetricsFilterContext';
 import { createNodeLevelMetricKey } from '../../../run-page/node-level-metric-charts/node-level-metric-charts.utils';
 
-const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
+export const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig, useMetricDisplayName = true): string => {
   // For multi-node system metric charts, just use `displayName` as a title if provided
   if (cardConfig.nodeLevelSystemMetricConfiguration && cardConfig.displayName) {
     return cardConfig.displayName;
@@ -49,10 +49,25 @@ const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
     return expressions?.join(' vs ') || '';
   }
   if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
-    return cardConfig.metricKey;
+    return (useMetricDisplayName ? cardConfig.displayName : undefined) ?? cardConfig.metricKey;
+  }
+
+  if (cardConfig.selectedMetricKeys.length === 1) {
+    return (useMetricDisplayName ? cardConfig.displayName : undefined) ?? cardConfig.selectedMetricKeys[0];
   }
 
   return cardConfig.selectedMetricKeys.join(' vs ');
+};
+
+export const getV2ChartTitleTooltip = (cardConfig: RunsChartsLineCardConfig): string => {
+  if (
+    cardConfig.nodeLevelSystemMetricConfiguration ||
+    (shouldEnableChartExpressions() && cardConfig.yAxisKey === RunsChartsLineChartYAxisType.EXPRESSION)
+  ) {
+    return getV2ChartTitle(cardConfig);
+  }
+  const metricKeys = cardConfig.selectedMetricKeys ?? [cardConfig.metricKey];
+  return metricKeys.length <= 1 ? (metricKeys[0] ?? cardConfig.metricKey) : metricKeys.join(' vs ');
 };
 
 export interface RunsChartsLineChartCardProps
@@ -74,6 +89,7 @@ export interface RunsChartsLineChartCardProps
   onDownloadFullMetricHistoryCsv?: (runUuids: string[], metricKeys: string[]) => void;
 
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+  useMetricDisplayName?: boolean;
 }
 
 const SUPPORTED_DOWNLOAD_FORMATS: (ExperimentChartImageDownloadFileFormat | 'csv' | 'csv-full')[] = [
@@ -98,6 +114,7 @@ export const RunsChartsLineChartCard = ({
   isInViewport: isInViewportProp,
   isInViewportDeferred: isInViewportDeferredProp,
   positionInSection,
+  useMetricDisplayName = true,
   ...reorderProps
 }: RunsChartsLineChartCardProps) => {
   const { xAxisKey, selectedXAxisMetricKey, lineSmoothness } = useLineChartGlobalConfig(config, globalLineChartConfig);
@@ -105,10 +122,10 @@ export const RunsChartsLineChartCard = ({
   const toggleFullScreenChart = useCallback(() => {
     setFullScreenChart?.({
       config,
-      title: getV2ChartTitle(config),
+      title: getV2ChartTitle(config, useMetricDisplayName),
       subtitle: null,
     });
-  }, [config, setFullScreenChart]);
+  }, [config, setFullScreenChart, useMetricDisplayName]);
 
   const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
@@ -422,7 +439,8 @@ export const RunsChartsLineChartCard = ({
     <RunsChartCardWrapper
       onEdit={onEdit}
       onDelete={onDelete}
-      title={getV2ChartTitle(config)}
+      title={getV2ChartTitle(config, useMetricDisplayName)}
+      titleTooltip={getV2ChartTitleTooltip(config)}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       supportedDownloadFormats={SUPPORTED_DOWNLOAD_FORMATS}

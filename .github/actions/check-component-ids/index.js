@@ -1,6 +1,13 @@
-const { extractComponentIdsFromSource } = require("./utils");
+const fs = require("fs");
+const {
+  extractComponentIdsFromSource,
+  buildRegistrySource,
+  getRegistryPath,
+  REGISTRY_PATH,
+} = require("./utils");
 
-const registry = require("./componentId-registry");
+const registryPath = getRegistryPath(__dirname);
+const registry = require(registryPath);
 
 // --- Main ---
 const codeIds = extractComponentIdsFromSource(__dirname);
@@ -22,7 +29,7 @@ if (unregistered.length > 0) {
   for (const id of unregistered) {
     console.error(`  + ${id}`);
   }
-  console.error("\nAdd these to .github/actions/check-component-ids/componentId-registry.js");
+  console.error(`\nAdd these to ${REGISTRY_PATH}`);
 }
 
 if (stale.length > 0) {
@@ -31,7 +38,15 @@ if (stale.length > 0) {
   for (const id of stale) {
     console.error(`  - ${id}`);
   }
-  console.error("\nRemove these from .github/actions/check-component-ids/componentId-registry.js");
+  console.error(`\nRemove these from ${REGISTRY_PATH}`);
+}
+
+// Check 3: file must be byte-identical to the generator's output. The
+// registry is excluded from prettier, so nothing else normalizes hand-edits.
+if (!failed && fs.readFileSync(registryPath, "utf8") !== buildRegistrySource(codeIds, registry)) {
+  failed = true;
+  console.error("\n❌ Registry file does not match the canonical generator output.");
+  console.error("Run: node .github/actions/check-component-ids/regenerate.js");
 }
 
 if (failed) {

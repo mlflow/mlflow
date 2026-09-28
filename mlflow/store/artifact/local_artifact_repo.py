@@ -1,9 +1,10 @@
+import asyncio
 import os
 import shutil
 import tempfile
 import threading
 from contextlib import suppress
-from typing import Any, BinaryIO, Callable
+from typing import Any, AsyncIterable, BinaryIO, Callable
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -96,6 +97,31 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         validate_path_within_directory(self.artifact_dir, destination_file_path)
         return artifact_dir, destination_file_path
 
+    def _create_staging_artifact(
+        self, artifact_file_name: str, artifact_path: str | None = None
+    ) -> tuple[int, str, str]:
+        artifact_dir, destination_file_path = self._get_destination_artifact_path(
+            artifact_file_name, artifact_path
+        )
+        temp_file_descriptor, temp_file_path = tempfile.mkstemp(
+            dir=artifact_dir, prefix=_TEMP_ARTIFACT_PREFIX
+        )
+        return temp_file_descriptor, temp_file_path, destination_file_path
+
+    def _publish_staged_artifact(
+        self,
+        temp_file_path: str,
+        destination_file_path: str,
+        finalize_temp_path: Callable[[str], None] | None = None,
+    ) -> None:
+        if finalize_temp_path is not None:
+            finalize_temp_path(temp_file_path)
+        os.replace(temp_file_path, destination_file_path)
+
+    def _cleanup_staged_artifact(self, temp_file_path: str) -> None:
+        with suppress(FileNotFoundError):
+            os.remove(temp_file_path)
+
     def _write_to_destination_path(
         self,
         artifact_file_name: str,
@@ -103,13 +129,10 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         artifact_path: str | None = None,
         finalize_temp_path: Callable[[str], None] | None = None,
     ) -> None:
-        artifact_dir, destination_file_path = self._get_destination_artifact_path(
-            artifact_file_name, artifact_path
-        )
         # Write to a hidden temp file in the destination directory, then atomically
         # replace the target path so readers never see a partially-written artifact.
-        temp_file_descriptor, temp_file_path = tempfile.mkstemp(
-            dir=artifact_dir, prefix=_TEMP_ARTIFACT_PREFIX
+        temp_file_descriptor, temp_file_path, destination_file_path = self._create_staging_artifact(
+            artifact_file_name, artifact_path
         )
         published = False
         try:
@@ -117,16 +140,13 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             temp_file_descriptor = None
             with temp_file:
                 writer(temp_file)
-            if finalize_temp_path is not None:
-                finalize_temp_path(temp_file_path)
-            os.replace(temp_file_path, destination_file_path)
+            self._publish_staged_artifact(temp_file_path, destination_file_path, finalize_temp_path)
             published = True
         finally:
             if temp_file_descriptor is not None:
                 os.close(temp_file_descriptor)
             if not published:
-                with suppress(FileNotFoundError):
-                    os.remove(temp_file_path)
+                self._cleanup_staged_artifact(temp_file_path)
 
     def log_artifact(self, local_file, artifact_path=None):
         _, destination_file_path = self._get_destination_artifact_path(local_file, artifact_path)
@@ -164,6 +184,37 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             artifact_path,
             finalize_temp_path=_set_default_file_mode,
         )
+
+    async def log_artifact_from_async_stream(
+        self,
+        chunks: AsyncIterable[bytes],
+        artifact_file_name: str,
+        artifact_path: str | None = None,
+    ) -> None:
+        temp_file_descriptor = None
+        temp_file_path = None
+        published = False
+        try:
+            temp_file_descriptor, temp_file_path, destination_file_path = await asyncio.to_thread(
+                self._create_staging_artifact, artifact_file_name, artifact_path
+            )
+            temp_file = os.fdopen(temp_file_descriptor, "wb")
+            temp_file_descriptor = None
+            with temp_file:
+                async for chunk in chunks:
+                    await asyncio.to_thread(temp_file.write, chunk)
+            await asyncio.to_thread(
+                self._publish_staged_artifact,
+                temp_file_path,
+                destination_file_path,
+                _set_default_file_mode,
+            )
+            published = True
+        finally:
+            if temp_file_descriptor is not None:
+                os.close(temp_file_descriptor)
+            if not published and temp_file_path is not None:
+                await asyncio.to_thread(self._cleanup_staged_artifact, temp_file_path)
 
     def _is_directory(self, artifact_path):
         # NOTE: The path is expected to be in posix format.

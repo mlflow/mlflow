@@ -110,6 +110,20 @@ class SpanBatcher:
             )
         )
 
+    def flush(self):
+        """
+        Export every span currently queued, without stopping the worker thread.
+
+        Unlike :meth:`shutdown`, this leaves the batcher usable: `_stop_event` stays
+        clear, so spans added after the flush are still batched and exported.
+        """
+        if self._max_span_batch_size <= 1:
+            # Batching is off: add_span() exports synchronously and never queues.
+            # _consume_batch() would spin forever on a non-positive batch size.
+            return
+
+        self._consume_batch(flush_all=True)
+
     def shutdown(self):
         if self._stop_event.is_set():
             return

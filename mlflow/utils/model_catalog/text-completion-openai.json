@@ -10,7 +10,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
-        "output_per_million_tokens": 0.4
+        "output_per_million_tokens": 0.4,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.2,
+            "output_per_million_tokens": 0.2
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -19,7 +25,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-09-28",
+      "last_updated_at": "2026-09-15"
     },
     "davinci-002": {
       "mode": "completion",
@@ -30,7 +37,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 2.0
+        "output_per_million_tokens": 2.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 1.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -39,7 +52,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-09-28",
+      "last_updated_at": "2026-09-15"
     },
     "gpt-3.5-turbo-instruct": {
       "mode": "completion",
@@ -59,7 +73,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-09-28",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-3.5-turbo-instruct-0914": {
       "mode": "completion",
