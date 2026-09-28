@@ -20,14 +20,13 @@ from typing import Any, Protocol, cast
 
 MAX_TURNS = 8
 MAX_RUNS = 2
-MAX_FILE_BYTES = 100_000
+MAX_FILE_BYTES = 50_000
 MAX_REPRO_BYTES = 50_000
 MAX_QUERY_BYTES = 200
-MAX_SEARCH_FILES = 1_000
 MAX_SEARCH_BYTES = 5_000_000
 MAX_SEARCH_RESULTS = 50
 MAX_RESULT_BYTES = 12_000
-MAX_TRANSCRIPT_BYTES = 100_000
+MAX_TRANSCRIPT_BYTES = 200_000
 RUN_TIMEOUT_SECONDS = 60
 CONTAINER_IMAGE = "mlflow-issue-repro:local"
 SCRATCH_PATH = "scratch/reproduce.py"
@@ -92,7 +91,7 @@ def _relative_path(value: object, *, expected: str | None = None) -> str:
     return value
 
 
-def _clean_git_env() -> dict[str, str]:
+def _minimal_env() -> dict[str, str]:
     return {
         "HOME": "/nonexistent",
         "LANG": "C.UTF-8",
@@ -109,7 +108,7 @@ def _default_runner(argv: Sequence[str], timeout: int, max_output: int) -> Repro
         command = [*argv[:2], "--name", container_name, *argv[2:]]
         process = subprocess.Popen(
             command,
-            env=_clean_git_env(),
+            env=_minimal_env(),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -169,7 +168,7 @@ def _default_runner(argv: Sequence[str], timeout: int, max_output: int) -> Repro
 def _force_remove_container(container_name: str) -> None:
     subprocess.run(
         ["docker", "rm", "--force", container_name],
-        env=_clean_git_env(),
+        env=_minimal_env(),
         capture_output=True,
         check=False,
         timeout=5,
@@ -179,7 +178,7 @@ def _force_remove_container(container_name: str) -> None:
 def _container_was_oom_killed(container_name: str) -> bool:
     result = subprocess.run(
         ["docker", "inspect", "--format", "{{.State.OOMKilled}}", container_name],
-        env=_clean_git_env(),
+        env=_minimal_env(),
         capture_output=True,
         check=False,
         text=True,
@@ -196,17 +195,11 @@ class ReproductionBroker:
         *,
         repo_root: Path,
         scratch_root: Path,
-        repository: str,
-        issue_number: int,
-        event_sha: str,
         checkout_sha: str,
         runner: Runner = _default_runner,
     ) -> None:
         self.repo_root = repo_root.resolve(strict=True)
         self.scratch_root = scratch_root.resolve(strict=True)
-        self.repository = repository
-        self.issue_number = issue_number
-        self.event_sha = event_sha
         self.checkout_sha = checkout_sha
         self.runner = runner
         self.turns = 0
@@ -220,7 +213,7 @@ class ReproductionBroker:
         output = subprocess.run(
             ["git", *args],
             cwd=self.repo_root,
-            env=_clean_git_env(),
+            env=_minimal_env(),
             check=True,
             capture_output=True,
             text=text,
@@ -261,19 +254,20 @@ class ReproductionBroker:
         object_name = f"{self.checkout_sha}:{path}"
         size = self._git("cat-file", "-s", object_name, text=True)
         assert isinstance(size, str)
-        if int(size) > limit:
-            raise BrokerError("tracked file is oversized")
         content = self._git("cat-file", "blob", object_name)
         assert isinstance(content, bytes)
-        return content
+        return content[:limit]
 
     def read_tracked_file(self, path: object) -> dict[str, Any]:
         tracked_path = self._tracked_path(path)
         content = self._read_blob(tracked_path)
+        size = self._git("cat-file", "-s", f"{self.checkout_sha}:{tracked_path}", text=True)
+        assert isinstance(size, str)
         return {
             "path": tracked_path,
             "content": content.decode("utf-8", errors="replace"),
-            "size_bytes": len(content),
+            "size_bytes": int(size),
+            "truncated": int(size) > len(content),
         }
 
     def fixed_string_search(self, query: object, allowed_roots: object) -> dict[str, Any]:
@@ -286,30 +280,56 @@ class ReproductionBroker:
             not isinstance(root, str) or root not in ALLOWED_SEARCH_ROOTS for root in allowed_roots
         ):
             raise BrokerError("invalid search roots")
-        roots = set(allowed_roots)
+        roots = sorted(set(allowed_roots))
         matches: list[dict[str, Any]] = []
-        scanned_bytes = 0
-        scanned_files = 0
-        for path in sorted(self._tracked):
-            if PurePosixPath(path).parts[0] not in roots:
-                continue
-            if scanned_files >= MAX_SEARCH_FILES or scanned_bytes >= MAX_SEARCH_BYTES:
-                break
-            scanned_files += 1
-            try:
-                content = self._read_blob(
-                    path, min(MAX_FILE_BYTES, MAX_SEARCH_BYTES - scanned_bytes)
-                )
-            except (BrokerError, UnicodeError):
-                continue
-            scanned_bytes += len(content)
-            text = content.decode("utf-8", errors="replace")
-            for line_number, line in enumerate(text.splitlines(), 1):
-                if query in line:
-                    matches.append({"path": path, "line": line_number, "text": line[:500]})
-                    if len(matches) == MAX_SEARCH_RESULTS:
-                        return {"matches": matches, "truncated": True}
-        return {"matches": matches, "truncated": False}
+        output_bytes = 0
+        command = [
+            "git",
+            "grep",
+            "-n",
+            "-F",
+            "-e",
+            query,
+            self.checkout_sha,
+            "--",
+            *roots,
+        ]
+        process = subprocess.Popen(
+            command,
+            cwd=self.repo_root,
+            env=_minimal_env(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        assert process.stdout is not None
+        truncated = False
+        try:
+            for raw_line in process.stdout:
+                output_bytes += len(raw_line)
+                if output_bytes > MAX_SEARCH_BYTES:
+                    truncated = True
+                    process.kill()
+                    break
+                line = raw_line.decode("utf-8", errors="replace").rstrip("\n")
+                prefix = f"{self.checkout_sha}:"
+                if not line.startswith(prefix):
+                    continue
+                path, line_number, text = line[len(prefix) :].split(":", 2)
+                matches.append({"path": path, "line": int(line_number), "text": text[:500]})
+                if len(matches) == MAX_SEARCH_RESULTS:
+                    truncated = True
+                    process.kill()
+                    break
+        finally:
+            if process.poll() is None:
+                process.kill()
+            _stdout, stderr = process.communicate(timeout=5)
+        if process.returncode not in {0, 1, -9}:
+            raise BrokerError(
+                "search failed: " + _truncate_utf8(stderr.decode("utf-8", errors="replace"), 200)
+            )
+        return {"matches": matches, "truncated": truncated}
 
     def write_scratch_repro(self, relative_path: object, content: object) -> dict[str, Any]:
         _relative_path(relative_path, expected=SCRATCH_PATH)
@@ -324,6 +344,8 @@ class ReproductionBroker:
         candidate = self.scratch_root / "reproduce.py"
         if candidate.is_symlink():
             raise BrokerError("scratch reproduction cannot be a symlink")
+        if not candidate.exists():
+            raise BrokerError("scratch reproduction is missing")
         script = candidate.resolve(strict=True)
         if script.parent != self.scratch_root or not script.is_file():
             raise BrokerError("scratch reproduction is missing")
@@ -373,9 +395,10 @@ class ReproductionBroker:
         _relative_path(relative_path, expected=SCRATCH_PATH)
         if self.runs >= MAX_RUNS:
             raise BrokerLimitExceeded("reproduction run limit exceeded")
-        self.runs += 1
+        argv = self.container_argv()
         source = (self.scratch_root / "reproduce.py").read_text(encoding="utf-8")
-        result = self.runner(self.container_argv(), RUN_TIMEOUT_SECONDS, MAX_RESULT_BYTES)
+        self.runs += 1
+        result = self.runner(argv, RUN_TIMEOUT_SECONDS, MAX_RESULT_BYTES)
         stdout = _truncate_utf8(result.stdout, MAX_RESULT_BYTES)
         stderr = _truncate_utf8(
             result.stderr, max(0, MAX_RESULT_BYTES - len(stdout.encode("utf-8")))
@@ -421,6 +444,8 @@ class ReproductionBroker:
             limit=2_000,
             allow_empty=True,
         )
+        if proposed_fix and not proposed_fix.strip():
+            raise BrokerError("invalid proposed fix summary")
         self.finished = True
         return {
             "claimed_symptom": symptom,
@@ -548,7 +573,12 @@ def run_agent(
     ]
     for _ in range(MAX_TURNS):
         action = client(messages=messages, tools=TOOL_CONTRACTS)
-        result = broker.execute(action)
+        try:
+            result = broker.execute(action)
+        except BrokerLimitExceeded:
+            raise
+        except BrokerError as error:
+            result = {"error": str(error)}
         if broker.finished:
             assert isinstance(result, dict)
             return result

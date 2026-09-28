@@ -20,7 +20,7 @@ from issue_repro_handoff import (
 )
 
 MAX_ISSUE_BYTES = 100_000
-MAX_MODEL_RESPONSE = 32 * 1024
+MAX_MODEL_RESPONSE = 96 * 1024
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
@@ -84,7 +84,7 @@ class AnthropicClient:
             raise ValueError("exactly one response contract is required")
         body: dict[str, Any] = {
             "model": self.model,
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "temperature": 0,
             "system": "\n".join(item["content"] for item in messages if item["role"] == "system"),
             "messages": [dict(item) for item in messages if item["role"] != "system"],
@@ -267,9 +267,6 @@ def investigate(
             broker = ReproductionBroker(
                 repo_root=repo_root,
                 scratch_root=Path(directory),
-                repository=repository,
-                issue_number=issue["number"],
-                event_sha=event_sha,
                 checkout_sha=checkout_sha,
             )
             agent_handoff = run_agent(

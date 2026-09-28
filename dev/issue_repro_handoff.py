@@ -268,10 +268,8 @@ def validate_handoff(
     expected_event_sha: str,
     expected_checkout_sha: str,
     issue_labels: Iterable[object] = (),
-    now: object | None = None,
 ) -> dict[str, Any]:
     """Validate and sanitize model output, then add the trusted proposed outcome."""
-    del now  # Retained temporarily for callers of the superseded timestamped contract.
     handoff = _object(
         value,
         {
@@ -349,7 +347,6 @@ def load_handoff_json(
     expected_event_sha: str,
     expected_checkout_sha: str,
     issue_labels: Iterable[object] = (),
-    now: object | None = None,
 ) -> dict[str, Any]:
     """Decode bounded model JSON and return a sanitized finalized report."""
     encoded = payload.encode() if isinstance(payload, str) else payload
@@ -366,7 +363,6 @@ def load_handoff_json(
         expected_event_sha=expected_event_sha,
         expected_checkout_sha=expected_checkout_sha,
         issue_labels=issue_labels,
-        now=now,
     )
 
 
