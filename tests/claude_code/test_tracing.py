@@ -18,6 +18,7 @@ import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     METADATA_KEY_CLAUDE_CODE_VERSION,
+    _get_current_user,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
@@ -113,6 +114,26 @@ def test_get_logger_lazy_initialization(monkeypatch: pytest.MonkeyPatch, tmp_pat
     # Call get_logger() again - should return the same logger instance
     logger2 = tracing_module.get_logger()
     assert logger2 is logger1
+
+
+def test_get_current_user_falls_back_to_username(monkeypatch):
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.setenv("USERNAME", "windows-user")
+
+    assert _get_current_user() == "windows-user"
+
+
+def test_get_current_user_prefers_user(monkeypatch):
+    monkeypatch.setenv("USER", "unix-user")
+    monkeypatch.setenv("USERNAME", "windows-user")
+
+    assert _get_current_user() == "unix-user"
+
+
+def test_get_current_user_returns_empty_string_when_user_lookup_fails(monkeypatch):
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.delenv("USERNAME", raising=False)
+    assert _get_current_user() == ""
 
 
 # ============================================================================
@@ -236,6 +257,16 @@ def test_process_transript_creates_trace(mock_transcript_file):
     assert root_span.name == "claude_code_conversation"
     assert root_span.span_type == SpanType.AGENT
     assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-session-123"
+
+
+def test_process_transcript_uses_username_when_user_is_unset(monkeypatch, mock_transcript_file):
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.setenv("USERNAME", "windows-user")
+
+    trace = process_transcript(mock_transcript_file, "test-session-123")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "windows-user"
 
 
 def test_process_transcript_creates_spans(mock_transcript_file):
@@ -414,7 +445,12 @@ def test_process_sdk_messages_no_user_prompt():
     assert process_sdk_messages(messages) is None
 
 
-def test_process_sdk_messages_simple_conversation():
+def test_process_sdk_messages_simple_conversation(monkeypatch):
+    monkeypatch.delenv("LOGNAME", raising=False)
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.delenv("LNAME", raising=False)
+    monkeypatch.setenv("USERNAME", "windows-user")
+
     messages = [
         UserMessage(content="What is 2 + 2?"),
         AssistantMessage(
@@ -472,6 +508,7 @@ def test_process_sdk_messages_simple_conversation():
     assert abs(duration_ns - 1_000_000_000) < 1_000_000  # within 1ms tolerance
 
     assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "windows-user"
     assert trace.info.request_preview == "What is 2 + 2?"
     assert trace.info.response_preview == "The answer is 4."
 
