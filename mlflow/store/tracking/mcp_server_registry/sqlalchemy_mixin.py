@@ -8,6 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager, subqueryload
+from sqlalchemy.orm.exc import StaleDataError
 
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import (
@@ -574,19 +575,32 @@ class SqlAlchemyMCPServerRegistryMixin:
                 # taken at the first read above, which predates the row lock. A locking read
                 # sees aliases committed by a set_mcp_server_alias call we waited for.
                 alias_query = alias_query.with_for_update()
-            alias_rows = alias_query.all()
-            if alias_names := [a.alias for a in alias_rows]:
+            alias_names = [row.alias for row in alias_query.with_entities(SqlMCPServerAlias.alias)]
+            # A concurrent set_mcp_server_alias may have retargeted one of these aliases to
+            # another version since the read above. Only delete an alias, and its endpoints,
+            # if it still points at this version.
+            deleted_alias_names = [
+                alias_name
+                for alias_name in alias_names
+                if self
+                ._get_query(session, SqlMCPServerAlias)
+                .filter(
+                    SqlMCPServerAlias.name == name,
+                    SqlMCPServerAlias.alias == alias_name,
+                    SqlMCPServerAlias.version == version,
+                )
+                .delete(synchronize_session=False)
+            ]
+            if deleted_alias_names:
                 (
                     self
                     ._get_query(session, SqlMCPAccessEndpoint)
                     .filter(
                         SqlMCPAccessEndpoint.server_name == name,
-                        SqlMCPAccessEndpoint.server_alias.in_(alias_names),
+                        SqlMCPAccessEndpoint.server_alias.in_(deleted_alias_names),
                     )
                     .delete(synchronize_session=False)
                 )
-                for alias_row in alias_rows:
-                    session.delete(alias_row)
             (
                 self
                 ._get_query(session, SqlMCPAccessEndpoint)
@@ -976,8 +990,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                 return
             except MlflowException as e:
                 # Two calls creating the same alias can both find no existing row and then
-                # collide on insert. The retry sees the committed row and updates it instead.
-                if not isinstance(e.__cause__, IntegrityError):
+                # collide on insert, and an alias being retargeted can be deleted by a
+                # concurrent delete_mcp_server_version before the update lands. The retry
+                # sees the committed state and updates or recreates the alias.
+                if not isinstance(e.__cause__, (IntegrityError, StaleDataError)):
                     raise
                 if attempt == self._SET_ALIAS_RETRIES - 1:
                     raise

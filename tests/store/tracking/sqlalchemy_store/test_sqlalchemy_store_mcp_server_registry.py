@@ -1640,6 +1640,50 @@ def test_concurrent_set_alias_and_delete_version_leave_no_alias_on_deleted_versi
     assert _get_alias_rows(store, name) == []
 
 
+def test_delete_version_keeps_alias_retargeted_during_delete(store):
+    name = "io.github.test/server"
+    store.create_mcp_server_version(_server_json(name, "1.0.0"))
+    store.create_mcp_server_version(_server_json(name, "2.0.0"))
+    store.set_mcp_server_alias(name, "stable", "1.0.0")
+
+    retarget_results = []
+
+    def retarget():
+        try:
+            store.set_mcp_server_alias(name, "stable", "2.0.0")
+            retarget_results.append("SUCCESS")
+        except MlflowException as e:
+            retarget_results.append(e.error_code)
+
+    retarget_thread = threading.Thread(target=retarget)
+    delete_thread_id = threading.get_ident()
+
+    def retarget_after_alias_read(conn, cursor, statement, parameters, context, executemany):
+        # Retarget the alias after delete_mcp_server_version has read the aliases of the
+        # version it deletes. On backends that serialize the two writes, the retarget waits
+        # for the delete to commit and the join below times out.
+        if (
+            threading.get_ident() == delete_thread_id
+            and not retarget_thread.is_alive()
+            and not retarget_results
+            and statement.lstrip().upper().startswith("SELECT")
+            and "FROM MCP_SERVER_ALIASES" in statement.upper()
+        ):
+            retarget_thread.start()
+            retarget_thread.join(timeout=2)
+
+    sqlalchemy.event.listen(store.engine, "after_cursor_execute", retarget_after_alias_read)
+    try:
+        store.delete_mcp_server_version(name, "1.0.0")
+    finally:
+        sqlalchemy.event.remove(store.engine, "after_cursor_execute", retarget_after_alias_read)
+    retarget_thread.join(timeout=30)
+
+    assert retarget_results == ["SUCCESS"]
+    assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
+    assert _get_alias_rows(store, name) == [("stable", "2.0.0")]
+
+
 def test_concurrent_delete_mcp_server_version_returns_conflict(store):
     name = "io.github.test/server"
     store.create_mcp_server_version(_server_json(name, "1.0.0"))
