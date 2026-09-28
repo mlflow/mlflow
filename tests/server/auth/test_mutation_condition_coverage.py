@@ -14,6 +14,7 @@
 
 from types import SimpleNamespace
 
+import flask
 import pytest
 
 from mlflow.server import auth as auth_module
@@ -463,3 +464,81 @@ def test_clearing_the_cache_outside_a_request_context_is_safe():
 
     assert not has_request_context()
     auth_resources.clear_cache()
+
+
+# ---- Reads must declare no condition at all ---------------------------------
+#
+# The invariant is that conditions gate mutations and never reads. Asserting it on the
+# *declaration* rather than the outcome is what makes it checkable: a read that declares a
+# MUTATE context is already wrong, even if the currently-configured conditions happen to
+# permit it. A request-only condition hides this, because empty request tags are vacuous and
+# pass -- so the bug only shows with a target condition, on the read paths that share a helper
+# with their mutating siblings.
+
+_READ_VALIDATORS = [
+    ("validate_can_read_run", "/api/2.0/mlflow/runs/get", "GET", {"run_id": "r1"}),
+    (
+        "validate_can_read_trace_by_request_id",
+        "/api/2.0/mlflow/traces/get",
+        "GET",
+        {"request_id": "t1"},
+    ),
+    ("validate_can_read_trace_by_trace_id", "/api/3.0/mlflow/traces/t1", "GET", {"trace_id": "t1"}),
+    (
+        "validate_can_read_logged_model",
+        "/api/2.0/mlflow/logged-models/m1",
+        "GET",
+        {"model_id": "m1"},
+    ),
+]
+
+
+@pytest.mark.parametrize(("validator_name", "path", "method", "params"), _READ_VALIDATORS)
+def test_a_read_declares_no_condition(recorder, monkeypatch, validator_name, path, method, params):
+    validator = getattr(auth_module, validator_name, None)
+    if validator is None:
+        pytest.skip(f"{validator_name} is not defined on this branch")
+    with auth_module.app.test_request_context(path, method=method, query_string=params):
+        for key, value in params.items():
+            monkeypatch.setitem(flask.request.view_args or {}, key, value)
+        validator()
+    assert recorder.types_at(ConditionScope.MUTATE) == set(), (
+        f"{validator_name} is a READ but declared a MUTATE condition; a target condition would "
+        f"then deny reading the resource, which conditions must never do"
+    )
+    assert recorder.types_at(ConditionScope.CREATE) == set(), (
+        f"{validator_name} is a READ but declared a CREATE condition"
+    )
+
+
+# ---- Creating a version must not smuggle a tag past the condition -----------
+
+
+def test_creating_a_model_version_declares_its_tags(recorder, monkeypatch):
+    """`CreateModelVersion` carries `tags` and the handler passes them straight to the store,
+    so a tag condition that gates `SetModelVersionTag` is worthless unless the create declares
+    the same values: a restricted tag could simply be set at creation time instead.
+    """
+    from mlflow.protos.model_registry_pb2 import CreateModelVersion
+
+    msg = CreateModelVersion(name="m", source="s")
+    msg.tags.add(key="approved", value="yes")
+    monkeypatch.setattr(auth_module, "_get_request_message", lambda _proto: msg)
+    monkeypatch.setattr(
+        auth_module, "_registered_model_or_prompt_target", lambda: ("registered_model", "m")
+    )
+    monkeypatch.setattr(auth_module, "is_models_uri", lambda _s: False)
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create", method="POST", json={"name": "m", "source": "s"}
+    ):
+        auth_module.validate_can_create_model_version()
+    declared = [
+        (c.resource_type, tuple(c.request.tags))
+        for c in recorder.contexts
+        if c.scope is ConditionScope.CREATE
+    ]
+    assert declared, "create-version declared no CREATE condition, so its tags are unconditioned"
+    assert any("approved" in [k for k, _ in tags] for _t, tags in declared), (
+        f"the request's tag never reached a condition; declared={declared}"
+    )
+

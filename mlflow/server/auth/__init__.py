@@ -1555,6 +1555,25 @@ def _authorize_logged_model(
     return _authorize_logged_model_id(_get_request_param("model_id"), action, tags)
 
 
+READ_ACTION = "read"
+
+
+def _mutation_contexts(action: str, context: "ConditionContext") -> "list[ConditionContext]":
+    """The context list for a helper shared by reading and mutating callers.
+
+    Conditions gate mutations and never reads, so a read must declare NO context at all --
+    not merely one that happens to pass. Declaring a MUTATE context on a read would make a
+    target condition deny the read, since the gate would load the condition and evaluate it
+    against the resource's current state.
+
+    Everything that is not a read is conditioned, rather than matching against a list of
+    known mutation verbs. A new action string then defaults to being gated: the failure mode
+    is a mutation that is conditioned more than intended, not one that escapes conditions
+    silently.
+    """
+    return [] if action == READ_ACTION else [context]
+
+
 def _authorize_logged_model_id(
     model_id: str,
     action: str,
@@ -1574,14 +1593,15 @@ def _authorize_logged_model_id(
                 RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,)
             ),
         ],
-        conditions=[
+        conditions=_mutation_contexts(
+            action,
             context_for(
                 RESOURCE_TYPE_LOGGED_MODEL,
                 model_id,
                 ConditionScope.MUTATE,
                 LoggedModelRequestValues(tags=tags),
-            )
-        ],
+            ),
+        ),
     )
 
 
@@ -2254,14 +2274,15 @@ def _authorize_run_id(
         authenticate_request().username,
         anchor,
         requirements,
-        conditions=[
+        conditions=_mutation_contexts(
+            action,
             context_for(
                 RESOURCE_TYPE_RUN,
                 run_id,
                 ConditionScope.MUTATE,
                 RunRequestValues(tags=tags),
-            )
-        ],
+            ),
+        ),
     )
 
 
@@ -2924,19 +2945,45 @@ def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
     return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
 
 
-def _authorize_create_version(target: "tuple[str, str]") -> bool:
+def _authorize_create_version(
+    target: "tuple[str, str]",
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    asserted_type: "str | None" = None,
+) -> bool:
+    """Authorize creating a version under `target`.
+
+    `tags` are the request's own tag pairs. They must be declared here because
+    `CreateModelVersion` carries tags that the handler passes straight to the store: without
+    them a condition gating `SetModelVersionTag` would be trivially avoidable by setting the
+    tag at creation time instead of after.
+
+    `asserted_type` mirrors the grant-side veto. When the request asserts the opposite family
+    from its parent, that other tier governs the row being created, so its condition applies
+    too. Both contexts must pass, which is the same direction every other condition takes:
+    they only ever subtract.
+    """
     container_type, name = target
     version_type = (
         RESOURCE_TYPE_PROMPT_VERSION
         if container_type == RESOURCE_TYPE_PROMPT
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
+    types = [version_type] if asserted_type is None else [version_type, asserted_type]
     return authorize(
         authenticate_request().username,
         (container_type, name),
         [
             Requirement(container_type, name, "update"),
             Requirement(version_type, "*", ACTION_NOT_DENIED),
+        ],
+        conditions=[
+            context_for(
+                condition_type,
+                None,
+                ConditionScope.CREATE,
+                request_values_shape(condition_type)(tags=tags),
+            )
+            for condition_type in types
         ],
     )
 
@@ -2980,12 +3027,17 @@ def _version_type_asserted_against_parent(msg, container_type: str) -> "str | No
 
 def validate_can_create_model_version():
     target = _registered_model_or_prompt_target()
-    if target is None or not _authorize_create_version(target):
+    if target is None:
         return False
     msg = _get_request_message(CreateModelVersion())
     # Before the source branches: a marker disagreeing with the parent means the OTHER version tier
     # governs the row that gets created, so it vetoes too.
     asserted_type = _version_type_asserted_against_parent(msg, target[0])
+    # Parsed before authorizing, because the create's own tags are part of what is authorized.
+    if not _authorize_create_version(
+        target, tuple((tag.key, tag.value) for tag in msg.tags), asserted_type
+    ):
+        return False
     if asserted_type is not None and not authorize(
         authenticate_request().username,
         target,
@@ -4437,14 +4489,15 @@ def _authorize_trace(
             Requirement(RESOURCE_TYPE_EXPERIMENT, trace.experiment_id, "read"),
             Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,)),
         ],
-        conditions=[
+        conditions=_mutation_contexts(
+            action,
             context_for(
                 RESOURCE_TYPE_TRACE,
                 trace_id,
                 ConditionScope.MUTATE,
                 TraceRequestValues(tags=tags),
-            )
-        ],
+            ),
+        ),
     )
 
 
