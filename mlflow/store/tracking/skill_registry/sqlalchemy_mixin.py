@@ -12,6 +12,7 @@ from mlflow.entities.skill import VALID_SKILL_STATUS_TRANSITIONS, RegistryIcon, 
 from mlflow.entities.skill_source import SkillSourceType
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
+from mlflow.genai.skill_content.paths import normalize_subpath
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -575,6 +576,7 @@ class SqlAlchemySkillRegistryMixin:
             fields = {
                 field: definition.get(field) for field in ("source", "ref", "subpath", "digest")
             }
+            fields["subpath"] = normalize_subpath(fields["subpath"])
             source_type = definition.get("source_type", SkillSourceType.GIT.value)
             self._validate_skill_version_source(source_type, **fields)
             if (

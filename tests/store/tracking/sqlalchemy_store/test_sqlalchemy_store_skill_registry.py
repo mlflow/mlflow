@@ -492,6 +492,30 @@ def test_bulk_register_skills_new_version_for_changed_definition(store, changes)
     assert store.bulk_register_skills([changed])[0].version == 2
 
 
+@pytest.mark.parametrize(
+    ("first_subpath", "second_subpath"),
+    [
+        ("skills/a/", "skills/a"),
+        ("skills/a", "skills/a/"),
+        (None, ""),
+        ("", None),
+    ],
+)
+def test_bulk_register_skills_reuses_equivalent_subpaths(store, first_subpath, second_subpath):
+    original = store.bulk_register_skills(
+        [_bulk_definition(subpath=first_subpath)], created_by="original"
+    )[0]
+
+    repeated = store.bulk_register_skills(
+        [_bulk_definition(subpath=second_subpath)], created_by="importer"
+    )[0]
+
+    assert repeated.version == original.version
+    assert repeated == original
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkillVersion).count() == 1
+
+
 @pytest.mark.parametrize("status", ["active", "draft", "deprecated"])
 @pytest.mark.parametrize("requested_status", ["active", "draft"])
 def test_bulk_register_skills_reuses_highest_non_deleted_match(store, status, requested_status):
