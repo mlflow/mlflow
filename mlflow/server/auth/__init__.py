@@ -2129,8 +2129,13 @@ def validate_can_read_experiment_by_name():
 
 
 def validate_can_update_experiment():
-    """Bodies that set no tag: `UpdateExperiment`."""
-    return _get_permission_from_experiment_id().can_update
+    """Bodies that set no tag: `UpdateExperiment`.
+
+    It sets no tag, so a request condition is vacuous here -- but a TARGET condition still
+    applies. Renaming an experiment a condition was written to protect is mutating it, so the
+    condition has to be consulted even though the request names no value of its own.
+    """
+    return _get_permission_from_experiment_id().can_update and _experiment_conditions_permit(())
 
 
 def _experiment_conditions_permit(tags: "tuple[tuple[str, str | None], ...]") -> bool:
@@ -2172,6 +2177,28 @@ def validate_can_delete_experiment_tag():
     )
 
 
+def _unenumerated_cascade_contexts(tiers: "Sequence[str]") -> "list[ConditionContext]":
+    """MUTATE contexts for child tiers a cascade destroys without naming them.
+
+    A cascade delete reaches rows this request never mentions -- every run in an experiment,
+    every version of a registered model -- and enumerating them is unbounded, so the ids
+    cannot be supplied. Declaring the tier with NO resource id is exactly the D21 case the
+    gate already implements: if a target condition exists for that tier the gate denies,
+    because it cannot prove the condition holds for rows it cannot see; if none exists the
+    context costs nothing and behaviour is unchanged.
+
+    That is deliberately conservative. The alternative is a cascade that destroys a resource a
+    target condition was written to protect, which is the bypass this whole layer exists to
+    prevent. Tiers outside the condition vocabulary are skipped: the store rejects them on
+    write, so no condition row can exist for them.
+    """
+    return [
+        context_for(tier, None, ConditionScope.MUTATE, request_values_shape(tier)())
+        for tier in tiers
+        if tier in SUPPORTED_RESOURCE_TYPES
+    ]
+
+
 # Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
 # become unreachable with their experiment, so the delete reaches them all the same -- and
 # ``_hard_delete_experiment`` (``mlflow gc``) destroys them outright through the scorers and
@@ -2210,6 +2237,16 @@ def validate_can_delete_experiment():
                 Requirement(tier, "*", "delete", fallback_if_no_grant=(experiment,))
                 for tier in _EXPERIMENT_CASCADE_TIERS
             ),
+        ],
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_EXPERIMENT,
+                experiment_id,
+                ConditionScope.MUTATE,
+                ExperimentRequestValues(),
+            ),
+            # The delete transitions every run, trace and logged model the experiment holds.
+            *_unenumerated_cascade_contexts(_EXPERIMENT_CASCADE_TIERS),
         ],
     )
 
@@ -2805,6 +2842,15 @@ def validate_can_delete_registered_model_or_prompt_cascade():
         [
             Requirement(container_type, name, "delete"),
             Requirement(version_type, "*", "delete", fallback_if_no_grant=(container,)),
+        ],
+        conditions=[
+            context_for(
+                container_type,
+                name,
+                ConditionScope.MUTATE,
+                request_values_shape(container_type)(),
+            ),
+            *_unenumerated_cascade_contexts((version_type,)),
         ],
     )
 
@@ -8977,6 +9023,26 @@ async def _mcp_condition_context(
             McpServerVersionRequestValues(tags=tags),
         )
 
+    # `versions/<version>` itself: PATCH updates that version, DELETE destroys it. Neither
+    # names a tag, so a request condition is vacuous -- but a TARGET condition still governs,
+    # because mutating a version a condition protects is exactly what it is there to prevent.
+    if nested[:1] == ["versions"] and len(nested) == 2 and method in ("PATCH", "DELETE"):
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER_VERSION,
+            auth_resources.version_resource_id(name, nested[1]),
+            ConditionScope.MUTATE,
+            McpServerVersionRequestValues(),
+        )
+
+    # The server itself: PATCH updates it, DELETE destroys it and every version under it.
+    if not nested and method in ("PATCH", "DELETE"):
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER,
+            name,
+            ConditionScope.MUTATE,
+            McpServerRequestValues(),
+        )
+
     # Creates are deliberately absent: neither `CreateMCPServerRequest` nor
     # `CreateMCPServerVersionRequest` carries tags, so there is no value for a request condition
     # to judge. Declaring a context with empty values would be indistinguishable from a route
@@ -8998,10 +9064,14 @@ async def _mcp_conditions_permit(
     context = await _mcp_condition_context(name, parts, request)
     if context is None:
         return True
+    contexts = [context]
+    if request.method == "DELETE" and len(parts) == 2:
+        # Deleting the server destroys every version under it, and the path names none of them.
+        contexts += _unenumerated_cascade_contexts((RESOURCE_TYPE_MCP_SERVER_VERSION,))
     return authorize_on_conditions(
         username,
         get_anchor_workspace(RESOURCE_TYPE_MCP_SERVER, name),
-        [context],
+        contexts,
     )
 
 

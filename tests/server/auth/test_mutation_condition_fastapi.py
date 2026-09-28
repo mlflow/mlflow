@@ -14,6 +14,7 @@
 # are what is new and what could break; a live server would add a great deal of setup
 # without exercising anything more of it.
 
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -396,3 +397,110 @@ async def test_creating_a_server_is_not_conditioned(monkeypatch):
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda u, n=None: True)
     monkeypatch.setattr(auth_module, "_mcp_auto_create_not_denied", lambda u, n: True)
     assert (await _run(f"{_PREFIX}", "POST", {"name": "acme/search"})) is True
+
+
+# ---- Lifecycle routes: no tag named, but a target condition still governs ----
+
+
+@pytest.mark.asyncio
+async def test_updating_a_server_is_gated_by_a_target_condition(monkeypatch):
+    """A PATCH names no tag, so a request condition is vacuous -- but a target condition must
+    still apply. "Do not touch prod" that still permits renaming prod is not a restriction.
+    """
+    _configure(monkeypatch, target_condition="tags.env != 'prod'", permission=MANAGE)
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {
+            i: auth_resources.values_for_entity(
+                rt, i, SimpleNamespace(tags={"env": "prod"}, aliases={})
+            )
+            for i in ids
+        },
+    )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "PATCH", {"description": "x"})) is False
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_is_gated_by_a_target_condition(monkeypatch):
+    _configure(monkeypatch, target_condition="tags.env != 'prod'", permission=MANAGE)
+    monkeypatch.setattr(
+        auth_resources,
+        "attrs_for_bulk",
+        lambda rt, ids: {
+            i: auth_resources.values_for_entity(
+                rt, i, SimpleNamespace(tags={"env": "prod"}, aliases={})
+            )
+            for i in ids
+        },
+    )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_refuses_when_a_version_condition_cannot_be_checked(monkeypatch):
+    """Deleting a server destroys every version under it, and the path names none of them. A
+    version target condition therefore cannot be proven to hold, so the delete must refuse
+    (D21) rather than cascade through rows the condition was written to protect.
+    """
+
+    class Store:
+        def get_user(self, username):
+            return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+            # Only the VERSION tier is restricted; the server itself is unrestricted.
+            return [
+                MutationConditionSpec(
+                    "mcp_server_version", value_condition=None, target_condition="tags.keep != 'y'"
+                )
+            ]
+
+    monkeypatch.setattr(auth_module, "store", Store())
+    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda n, u: MANAGE)
+    monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
+    monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda rt, rid: "ws")
+    reads = []
+    monkeypatch.setattr(
+        auth_resources, "attrs_for_bulk", lambda rt, ids: reads.append((rt, list(ids))) or {}
+    )
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
+    assert reads == [], f"should refuse without reading anything; read {reads}"
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_server_is_unaffected_when_no_version_condition_exists(monkeypatch):
+    """The conservative refusal must not cost anything when nothing is configured for the child
+    tier -- otherwise every cascade delete would break the moment conditions were enabled.
+    """
+    _configure(monkeypatch, value_condition="tag_key != 'nope'", permission=MANAGE)
+    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
+
+
+@pytest.mark.parametrize("method", ["PATCH", "DELETE"])
+def test_mutating_a_version_itself_is_gated_by_its_target_condition(monkeypatch, method):
+    """`versions/<version>` PATCH and DELETE name no tag, but they mutate that version, so its
+    target condition governs -- and it must be read against the VERSION's id, not the server's.
+    """
+
+    async def go():
+        _version_configured(monkeypatch, target_condition="tags.keep != 'y'")
+        seen = []
+
+        def attrs_for_bulk(rt, ids):
+            seen.append((rt, list(ids)))
+            return {
+                i: auth_resources.values_for_entity(
+                    rt, i, SimpleNamespace(tags={"keep": "y"}, aliases={})
+                )
+                for i in ids
+            }
+
+        monkeypatch.setattr(auth_resources, "attrs_for_bulk", attrs_for_bulk)
+        allowed = await _run(f"{_PREFIX}/{_SERVER}/versions/1.2.0", method, None)
+        assert allowed is False
+        assert seen == [("mcp_server_version", ["acme%2Fsearch/1.2.0"])], (
+            f"the version's own id must be read; got {seen}"
+        )
+
+    asyncio.run(go())
