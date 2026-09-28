@@ -230,8 +230,6 @@ def test_search_model_versions_version_number_filter_binds_integers(psycopg3_reg
         assert [mv.version for mv in results] == [version.version]
 
 
-
-
 def test_search_experiments_filter_respects_workspace_boundary(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
