@@ -607,9 +607,12 @@ def test_bulk_register_skills_later_failure_rolls_back_every_new_parent_and_vers
             raise MlflowException.invalid_parameter_value("Injected later failure")
         return result
 
-    with mock.patch.object(store, "_persist_skill_version", side_effect=fail_after_second_insert):
+    with mock.patch.object(
+        store, "_persist_skill_version", side_effect=fail_after_second_insert
+    ) as mock_persist:
         with pytest.raises(MlflowException, match="Injected later failure"):
             store.bulk_register_skills([_bulk_definition(), _bulk_definition("writer")])
+    assert mock_persist.call_count == 2
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkill).count() == 0
         assert store._get_query(session, SqlSkillVersion).count() == 0
@@ -633,7 +636,7 @@ def test_bulk_register_skills_retries_creation_conflict_as_whole_transaction(sto
 
     with mock.patch.object(
         store, "_persist_skill_version", side_effect=conflict_after_second_insert
-    ):
+    ) as mock_persist:
         if exhaust:
             with pytest.raises(MlflowException, match="allocation collision"):
                 store.bulk_register_skills([_bulk_definition(), _bulk_definition("writer")])
@@ -641,6 +644,7 @@ def test_bulk_register_skills_retries_creation_conflict_as_whole_transaction(sto
             result = store.bulk_register_skills([_bulk_definition(), _bulk_definition("writer")])
             assert [v.version for v in result] == [1, 1]
     assert calls == (store.CREATE_SKILL_VERSION_RETRIES if exhaust else 2)
+    assert mock_persist.call_count == 2 * calls
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkillVersion).count() == (0 if exhaust else 2)
         assert store._get_query(session, SqlSkill).count() == (0 if exhaust else 2)
@@ -659,14 +663,18 @@ def test_skill_registration_retries_deadlock_with_a_fresh_transaction(store, bul
         return result
 
     with (
-        mock.patch.object(store, "_persist_skill_version", side_effect=deadlock_after_insert),
-        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+        mock.patch.object(
+            store, "_persist_skill_version", side_effect=deadlock_after_insert
+        ) as mock_persist,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep") as mock_sleep,
     ):
         if bulk:
             result = store.bulk_register_skills([_bulk_definition()])[0]
         else:
             result = store.create_skill_version(**_bulk_definition())
         assert result.version == 1
+    assert mock_persist.call_count == 2
+    mock_sleep.assert_called_once()
     assert len(sessions) == 2
     assert sessions[0] is not sessions[1]
 
@@ -689,13 +697,20 @@ def test_create_skill_version_failure_retries_are_bounded(store, error_code, mes
         raise MlflowException(message, error_code)
 
     with (
-        mock.patch.object(store, "_persist_skill_version", side_effect=fail_after_insert),
-        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+        mock.patch.object(
+            store, "_persist_skill_version", side_effect=fail_after_insert
+        ) as mock_persist,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep") as mock_sleep,
         pytest.raises(MlflowException, match=message) as exc,
     ):
         store.create_skill_version(**_bulk_definition())
 
     assert exc.value.error_code == ErrorCode.Name(error_code)
+    assert mock_persist.call_count == attempts
+    if attempts == 1:
+        mock_sleep.assert_not_called()
+    else:
+        assert mock_sleep.call_count == attempts - 1
     assert len(sessions) == attempts
     assert len({id(session) for session in sessions}) == attempts
     with store.ManagedSessionMaker() as session:
@@ -773,7 +788,9 @@ def test_bulk_register_skills_overlaps_an_already_allocated_single_registration(
             return store.create_skill_version(**_bulk_definition(), created_by="single")
 
     with (
-        mock.patch.object(store, "_persist_skill_version", side_effect=pause_first_allocation),
+        mock.patch.object(
+            store, "_persist_skill_version", side_effect=pause_first_allocation
+        ) as mock_persist,
         ThreadPoolExecutor(max_workers=1, thread_name_prefix="single-before-bulk") as executor,
     ):
         single = executor.submit(register_single)
@@ -784,6 +801,7 @@ def test_bulk_register_skills_overlaps_an_already_allocated_single_registration(
             resume.set()
         registered = single.result(timeout=10)
 
+    assert mock_persist.call_count == 3
     assert attempted_versions == [1, 2]
     assert (bulk.version, registered.version) == (1, 2)
     assert store.get_skill_version("reviewer", 1).created_by == "bulk"
@@ -818,15 +836,18 @@ def test_bulk_register_skills_final_state_with_concurrent_writer(store, operatio
 
         with mock.patch.object(
             store, "_persist_skill_version", side_effect=persist_and_start_other_writer
-        ):
+        ) as mock_persist:
             assert (
                 store.bulk_register_skills([_bulk_definition()], created_by="bulk")[0].version == 1
             )
             result = future.result(timeout=30)
     if operation == "single-registration":
+        assert mock_persist.call_count == 2
         assert result.version == 2
         assert store.get_skill_version("reviewer", 1).created_by == "bulk"
         assert store.get_skill_version("reviewer", 2) == result
+    else:
+        mock_persist.assert_called_once()
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkill).count() == (0 if operation == "deletion" else 1)
         assert store._get_query(session, SqlSkillVersion).count() == (
