@@ -27,15 +27,6 @@ def test_skill_search_text_name_and_description():
     assert result == "code-review Reviews pull requests"
 
 
-def test_skill_search_text_includes_imported_keywords():
-    result = build_skill_search_text(
-        "code-review",
-        description="Reviews pull requests",
-        imported_keywords=["quality", "pull request"],
-    )
-    assert result == "code-review Reviews pull requests quality pull request"
-
-
 def test_skill_search_text_none_description():
     result = build_skill_search_text("code-review", description=None)
     assert result == "code-review"
@@ -141,14 +132,6 @@ def test_recompute_skill_search_text_after_description_update():
 
     row.description = "Reviews PRs"
     assert recompute_skill_search_text(row) == "code-review Reviews PRs"
-
-
-def test_recompute_skill_search_text_uses_persisted_imported_keywords_when_available():
-    row = SqlSkill(workspace="default", organization="acme", name="code-review")
-    row.description = "Reviews PRs"
-    row.imported_keywords = ["quality", "review"]
-
-    assert recompute_skill_search_text(row) == "code-review Reviews PRs quality review"
 
 
 def test_recompute_agent_plugin_version_search_text():

@@ -69,6 +69,8 @@ class SqlAlchemySkillRegistryMixin:
 
     CREATE_SKILL_VERSION_RETRIES = 3
     MAX_REPORTED_BLOCKING_REFERENCES = 10
+    SKILL_SEARCH_QUERY_SCOPE = "skills"
+    SKILL_VERSION_SEARCH_QUERY_SCOPE_PREFIX = "skill_versions"
 
     def _skill_query(self, session):
         return SqlSkill.with_resolved_latest(
@@ -103,6 +105,10 @@ class SqlAlchemySkillRegistryMixin:
             "last_updated_at": SqlSkillVersion.last_updated_at,
         }
 
+    @classmethod
+    def _skill_version_search_query_scope(cls, organization: str, name: str) -> str:
+        return f"{cls.SKILL_VERSION_SEARCH_QUERY_SCOPE_PREFIX}:{organization}/{name}"
+
     @staticmethod
     def _page_token_offset(
         page_token: str | None,
@@ -115,6 +121,94 @@ class SqlAlchemySkillRegistryMixin:
         token = SkillRegistryPaginationToken.decode(page_token)
         token.validate(filter_string, order_by, query_scope)
         return token.offset
+
+    def _tag_row_values(self, model_class, **kwargs) -> dict:
+        tag_row = self._with_workspace_field(model_class(**kwargs))
+        return {
+            column.name: getattr(tag_row, column.name) for column in model_class.__table__.columns
+        }
+
+    @staticmethod
+    def _upsert_skill_registry_tag(session, model_class, row: dict) -> None:
+        table = model_class.__table__
+        pk_columns = [column.name for column in table.primary_key.columns]
+        update_columns = [column.name for column in table.columns if column.name not in pk_columns]
+        bind = session.get_bind()
+        dialect = bind.dialect.name
+
+        match dialect:
+            case "sqlite" | "postgresql":
+                if dialect == "sqlite":
+                    from sqlalchemy.dialects.sqlite import insert
+                else:
+                    from sqlalchemy.dialects.postgresql import insert
+
+                stmt = insert(table).values(row)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=pk_columns,
+                    set_={column: stmt.excluded[column] for column in update_columns},
+                )
+                session.execute(stmt)
+            case "mysql":
+                from sqlalchemy.dialects.mysql import insert
+
+                stmt = insert(table).values(row)
+                stmt = stmt.on_duplicate_key_update({
+                    column: stmt.inserted[column] for column in update_columns
+                })
+                session.execute(stmt)
+            case "mssql":
+                SqlAlchemySkillRegistryMixin._upsert_skill_registry_tag_mssql(
+                    session,
+                    table,
+                    row,
+                    pk_columns,
+                    update_columns,
+                )
+            case _:
+                session.merge(model_class(**row))
+
+    @staticmethod
+    def _upsert_skill_registry_tag_mssql(
+        session,
+        table,
+        row: dict,
+        pk_columns: list[str],
+        update_columns: list[str],
+    ) -> None:
+        bind = session.get_bind()
+        preparer = bind.dialect.identifier_preparer
+        table_name = preparer.format_table(table)
+        column_names = [column.name for column in table.columns]
+        quoted_columns = {column: preparer.quote(column) for column in column_names}
+
+        source_select = ", ".join(
+            f":{column} AS {quoted_columns[column]}" for column in column_names
+        )
+        on_clause = " AND ".join(
+            f"target.{quoted_columns[column]} = source.{quoted_columns[column]}"
+            for column in pk_columns
+        )
+        set_clause = ", ".join(
+            f"target.{quoted_columns[column]} = source.{quoted_columns[column]}"
+            for column in update_columns
+        )
+        insert_columns = ", ".join(quoted_columns[column] for column in column_names)
+        insert_values = ", ".join(f"source.{quoted_columns[column]}" for column in column_names)
+
+        session.execute(
+            sa.text(
+                f"""
+                MERGE INTO {table_name} WITH (HOLDLOCK) AS target
+                USING (SELECT {source_select}) AS source
+                ON {on_clause}
+                WHEN MATCHED THEN UPDATE SET {set_clause}
+                WHEN NOT MATCHED THEN
+                    INSERT ({insert_columns}) VALUES ({insert_values});
+                """
+            ),
+            row,
+        )
 
     @staticmethod
     def _validate_skill_identity(name: str, organization: str) -> None:
@@ -227,6 +321,20 @@ class SqlAlchemySkillRegistryMixin:
         skill = (
             self
             ._skill_query(session)
+            .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+            .one_or_none()
+        )
+        if skill is None:
+            raise MlflowException(
+                f"Skill '{name}' not found in organization '{organization}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return skill
+
+    def _get_skill_identity_or_raise(self, session, name: str, organization: str) -> SqlSkill:
+        skill = (
+            self
+            ._get_query(session, SqlSkill)
             .filter(SqlSkill.name == name, SqlSkill.organization == organization)
             .one_or_none()
         )
@@ -423,7 +531,7 @@ class SqlAlchemySkillRegistryMixin:
         page_token: str | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
-        query_scope = "skills"
+        query_scope = self.SKILL_SEARCH_QUERY_SCOPE
         offset = self._page_token_offset(page_token, filter_string, order_by, query_scope)
         parsed_filters = SearchSkillUtils.parse_search_filter(filter_string)
         column_map = self._skill_search_column_map()
@@ -785,7 +893,7 @@ class SqlAlchemySkillRegistryMixin:
     ) -> PagedList[SkillVersion]:
         self._validate_skill_identity(name, organization)
         validate_max_results(max_results)
-        query_scope = f"skill_versions:{organization}/{name}"
+        query_scope = self._skill_version_search_query_scope(organization, name)
         offset = self._page_token_offset(page_token, filter_string, order_by, query_scope)
         parsed_filters = SearchSkillVersionUtils.parse_search_filter(filter_string)
         column_map = self._skill_version_search_column_map()
@@ -796,13 +904,9 @@ class SqlAlchemySkillRegistryMixin:
             default_tiebreakers=[SqlSkillVersion.version.asc()],
         )
         with self.ManagedSessionMaker() as session:
-            query = (
-                self
-                ._skill_version_query(session)
-                .filter(
-                    SqlSkillVersion.name == name,
-                    SqlSkillVersion.organization == organization,
-                )
+            query = self._skill_version_query(session).filter(
+                SqlSkillVersion.name == name,
+                SqlSkillVersion.organization == organization,
             )
             query = apply_skill_registry_filters(
                 query,
@@ -1204,30 +1308,18 @@ class SqlAlchemySkillRegistryMixin:
         key = tag.key
         value = tag.value
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._get_skill_or_raise(session, name, organization)
-            existing = (
-                self
-                ._get_query(session, SqlSkillTag)
-                .filter(
-                    SqlSkillTag.name == name,
-                    SqlSkillTag.organization == organization,
-                    SqlSkillTag.key == key,
-                )
-                .one_or_none()
+            self._get_skill_identity_or_raise(session, name, organization)
+            self._upsert_skill_registry_tag(
+                session,
+                SqlSkillTag,
+                self._tag_row_values(
+                    SqlSkillTag,
+                    name=name,
+                    organization=organization,
+                    key=key,
+                    value=value,
+                ),
             )
-            if existing:
-                existing.value = value
-            else:
-                session.add(
-                    self._with_workspace_field(
-                        SqlSkillTag(
-                            name=name,
-                            organization=organization,
-                            key=key,
-                            value=value,
-                        )
-                    )
-                )
 
     def delete_skill_tag(
         self,
@@ -1237,8 +1329,8 @@ class SqlAlchemySkillRegistryMixin:
     ) -> None:
         self._validate_skill_identity(name, organization)
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._get_skill_or_raise(session, name, organization)
-            tag = (
+            self._get_skill_identity_or_raise(session, name, organization)
+            deleted = (
                 self
                 ._get_query(session, SqlSkillTag)
                 .filter(
@@ -1246,14 +1338,13 @@ class SqlAlchemySkillRegistryMixin:
                     SqlSkillTag.organization == organization,
                     SqlSkillTag.key == key,
                 )
-                .one_or_none()
+                .delete(synchronize_session=False)
             )
-            if not tag:
+            if deleted == 0:
                 raise MlflowException(
                     f"Tag '{key}' not found on Skill '{name}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            session.delete(tag)
 
     def set_skill_version_tag(
         self,
@@ -1269,32 +1360,25 @@ class SqlAlchemySkillRegistryMixin:
         key = tag.key
         value = tag.value
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._get_skill_version_or_raise(session, name, version, organization)
-            existing = (
-                self
-                ._get_query(session, SqlSkillVersionTag)
-                .filter(
-                    SqlSkillVersionTag.name == name,
-                    SqlSkillVersionTag.organization == organization,
-                    SqlSkillVersionTag.version == version,
-                    SqlSkillVersionTag.key == key,
-                )
-                .one_or_none()
+            self._get_skill_version_or_raise(
+                session,
+                name,
+                version,
+                organization,
+                columns_only=True,
             )
-            if existing:
-                existing.value = value
-            else:
-                session.add(
-                    self._with_workspace_field(
-                        SqlSkillVersionTag(
-                            name=name,
-                            organization=organization,
-                            version=version,
-                            key=key,
-                            value=value,
-                        )
-                    )
-                )
+            self._upsert_skill_registry_tag(
+                session,
+                SqlSkillVersionTag,
+                self._tag_row_values(
+                    SqlSkillVersionTag,
+                    name=name,
+                    organization=organization,
+                    version=version,
+                    key=key,
+                    value=value,
+                ),
+            )
 
     def delete_skill_version_tag(
         self,
@@ -1306,8 +1390,14 @@ class SqlAlchemySkillRegistryMixin:
         self._validate_skill_identity(name, organization)
         _validate_skill_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._get_skill_version_or_raise(session, name, version, organization)
-            tag = (
+            self._get_skill_version_or_raise(
+                session,
+                name,
+                version,
+                organization,
+                columns_only=True,
+            )
+            deleted = (
                 self
                 ._get_query(session, SqlSkillVersionTag)
                 .filter(
@@ -1316,11 +1406,10 @@ class SqlAlchemySkillRegistryMixin:
                     SqlSkillVersionTag.version == version,
                     SqlSkillVersionTag.key == key,
                 )
-                .one_or_none()
+                .delete(synchronize_session=False)
             )
-            if not tag:
+            if deleted == 0:
                 raise MlflowException(
                     f"Tag '{key}' not found on Skill version '{name}' version '{version}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            session.delete(tag)

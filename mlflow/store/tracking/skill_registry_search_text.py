@@ -34,12 +34,9 @@ def _normalize(text: str | None) -> str:
 def build_skill_search_text(
     name: str,
     description: str | None = None,
-    imported_keywords: list[str] | None = None,
 ) -> str:
     """Build the ``search_text`` projection for a skill from discovery metadata."""
     parts = [_normalize(name), _normalize(description)]
-    if imported_keywords:
-        parts.extend(_normalize(kw) for kw in imported_keywords)
     return " ".join(part for part in parts if part)
 
 
@@ -70,11 +67,9 @@ def build_agent_plugin_version_search_text(
 
 def recompute_skill_search_text(skill_row: SqlSkill) -> str:
     """Rebuild ``search_text`` from an ``SqlSkill`` row, e.g. after its description changes."""
-    imported_keywords = getattr(skill_row, "imported_keywords", None)
     return build_skill_search_text(
         name=skill_row.name,
         description=skill_row.description,
-        imported_keywords=imported_keywords if isinstance(imported_keywords, list) else None,
     )
 
 

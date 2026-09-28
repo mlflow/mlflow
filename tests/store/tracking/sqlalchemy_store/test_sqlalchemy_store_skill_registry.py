@@ -118,7 +118,7 @@ def test_skill_icons_round_trip_and_can_be_cleared(store):
     assert unchanged.icons is None
 
 
-def _get_skill_search_text(store, name="reviewer", organization=""):
+def _get_skill_search_text(store, name="reviewer", organization="acme"):
     with store.ManagedSessionMaker() as session:
         return (
             store
@@ -208,9 +208,7 @@ def test_search_skills_filters_by_derived_status_organization_tags_and_search_te
     store.set_skill_tag("reviewer", "priority", "high", organization="acme")
 
     store.create_skill("draft-helper", organization="acme", description="Draft assistance")
-    store.create_skill_version(
-        "draft-helper", organization="acme", status=SkillStatus.DRAFT.value
-    )
+    store.create_skill_version("draft-helper", organization="acme", status=SkillStatus.DRAFT.value)
     store.set_skill_tag("draft-helper", "team", "platform", organization="acme")
 
     store.create_skill("reviewer", organization="beta", description="Reviews beta code")
@@ -218,9 +216,7 @@ def test_search_skills_filters_by_derived_status_organization_tags_and_search_te
     store.set_skill_tag("reviewer", "team", "platform", organization="beta")
 
     active_acme_platform = store.search_skills(
-        filter_string=(
-            "organization = 'acme' AND status = 'active' AND tags.team = 'platform'"
-        )
+        filter_string=("organization = 'acme' AND status = 'active' AND tags.team = 'platform'")
     )
     assert [(skill.organization, skill.name) for skill in active_acme_platform] == [
         ("acme", "reviewer")
@@ -235,9 +231,7 @@ def test_search_skills_filters_by_derived_status_organization_tags_and_search_te
         filter_string="search_text ILIKE '%pull%'",
         order_by=["name DESC"],
     )
-    assert [(skill.organization, skill.name) for skill in text_matches] == [
-        ("acme", "reviewer")
-    ]
+    assert [(skill.organization, skill.name) for skill in text_matches] == [("acme", "reviewer")]
 
 
 def test_search_skills_filters_source_type_by_latest_resolved_version(store):
@@ -390,9 +384,7 @@ def test_skill_tags_can_be_set_updated_deleted_and_filtered(store):
 
     store.set_skill_tag("reviewer", "team", "ml-platform", organization="acme")
     assert store.get_skill("reviewer", organization="acme").tags == {"team": "ml-platform"}
-    assert [skill.name for skill in store.search_skills("tags.team LIKE 'ml-%'")] == [
-        "reviewer"
-    ]
+    assert [skill.name for skill in store.search_skills("tags.team LIKE 'ml-%'")] == ["reviewer"]
 
     store.delete_skill_tag("reviewer", "team", organization="acme")
     assert store.get_skill("reviewer", organization="acme").tags == {}
@@ -1231,14 +1223,10 @@ def test_skill_version_tags_can_be_set_updated_deleted_and_filtered(store):
     store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
 
     store.set_skill_version_tag("reviewer", 1, "release", "canary", organization="acme")
-    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {
-        "release": "canary"
-    }
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {"release": "canary"}
 
     store.set_skill_version_tag("reviewer", 1, "release", "stable", organization="acme")
-    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {
-        "release": "stable"
-    }
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags == {"release": "stable"}
     assert [
         version.version
         for version in store.search_skill_versions(
