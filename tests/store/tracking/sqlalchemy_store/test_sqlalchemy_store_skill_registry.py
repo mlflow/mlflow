@@ -36,6 +36,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
 from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
 from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
+from mlflow.utils.validation import MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -453,6 +454,23 @@ def test_skill_tag_keys_are_case_sensitive(store):
 
     store.delete_skill_tag("reviewer", "team", organization="acme")
     assert store.get_skill("reviewer", organization="acme").tags == {"Team": "original"}
+
+
+def test_skill_tag_value_uses_registry_limits_without_truncation(store):
+    store.create_skill("reviewer", organization="acme")
+    value = "x" * 9000
+
+    store.set_skill_tag("reviewer", "team", value, organization="acme")
+
+    assert store.get_skill("reviewer", organization="acme").tags["team"] == value
+
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
+        store.set_skill_tag(
+            "reviewer",
+            "team",
+            "x" * (MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH + 1),
+            organization="acme",
+        )
 
 
 @pytest.mark.parametrize(
@@ -1341,6 +1359,24 @@ def test_skill_version_tag_keys_are_case_sensitive(store):
 
     store.delete_skill_version_tag("reviewer", 1, "team", organization="acme")
     assert store.get_skill_version("reviewer", 1, organization="acme").tags == {"Team": "original"}
+
+
+def test_skill_version_tag_value_uses_registry_limits_without_truncation(store):
+    store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
+    value = "x" * 9000
+
+    store.set_skill_version_tag("reviewer", 1, "release", value, organization="acme")
+
+    assert store.get_skill_version("reviewer", 1, organization="acme").tags["release"] == value
+
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
+        store.set_skill_version_tag(
+            "reviewer",
+            1,
+            "release",
+            "x" * (MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH + 1),
+            organization="acme",
+        )
 
 
 def test_skill_version_tag_operations_reject_missing_or_deleted_versions(store):
