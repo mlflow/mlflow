@@ -1059,6 +1059,17 @@ def authorize_on_conditions(
     if not rows:
         return True
 
+    # A workspace admin is not restrictable either. The grant half returns MANAGE for one
+    # ahead of every other rule including DENY, so leaving them subject to conditions would
+    # let a condition override a grant decision that is documented as final -- and would make
+    # conditions a way to constrain an admin, which is precisely what they are not for.
+    #
+    # Checked here rather than beside the system-admin bypass so it costs nothing in the
+    # common case: an empty condition table still returns after exactly one query, and this
+    # extra lookup happens only when conditions actually exist for the types in play.
+    if store.is_workspace_admin(user.id, workspace):
+        return True
+
     by_type: dict[str, list] = {}
     for row in rows:
         by_type.setdefault(row.resource_type, []).append(row)
@@ -2166,13 +2177,19 @@ def _experiment_conditions_permit(tags: "tuple[tuple[str, str | None], ...]") ->
 def validate_can_set_experiment_tag():
     # Grants first, then conditions: a condition may only subtract from what a grant
     # already allowed, so it is never consulted for an operation the grant denied.
-    return validate_can_update_experiment() and _experiment_conditions_permit(
+    #
+    # The GRANT is checked directly rather than through `validate_can_update_experiment`,
+    # which now evaluates conditions of its own: going through it would run the condition
+    # query twice, once with empty values and once with the real tag. Conditions are
+    # evaluated exactly once here, with the values the request actually carries.
+    return _get_permission_from_experiment_id().can_update and _experiment_conditions_permit(
         _tag_key_and_value_from_request()
     )
 
 
 def validate_can_delete_experiment_tag():
-    return validate_can_update_experiment() and _experiment_conditions_permit(
+    # See `validate_can_set_experiment_tag` on why the grant is checked directly.
+    return _get_permission_from_experiment_id().can_update and _experiment_conditions_permit(
         _tag_key_from_request()
     )
 

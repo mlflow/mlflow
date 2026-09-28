@@ -38,15 +38,21 @@ _WORKSPACE = "team-a"
 class CountingStore:
     """Counts the auth-store calls the gate makes."""
 
-    def __init__(self, rows=(), is_admin=False):
+    def __init__(self, rows=(), is_admin=False, is_ws_admin=False):
         self.rows = list(rows)
         self.is_admin = is_admin
+        self.is_ws_admin = is_ws_admin
+        self.workspace_admin_checks = 0
         self.user_loads = 0
         self.condition_loads = []
 
     def get_user(self, username):
         self.user_loads += 1
         return SimpleNamespace(id=1, username=username, is_admin=self.is_admin)
+
+    def is_workspace_admin(self, user_id, workspace):
+        self.workspace_admin_checks += 1
+        return self.is_ws_admin
 
     def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
         self.condition_loads.append(set(resource_types))
@@ -80,8 +86,15 @@ def gate(monkeypatch):
     """
     state = {}
 
-    def run(contexts, rows=(), is_admin=False, values=None, workspace=_WORKSPACE):
-        store = CountingStore(rows, is_admin)
+    def run(
+        contexts,
+        rows=(),
+        is_admin=False,
+        values=None,
+        workspace=_WORKSPACE,
+        is_ws_admin=False,
+    ):
+        store = CountingStore(rows, is_admin, is_ws_admin)
         resources = CountingResources(values)
         monkeypatch.setattr(auth_module, "store", store)
         monkeypatch.setattr(auth_resources, "attrs_for", resources.attrs_for)
@@ -396,3 +409,93 @@ def test_one_failing_resource_in_a_bulk_set_denies(gate):
         },
     )
     assert allowed is False
+
+
+# ---- The composed experiment validators must query once ----------------------
+
+
+@pytest.mark.parametrize(
+    ("validator_name", "path", "body"),
+    [
+        (
+            "validate_can_set_experiment_tag",
+            "/api/2.0/mlflow/experiments/set-experiment-tag",
+            {"experiment_id": "1", "key": "team", "value": "ml"},
+        ),
+        (
+            "validate_can_delete_experiment_tag",
+            "/api/2.0/mlflow/experiments/delete-experiment-tag",
+            {"experiment_id": "1", "key": "team"},
+        ),
+    ],
+)
+def test_an_experiment_tag_validator_loads_conditions_once(monkeypatch, validator_name, path, body):
+    """The legacy experiment surface composes its grant check and its condition check by hand,
+    so a shared grant helper that also evaluates conditions doubles the query. The rest of this
+    suite drives the gate directly and cannot see that, so this asserts on the composed
+    validator.
+    """
+    store = CountingStore(
+        rows=[MutationConditionSpec("experiment", value_condition="tag_key != 'x'")]
+    )
+    monkeypatch.setattr(auth_module, "store", store)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_experiment_id",
+        lambda: SimpleNamespace(can_update=True),
+    )
+    monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda *a, **k: _WORKSPACE)
+    validator = getattr(auth_module, validator_name)
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert validator() is True
+    assert len(store.condition_loads) == 1, (
+        f"{validator_name} loaded conditions {len(store.condition_loads)} times; the grant "
+        f"helper it delegates to must not evaluate conditions as well"
+    )
+
+
+# ---- A workspace admin is not restrictable either ---------------------------
+
+
+def test_a_workspace_admin_bypasses_a_failing_condition(gate):
+    """The grant half returns MANAGE for a workspace admin ahead of every other rule including
+    DENY, so conditions must not override that. Otherwise a condition becomes a way to
+    constrain an admin, which is exactly what conditions are not for.
+
+    A workspace admin normally has `is_admin` false, so the system-admin bypass does not cover
+    this case.
+    """
+    run, state = gate
+    allowed = run(
+        [
+            ConditionContext(
+                "run", ConditionScope.MUTATE, RunRequestValues(tags=(("pii", "yes"),)), ("r1",)
+            )
+        ],
+        rows=[MutationConditionSpec("run", value_condition="tag_key != 'pii'")],
+        is_ws_admin=True,
+    )
+    assert allowed is True, "a workspace admin was restricted by a condition"
+    resources = state["resources"]
+    assert resources.bulk_reads == [], "an admin bypass must precede every resource read"
+    assert resources.single_reads == [], "an admin bypass must precede every resource read"
+
+
+def test_the_workspace_admin_check_is_skipped_when_nothing_is_configured(gate):
+    """The bypass must not cost a query on the common path: with no conditions configured the
+    gate still returns after exactly one lookup and never asks whether the user is an admin.
+    """
+    run, state = gate
+    allowed = run(
+        [ConditionContext("run", ConditionScope.MUTATE, RunRequestValues(), ("r1",))],
+        rows=[],
+    )
+    assert allowed is True
+    store = state["store"]
+    assert len(store.condition_loads) == 1
+    assert store.workspace_admin_checks == 0, (
+        "the workspace-admin lookup ran even though no condition was configured"
+    )

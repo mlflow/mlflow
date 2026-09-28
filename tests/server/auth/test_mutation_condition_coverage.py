@@ -308,7 +308,14 @@ def test_every_wired_mutation_declares_a_condition(
     because the route keeps authorizing exactly as before and only the conditions go quiet.
     """
     if validator in ("validate_can_set_experiment_tag", "validate_can_delete_experiment_tag"):
-        monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
+        # The grant half of the legacy experiment surface. Stubbed at the permission lookup
+        # rather than at `validate_can_update_experiment`, because the tag validators no longer
+        # delegate to it -- doing so ran the condition query twice.
+        monkeypatch.setattr(
+            auth_module,
+            "_get_permission_from_experiment_id",
+            lambda: SimpleNamespace(can_update=True),
+        )
     if validator.endswith("_alias"):
         monkeypatch.setattr(auth_module, "_alias_version_requirement_met", lambda: True)
 
@@ -337,7 +344,14 @@ def test_every_wired_mutation_extracts_its_values(
     carries no tag are the exception, and are listed as such.
     """
     if validator in ("validate_can_set_experiment_tag", "validate_can_delete_experiment_tag"):
-        monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
+        # The grant half of the legacy experiment surface. Stubbed at the permission lookup
+        # rather than at `validate_can_update_experiment`, because the tag validators no longer
+        # delegate to it -- doing so ran the condition query twice.
+        monkeypatch.setattr(
+            auth_module,
+            "_get_permission_from_experiment_id",
+            lambda: SimpleNamespace(can_update=True),
+        )
     if validator.endswith("_alias"):
         monkeypatch.setattr(auth_module, "_alias_version_requirement_met", lambda: True)
 
@@ -409,6 +423,9 @@ def _conditioned_store(**kwargs):
     class Store:
         def get_user(self, username):
             return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def is_workspace_admin(self, user_id, workspace):
+            return False
 
         def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
             return [MutationConditionSpec("trace", **kwargs)]

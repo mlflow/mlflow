@@ -68,6 +68,9 @@ def _configure(monkeypatch, *, value_condition=None, target_condition=None, perm
         def get_user(self, username):
             return SimpleNamespace(id=1, username=username, is_admin=False)
 
+        def is_workspace_admin(self, user_id, workspace):
+            return False
+
         def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
             if value_condition is None and target_condition is None:
                 return []
@@ -236,6 +239,9 @@ def _version_configured(monkeypatch, *, value_condition=None, target_condition=N
     class Store:
         def get_user(self, username):
             return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def is_workspace_admin(self, user_id, workspace):
+            return False
 
         def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
             return [
@@ -447,6 +453,9 @@ async def test_deleting_a_server_refuses_when_a_version_condition_cannot_be_chec
     class Store:
         def get_user(self, username):
             return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def is_workspace_admin(self, user_id, workspace):
+            return False
 
         def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
             # Only the VERSION tier is restricted; the server itself is unrestricted.
