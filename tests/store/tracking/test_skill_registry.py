@@ -12,6 +12,7 @@ from mlflow.store.tracking.file_store import FileStore
         ("update_skill", ("reviewer",), {}),
         ("search_skills", (), {}),
         ("create_skill_version", ("reviewer",), {}),
+        ("bulk_register_skills", ([],), {}),
         ("get_skill_version", ("reviewer", 1), {}),
     ],
 )
