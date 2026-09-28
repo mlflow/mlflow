@@ -304,7 +304,9 @@ def upgrade():
         # only once.
         with _with_batch("experiments") as batch_op:
             if experiments_unique_constraint:
-                batch_op.drop_constraint(experiments_unique_constraint, type_="unique")
+                batch_op.drop_constraint(
+                    experiments_unique_constraint, type_="unique", if_exists=True
+                )
             elif experiments_unique_index:
                 batch_op.drop_index(experiments_unique_index)
             batch_op.add_column(_workspace_column())
@@ -315,18 +317,20 @@ def upgrade():
 
         with _with_batch("registered_models") as batch_op:
             if registered_models_unique_constraint:
-                batch_op.drop_constraint(registered_models_unique_constraint, type_="unique")
+                batch_op.drop_constraint(
+                    registered_models_unique_constraint, type_="unique", if_exists=True
+                )
             elif registered_models_unique_index:
                 batch_op.drop_index(registered_models_unique_index)
             batch_op.add_column(_workspace_column())
-            batch_op.drop_constraint("registered_model_pk", type_="primary")
+            batch_op.drop_constraint("registered_model_pk", type_="primary", if_exists=True)
             batch_op.create_primary_key("registered_model_pk", ["workspace", "name"])
 
         with _with_batch("model_versions") as batch_op:
             batch_op.add_column(_workspace_column())
             for fk_name in fk_model_versions:
-                batch_op.drop_constraint(fk_name, type_="foreignkey")
-            batch_op.drop_constraint("model_version_pk", type_="primary")
+                batch_op.drop_constraint(fk_name, type_="foreignkey", if_exists=True)
+            batch_op.drop_constraint("model_version_pk", type_="primary", if_exists=True)
             batch_op.create_primary_key("model_version_pk", ["workspace", "name", "version"])
             batch_op.create_foreign_key(
                 "fk_model_versions_registered_models",
@@ -339,8 +343,8 @@ def upgrade():
         with _with_batch("registered_model_tags") as batch_op:
             batch_op.add_column(_workspace_column())
             for fk_name in fk_registered_model_tags:
-                batch_op.drop_constraint(fk_name, type_="foreignkey")
-            batch_op.drop_constraint("registered_model_tag_pk", type_="primary")
+                batch_op.drop_constraint(fk_name, type_="foreignkey", if_exists=True)
+            batch_op.drop_constraint("registered_model_tag_pk", type_="primary", if_exists=True)
             batch_op.create_primary_key("registered_model_tag_pk", ["workspace", "key", "name"])
             batch_op.create_foreign_key(
                 "fk_registered_model_tags_registered_models",
@@ -353,8 +357,8 @@ def upgrade():
         with _with_batch("model_version_tags") as batch_op:
             batch_op.add_column(_workspace_column())
             for fk_name in fk_model_version_tags:
-                batch_op.drop_constraint(fk_name, type_="foreignkey")
-            batch_op.drop_constraint("model_version_tag_pk", type_="primary")
+                batch_op.drop_constraint(fk_name, type_="foreignkey", if_exists=True)
+            batch_op.drop_constraint("model_version_tag_pk", type_="primary", if_exists=True)
             batch_op.create_primary_key(
                 "model_version_tag_pk",
                 ["workspace", "key", "name", "version"],
@@ -370,8 +374,8 @@ def upgrade():
         with _with_batch("registered_model_aliases") as batch_op:
             batch_op.add_column(_workspace_column())
             for fk_name in fk_registered_model_aliases:
-                batch_op.drop_constraint(fk_name, type_="foreignkey")
-            batch_op.drop_constraint("registered_model_alias_pk", type_="primary")
+                batch_op.drop_constraint(fk_name, type_="foreignkey", if_exists=True)
+            batch_op.drop_constraint("registered_model_alias_pk", type_="primary", if_exists=True)
             batch_op.create_primary_key(
                 "registered_model_alias_pk",
                 ["workspace", "name", "alias"],
@@ -393,7 +397,7 @@ def upgrade():
 
         with _with_batch("secrets") as batch_op:
             if secrets_unique_constraint:
-                batch_op.drop_constraint(secrets_unique_constraint, type_="unique")
+                batch_op.drop_constraint(secrets_unique_constraint, type_="unique", if_exists=True)
             elif secrets_unique_index:
                 batch_op.drop_index(secrets_unique_index)
             batch_op.add_column(_workspace_column())
@@ -405,7 +409,9 @@ def upgrade():
 
         with _with_batch("endpoints") as batch_op:
             if endpoints_unique_constraint:
-                batch_op.drop_constraint(endpoints_unique_constraint, type_="unique")
+                batch_op.drop_constraint(
+                    endpoints_unique_constraint, type_="unique", if_exists=True
+                )
             elif endpoints_unique_index:
                 batch_op.drop_index(endpoints_unique_index)
             batch_op.add_column(_workspace_column())
@@ -416,7 +422,9 @@ def upgrade():
 
         with _with_batch("model_definitions") as batch_op:
             if model_definitions_unique_constraint:
-                batch_op.drop_constraint(model_definitions_unique_constraint, type_="unique")
+                batch_op.drop_constraint(
+                    model_definitions_unique_constraint, type_="unique", if_exists=True
+                )
             elif model_definitions_unique_index:
                 batch_op.drop_index(model_definitions_unique_index)
             batch_op.add_column(_workspace_column())
@@ -688,8 +696,10 @@ def downgrade():
 
     if dialect_name == "sqlite":
         with _with_batch("model_version_tags") as batch_op:
-            batch_op.drop_constraint("fk_model_version_tags_model_versions", type_="foreignkey")
-            batch_op.drop_constraint("model_version_tag_pk", type_="primary")
+            batch_op.drop_constraint(
+                "fk_model_version_tags_model_versions", type_="foreignkey", if_exists=True
+            )
+            batch_op.drop_constraint("model_version_tag_pk", type_="primary", if_exists=True)
             batch_op.drop_column("workspace")
             batch_op.create_primary_key("model_version_tag_pk", ["key", "name", "version"])
             batch_op.create_foreign_key(
@@ -702,9 +712,9 @@ def downgrade():
 
         with _with_batch("registered_model_aliases") as batch_op:
             batch_op.drop_constraint(
-                "fk_registered_model_aliases_registered_models", type_="foreignkey"
+                "fk_registered_model_aliases_registered_models", type_="foreignkey", if_exists=True
             )
-            batch_op.drop_constraint("registered_model_alias_pk", type_="primary")
+            batch_op.drop_constraint("registered_model_alias_pk", type_="primary", if_exists=True)
             batch_op.drop_column("workspace")
             batch_op.create_primary_key("registered_model_alias_pk", ["name", "alias"])
             batch_op.create_foreign_key(
@@ -718,9 +728,9 @@ def downgrade():
 
         with _with_batch("registered_model_tags") as batch_op:
             batch_op.drop_constraint(
-                "fk_registered_model_tags_registered_models", type_="foreignkey"
+                "fk_registered_model_tags_registered_models", type_="foreignkey", if_exists=True
             )
-            batch_op.drop_constraint("registered_model_tag_pk", type_="primary")
+            batch_op.drop_constraint("registered_model_tag_pk", type_="primary", if_exists=True)
             batch_op.drop_column("workspace")
             batch_op.create_primary_key("registered_model_tag_pk", ["key", "name"])
             batch_op.create_foreign_key(
@@ -732,8 +742,10 @@ def downgrade():
             )
 
         with _with_batch("model_versions") as batch_op:
-            batch_op.drop_constraint("fk_model_versions_registered_models", type_="foreignkey")
-            batch_op.drop_constraint("model_version_pk", type_="primary")
+            batch_op.drop_constraint(
+                "fk_model_versions_registered_models", type_="foreignkey", if_exists=True
+            )
+            batch_op.drop_constraint("model_version_pk", type_="primary", if_exists=True)
             batch_op.drop_column("workspace")
             batch_op.create_primary_key("model_version_pk", ["name", "version"])
             batch_op.create_foreign_key(
@@ -745,12 +757,14 @@ def downgrade():
             )
 
         with _with_batch("registered_models") as batch_op:
-            batch_op.drop_constraint("registered_model_pk", type_="primary")
+            batch_op.drop_constraint("registered_model_pk", type_="primary", if_exists=True)
             batch_op.drop_column("workspace")
             batch_op.create_primary_key("registered_model_pk", ["name"])
 
         with _with_batch("experiments") as batch_op:
-            batch_op.drop_constraint("uq_experiments_workspace_name", type_="unique")
+            batch_op.drop_constraint(
+                "uq_experiments_workspace_name", type_="unique", if_exists=True
+            )
             batch_op.drop_column("workspace")
             batch_op.create_unique_constraint("uq_experiments_name", ["name"])
 
@@ -761,17 +775,21 @@ def downgrade():
             batch_op.drop_column("workspace")
 
         with _with_batch("model_definitions") as batch_op:
-            batch_op.drop_constraint("uq_model_definitions_workspace_name", type_="unique")
+            batch_op.drop_constraint(
+                "uq_model_definitions_workspace_name", type_="unique", if_exists=True
+            )
             batch_op.drop_column("workspace")
             batch_op.create_index("unique_model_definition_name", ["name"], unique=True)
 
         with _with_batch("endpoints") as batch_op:
-            batch_op.drop_constraint("uq_endpoints_workspace_name", type_="unique")
+            batch_op.drop_constraint("uq_endpoints_workspace_name", type_="unique", if_exists=True)
             batch_op.drop_column("workspace")
             batch_op.create_index("unique_endpoint_name", ["name"], unique=True)
 
         with _with_batch("secrets") as batch_op:
-            batch_op.drop_constraint("uq_secrets_workspace_secret_name", type_="unique")
+            batch_op.drop_constraint(
+                "uq_secrets_workspace_secret_name", type_="unique", if_exists=True
+            )
             batch_op.drop_column("workspace")
             batch_op.create_index("unique_secret_name", ["secret_name"], unique=True)
         _recreate_secrets_immutability_trigger(dialect_name)
