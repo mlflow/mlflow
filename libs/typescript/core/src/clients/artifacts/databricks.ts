@@ -59,10 +59,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
       return TraceData.fromJson(traceDataJson);
     } catch (error) {
       console.error(`Failed to download trace data for ${traceInfo.traceId}:`, error);
-
-      // Return empty trace data if download fails
-      // This allows getting trace info even if data is missing
-      return new TraceData([]);
+      throw error;
     }
   }
 

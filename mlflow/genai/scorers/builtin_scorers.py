@@ -51,7 +51,11 @@ from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
+from mlflow.genai.judges.prompts.fluency import (
+    FLUENCY_ASSESSMENT_NAME,
+    FLUENCY_PROMPT,
+    FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.knowledge_retention import (
@@ -75,6 +79,7 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
+from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -320,6 +325,7 @@ class BuiltInScorer(Judge):
     name: str
     required_columns: set[str] = set()
     inference_params: dict[str, Any] | None = None
+    extra_headers: dict[str, str] | None = None
 
     @property
     @abstractmethod
@@ -498,7 +504,10 @@ class RetrievalRelevance(BuiltInScorer):
         self, span_id: str, request: str, chunks: list[dict[str, str]]
     ) -> list[Feedback]:
         """Compute the relevance of retrieved context for one retriever span."""
-        from mlflow.genai.judges.prompts.retrieval_relevance import get_prompt
+        from mlflow.genai.judges.prompts.retrieval_relevance import (
+            RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+            get_prompt,
+        )
 
         model = self.model or get_default_model()
 
@@ -516,13 +525,25 @@ class RetrievalRelevance(BuiltInScorer):
             )
         else:
             for i, chunk in enumerate(chunks):
-                prompt = get_prompt(request=request, context=chunk["content"])
-                feedback = invoke_judge_model(
-                    model,
-                    prompt,
-                    assessment_name=self.name,
-                    inference_params=self.inference_params,
-                )
+                if _is_typesafe_model(model):
+                    feedback = _invoke_typesafe_judge(
+                        model,
+                        instructions=RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        state={"input": request, "doc": chunk["content"]},
+                        feedback_value_type=Literal["yes", "no"],
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    )
+                else:
+                    prompt = get_prompt(request=request, context=chunk["content"])
+                    feedback = invoke_judge_model(
+                        model,
+                        prompt,
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
                     **(sanitized_feedback.metadata or {}),
@@ -676,6 +697,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_facts=expected_facts,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -783,13 +805,13 @@ class RetrievalGroundedness(BuiltInScorer):
                 context=context,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
         return feedbacks
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallEfficiency(BuiltInScorer):
     """
@@ -867,10 +889,10 @@ class ToolCallEfficiency(BuiltInScorer):
             available_tools=available_tools,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallCorrectness(BuiltInScorer):
     """
@@ -1117,6 +1139,7 @@ class ToolCallCorrectness(BuiltInScorer):
                 check_order=self.should_consider_ordering,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
 
         # Only compare arguments if all expected calls have arguments specified
@@ -1149,6 +1172,7 @@ class ToolCallCorrectness(BuiltInScorer):
             check_order=self.should_consider_ordering,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
@@ -1297,6 +1321,7 @@ class Guidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1462,6 +1487,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1584,7 +1610,11 @@ class RelevanceToQuery(BuiltInScorer):
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
         feedback = judges.is_context_relevant(
-            request=request, context=fields.outputs, name=self.name, model=self.model
+            request=request,
+            context=fields.outputs,
+            name=self.name,
+            model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1691,6 +1721,7 @@ class Safety(BuiltInScorer):
             content=parse_outputs_to_str(fields.outputs),
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1795,12 +1826,6 @@ class Correctness(BuiltInScorer):
             )
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the Correctness judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="inputs",
@@ -1887,6 +1912,7 @@ class Correctness(BuiltInScorer):
             expected_facts=expected_facts,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1946,12 +1972,19 @@ class Fluency(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
+            model = self.model or get_default_model()
+            instructions = (
+                FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS
+                if _is_typesafe_model(model)
+                else self.instructions
+            )
             self._judge = InstructionsJudge(
                 name=self.name,
-                instructions=self.instructions,
-                model=self.model,
+                instructions=instructions,
+                model=model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -2100,6 +2133,7 @@ class Equivalence(BuiltInScorer):
         from mlflow.genai.judges.builtin import _sanitize_feedback
         from mlflow.genai.judges.prompts.equivalence import (
             EQUIVALENCE_FEEDBACK_NAME,
+            EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
             get_prompt,
         )
 
@@ -2159,13 +2193,28 @@ class Equivalence(BuiltInScorer):
         model = self.model or get_default_model()
         assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
-        prompt = get_prompt(
-            output=outputs_str,
-            expected_output=expectations_str,
-        )
-        feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, inference_params=self.inference_params
-        )
+        if _is_typesafe_model(model):
+            feedback = _invoke_typesafe_judge(
+                model,
+                instructions=EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                state={"output": actual_output, "expected_output": expected_output},
+                feedback_value_type=Literal["yes", "no"],
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            )
+        else:
+            prompt = get_prompt(
+                output=outputs_str,
+                expected_output=expectations_str,
+            )
+            feedback = invoke_judge_model(
+                model,
+                prompt,
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            )
 
         return _sanitize_feedback(feedback)
 
@@ -2251,11 +2300,15 @@ class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
     implementation details should inherit from SessionLevelScorer directly.
     """
 
-    # All functionality now inherited from SessionLevelScorer
-    # BuiltInScorer provides special serialization for public API
+    # Re-declared because BuiltInScorer precedes SessionLevelScorer in the MRO, so
+    # BuiltInScorer's ``set()`` default would otherwise shadow SessionLevelScorer's
+    # ``{"trace"}``, leaving session scorers with an empty (incorrect) data contract.
+    required_columns: set[str] = {"trace"}
+
+    # Remaining functionality is inherited from SessionLevelScorer;
+    # BuiltInScorer provides special serialization for public API.
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class UserFrustration(BuiltInSessionLevelScorer):
     """
@@ -2327,6 +2380,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2334,7 +2388,6 @@ class UserFrustration(BuiltInSessionLevelScorer):
         return USER_FRUSTRATION_PROMPT
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationCompleteness(BuiltInSessionLevelScorer):
     """
@@ -2406,6 +2459,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2413,7 +2467,6 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         return CONVERSATION_COMPLETENESS_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalSafety(BuiltInSessionLevelScorer):
     """
@@ -2487,6 +2540,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2494,7 +2548,6 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_SAFETY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     """
@@ -2565,6 +2618,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2572,7 +2626,6 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     """
@@ -2642,6 +2695,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2649,7 +2703,6 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalGuidelines(BuiltInSessionLevelScorer):
     """
@@ -2733,6 +2786,7 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2760,6 +2814,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
 
     name: str = "last_turn_knowledge_retention"
     model: str | None = None
+    extra_headers: dict[str, str] | None = None
     description: str = (
         "Evaluate whether the last AI response in a conversation correctly retains information "
         "provided by users in earlier conversation turns."
@@ -2777,6 +2832,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2784,7 +2840,6 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         return KNOWLEDGE_RETENTION_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class KnowledgeRetention(BuiltInSessionLevelScorer):
     """
@@ -2847,12 +2902,18 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        if self.model is not None or self.inference_params is not None:
+        if (
+            self.model is not None
+            or self.inference_params is not None
+            or self.extra_headers is not None
+        ):
             self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
             if self.model is not None:
                 self.last_turn_scorer.model = self.model
             if self.inference_params is not None:
                 self.last_turn_scorer.inference_params = self.inference_params
+            if self.extra_headers is not None:
+                self.last_turn_scorer.extra_headers = self.extra_headers
 
     def _create_judge(self) -> Judge:
         """
@@ -2970,7 +3031,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Completeness(BuiltInScorer):
     """
@@ -3040,6 +3100,7 @@ class Completeness(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -3079,7 +3140,6 @@ class Completeness(BuiltInScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Summarization(BuiltInScorer):
     """
@@ -3146,6 +3206,7 @@ class Summarization(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 

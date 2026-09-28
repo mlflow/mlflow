@@ -8,6 +8,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.export.span_batcher import SpanBatcher
+from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.utils import get_active_spans_table_name
 
 _logger = logging.getLogger(__name__)
@@ -70,6 +71,12 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
     def _should_log_spans_to_artifacts(self, trace_info: TraceInfo) -> bool:
         return False
 
-    def flush(self) -> None:
-        self._span_batcher.shutdown()
-        self._async_queue.flush(terminate=True)
+    def flush(self, terminate: bool = False) -> None:
+        """
+        Drain the span batcher and the async queue this exporter buffers spans in.
+
+        Args:
+            terminate: If True, shut both down instead of leaving them ready for
+                further spans.
+        """
+        flush_exporter(self, terminate=terminate)

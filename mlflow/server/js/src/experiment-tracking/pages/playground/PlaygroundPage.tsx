@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
+import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
@@ -354,7 +355,7 @@ const PlaygroundPage = () => {
               />
             );
           })()}
-        <div
+        <AssistantAwareActionBar
           css={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -427,7 +428,7 @@ const PlaygroundPage = () => {
               />
             );
           })()}
-        </div>
+        </AssistantAwareActionBar>
       </div>
 
       <PromptRegistryPicker

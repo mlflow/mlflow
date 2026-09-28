@@ -1,64 +1,18 @@
-import type { TraceLocation, TraceLocationType } from './trace_location';
+import {
+  deserializeTraceLocation,
+  serializeTraceLocation,
+  type SerializedTraceLocation,
+  type TraceLocation,
+} from './trace_location';
 import type { TraceState } from './trace_state';
 import { TraceMetadataKey } from '../constants';
-
-interface SerializedTraceLocation {
-  type: TraceLocationType;
-  mlflow_experiment?: { experiment_id: string };
-  inference_table?: { full_table_name: string };
-  uc_table_prefix?: {
-    catalog_name: string;
-    schema_name: string;
-    table_prefix?: string;
-    otel_spans_table_name?: string;
-    otel_logs_table_name?: string;
-    annotations_table_name?: string;
-  };
-}
-
-function serializeTraceLocation(loc: TraceLocation): SerializedTraceLocation {
-  const out: SerializedTraceLocation = { type: loc.type };
-  if (loc.mlflowExperiment) {
-    out.mlflow_experiment = { experiment_id: loc.mlflowExperiment.experimentId };
-  }
-  if (loc.inferenceTable) {
-    out.inference_table = { full_table_name: loc.inferenceTable.fullTableName };
-  }
-  if (loc.ucTablePrefix) {
-    const uc = loc.ucTablePrefix;
-    out.uc_table_prefix = {
-      catalog_name: uc.catalogName,
-      schema_name: uc.schemaName,
-      ...(uc.tablePrefix ? { table_prefix: uc.tablePrefix } : {}),
-      ...(uc.otelSpansTableName ? { otel_spans_table_name: uc.otelSpansTableName } : {}),
-      ...(uc.otelLogsTableName ? { otel_logs_table_name: uc.otelLogsTableName } : {}),
-      ...(uc.annotationsTableName ? { annotations_table_name: uc.annotationsTableName } : {}),
-    };
-  }
-  return out;
-}
-
-function deserializeTraceLocation(json: SerializedTraceLocation | undefined): TraceLocation {
-  return {
-    type: json?.type as TraceLocationType,
-    mlflowExperiment: json?.mlflow_experiment
-      ? { experimentId: json.mlflow_experiment.experiment_id }
-      : undefined,
-    inferenceTable: json?.inference_table
-      ? { fullTableName: json.inference_table.full_table_name }
-      : undefined,
-    ucTablePrefix: json?.uc_table_prefix
-      ? {
-          catalogName: json.uc_table_prefix.catalog_name,
-          schemaName: json.uc_table_prefix.schema_name,
-          tablePrefix: json.uc_table_prefix.table_prefix,
-          otelSpansTableName: json.uc_table_prefix.otel_spans_table_name,
-          otelLogsTableName: json.uc_table_prefix.otel_logs_table_name,
-          annotationsTableName: json.uc_table_prefix.annotations_table_name,
-        }
-      : undefined,
-  };
-}
+import {
+  assessmentFromJson,
+  assessmentToJson,
+  isFeedback,
+  type Assessment,
+  type SerializedAssessment,
+} from './assessment';
 
 /**
  * Interface for token usage information
@@ -127,9 +81,8 @@ export class TraceInfo {
 
   /**
    * List of assessments associated with the trace.
-   * TODO: Assessments are not yet supported in the TypeScript SDK.
    */
-  assessments: any[];
+  assessments: Assessment[];
 
   /**
    * Create a new TraceInfo instance
@@ -146,7 +99,7 @@ export class TraceInfo {
     executionDuration?: number;
     traceMetadata?: Record<string, string>;
     tags?: Record<string, string>;
-    assessments?: any[];
+    assessments?: Assessment[] | SerializedAssessment[];
   }) {
     this.traceId = params.traceId;
     this.traceLocation = params.traceLocation;
@@ -158,8 +111,7 @@ export class TraceInfo {
     this.executionDuration = params.executionDuration;
     this.traceMetadata = params.traceMetadata || {};
     this.tags = params.tags || {};
-    // TODO: Assessments are not yet supported in the TypeScript SDK.
-    this.assessments = [];
+    this.assessments = (params.assessments || []).map(normalizeAssessment);
   }
 
   /**
@@ -179,7 +131,7 @@ export class TraceInfo {
       state: this.state,
       trace_metadata: this.traceMetadata,
       tags: this.tags,
-      assessments: this.assessments,
+      assessments: this.assessments.map(assessmentToJson),
     };
   }
 
@@ -235,6 +187,13 @@ export class TraceInfo {
   }
 }
 
+function normalizeAssessment(assessment: Assessment | SerializedAssessment): Assessment {
+  if (isFeedback(assessment)) {
+    return assessment;
+  }
+  return assessmentFromJson(assessment);
+}
+
 export interface SerializedTraceInfo {
   trace_id: string;
   client_request_id?: string;
@@ -247,6 +206,5 @@ export interface SerializedTraceInfo {
   state: TraceState;
   trace_metadata: Record<string, string>;
   tags: Record<string, string>;
-  // TODO: Define proper type for assessments once supported
-  assessments: any[];
+  assessments: SerializedAssessment[];
 }

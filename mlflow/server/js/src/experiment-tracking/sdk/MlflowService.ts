@@ -51,6 +51,8 @@ type GetCredentialsForLoggedModelArtifactReadResult = {
 
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
+const encodePathForRoute = (path: string) => path.split('/').map(encodeURIComponent).join('/');
+
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class MlflowService {
   /**
@@ -98,6 +100,26 @@ export class MlflowService {
    * Delete a mlflow experiment run
    */
   static deleteRun = (data: { run_id: string }) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
+
+  /**
+   * Create a presigned URL for downloading a run artifact directly from cloud storage.
+   */
+  static createPresignedDownloadUrl = (data: { run_id: string; path: string }) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/presigned-download-url', data }) as Promise<{
+      presigned_url?: string;
+      headers?: Record<string, string>;
+      file_size?: number;
+    }>;
+
+  /**
+   * Create a presigned URL for downloading an artifact served through the mlflow-artifacts proxy.
+   */
+  static getMlflowArtifactsPresignedDownloadUrl = (path: string) =>
+    getJson({ relativeUrl: `ajax-api/2.0/mlflow-artifacts/presigned/${encodePathForRoute(path)}` }) as Promise<{
+      url?: string;
+      headers?: Record<string, string>;
+      file_size?: number;
+    }>;
 
   /**
    * Search datasets used in experiments

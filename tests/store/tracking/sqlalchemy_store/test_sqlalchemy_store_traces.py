@@ -1,9 +1,12 @@
+import asyncio
 import contextlib
 import json
 import random
 import re
+import threading
 import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
@@ -47,6 +50,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
+    TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -55,23 +59,26 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
     SqlTraceInfo,
+    SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     CostKey,
     SpanAttributeKey,
     SpansLocation,
+    TokenUsageKey,
     TraceArchivalFailureReason,
     TraceExperimentTagKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
     TraceTagKey,
 )
-from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils import TraceJSONEncoder, dump_span_attribute_value
 from mlflow.utils.file_utils import TempDir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.time import get_current_time_millis
@@ -167,6 +174,86 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     assert trace_info.to_v3() == store.get_trace_info(request_id)
 
 
+def test_legacy_trace_v2_writes_reserved_fields_to_authoritative_columns(
+    store: SqlAlchemyStore,
+):
+    experiment_id = store.create_experiment("test_legacy_reserved_fields")
+    trace_info = store.deprecated_start_trace_v2(
+        experiment_id=experiment_id,
+        timestamp_ms=1234,
+        request_metadata={
+            TraceMetadataKey.TRACE_SESSION: "session-1",
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                TokenUsageKey.INPUT_TOKENS: 4,
+                TokenUsageKey.OUTPUT_TOKENS: 6,
+                TokenUsageKey.TOTAL_TOKENS: 10,
+            }),
+            TraceMetadataKey.COST: json.dumps({
+                CostKey.INPUT_COST: 0.04,
+                CostKey.OUTPUT_COST: 0.06,
+                CostKey.TOTAL_COST: 0.1,
+            }),
+        },
+        tags={TraceTagKey.TRACE_NAME: "initial-name"},
+    )
+
+    trace_info = store.deprecated_end_trace_v2(
+        request_id=trace_info.request_id,
+        timestamp_ms=2345,
+        status=TraceStatus.OK,
+        request_metadata={
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": 20}),
+            TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.2}),
+        },
+        tags={TraceTagKey.TRACE_NAME: "final-name"},
+    )
+
+    assert trace_info.tags[TraceTagKey.TRACE_NAME] == "final-name"
+    assert trace_info.request_metadata[TraceMetadataKey.TRACE_SESSION] == "session-1"
+    assert json.loads(trace_info.request_metadata[TraceMetadataKey.TOKEN_USAGE]) == {
+        TokenUsageKey.INPUT_TOKENS: 4,
+        TokenUsageKey.OUTPUT_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 20,
+    }
+    assert json.loads(trace_info.request_metadata[TraceMetadataKey.COST]) == {
+        CostKey.INPUT_COST: 0.04,
+        CostKey.OUTPUT_COST: 0.06,
+        CostKey.TOTAL_COST: 0.2,
+    }
+
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = session.get(SqlTraceInfo, trace_info.request_id)
+        assert sql_trace_info.trace_name == "final-name"
+        assert sql_trace_info.session_id == "session-1"
+        assert sql_trace_info.input_tokens == 4
+        assert sql_trace_info.output_tokens == 6
+        assert sql_trace_info.total_tokens == 20
+        assert sql_trace_info.input_cost == 0.04
+        assert sql_trace_info.output_cost == 0.06
+        assert sql_trace_info.total_cost == 0.2
+        assert (
+            session
+            .query(SqlTraceTag)
+            .filter_by(request_id=trace_info.request_id, key=TraceTagKey.TRACE_NAME)
+            .count()
+            == 0
+        )
+        assert (
+            session
+            .query(SqlTraceMetadata)
+            .filter(
+                SqlTraceMetadata.request_id == trace_info.request_id,
+                SqlTraceMetadata.key.in_([
+                    TraceMetadataKey.TRACE_SESSION,
+                    TraceMetadataKey.TOKEN_USAGE,
+                    TraceMetadataKey.COST,
+                ]),
+            )
+            .count()
+            == 0
+        )
+
+
 def test_start_trace(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
     trace_info = TraceInfo(
@@ -196,6 +283,52 @@ def test_start_trace(store: SqlAlchemyStore):
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
     assert trace_info == store.get_trace_info(trace_id)
+
+
+@pytest.mark.parametrize(
+    ("tags", "trace_metadata", "limit"),
+    [
+        (
+            {TraceTagKey.TRACE_NAME: "n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1)},
+            {},
+            MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+        ),
+        (
+            {},
+            {TraceMetadataKey.TRACE_SESSION: "s" * (MAX_CHARS_IN_TRACE_INFO_METADATA + 1)},
+            MAX_CHARS_IN_TRACE_INFO_METADATA,
+        ),
+    ],
+)
+def test_start_trace_rejects_oversized_promoted_dimensions(
+    store: SqlAlchemyStore, tags, trace_metadata, limit
+):
+    experiment_id = store.create_experiment(f"test_oversized_trace_dimension_{limit}")
+    trace_info = TraceInfo(
+        trace_id=f"tr-oversized-{limit}",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags=tags,
+        trace_metadata=trace_metadata,
+    )
+
+    with pytest.raises(MlflowException, match=rf"maximum length of {limit}"):
+        store.start_trace(trace_info)
+
+
+def test_set_trace_tag_rejects_oversized_trace_name(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(
+        MlflowException, match=rf"maximum length of {MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE}"
+    ):
+        store.set_trace_tag(
+            trace_info.trace_id,
+            TraceTagKey.TRACE_NAME,
+            "n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1),
+        )
 
 
 @pytest.fixture
@@ -338,6 +471,54 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     assert actual_ids == expected_ids
 
 
+def test_search_traces_uses_narrow_child_projections(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("narrow-child-projections")
+    _create_trace(
+        store,
+        "tr-narrow",
+        experiment_id,
+        trace_metadata={"metadata-key": "metadata-value"},
+        tags={"tag-key": "tag-value"},
+    )
+    store.create_assessment(
+        Feedback(
+            name="quality",
+            value=True,
+            source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+            trace_id="tr-narrow",
+        )
+    )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        traces, _ = store.search_traces(locations=[experiment_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.tags["tag-key"] == "tag-value"
+    assert trace.trace_metadata["metadata-key"] == "metadata-value"
+    assert [assessment.name for assessment in trace.assessments] == ["quality"]
+    trace.to_proto()
+
+    statements = [statement.replace('"', "").replace("`", "") for statement in statements]
+    assert any(
+        "trace_tags.request_id, trace_tags.key, trace_tags.value" in statement
+        for statement in statements
+    )
+    assert any(
+        "trace_request_metadata.request_id, trace_request_metadata.key, "
+        "trace_request_metadata.value" in statement
+        for statement in statements
+    )
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error"),
     [
@@ -359,6 +540,99 @@ def test_search_traces_with_invalid_filter(store_with_traces, filter_string, err
             locations=[exp1, exp2],
             filter_string=filter_string,
         )
+
+
+@pytest.mark.parametrize(
+    ("metadata_key", "first_value", "second_value", "other_key", "other_value"),
+    [
+        (
+            TraceMetadataKey.TOKEN_USAGE,
+            {TokenUsageKey.INPUT_TOKENS: 1, TokenUsageKey.TOTAL_TOKENS: 3},
+            {TokenUsageKey.OUTPUT_TOKENS: 2, TokenUsageKey.TOTAL_TOKENS: 4},
+            TraceMetadataKey.COST,
+            {CostKey.TOTAL_COST: 0.1},
+        ),
+        (
+            TraceMetadataKey.COST,
+            {CostKey.INPUT_COST: 0.1, CostKey.TOTAL_COST: 0.3},
+            {CostKey.OUTPUT_COST: 0.2, CostKey.TOTAL_COST: 0.4},
+            TraceMetadataKey.TOKEN_USAGE,
+            {TokenUsageKey.TOTAL_TOKENS: 10},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("comparator", "value_kind", "expected"),
+    [
+        ("=", "canonical", {"first"}),
+        ("!=", "canonical", {"second"}),
+        ("=", "reversed", set()),
+        ("!=", "reversed", {"first", "second"}),
+        ("IS NOT NULL", None, {"first", "second"}),
+        ("IS NULL", None, {"other", "absent"}),
+    ],
+)
+def test_search_traces_filters_reserved_metadata_from_authoritative_columns(
+    store: SqlAlchemyStore,
+    metadata_key: str,
+    first_value: dict[str, int | float],
+    second_value: dict[str, int | float],
+    other_key: str,
+    other_value: dict[str, int | float],
+    comparator: str,
+    value_kind: str | None,
+    expected: set[str],
+):
+    exp_id = store.create_experiment(f"search-reserved-{metadata_key}")
+    for trace_id, request_time, metadata in (
+        ("first", 1, {metadata_key: json.dumps(first_value)}),
+        ("second", 2, {metadata_key: json.dumps(second_value)}),
+        ("other", 3, {other_key: json.dumps(other_value)}),
+        ("absent", 4, {}),
+    ):
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=request_time,
+            trace_metadata=metadata,
+        )
+
+    value = {
+        "canonical": json.dumps(first_value),
+        "reversed": json.dumps(dict(reversed(first_value.items()))),
+        None: None,
+    }[value_kind]
+    filter_string = f"metadata.`{metadata_key}` {comparator}"
+    if value is not None:
+        filter_string += f" '{value}'"
+    traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+
+    assert {trace.trace_id for trace in traces} == expected
+
+
+@pytest.mark.parametrize("metadata_key", [TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST])
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "RLIKE"])
+def test_search_traces_rejects_pattern_matching_for_reserved_metadata(
+    store: SqlAlchemyStore, metadata_key: str, comparator: str
+):
+    exp_id = store.create_experiment(f"reject-reserved-{metadata_key}-{comparator}")
+
+    with pytest.raises(MlflowException, match="is not supported for reserved metadata"):
+        store.search_traces(
+            [exp_id],
+            filter_string=f"metadata.`{metadata_key}` {comparator} '%total%'",
+        )
+
+
+@pytest.mark.parametrize("metadata_key", [TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST])
+def test_search_traces_rejects_ordering_by_reserved_metadata(
+    store: SqlAlchemyStore, metadata_key: str
+):
+    exp_id = store.create_experiment(f"reject-reserved-order-{metadata_key}")
+
+    with pytest.raises(MlflowException, match="Ordering by reserved metadata"):
+        store.search_traces([exp_id], order_by=[f"metadata.`{metadata_key}` ASC"])
 
 
 def test_search_traces_raise_if_max_results_arg_is_invalid(store):
@@ -631,6 +905,42 @@ def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%90%%"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace3_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="MSSQL stores span content with non-ASCII escaped.")
+@pytest.mark.parametrize("text", ["café", "¿Qué es MLflow?", "什么是MLflow", "🚀 launch"])
+@pytest.mark.parametrize("key", ["trace.text", "span.content"])
+def test_search_traces_with_full_text_filter_non_ascii(store: SqlAlchemyStore, key, text):
+    exp_id = store.create_experiment("test_non_ascii_text_search")
+    trace_id = "trace_non_ascii"
+    _create_trace(store, trace_id, exp_id)
+    _create_trace(store, "trace_ascii", exp_id)
+
+    def make_span(trace_id, span_id, inputs):
+        # Serialize inputs the way the tracing SDK does, rather than with `json.dumps`
+        # defaults like `create_test_span`, which would already escape non-ASCII text.
+        otel_span = OTelReadableSpan(
+            name="chat",
+            context=create_mock_span_context(12345, span_id),
+            attributes={
+                SpanAttributeKey.REQUEST_ID: json.dumps(trace_id),
+                SpanAttributeKey.SPAN_TYPE: json.dumps("LLM"),
+                SpanAttributeKey.INPUTS: dump_span_attribute_value(inputs),
+            },
+            start_time=1_000_000_000,
+            end_time=2_000_000_000,
+            resource=_OTelResource.get_empty(),
+        )
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    store.log_spans(exp_id, [make_span(trace_id, 111, {"question": text})])
+    store.log_spans(exp_id, [make_span("trace_ascii", 222, {"question": "ascii only"})])
+
+    for comparator in ("LIKE", "ILIKE"):
+        traces, _ = store.search_traces([exp_id], filter_string=f'{key} {comparator} "%{text}%"')
+        assert [t.trace_id for t in traces] == [trace_id]
+
+    assert store.get_trace(trace_id).data.spans[0].inputs == {"question": text}
 
 
 def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
@@ -1042,6 +1352,134 @@ def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemySt
     traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
     assert len(traces) == 2
     assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+
+def test_search_traces_span_filters_deduplicate_matching_spans(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_filter_dedup")
+    trace_id = "trace1"
+    _create_trace(store, trace_id, exp_id)
+
+    span1 = create_test_span_with_content(
+        trace_id,
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span2 = create_test_span_with_content(
+        trace_id,
+        name="second_match",
+        span_id=222,
+        custom_attributes={"response": "needle again"},
+    )
+
+    store.log_spans(exp_id, [span1, span2])
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert [t.request_id for t in traces] == [trace_id]
+
+
+def test_search_traces_span_filters_remain_experiment_scoped(store: SqlAlchemyStore):
+    target_exp_id = store.create_experiment("target_exp")
+    other_exp_id = store.create_experiment("other_exp")
+
+    _create_trace(store, "target-trace", target_exp_id, request_time=1000)
+    _create_trace(store, "other-trace", other_exp_id, request_time=1000)
+
+    matching_span = create_test_span_with_content(
+        "other-trace",
+        name="other_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    store.log_spans(other_exp_id, [matching_span])
+
+    traces, _ = store.search_traces([target_exp_id], filter_string='trace.text ILIKE "%needle%"')
+    assert traces == []
+
+
+def test_search_traces_span_filters_respect_trace_time_window(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_time_window")
+    early_trace_id = "trace-early"
+    late_trace_id = "trace-late"
+
+    _create_trace(store, early_trace_id, exp_id, request_time=1000)
+    _create_trace(store, late_trace_id, exp_id, request_time=2000)
+
+    early_matching_span = create_test_span_with_content(
+        early_trace_id,
+        name="early_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    late_non_matching_span = create_test_span_with_content(
+        late_trace_id,
+        name="late_non_match",
+        span_id=222,
+        custom_attributes={"prompt": "different"},
+    )
+    store.log_spans(exp_id, [early_matching_span])
+    store.log_spans(exp_id, [late_non_matching_span])
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='timestamp >= 1500 AND timestamp < 2500 AND trace.text ILIKE "%needle%"',
+    )
+    assert traces == []
+
+
+def test_search_traces_span_filters_use_correlated_exists(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_correlated_exists")
+
+    with store.ManagedSessionMaker() as session:
+        cases_orderby, parsed_orderby, sorting_joins = (
+            sqlalchemy_store_module._get_orderby_clauses_for_search_traces([], session)
+        )
+        stmt = store._trace_query(session)
+        if cases_orderby:
+            stmt = stmt.add_columns(*cases_orderby)
+
+        (
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        ) = sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+            (
+                "timestamp >= 20000 AND timestamp > 25000 AND timestamp < 30000 "
+                'AND trace.text ILIKE "%needle%"'
+            ),
+            session,
+            store._get_dialect(),
+            store._trace_query(session).filter(SqlTraceInfo.experiment_id == int(exp_id)),
+        )
+        stmt = store._apply_trace_filter_clauses(
+            stmt,
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        )
+
+        for join_target in sorting_joins:
+            stmt = stmt.outerjoin(join_target)
+
+        stmt = stmt.filter(SqlTraceInfo.experiment_id.in_([int(exp_id)])).order_by(*parsed_orderby)
+        compiled_sql = str(
+            stmt.statement.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+    assert "exists (select *" in compiled_sql
+    assert "spans.trace_id = trace_info.request_id" in compiled_sql
+    assert "spans.experiment_id = trace_info.experiment_id" in compiled_sql
+    assert "spans.start_time_unix_nano >= 15000000000" in compiled_sql
+    assert "spans.start_time_unix_nano <" not in compiled_sql
+    assert "join spans" not in compiled_sql
+    assert "select distinct spans.trace_id as request_id" not in compiled_sql
 
 
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
@@ -1737,6 +2175,39 @@ def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
     trace_ids = {t.request_id for t in traces}
     # All session-A traces are excluded (session-scoped assessment covers the whole session)
     assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_trace_ids"),
+    [
+        ('feedback.session_quality = "good"', set()),
+        ("feedback.session_quality IS NOT NULL", set()),
+        ("feedback.session_quality IS NULL", {"searched-trace"}),
+    ],
+)
+def test_search_traces_session_scoped_assessment_is_limited_to_requested_experiments(
+    store: SqlAlchemyStore,
+    filter_string: str,
+    expected_trace_ids: set[str],
+):
+    searched_experiment_id = store.create_experiment("searched-experiment")
+    other_experiment_id = store.create_experiment("other-experiment")
+    session_metadata = {TraceMetadataKey.TRACE_SESSION: "shared-session"}
+    _create_trace(store, "searched-trace", searched_experiment_id, trace_metadata=session_metadata)
+    _create_trace(store, "other-trace", other_experiment_id, trace_metadata=session_metadata)
+    store.create_assessment(
+        Feedback(
+            trace_id="other-trace",
+            name="session_quality",
+            value="good",
+            source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+            metadata=session_metadata,
+        )
+    )
+
+    traces, _ = store.search_traces([searched_experiment_id], filter_string=filter_string)
+
+    assert {trace.request_id for trace in traces} == expected_trace_ids
 
 
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
@@ -3082,6 +3553,16 @@ def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemySto
     assert traces[0].request_id == trace2_id
 
 
+def test_link_prompts_to_trace_nonexistent_trace_raises(store: SqlAlchemyStore):
+    trace_id = "tr-does-not-exist"
+    with pytest.raises(MlflowException, match=f"Trace with ID '{trace_id}' not found.") as exc_info:
+        store.link_prompts_to_trace(
+            trace_id,
+            [PromptVersion(name="my-prompt", version=1, template="Hello {{name}}")],
+        )
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
 def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_attribute_backticks")
     trace_info_1 = _create_trace(store, "trace_1", exp_id)
@@ -3153,6 +3634,20 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
     # Delete system tag for easier testing
     store.delete_trace_tag(trace_id, MLFLOW_ARTIFACT_LOCATION)
 
+    assert store.get_trace_info(trace_id).tags == {}
+
+    store.set_trace_tag(trace_id, TraceTagKey.TRACE_NAME, "trace-name")
+    assert store.get_trace_info(trace_id).tags == {TraceTagKey.TRACE_NAME: "trace-name"}
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).trace_name == "trace-name"
+        assert (
+            session
+            .query(SqlTraceTag)
+            .filter_by(request_id=trace_id, key=TraceTagKey.TRACE_NAME)
+            .count()
+            == 0
+        )
+    store.delete_trace_tag(trace_id, TraceTagKey.TRACE_NAME)
     assert store.get_trace_info(trace_id).tags == {}
 
     store.set_trace_tag(trace_id, "tag1", "apple")
@@ -3422,6 +3917,40 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
+@pytest.mark.asyncio
+async def test_log_spans_async_offloads_to_worker_thread(store: SqlAlchemyStore):
+    event_loop_ident = threading.get_ident()
+    worker_idents = []
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        worker_idents.append(threading.get_ident())
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        result = await store.log_spans_async("1", [])
+
+    assert result == []
+    assert worker_idents
+    assert worker_idents[0] != event_loop_ident
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemyStore):
+    barrier = threading.Barrier(2, timeout=5)
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        barrier.wait()
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        results = await asyncio.gather(
+            store.log_spans_async("1", []),
+            store.log_spans_async("1", []),
+        )
+
+    assert results == [[], []]
+
+
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
 
@@ -3584,6 +4113,90 @@ def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemySto
 
     # User-defined tag should take precedence over resource attribute
     assert tags["service.name"] == "from-user"
+
+
+def test_log_spans_persists_empty_trace_name_from_otel_attribute(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_empty_otel_trace_name")
+    trace_id = "tr-empty-name"
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_empty_trace_name",
+            context=trace_api.SpanContext(
+                trace_id=77777,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id),
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}{TraceTagKey.TRACE_NAME}": json.dumps(""),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    assert store.get_trace_info(trace_id).tags[TraceTagKey.TRACE_NAME] == ""
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).trace_name == ""
+        assert (
+            session
+            .query(SqlTraceTag)
+            .filter_by(request_id=trace_id, key=TraceTagKey.TRACE_NAME)
+            .count()
+            == 0
+        )
+
+
+@pytest.mark.parametrize(
+    ("attribute_key", "value", "limit"),
+    [
+        (
+            SpanAttributeKey.SESSION_ID,
+            "s" * (MAX_CHARS_IN_TRACE_INFO_METADATA + 1),
+            MAX_CHARS_IN_TRACE_INFO_METADATA,
+        ),
+        (
+            f"{SpanAttributeKey.TRACE_TAG_PREFIX}{TraceTagKey.TRACE_NAME}",
+            "n" * (MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE + 1),
+            MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+        ),
+    ],
+    ids=["session-id", "trace-name"],
+)
+def test_log_spans_rejects_oversized_promoted_dimensions(
+    store: SqlAlchemyStore, attribute_key, value, limit
+):
+    experiment_id = store.create_experiment(f"test_oversized_span_dimension_{limit}")
+    trace_id = f"tr-oversized-span-{limit}"
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_oversized_dimension",
+            context=trace_api.SpanContext(
+                trace_id=88888,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id),
+                attribute_key: json.dumps(value),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=_OTelResource.get_empty(),
+        ),
+        trace_id,
+    )
+
+    with pytest.raises(MlflowException, match=rf"maximum length of {limit}"):
+        store.log_spans(experiment_id, [span])
 
 
 def test_log_spans_persists_links(store: SqlAlchemyStore):
@@ -4067,6 +4680,7 @@ def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> Non
 
     otel_span._attributes = {
         "llm.model_name": "gpt-4",
+        "llm.model_provider": "openai",
         "llm.input_tokens": 100,
         "llm.output_tokens": 50,
         "custom.key": "custom_value",
@@ -4088,6 +4702,7 @@ def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> Non
     assert loaded_span.status.description == "Test error"
 
     assert loaded_span.attributes.get("llm.model_name") == "gpt-4"
+    assert loaded_span.attributes.get("llm.model_provider") == "openai"
     assert loaded_span.attributes.get("llm.input_tokens") == 100
     assert loaded_span.attributes.get("llm.output_tokens") == 50
     assert loaded_span.attributes.get("custom.key") == "custom_value"
@@ -4315,6 +4930,7 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
         "output_tokens": 50,
         "total_tokens": 150,
     }
+    assert all(type(value) is int for value in trace_info.token_usage.values())
 
     # verify loaded trace has same token usage
     traces = store.batch_get_traces([trace_id])
@@ -4483,6 +5099,502 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["total_cost"] == 0.045
 
 
+def _rollup_trace_spans(trace_id: str) -> tuple[Span, list[Span]]:
+    """Span tree shaped like rollup autologgers (pydantic_ai, agno, dspy): the parent
+    AGENT span carries the cumulative usage of its LLM children.
+    """
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 120,
+                "output_tokens": 15,
+                "total_tokens": 135,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 40,
+                    "output_tokens": 5,
+                    "total_tokens": 45,
+                }
+            },
+        )
+        for i in range(3)
+    ]
+    return parent, children
+
+
+def test_log_spans_token_usage_dedups_rollup_parent(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children = _rollup_trace_spans(trace_id)
+
+    store.log_spans(experiment_id, [parent, *children])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+
+
+@pytest.mark.parametrize("parent_first", [True, False])
+def test_log_spans_token_usage_dedups_rollup_parent_across_batches(
+    store: SqlAlchemyStore, parent_first: bool
+) -> None:
+    experiment_id = store.create_experiment(
+        f"test_log_spans_token_usage_dedup_batches_{parent_first}"
+    )
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children = _rollup_trace_spans(trace_id)
+
+    batches = [[parent], children] if parent_first else [children, [parent]]
+    for batch in batches:
+        store.log_spans(experiment_id, batch)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+
+
+def test_log_spans_token_usage_dedups_nested_rollup_chain(store: SqlAlchemyStore) -> None:
+    # pydantic_ai emits Agent.run_sync wrapping Agent.run, both carrying the same cumulative
+    # usage as the LLM leaf. Only the topmost value must be counted.
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup_chain")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    usage = {"input_tokens": 150, "output_tokens": 27, "total_tokens": 177}
+
+    spans = [
+        create_test_span(
+            trace_id,
+            name=name,
+            span_id=span_id,
+            parent_id=parent_id,
+            span_type=span_type,
+            attributes={SpanAttributeKey.CHAT_USAGE: usage},
+        )
+        for name, span_id, parent_id, span_type in [
+            ("Agent.run_sync", 1, None, "AGENT"),
+            ("Agent.run", 2, 1, "AGENT"),
+            ("chat_completion", 3, 2, "LLM"),
+        ]
+    ]
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == usage
+
+
+@pytest.mark.parametrize("single_batch", [True, False])
+def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batch: bool) -> None:
+    experiment_id = store.create_experiment(f"test_log_spans_cost_dedup_{single_batch}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.LLM_COST: {
+                "input_cost": 0.02,
+                "output_cost": 0.01,
+                "total_cost": 0.03,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.005,
+                    "total_cost": 0.015,
+                }
+            },
+        )
+        for i in range(2)
+    ]
+
+    if single_batch:
+        store.log_spans(experiment_id, [parent, *children])
+    else:
+        store.log_spans(experiment_id, children)
+        store.log_spans(experiment_id, [parent])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost == {
+        "input_cost": 0.02,
+        "output_cost": 0.01,
+        "total_cost": 0.03,
+    }
+
+
+def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:
+    # A span chain deeper than Python's recursion limit (default 1000) must not blow up
+    # the tree-aware aggregation (see #24344 for the client-side counterpart).
+    experiment_id = store.create_experiment("test_log_spans_token_usage_deep_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    depth = 1200
+
+    spans = [create_test_span(trace_id, name="root", span_id=1, parent_id=None)]
+    spans.extend(
+        create_test_span(trace_id, name=f"level_{i}", span_id=i, parent_id=i - 1)
+        for i in range(2, depth + 1)
+    )
+    spans.append(
+        create_test_span(
+            trace_id,
+            name="leaf_llm",
+            span_id=depth + 1,
+            parent_id=depth,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                }
+            },
+        )
+    )
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }
+
+
+def test_log_spans_token_usage_redelivered_span_not_double_counted(
+    store: SqlAlchemyStore,
+) -> None:
+    # A span re-sent in a later batch (same span_id, upserted content) must be counted from its
+    # batch version only, not once from the stored row and once from the batch.
+    experiment_id = store.create_experiment("test_log_spans_token_usage_redelivery")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name="llm",
+                span_id=1,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                    }
+                },
+            )
+        ],
+    )
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 150
+
+    # Re-deliver the same span with updated usage alongside a new sibling span.
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name="llm",
+                span_id=1,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 300,
+                        "output_tokens": 100,
+                        "total_tokens": 400,
+                    }
+                },
+            ),
+            create_test_span(
+                trace_id,
+                name="llm_2",
+                span_id=2,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 20,
+                        "output_tokens": 10,
+                        "total_tokens": 30,
+                    }
+                },
+            ),
+        ],
+    )
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 320,
+        "output_tokens": 110,
+        "total_tokens": 430,
+    }
+
+
+@contextlib.contextmanager
+def _capture_stored_span_content_queries(store: SqlAlchemyStore):
+    queries = []
+
+    def capture_query(_conn, _cursor, statement, parameters, _context, _executemany):
+        normalized_statement = " ".join(statement.upper().split())
+        if (
+            normalized_statement.startswith("SELECT")
+            and "SPANS.CONTENT" in normalized_statement
+            and "FROM SPANS" in normalized_statement
+        ):
+            queries.append((normalized_statement, parameters))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_query)
+    try:
+        yield queries
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_query)
+
+
+def _span_with_usage_and_cost(trace_id: str, span_id: int, value: int) -> Span:
+    return create_test_span(
+        trace_id,
+        name=f"llm-{span_id}",
+        span_id=span_id,
+        parent_id=None,
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": value,
+                "output_tokens": value,
+                "total_tokens": value * 2,
+            },
+            SpanAttributeKey.LLM_COST: {
+                "input_cost": value / 10,
+                "output_cost": value / 10,
+                "total_cost": value / 5,
+            },
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("db_type", "expected_clause"),
+    [
+        (POSTGRES, "FOR UPDATE"),
+        (MYSQL, "FOR UPDATE"),
+        (MSSQL, "WITH (UPDLOCK, ROWLOCK)"),
+    ],
+)
+def test_trace_row_lock_query_locks_only_trace_rows(
+    store: SqlAlchemyStore, db_type: str, expected_clause: str
+) -> None:
+    # The lock log_spans() takes must compile to the backend's row-lock clause. It must not join
+    # experiments the way the workspace-aware _trace_query() does, because locking through that
+    # join would also lock the experiment row and serialize every trace in the experiment.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    exp_id = store.create_experiment(f"trace-row-lock-{db_type}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, exp_id)
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._trace_row_lock_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert expected_clause in sql
+    assert "JOIN" not in sql
+    assert "ORDER BY" in sql
+
+
+def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> None:
+    # Concurrent log_spans() calls for the same trace must serialize on the trace row, so the
+    # recompute-and-overwrite of the trace-level token usage cannot lose an update. Traces
+    # created by the same call are not visible to other transactions and need no lock.
+    experiment_id = store.create_experiment("test_log_spans_locks_preexisting_traces")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    with mock.patch.object(
+        store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+    ) as mock_lock:
+        # The trace does not exist yet: it is created by this call, so no lock is taken.
+        store.log_spans(experiment_id, [_span(1, 100)])
+        mock_lock.assert_not_called()
+
+        # The trace now pre-exists: the next batch must lock its row before writing spans.
+        store.log_spans(experiment_id, [_span(2, 200)])
+        mock_lock.assert_called_once()
+        assert mock_lock.call_args.args[1] == [trace_id]
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
+
+
+@pytest.mark.parametrize(
+    ("db_type", "locking"),
+    [
+        (POSTGRES, False),
+        (MYSQL, True),
+        (MSSQL, False),
+    ],
+)
+def test_stored_span_rows_query_locking_read_only_on_mysql(
+    store: SqlAlchemyStore, db_type: str, locking: bool
+) -> None:
+    # Under MySQL REPEATABLE READ a plain SELECT reads from the snapshot taken at the
+    # transaction's first read, which predates the trace row lock, so the recompute must be a
+    # locking read there. The other backends read committed data once the lock wait ends.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._stored_span_rows_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert ("FOR UPDATE" in sql) == locking
+
+
+def test_log_spans_concurrent_calls_do_not_lose_token_usage(store: SqlAlchemyStore) -> None:
+    # Two log_spans() calls for the same pre-existing trace, held at a barrier inside the lock
+    # helper so both take their transaction snapshot before either acquires the trace row lock.
+    # The call that loses the lock race must still see the winner's committed span in its
+    # recompute, otherwise the last write drops the other batch's usage.
+    experiment_id = store.create_experiment("test_log_spans_concurrent_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    store.log_spans(experiment_id, [_span(1, 100)])
+
+    barrier = threading.Barrier(2, timeout=30)
+    original = SqlAlchemyStore._trace_row_lock_query
+
+    def synchronized(self, session, trace_ids):
+        barrier.wait()
+        return original(self, session, trace_ids)
+
+    with mock.patch.object(SqlAlchemyStore, "_trace_row_lock_query", synchronized):
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="log_spans_race") as executor:
+            futures = [
+                executor.submit(store.log_spans, experiment_id, [_span(2, 200)]),
+                executor.submit(store.log_spans, experiment_id, [_span(3, 300)]),
+            ]
+            for future in futures:
+                future.result(timeout=60)
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 600
+
+
+def test_log_spans_recompute_reads_only_locked_traces(store: SqlAlchemyStore) -> None:
+    # The usage recompute must only read spans for traces whose row this call locked, otherwise
+    # it can observe a concurrent log_spans() call's uncommitted spans. Guards the derivation of
+    # the recompute trace IDs from the locked pre-existing ones against a future refactor.
+    experiment_id = store.create_experiment("test_log_spans_recompute_reads_locked_traces")
+    preexisting_trace_id = f"tr-{uuid.uuid4().hex}"
+    new_trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(trace_id: str, span_id: int, total: int, trace_num: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            trace_num=trace_num,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    store.log_spans(experiment_id, [_span(preexisting_trace_id, 1, 100, 111)])
+
+    with (
+        mock.patch.object(
+            store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+        ) as mock_lock,
+        mock.patch.object(
+            store, "_stored_span_rows_query", wraps=store._stored_span_rows_query
+        ) as mock_stored,
+    ):
+        # The trace created by this call carries usage too, so a recompute derived from every
+        # trace in the batch would read its spans without having locked its row.
+        store.log_spans(
+            experiment_id,
+            [_span(preexisting_trace_id, 2, 200, 111), _span(new_trace_id, 3, 300, 222)],
+        )
+
+    mock_lock.assert_called_once()
+    mock_stored.assert_called_once()
+    locked_trace_ids = set(mock_lock.call_args.args[1])
+    assert locked_trace_ids == {preexisting_trace_id}
+    assert set(mock_stored.call_args.args[1]) <= locked_trace_ids
+
+    assert store.get_trace_info(preexisting_trace_id).token_usage["total_tokens"] == 300
+    assert store.get_trace_info(new_trace_id).token_usage["total_tokens"] == 300
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
@@ -4551,6 +5663,173 @@ def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStor
     # Cost unchanged
     stored_cost = json.loads(trace_info.trace_metadata[TraceMetadataKey.COST])
     assert stored_cost == authoritative_cost
+
+
+def test_log_spans_skips_stored_spans_for_authoritative_analytics(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_skip_finalized_analytics_recomputation")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    authoritative_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.1, "output_cost": 0.05, "total_cost": 0.15}
+    _create_trace(
+        store,
+        trace_id,
+        experiment_id,
+        trace_metadata={
+            TraceMetadataKey.TOKEN_USAGE: json.dumps(authoritative_usage),
+            TraceMetadataKey.COST: json.dumps(authoritative_cost),
+        },
+    )
+
+    with _capture_stored_span_content_queries(store) as queries:
+        store.log_spans(experiment_id, [_span_with_usage_and_cost(trace_id, 1, 100)])
+
+    assert queries == []
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == authoritative_usage
+    assert json.loads(trace_info.trace_metadata[TraceMetadataKey.COST]) == authoritative_cost
+
+
+@pytest.mark.parametrize("authoritative_group", ["token_usage", "cost", None])
+def test_log_spans_recomputes_missing_finalized_analytics_group(
+    store: SqlAlchemyStore, authoritative_group: str | None
+) -> None:
+    experiment_id = store.create_experiment(
+        f"test_recompute_missing_finalized_analytics_{authoritative_group}"
+    )
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    authoritative_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.1, "output_cost": 0.05, "total_cost": 0.15}
+    trace_metadata = {}
+    if authoritative_group == "token_usage":
+        trace_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(authoritative_usage)
+    elif authoritative_group == "cost":
+        trace_metadata[TraceMetadataKey.COST] = json.dumps(authoritative_cost)
+    _create_trace(store, trace_id, experiment_id, trace_metadata=trace_metadata)
+
+    with _capture_stored_span_content_queries(store) as queries:
+        store.log_spans(experiment_id, [_span_with_usage_and_cost(trace_id, 1, 2)])
+
+    assert len(queries) == 1
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == (
+        authoritative_usage
+        if authoritative_group == "token_usage"
+        else {"input_tokens": 2, "output_tokens": 2, "total_tokens": 4}
+    )
+    assert json.loads(trace_info.trace_metadata[TraceMetadataKey.COST]) == (
+        authoritative_cost
+        if authoritative_group == "cost"
+        else {"input_cost": 0.2, "output_cost": 0.2, "total_cost": 0.4}
+    )
+
+
+def test_log_spans_only_recomputes_non_authoritative_traces_in_batch(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_selective_analytics_recomputation")
+    authoritative_trace_id = f"tr-{uuid.uuid4().hex}"
+    recomputed_trace_id = f"tr-{uuid.uuid4().hex}"
+    authoritative_usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    authoritative_cost = {"input_cost": 0.1, "output_cost": 0.05, "total_cost": 0.15}
+    _create_trace(
+        store,
+        authoritative_trace_id,
+        experiment_id,
+        trace_metadata={
+            TraceMetadataKey.TOKEN_USAGE: json.dumps(authoritative_usage),
+            TraceMetadataKey.COST: json.dumps(authoritative_cost),
+        },
+    )
+    store.log_spans(experiment_id, [_span_with_usage_and_cost(recomputed_trace_id, 1, 1)])
+
+    with _capture_stored_span_content_queries(store) as queries:
+        store.log_spans(
+            experiment_id,
+            [
+                _span_with_usage_and_cost(authoritative_trace_id, 1, 100),
+                _span_with_usage_and_cost(recomputed_trace_id, 2, 2),
+            ],
+        )
+
+    assert len(queries) == 1
+    query_parameters = repr(queries[0][1])
+    assert recomputed_trace_id in query_parameters
+    assert authoritative_trace_id not in query_parameters
+    assert store.get_trace_info(authoritative_trace_id).token_usage == authoritative_usage
+    recomputed_trace_info = store.get_trace_info(recomputed_trace_id)
+    assert recomputed_trace_info.token_usage == {
+        "input_tokens": 3,
+        "output_tokens": 3,
+        "total_tokens": 6,
+    }
+    assert json.loads(recomputed_trace_info.trace_metadata[TraceMetadataKey.COST]) == {
+        "input_cost": pytest.approx(0.3),
+        "output_cost": pytest.approx(0.3),
+        "total_cost": pytest.approx(0.6),
+    }
+
+
+def test_log_spans_infers_session_missing_from_finalized_trace(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_finalized_trace_without_session")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, experiment_id)
+    span = create_test_span(
+        trace_id,
+        name="root",
+        span_id=1,
+        parent_id=None,
+        attributes={SpanAttributeKey.SESSION_ID: "session-from-span"},
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    assert (
+        store.get_trace_info(trace_id).trace_metadata[TraceMetadataKey.TRACE_SESSION]
+        == "session-from-span"
+    )
+
+
+def test_log_spans_infers_usage_missing_from_finalized_trace(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_finalized_trace_without_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, experiment_id)
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000,
+        end_time=2_000_000,
+        trace_id_num=99999,
+        span_id_num=1,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 3,
+            "output_tokens": 2,
+            "total_tokens": 5,
+        }),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.03,
+            "output_cost": 0.02,
+            "total_cost": 0.05,
+        }),
+    }
+
+    store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 3,
+        "output_tokens": 2,
+        "total_tokens": 5,
+    }
+    assert json.loads(trace_info.trace_metadata[TraceMetadataKey.COST]) == {
+        "input_cost": 0.03,
+        "output_cost": 0.02,
+        "total_cost": 0.05,
+    }
 
 
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
@@ -4732,7 +6011,151 @@ def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
         assert trace_info.trace_id == trace_ids[i]
 
 
-def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
+def test_batch_get_traces_with_experiment_ids_filter(store: SqlAlchemyStore) -> None:
+    exp1_id = store.create_experiment("test_batch_traces_exp_filter_1")
+    exp2_id = store.create_experiment("test_batch_traces_exp_filter_2")
+
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    span1 = create_test_span(trace_id=trace_id_1, name="span_exp1", span_id=101, trace_num=90001)
+    store.log_spans(exp1_id, [span1])
+
+    span2 = create_test_span(trace_id=trace_id_2, name="span_exp2", span_id=102, trace_num=90002)
+    store.log_spans(exp2_id, [span2])
+
+    traces = store.batch_get_traces([trace_id_1, trace_id_2], experiment_ids=[exp1_id])
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1
+
+
+def test_batch_get_traces_with_empty_experiment_ids(store: SqlAlchemyStore) -> None:
+    exp_id = store.create_experiment("test_batch_traces_empty_exp_ids")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(trace_id=trace_id, name="span", span_id=103, trace_num=90003)
+    store.log_spans(exp_id, [span])
+
+    traces = store.batch_get_traces([trace_id], experiment_ids=[])
+    assert traces == []
+
+
+def test_batch_get_traces_with_invalid_experiment_id(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'invalid_id'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.batch_get_traces([trace_id], experiment_ids=["invalid_id"])
+
+
+def test_batch_get_traces_with_experiment_ids_chunking(store: SqlAlchemyStore, monkeypatch) -> None:
+    """
+    Force tiny trace and experiment ID chunks to exercise every cross-product
+    query and the final global re-sort end-to-end.
+    """
+    exp_ids = [store.create_experiment(f"test_batch_traces_chunk_{i}") for i in range(3)]
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+    for i, (exp_id, trace_id) in enumerate(zip(exp_ids, trace_ids)):
+        span = create_test_span(
+            trace_id=trace_id, name=f"span_{i}", span_id=901 + i, trace_num=91000 + i
+        )
+        store.log_spans(exp_id, [span])
+
+    monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
+
+    # Request order deliberately doesn't match experiment/chunk order.
+    requested_trace_ids = [trace_ids[2], trace_ids[0], trace_ids[1]]
+    traces = store.batch_get_traces(requested_trace_ids, experiment_ids=[*exp_ids, exp_ids[0]])
+    assert [t.info.trace_id for t in traces] == requested_trace_ids
+
+
+def test_batch_get_trace_infos_with_experiment_ids_filter(store: SqlAlchemyStore) -> None:
+    exp1_id = store.create_experiment("test_batch_infos_exp_filter_1")
+    exp2_id = store.create_experiment("test_batch_infos_exp_filter_2")
+
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    span1 = create_test_span(trace_id=trace_id_1, name="span_exp1", span_id=201, trace_num=90011)
+    store.log_spans(exp1_id, [span1])
+
+    span2 = create_test_span(trace_id=trace_id_2, name="span_exp2", span_id=202, trace_num=90012)
+    store.log_spans(exp2_id, [span2])
+
+    trace_infos = store.batch_get_trace_infos([trace_id_1, trace_id_2], experiment_ids=[exp1_id])
+    assert len(trace_infos) == 1
+    assert trace_infos[0].trace_id == trace_id_1
+
+
+def test_batch_get_trace_infos_with_empty_experiment_ids(store: SqlAlchemyStore) -> None:
+    exp_id = store.create_experiment("test_batch_infos_empty_exp_ids")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(trace_id=trace_id, name="span", span_id=203, trace_num=90013)
+    store.log_spans(exp_id, [span])
+
+    trace_infos = store.batch_get_trace_infos([trace_id], experiment_ids=[])
+    assert trace_infos == []
+
+
+def test_batch_get_trace_infos_with_invalid_experiment_id(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'invalid_id'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.batch_get_trace_infos([trace_id], experiment_ids=["invalid_id"])
+
+
+def test_batch_get_trace_infos_with_experiment_ids_chunking(
+    store: SqlAlchemyStore, monkeypatch
+) -> None:
+    exp_ids = [store.create_experiment(f"test_batch_infos_chunk_{i}") for i in range(3)]
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+    for i, (exp_id, trace_id) in enumerate(zip(exp_ids, trace_ids)):
+        span = create_test_span(
+            trace_id=trace_id, name=f"span_{i}", span_id=911 + i, trace_num=91010 + i
+        )
+        store.log_spans(exp_id, [span])
+
+    monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
+
+    requested_trace_ids = [trace_ids[2], trace_ids[0], trace_ids[1]]
+    trace_infos = store.batch_get_trace_infos(
+        requested_trace_ids, experiment_ids=[*exp_ids, exp_ids[0]]
+    )
+    assert [ti.trace_id for ti in trace_infos] == requested_trace_ids
+
+
+def test_batch_get_trace_ids_chunking_without_experiment_ids(
+    store: SqlAlchemyStore, monkeypatch
+) -> None:
+    experiment_id = store.create_experiment("test_batch_trace_ids_chunking")
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+    for i, trace_id in enumerate(trace_ids):
+        store.log_spans(
+            experiment_id,
+            [
+                create_test_span(
+                    trace_id=trace_id, name=f"span_{i}", span_id=921 + i, trace_num=91020 + i
+                )
+            ],
+        )
+
+    monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
+    requested_trace_ids = [trace_ids[2], trace_ids[0], trace_ids[1]]
+
+    traces = store.batch_get_traces(requested_trace_ids)
+    trace_infos = store.batch_get_trace_infos(requested_trace_ids)
+
+    assert [trace.info.trace_id for trace in traces] == requested_trace_ids
+    assert [trace_info.trace_id for trace_info in trace_infos] == requested_trace_ids
+
+
+def test_start_trace_writes_authoritative_token_columns(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_start_trace_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -4753,24 +6176,123 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
     store.start_trace(trace_info)
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (100, 50, 150)
+        assert all(
+            type(value) is int
+            for value in (
+                sql_trace_info.input_tokens,
+                sql_trace_info.output_tokens,
+                sql_trace_info.total_tokens,
+            )
+        )
+        assert (
+            session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
+            == 0
         )
 
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            "input_tokens": 100,
-            "output_tokens": 50,
-            "total_tokens": 150,
-        }
+
+def test_trace_info_synthesizes_reserved_fields_from_authoritative_columns(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_authoritative_trace_info")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "authoritative-name", "custom-tag": "custom-value"},
+            trace_metadata={
+                TraceMetadataKey.TRACE_SESSION: "authoritative-session",
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({"total_tokens": 12}),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.25}),
+                "custom-metadata": "custom-value",
+            },
+        )
+    )
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlTraceTag(
+                request_id=trace_id,
+                key=TraceTagKey.TRACE_NAME,
+                value="stale-name",
+            )
+        )
+        session.add_all([
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.TRACE_SESSION,
+                value="stale-session",
+            ),
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.TOKEN_USAGE,
+                value=json.dumps({"total_tokens": 999}),
+            ),
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.COST,
+                value=json.dumps({CostKey.TOTAL_COST: 999}),
+            ),
+            SqlTraceMetrics(request_id=trace_id, key="total_tokens", value=999),
+        ])
+
+    result = store.get_trace_info(trace_id)
+    assert result.tags[TraceTagKey.TRACE_NAME] == "authoritative-name"
+    assert result.tags["custom-tag"] == "custom-value"
+    assert result.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "authoritative-session"
+    assert result.trace_metadata[TraceMetadataKey.TOKEN_USAGE] == '{"total_tokens": 12}'
+    assert json.loads(result.trace_metadata[TraceMetadataKey.COST]) == {CostKey.TOTAL_COST: 0.25}
+    assert result.trace_metadata["custom-metadata"] == "custom-value"
 
 
-def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_merge_preserves_metrics")
+def test_start_trace_merge_preserves_authoritative_trace_name_when_omitted(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_authoritative_trace_name")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    location = trace_location.TraceLocation.from_experiment_id(experiment_id)
+    timestamp = get_current_time_millis()
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=timestamp,
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "existing-name"},
+        )
+    )
+
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=timestamp,
+            execution_duration=200,
+            state=TraceStatus.OK,
+            trace_metadata={"custom-metadata": "custom-value"},
+        )
+    )
+
+    assert result.tags[TraceTagKey.TRACE_NAME] == "existing-name"
+    assert result.trace_metadata["custom-metadata"] == "custom-value"
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).trace_name == "existing-name"
+
+
+def test_start_trace_merge_preserves_omitted_authoritative_analytics_columns(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_analytics_columns")
     trace_id = f"tr-{uuid.uuid4().hex}"
     loc = trace_location.TraceLocation.from_experiment_id(experiment_id)
     ts = get_current_time_millis()
@@ -4783,16 +6305,22 @@ def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) ->
             execution_duration=100,
             state=TraceStatus.OK,
             trace_metadata={
+                TraceMetadataKey.TRACE_SESSION: "existing-session",
                 TraceMetadataKey.TOKEN_USAGE: json.dumps({
                     "input_tokens": 10,
                     "output_tokens": 20,
                     "total_tokens": 30,
-                })
+                }),
+                TraceMetadataKey.COST: json.dumps({
+                    CostKey.INPUT_COST: 0.1,
+                    CostKey.OUTPUT_COST: 0.2,
+                    CostKey.TOTAL_COST: 0.3,
+                }),
             },
         )
     )
 
-    # Second start_trace with a subset of metric keys triggers the merge path.
+    # Second start_trace with a subset of token keys triggers the merge path.
     result = store.start_trace(
         TraceInfo(
             trace_id=trace_id,
@@ -4804,7 +6332,8 @@ def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) ->
                 TraceMetadataKey.TOKEN_USAGE: json.dumps({
                     "total_tokens": 110,
                     "cache_read_input_tokens": 5,
-                })
+                }),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.4}),
             },
         )
     )
@@ -4812,24 +6341,109 @@ def test_start_trace_merge_preserves_existing_metrics(store: SqlAlchemyStore) ->
     assert result.trace_id == trace_id
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert sql_trace_info.input_tokens == 10
+        assert sql_trace_info.output_tokens == 20
+        assert sql_trace_info.total_tokens == 110
+        assert sql_trace_info.cache_read_input_tokens == 5
+        assert sql_trace_info.session_id == "existing-session"
+        assert sql_trace_info.input_cost == 0.1
+        assert sql_trace_info.output_cost == 0.2
+        assert sql_trace_info.total_cost == 0.4
+        assert (
+            session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
+            == 0
         )
-        metrics_by_key = {m.key: m.value for m in metrics}
-        assert metrics_by_key == {
-            "cache_read_input_tokens": 5,
-            "input_tokens": 10,
-            "output_tokens": 20,
-            "total_tokens": 110,
-        }
 
 
-def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_log_spans_metrics")
+def test_start_trace_merge_preserves_inferred_analytics_for_partial_metadata(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_merge_preserves_inferred_analytics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.SESSION_ID: json.dumps("session-from-span"),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            TokenUsageKey.INPUT_TOKENS: 3,
+            TokenUsageKey.OUTPUT_TOKENS: 2,
+            TokenUsageKey.TOTAL_TOKENS: 5,
+        }),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.1,
+            CostKey.OUTPUT_COST: 0.2,
+            CostKey.TOTAL_COST: 0.3,
+        }),
+    }
+    store.log_spans(
+        experiment_id,
+        [create_mlflow_span(otel_span, trace_id, "LLM")],
+    )
+
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({TokenUsageKey.TOTAL_TOKENS: 10}),
+                TraceMetadataKey.COST: json.dumps({CostKey.TOTAL_COST: 0.4}),
+                "custom-metadata": "custom-value",
+            },
+        )
+    )
+
+    assert result.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "session-from-span"
+    assert result.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 3,
+        TokenUsageKey.OUTPUT_TOKENS: 2,
+        TokenUsageKey.TOTAL_TOKENS: 10,
+    }
+    assert result.cost == {
+        CostKey.INPUT_COST: 0.1,
+        CostKey.OUTPUT_COST: 0.2,
+        CostKey.TOTAL_COST: 0.4,
+    }
+    assert result.trace_metadata["custom-metadata"] == "custom-value"
+
+
+def test_start_trace_preserves_extended_cache_creation_token_usage(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_extended_cache_creation_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=get_current_time_millis(),
+            state=TraceStatus.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                    TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 300,
+                }),
+            },
+        )
+    )
+
+    assert result.token_usage == {
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 300,
+    }
+    with store.ManagedSessionMaker() as session:
+        assert session.get(SqlTraceInfo, trace_id).cache_creation_input_tokens_above_1hr == 300
+
+
+def test_log_spans_writes_authoritative_cost_and_model_columns(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_authoritative_cost_and_model_columns")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     trace_info = TraceInfo(
@@ -4862,33 +6476,30 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
     store.log_spans(experiment_id, [span])
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlSpanMetrics)
-            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
-            .order_by(SqlSpanMetrics.key)
-            .all()
-        )
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            CostKey.INPUT_COST: 0.01,
-            CostKey.OUTPUT_COST: 0.02,
-            CostKey.TOTAL_COST: 0.03,
-        }
-
-        # Check that dimension_attributes is stored on the span
         sql_span = (
             session
             .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
             .one()
         )
-        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
-        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+        assert (sql_span.input_cost, sql_span.output_cost, sql_span.total_cost) == (
+            0.01,
+            0.02,
+            0.03,
+        )
+        assert sql_span.model_name == "gpt-4-turbo"
+        assert sql_span.model_provider == "openai"
+        assert (
+            session
+            .query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+            .count()
+            == 0
+        )
 
 
-def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_log_spans_incremental_metrics")
+def test_log_spans_updates_authoritative_trace_tokens_incrementally(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_updates_trace_tokens")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     otel_span1 = create_test_otel_span(
@@ -4911,20 +6522,12 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     store.log_spans(experiment_id, [span1])
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
-        )
-
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            "input_tokens": 100,
-            "output_tokens": 50,
-            "total_tokens": 150,
-        }
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (100, 50, 150)
 
     otel_span2 = create_test_otel_span(
         trace_id=trace_id,
@@ -4946,23 +6549,16 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     store.log_spans(experiment_id, [span2])
 
     with store.ManagedSessionMaker() as session:
-        metrics = (
-            session
-            .query(SqlTraceMetrics)
-            .filter(SqlTraceMetrics.request_id == trace_id)
-            .order_by(SqlTraceMetrics.key)
-            .all()
-        )
-        metrics_by_key = {metric.key: metric.value for metric in metrics}
-        assert metrics_by_key == {
-            "input_tokens": 300,
-            "output_tokens": 125,
-            "total_tokens": 425,
-        }
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (300, 125, 425)
 
 
-def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
-    experiment_id = store.create_experiment("test_log_spans_metrics_per_span")
+def test_log_spans_stores_cost_columns_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_cost_columns_per_span")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     trace_info = TraceInfo(
@@ -5012,27 +6608,20 @@ def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
     store.log_spans(experiment_id, [span1, span2])
 
     with store.ManagedSessionMaker() as session:
-        all_metrics = (
+        sql_spans = (
             session
-            .query(SqlSpanMetrics)
-            .filter(SqlSpanMetrics.trace_id == trace_id)
-            .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
+            .query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id)
+            .order_by(SqlSpan.span_id)
             .all()
         )
-
-        span1_metrics = {m.key: m.value for m in all_metrics if m.span_id == span1.span_id}
-        assert span1_metrics == {
-            CostKey.INPUT_COST: 0.001,
-            CostKey.OUTPUT_COST: 0.002,
-            CostKey.TOTAL_COST: 0.003,
-        }
-
-        span2_metrics = {m.key: m.value for m in all_metrics if m.span_id == span2.span_id}
-        assert span2_metrics == {
-            CostKey.INPUT_COST: 0.01,
-            CostKey.OUTPUT_COST: 0.02,
-            CostKey.TOTAL_COST: 0.03,
-        }
+        assert [(s.input_cost, s.output_cost, s.total_cost) for s in sql_spans] == [
+            (0.001, 0.002, 0.003),
+            (0.01, 0.02, 0.03),
+        ]
+        assert (
+            session.query(SqlSpanMetrics).filter(SqlSpanMetrics.trace_id == trace_id).count() == 0
+        )
 
 
 def test_get_trace_basic(store: SqlAlchemyStore) -> None:
@@ -5083,6 +6672,45 @@ def test_get_trace_basic(store: SqlAlchemyStore) -> None:
     assert child_span.parent_id == "000000000000006f"
     assert child_span.start_time_ns == 1_500_000_000
     assert child_span.end_time_ns == 1_800_000_000
+
+
+def test_get_trace_returns_lazy_spans_that_skip_materialization_on_to_dict(
+    store: SqlAlchemyStore,
+) -> None:
+    from mlflow.entities.span import LazySpan
+
+    experiment_id = store.create_experiment("test_get_trace_lazy")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+    ]
+    store.log_spans(experiment_id, spans)
+
+    trace = store.get_trace(trace_id)
+    assert all(isinstance(span, LazySpan) for span in trace.data.spans)
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+    assert all(span.__dict__["_raw_json"] is not None for span in trace.data.spans)
+
+    dumped = trace.data.to_dict()
+    assert dumped["spans"][0]["name"] == "root_span"
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    payload = trace.data.to_json_bytes()
+    assert payload.startswith(b'{"spans":[')
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+    assert json.loads(payload)["spans"][0]["name"] == "root_span"
+
+    # Property access still works and materializes only when needed.
+    assert trace.data.spans[0].name == "root_span"
+    assert trace.data.spans[0].__dict__["_materialized"] is True
 
 
 def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
@@ -5680,6 +7308,52 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+
+def test_find_completed_sessions_with_span_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_find_completed_sessions_with_span_filter")
+
+    # Session A should match, and duplicate matching spans on the first trace
+    # should not duplicate the returned session.
+    _create_trace(
+        store,
+        "trace_a1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace_a2",
+        exp_id,
+        request_time=2000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    span_a1 = create_test_span_with_content(
+        "trace_a1",
+        name="first_match",
+        span_id=111,
+        custom_attributes={"prompt": "needle"},
+    )
+    span_a2 = create_test_span_with_content(
+        "trace_a1",
+        name="second_match",
+        span_id=112,
+        custom_attributes={"response": "needle again"},
+    )
+    store.log_spans(exp_id, [span_a1, span_a2])
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=10000,
+        filter_string='trace.text ILIKE "%needle%"',
+    )
+
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
 
 
 def _archive_traces(
@@ -9633,3 +11307,411 @@ def test_archive_traces_rejects_unsupported_resolved_root_override(store: SqlAlc
                 default_retention="1d",
             )
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def _extract_metadata_write_pairs(statement, parameters):
+    """Extract (request_id, key) pairs written to trace_request_metadata, in order.
+
+    Handles both dict-bound params (named placeholders) and positional tuple params
+    (executemany), across dialects, by parsing the INSERT column list to locate the
+    `key` and `request_id` positions.
+    """
+    if not re.search(r"\btrace_request_metadata\b", statement, re.IGNORECASE):
+        return []
+    if not re.search(r"\b(insert|update)\b", statement, re.IGNORECASE):
+        return []
+
+    # Normalize params into a list of rows. SQLAlchemy passes either a single dict,
+    # a single positional tuple (one row), or a list of dicts/tuples (executemany).
+    if isinstance(parameters, dict):
+        param_rows = [parameters]
+    elif (
+        isinstance(parameters, (list, tuple))
+        and parameters
+        and isinstance(parameters[0], (dict, list, tuple))
+    ):
+        param_rows = list(parameters)
+    elif isinstance(parameters, (list, tuple)):
+        # A flat single row of scalar values, e.g. ("key", "value", "request_id").
+        param_rows = [parameters]
+    else:
+        param_rows = [parameters]
+
+    # Determine positional column order from the INSERT (…cols…) VALUES clause. The table
+    # name may be quoted or schema-qualified by the dialect (e.g. "trace_request_metadata",
+    # `trace_request_metadata`, [dbo].[trace_request_metadata]), so match the bare identifier
+    # via a word boundary and allow any quoting/qualifier around it.
+    col_order = None
+    if m := re.search(
+        r"insert\s+into\s+[^(]*\btrace_request_metadata\b[^(]*\(([^)]*)\)",
+        statement,
+        re.IGNORECASE,
+    ):
+        col_order = [c.strip().strip('"').strip("`").strip("[]") for c in m.group(1).split(",")]
+
+    pairs = []
+    for row in param_rows:
+        if isinstance(row, dict):
+            if "key" in row and "request_id" in row:
+                # Single-row named params: {"key": ..., "value": ..., "request_id": ...}
+                pairs.append((row["request_id"], row["key"]))
+            elif any(k.startswith("key__") for k in row):
+                # Multi-row cascade INSERT flattened into one dict with suffixed keys:
+                # {"key__0": ..., "request_id__0": ..., "key__1": ..., ...}. Preserve N order.
+                indices = sorted(
+                    int(k.split("__", 1)[1]) for k in row if re.fullmatch(r"key__\d+", k)
+                )
+                pairs.extend(
+                    (row[f"request_id__{i}"], row[f"key__{i}"])
+                    for i in indices
+                    if f"request_id__{i}" in row
+                )
+        elif isinstance(row, (list, tuple)) and col_order:
+            try:
+                key_idx = col_order.index("key")
+                rid_idx = col_order.index("request_id")
+            except ValueError:
+                continue
+            if len(row) > max(key_idx, rid_idx):
+                pairs.append((row[rid_idx], row[key_idx]))
+    return pairs
+
+
+def _capture_trace_metadata_write_keys(
+    store: SqlAlchemyStore,
+) -> tuple[list[str], Callable[[], None]]:
+    """Capture, in execution order, the `key` values written to trace_request_metadata."""
+    captured: list[str] = []
+
+    def _listener(_conn, _cursor, statement, parameters, _context, _executemany):
+        captured.extend(key for _rid, key in _extract_metadata_write_pairs(statement, parameters))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", _listener)
+    return captured, lambda: sqlalchemy.event.remove(
+        store.engine, "before_cursor_execute", _listener
+    )
+
+
+def test_start_trace_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
+    """start_trace() must write trace_request_metadata rows in a deterministic, sorted
+    key order so that two concurrent transactions acquire the PK-index locks in the same
+    order and cannot deadlock (issue #24332).
+    """
+    experiment_id = store.create_experiment("sorted-order-start-trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    # Deliberately supply metadata whose natural dict order is NOT sorted.
+    trace_metadata = {
+        "mlflow.trace.tokenUsage": json.dumps({"input_tokens": 10}),
+        "mlflow.traceInputs": "in",
+        "mlflow.trace.cost": json.dumps({"total": 0.1}),
+        "mlflow.traceOutputs": "out",
+    }
+    captured, remove = _capture_trace_metadata_write_keys(store)
+    try:
+        _create_trace(store, trace_id, experiment_id, trace_metadata=trace_metadata)
+    finally:
+        remove()
+
+    metadata_keys = [k for k in captured if k in trace_metadata]
+    assert metadata_keys, "expected trace_request_metadata writes to be captured"
+    assert metadata_keys == sorted(metadata_keys)
+
+
+def test_deprecated_start_trace_v2_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
+    """The legacy V2 start-trace path must also write metadata in sorted key order, so it
+    keeps a consistent PK-index lock order with the other writers (issue #24332).
+    """
+    experiment_id = store.create_experiment("sorted-order-v2")
+    # Metadata whose natural dict order is NOT sorted.
+    request_metadata = {"rq_z": "z", "rq_a": "a", "rq_m": "m"}
+    captured, remove = _capture_trace_metadata_write_keys(store)
+    try:
+        store.deprecated_start_trace_v2(
+            experiment_id=experiment_id,
+            timestamp_ms=1234,
+            request_metadata=request_metadata,
+            tags={},
+        )
+    finally:
+        remove()
+
+    metadata_keys = [k for k in captured if k in request_metadata]
+    assert metadata_keys, "expected trace_request_metadata writes to be captured"
+    assert metadata_keys == sorted(metadata_keys)
+
+
+def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
+    """log_spans() must write trace_request_metadata rows in a deterministic, sorted
+    key order (both across trace_ids and across keys within a trace) so concurrent
+    log_spans/start_trace transactions cannot deadlock (issue #24332).
+    """
+    experiment_id = store.create_experiment("sorted-order-log-spans")
+    # Two trace_ids in a single batch, deliberately in non-sorted order, each carrying
+    # token-usage + session so multiple metadata keys are written per trace.
+    trace_id_b = "tr-bbbb" + uuid.uuid4().hex
+    trace_id_a = "tr-aaaa" + uuid.uuid4().hex
+
+    def _usage_span(trace_id, span_id_num, session_id):
+        otel_span = create_test_otel_span(
+            trace_id=trace_id,
+            name="llm_call",
+            trace_id_num=span_id_num,
+            span_id_num=span_id_num,
+        )
+        otel_span._attributes = {
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+            SpanAttributeKey.SESSION_ID: json.dumps(session_id, cls=TraceJSONEncoder),
+            "user.id": json.dumps(f"user-{session_id}", cls=TraceJSONEncoder),
+            SpanAttributeKey.CHAT_USAGE: json.dumps({
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            }),
+        }
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    # Pass trace_id_b's span first so the defaultdict order is [b, a] (not sorted).
+    spans = [
+        _usage_span(trace_id_b, 222, "sess-b"),
+        _usage_span(trace_id_a, 111, "sess-a"),
+    ]
+
+    captured_pairs: list[tuple[str, str]] = []
+
+    def _listener(_conn, _cursor, statement, parameters, _context, _executemany):
+        captured_pairs.extend(_extract_metadata_write_pairs(statement, parameters))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", _listener)
+    try:
+        store.log_spans(experiment_id, spans)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", _listener)
+
+    assert captured_pairs, "expected trace_request_metadata writes to be captured"
+    captured_request_ids = [rid for rid, _key in captured_pairs]
+
+    # Both traces must actually have been written, else the ordering assertions are vacuous.
+    assert {trace_id_a, trace_id_b} <= set(captured_request_ids)
+
+    # request_ids must be written in a deterministic (sorted) order across traces.
+    seen_request_ids = list(dict.fromkeys(captured_request_ids))
+    assert seen_request_ids == sorted(seen_request_ids)
+
+    # Within each trace_id, keys must be written in sorted order.
+    keys_by_request: dict[str, list[str]] = {}
+    for rid, key in captured_pairs:
+        keys_by_request.setdefault(rid, []).append(key)
+    for rid, keys in keys_by_request.items():
+        assert keys == sorted(keys), f"keys for {rid} not sorted: {keys}"
+
+
+def test_start_trace_conflict_path_merges_metadata_in_sorted_key_order(
+    store: SqlAlchemyStore,
+):
+    """The IntegrityError conflict path is where the reported start_trace()/log_spans()
+    race actually occurs (issue #24332): log_spans() creates the trace first, then
+    start_trace() hits IntegrityError and upserts custom metadata via per-row
+    session.merge(). This test forces that branch and asserts merges emit keys in sorted
+    order — the happy-path tests never execute these lines, so a regression that dropped
+    the sort there would otherwise pass CI silently.
+
+    We spy on Session.merge (the ORM operation the conflict branch actually uses) rather
+    than the SQL cursor, because the merges here emit UPDATE statements (the keys were
+    already inserted by log_spans) whose positional params carry no parseable column list.
+    """
+    experiment_id = store.create_experiment("sorted-order-conflict-path")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # 1. Create the trace via log_spans() first so start_trace() below collides on the PK
+    # and takes the IntegrityError conflict path.
+    otel_span = create_test_otel_span(
+        trace_id=trace_id, name="llm_call", trace_id_num=111, span_id_num=111
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
+    }
+    store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
+
+    # 2. Record the key order of every metadata row merged during start_trace().
+    merged_metadata_keys: list[str] = []
+    real_merge = sqlalchemy.orm.Session.merge
+
+    def _spy_merge(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceMetadata) and instance.request_id == trace_id:
+            merged_metadata_keys.append(instance.key)
+        return real_merge(self, instance, *args, **kwargs)
+
+    # Metadata whose natural dict order is not sorted. Token usage differs from the
+    # log_spans value so the conflict path also has to replace authoritative columns.
+    trace_metadata = {
+        "mlflow.traceOutputs": "out",
+        "mlflow.trace.tokenUsage": json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 70,
+            "total_tokens": 270,
+        }),
+        "mlflow.traceInputs": "in",
+    }
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata=trace_metadata,
+    )
+
+    with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
+        store.start_trace(trace_info)
+
+    # Multiple keys must be merged, else the ordering assertion is vacuous.
+    assert len(merged_metadata_keys) >= 2, merged_metadata_keys
+    assert merged_metadata_keys == sorted(merged_metadata_keys)
+    with store.ManagedSessionMaker() as session:
+        sql_trace_info = session.get(SqlTraceInfo, trace_id)
+        assert (
+            sql_trace_info.input_tokens,
+            sql_trace_info.output_tokens,
+            sql_trace_info.total_tokens,
+        ) == (200, 70, 270)
+        assert (
+            session.query(SqlTraceMetrics).filter(SqlTraceMetrics.request_id == trace_id).count()
+            == 0
+        )
+
+
+@pytest.mark.parametrize(
+    "table_ref",
+    [
+        "trace_request_metadata",
+        '"trace_request_metadata"',
+        "`trace_request_metadata`",
+        "[trace_request_metadata]",
+        "[dbo].[trace_request_metadata]",
+        'public."trace_request_metadata"',
+    ],
+)
+def test_extract_metadata_write_pairs_parses_quoted_and_qualified_table_names(table_ref):
+    """The INSERT column-list parser must recover positional (request_id, key) tuples
+    regardless of how the dialect quotes or schema-qualifies the table name. If the
+    column order can't be parsed, tuple-param writes are silently dropped and the
+    sorted-order assertions become vacuous across backends.
+    """
+    statement = f"INSERT INTO {table_ref} (request_id, key, value) VALUES (?, ?, ?)"
+    # Positional tuple params (executemany-style), two rows.
+    parameters = [("tr-1", "alpha", "v1"), ("tr-1", "beta", "v2")]
+
+    pairs = _extract_metadata_write_pairs(statement, parameters)
+
+    assert pairs == [("tr-1", "alpha"), ("tr-1", "beta")]
+
+
+def _make_deadlock_exception() -> MlflowException:
+    # Mirrors exactly what mlflow.store.db.utils re-raises a psycopg2 DeadlockDetected /
+    # sqlalchemy OperationalError as when a transaction is killed by the DB:
+    # MlflowException(message=..., error_code=TEMPORARILY_UNAVAILABLE) (int error code).
+    return MlflowException(
+        "(psycopg2.errors.DeadlockDetected) deadlock detected",
+        error_code=TEMPORARILY_UNAVAILABLE,
+    )
+
+
+def test_start_trace_retries_on_deadlock(store: SqlAlchemyStore):
+    """start_trace() must retry (not silently drop the trace) when the DB kills its
+    transaction with a deadlock, and ultimately persist the trace (#24332).
+
+    A genuine ``sqlalchemy.exc.OperationalError`` is raised from inside the managed
+    session (via ``Session.flush``) rather than a pre-built ``MlflowException``, so the
+    full production seam is exercised end-to-end: ``make_managed_session`` wraps it to
+    ``TEMPORARILY_UNAVAILABLE`` (`db/utils.py`), then ``_run_with_deadlock_retry`` matches
+    the error code + "deadlock" substring and retries. If either half of that seam drifts,
+    the safety net silently stops retrying and this test fails.
+    """
+    experiment_id = store.create_experiment("start-trace-deadlock-retry")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+    )
+
+    real_flush = sqlalchemy.orm.Session.flush
+    flush_calls = {"n": 0}
+
+    def _flaky_flush(self, *args, **kwargs):
+        flush_calls["n"] += 1
+        if flush_calls["n"] == 1:
+            raise sqlalchemy.exc.OperationalError(
+                "INSERT INTO trace_request_metadata ...",
+                {},
+                Exception("deadlock detected"),
+            )
+        return real_flush(self, *args, **kwargs)
+
+    with (
+        mock.patch.object(sqlalchemy.orm.Session, "flush", _flaky_flush),
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+    ):
+        result = store.start_trace(trace_info)
+
+    assert flush_calls["n"] >= 2  # first flush deadlocked, retry re-ran and succeeded
+    assert result.trace_id == trace_id
+    assert store.get_trace_info(trace_id).trace_id == trace_id
+
+
+def test_start_trace_gives_up_after_max_deadlock_retries(store: SqlAlchemyStore):
+    # A persistent deadlock must eventually surface (bounded retry), not loop forever.
+    experiment_id = store.create_experiment("start-trace-deadlock-giveup")
+    trace_info = TraceInfo(
+        trace_id=f"tr-{uuid.uuid4().hex}",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+    )
+
+    with (
+        mock.patch.object(
+            SqlAlchemyStore, "_start_trace_once", side_effect=_make_deadlock_exception()
+        ),
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+        pytest.raises(MlflowException, match="deadlock"),
+    ):
+        store.start_trace(trace_info)
+
+
+def test_log_spans_retries_on_deadlock(store: SqlAlchemyStore):
+    # log_spans() must retry when the DB kills its transaction with a deadlock (#24332).
+    experiment_id = store.create_experiment("log-spans-deadlock-retry")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id, name="llm_call", span_id=111, span_type="LLM")
+
+    real_log_spans = SqlAlchemyStore._log_spans_once
+    calls = {"n": 0}
+
+    def _flaky(self, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise _make_deadlock_exception()
+        return real_log_spans(self, *args, **kwargs)
+
+    with (
+        mock.patch.object(SqlAlchemyStore, "_log_spans_once", _flaky),
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+    ):
+        store.log_spans(experiment_id, [span])
+
+    assert calls["n"] == 2
+    assert store.get_trace_info(trace_id).trace_id == trace_id

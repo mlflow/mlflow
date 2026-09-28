@@ -180,11 +180,12 @@ def test_validate_resource_grant_accepts_grantable(permission):
     _validate_permission_for_resource_type(permission, "registered_model")
     _validate_permission_for_resource_type(permission, "prompt")
     _validate_permission_for_resource_type(permission, "scorer")
+    _validate_permission_for_resource_type(permission, "mcp_server")
 
 
 @pytest.mark.parametrize(
     "resource_type",
-    ["experiment", "registered_model", "prompt", "scorer", "gateway_endpoint"],
+    ["experiment", "registered_model", "prompt", "scorer", "gateway_endpoint", "mcp_server"],
 )
 def test_validate_resource_grant_rejects_no_permissions(resource_type):
     with pytest.raises(MlflowException, match="NO_PERMISSIONS"):

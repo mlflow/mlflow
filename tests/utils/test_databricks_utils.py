@@ -387,6 +387,57 @@ def test_model_serving_config_provider_errors_caught():
         assert provider.get_config() is None
 
 
+def _make_dynamic_token_entry_point(get_logger_raises):
+    """
+    Build a mock ``entry_point`` for ``_init_databricks_dynamic_token_config_provider`` whose
+    notebook context returns a host/token and whose token-refresh path falls back to the command
+    context (exercising the branch that would emit usage telemetry).
+    """
+    entry_point = mock.MagicMock()
+    if get_logger_raises:
+        entry_point.getLogger.side_effect = AttributeError(
+            "dbutils.entry_point.getLogger is not supported on this cluster."
+        )
+    context = entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value
+    context.apiUrl.return_value.isDefined.return_value = True
+    context.apiUrl.return_value.get.return_value = "https://databricks.com"
+    context.apiToken.return_value.isDefined.return_value = True
+    context.apiToken.return_value.get.return_value = "token"
+    # Force the token-refresh fallback path, which is the only place the logger is used.
+    entry_point.getNonUcApiToken.side_effect = Exception("no refreshable token")
+    entry_point.getDriverConf.return_value.workflowSslTrustAll.return_value = False
+    return entry_point
+
+
+@pytest.mark.parametrize("get_logger_raises", [True, False])
+def test_dynamic_token_config_provider_get_config_when_logger_unavailable(
+    monkeypatch, get_logger_raises
+):
+    monkeypatch.setattr(
+        databricks_utils,
+        "get_databricks_runtime_major_minor_version",
+        lambda: DatabricksRuntimeVersion(
+            is_client_image=False, major=15, minor=0, is_gpu_image=False
+        ),
+    )
+    monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", None)
+    entry_point = _make_dynamic_token_entry_point(get_logger_raises)
+    databricks_utils._init_databricks_dynamic_token_config_provider(entry_point)
+    config = databricks_utils._dynamic_token_config_provider.get_config()
+
+    assert config.host == "https://databricks.com"
+    assert config.token == "token"
+
+    if get_logger_raises:
+        # No logger is available, so no usage telemetry should be emitted.
+        entry_point.getLogger.return_value.logUsage.assert_not_called()
+    else:
+        # The logger resolved successfully, so the fallback path should emit usage telemetry.
+        entry_point.getLogger.return_value.logUsage.assert_called_once_with(
+            "refreshableTokenNotFound", {"api_url": "https://databricks.com"}, None
+        )
+
+
 def test_get_workspace_info_from_databricks_secrets():
     mock_dbutils = mock.MagicMock()
     mock_dbutils.secrets.get.return_value = "workspace-placeholder-info"
@@ -760,9 +811,17 @@ def test_get_databricks_runtime_major_minor_version(
     assert dbr_version.minor == minor
 
 
-def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
-    # minor version is not allowed to be a string
+def test_get_dbr_major_minor_version_uncut_minor(monkeypatch):
+    # '{major}.x' is the latest uncut minor of that major, not an error.
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
+    dbr_version = get_databricks_runtime_major_minor_version()
+    assert dbr_version.major == 12
+    assert dbr_version.minor == databricks_utils._UNCUT_MINOR
+
+
+def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
+    # A malformed minor (not numeric, not the uncut 'x' marker) is still an error.
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.yyy")
     with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
         get_databricks_runtime_major_minor_version()
 
@@ -800,21 +859,30 @@ def test_get_workspace_url(input_url, expected_result):
         assert result == expected_result
 
 
+@pytest.mark.parametrize(
+    ("dbr_version", "expected_runtime_version"),
+    [
+        ("15.4.x-scala2.12", "15.4"),
+        ("18.x-aarch64-photon-scala2", "18.x"),
+        ("16.2.x-scala2.13", "16.2"),
+    ],
+)
 @pytest.mark.skipif(is_windows(), reason="This test doesn't work on Windows")
-def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
+def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch, dbr_version, expected_runtime_version):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
     databricks_utils._dbconnect_udf_sandbox_info_cache = None
 
     spark.udf.register(
         "current_version",
-        lambda: {"dbr_version": "15.4.x-scala2.12"},
+        lambda: {"dbr_version": dbr_version},
         returnType="dbr_version string",
     )
 
     info = get_dbconnect_udf_sandbox_info(spark)
     assert info.mlflow_version == mlflow.__version__
+    # `image_version` comes from DATABRICKS_RUNTIME_VERSION and must stay raw for archive naming.
     assert info.image_version == "client.1.2"
-    assert info.runtime_version == "15.4"
+    assert info.runtime_version == expected_runtime_version
     assert info.platform_machine == platform.machine()
 
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
@@ -822,9 +890,51 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
 
     info = get_dbconnect_udf_sandbox_info(spark)
     assert info.mlflow_version == mlflow.__version__
-    assert info.image_version == "15.4"
-    assert info.runtime_version == "15.4"
+    assert info.image_version == expected_runtime_version
+    assert info.runtime_version == expected_runtime_version
     assert info.platform_machine == platform.machine()
+
+
+@pytest.mark.parametrize(
+    ("dbr_version", "expected"),
+    [
+        ("15.4.x-scala2.12", (15, 4)),
+        ("18.x-aarch64-photon-scala2", (18, databricks_utils._UNCUT_MINOR)),
+        ("16.2.x-scala2.13", (16, 2)),
+        ("15.3", (15, 3)),
+        ("18", (18, databricks_utils._UNCUT_MINOR)),
+    ],
+)
+def test_parse_dbr_runtime_major_minor(dbr_version, expected):
+    assert databricks_utils.parse_dbr_runtime_major_minor(dbr_version) == expected
+
+
+@pytest.mark.parametrize(
+    "dbr_version",
+    [
+        "17.yyy",
+        "18.foo-bar",
+        # Non-ASCII digits (superscript '²', Thai '๓') satisfy str.isdigit() but are not valid
+        # DBR minors and must raise rather than be treated as numeric.
+        "15.²",
+        "15.๓",
+    ],
+)
+def test_parse_dbr_runtime_major_minor_malformed(dbr_version):
+    # A malformed minor (not ASCII-numeric and not the uncut 'x' marker) must raise, not silently
+    # degrade to the uncut sentinel.
+    with pytest.raises(ValueError, match="Unrecognized Databricks runtime minor version token"):
+        databricks_utils.parse_dbr_runtime_major_minor(dbr_version)
+
+
+def test_parse_dbr_runtime_uncut_minor_sorts_above_concrete_minor():
+    # '{major}.x' is the latest uncut minor and must compare greater than any released minor,
+    # including a hypothetical future gate threshold within the same major.
+    uncut = databricks_utils.parse_dbr_runtime_major_minor("18.x-aarch64-photon-scala2")
+    assert uncut > (18, 0)
+    assert uncut > (18, 9)
+    assert uncut > (18, 99)
+    assert uncut < (19, 0)
 
 
 def test_construct_databricks_uc_registered_model_url():
@@ -943,6 +1053,11 @@ def test_print_databricks_deployment_job_url():
         ("client.10.0-gpu", True, 10, 0, True),
         ("14.3-gpu", False, 14, 3, True),
         ("15.1-gpu", False, 15, 1, True),
+        # Newer uncut images have a non-numeric minor -> latest uncut minor of that major.
+        ("18.x-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-aarch64-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("client.5.x", True, 5, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-gpu", False, 18, databricks_utils._UNCUT_MINOR, True),
     ],
 )
 def test_databricks_runtime_version_parse(
@@ -1051,6 +1166,10 @@ def test_databricks_runtime_version_parse_from_env_version(monkeypatch):
         "client",
         "client.invalid",
         "13",
+        # A malformed minor (not numeric, not the uncut 'x' marker) must still raise.
+        "17.yyy",
+        "18.foo-bar",
+        "client.5.yyy",
     ],
 )
 def test_databricks_runtime_version_parse_invalid(invalid_version):

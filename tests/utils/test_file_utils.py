@@ -1,11 +1,13 @@
 import filecmp
 import hashlib
 import io
+import logging
 import os
 import shutil
 import stat
 import tarfile
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from pyspark.sql import SparkSession
@@ -22,6 +24,7 @@ from mlflow.utils.file_utils import (
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
+    remove_on_error,
 )
 from mlflow.utils.os import is_windows
 
@@ -390,3 +393,88 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
         with pytest.raises(MlflowException, match="would be extracted outside"):
             _safe_extractall(tar, dest)
     assert not (tmp_path.parent / "pwned.txt").exists()
+
+
+@pytest.fixture
+def file_utils_caplog(caplog, monkeypatch):
+    # The "mlflow" logger disables propagation, so enable it for caplog to capture records
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    with caplog.at_level(logging.WARNING, logger="mlflow.utils.file_utils"):
+        yield caplog
+
+
+@pytest.mark.parametrize("is_dir", [False, True], ids=["file", "directory"])
+def test_remove_on_error_reraises_original_exception_when_cleanup_fails(
+    tmp_path, file_utils_caplog, is_dir
+):
+    def fail_remove(path):
+        raise PermissionError("cleanup failed")
+
+    if is_dir:
+        path = tmp_path / "dir"
+        path.mkdir()
+        (path / "nested.txt").write_text("content")
+        # Scope the patch to the remove_on_error call so the failing rmtree does not
+        # leak into other fixtures' teardown (e.g. db_uri's rmtree)
+        fail_cleanup = mock.patch.object(shutil, "rmtree", side_effect=fail_remove)
+    else:
+        path = tmp_path / "file.txt"
+        path.write_text("content")
+        fail_cleanup = mock.patch.object(os, "remove", side_effect=fail_remove)
+
+    with fail_cleanup, pytest.raises(ValueError, match="root cause") as exc_info:
+        with remove_on_error(path):
+            raise ValueError("root cause")
+
+    # The cleanup failure must not pollute the propagated exception's chain
+    assert exc_info.value.__context__ is None
+    assert path.exists()
+    assert [r.getMessage() for r in file_utils_caplog.records] == [
+        f"Failed to remove {path}: cleanup failed"
+    ]
+
+
+@pytest.mark.parametrize("is_dir", [False, True], ids=["file", "directory"])
+def test_remove_on_error_removes_path_and_reraises(tmp_path, file_utils_caplog, is_dir):
+    path = tmp_path / ("dir" if is_dir else "file.txt")
+    if is_dir:
+        path.mkdir()
+        (path / "nested.txt").write_text("content")
+    else:
+        path.write_text("content")
+    onerror = mock.Mock()
+
+    with pytest.raises(ValueError, match="root cause") as exc_info:
+        with remove_on_error(path, onerror=onerror):
+            raise ValueError("root cause")
+
+    onerror.assert_called_once_with(exc_info.value)
+    assert not path.exists()
+    assert [r.getMessage() for r in file_utils_caplog.records] == [f"Successfully removed {path}"]
+
+
+def test_remove_on_error_leaves_non_regular_path_alone(tmp_path, file_utils_caplog, monkeypatch):
+    path = tmp_path / "special"
+    path.write_text("content")
+    # Simulate a path that exists but is neither a regular file nor a directory (e.g. a FIFO)
+    monkeypatch.setattr(os.path, "isfile", lambda p: False)
+    monkeypatch.setattr(os.path, "isdir", lambda p: False)
+
+    with pytest.raises(ValueError, match="root cause"):
+        with remove_on_error(path):
+            raise ValueError("root cause")
+
+    assert path.exists()
+    assert [r.getMessage() for r in file_utils_caplog.records] == [
+        f"Not removing {path}: neither a regular file nor a directory"
+    ]
+
+
+def test_remove_on_error_logs_nothing_for_nonexistent_path(tmp_path, file_utils_caplog):
+    path = tmp_path / "never_created"
+
+    with pytest.raises(ValueError, match="root cause"):
+        with remove_on_error(path):
+            raise ValueError("root cause")
+
+    assert file_utils_caplog.records == []

@@ -12,7 +12,7 @@ from agents.tracing.setup import get_trace_provider
 from mlflow.entities.span import LiveSpan, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import (
     get_current_active_span,
     start_span,
@@ -236,10 +236,11 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
         inputs = span_data.input
         outputs = span_data.output
         attributes = {
-            "model": span_data.model,
+            SpanAttributeKey.MODEL: span_data.model,
             "model_config": span_data.model_config,
-            "usage": span_data.usage,
         }
+        if usage := _parse_generation_usage(span_data.usage):
+            attributes[SpanAttributeKey.CHAT_USAGE] = usage
 
     elif span_data.type == OpenAISpanType.RESPONSE:
         inputs, outputs, attributes = _parse_response_span_data(span_data)
@@ -255,6 +256,29 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
         outputs = {"triggered": span_data.triggered}
 
     return inputs, outputs, attributes
+
+
+def _parse_generation_usage(usage: dict[str, int] | None) -> dict[str, int] | None:
+    if not usage:
+        return None
+    try:
+        result = {}
+        for key in [
+            TokenUsageKey.INPUT_TOKENS,
+            TokenUsageKey.OUTPUT_TOKENS,
+            TokenUsageKey.TOTAL_TOKENS,
+        ]:
+            if (v := usage.get(key)) is not None:
+                result[key] = v
+        if details := usage.get("input_tokens_details"):
+            if (v := details.get("cached_tokens")) is not None:
+                result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+            if (v := details.get("cache_write_tokens")) is not None:
+                result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
+        return result or None
+    except Exception:
+        _logger.debug("Failed to parse generation span usage", exc_info=True)
+        return None
 
 
 def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any, dict[str, Any]]:

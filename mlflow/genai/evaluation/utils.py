@@ -14,6 +14,7 @@ from mlflow.genai.evaluation.constant import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.search import traces_to_df
 
 try:
@@ -270,7 +271,7 @@ def _extract_expectations_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     Add `expectations` columns to the dataframe from assessments
     stored in the traces, if the "expectations" column is not already present.
     """
-    if "trace" not in df.columns:
+    if "trace" not in df.columns or "expectations" in df.columns:
         return df
 
     expectations_column = []
@@ -405,6 +406,19 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
         "or an Feedback, or a list of Feedbacks. "
         f"Got {value}.",
     )
+
+
+def add_scorer_metadata(scorer: "Scorer", feedbacks: list[Feedback]) -> None:
+    """Attach registered scorer provenance to generated feedbacks."""
+    if (scorer_version := getattr(scorer, "scorer_version", None)) is None:
+        return
+
+    for feedback in feedbacks:
+        feedback.metadata = {
+            **(feedback.metadata or {}),
+            AssessmentMetadataKey.SCORER_NAME: scorer.name,
+            AssessmentMetadataKey.SCORER_VERSION: str(scorer_version),
+        }
 
 
 def _get_custom_assessment_name(assessment: Feedback, scorer_name: str) -> str:

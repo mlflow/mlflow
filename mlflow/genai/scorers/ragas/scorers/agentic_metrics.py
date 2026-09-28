@@ -4,11 +4,9 @@ from typing import ClassVar
 
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.ragas import RagasScorer
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class TopicAdherence(RagasScorer):
     """
@@ -50,7 +48,6 @@ class TopicAdherence(RagasScorer):
     metric_name: ClassVar[str] = "TopicAdherence"
 
 
-@experimental(version="3.9.0")
 class ToolCallAccuracy(RagasScorer):
     """
     Evaluates the accuracy of tool calls made by an agent.
@@ -97,7 +94,6 @@ class ToolCallAccuracy(RagasScorer):
     metric_name: ClassVar[str] = "ToolCallAccuracy"
 
 
-@experimental(version="3.9.0")
 class ToolCallF1(RagasScorer):
     """
     Calculates F1 score between expected and actual tool calls.
@@ -138,7 +134,6 @@ class ToolCallF1(RagasScorer):
     metric_name: ClassVar[str] = "ToolCallF1"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class AgentGoalAccuracyWithReference(RagasScorer):
     """
@@ -172,7 +167,6 @@ class AgentGoalAccuracyWithReference(RagasScorer):
     metric_name: ClassVar[str] = "AgentGoalAccuracyWithReference"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class AgentGoalAccuracyWithoutReference(RagasScorer):
     """

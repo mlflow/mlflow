@@ -384,11 +384,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-21"
     },
     "google.gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -424,11 +424,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-21"
     },
     "meta.llama-3.1-405b-instruct": {
       "mode": "chat",

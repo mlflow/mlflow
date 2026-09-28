@@ -1,0 +1,14 @@
+# Artifact Hub repository metadata for the MLflow Helm chart.
+# Pushed to the `artifacthub.io` tag of oci://ghcr.io/mlflow/charts/mlflow by
+# the MLflow release automation.
+# See https://artifacthub.io/docs/topics/repositories/helm-charts/#oci-support
+#
+# TODO: Uncomment and fill in repositoryID once the chart repository has been
+# registered on https://artifacthub.io. Artifact Hub generates the ID at
+# registration time, so it cannot be known before oci://ghcr.io/mlflow/charts/mlflow
+# is first added there. Until then, only the owners list below is published,
+# which is enough for Artifact Hub to verify ownership claims.
+# repositoryID: <set-after-artifacthub-registration>
+owners:
+  - name: MLflow maintainers
+    email: mlflow-oss-maintainers@googlegroups.com

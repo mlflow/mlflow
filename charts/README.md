@@ -6,6 +6,7 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 
 - **MLflow server** with configurable CLI options
 - **TLS support** via an existing Kubernetes Secret
+- **External Secrets Operator integration** to create the backend store credential Secret from AWS Secrets Manager, GCP Secret Manager, Vault, or any other supported provider
 - **Persistent storage** with a PersistentVolumeClaim for SQLite or file-based artifact stores
 - **Ingress** for external access
 - **Prometheus metrics** and optional ServiceMonitor for the Prometheus Operator
@@ -19,6 +20,22 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 - Helm 3.8+
 
 ## Installation
+
+### From GitHub Container Registry (recommended)
+
+Released chart versions are published to GitHub Container Registry as OCI artifacts:
+
+```bash
+helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> \
+  --namespace mlflow \
+  --create-namespace
+```
+
+Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
+New chart versions are published by the MLflow release automation.
+
+### From a local checkout
 
 ```bash
 helm install mlflow ./charts --namespace mlflow --create-namespace
@@ -43,7 +60,7 @@ helm install mlflow ./charts \
   --create-namespace \
   --set storage.enabled=true \
   --set mlflow.backendStoreUri="sqlite:////mlflow/mlflow.db" \
-  --set mlflow.defaultArtifactRoot="/mlflow/artifacts"
+  --set mlflow.artifactsDestination="/mlflow/artifacts"
 ```
 
 Access the UI via port-forward:
@@ -114,7 +131,7 @@ storage:
 
 mlflow:
   backendStoreUri: "sqlite:////mlflow/mlflow.db"
-  defaultArtifactRoot: "/mlflow/artifacts"
+  artifactsDestination: "/mlflow/artifacts"
 ```
 
 ### TLS
@@ -129,6 +146,41 @@ kubectl create secret tls mlflow-tls \
 tls:
   enabled: true
   secretName: mlflow-tls
+```
+
+### Health probes
+
+The chart configures liveness, readiness, and startup probes against MLflow's
+`/health` endpoint (under `server.staticPrefix` when set, and over HTTPS when
+`tls.enabled` is true). Timing and thresholds for each probe are configurable;
+set `enabled: false` on any of them to omit it from the rendered Deployment.
+
+The startup probe gates liveness and readiness until it succeeds, which is
+useful for slow-starting deployments (e.g. an external database or a sidecar
+proxy). Increase `timeoutSeconds` if your health endpoint can be slow to
+respond under load — the Kubernetes default of 1 second is often too
+aggressive for production environments.
+
+```yaml
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 1
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+  startup:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
 ```
 
 ### Ingress

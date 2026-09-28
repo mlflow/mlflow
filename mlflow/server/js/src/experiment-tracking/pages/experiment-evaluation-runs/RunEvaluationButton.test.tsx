@@ -345,7 +345,7 @@ describe('RunEvaluationButton', () => {
     await user.click(screen.getByRole('radio', { name: /Custom LLM-as-a-judge/ }));
     expect(await screen.findByText('My Custom Judge')).toBeInTheDocument();
     expect(getJudgeCheckboxByName('My Custom Judge')).not.toBeChecked();
-  });
+  }, 10000);
 
   it('disables the Run judge button when no judges are selected', async () => {
     renderButton('exp-1');

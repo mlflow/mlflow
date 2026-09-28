@@ -135,3 +135,24 @@ def mlflow_prompt_to_proto(prompt: PromptVersion) -> ProtoPromptVersion:
             proto_version.aliases.append(alias_proto)
 
     return proto_version
+
+
+def get_uc_model_registry_store_class():
+    """Return the UC model-registry store class to use for the ``databricks-uc`` scheme:
+    ``UcNativeModelRegistryStore`` when ``MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY`` is enabled,
+    otherwise the legacy ``UcModelRegistryStore``.
+
+    The store classes are imported lazily because they import from this module.
+    """
+    from mlflow.environment_variables import MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY
+
+    if MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY.get():
+        from mlflow.store._unity_catalog.registry.uc_native_rest_store import (
+            UcNativeModelRegistryStore,
+        )
+
+        return UcNativeModelRegistryStore
+
+    from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+
+    return UcModelRegistryStore

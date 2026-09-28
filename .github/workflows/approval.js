@@ -65,7 +65,7 @@ function hasAnyApproval(reviews) {
 module.exports = async ({ github, context, core }) => {
   const { pull_request: pr } = context.payload;
   const authorLogin = pr?.user?.login;
-  if (authorLogin === "mlflow-app[bot]") {
+  if (["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
     return;
   }
 
@@ -75,7 +75,7 @@ module.exports = async ({ github, context, core }) => {
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
-  const APPROVED_BOTS = new Set(["mlflow-app[bot]", "nailaopus[bot]"]);
+  const APPROVED_BOTS = new Set(["nailaopus[bot]"]);
   const maintainerApproved = reviews.some(
     ({ state, user }) =>
       state === "APPROVED" &&

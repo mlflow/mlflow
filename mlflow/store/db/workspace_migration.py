@@ -38,6 +38,7 @@ _CONFLICT_SPECS = [
     ("secrets", ("secret_name",), "secrets with the same name"),
     ("endpoints", ("name",), "endpoints with the same name"),
     ("model_definitions", ("name",), "model definitions with the same name"),
+    ("mcp_servers", ("name",), "MCP servers with the same name"),
 ]
 
 

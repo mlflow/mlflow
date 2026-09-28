@@ -28,18 +28,11 @@ describe('ModelsNextUIToggleSwitch', () => {
   const mockUnseenPromoModal = () =>
     jest.spyOn(window.localStorage, 'getItem').mockImplementation((key) => (key.match(/promo/) ? 'false' : ''));
 
-  test('it should render the switch and display the promo modal', () => {
+  test('it should render the switch without the promo modal (promo is rendered at the page level)', () => {
     mockUnseenPromoModal();
 
     renderTestComponent();
     expect(screen.getByRole('switch', { name: /New model registry UI/ })).toBeInTheDocument();
-    expect(within(screen.getByRole('dialog')).getByText(/Flexible, governed deployments/)).toBeInTheDocument();
-  });
-
-  test("it should not render display the promo modal when it's already seen", () => {
-    mockSeenPromoModal();
-    renderTestComponent();
-    expect(screen.getByRole('switch')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

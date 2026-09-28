@@ -96,6 +96,35 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       return allColumns.filter((column) => selectedColumns[column.id ?? '']);
     }, [selectedColumns, uniqueColumns, viewMode]);
 
+    // Build a map of row ID -> flat run index (excluding group rows)
+    // This ensures FIRST_10_RUNS/FIRST_20_RUNS visibility controls work correctly
+    // with parent-child hierarchies and grouped views
+    const flatRunIndexMap = useMemo(() => {
+      const map: Record<string, number> = {};
+      let runIndex = 0;
+
+      // Walk through all rows in the table and assign indices only to actual runs
+      const walkRows = (rows: typeof data) => {
+        rows.forEach((row) => {
+          if ('info' in row) {
+            // This is an actual run entity - assign an index
+            map[row.info.runUuid] = runIndex++;
+          }
+
+          // Recurse into children if they exist
+          if ('subRuns' in row && row.subRuns) {
+            walkRows(row.subRuns);
+          }
+          if ('children' in row && row.children) {
+            walkRows(row.children);
+          }
+        });
+      };
+
+      walkRows(data);
+      return map;
+    }, [data]);
+
     const table = useReactTable<RunEntityOrGroupData>(
       'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
       {
@@ -118,6 +147,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           if ('subRuns' in row) {
             return row.subRuns;
           }
+          if ('children' in row) {
+            return row.children;
+          }
           return undefined;
         },
         getRowCanExpand: (row) => Boolean(row.subRows?.length),
@@ -133,6 +165,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           setSelectedRunUuid,
           setSelectedDatasetWithRun,
           setIsDrawerOpen,
+          flatRunIndexMap,
         },
         onRowSelectionChange: setRowSelection,
         state: {
@@ -168,6 +201,11 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           table.getRowModel().rows.map((row) => {
             const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
             const runStatus = 'info' in row.original ? row.original.info.status : undefined;
+
+            // Get flat run index from pre-calculated map (excludes group rows)
+            const runUuid = 'info' in row.original ? row.original.info.runUuid : undefined;
+            const currentFlatIndex = runUuid && flatRunIndexMap[runUuid] !== undefined ? flatRunIndexMap[runUuid] : -1;
+
             return (
               <ExperimentEvaluationRunsTableRow
                 key={row.id}
@@ -175,14 +213,13 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isActive={isActive}
                 isSelected={rowSelection[row.id]}
                 isExpanded={row.getIsExpanded()}
-                isHidden={isRowHidden(row.id, row.index, runStatus)}
+                isHidden={isRowHidden(row.id, currentFlatIndex, runStatus)}
                 columns={columns}
                 isGrouped={isGrouped}
                 enableImprovedComparison={enableImprovedComparison}
               />
             );
           })}
-
         {(isLoading || hasNextPage) && <TableSkeletonRows table={table} />}
       </Table>
     );

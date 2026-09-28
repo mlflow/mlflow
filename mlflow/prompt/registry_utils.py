@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import json
 import logging
 import re
@@ -21,19 +22,30 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
+
+
+def _get_prompt_cache_namespace(registry_uri: str | None) -> str:
+    if registry_uri is None:
+        raise ValueError("Registry URI must be resolved before accessing the prompt cache")
+    return hashlib.sha256(registry_uri.encode()).hexdigest()
 
 
 class PromptCacheKey(NamedTuple):
     """Cache key for prompt lookups.
 
     Attributes:
+        registry_namespace: Non-secret identifier for the resolved registry URI
+        workspace: Active workspace name, or None when no workspace is selected
         name: Prompt name
         version: Prompt version (None for non-version lookups)
         alias: Prompt alias (None for non-alias lookups)
     """
 
+    registry_namespace: str
+    workspace: str | None
     name: str
     version: int | None
     alias: str | None
@@ -44,6 +56,8 @@ class PromptCacheKey(NamedTuple):
         name: str,
         version: int | None = None,
         alias: str | None = None,
+        *,
+        registry_uri: str | None,
     ) -> "PromptCacheKey":
         """
         Create a cache key from prompt name and version/alias.
@@ -52,6 +66,7 @@ class PromptCacheKey(NamedTuple):
             name: Prompt name
             version: Prompt version (mutually exclusive with alias)
             alias: Prompt alias (mutually exclusive with version)
+            registry_uri: Resolved URI of the prompt registry
 
         Returns:
             A PromptCacheKey instance
@@ -61,15 +76,22 @@ class PromptCacheKey(NamedTuple):
         """
         if version is not None and alias is not None:
             raise ValueError("Cannot specify both version and alias")
-        return cls(name=name, version=version, alias=alias)
+        return cls(
+            registry_namespace=_get_prompt_cache_namespace(registry_uri),
+            workspace=get_request_workspace(),
+            name=name,
+            version=version,
+            alias=alias,
+        )
 
     @classmethod
-    def from_uri(cls, prompt_uri: str) -> "PromptCacheKey":
+    def from_uri(cls, prompt_uri: str, *, registry_uri: str | None) -> "PromptCacheKey":
         """
         Create a cache key from a prompt URI.
 
         Args:
             prompt_uri: URI in format "prompts:/name/version" or "prompts:/name@alias"
+            registry_uri: Resolved URI of the prompt registry
 
         Returns:
             A PromptCacheKey instance
@@ -79,13 +101,13 @@ class PromptCacheKey(NamedTuple):
         if "@" in uri_path:
             # Alias format: "name@alias"
             prompt_name, alias = uri_path.split("@", 1)
-            return cls.from_parts(prompt_name, alias=alias)
+            return cls.from_parts(prompt_name, alias=alias, registry_uri=registry_uri)
         else:
             # Version format: "name/version"
             parts = uri_path.split("/")
             prompt_name = parts[0]
             prompt_version = int(parts[1]) if len(parts) > 1 else None
-            return cls.from_parts(prompt_name, version=prompt_version)
+            return cls.from_parts(prompt_name, version=prompt_version, registry_uri=registry_uri)
 
 
 def model_version_to_prompt_version(
@@ -338,7 +360,9 @@ class PromptCache:
 
     Usage:
         cache = PromptCache.get_instance()
-        key = PromptCacheKey.from_parts("my-prompt", version=1)
+        key = PromptCacheKey.from_parts(
+            "my-prompt", version=1, registry_uri="https://registry.example.com"
+        )
         cache.set(key, prompt_value, ttl_seconds=300)
         prompt = cache.get(key)
     """
@@ -408,16 +432,25 @@ class PromptCache:
         prompt_name: str,
         version: int | None = None,
         alias: str | None = None,
+        *,
+        registry_uri: str | None,
     ) -> None:
         """Delete a prompt from the cache."""
-        key = PromptCacheKey.from_parts(prompt_name, version, alias)
+        key = PromptCacheKey.from_parts(prompt_name, version, alias, registry_uri=registry_uri)
         with self._lock:
             self._cache.pop(key, None)
 
-    def delete_all(self, prompt_name: str) -> None:
+    def delete_all(self, prompt_name: str, *, registry_uri: str | None) -> None:
         """Delete all cached entries for a prompt name."""
+        scope = PromptCacheKey.from_parts(prompt_name, registry_uri=registry_uri)
         with self._lock:
-            keys_to_delete = [key for key in self._cache if key.name == prompt_name]
+            keys_to_delete = [
+                key
+                for key in self._cache
+                if key.registry_namespace == scope.registry_namespace
+                and key.workspace == scope.workspace
+                and key.name == scope.name
+            ]
             for key in keys_to_delete:
                 self._cache.pop(key, None)
 

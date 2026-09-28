@@ -767,6 +767,13 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # due to how None is cast
         return values
 
+    if t == DataType.binary and isinstance(values.dtype, pd.StringDtype):
+        # pandas 3 infers plain-string columns as StringDtype rather than object. Binary
+        # columns historically arrived as object and were passed through unchanged (see the
+        # ``t.to_pandas() == values.dtype`` check below, where binary maps to object), so accept
+        # StringDtype the same way.
+        return values
+
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
     # That is because pandas is aware of numpy.
@@ -952,8 +959,11 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[x] = pd.Series(
-                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]], name=x
+                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]],
+                index=pf_input.index,
+                name=x,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -979,8 +989,11 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[name] = pd.Series(
-                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]],
+                index=pf_input.index,
+                name=name,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 

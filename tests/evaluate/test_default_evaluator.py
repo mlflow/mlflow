@@ -17,7 +17,13 @@ from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.svm import LinearSVC
@@ -1881,6 +1887,34 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
         np.testing.assert_allclose(result.metrics["f1_score"], f1)
 
 
+@pytest.mark.parametrize("pos_label", [0, 1])
+def test_evaluation_binary_classification_curve_auc_respects_pos_label(pos_label):
+    X, y = load_breast_cancer(as_frame=True, return_X_y=True)
+    X = X.iloc[:, :4].head(100)
+    y = y.head(len(X))
+    with mlflow.start_run():
+        model = LogisticRegression()
+        model.fit(X, y)
+        model_info = mlflow.sklearn.log_model(model, name="model")
+        result = evaluate(
+            model_info.model_uri,
+            X.assign(target=y),
+            model_type="classifier",
+            targets="target",
+            evaluators="default",
+            evaluator_config={"pos_label": pos_label},
+        )
+    # The curve metrics must be computed against the probability column of pos_label,
+    # not a hardcoded column. Verify roc_auc and precision_recall_auc match the values
+    # sklearn computes for the configured positive class.
+    pos_col = list(model.classes_).index(pos_label)
+    y_score = model.predict_proba(X)[:, pos_col]
+    expected_roc_auc = roc_auc_score(y == pos_label, y_score)
+    expected_pr_auc = average_precision_score(y == pos_label, y_score)
+    np.testing.assert_allclose(result.metrics["roc_auc"], expected_roc_auc, rtol=1e-3)
+    np.testing.assert_allclose(result.metrics["precision_recall_auc"], expected_pr_auc, rtol=1e-3)
+
+
 @pytest.mark.parametrize("average", [None, "weighted", "macro", "micro"])
 def test_evaluation_multiclass_classification_with_average(average):
     X, y = load_iris(as_frame=True, return_X_y=True)
@@ -2016,6 +2050,106 @@ def validate_question_answering_logged_data(
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
+
+
+@pytest.mark.parametrize("multi_output", [False, True])
+def test_evaluation_table_preserves_row_alignment(multi_output):
+    data = pd.DataFrame({"feature": [1, 2], "target": [101, 202]}, index=[10, 20])
+
+    if multi_output:
+
+        def model(_data):
+            return pd.DataFrame({
+                "prediction": [101.0, 202.0],
+                "auxiliary": [0.1, 0.2],
+            })
+
+        def row_metric(predictions, auxiliary):
+            return MetricValue(scores=auxiliary.tolist())
+
+        model_type = None
+        predictions = "prediction"
+        expected_metric_scores = [0.1, 0.2]
+    else:
+
+        def model(_data):
+            return pd.Series([101.0, 202.0])
+
+        def row_metric(predictions, targets=None):
+            return MetricValue(scores=predictions.tolist())
+
+        model_type = "regressor"
+        predictions = None
+        expected_metric_scores = [101.0, 202.0]
+
+    with mlflow.start_run():
+        result = mlflow.models.evaluate(
+            model,
+            data,
+            targets="target",
+            model_type=model_type,
+            predictions=predictions,
+            evaluators="default",
+            evaluator_config={"log_model_explainability": False},
+            extra_metrics=[
+                make_metric(eval_fn=row_metric, greater_is_better=True, name="row_metric")
+            ],
+        )
+
+    eval_table = pd.DataFrame(**result.artifacts["eval_results_table"].content)
+    prediction_column = "prediction" if multi_output else "outputs"
+    assert eval_table["feature"].tolist() == [1, 2]
+    assert eval_table["target"].tolist() == [101, 202]
+    assert eval_table[prediction_column].tolist() == [101.0, 202.0]
+    assert eval_table["row_metric/score"].tolist() == expected_metric_scores
+    if multi_output:
+        assert eval_table["auxiliary"].tolist() == [0.1, 0.2]
+
+
+@pytest.mark.parametrize("multi_output", [False, True])
+def test_evaluation_table_preserves_nullable_integer_outputs(multi_output):
+    data = pd.DataFrame({"feature": [1, 2]}, index=[10, 20])
+    expected_output = [2**63 - 1, None]
+
+    if multi_output:
+
+        def model(_data):
+            return pd.DataFrame({
+                "prediction": [1.0, 2.0],
+                "auxiliary": pd.Series([expected_output[0], pd.NA], dtype="Int64"),
+            })
+
+        def row_metric(predictions, auxiliary):
+            return MetricValue(scores=[0.0, 0.0])
+
+        predictions = "prediction"
+        output_column = "auxiliary"
+    else:
+
+        def model(_data):
+            return pd.Series([expected_output[0], pd.NA], dtype="Int64")
+
+        def row_metric(predictions):
+            return MetricValue(scores=[0.0, 0.0])
+
+        predictions = None
+        output_column = "outputs"
+
+    with mlflow.start_run():
+        result = mlflow.models.evaluate(
+            model,
+            data,
+            predictions=predictions,
+            evaluators="default",
+            evaluator_config={"log_model_explainability": False},
+            extra_metrics=[
+                make_metric(eval_fn=row_metric, greater_is_better=True, name="row_metric")
+            ],
+        )
+
+    eval_table = result.artifacts["eval_results_table"].content
+    output_index = eval_table["columns"].index(output_column)
+    assert [row[output_index] for row in eval_table["data"]] == expected_output
 
 
 def test_missing_args_raises_exception():

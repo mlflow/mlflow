@@ -2,7 +2,11 @@ import configparser
 from pathlib import Path
 from typing import NamedTuple
 
-from mlflow.environment_variables import MLFLOW_AUTH_CONFIG_PATH
+from mlflow.environment_variables import (
+    MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_ADMIN_USERNAME,
+    MLFLOW_AUTH_CONFIG_PATH,
+)
 
 DEFAULT_AUTHORIZATION_FUNCTION = "mlflow.server.auth:authenticate_request_basic_auth"
 
@@ -10,8 +14,11 @@ DEFAULT_AUTHORIZATION_FUNCTION = "mlflow.server.auth:authenticate_request_basic_
 class AuthConfig(NamedTuple):
     default_permission: str
     database_uri: str
-    admin_username: str
-    admin_password: str
+    # Both are None when neither the config file nor the MLFLOW_AUTH_ADMIN_* environment
+    # variable provides a non-empty value. MLflow ships no default admin password; the auth app
+    # refuses to bootstrap the admin user without explicit values.
+    admin_username: str | None
+    admin_password: str | None
     authorization_function: str
     grant_default_workspace_access: bool
     workspace_cache_max_size: int
@@ -31,11 +38,24 @@ def read_auth_config() -> AuthConfig:
     config_path = _get_auth_config_path()
     config = configparser.ConfigParser()
     config.read(config_path)
+    # An environment variable that is set takes precedence even when it is empty, so an empty
+    # injected secret surfaces as a bootstrap error instead of silently falling back to a
+    # possibly stale value in the file. Empty values normalize to None.
+    admin_username = (
+        MLFLOW_AUTH_ADMIN_USERNAME.get()
+        if MLFLOW_AUTH_ADMIN_USERNAME.is_set()
+        else config["mlflow"].get("admin_username")
+    ) or None
+    admin_password = (
+        MLFLOW_AUTH_ADMIN_PASSWORD.get()
+        if MLFLOW_AUTH_ADMIN_PASSWORD.is_set()
+        else config["mlflow"].get("admin_password")
+    ) or None
     return AuthConfig(
         default_permission=config["mlflow"]["default_permission"],
         database_uri=config["mlflow"]["database_uri"],
-        admin_username=config["mlflow"]["admin_username"],
-        admin_password=config["mlflow"]["admin_password"],
+        admin_username=admin_username,
+        admin_password=admin_password,
         authorization_function=config["mlflow"].get(
             "authorization_function", DEFAULT_AUTHORIZATION_FUNCTION
         ),

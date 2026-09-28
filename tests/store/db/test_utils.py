@@ -1,12 +1,17 @@
+import time
 from pathlib import Path
 from unittest import mock
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy.pool.impl import QueuePool
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db import utils
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.utils.time import get_current_time_millis
 
 
 def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):
@@ -190,3 +195,49 @@ def test_make_parent_dirs_if_sqlite_skips_non_sqlite() -> None:
     # Should not raise any errors for non-SQLite URIs
     utils._make_parent_dirs_if_sqlite("postgresql://localhost/db")
     utils._make_parent_dirs_if_sqlite("mysql://localhost/db")
+
+
+def test_get_current_time_millis_expression_unsupported_db_type() -> None:
+
+    with pytest.raises(MlflowException, match="Unsupported db type: unsupported-db"):
+        _ = utils.get_current_time_millis_expression("unsupported-db")
+
+
+def test_get_current_time_millis_expression_sqlite_millisecond_precision() -> None:
+
+    engine = utils.create_sqlalchemy_engine("sqlite:///:memory:")
+    Session = sessionmaker(bind=engine)
+    db_now = utils.get_current_time_millis_expression(db_type=SQLITE)
+
+    before = get_current_time_millis()
+    time.sleep(0.001)
+
+    with Session() as session:
+        result = session.execute(select(db_now)).scalar()
+
+    time.sleep(0.001)
+    after = get_current_time_millis()
+
+    assert before < result < after
+
+
+@pytest.mark.parametrize(
+    ("db_type", "expected"),
+    [
+        (MSSQL, "datediff_big(MILLISECOND, '1970-01-01', sysutcdatetime())"),
+        (
+            MYSQL,
+            (
+                "floor(timestampdiff(MICROSECOND, '1970-01-01 00:00:00',"
+                " utc_timestamp(3)) / CAST(1000 AS NUMERIC))"
+            ),
+        ),
+        (POSTGRES, "floor(EXTRACT(epoch FROM now()) * 1000)"),
+        (SQLITE, "CAST((julianday('now') - julianday('1970-01-01')) * 86400000 AS BIGINT)"),
+    ],
+    ids=[MSSQL, MYSQL, POSTGRES, SQLITE],
+)
+def test_get_current_time_millis_expression_raw_sql(db_type: str, expected: str) -> None:
+
+    db_now = utils.get_current_time_millis_expression(db_type=db_type)
+    assert str(db_now.compile(compile_kwargs={"literal_binds": True})) == expected

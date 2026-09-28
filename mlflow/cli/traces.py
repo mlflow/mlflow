@@ -291,7 +291,7 @@ def search_traces(
     mlflow traces search --experiment-id 1 --no-include-spans
     """
     client = TracingClient()
-    order_by_list = order_by.split(",") if order_by else None
+    order_by_list = [o.strip() for o in order_by.split(",")] if order_by else None
 
     # Set the sql_warehouse_id in the environment variable
     if sql_warehouse_id is not None:
@@ -462,7 +462,7 @@ def delete_traces(
     mlflow traces delete --experiment-id 1 --max-timestamp-millis 1700000000000 --max-traces 100
     """
     client = TracingClient()
-    trace_id_list = trace_ids.split(",") if trace_ids else None
+    trace_id_list = [t.strip() for t in trace_ids.split(",")] if trace_ids else None
 
     count = client.delete_traces(
         experiment_id=experiment_id,

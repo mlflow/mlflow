@@ -39,6 +39,7 @@ const MESSAGE_ROLE_USER = 'user';
 const MESSAGE_ROLE_ASSISTANT = 'assistant';
 const PART_TYPE_TEXT = 'text';
 const PART_TYPE_TOOL = 'tool';
+const PART_TYPE_REASONING = 'reasoning';
 
 // Well-known trace metadata keys. We pass these through updateCurrentTrace's
 // generic `metadata` option rather than its `sessionId`/`user` convenience
@@ -47,6 +48,11 @@ const PART_TYPE_TOOL = 'tool';
 // themselves are stable, so this works across the published version range.
 const TRACE_SESSION_METADATA_KEY = 'mlflow.trace.session';
 const TRACE_USER_METADATA_KEY = 'mlflow.trace.user';
+
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
 
 // SDK initialization state
 let initialized = false;
@@ -215,8 +221,13 @@ function findLastUserMessageIndex(messages: Message[]): number | null {
 function reconstructConversationMessages(
   messages: Message[],
   endIdx: number,
-): Array<{ role: string; content: string; tool_call_id?: string }> {
-  const result: Array<{ role: string; content: string; tool_call_id?: string }> = [];
+): Array<{ role: string; content: string; reasoning?: string; tool_call_id?: string }> {
+  const result: Array<{
+    role: string;
+    content: string;
+    reasoning?: string;
+    tool_call_id?: string;
+  }> = [];
 
   for (let i = 0; i < endIdx; i++) {
     const msg = messages[i];
@@ -234,8 +245,18 @@ function reconstructConversationMessages(
       const textParts = parts
         .filter((p) => p.type === PART_TYPE_TEXT && p.text)
         .map((p) => p.text || '');
-      if (textParts.length > 0) {
-        result.push({ role: 'assistant', content: textParts.join('\n') });
+      const reasoningParts = parts
+        .filter((p) => p.type === PART_TYPE_REASONING && p.text)
+        .map((p) => p.text || '');
+      if (textParts.length > 0 || reasoningParts.length > 0) {
+        const msg: { role: string; content: string; reasoning?: string } = {
+          role: 'assistant',
+          content: textParts.join('\n'),
+        };
+        if (reasoningParts.length > 0) {
+          msg.reasoning = reasoningParts.join('\n\n');
+        }
+        result.push(msg);
       }
 
       // Add tool results as tool messages
@@ -310,14 +331,20 @@ function createLlmAndToolSpans(
     const createdNs = timestampToNs(timeInfo.created);
     const completedNs = timestampToNs(timeInfo.completed);
 
-    // Check for text and tool content
+    // Check for text, tool, and reasoning content
     const textParts = parts.filter((p) => p.type === PART_TYPE_TEXT);
     const toolParts = parts.filter((p) => p.type === PART_TYPE_TOOL);
+    const reasoningParts = parts.filter((p) => p.type === PART_TYPE_REASONING);
 
-    // Create LLM span for text responses
-    if (textParts.length > 0) {
+    // Create LLM span for all assistant messages with content.
+    // Tool-call-only responses (no text) are still LLM calls and must be traced;
+    // omitting them causes missing spans when agents like prometheus issue many
+    // back-to-back tool calls without intermediate text.
+    if (textParts.length > 0 || toolParts.length > 0 || reasoningParts.length > 0) {
       const conversationMessages = reconstructConversationMessages(messages, i);
       const textContent = textParts.map((p) => p.text || '').join('\n');
+      const reasoningText =
+        reasoningParts.length > 0 ? reasoningParts.map((p) => p.text || '').join('\n\n') : null;
 
       const llmSpan = startSpan({
         name: 'llm_call',
@@ -340,9 +367,35 @@ function createLlmAndToolSpans(
         llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, tokenUsage);
       }
 
-      llmSpan.setOutputs({
-        choices: [{ message: { role: 'assistant', content: textContent } }],
-      });
+      // Emit the OpenAI chat-completion message shape (content: string | null,
+      // tool_calls: [{id, type, function: {name, arguments}}]) so MLflow's Chat view
+      // renders tool-call spans and traces stay consistent with the other integrations
+      // (see integrations/codex and integrations/qwen-code).
+      const outputMessage: {
+        role: string;
+        content: string | null;
+        reasoning?: string;
+        tool_calls?: Array<{
+          id: string;
+          type: 'function';
+          function: { name: string; arguments: string };
+        }>;
+      } = { role: 'assistant', content: textContent || null };
+      if (reasoningText) {
+        outputMessage.reasoning = reasoningText;
+      }
+      if (toolParts.length > 0) {
+        outputMessage.tool_calls = toolParts.map((p) => ({
+          id: p.callID || '',
+          type: 'function' as const,
+          function: {
+            name: p.tool || 'unknown',
+            arguments: JSON.stringify(p.state?.input ?? {}),
+          },
+        }));
+      }
+
+      llmSpan.setOutputs({ choices: [{ message: outputMessage }] });
       llmSpan.end({ endTimeNs: completedNs });
     }
 
@@ -444,7 +497,7 @@ async function processSession(sessionId: string, messages: Message[]): Promise<v
       updateCurrentTrace({
         metadata: {
           [TRACE_SESSION_METADATA_KEY]: sessionId,
-          [TRACE_USER_METADATA_KEY]: process.env.USER || '',
+          [TRACE_USER_METADATA_KEY]: getCurrentUser(),
         },
         requestPreview: userPrompt.slice(0, MAX_PREVIEW_LENGTH),
         ...(finalResponse ? { responsePreview: finalResponse.slice(0, MAX_PREVIEW_LENGTH) } : {}),

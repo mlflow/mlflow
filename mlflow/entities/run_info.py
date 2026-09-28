@@ -1,12 +1,17 @@
+from __future__ import annotations
+
+from typing import cast
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
+from mlflow.protos.service_pb2 import RunStatus as ProtoRunStatus
 
 
-def check_run_is_active(run_info):
+def check_run_is_active(run_info: RunInfo) -> None:
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             f"The run {run_info.run_id} must be in 'active' lifecycle_stage.",
@@ -33,16 +38,16 @@ class RunInfo(_MlflowObject):
 
     def __init__(
         self,
-        run_id,
-        experiment_id,
-        user_id,
-        status,
-        start_time,
-        end_time,
-        lifecycle_stage,
-        artifact_uri=None,
-        run_name=None,
-    ):
+        run_id: str,
+        experiment_id: str,
+        user_id: str,
+        status: str,
+        start_time: int,
+        end_time: int | None,
+        lifecycle_stage: str,
+        artifact_uri: str | None = None,
+        run_name: str | None = None,
+    ) -> None:
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if user_id is None:
@@ -61,7 +66,7 @@ class RunInfo(_MlflowObject):
         self._artifact_uri = artifact_uri
         self._run_name = run_name
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
             # TODO deep equality here?
             return self.__dict__ == other.__dict__
@@ -81,17 +86,17 @@ class RunInfo(_MlflowObject):
         return RunInfo.from_proto(proto)
 
     @searchable_attribute
-    def run_id(self):
+    def run_id(self) -> str:
         """String containing run id."""
         return self._run_id
 
     @property
-    def experiment_id(self):
+    def experiment_id(self) -> str:
         """String ID of the experiment for the current run."""
         return self._experiment_id
 
     @searchable_attribute
-    def run_name(self):
+    def run_name(self) -> str | None:
         """String containing run name."""
         return self._run_name
 
@@ -99,12 +104,12 @@ class RunInfo(_MlflowObject):
         self._run_name = new_name
 
     @searchable_attribute
-    def user_id(self):
+    def user_id(self) -> str:
         """String ID of the user who initiated this run."""
         return self._user_id
 
     @searchable_attribute
-    def status(self):
+    def status(self) -> str:
         """
         One of the values in :py:class:`mlflow.entities.RunStatus`
         describing the status of the run.
@@ -112,29 +117,29 @@ class RunInfo(_MlflowObject):
         return self._status
 
     @searchable_attribute
-    def start_time(self):
+    def start_time(self) -> int:
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
     @searchable_attribute
-    def end_time(self):
+    def end_time(self) -> int | None:
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
 
     @searchable_attribute
-    def artifact_uri(self):
+    def artifact_uri(self) -> str | None:
         """String root artifact URI of the run."""
         return self._artifact_uri
 
     @property
-    def lifecycle_stage(self):
+    def lifecycle_stage(self) -> str:
         """
         One of the values in :py:class:`mlflow.entities.lifecycle_stage.LifecycleStage`
         describing the lifecycle stage of the run.
         """
         return self._lifecycle_stage
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoRunInfo:
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_id
         proto.run_id = self.run_id
@@ -142,7 +147,9 @@ class RunInfo(_MlflowObject):
             proto.run_name = self.run_name
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
-        proto.status = RunStatus.from_string(self.status)
+        # The proto field is typed as the protobuf enum wrapper (an int subclass), while
+        # `RunStatus.from_string` returns a plain `int`, hence the cast.
+        proto.status = cast(ProtoRunStatus, RunStatus.from_string(self.status))
         proto.start_time = self.start_time
         if self.end_time:
             proto.end_time = self.end_time
@@ -152,8 +159,8 @@ class RunInfo(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
-        end_time = proto.end_time
+    def from_proto(cls, proto: ProtoRunInfo) -> RunInfo:
+        end_time: int | None = proto.end_time
         # The proto2 default scalar value of zero indicates that the run's end time is absent.
         # An absent end time is represented with a NoneType in the `RunInfo` class
         if end_time == 0:
@@ -171,13 +178,13 @@ class RunInfo(_MlflowObject):
         )
 
     @classmethod
-    def get_searchable_attributes(cls):
+    def get_searchable_attributes(cls) -> list[str]:
         return sorted([
             p for p in cls.__dict__ if isinstance(getattr(cls, p), searchable_attribute)
         ])
 
     @classmethod
-    def get_orderable_attributes(cls):
+    def get_orderable_attributes(cls) -> list[str]:
         # Note that all searchable attributes are also orderable.
         return sorted([
             p

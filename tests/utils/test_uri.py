@@ -22,6 +22,7 @@ from mlflow.utils.uri import (
     is_fuse_or_uc_volumes_uri,
     is_http_uri,
     is_local_uri,
+    is_sagemaker_mlflow_tracking_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     resolve_uri_if_local,
@@ -124,12 +125,40 @@ def test_is_local_uri_windows():
     assert not is_local_uri("\\\\server\\aa\\bb")
 
 
-def test_is_databricks_uri():
-    assert is_databricks_uri("databricks")
-    assert is_databricks_uri("databricks:whatever")
-    assert is_databricks_uri("databricks://whatever")
-    assert not is_databricks_uri("mlruns")
-    assert not is_databricks_uri("http://whatever")
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("databricks", True),
+        ("databricks:whatever", True),
+        ("databricks://whatever", True),
+        ("DATABRICKS://PROFILE", True),
+        ("mlruns", False),
+        ("sqlite:////tmp/mlflow.db", False),
+        ("http://whatever", False),
+    ],
+)
+def test_is_databricks_uri(uri, expected):
+    assert is_databricks_uri(uri) == expected
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws-us-gov:sagemaker:us-gov-west-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-cn:sagemaker:cn-north-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-future:sagemaker:us-east-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker::123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker:us-east-1::mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/", False),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server-other/test", False),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://example.com", False),
+    ],
+)
+def test_is_sagemaker_mlflow_tracking_uri(uri, expected):
+    assert is_sagemaker_mlflow_tracking_uri(uri) == expected
 
 
 def test_is_http_uri():
@@ -973,3 +1002,61 @@ def test_validate_path_within_directory_allows_subdirectory_symlink(tmp_path):
     constructed_path = symlink_to_subdir / "file.txt"
     result = validate_path_within_directory(str(base_dir), str(constructed_path))
     assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_allows_nonexistent_file(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "not_yet_written.txt"
+    assert not constructed_path.exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_allows_nonexistent_subdir(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "not_yet_created_subdir"
+    assert not constructed_path.exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_dangling_symlink_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    external_target = tmp_path / "external" / "secret.txt"
+    symlink_path = base_dir / "dangling_leak"
+    os.symlink(str(external_target), str(symlink_path))
+    assert not symlink_path.exists()
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(symlink_path))
+
+
+def test_validate_path_within_directory_allows_dangling_symlink_inside(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    internal_target = base_dir / "not_yet_written.txt"
+    symlink_path = base_dir / "dangling_link"
+    os.symlink(str(internal_target), str(symlink_path))
+    assert not symlink_path.exists()
+    result = validate_path_within_directory(str(base_dir), str(symlink_path))
+    assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_allows_multi_level_nonexistent_path(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / "b" / "c.txt"
+    assert not (base_dir / "a").exists()
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_multi_level_dotdot_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / ".." / ".." / "evil.txt"
+    assert not (base_dir / "a").exists()
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
