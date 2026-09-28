@@ -3395,10 +3395,6 @@
     "defaultMessage": "Failed to refresh traces",
     "description": "Title of the traces refresh-error alert"
   },
-  "BefOVw": {
-    "defaultMessage": "New LLM judge",
-    "description": "Button text to add an LLM judge from empty state"
-  },
   "BfMFME": {
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
@@ -4234,6 +4230,10 @@
   "FNEy+/": {
     "defaultMessage": "Used by {custom} and {user}:",
     "description": "Manage review questions: heading above the affected-queue list when the experiment also has user queues (which inherit every question)"
+  },
+  "FPn6JY": {
+    "defaultMessage": "Session judges",
+    "description": "Heading for session-level LLM judges"
   },
   "FRNRtM": {
     "defaultMessage": "{action} endpoint {url}",
@@ -5250,6 +5250,10 @@
   "JWxMHS": {
     "defaultMessage": "Created",
     "description": "Metadata label for the dataset record creation time"
+  },
+  "JY5f8A": {
+    "defaultMessage": "New custom code judge",
+    "description": "Button text to create a custom code judge"
   },
   "JYVQuV": {
     "defaultMessage": "Run ID",
@@ -6806,6 +6810,10 @@
   "PiBPUm": {
     "defaultMessage": "\"{name}\" was deleted while the assistant was working, so it was not updated.",
     "description": "Error shown when the assistant finishes building a custom view that the user deleted while the request was running"
+  },
+  "Pl7ZXJ": {
+    "defaultMessage": "Custom judge",
+    "description": "Menu item to create a custom LLM judge"
   },
   "PlP56F": {
     "defaultMessage": "Enter value",
@@ -10751,6 +10759,10 @@
     "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
     "description": "Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
   },
+  "fFgQ4n": {
+    "defaultMessage": "Trace judges",
+    "description": "Heading for trace-level LLM judges"
+  },
   "fGQf7k": {
     "defaultMessage": "Find in trace",
     "description": "Accessible label and tooltip for opening the trace search row"
@@ -13154,10 +13166,6 @@
   "o4fOhr": {
     "defaultMessage": "Close notification",
     "description": "Aria label for the close button on V4 traces notifications"
-  },
-  "o5AS8R": {
-    "defaultMessage": "Custom code judge",
-    "description": "Menu item text to create a new custom code judge"
   },
   "o66/ZA": {
     "defaultMessage": "Cancel",
