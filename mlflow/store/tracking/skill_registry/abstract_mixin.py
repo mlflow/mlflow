@@ -118,6 +118,53 @@ class SkillRegistryMixin:
     ) -> SkillVersion:
         raise NotImplementedError(self.__class__.__name__)
 
+    def search_skill_versions(
+        self,
+        name: str,
+        organization: str = "",
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[SkillVersion]:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_skill_tag(
+        self,
+        name: str,
+        key: str,
+        value: str,
+        organization: str = "",
+    ) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_skill_tag(
+        self,
+        name: str,
+        key: str,
+        organization: str = "",
+    ) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_skill_version_tag(
+        self,
+        name: str,
+        version: int,
+        key: str,
+        value: str,
+        organization: str = "",
+    ) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_skill_version_tag(
+        self,
+        name: str,
+        version: int,
+        key: str,
+        organization: str = "",
+    ) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
     def get_skill_version_by_alias(
         self,
         name: str,

@@ -3022,6 +3022,7 @@ class SearchSkillUtils(_SkillRegistrySearchBase):
         "description",
         "search_text",
         "status",
+        "source_type",
         *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
     }
     NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
