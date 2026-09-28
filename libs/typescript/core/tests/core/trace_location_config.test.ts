@@ -1,7 +1,36 @@
-import { init, getConfig, resetConfig } from '../../src/core/config';
+import {
+  init,
+  getAuthProvider,
+  getConfig,
+  parseUnityCatalogTraceLocation,
+  resetConfig,
+} from '../../src/core/config';
 import { initializeSDK } from '../../src/core/provider';
 
 jest.mock('../../src/core/provider', () => ({ initializeSDK: jest.fn() }));
+
+describe('parseUnityCatalogTraceLocation', () => {
+  it('parses a catalog.schema.table_prefix value', () => {
+    expect(parseUnityCatalogTraceLocation('cat.sch.pfx')).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'pfx',
+    });
+    expect(parseUnityCatalogTraceLocation('  cat.sch.pfx  ')).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'pfx',
+    });
+  });
+
+  it('returns null for empty or malformed values', () => {
+    expect(parseUnityCatalogTraceLocation(undefined)).toBeNull();
+    expect(parseUnityCatalogTraceLocation('')).toBeNull();
+    expect(parseUnityCatalogTraceLocation('cat.sch')).toBeNull();
+    expect(parseUnityCatalogTraceLocation('cat.sch.pfx.extra')).toBeNull();
+    expect(parseUnityCatalogTraceLocation('cat..pfx')).toBeNull();
+  });
+});
 
 describe('MLFLOW_TRACE_LOCATION configuration', () => {
   const originalEnv = process.env;
@@ -56,6 +85,43 @@ describe('MLFLOW_TRACE_LOCATION configuration', () => {
     init({ ...baseConfig, traceLocation });
 
     expect(getConfig().traceLocation).toEqual(traceLocation);
+  });
+
+  it('rejects an environment UC location with an HTTP tracking URI before initializing', () => {
+    process.env.MLFLOW_TRACE_LOCATION = 'cat.sch.prefix';
+    process.env.MLFLOW_TRACKING_URI = 'http://localhost:5000';
+
+    expect(() => init({ experimentId: '123' })).toThrow(
+      'traceLocation requires a Databricks tracking URI',
+    );
+    expect(initializeSDK).not.toHaveBeenCalled();
+    expect(() => getConfig()).toThrow('The MLflow Tracing client is not configured');
+    expect(() => getAuthProvider()).toThrow('The MLflow Tracing client is not configured');
+  });
+
+  it('rejects an explicit UC location with an HTTP tracking URI before initializing', () => {
+    const traceLocation = { catalogName: 'cat', schemaName: 'sch', tablePrefix: 'prefix' };
+
+    expect(() =>
+      init({ ...baseConfig, trackingUri: 'http://localhost:5000', traceLocation }),
+    ).toThrow('traceLocation requires a Databricks tracking URI');
+    expect(initializeSDK).not.toHaveBeenCalled();
+    expect(() => getConfig()).toThrow('The MLflow Tracing client is not configured');
+    expect(() => getAuthProvider()).toThrow('The MLflow Tracing client is not configured');
+  });
+
+  it('allows an environment UC location with a Databricks profile URI', () => {
+    process.env.MLFLOW_TRACE_LOCATION = 'cat.sch.prefix';
+
+    init({ ...baseConfig, trackingUri: 'databricks://test-profile' });
+
+    expect(getConfig().trackingUri).toBe('databricks://test-profile');
+    expect(getConfig().traceLocation).toEqual({
+      catalogName: 'cat',
+      schemaName: 'sch',
+      tablePrefix: 'prefix',
+    });
+    expect(initializeSDK).toHaveBeenCalledTimes(1);
   });
 
   it.each(['', '  '])('keeps experiment-backed tracing for empty value %j', (value) => {

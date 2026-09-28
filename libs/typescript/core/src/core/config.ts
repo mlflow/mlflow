@@ -32,6 +32,23 @@ function isValidHttpUri(uri: string): boolean {
   }
 }
 
+/** Parse a catalog.schema.table_prefix UC location, or return null when invalid. */
+export function parseUnityCatalogTraceLocation(
+  value: string | undefined,
+): UnityCatalogLocationOptions | null {
+  if (value === undefined || value.trim().length === 0) {
+    return null;
+  }
+
+  const parts = value.split('.').map((part) => part.trim());
+  if (parts.length !== 3 || parts.some((part) => !part)) {
+    return null;
+  }
+
+  const [catalogName, schemaName, tablePrefix] = parts;
+  return { catalogName, schemaName, tablePrefix };
+}
+
 function traceLocationFromEnvironment(
   value: string | undefined,
 ): UnityCatalogLocationOptions | undefined {
@@ -39,16 +56,14 @@ function traceLocationFromEnvironment(
     return undefined;
   }
 
-  const parts = value.split('.').map((part) => part.trim());
-  if (parts.length !== 3 || parts.some((part) => !part)) {
+  const traceLocation = parseUnityCatalogTraceLocation(value);
+  if (!traceLocation) {
     throw new Error(
       'Invalid MLFLOW_TRACE_LOCATION: expected catalog.schema.table_prefix with three non-empty parts. ' +
         'Unset it to use experiment-backed tracing.',
     );
   }
-
-  const [catalogName, schemaName, tablePrefix] = parts;
-  return { catalogName, schemaName, tablePrefix };
+  return traceLocation;
 }
 
 /**
@@ -288,6 +303,13 @@ export function init(config: MLflowTracingInitOptions): void {
 
   const traceLocation =
     config.traceLocation ?? traceLocationFromEnvironment(process.env.MLFLOW_TRACE_LOCATION);
+
+  if (traceLocation && !isDatabricksUri(trackingUri)) {
+    throw new Error(
+      `traceLocation requires a Databricks tracking URI, but got '${trackingUri}'. ` +
+        'Unset MLFLOW_TRACE_LOCATION or omit traceLocation to use a non-Databricks server.',
+    );
+  }
 
   // Create the authentication provider - this is the single source of truth
   // for credential resolution. It handles env vars, config files, OAuth, etc.
