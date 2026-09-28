@@ -1,4 +1,5 @@
 import os
+import json
 import pathlib
 import uuid
 from typing import NamedTuple
@@ -137,9 +138,34 @@ def test_load_text(run_with_text_artifact):
     assert mlflow.artifacts.load_text(artifact.uri) == artifact.content
 
 
+def test_load_text_non_ascii_roundtrip():
+    # https://github.com/mlflow/mlflow/issues/26200: the reader must use
+    # UTF-8 (matching log_text's writer) rather than the locale encoding.
+    artifact_content = "café résumé 台北今天天氣如何？"
+    artifact_path = "test/nonascii.txt"
+    with mlflow.start_run() as run:
+        mlflow.log_text(artifact_content, artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    assert mlflow.artifacts.load_text(artifact_uri) == artifact_content
+
+
 def test_load_dict(run_with_json_artifact):
     artifact = run_with_json_artifact
     assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
+
+
+def test_load_dict_non_ascii_roundtrip():
+    # https://github.com/mlflow/mlflow/issues/26200: JSON is UTF-8 by spec.
+    # NOTE: log_dict escapes non-ASCII by default, so the raw UTF-8 bytes are
+    # written via log_text to exercise the reader's codec.
+    artifact_content = {"城市": "台北", "drink": "café"}
+    artifact_path = "test/nonascii.json"
+    with mlflow.start_run() as run:
+        mlflow.log_text(json.dumps(artifact_content, ensure_ascii=False), artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    assert mlflow.artifacts.load_dict(artifact_uri) == artifact_content
 
 
 def test_load_json_invalid_json(run_with_text_artifact):
