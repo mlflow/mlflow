@@ -130,6 +130,8 @@ def is_tracing_enabled() -> bool:
 
 
 def _get_current_user() -> str:
+    if user := os.environ.get("USER"):
+        return user
     try:
         return getpass.getuser()
     except (ImportError, OSError):
