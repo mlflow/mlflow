@@ -5656,7 +5656,14 @@
       "pricing": {
         "input_per_million_tokens": 0.45,
         "output_per_million_tokens": 1.8,
-        "cache_read_per_million_tokens": 0.009
+        "cache_read_per_million_tokens": 0.009,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.5625,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.01125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5665,7 +5672,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-09-28"
     },
     "accounts/fireworks/routers/glm-5p1-fast": {
       "mode": "chat",
@@ -6050,7 +6057,14 @@
       "pricing": {
         "input_per_million_tokens": 0.45,
         "output_per_million_tokens": 1.8,
-        "cache_read_per_million_tokens": 0.009
+        "cache_read_per_million_tokens": 0.009,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.5625,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.01125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6059,7 +6073,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-09-28"
     },
     "glm-4p7": {
       "mode": "chat",
