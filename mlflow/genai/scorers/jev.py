@@ -127,13 +127,18 @@ class JevScorer(Scorer):
         if self.criteria is not None:
             question["criteria"] = self.criteria
         # Use MLflow's trace encoding for structured inputs such as Pydantic models and arrays.
-        state = json.loads(
-            json.dumps(
-                {"inputs": inputs, "outputs": outputs, "expectations": expectations},
-                cls=TraceJSONEncoder,
-                allow_nan=False,
+        try:
+            state = json.loads(
+                json.dumps(
+                    {"inputs": inputs, "outputs": outputs, "expectations": expectations},
+                    cls=TraceJSONEncoder,
+                    allow_nan=False,
+                )
             )
-        )
+        except (TypeError, ValueError) as e:
+            raise MlflowException.invalid_parameter_value(
+                "Jev evaluation state must be JSON-serializable and contain only finite numbers."
+            ) from e
         response = self._invoke({
             "model": self.model.split(":/", 1)[1],
             "state": state,
@@ -286,21 +291,30 @@ def make_jev_scorer(
 ) -> JevScorer:
     """Create a scorer using TypeSafe's Jev models.
 
-    :param name: Name of the scorer and its feedback.
-    :param model: Use ``typesafe:/jev-latest`` for local evaluation with
-        ``TYPESAFE_API_KEY``, or ``gateway:/<endpoint-name>`` for a configured
-        TypeSafe gateway endpoint. Registered and automatic scorers require the gateway.
-    :param question: Evaluation instructions. The model receives ``inputs``,
-        ``outputs``, and ``expectations`` in its state.
-    :param answer_type: ``noul`` returns a yes probability, ``choice`` a label,
-        and ``score`` a probability-weighted, zero-based rubric level.
-    :param criteria: Descriptions keyed by ``"true"`` and ``"false"`` for noul;
-        1-255 labeled descriptions for choice; or 2-10 ordered descriptions for score.
-    :param threshold: For noul only, return whether the probability meets this
-        value (0-1). The original probability remains in feedback metadata.
-    :returns: A :class:`JevScorer` usable with :func:`mlflow.genai.evaluate`.
-        Feedback retains probabilities, confidence, and rubric legends. Jev does not
-        produce a text rationale.
+    Use ``typesafe:/jev-latest`` and ``TYPESAFE_API_KEY`` for local evaluation, or
+    ``gateway:/<endpoint-name>`` for a configured TypeSafe gateway endpoint.
+    Registered and automatic scorers require the gateway. Jev receives ``inputs``,
+    ``outputs``, and ``expectations`` in its evaluation state.
+
+    ``noul`` returns a yes probability unless ``threshold`` makes it a boolean.
+    ``choice`` returns a label, and ``score`` returns a probability-weighted,
+    zero-based rubric level. Feedback retains probabilities, confidence, and rubric
+    legends, but Jev does not produce a text rationale.
+
+    For ``criteria``, noul accepts descriptions keyed by ``"true"`` and
+    ``"false"``; choice accepts 1-255 labeled descriptions; score accepts 2-10
+    ordered descriptions.
+
+    Args:
+        name: Name of the scorer and its feedback.
+        model: TypeSafe model URI or gateway endpoint URI.
+        question: Evaluation instructions.
+        answer_type: ``noul``, ``choice``, or ``score``.
+        criteria: Descriptions for the selected answer type.
+        threshold: Optional noul threshold from 0 to 1.
+
+    Returns:
+        A JevScorer usable with ``mlflow.genai.evaluate``.
 
     Example::
 

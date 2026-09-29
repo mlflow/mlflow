@@ -97,6 +97,22 @@ def test_noul_feedback_and_request(direct_request, threshold, expected):
 
 
 @pytest.mark.parametrize(
+    "state",
+    [
+        {"inputs": float("nan")},
+        {"outputs": {"value": float("inf")}},
+        {"expectations": {"value": float("-inf")}},
+    ],
+)
+def test_nonfinite_state_is_rejected_before_request(direct_request, state):
+    with pytest.raises(MlflowException, match="contain only finite numbers") as exc:
+        _scorer()(**state)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    direct_request.assert_not_called()
+
+
+@pytest.mark.parametrize(
     ("answer_type", "criteria", "answer", "expected"),
     [
         (
