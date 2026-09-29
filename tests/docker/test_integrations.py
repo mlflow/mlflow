@@ -28,7 +28,8 @@ def test_backend_and_artifact_store_integration(compose_file):
         .with_startup_timeout(timedelta(minutes=5))
     })
 
-    with compose:
+    try:
+        compose.start()
         base_url = "http://localhost:5000"
 
         mlflow.set_tracking_uri(base_url)
@@ -46,3 +47,11 @@ def test_backend_and_artifact_store_integration(compose_file):
                 python_model=predict,
                 input_example=["a", "b", "c"],
             )
+    except Exception:
+        # Container output isn't captured by testcontainers, and `stop()` removes the
+        # containers, so dump the logs before tearing down to make failures debuggable.
+        stdout, stderr = compose.get_logs()
+        print(f"docker compose logs:\n{stdout}\n{stderr}")  # noqa: T201
+        raise
+    finally:
+        compose.stop()
