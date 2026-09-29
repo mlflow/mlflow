@@ -22,6 +22,7 @@ The following table summarizes the available gateway APIs:
 | **Passthrough** | OpenAI                             | `POST /gateway/openai/v1/chat/completions`<br/>`POST /gateway/openai/v1/embeddings`<br/>`POST /gateway/openai/v1/responses` | Full OpenAI API access including Chat Completions, Embeddings, and Responses endpoints.                                            |
 | **Passthrough** | Anthropic                          | `POST /gateway/anthropic/v1/messages`                                                                                       | Direct access to Anthropic's Messages API.                                                                                         |
 | **Passthrough** | Google Gemini                      | `POST /gateway/gemini/v1beta/models/{endpoint_name}:generateContent`                                                        | Google Gemini's native generateContent API.                                                                                        |
+| **Passthrough** | TypeSafe                           | `POST /gateway/typesafe/v1/systemone`                                                                                       | Raw TypeSafe System One structured evaluation requests.                                                                            |
 
 ## Viewing Usage Examples
 
@@ -238,6 +239,27 @@ for model in client.models.list():
 The Passthrough API relays requests to the provider's LLM endpoint using its native formats, allowing you to use their native client SDKs with the MLflow Gateway. While unified APIs work for most use cases, passthrough APIs give you full access to provider-specific features that may not be available through the unified interface.
 
 For detailed information on passthrough APIs for each provider, see [Model Providers](/genai/governance/ai-gateway/endpoints/model-providers).
+
+### TypeSafe Passthrough
+
+TypeSafe passthrough endpoints accept raw System One requests at `POST /gateway/typesafe/v1/systemone`. These endpoints are for structured evaluation with TypeSafe's native request schema. They do not support chat completions, embeddings, mixed TypeSafe/chat routing, or streaming.
+
+```bash
+curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "jev-evaluator",
+    "state": {"answer": "Select Forgot password on the sign-in page."},
+    "questions": {
+      "helpful": {
+        "type": "noul",
+        "instructions": "Does state.answer help the user reset a password?"
+      }
+    }
+  }'
+```
+
+The `model` value is the MLflow Gateway endpoint name. For MLflow judges, use direct TypeSafe model URIs such as `model="typesafe:/jev-latest"`; TypeSafe gateway endpoints are not `gateway:/` judge models for `make_judge()`.
 
 ### OpenAI Passthrough
 
@@ -525,7 +547,7 @@ The workspace header applies to all gateway API endpoints, including:
 
 - MLflow Invocations API (`/gateway/{endpoint_name}/mlflow/invocations`)
 - OpenAI-compatible API (`/gateway/mlflow/v1/*`)
-- Passthrough APIs (`/gateway/openai/v1/*`, `/gateway/anthropic/v1/*`, `/gateway/gemini/v1beta/models/{endpoint_name}:*`)
+- Passthrough APIs (`/gateway/openai/v1/*`, `/gateway/anthropic/v1/*`, `/gateway/gemini/v1beta/models/{endpoint_name}:*`, `/gateway/typesafe/v1/systemone`)
 
 For more details on workspace configuration and management, see the [Workspaces documentation](/self-hosting/workspaces/getting-started).
 

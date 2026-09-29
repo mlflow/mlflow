@@ -1,0 +1,120 @@
+---
+title: TypeSafe Judge Models
+description: Use TypeSafe System One models with MLflow judges.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# TypeSafe Judge Models
+
+Use TypeSafe System One models with <APILink fn="mlflow.genai.judges.make_judge">`make_judge()`</APILink> when your judge should return a typed decision instead of generated text. MLflow calls TypeSafe directly with a `typesafe:/` model URI and records the typed answer as an assessment.
+
+```bash
+export TYPESAFE_API_KEY=...
+```
+
+```python
+from mlflow.genai.judges import make_judge
+
+answer_helpfulness = make_judge(
+    name="answer_helpfulness",
+    instructions=(
+        "Answer yes or no: Does {{ outputs }} directly answer the user's question in {{ inputs }}?"
+    ),
+    model="typesafe:/jev-latest",
+    feedback_value_type=bool,
+)
+
+feedback = answer_helpfulness(
+    inputs={"question": "How do I reset my password?"},
+    outputs="Select Forgot password on the sign-in page to receive a reset link.",
+)
+
+print(feedback.value)
+print(feedback.metadata["typesafe.probability"])
+```
+
+## Supported output types
+
+TypeSafe judge models support the following `feedback_value_type` values:
+
+| `feedback_value_type` | TypeSafe question | MLflow assessment value                                      |
+| --------------------- | ----------------- | ------------------------------------------------------------ |
+| `bool`                | Noul              | `True` when `typesafe.probability >= 0.5`, otherwise `False` |
+| finite `Literal[...]` | Choice            | The selected literal value                                   |
+
+For a `bool` judge, phrase the instruction as a yes-or-no question and explicitly ask the model to answer yes or no.
+
+For a categorical judge, use a finite `Literal`:
+
+```python
+from typing import Literal
+
+from mlflow.genai.judges import make_judge
+
+request_category = make_judge(
+    name="request_category",
+    instructions=("Which category best describes the user's question in {{ inputs }}?"),
+    model="typesafe:/jev-latest",
+    feedback_value_type=Literal["account", "billing", "other"],
+)
+```
+
+MLflow converts each literal value to a TypeSafe Choice label. Literal values must be JSON string, number, or boolean scalars; they must have distinct string representations; and the set must contain 1 to 255 values.
+
+## Built-in judges
+
+Built-in MLflow judges that accept a `model` argument can use the same direct TypeSafe model URI:
+
+```python
+from mlflow.genai.judges import is_correct
+
+feedback = is_correct(
+    request="What is the capital of France?",
+    response="Paris is the capital of France.",
+    expected_response="Paris",
+    model="typesafe:/jev-latest",
+)
+```
+
+## Assessment metadata
+
+TypeSafe responses do not include generated text rationales. Probability data is stored in the assessment metadata:
+
+| Metadata key             | Contents                                                            |
+| ------------------------ | ------------------------------------------------------------------- |
+| `typesafe.model`         | The TypeSafe model ID returned by the API, for example `jev-1.13.0` |
+| `typesafe.probability`   | JSON-encoded Noul probability for `bool` judges                     |
+| `typesafe.probabilities` | JSON-encoded Choice probability distribution for `Literal` judges   |
+| `typesafe.confidence`    | JSON-encoded Choice confidence for `Literal` judges                 |
+| `typesafe.legend`        | Optional JSON-encoded Choice legend returned by TypeSafe            |
+
+Usage metadata may also include the standard MLflow judge token metadata keys when TypeSafe returns usage counts.
+
+## Model IDs and reproducibility
+
+`typesafe:/jev-latest` follows TypeSafe's latest Jev model. Use a versioned model ID, such as `typesafe:/jev-1.13.0`, when evaluation results need to be reproducible.
+
+See TypeSafe's documentation for more about [state](https://docs.typesafe.ai/concepts/state), [question primitives](https://docs.typesafe.ai/primitives), [confidence](https://docs.typesafe.ai/confidence), and [available models](https://docs.typesafe.ai/models).
+
+## Limitations
+
+TypeSafe judge models in MLflow currently have these limits:
+
+- `feedback_value_type` must be `bool` or a finite `Literal[...]`.
+- Unconstrained `str`, `int`, `float`, object, array, and container outputs are not supported. Numeric and boolean values remain valid inside a finite `Literal[...]`.
+- TypeSafe Noul and Choice questions do not provide an abstention result. A judge always returns a boolean or one of the configured literal values. If the judge needs to represent uncertainty or an inapplicable case, include an explicit value such as `"unknown"` or `"not_applicable"` in a `Literal[...]` judge. A `bool` judge cannot distinguish abstention from `False`.
+- TypeSafe Score questions and fractional score outputs are not exposed through `make_judge()`. This integration currently focuses on binary and categorical decisions, which are generally easier to interpret and act on in evaluation workflows. If Score support would be useful for your evaluation, [open a feature request](https://github.com/mlflow/mlflow/issues/new/choose).
+- Trace-based judging with `{{ trace }}` is not supported. Use structured `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, or `{{ conversation }}` state instead.
+- Referenced state values must be JSON-serializable and cannot contain NaN or infinity.
+- `inference_params`, `base_url`, and `extra_headers` are not supported for `typesafe:/` judge models.
+- TypeSafe judge responses do not include generated text rationales.
+- Each MLflow judge sends one TypeSafe question. Multi-question batching through a single `make_judge()` judge is not supported.
+
+## Relationship to AI Gateway
+
+Use `model="typesafe:/..."` with `make_judge()`. Do not use `gateway:/...` for TypeSafe judge models; MLflow's `make_judge()` TypeSafe path recognizes only direct `typesafe:/` model URIs.
+
+MLflow AI Gateway also provides a raw TypeSafe System One passthrough endpoint at `POST /gateway/typesafe/v1/systemone`. That gateway endpoint is useful when you want to call TypeSafe's System One API directly with server-side credentials, but it is separate from the `make_judge(model="typesafe:/...")` workflow.
+
+See `examples/typesafe_judges` in the MLflow repository for a runnable bool and Literal evaluation.
