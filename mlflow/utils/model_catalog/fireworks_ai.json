@@ -5646,6 +5646,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "accounts/fireworks/routers/auto": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
+    },
+    "accounts/fireworks/routers/auto-instant": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
+    },
     "accounts/fireworks/routers/deepseek-v4p1-flash-us": {
       "mode": "chat",
       "context_window": {
@@ -5673,6 +5695,17 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-28"
+    },
+    "accounts/fireworks/routers/firerouter": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
     },
     "accounts/fireworks/routers/glm-5p1-fast": {
       "mode": "chat",
