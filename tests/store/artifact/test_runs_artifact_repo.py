@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -165,12 +165,19 @@ def test_download_artifacts_reports_logged_model_backend_failure(runs_artifact_r
     [
         MlflowException("No such artifact", error_code=RESOURCE_DOES_NOT_EXIST),
         FileNotFoundError("No such artifact"),
+        RestException({"error_code": "NOT_FOUND", "message": "No such artifact"}),
+    ],
+)
+@pytest.mark.parametrize(
+    "model_error",
+    [
+        MlflowException("No such model artifact", error_code=RESOURCE_DOES_NOT_EXIST),
+        RestException({"error_code": "NOT_FOUND", "message": "No such model artifact"}),
     ],
 )
 def test_download_artifacts_reports_missing_path_after_both_repos(
-    runs_artifact_repo, tmp_path, run_error
+    runs_artifact_repo, tmp_path, run_error, model_error
 ):
-    model_error = MlflowException("No such model artifact", error_code=RESOURCE_DOES_NOT_EXIST)
     runs_artifact_repo.repo.download_artifacts.side_effect = run_error
     model_repo = Mock()
     model_repo.download_artifacts.side_effect = model_error

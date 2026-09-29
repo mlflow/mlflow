@@ -7,7 +7,12 @@ import mlflow
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    NOT_FOUND,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.uri import (
@@ -21,7 +26,7 @@ _logger = logging.getLogger(__name__)
 def _is_missing_artifact_error(error: Exception) -> bool:
     return isinstance(error, FileNotFoundError) or (
         isinstance(error, MlflowException)
-        and error.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        and error.error_code in (ErrorCode.Name(NOT_FOUND), ErrorCode.Name(RESOURCE_DOES_NOT_EXIST))
     )
 
 
