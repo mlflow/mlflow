@@ -99,6 +99,22 @@ describe('SimplifiedAssessmentView', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
+  it('shows a Jev probability alongside its thresholded decision', () => {
+    const jevAssessment: Assessment = {
+      ...MOCK_ASSESSMENT,
+      assessment_id: 'a-jev',
+      assessment_name: 'quality',
+      feedback: { value: false },
+      metadata: { 'jev.model': 'jev-latest', 'jev.probability': '0.65' },
+    };
+
+    render(<SimplifiedAssessmentView assessments={[jevAssessment]} />, { wrapper: Wrapper });
+
+    expect(screen.getByText('False')).toBeInTheDocument();
+    expect(screen.getByText('Probability of true')).toBeInTheDocument();
+    expect(screen.getByText('65%')).toBeInTheDocument();
+  });
+
   it('displays rationale when present', () => {
     const assessments: Assessment[] = [MOCK_ASSESSMENT];
 
