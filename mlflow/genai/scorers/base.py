@@ -350,19 +350,26 @@ def _job_executor_scorer_context():
             os.environ[_MLFLOW_IN_JOB_EXECUTOR.name] = previous
 
 
-def _serialized_scorer_is_custom_code(serialized_scorer: "str | dict[str, Any]") -> bool:
+def _serialized_scorer_is_custom_code(
+    serialized_scorer: "str | dict[str, Any] | SerializedScorer",
+) -> bool:
     """Whether a serialized scorer is a custom ``@scorer`` whose stored source runs via ``exec()``.
 
     Used to keep such scorers off paths that would execute them in the tracking server process
-    (for example, gateway guardrails). Parsing the serialized form never executes the scorer.
+    (for example, gateway guardrails). Accepts a ``SerializedScorer``, a JSON string, or a dict
+    (callers pass different forms), and never executes the scorer.
     """
-    if isinstance(serialized_scorer, str):
+    if isinstance(serialized_scorer, SerializedScorer):
+        data = asdict(serialized_scorer)
+    elif isinstance(serialized_scorer, str):
         try:
             data = json.loads(serialized_scorer)
         except json.JSONDecodeError:
             return False
-    else:
+    elif isinstance(serialized_scorer, dict):
         data = serialized_scorer
+    else:
+        return False
     if data.get("call_source") and data.get("call_signature") and data.get("original_func_name"):
         return True
     # An ensemble embeds its sub-scorers' serialized dicts, so a custom @scorer can hide one level

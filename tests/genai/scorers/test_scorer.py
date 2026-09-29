@@ -420,6 +420,14 @@ def test_serialized_scorer_is_custom_code():
     decorator = asdict(_decorator_serialized())
     assert _serialized_scorer_is_custom_code(decorator) is True
     assert _serialized_scorer_is_custom_code(json.dumps(decorator)) is True
+    # A SerializedScorer object (what ScorerVersion.serialized_scorer returns) is handled too.
+    assert _serialized_scorer_is_custom_code(_decorator_serialized()) is True
+    assert (
+        _serialized_scorer_is_custom_code(
+            SerializedScorer(name="safety", builtin_scorer_class="Safety")
+        )
+        is False
+    )
     # A built-in scorer's serialized form carries no decorator source.
     assert (
         _serialized_scorer_is_custom_code({"name": "safety", "builtin_scorer_class": "Safety"})
