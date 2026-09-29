@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.11.14@sha256:58ca64e5c85c084cb1f4b30c6bf51a1120305eb1bf3d059f5b853c963ab97f66 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.16@sha256:adc68cd785ca65ea25c0611043b0a00b4ea3a22e1b54102fc084406d888082ee AS uv
 
 FROM python:3.10.18-slim-bookworm@sha256:b4d66d07136c546f1765eae2bfcce9a64fa95f37c717c02bedd06d0476d1dbbd
 
