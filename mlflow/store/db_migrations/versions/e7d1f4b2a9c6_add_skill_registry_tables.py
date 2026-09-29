@@ -43,7 +43,9 @@ SKILL_REGISTRY_TAG_KEY_STRING = (
     .with_variant(mssql.VARCHAR(250, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
 )
 
-SKILL_REGISTRY_TAG_VALUE_TEXT = sa.Text().with_variant(mysql.MEDIUMTEXT, "mysql")
+SKILL_REGISTRY_TAG_VALUE_TEXT = (
+    sa.Text().with_variant(mysql.MEDIUMTEXT, "mysql").with_variant(mssql.NVARCHAR(None), "mssql")
+)
 
 
 def upgrade():

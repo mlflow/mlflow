@@ -156,26 +156,6 @@ def test_skill_search_text_is_persisted_and_recomputed_for_description_only(stor
     assert _get_skill_search_text(store, organization="acme") == "reviewer Audits pull requests"
 
 
-def test_search_skills_uses_derived_text_for_legacy_null_search_text(store):
-    store.create_skill(
-        "legacy-reviewer",
-        organization="acme",
-        description="Reviews legacy pull requests",
-    )
-    with store.ManagedSessionMaker(read_only=False) as session:
-        skill = (
-            store
-            ._get_query(session, SqlSkill)
-            .filter(SqlSkill.name == "legacy-reviewer", SqlSkill.organization == "acme")
-            .one()
-        )
-        skill.search_text = None
-
-    matches = store.search_skills(filter_string="search_text ILIKE '%legacy pull%'")
-
-    assert [(skill.organization, skill.name) for skill in matches] == [("acme", "legacy-reviewer")]
-
-
 def test_auto_created_skill_version_parent_gets_search_text(store):
     store.create_skill_version("reviewer", organization="acme")
 
@@ -454,7 +434,7 @@ def test_skill_query_relationship_loading_is_sql_server_compatible():
                     )
                     captured.append(" ".join(sql.split()))
 
-            query = SqlAlchemySkillRegistryMixin._skill_query(owner, session)
+            query, _ = SqlAlchemySkillRegistryMixin._skill_query(owner, session)
             query.filter(SqlSkill.name == "reviewer", SqlSkill.organization == "acme").one()
 
         assert len(captured) == 1
@@ -557,12 +537,19 @@ def test_skill_registry_tag_key_columns_are_case_sensitive(tag_model, dialect, e
 
 
 @pytest.mark.parametrize(
+    ("dialect", "expected"),
+    [
+        (mysql.dialect(), "MEDIUMTEXT"),
+        (mssql.dialect(), "NVARCHAR(max)"),
+    ],
+)
+@pytest.mark.parametrize(
     "tag_model",
     [SqlSkillTag, SqlSkillVersionTag, SqlAgentPluginTag, SqlAgentPluginVersionTag],
 )
-def test_skill_registry_tag_value_columns_use_mysql_mediumtext(tag_model):
+def test_skill_registry_tag_value_columns_use_backend_text_type(tag_model, dialect, expected):
     tag_value_type = tag_model.__table__.c.value.type
-    assert tag_value_type.compile(dialect=mysql.dialect()) == "MEDIUMTEXT"
+    assert tag_value_type.compile(dialect=dialect) == expected
 
 
 def test_set_skill_tag_validates_parent_and_tag_payload(store):

@@ -4744,7 +4744,9 @@ SKILL_REGISTRY_TAG_KEY_STRING = (
     .with_variant(MSSQL_VARCHAR(250, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
 )
 
-SKILL_REGISTRY_TAG_VALUE_TEXT = Text().with_variant(MEDIUMTEXT, "mysql")
+SKILL_REGISTRY_TAG_VALUE_TEXT = (
+    Text().with_variant(MEDIUMTEXT, "mysql").with_variant(NVARCHAR(None), "mssql")
+)
 
 
 # ---------------------------------------------------------------------------
@@ -4773,7 +4775,6 @@ class SqlSkill(Base):
 
     resolved_latest_version = query_expression()
     resolved_status = query_expression()
-    resolved_source_type = query_expression()
 
     __table_args__ = (PrimaryKeyConstraint("workspace", "organization", "name", name="skills_pk"),)
 
@@ -4831,27 +4832,6 @@ class SqlSkill(Base):
         )
 
     @classmethod
-    def resolved_source_type_expression(cls):
-        """Build a SQL expression for the latest-resolved version source type."""
-        latest_candidates = cls._resolved_latest_candidates_query().subquery(
-            "resolved_skill_source_type_candidates"
-        )
-        return (
-            sa
-            .select(latest_candidates.c.source_type)
-            .where(
-                sa.and_(
-                    latest_candidates.c.workspace == cls.workspace,
-                    latest_candidates.c.organization == cls.organization,
-                    latest_candidates.c.name == cls.name,
-                    latest_candidates.c.row_num == 1,
-                )
-            )
-            .correlate(cls)
-            .scalar_subquery()
-        )
-
-    @classmethod
     def with_resolved_latest_columns(cls, query):
         latest_candidates = cls._resolved_latest_candidates_query().subquery(
             "skill_latest_candidates"
@@ -4867,7 +4847,6 @@ class SqlSkill(Base):
         ).options(
             with_expression(cls.resolved_latest_version, latest_candidates.c.version),
             with_expression(cls.resolved_status, latest_candidates.c.status),
-            with_expression(cls.resolved_source_type, latest_candidates.c.source_type),
         )
         return query, {
             "latest_version": latest_candidates.c.version,

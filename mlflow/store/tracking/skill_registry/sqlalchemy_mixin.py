@@ -46,11 +46,7 @@ from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
     validate_max_results,
 )
-from mlflow.store.tracking.skill_registry_search_text import (
-    build_skill_search_text,
-    recompute_skill_search_text,
-)
-from mlflow.store.tracking.sqlalchemy_store_upsert_utils import _bulk_upsert
+from mlflow.store.tracking.skill_registry_search_text import build_skill_search_text
 from mlflow.utils.search_utils import SearchSkillUtils, SearchSkillVersionUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -70,157 +66,28 @@ class SqlAlchemySkillRegistryMixin:
 
     CREATE_SKILL_VERSION_RETRIES = 3
     MAX_REPORTED_BLOCKING_REFERENCES = 10
-    SKILL_SEARCH_QUERY_SCOPE = "skills"
-    SKILL_VERSION_SEARCH_QUERY_SCOPE_PREFIX = "skill_versions"
+    SKILL_SEARCH_TOKEN_SCOPE = "skills"
+    SKILL_VERSION_SEARCH_TOKEN_SCOPE_PREFIX = "skill_versions"
 
-    def _base_skill_query(self, session):
-        return self._get_query(session, SqlSkill).options(
+    def _skill_query(self, session):
+        query = self._get_query(session, SqlSkill).options(
             subqueryload(SqlSkill.tags),
             subqueryload(SqlSkill.skill_aliases),
         )
-
-    def _skill_query(self, session):
-        return SqlSkill.with_resolved_latest(
-            SqlAlchemySkillRegistryMixin._base_skill_query(self, session)
-        )
-
-    def _skill_query_with_resolved_latest_columns(self, session):
-        return SqlSkill.with_resolved_latest_columns(
-            SqlAlchemySkillRegistryMixin._base_skill_query(self, session)
-        )
-
-    @staticmethod
-    def _skill_search_text_expression():
-        return sa.func.coalesce(
-            SqlSkill.search_text,
-            SqlSkill.name + sa.literal(" ") + sa.func.coalesce(SqlSkill.description, ""),
-        )
-
-    @staticmethod
-    def _skill_search_column_map(resolved_latest_columns: dict[str, Any] | None = None):
-        status_column = (
-            resolved_latest_columns["status"]
-            if resolved_latest_columns is not None
-            else SqlSkill.resolved_status_expression()
-        )
-        source_type_column = (
-            resolved_latest_columns["source_type"]
-            if resolved_latest_columns is not None
-            else SqlSkill.resolved_source_type_expression()
-        )
-        return {
-            "name": SqlSkill.name,
-            "organization": SqlSkill.organization,
-            "description": SqlSkill.description,
-            "search_text": SqlAlchemySkillRegistryMixin._skill_search_text_expression(),
-            "status": status_column,
-            "source_type": source_type_column,
-            "created_at": SqlSkill.created_at,
-            "last_updated_at": SqlSkill.last_updated_at,
-        }
-
-    @staticmethod
-    def _skill_version_search_column_map():
-        return {
-            "status": SqlSkillVersion.status,
-            "organization": SqlSkillVersion.organization,
-            "source_type": SqlSkillVersion.source_type,
-            "digest": SqlSkillVersion.digest,
-            "version": SqlSkillVersion.version,
-            "created_at": SqlSkillVersion.created_at,
-            "last_updated_at": SqlSkillVersion.last_updated_at,
-        }
-
-    def _workspace_query_scope(self, query_scope: str) -> str:
-        return f"workspace:{self._get_active_workspace()}:{query_scope}"
-
-    def _skill_search_query_scope(self) -> str:
-        return self._workspace_query_scope(self.SKILL_SEARCH_QUERY_SCOPE)
-
-    def _skill_version_search_query_scope(self, organization: str, name: str) -> str:
-        return self._workspace_query_scope(
-            f"{self.SKILL_VERSION_SEARCH_QUERY_SCOPE_PREFIX}:{organization}/{name}"
-        )
+        return SqlSkill.with_resolved_latest_columns(query)
 
     @staticmethod
     def _page_token_offset(
         page_token: str | None,
         filter_string: str | None,
         order_by: list[str] | None,
-        query_scope: str,
+        token_scope: str,
     ) -> int:
         if not page_token:
             return 0
         token = SkillRegistryPaginationToken.decode(page_token)
-        token.validate(filter_string, order_by, query_scope)
+        token.validate(filter_string, order_by, token_scope)
         return token.offset
-
-    def _tag_row_values(self, model_class, **kwargs) -> dict[str, Any]:
-        tag_row = self._with_workspace_field(model_class(**kwargs))
-        return {
-            column.name: getattr(tag_row, column.name) for column in model_class.__table__.columns
-        }
-
-    @classmethod
-    def _upsert_skill_registry_tag(cls, session, model_class, row: dict[str, Any]) -> None:
-        table = model_class.__table__
-        pk_columns = [column.name for column in table.primary_key.columns]
-        update_columns = [column.name for column in table.columns if column.name not in pk_columns]
-        bind = session.get_bind()
-        dialect = bind.dialect.name
-
-        if dialect == "mssql":
-            cls._upsert_skill_registry_tag_mssql(
-                session,
-                table,
-                row,
-                pk_columns,
-                update_columns,
-            )
-        else:
-            _bulk_upsert(session, model_class, [row])
-
-    @staticmethod
-    def _upsert_skill_registry_tag_mssql(
-        session,
-        table,
-        row: dict[str, Any],
-        pk_columns: list[str],
-        update_columns: list[str],
-    ) -> None:
-        bind = session.get_bind()
-        preparer = bind.dialect.identifier_preparer
-        table_name = preparer.format_table(table)
-        column_names = [column.name for column in table.columns]
-        quoted_columns = {column: preparer.quote(column) for column in column_names}
-
-        source_select = ", ".join(
-            f":{column} AS {quoted_columns[column]}" for column in column_names
-        )
-        on_clause = " AND ".join(
-            f"target.{quoted_columns[column]} = source.{quoted_columns[column]}"
-            for column in pk_columns
-        )
-        set_clause = ", ".join(
-            f"target.{quoted_columns[column]} = source.{quoted_columns[column]}"
-            for column in update_columns
-        )
-        insert_columns = ", ".join(quoted_columns[column] for column in column_names)
-        insert_values = ", ".join(f"source.{quoted_columns[column]}" for column in column_names)
-
-        session.execute(
-            sa.text(
-                f"""
-                MERGE INTO {table_name} WITH (HOLDLOCK) AS target
-                USING (SELECT {source_select}) AS source
-                ON {on_clause}
-                WHEN MATCHED THEN UPDATE SET {set_clause}
-                WHEN NOT MATCHED THEN
-                    INSERT ({insert_columns}) VALUES ({insert_values});
-                """
-            ),
-            row,
-        )
 
     @staticmethod
     def _validate_skill_identity(name: str, organization: str) -> None:
@@ -330,12 +197,10 @@ class SqlAlchemySkillRegistryMixin:
             )
 
     def _get_skill_or_raise(self, session, name: str, organization: str) -> SqlSkill:
-        skill = (
-            self
-            ._skill_query(session)
-            .filter(SqlSkill.name == name, SqlSkill.organization == organization)
-            .one_or_none()
-        )
+        query, _ = self._skill_query(session)
+        skill = query.filter(
+            SqlSkill.name == name, SqlSkill.organization == organization
+        ).one_or_none()
         if skill is None:
             raise MlflowException(
                 f"Skill '{name}' not found in organization '{organization}'",
@@ -396,18 +261,17 @@ class SqlAlchemySkillRegistryMixin:
             skill = self._get_skill_or_raise(session, name, organization)
             if description is not NOT_SET:
                 skill.description = description
-                skill.search_text = recompute_skill_search_text(skill)
+                skill.search_text = build_skill_search_text(
+                    name=skill.name,
+                    description=skill.description,
+                )
             if icons is not NOT_SET:
                 skill.icons = icons
             skill.last_updated_by = last_updated_by
             skill.last_updated_at = get_current_time_millis()
             session.flush()
-            skill = (
-                self
-                ._skill_query(session)
-                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
-                .one()
-            )
+            query, _ = self._skill_query(session)
+            skill = query.filter(SqlSkill.name == name, SqlSkill.organization == organization).one()
             return skill.to_mlflow_entity()
 
     def delete_skill(self, name: str, organization: str = "") -> None:
@@ -529,12 +393,21 @@ class SqlAlchemySkillRegistryMixin:
         page_token: str | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
-        query_scope = self._skill_search_query_scope()
-        offset = self._page_token_offset(page_token, filter_string, order_by, query_scope)
+        token_scope = f"workspace:{self._get_active_workspace()}:{self.SKILL_SEARCH_TOKEN_SCOPE}"
+        offset = self._page_token_offset(page_token, filter_string, order_by, token_scope)
         parsed_filters = SearchSkillUtils.parse_search_filter(filter_string)
         with self.ManagedSessionMaker() as session:
-            query, resolved_latest_columns = self._skill_query_with_resolved_latest_columns(session)
-            column_map = self._skill_search_column_map(resolved_latest_columns)
+            query, resolved_latest_columns = self._skill_query(session)
+            column_map = {
+                "name": SqlSkill.name,
+                "organization": SqlSkill.organization,
+                "description": SqlSkill.description,
+                "search_text": SqlSkill.search_text,
+                "status": resolved_latest_columns["status"],
+                "source_type": resolved_latest_columns["source_type"],
+                "created_at": SqlSkill.created_at,
+                "last_updated_at": SqlSkill.last_updated_at,
+            }
             order_clauses = parse_skill_registry_order_by(
                 order_by,
                 valid_keys=set(SearchSkillUtils.VALID_SEARCH_ATTRIBUTE_KEYS),
@@ -558,7 +431,7 @@ class SqlAlchemySkillRegistryMixin:
                 offset=offset,
                 filter_string=filter_string,
                 order_by=order_by,
-                query_scope=query_scope,
+                query_scope=token_scope,
             )
 
     def _get_or_create_skill_for_version(
@@ -892,10 +765,21 @@ class SqlAlchemySkillRegistryMixin:
     ) -> PagedList[SkillVersion]:
         self._validate_skill_identity(name, organization)
         validate_max_results(max_results)
-        query_scope = self._skill_version_search_query_scope(organization, name)
-        offset = self._page_token_offset(page_token, filter_string, order_by, query_scope)
+        token_scope = (
+            f"workspace:{self._get_active_workspace()}:"
+            f"{self.SKILL_VERSION_SEARCH_TOKEN_SCOPE_PREFIX}:{organization}/{name}"
+        )
+        offset = self._page_token_offset(page_token, filter_string, order_by, token_scope)
         parsed_filters = SearchSkillVersionUtils.parse_search_filter(filter_string)
-        column_map = self._skill_version_search_column_map()
+        column_map = {
+            "status": SqlSkillVersion.status,
+            "organization": SqlSkillVersion.organization,
+            "source_type": SqlSkillVersion.source_type,
+            "digest": SqlSkillVersion.digest,
+            "version": SqlSkillVersion.version,
+            "created_at": SqlSkillVersion.created_at,
+            "last_updated_at": SqlSkillVersion.last_updated_at,
+        }
         order_clauses = parse_skill_registry_order_by(
             order_by,
             valid_keys=set(SearchSkillVersionUtils.VALID_SEARCH_ATTRIBUTE_KEYS),
@@ -924,7 +808,7 @@ class SqlAlchemySkillRegistryMixin:
                 offset=offset,
                 filter_string=filter_string,
                 order_by=order_by,
-                query_scope=query_scope,
+                query_scope=token_scope,
             )
 
     # --- Skill version lifecycle operations ---
@@ -1313,17 +1197,29 @@ class SqlAlchemySkillRegistryMixin:
                 {"name": name, "organization": organization},
                 "Skill",
             )
-            self._upsert_skill_registry_tag(
-                session,
-                SqlSkillTag,
-                self._tag_row_values(
-                    SqlSkillTag,
-                    name=name,
-                    organization=organization,
-                    key=key,
-                    value=value,
-                ),
+            existing_tag = (
+                self
+                ._get_query(session, SqlSkillTag)
+                .filter(
+                    SqlSkillTag.name == name,
+                    SqlSkillTag.organization == organization,
+                    SqlSkillTag.key == key,
+                )
+                .one_or_none()
             )
+            if existing_tag is not None:
+                existing_tag.value = value
+            else:
+                session.add(
+                    self._with_workspace_field(
+                        SqlSkillTag(
+                            name=name,
+                            organization=organization,
+                            key=key,
+                            value=value,
+                        )
+                    )
+                )
 
     def delete_skill_tag(
         self,
@@ -1334,12 +1230,6 @@ class SqlAlchemySkillRegistryMixin:
         self._validate_skill_identity(name, organization)
         key = _validate_skill_tag(key, "").key
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._get_entity_or_raise(
-                session,
-                SqlSkill,
-                {"name": name, "organization": organization},
-                "Skill",
-            )
             deleted = (
                 self
                 ._get_query(session, SqlSkillTag)
@@ -1377,18 +1267,31 @@ class SqlAlchemySkillRegistryMixin:
                 organization,
                 columns_only=True,
             )
-            self._upsert_skill_registry_tag(
-                session,
-                SqlSkillVersionTag,
-                self._tag_row_values(
-                    SqlSkillVersionTag,
-                    name=name,
-                    organization=organization,
-                    version=version,
-                    key=key,
-                    value=value,
-                ),
+            existing_tag = (
+                self
+                ._get_query(session, SqlSkillVersionTag)
+                .filter(
+                    SqlSkillVersionTag.name == name,
+                    SqlSkillVersionTag.organization == organization,
+                    SqlSkillVersionTag.version == version,
+                    SqlSkillVersionTag.key == key,
+                )
+                .one_or_none()
             )
+            if existing_tag is not None:
+                existing_tag.value = value
+            else:
+                session.add(
+                    self._with_workspace_field(
+                        SqlSkillVersionTag(
+                            name=name,
+                            organization=organization,
+                            version=version,
+                            key=key,
+                            value=value,
+                        )
+                    )
+                )
 
     def delete_skill_version_tag(
         self,
@@ -1401,13 +1304,6 @@ class SqlAlchemySkillRegistryMixin:
         _validate_skill_version(version)
         key = _validate_skill_tag(key, "").key
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._get_skill_version_or_raise(
-                session,
-                name,
-                version,
-                organization,
-                columns_only=True,
-            )
             deleted = (
                 self
                 ._get_query(session, SqlSkillVersionTag)
