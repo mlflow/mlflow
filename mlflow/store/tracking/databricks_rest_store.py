@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel
 
 from mlflow.entities import (
@@ -69,7 +68,7 @@ from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, resource_to_otel_proto
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, build_otlp_export_request
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     parse_uc_location,
@@ -708,12 +707,7 @@ class DatabricksTracingRestStore(RestStore):
                 "configuration"
             ) from e
 
-        request = ExportTraceServiceRequest()
-        resource_spans = request.resource_spans.add()
-        resource = getattr(spans[0]._span, "resource", None)
-        resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
-        scope_spans = resource_spans.scope_spans.add()
-        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
+        request = build_otlp_export_request(spans)
 
         response = http_request(
             host_creds=self.get_host_creds(),

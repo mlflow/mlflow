@@ -12,15 +12,16 @@ opt in.
 
 import json
 import logging
+from contextlib import nullcontext
 from typing import Sequence
 
+import requests
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SpanExportResult
 
+from mlflow.entities.span import Span
 from mlflow.environment_variables import MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT, MLFLOW_ZEROBUS_ENDPOINT
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+from mlflow.tracing.utils.otlp import build_otlp_export_request
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 _logger = logging.getLogger(__name__)
@@ -30,13 +31,22 @@ _logger = logging.getLogger(__name__)
 # the value is stable across SDK versions.
 _OIDC_TOKEN_PATH = "/oidc/v1/token"
 
-# Zerobus OTLP ingest port and path.
-_ZEROBUS_OTLP_PORT = 443
+# Zerobus OTLP ingest path.
 _ZEROBUS_OTLP_PATH = "/v1/traces"
 
 # Header names expected by the Zerobus ingest service.
 _HEADER_AUTHORIZATION = "Authorization"
 _HEADER_TABLE_NAME = "x-databricks-zerobus-table-name"
+_HEADER_CONTENT_TYPE = "Content-Type"
+
+# Content type for OTLP protobuf payloads.
+_CONTENT_TYPE_PROTOBUF = "application/x-protobuf"
+
+# Timeout (seconds) for a single Zerobus OTLP POST.
+_REQUEST_TIMEOUT_SECONDS = 30
+
+# Max body bytes included in a span-export failure warning log.
+_BODY_SNIPPET_BYTES = 512
 
 # Domain suffixes that identify valid Zerobus hosts.
 _VALID_ZEROBUS_SUFFIXES = (
@@ -259,12 +269,14 @@ class DatabricksZerobusSpanExporter(DatabricksUCTableSpanExporter):
     MLflow REST backend path (``_export_traces`` / ``_log_trace`` /
     ``client.start_trace``). Only the span data is redirected to Zerobus.
 
-    The exporter holds an internal ``OTLPSpanExporter`` pointed at
-    ``https://{endpoint}:{port}/v1/traces``. Before each batch export the
-    ``Authorization`` and ``x-databricks-zerobus-table-name`` headers are
-    refreshed on its ``requests.Session``. On a 401 response from the OTLP
-    exporter, the token source is force-refreshed and the export is retried
-    once, then a warning is logged if it still fails (the app is not crashed).
+    Each batch is wrapped into MLflow ``Span`` objects and serialized with the
+    same ``build_otlp_export_request`` helper the MLflow REST ``log_spans``
+    path uses, then POSTed to ``https://{endpoint}/v1/traces`` with per-request
+    auth headers. On a 401 the token source is force-refreshed (the fresh token
+    is cached on the source when it supports it, so later exports reuse it) and
+    the batch is retried once. Any other failure only logs a warning:
+    span-export failures never propagate out of ``_export_spans_incrementally``,
+    so the metadata export still runs.
     """
 
     def __init__(
@@ -278,72 +290,121 @@ class DatabricksZerobusSpanExporter(DatabricksUCTableSpanExporter):
         self._zerobus_endpoint = endpoint
         self._token_source = token_source
         self._table_name = table_name
+        self._zerobus_url = f"https://{endpoint}{_ZEROBUS_OTLP_PATH}"
+        # A single session for connection pooling. Auth headers are computed per request
+        # (in `_post_spans`) rather than stored on the session, so a token refresh on one
+        # thread can never race another thread's in-flight export.
+        self._session = requests.Session()
 
-        otlp_url = f"https://{endpoint}:{_ZEROBUS_OTLP_PORT}{_ZEROBUS_OTLP_PATH}"
-        # `opentelemetry-exporter-otlp-proto-http` is an optional dependency (mirrors
-        # `mlflow/tracing/utils/otlp.py`), so import it lazily here rather than at module top
-        # level: this module is imported unconditionally on the UC-table tracing path, and a
-        # missing package must not break that path when the Zerobus flag is off. The factory
-        # `get_zerobus_span_exporter` catches this and falls back to the REST exporter.
-        try:
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        except ImportError as e:
-            raise MlflowException(
-                "The HTTP OTLP exporter is required for Zerobus trace export but is not "
-                "installed. Install it with `pip install opentelemetry-exporter-otlp-proto-http`.",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            ) from e
-        # Initial headers are empty; auth + table-name headers are injected before each export.
-        self._otlp_exporter = OTLPSpanExporter(endpoint=otlp_url, headers={})
+    def _force_token_refresh(self):
+        """Force-refresh the Zerobus token and cache it on the token source where possible.
 
-    def _refresh_auth_headers(self) -> None:
-        """Inject a fresh token and table-name header onto the OTLP session."""
+        Returns the freshly minted token, which the caller must use for the
+        immediate retry regardless of what the source's cache returns.
+
+        The cache update is best effort and version tolerant: MLflow supports a
+        ``databricks-sdk`` range whose ``Refreshable`` cache plumbing changed
+        across releases (``_token`` assigned directly on older versions,
+        replaced via ``_update_token`` from ~0.100), and custom token sources
+        may have no cache at all. A failure to store the token only means later
+        exports mint a new one instead of reusing this one; it never loses the
+        retry.
+        """
+        token_source = self._token_source
+        new_token = token_source.refresh()
+
         try:
-            token = self._token_source.token()
-            self._otlp_exporter._session.headers[_HEADER_AUTHORIZATION] = (
-                f"Bearer {token.access_token}"
+            if hasattr(token_source, "_update_token"):
+                # databricks-sdk >= ~0.100 (Refreshable._update_token): the SDK caches
+                # the current token in ``_token`` and replaces it only via
+                # ``_update_token`` inside ``token()``. Calling ``refresh()`` alone
+                # mints a fresh token without updating that cache, so subsequent
+                # ``token()`` calls would keep handing out the rejected one. Replicate
+                # the SDK's own cache-update step under the same lock ``token()`` uses,
+                # so concurrent ``token()`` callers serialize against this refresh
+                # exactly as they do against the SDK's expiry-driven refreshes.
+                with getattr(token_source, "_lock", nullcontext()):
+                    token_source._update_token(new_token)
+            elif hasattr(token_source, "_token"):
+                # Older databricks-sdk Refreshable: the cache is the plain ``_token``
+                # attribute, assigned under ``_lock`` by ``token()`` itself.
+                with getattr(token_source, "_lock", nullcontext()):
+                    token_source._token = new_token
+            # else: the token source has no cache to update; later exports simply
+            # mint a fresh token as usual.
+        except Exception:
+            _logger.debug(
+                "Failed to cache the refreshed Zerobus token on the token source; "
+                "later exports will mint a new one.",
+                exc_info=True,
             )
-            self._otlp_exporter._session.headers[_HEADER_TABLE_NAME] = self._table_name
-        except Exception as exc:
-            _logger.warning("Failed to refresh Zerobus auth token: %s", exc)
-            raise
+
+        return new_token
+
+    def _post_spans(self, payload: bytes, token=None) -> requests.Response:
+        """POST one serialized OTLP request to Zerobus with fresh per-request headers.
+
+        When *token* is None, one is minted from the token source. The 401 retry
+        passes the token returned by ``_force_token_refresh`` explicitly so the
+        retry always carries the freshly minted token, whatever the source's
+        cache returns.
+        """
+        if token is None:
+            token = self._token_source.token()
+        return self._session.post(
+            self._zerobus_url,
+            data=payload,
+            headers={
+                _HEADER_AUTHORIZATION: f"Bearer {token.access_token}",
+                _HEADER_CONTENT_TYPE: _CONTENT_TYPE_PROTOBUF,
+                _HEADER_TABLE_NAME: self._table_name,
+            },
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+        )
 
     def _export_spans_to_zerobus(self, spans: Sequence[ReadableSpan]) -> None:
         """Send *spans* to Zerobus, retrying once on a 401 after forcing token refresh."""
-        self._refresh_auth_headers()
-        result = self._otlp_exporter.export(spans)
-        if result == SpanExportResult.FAILURE:
-            # The OTLPSpanExporter does not expose the HTTP status code to callers;
-            # we conservatively treat any failure as a potential auth issue and
-            # attempt a single retry with a refreshed token.
-            _logger.debug("Zerobus OTLP export failed; forcing token refresh and retrying once.")
+        # Wrap the raw OTel spans in the MLflow Span interface: `Span.to_otel_proto` decodes
+        # the JSON-encoded attribute values (e.g. mlflow.spanType), which the raw ReadableSpan
+        # serialization of the stock OTLP exporter would send double-encoded.
+        payload = build_otlp_export_request([Span(span) for span in spans]).SerializeToString()
+
+        try:
+            response = self._post_spans(payload)
+        except Exception as exc:
+            _logger.warning(
+                "Zerobus span export request failed: %s. Spans were NOT exported to Zerobus.",
+                exc,
+            )
+            return
+
+        if response.status_code == 401:
+            # The cached token was rejected (e.g. revoked, or minted for another audience):
+            # force a refresh so this retry and all subsequent exports use a new token.
+            _logger.debug("Zerobus rejected the token with HTTP 401; forcing token refresh.")
             try:
-                # Force a fresh token by invalidating the cached one. ClientCredentials
-                # descends from Refreshable which caches the token; calling refresh()
-                # directly bypasses the cache and returns a new Token, but the cached
-                # value is not updated unless we call token() afterwards.
-                # We update the header directly from the refresh result here.
-                new_token = self._token_source.refresh()
-                self._otlp_exporter._session.headers[_HEADER_AUTHORIZATION] = (
-                    f"Bearer {new_token.access_token}"
-                )
-                retry_result = self._otlp_exporter.export(spans)
+                response = self._post_spans(payload, self._force_token_refresh())
             except Exception as exc:
                 _logger.warning(
-                    "Zerobus OTLP export failed after token refresh: %s. "
+                    "Zerobus span export failed after token refresh: %s. "
                     "Spans were NOT exported to Zerobus.",
                     exc,
                 )
                 return
 
-            if retry_result == SpanExportResult.FAILURE:
-                _logger.warning(
-                    "Zerobus OTLP export failed after token refresh. "
-                    "Spans were NOT exported to Zerobus."
-                )
+        # NB: unlike the stock OTLP HTTP exporter, which retries 429/5xx with
+        # backoff, we intentionally do not retry rate limits or server errors:
+        # this runs on span-processing hot paths, and re-sending a batch to an
+        # overloaded ingest only adds load. The batch is dropped with a warning.
+        if not response.ok:
+            _logger.warning(
+                "Zerobus span export failed with HTTP %d: %r. Spans were NOT exported to Zerobus.",
+                response.status_code,
+                response.content[:_BODY_SNIPPET_BYTES],
+            )
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
-        """Override: send raw ReadableSpans to Zerobus instead of the UC table REST path.
+        """Override: send spans to Zerobus instead of the UC table REST path.
 
         The parent ``_export_traces`` path (TraceInfo / metadata) is NOT touched here;
         metadata continues to flow through the inherited ``MlflowV3SpanExporter``
@@ -364,8 +425,12 @@ class DatabricksZerobusSpanExporter(DatabricksUCTableSpanExporter):
             )
 
     def shutdown(self) -> None:
-        super().shutdown()
-        self._otlp_exporter.shutdown()
+        try:
+            super().shutdown()
+        finally:
+            # Close the HTTP session even if the parent shutdown fails, so the
+            # underlying connections are not leaked.
+            self._session.close()
 
 
 def get_zerobus_span_exporter(
