@@ -38,6 +38,9 @@ def test_server_validates_jev_configuration_without_invoking(nested, model):
         if model.startswith("typesafe:/"):
             with pytest.raises(MlflowException, match="Server-side Jev scorers require a gateway"):
                 _validate_serialized_scorer_payload(json.dumps(serialized))
+        elif nested:
+            with pytest.raises(MlflowException, match="nested gateway endpoints cannot be bound"):
+                _validate_serialized_scorer_payload(json.dumps(serialized))
         else:
             _validate_serialized_scorer_payload(json.dumps(serialized))
     invoke.assert_not_called()
@@ -68,6 +71,23 @@ def test_server_rejects_missing_gateway_endpoint():
     serialized["jev_scorer_pydantic_data"]["model"] = None
     with pytest.raises(MlflowException, match="require a gateway:/ endpoint"):
         _validate_serialized_scorer_payload(json.dumps(serialized))
+
+
+def test_server_rejects_nested_gateway_jev_before_registration():
+    serialized = json.dumps({
+        "name": "ensemble",
+        "ensemble_scorer_data": {"ensemble_fn": "mean", "scorers": [_serialized_scorer()]},
+    })
+    request = RegisterScorer(experiment_id="123", name="ensemble", serialized_scorer=serialized)
+    with (
+        app.test_request_context(method="POST"),
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as store,
+    ):
+        response = _register_scorer()
+    assert response.status_code == 400
+    assert "nested gateway endpoints cannot be bound" in response.get_json()["message"]
+    store.assert_not_called()
 
 
 def test_register_jev_scorer_handler_preserves_workspace():

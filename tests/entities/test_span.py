@@ -1470,3 +1470,107 @@ def test_trace_data_to_json_bytes_uses_single_dump_for_eager_spans_only():
 
     assert payload == json.dumps(trace_data.to_dict(), separators=(",", ":")).encode("utf-8")
     assert json.loads(payload)["spans"][0]["name"] == "child"
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_pattern"),
+    [
+        ("inputs", r"Use attribute access instead, e\.g\. `span\.inputs`\."),
+        ("name", r"Use attribute access instead, e\.g\. `span\.name`\."),
+        (
+            "custom_key",
+            r"To access span attributes, use `span\.get_attribute\('custom_key'\)` "
+            r"or `span\.attributes\['custom_key'\]`\.",
+        ),
+        (
+            "mlflow.spanType",
+            r"To access span attributes, use `span\.get_attribute\('mlflow\.spanType'\)` "
+            r"or `span\.attributes\['mlflow\.spanType'\]`\.",
+        ),
+        (
+            "non_existent",
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+        (
+            "_span",
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+        (
+            0,
+            r"Use attribute access instead, e\.g\. `span\.inputs`, `span\.outputs`, "
+            r"or `span\.attributes`\.",
+        ),
+    ],
+)
+def test_span_subscript_raises_helpful_type_error(key, expected_pattern):
+    with mlflow.start_span("test_span") as live_span:
+        live_span.set_inputs({"input": 1})
+        live_span.set_attributes({"custom_key": "val", "mlflow.spanType": "LLM"})
+        with pytest.raises(TypeError, match=expected_pattern):
+            _ = live_span[key]
+
+    span = live_span.to_immutable_span()
+    with pytest.raises(TypeError, match=expected_pattern):
+        _ = span[key]
+
+
+def test_span_subscript_with_malformed_property_raises_type_error():
+    with mlflow.start_span("test_span") as live_span:
+        live_span.set_attributes({"mlflow.spanLogLevel": 999})
+    span = live_span.to_immutable_span()
+    with pytest.raises(
+        TypeError,
+        match=r"Use attribute access instead, e\.g\. `span\.log_level`\.",
+    ):
+        _ = span["log_level"]
+
+
+def test_span_is_not_iterable():
+    with mlflow.start_span("test_span") as live_span:
+        span = live_span.to_immutable_span()
+
+    with pytest.raises(TypeError, match="not iterable"):
+        iter(span)
+    with pytest.raises(TypeError, match="not iterable"):
+        _ = "name" in span
+
+
+def test_span_get_raises_helpful_attribute_error():
+    from mlflow.entities.span import LazySpan, NoOpSpan
+
+    expected_pattern = (
+        r"object has no attribute 'get'; a span is not a dict\. "
+        r"Use attribute access such as `span\.name`, `span\.inputs`, "
+        r"`span\.outputs`, or `span\.attributes`, or `span\.get_attribute\(key\)` "
+        r"for a span attribute\."
+    )
+
+    with mlflow.start_span("test_span") as live_span:
+        assert hasattr(live_span, "get") is False
+        with pytest.raises(AttributeError, match=expected_pattern):
+            _ = live_span.get
+        with pytest.raises(AttributeError, match=expected_pattern):
+            live_span.get("name")
+
+    span = live_span.to_immutable_span()
+    assert hasattr(span, "get") is False
+    with pytest.raises(AttributeError, match=expected_pattern):
+        _ = span.get
+    with pytest.raises(AttributeError, match=expected_pattern):
+        span.get("name")
+
+    lazy_span = LazySpan(span.to_dict())
+    assert hasattr(lazy_span, "get") is False
+    with pytest.raises(AttributeError, match=expected_pattern):
+        _ = lazy_span.get
+    with pytest.raises(AttributeError, match=expected_pattern):
+        lazy_span.get("name")
+
+    noop_span = NoOpSpan()
+    assert hasattr(noop_span, "get") is False
+    with pytest.raises(AttributeError, match=expected_pattern):
+        _ = noop_span.get
+    with pytest.raises(AttributeError, match=expected_pattern):
+        noop_span.get("name")

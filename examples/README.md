@@ -3,6 +3,7 @@
 ### Quick Start example
 
 - `quickstart/mlflow_tracking.py` is a basic example to introduce MLflow concepts.
+- `typesafe_judges/evaluate.py` evaluates support answers with TypeSafe System One models through `make_judge()`.
 
 ## Tutorials
 

@@ -94,6 +94,14 @@ CREATE TABLE jobs (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	status_details NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	creator VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	executor_backend VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	lease_expires_at BIGINT,
+	status_message VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	progress NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	progress_updated_at BIGINT,
+	token_hash VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	scoped_permissions NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	next_attempt_at BIGINT,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -119,6 +127,14 @@ CREATE TABLE registered_models (
 	description VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	CONSTRAINT registered_model_pk PRIMARY KEY (workspace, name)
+)
+
+
+CREATE TABLE scheduler_leases (
+	lease_key VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	ttl_seconds INTEGER NOT NULL,
+	CONSTRAINT scheduler_leases_pk PRIMARY KEY (lease_key)
 )
 
 
@@ -234,6 +250,15 @@ CREATE TABLE experiment_tags (
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	CONSTRAINT "FK__experimen__exper__628FA481" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE job_locks (
+	lock_key VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	job_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	CONSTRAINT job_locks_pk PRIMARY KEY (lock_key),
+	CONSTRAINT fk_job_locks_job_id FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE
 )
 
 
@@ -431,6 +456,62 @@ CREATE TABLE scorers (
 )
 
 
+CREATE TABLE sql_assessment_daily_rollups (
+	id BIGINT NOT NULL IDENTITY,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	grouping_set VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	sample_count BIGINT NOT NULL,
+	sum_value FLOAT(53),
+	min_value FLOAT(53),
+	max_value FLOAT(53),
+	CONSTRAINT sql_assessment_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_span_cost_daily_rollups (
+	id BIGINT NOT NULL IDENTITY,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	grouping_set VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	model_name NVARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	model_provider NVARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	sample_count BIGINT NOT NULL,
+	sum_value FLOAT(53),
+	min_value FLOAT(53),
+	max_value FLOAT(53),
+	CONSTRAINT sql_span_cost_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_metric_daily_rollups (
+	id BIGINT NOT NULL IDENTITY,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	grouping_set VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	trace_status VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	sample_count BIGINT NOT NULL,
+	sum_value FLOAT(53),
+	min_value FLOAT(53),
+	max_value FLOAT(53),
+	p50_value FLOAT(53),
+	p90_value FLOAT(53),
+	p99_value FLOAT(53),
+	CONSTRAINT sql_trace_metric_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_rollup_rebuild_queue (
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	rollup_family VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -440,6 +521,17 @@ CREATE TABLE trace_info (
 	client_request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	request_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	response_preview VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	trace_name VARCHAR(4096) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	session_id VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	input_tokens BIGINT,
+	output_tokens BIGINT,
+	total_tokens BIGINT,
+	cache_read_input_tokens BIGINT,
+	cache_creation_input_tokens BIGINT,
+	cache_creation_input_tokens_above_1hr BIGINT,
+	input_cost FLOAT(53),
+	output_cost FLOAT(53),
+	total_cost FLOAT(53),
 	db_payload_generation INTEGER DEFAULT ('0') NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
@@ -464,6 +556,10 @@ CREATE TABLE assessments (
 	error VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
+	experiment_id INTEGER,
+	trace_timestamp_ms BIGINT,
+	aggregate_value FLOAT(53),
+	is_numeric_value BIT DEFAULT ((0)) NOT NULL,
 	source_type VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	source_id VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
@@ -693,7 +789,11 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (([end_time_unix_nano]-[start_time_unix_nano])) STORED,
 	content VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	dimension_attributes NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	input_cost FLOAT(53),
+	output_cost FLOAT(53),
+	total_cost FLOAT(53),
+	model_name NVARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	model_provider NVARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE

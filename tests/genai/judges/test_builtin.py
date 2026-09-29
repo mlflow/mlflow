@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 from unittest import mock
 
 import pytest
@@ -22,6 +23,8 @@ from mlflow.genai.utils.type import FunctionCall
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.genai.conftest import databricks_only
+
+_EVALUATED_SENTINEL = "EVALUATED_USER_DATA_SENTINEL"
 
 
 def create_test_feedback(value: str, error: str | None = None) -> Feedback:
@@ -476,6 +479,219 @@ def test_is_safe_oss_with_custom_model(monkeypatch: pytest.MonkeyPatch):
     args, kwargs = mock_invoke.call_args
     assert args[0] == "anthropic:/claude-3-sonnet"  # model
     assert kwargs["assessment_name"] == "safety"
+
+
+def _assert_typesafe_call(invoke, expected_state) -> None:
+    invoke.assert_called_once()
+    args, kwargs = invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert _EVALUATED_SENTINEL not in kwargs["instructions"]
+    assert kwargs["state"] == expected_state
+    assert kwargs["feedback_value_type"] == Literal["yes", "no"]
+    assert kwargs["extra_headers"] is None
+    assert "json format" not in kwargs["instructions"].lower()
+    assert "rationale" not in kwargs["instructions"].lower()
+    assert "let's think step by step" not in kwargs["instructions"].lower()
+
+
+@pytest.mark.parametrize(
+    ("judge_fn", "judge_kwargs", "expected_state"),
+    [
+        (
+            judges.is_context_relevant,
+            {"request": _EVALUATED_SENTINEL, "context": _EVALUATED_SENTINEL},
+            {"input": _EVALUATED_SENTINEL, "output": _EVALUATED_SENTINEL},
+        ),
+        (
+            judges.is_context_sufficient,
+            {
+                "request": _EVALUATED_SENTINEL,
+                "context": _EVALUATED_SENTINEL,
+                "expected_facts": [_EVALUATED_SENTINEL],
+            },
+            {
+                "input": _EVALUATED_SENTINEL,
+                "ground_truth": [_EVALUATED_SENTINEL],
+                "retrieval_context": _EVALUATED_SENTINEL,
+            },
+        ),
+        (
+            judges.is_correct,
+            {
+                "request": _EVALUATED_SENTINEL,
+                "response": _EVALUATED_SENTINEL,
+                "expected_response": _EVALUATED_SENTINEL,
+            },
+            {
+                "input": _EVALUATED_SENTINEL,
+                "output": _EVALUATED_SENTINEL,
+                "ground_truth": _EVALUATED_SENTINEL,
+            },
+        ),
+        (
+            judges.is_grounded,
+            {
+                "request": _EVALUATED_SENTINEL,
+                "response": _EVALUATED_SENTINEL,
+                "context": _EVALUATED_SENTINEL,
+            },
+            {
+                "input": _EVALUATED_SENTINEL,
+                "output": _EVALUATED_SENTINEL,
+                "retrieval_context": _EVALUATED_SENTINEL,
+            },
+        ),
+        (
+            judges.is_safe,
+            {"content": _EVALUATED_SENTINEL},
+            {"content": _EVALUATED_SENTINEL},
+        ),
+        (
+            judges.meets_guidelines,
+            {
+                "guidelines": [_EVALUATED_SENTINEL],
+                "context": {"response": _EVALUATED_SENTINEL},
+            },
+            {
+                "guidelines": [_EVALUATED_SENTINEL],
+                "guidelines_context": {"response": _EVALUATED_SENTINEL},
+            },
+        ),
+    ],
+)
+def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
+    with mock.patch(
+        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judge_fn(model="typesafe:/jev-latest", **judge_kwargs)
+
+    _assert_typesafe_call(mock_invoke, expected_state)
+
+
+def test_builtin_judge_forwards_typesafe_extra_headers():
+    extra_headers = {"X-Test": "value"}
+    with mock.patch(
+        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judges.is_safe(
+            content="safe",
+            model="typesafe:/jev-latest",
+            extra_headers=extra_headers,
+        )
+
+    assert mock_invoke.call_args.kwargs["extra_headers"] is extra_headers
+
+
+def test_tool_call_efficiency_invokes_typesafe():
+    tools_called = [
+        FunctionCall(
+            name=f"search_{_EVALUATED_SENTINEL}",
+            arguments={"query": _EVALUATED_SENTINEL},
+            outputs=_EVALUATED_SENTINEL,
+        )
+    ]
+    available_tools = [
+        ChatTool(
+            type="function",
+            function=FunctionToolDefinition(
+                name=f"search_{_EVALUATED_SENTINEL}",
+                description=_EVALUATED_SENTINEL,
+            ),
+        )
+    ]
+    with mock.patch(
+        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judges.is_tool_call_efficient(
+            request=_EVALUATED_SENTINEL,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            model="typesafe:/jev-latest",
+        )
+
+    expected_state = {
+        "request": _EVALUATED_SENTINEL,
+        "tools_called": tools_called,
+        "available_tools": available_tools,
+    }
+    _assert_typesafe_call(mock_invoke, expected_state)
+    assert (
+        'result is "yes" when the tool usage is efficient'
+        in mock_invoke.call_args.kwargs["instructions"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("has_expected_calls", "include_arguments", "check_order", "expected_criterion"),
+    [
+        (False, True, False, "Need for tools"),
+        (True, True, True, "Argument match"),
+        (True, False, False, "Argument reasonableness"),
+    ],
+)
+def test_tool_call_correctness_invokes_typesafe(
+    has_expected_calls, include_arguments, check_order, expected_criterion
+):
+    tools_called = [
+        FunctionCall(
+            name=f"search_{_EVALUATED_SENTINEL}",
+            arguments={"query": _EVALUATED_SENTINEL},
+        )
+    ]
+    available_tools = [
+        ChatTool(
+            type="function",
+            function=FunctionToolDefinition(
+                name=f"search_{_EVALUATED_SENTINEL}",
+                description=_EVALUATED_SENTINEL,
+            ),
+        )
+    ]
+    expected_calls = (
+        [
+            FunctionCall(
+                name=f"expected_{_EVALUATED_SENTINEL}",
+                arguments={"query": _EVALUATED_SENTINEL},
+            )
+        ]
+        if has_expected_calls
+        else None
+    )
+    with mock.patch(
+        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judges.is_tool_call_correct(
+            request=_EVALUATED_SENTINEL,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            expected_tool_calls=expected_calls,
+            include_arguments=include_arguments,
+            check_order=check_order,
+            model="typesafe:/jev-latest",
+        )
+
+    expected_state = {
+        "request": _EVALUATED_SENTINEL,
+        "tools_called": tools_called,
+        "available_tools": available_tools,
+        **(
+            {
+                "expected_calls": (
+                    [{"name": call.name, "arguments": call.arguments} for call in expected_calls]
+                    if include_arguments
+                    else [call.name for call in expected_calls]
+                )
+            }
+            if expected_calls is not None
+            else {}
+        ),
+    }
+    _assert_typesafe_call(mock_invoke, expected_state)
+    assert expected_criterion in mock_invoke.call_args.kwargs["instructions"]
 
 
 def test_is_safe_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):

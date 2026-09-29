@@ -842,6 +842,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/typesafe',
+                  label: 'TypeSafe Judge Models',
+                },
+                {
+                  type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/custom-judges/jev',
                   label: 'Jev (TypeSafe)',
                 },

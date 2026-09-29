@@ -575,6 +575,22 @@ def _validate_experiment_id(exp_id):
         )
 
 
+def _parse_experiment_id(experiment_id: str | int) -> int:
+    """Parse a non-None experiment ID into an integer."""
+    try:
+        return int(experiment_id)
+    except (ValueError, TypeError):
+        raise MlflowException(
+            f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _parse_experiment_ids(experiment_ids: list[str | int]) -> list[int]:
+    """Parse non-None experiment IDs into integers."""
+    return [_parse_experiment_id(experiment_id) for experiment_id in experiment_ids]
+
+
 def _validate_batch_limit(entity_name, limit, length):
     if length > limit:
         error_msg = (
@@ -1182,8 +1198,8 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
             )
 
 
-def _validate_jev_scorer_data(value: Any) -> None:
-    """Validate server-side Jev configurations, including scorers nested in containers."""
+def _validate_jev_scorer_data(value: Any, *, in_ensemble: bool = False) -> None:
+    """Validate server-side Jev configurations before they are reconstructed."""
     if isinstance(value, dict):
         if value.get("jev_scorer_pydantic_data") is not None:
             # Lazy import avoids loading the optional GenAI package for other validations.
@@ -1195,12 +1211,17 @@ def _validate_jev_scorer_data(value: Any) -> None:
                     "Server-side Jev scorers require a gateway:/ endpoint with a configured "
                     "TypeSafe API key. Use typesafe:/ models only for local SDK evaluation."
                 )
+            if in_ensemble:
+                raise MlflowException.invalid_parameter_value(
+                    "Server-side Jev scorers in ensembles are not supported because nested "
+                    "gateway endpoints cannot be bound to a registered scorer."
+                )
         if isinstance(ensemble := value.get("ensemble_scorer_data"), dict):
             if isinstance(scorers := ensemble.get("scorers"), list):
                 for scorer in scorers:
-                    _validate_jev_scorer_data(scorer)
+                    _validate_jev_scorer_data(scorer, in_ensemble=True)
         if isinstance(memory_judge := value.get("memory_augmented_judge_data"), dict):
-            _validate_jev_scorer_data(memory_judge.get("base_judge"))
+            _validate_jev_scorer_data(memory_judge.get("base_judge"), in_ensemble=in_ensemble)
 
 
 def _validate_mcp_icon_url(url: str) -> None:

@@ -12,7 +12,13 @@ from mlflow.entities import (
     GatewayModelLinkageType,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import JevScorer, Scorer, ScorerSamplingConfig, make_jev_scorer
+from mlflow.genai.scorers import (
+    JevScorer,
+    Scorer,
+    ScorerSamplingConfig,
+    make_jev_scorer,
+    make_scorer_ensemble,
+)
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.registry import get_scorer, list_scorers
@@ -88,6 +94,22 @@ def test_noul_feedback_and_request(direct_request, threshold, expected):
             }
         },
     }
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        {"inputs": float("nan")},
+        {"outputs": {"value": float("inf")}},
+        {"expectations": {"value": float("-inf")}},
+    ],
+)
+def test_nonfinite_state_is_rejected_before_request(direct_request, state):
+    with pytest.raises(MlflowException, match="contain only finite numbers") as exc:
+        _scorer()(**state)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    direct_request.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -291,6 +313,8 @@ def test_invalid_choice_response(changes, direct_request):
 def test_gateway_uses_tracking_auth_and_workspace(monkeypatch, auth):
     monkeypatch.setenv("MLFLOW_GATEWAY_URI", "https://mlflow.example.com/prefix")
     monkeypatch.setenv("TYPESAFE_API_KEY", "must-not-forward")
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
     if auth == "basic":
         monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
         monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "password")
@@ -298,6 +322,9 @@ def test_gateway_uses_tracking_auth_and_workspace(monkeypatch, auth):
         monkeypatch.setenv("MLFLOW_TRACKING_TOKEN", "tracking-token")
     with (
         WorkspaceContext("team-a"),
+        mock.patch(
+            "mlflow.utils.credentials._read_mlflow_creds_from_file", return_value=(None, None)
+        ),
         mock.patch("mlflow.utils.rest_utils._get_http_response_with_retries") as request,
     ):
         request.return_value.status_code = 200
@@ -418,6 +445,20 @@ def test_registration_rejects_direct_model(direct_request):
     with pytest.raises(MlflowException, match="requires a gateway:/ endpoint"):
         _scorer().register()
     direct_request.assert_not_called()
+
+
+def test_registration_rejects_jev_nested_in_ensemble_before_store_access():
+    ensemble = make_scorer_ensemble(
+        name="ensemble",
+        scorers=[_scorer(model="gateway:/evaluator")],
+        ensemble_fn="mean",
+    )
+    with (
+        mock.patch("mlflow.genai.scorers.registry._get_scorer_store") as store,
+        pytest.raises(MlflowException, match="nested gateway endpoints cannot be bound"),
+    ):
+        ensemble.register()
+    store.assert_not_called()
 
 
 def test_registration_rejects_databricks():
