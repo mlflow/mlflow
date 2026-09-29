@@ -197,7 +197,15 @@ class GeminiAdapter(ProviderAdapter):
                     system_message = {"parts": []}
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
-                call_id = message["tool_call_id"]
+                call_id = message.get("tool_call_id")
+                if call_id not in call_id_to_function_name_map:
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            f"Invalid tool message: tool_call_id={call_id} does not match "
+                            "any tool call in a preceding assistant message."
+                        ),
+                    )
                 function_response = {
                     "functionResponse": {
                         "id": call_id,
