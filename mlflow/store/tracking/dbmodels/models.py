@@ -4744,6 +4744,8 @@ SKILL_REGISTRY_TAG_KEY_STRING = (
     .with_variant(MSSQL_VARCHAR(250, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
 )
 
+SKILL_REGISTRY_TAG_VALUE_TEXT = Text().with_variant(MEDIUMTEXT, "mysql")
+
 
 # ---------------------------------------------------------------------------
 # Skill Registry (RFC-0008) ORM models
@@ -4850,11 +4852,11 @@ class SqlSkill(Base):
         )
 
     @classmethod
-    def with_resolved_latest(cls, query):
+    def with_resolved_latest_columns(cls, query):
         latest_candidates = cls._resolved_latest_candidates_query().subquery(
             "skill_latest_candidates"
         )
-        return query.outerjoin(
+        query = query.outerjoin(
             latest_candidates,
             sa.and_(
                 latest_candidates.c.workspace == cls.workspace,
@@ -4867,6 +4869,16 @@ class SqlSkill(Base):
             with_expression(cls.resolved_status, latest_candidates.c.status),
             with_expression(cls.resolved_source_type, latest_candidates.c.source_type),
         )
+        return query, {
+            "latest_version": latest_candidates.c.version,
+            "status": latest_candidates.c.status,
+            "source_type": latest_candidates.c.source_type,
+        }
+
+    @classmethod
+    def with_resolved_latest(cls, query):
+        query, _ = cls.with_resolved_latest_columns(query)
+        return query
 
     def to_mlflow_entity(
         self,
@@ -5000,7 +5012,7 @@ class SqlSkillTag(Base):
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
     key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
-    value = Column(Text, nullable=True)
+    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
 
     skill = relationship(
         "SqlSkill",
@@ -5036,7 +5048,7 @@ class SqlSkillVersionTag(Base):
     name = Column(String(128), nullable=False)
     version = Column(Integer, nullable=False)
     key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
-    value = Column(Text, nullable=True)
+    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
 
     skill_version = relationship(
         "SqlSkillVersion",
@@ -5401,7 +5413,7 @@ class SqlAgentPluginTag(Base):
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
     key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
-    value = Column(Text, nullable=True)
+    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
 
     plugin = relationship(
         "SqlAgentPlugin",
@@ -5439,7 +5451,7 @@ class SqlAgentPluginVersionTag(Base):
     name = Column(String(128), nullable=False)
     version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
     key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
-    value = Column(Text, nullable=True)
+    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
 
     plugin_version = relationship(
         "SqlAgentPluginVersion",

@@ -73,23 +73,50 @@ class SqlAlchemySkillRegistryMixin:
     SKILL_SEARCH_QUERY_SCOPE = "skills"
     SKILL_VERSION_SEARCH_QUERY_SCOPE_PREFIX = "skill_versions"
 
-    def _skill_query(self, session):
-        return SqlSkill.with_resolved_latest(
+    def _base_skill_query(self, session):
+        return (
             self._get_query(session, SqlSkill).options(
                 subqueryload(SqlSkill.tags),
                 subqueryload(SqlSkill.skill_aliases),
             )
         )
 
+    def _skill_query(self, session):
+        return SqlSkill.with_resolved_latest(
+            SqlAlchemySkillRegistryMixin._base_skill_query(self, session)
+        )
+
+    def _skill_query_with_resolved_latest_columns(self, session):
+        return SqlSkill.with_resolved_latest_columns(
+            SqlAlchemySkillRegistryMixin._base_skill_query(self, session)
+        )
+
     @staticmethod
-    def _skill_search_column_map():
+    def _skill_search_text_expression():
+        return sa.func.coalesce(
+            SqlSkill.search_text,
+            SqlSkill.name + sa.literal(" ") + sa.func.coalesce(SqlSkill.description, ""),
+        )
+
+    @staticmethod
+    def _skill_search_column_map(resolved_latest_columns: dict[str, Any] | None = None):
+        status_column = (
+            resolved_latest_columns["status"]
+            if resolved_latest_columns is not None
+            else SqlSkill.resolved_status_expression()
+        )
+        source_type_column = (
+            resolved_latest_columns["source_type"]
+            if resolved_latest_columns is not None
+            else SqlSkill.resolved_source_type_expression()
+        )
         return {
             "name": SqlSkill.name,
             "organization": SqlSkill.organization,
             "description": SqlSkill.description,
-            "search_text": SqlSkill.search_text,
-            "status": SqlSkill.resolved_status_expression(),
-            "source_type": SqlSkill.resolved_source_type_expression(),
+            "search_text": SqlAlchemySkillRegistryMixin._skill_search_text_expression(),
+            "status": status_column,
+            "source_type": source_type_column,
             "created_at": SqlSkill.created_at,
             "last_updated_at": SqlSkill.last_updated_at,
         }
@@ -507,16 +534,17 @@ class SqlAlchemySkillRegistryMixin:
         query_scope = self._skill_search_query_scope()
         offset = self._page_token_offset(page_token, filter_string, order_by, query_scope)
         parsed_filters = SearchSkillUtils.parse_search_filter(filter_string)
-        column_map = self._skill_search_column_map()
-        order_clauses = parse_skill_registry_order_by(
-            order_by,
-            valid_keys=set(SearchSkillUtils.VALID_SEARCH_ATTRIBUTE_KEYS),
-            column_map=column_map,
-            default_tiebreakers=[SqlSkill.organization.asc(), SqlSkill.name.asc()],
-        )
         with self.ManagedSessionMaker() as session:
+            query, resolved_latest_columns = self._skill_query_with_resolved_latest_columns(session)
+            column_map = self._skill_search_column_map(resolved_latest_columns)
+            order_clauses = parse_skill_registry_order_by(
+                order_by,
+                valid_keys=set(SearchSkillUtils.VALID_SEARCH_ATTRIBUTE_KEYS),
+                column_map=column_map,
+                default_tiebreakers=[SqlSkill.organization.asc(), SqlSkill.name.asc()],
+            )
             query = apply_skill_registry_filters(
-                self._skill_query(session),
+                query,
                 parsed_filters,
                 column_map,
                 SqlSkill,
@@ -1306,6 +1334,7 @@ class SqlAlchemySkillRegistryMixin:
         organization: str = "",
     ) -> None:
         self._validate_skill_identity(name, organization)
+        key = _validate_skill_tag(key, "").key
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_entity_or_raise(
                 session,
@@ -1372,6 +1401,7 @@ class SqlAlchemySkillRegistryMixin:
     ) -> None:
         self._validate_skill_identity(name, organization)
         _validate_skill_version(version)
+        key = _validate_skill_tag(key, "").key
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_skill_version_or_raise(
                 session,

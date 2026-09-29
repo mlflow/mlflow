@@ -36,7 +36,10 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
 from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
 from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
-from mlflow.utils.validation import MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH
+from mlflow.utils.validation import (
+    MAX_MODEL_REGISTRY_TAG_KEY_LENGTH,
+    MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH,
+)
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -151,6 +154,26 @@ def test_skill_search_text_is_persisted_and_recomputed_for_description_only(stor
 
     store.update_skill("reviewer", organization="acme", description="Audits pull requests")
     assert _get_skill_search_text(store, organization="acme") == "reviewer Audits pull requests"
+
+
+def test_search_skills_uses_derived_text_for_legacy_null_search_text(store):
+    store.create_skill(
+        "legacy-reviewer",
+        organization="acme",
+        description="Reviews legacy pull requests",
+    )
+    with store.ManagedSessionMaker(read_only=False) as session:
+        skill = (
+            store
+            ._get_query(session, SqlSkill)
+            .filter(SqlSkill.name == "legacy-reviewer", SqlSkill.organization == "acme")
+            .one()
+        )
+        skill.search_text = None
+
+    matches = store.search_skills(filter_string="search_text ILIKE '%legacy pull%'")
+
+    assert [(skill.organization, skill.name) for skill in matches] == [("acme", "legacy-reviewer")]
 
 
 def test_auto_created_skill_version_parent_gets_search_text(store):
@@ -338,6 +361,37 @@ def test_search_skills_filters_source_type_by_latest_resolved_version(store):
     assert [skill.name for skill in zip_ordered_matches] == ["draft-zip-reviewer"]
 
 
+def test_search_skills_reuses_joined_latest_version_columns(store):
+    store.create_skill_version(
+        "git-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/skills.git",
+    )
+
+    statements = []
+
+    def capture_statement(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        results = store.search_skills(
+            filter_string="organization = 'acme' AND status = 'active' AND source_type = 'git'",
+            order_by=["source_type ASC", "status ASC"],
+        )
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert [skill.name for skill in results] == ["git-reviewer"]
+    sql = statements[0].lower()
+    assert "skill_latest_candidates" in sql
+    assert "resolved_skill_status_candidates" not in sql
+    assert "resolved_skill_source_type_candidates" not in sql
+    assert sql.count("row_number()") == 1
+
+
 @pytest.mark.parametrize(
     "max_results",
     [0, -1, 1001, True, "1"],
@@ -441,6 +495,19 @@ def test_skill_tags_can_be_set_updated_deleted_and_filtered(store):
         store.delete_skill_tag("reviewer", "team", organization="acme")
 
 
+@pytest.mark.parametrize("key", [None, "k" * (MAX_MODEL_REGISTRY_TAG_KEY_LENGTH + 1)])
+def test_delete_skill_tag_rejects_invalid_key(store, key):
+    store.create_skill("reviewer", organization="acme")
+
+    with pytest.raises(
+        MlflowException,
+        match="Missing value for required parameter|exceeds the maximum length",
+    ) as exc:
+        store.delete_skill_tag("reviewer", key, organization="acme")
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_skill_tag_keys_are_case_sensitive(store):
     store.create_skill("reviewer", organization="acme")
     store.set_skill_tag("reviewer", "Team", "original", organization="acme")
@@ -487,6 +554,15 @@ def test_skill_tag_value_uses_registry_limits_without_truncation(store):
 def test_skill_registry_tag_key_columns_are_case_sensitive(tag_model, dialect, expected_collation):
     tag_key_type = tag_model.__table__.c.key.type.dialect_impl(dialect)
     assert tag_key_type.collation == expected_collation
+
+
+@pytest.mark.parametrize(
+    "tag_model",
+    [SqlSkillTag, SqlSkillVersionTag, SqlAgentPluginTag, SqlAgentPluginVersionTag],
+)
+def test_skill_registry_tag_value_columns_use_mysql_mediumtext(tag_model):
+    tag_value_type = tag_model.__table__.c.value.type
+    assert tag_value_type.compile(dialect=mysql.dialect()) == "MEDIUMTEXT"
 
 
 def test_set_skill_tag_validates_parent_and_tag_payload(store):
@@ -1355,6 +1431,19 @@ def test_skill_version_tags_can_be_set_updated_deleted_and_filtered(store):
 
     with pytest.raises(MlflowException, match="Tag 'release' not found"):
         store.delete_skill_version_tag("reviewer", 1, "release", organization="acme")
+
+
+@pytest.mark.parametrize("key", [None, "k" * (MAX_MODEL_REGISTRY_TAG_KEY_LENGTH + 1)])
+def test_delete_skill_version_tag_rejects_invalid_key(store, key):
+    store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT.value)
+
+    with pytest.raises(
+        MlflowException,
+        match="Missing value for required parameter|exceeds the maximum length",
+    ) as exc:
+        store.delete_skill_version_tag("reviewer", 1, key, organization="acme")
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_skill_version_tag_keys_are_case_sensitive(store):
