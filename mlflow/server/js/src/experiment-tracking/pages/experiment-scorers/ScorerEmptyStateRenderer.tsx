@@ -17,11 +17,13 @@ const getScorersDocUrl = () => {
 
 interface ScorerEmptyStateRendererProps {
   onAddLLMScorerClick: () => void;
+  onAddJevScorerClick?: () => void;
   onAddCustomCodeScorerClick: () => void;
 }
 
 const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
   onAddLLMScorerClick,
+  onAddJevScorerClick,
   onAddCustomCodeScorerClick,
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -81,6 +83,17 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
                 description="Button text to add an LLM judge from empty state"
               />
             </Button>
+            {onAddJevScorerClick && (
+              <Button
+                componentId="mlflow.experiment-scorers.empty-state-add-jev-scorer-button"
+                onClick={onAddJevScorerClick}
+              >
+                <FormattedMessage
+                  defaultMessage="Jev (TypeSafe)"
+                  description="Button to add a Jev judge from empty state"
+                />
+              </Button>
+            )}
             <Button
               icon={<CodeIcon />}
               componentId="mlflow.experiment-scorers.empty-state-add-custom-code-scorer-button"

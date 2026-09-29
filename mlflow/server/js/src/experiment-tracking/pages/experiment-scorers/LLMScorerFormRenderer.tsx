@@ -18,6 +18,7 @@ import {
   DialogComboboxTrigger,
   PlusIcon,
 } from '@databricks/design-system';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { HighlightedTextArea } from './HighlightedTextArea';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
@@ -573,8 +574,8 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
       {isScorerModelSelectionEnabled() && (
         <ModelSectionRenderer
           mode={mode}
-          control={control}
-          setValue={setValue}
+          control={control as Control<ScorerFormData>}
+          setValue={setValue as UseFormSetValue<ScorerFormData>}
           onUserSelect={checkAndProgressGeneral}
         />
       )}
@@ -616,7 +617,13 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
         {isScorerOutputTypeSelectorEnabled() && EDITABLE_TEMPLATES.has(selectedTemplate) && (
           <OutputTypeSection mode={mode} control={control} />
         )}
-        {isScorerModelSelectionEnabled() && <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />}
+        {isScorerModelSelectionEnabled() && (
+          <ModelSectionRenderer
+            mode={mode}
+            control={control as Control<ScorerFormData>}
+            setValue={setValue as UseFormSetValue<ScorerFormData>}
+          />
+        )}
         <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />
       </div>
     );

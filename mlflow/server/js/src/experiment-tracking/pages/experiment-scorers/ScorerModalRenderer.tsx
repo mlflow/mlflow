@@ -38,6 +38,8 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
       title={
         mode === SCORER_FORM_MODE.EDIT ? (
           <FormattedMessage defaultMessage="Edit judge" description="Title for edit judge modal" />
+        ) : initialScorerType === 'jev' ? (
+          <FormattedMessage defaultMessage="Create Jev judge" description="Title for new Jev judge modal" />
         ) : initialScorerType === 'custom-code' ? (
           <FormattedMessage
             defaultMessage="Create custom code judge"

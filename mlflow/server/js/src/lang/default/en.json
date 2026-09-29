@@ -23,6 +23,10 @@
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
   },
+  "+3tgvw": {
+    "defaultMessage": "Use Jev from the SDK",
+    "description": "Jev direct SDK example heading"
+  },
   "+4+wQY": {
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
@@ -258,6 +262,10 @@
   "/2m1wK": {
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
+  },
+  "/3jAg7": {
+    "defaultMessage": "Enter valid JSON for the selected answer type.",
+    "description": "Invalid Jev criteria JSON"
   },
   "/4Aok8": {
     "defaultMessage": "Run",
@@ -710,6 +718,10 @@
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
+  },
+  "0wxm5J": {
+    "defaultMessage": "Score",
+    "description": "Score answer type"
   },
   "0yvVF0": {
     "defaultMessage": "Refresh traces",
@@ -1211,6 +1223,10 @@
     "defaultMessage": "Endpoint",
     "description": "Label for the endpoint-selection section in the run evaluation modal"
   },
+  "2sVIc8": {
+    "defaultMessage": "Choose a TypeSafe endpoint. Its API key is managed in AI Gateway.",
+    "description": "Gateway credentials guidance for Jev scorers"
+  },
   "2tQXw0": {
     "defaultMessage": "Key name cannot be changed.",
     "description": "Tooltip explaining why key name field is disabled"
@@ -1294,6 +1310,10 @@
   "3LhJyC": {
     "defaultMessage": "Loading source model",
     "description": "Screen reader label shown while the source logged model of a model version is loading"
+  },
+  "3M6K+F": {
+    "defaultMessage": "Jev (TypeSafe)",
+    "description": "Label for Jev scorer type"
   },
   "3MZ6H+": {
     "defaultMessage": "Submit",
@@ -2959,6 +2979,10 @@
     "defaultMessage": "Reset period",
     "description": "Budget reset period label"
   },
+  "9ytaR1": {
+    "defaultMessage": "Ask one question about the response. Inputs, outputs, and any expectations are supplied as context automatically.",
+    "description": "Context sent to a Jev scorer"
+  },
   "9zZeT2": {
     "defaultMessage": "Delete records",
     "description": "Title for the V2 dataset records bulk-delete confirmation modal"
@@ -2994,6 +3018,10 @@
   "A6k+VR": {
     "defaultMessage": "Save the current columns, filters, sort and time range as a named view, then share it by link.",
     "description": "Explanation shown in the save-traces-view modal describing what a saved view captures"
+  },
+  "A6uWGB": {
+    "defaultMessage": "Noul criteria can only describe true and false.",
+    "description": "Invalid Jev noul criteria"
   },
   "A7R0ii": {
     "defaultMessage": "Copy path",
@@ -3667,6 +3695,10 @@
     "defaultMessage": "Pretty",
     "description": "Label for the pretty render mode in the model trace explorer attributes tab"
   },
+  "CddGVM": {
+    "defaultMessage": "This field is required.",
+    "description": "Missing required Jev scorer field"
+  },
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
@@ -3895,6 +3927,10 @@
     "defaultMessage": "Versions",
     "description": "Header for the version column in the registered prompts table"
   },
+  "DmeYLH": {
+    "defaultMessage": "Saved judges ({llmCount})",
+    "description": "Label for saved judge type filter option"
+  },
   "Druqym": {
     "defaultMessage": "Filters",
     "description": "Tooltip for the traces table filter button"
@@ -4078,6 +4114,10 @@
   "EYqwy2": {
     "defaultMessage": "Assign myself",
     "description": "Review focused view: self-assign to the queue to start reviewing"
+  },
+  "EYv7xE": {
+    "defaultMessage": "Choice",
+    "description": "Choice answer type"
   },
   "EZfSbs": {
     "defaultMessage": "No trace data available",
@@ -4347,6 +4387,10 @@
     "defaultMessage": "Observability",
     "description": "Label for the observability section in the MLflow experiment navbar"
   },
+  "FmRKDH": {
+    "defaultMessage": "Complete the Jev question and fix form validation errors before running the judge.",
+    "description": "Invalid Jev scorer form tooltip"
+  },
   "Fmh5db": {
     "defaultMessage": "{count, plural, one {# linked prompt} other {# linked prompts}}",
     "description": "Linked prompts count in the trace explorer"
@@ -4434,6 +4478,10 @@
   "G7V4y3": {
     "defaultMessage": "Hide details",
     "description": "Evaluation review > assessments > hide details button"
+  },
+  "G8k+r2": {
+    "defaultMessage": "Jev result: {value}",
+    "description": "Decision returned by Jev"
   },
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
@@ -5266,6 +5314,10 @@
   "JaanQY": {
     "defaultMessage": "Tools",
     "description": "Filter option for tool support"
+  },
+  "Jai2ii": {
+    "defaultMessage": "Create Jev judge",
+    "description": "Title for new Jev judge modal"
   },
   "JcRo6a": {
     "defaultMessage": "User",
@@ -6499,6 +6551,10 @@
     "defaultMessage": "Permissions",
     "description": "Tab trigger for the user's permissions"
   },
+  "OVNmZr": {
+    "defaultMessage": "Leave blank to return a probability. Set a threshold from 0 to 1 to return true when the probability meets or exceeds it. The probability is retained with the result.",
+    "description": "Noul threshold behavior"
+  },
   "OW3pF8": {
     "defaultMessage": "Show {count} more intermediate {count, plural, =1 {step} other {steps}}",
     "description": "Link that expands a collapsed list of intermediate function execution steps when clicked"
@@ -6915,6 +6971,10 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the evaluation runs table"
   },
+  "Q912qE": {
+    "defaultMessage": "Enter a JSON array of 2 to 10 text descriptions.",
+    "description": "Invalid Jev score criteria"
+  },
   "QAYpoR": {
     "defaultMessage": "Dataset",
     "description": "Visible label for adding a trace to a dataset"
@@ -7151,6 +7211,10 @@
     "defaultMessage": "Provider",
     "description": "Provider label"
   },
+  "R6Z5fH": {
+    "defaultMessage": "For local evaluation without a gateway endpoint, configure TYPESAFE_API_KEY and use a typesafe:/ model. Saved judges and automatic evaluation use gateway endpoints.",
+    "description": "Direct Jev SDK usage guidance"
+  },
   "R6dCZ5": {
     "defaultMessage": "View your traces",
     "description": "Step 3 title for traces onboarding"
@@ -7223,9 +7287,17 @@
     "defaultMessage": "@latest",
     "description": "MCP registry latest alias option"
   },
+  "RSwrGP": {
+    "defaultMessage": "Enter a JSON object mapping answers to descriptions.",
+    "description": "Invalid Jev object criteria"
+  },
   "RUju4k": {
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
+  },
+  "RVTomd": {
+    "defaultMessage": "Enter a JSON array of 2 to 10 ordered level descriptions. Scores range from 0 to the last level's index and may be fractional.",
+    "description": "Score criteria entry guidance"
   },
   "RWVGkL": {
     "defaultMessage": "Columns",
@@ -7302,10 +7374,6 @@
   "RoO7UF": {
     "defaultMessage": "Create",
     "description": "Create review queue: confirm button"
-  },
-  "RpxR8e": {
-    "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
-    "description": "Label for custom LLM judge type filter option"
   },
   "Rqy/A/": {
     "defaultMessage": "Loading...",
@@ -8687,6 +8755,10 @@
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
   },
+  "X3QCP/": {
+    "defaultMessage": "Each answer must have a non-empty label and a text description.",
+    "description": "Invalid Jev criteria description"
+  },
   "X3TpSa": {
     "defaultMessage": "Couldn't load this dataset",
     "description": "Heading shown when the V2 evaluation dataset detail page fails to fetch its dataset"
@@ -9435,6 +9507,10 @@
     "defaultMessage": "{numRootCause}/{numEvals} ({percentage}%) runs failed due to the {assessment} judge failing for the current run \"{currentRun}\".",
     "description": "Tooltip for the root cause metrics bar on the LLM evaluation page."
   },
+  "a72RZm": {
+    "defaultMessage": "Enter a JSON object mapping each answer label to its description (up to 255 choices).",
+    "description": "Choice criteria entry guidance"
+  },
   "a8rS4O": {
     "defaultMessage": "Delete",
     "description": "OK text for delete model modal on model view page"
@@ -9442,6 +9518,10 @@
   "a9kRlY": {
     "defaultMessage": "Tool calls",
     "description": "Label for the tool calls tab in the experiment overview page"
+  },
+  "a9meUt": {
+    "defaultMessage": "Question",
+    "description": "Evaluation question for a Jev scorer"
   },
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
@@ -9710,6 +9790,10 @@
   "bGHzui": {
     "defaultMessage": "Custom judge",
     "description": "Sub-label for a custom LLM-as-a-judge row in the run evaluation modal"
+  },
+  "bHmroc": {
+    "defaultMessage": "Confidence",
+    "description": "Jev confidence label"
   },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
@@ -10747,6 +10831,10 @@
     "defaultMessage": "Select view",
     "description": "Tooltip for the trace explorer view selector"
   },
+  "fBwZSs": {
+    "defaultMessage": "Answer type",
+    "description": "Primitive answer type for a Jev scorer"
+  },
   "fCT8Fj": {
     "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
     "description": "Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
@@ -10766,6 +10854,10 @@
   "fKx4kG": {
     "defaultMessage": "Aggregation: {value}",
     "description": "Experiment page > group by runs control > current aggregation function tooltip"
+  },
+  "fLW4eT": {
+    "defaultMessage": "Noul (probability)",
+    "description": "Noul answer type"
   },
   "fMDibn": {
     "defaultMessage": "Optional. Set an experiment-specific archival retention override. Leave blank to inherit the workspace or server default.",
@@ -11227,6 +11319,10 @@
     "defaultMessage": "Metadata key",
     "description": "Placeholder for the metadata-key input in the traces filter"
   },
+  "gpEzS9": {
+    "defaultMessage": "Jev (TypeSafe)",
+    "description": "Menu item to create a Jev judge"
+  },
   "gpx+Zx": {
     "defaultMessage": "Connect",
     "description": "MCP server version detail connect tab"
@@ -11659,6 +11755,10 @@
     "defaultMessage": "Judges",
     "description": "Section header for judge selection in the run evaluation modal"
   },
+  "iFnzGu": {
+    "defaultMessage": "Jev (TypeSafe)",
+    "description": "Button to add a Jev judge from empty state"
+  },
   "iJRv1X": {
     "defaultMessage": "Access endpoint",
     "description": "Header for the access endpoint column in the MCP servers table"
@@ -11958,6 +12058,10 @@
   "jHWRLw": {
     "defaultMessage": "No tags",
     "description": "Experiment page > group by runs control > no tags to group by"
+  },
+  "jHnzhO": {
+    "defaultMessage": "Threshold",
+    "description": "Optional probability threshold for a Jev scorer"
   },
   "jI22Qu": {
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
@@ -13823,6 +13927,10 @@
     "defaultMessage": "Rationale (optional)",
     "description": "Review question preview free-form rationale placeholder"
   },
+  "qwlu+n": {
+    "defaultMessage": "Enter between 1 and 255 choices.",
+    "description": "Invalid Jev choice criteria"
+  },
   "qz9XeG": {
     "defaultMessage": "Cancel",
     "description": "Cancel button"
@@ -14322,6 +14430,10 @@
   "smtq2M": {
     "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
+  },
+  "spWMgm": {
+    "defaultMessage": "Optionally enter a JSON object describing true and false. Noul returns the probability that the answer is true.",
+    "description": "Noul criteria entry guidance"
   },
   "sptgX6": {
     "defaultMessage": "Model",
@@ -14823,6 +14935,10 @@
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the roles table (no rows selected)"
   },
+  "vAas/L": {
+    "defaultMessage": "Criteria",
+    "description": "Answer criteria for a Jev scorer"
+  },
   "vBKFgp": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in scatter chart configurator in compare runs chart config modal"
@@ -14946,6 +15062,10 @@
   "vi2MM7": {
     "defaultMessage": "All",
     "description": "Tab text to view all versions under details tab on the model view page"
+  },
+  "vi9zpe": {
+    "defaultMessage": "Name",
+    "description": "Name of a Jev scorer"
   },
   "vkQHFS": {
     "defaultMessage": "Add tags",
@@ -15142,6 +15262,10 @@
   "wY8GPK": {
     "defaultMessage": "Get started with AI Gateway",
     "description": "Gateway > Endpoints > Quick start title"
+  },
+  "wYWDiV": {
+    "defaultMessage": "Enter a number between 0 and 1.",
+    "description": "Invalid Jev threshold"
   },
   "wYicDf": {
     "defaultMessage": "Share",
@@ -15826,6 +15950,10 @@
   "z9UqPZ": {
     "defaultMessage": "Description",
     "description": "Title text for the description section on the model version view page"
+  },
+  "zA/QOD": {
+    "defaultMessage": "Probability of true",
+    "description": "Jev noul probability label"
   },
   "zAQuQT": {
     "defaultMessage": "Loading budget policies...",

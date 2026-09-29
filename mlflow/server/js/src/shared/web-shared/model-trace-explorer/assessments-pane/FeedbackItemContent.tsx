@@ -8,6 +8,7 @@ import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdo
 import { AssessmentDisplayValue } from './AssessmentDisplayValue';
 import { FeedbackErrorItem } from './FeedbackErrorItem';
 import { FeedbackHistoryModal } from './FeedbackHistoryModal';
+import { JevAssessmentMetadata } from './JevAssessmentMetadata';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { FeedbackAssessment, RetrieverDocument } from '../ModelTrace.types';
 import { getAssessmentDocumentIndex, isChunkRelevanceAssessment } from '../ModelTraceExplorer.utils';
@@ -165,6 +166,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
           </div>
         </div>
       )}
+      {isNil(feedback.feedback.error) && !isNil(value) && <JevAssessmentMetadata metadata={feedback.metadata} />}
       {feedback.rationale && (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text size="sm" color="secondary">

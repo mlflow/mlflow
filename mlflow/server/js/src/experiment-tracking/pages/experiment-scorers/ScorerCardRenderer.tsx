@@ -16,6 +16,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { isNil } from 'lodash';
+import JevScorerFormRenderer, { type JevScorerFormData } from './JevScorerFormRenderer';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import type { ScheduledScorer } from './types';
 import { getTypeDisplayName, getTypeIcon, getTypeColor, getStatusTag } from './scorerCardUtils';
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
@@ -66,9 +68,9 @@ interface ScorerCardRendererProps {
   onExpandToggle: (e: React.MouseEvent) => void;
   onEditClick: (e: React.MouseEvent) => void;
   onDeleteClick: () => void;
-  control: Control<LLMScorerFormData | CustomCodeScorerFormData>;
-  setValue: UseFormSetValue<LLMScorerFormData | CustomCodeScorerFormData>;
-  getValues: UseFormGetValues<LLMScorerFormData | CustomCodeScorerFormData>;
+  control: Control<ScorerFormData>;
+  setValue: UseFormSetValue<ScorerFormData>;
+  getValues: UseFormGetValues<ScorerFormData>;
 }
 
 const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
@@ -212,6 +214,13 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
               control={control as Control<LLMScorerFormData>}
               setValue={setValue as UseFormSetValue<LLMScorerFormData>}
               getValues={getValues as UseFormGetValues<LLMScorerFormData>}
+            />
+          )}
+          {scorer.type === 'jev' && (
+            <JevScorerFormRenderer
+              mode={SCORER_FORM_MODE.DISPLAY}
+              control={control as Control<JevScorerFormData>}
+              setValue={setValue as UseFormSetValue<JevScorerFormData>}
             />
           )}
           {scorer.type === 'custom-code' && (

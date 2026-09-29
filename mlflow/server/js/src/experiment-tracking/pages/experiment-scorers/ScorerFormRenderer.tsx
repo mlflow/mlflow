@@ -14,9 +14,11 @@ import {
   ModelTraceExplorerResizablePane,
   type ModelTraceExplorerResizablePaneRef,
 } from '@databricks/web-shared/model-trace-explorer';
+import JevScorerFormRenderer, { type JevScorerFormData } from './JevScorerFormRenderer';
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
+import type { JevScorer } from './types';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 
@@ -37,6 +39,7 @@ interface ScorerFormRendererProps {
   isSubmitDisabled: boolean;
   experimentId: string;
   initialSelectedItemIds?: string[];
+  existingJevScorer?: JevScorer;
 }
 
 // Extracted form content component
@@ -60,7 +63,13 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
   return (
     <>
       {/* Conditional Form Content */}
-      {scorerType === 'llm' ? (
+      {scorerType === 'jev' ? (
+        <JevScorerFormRenderer
+          mode={mode}
+          control={control as Control<JevScorerFormData>}
+          setValue={setValue as UseFormSetValue<JevScorerFormData>}
+        />
+      ) : scorerType === 'llm' ? (
         <LLMScorerFormRenderer
           mode={mode}
           control={control as Control<LLMScorerFormData>}
@@ -89,6 +98,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   isSubmitDisabled,
   experimentId,
   initialSelectedItemIds,
+  existingJevScorer,
 }) => {
   const { theme } = useDesignSystemTheme();
   const [leftPaneWidth, setLeftPaneWidth] = useState(800);
@@ -127,7 +137,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
         overflow: 'hidden',
       }}
     >
-      {isRunningScorersFeatureEnabled && scorerType === 'llm' ? (
+      {isRunningScorersFeatureEnabled && (scorerType === 'llm' || scorerType === 'jev') ? (
         // Two-column resizable layout with sample scorer output panel (only for LLM scorers)
         <div css={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
           <ModelTraceExplorerResizablePane
@@ -191,6 +201,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                   isSessionLevelScorer={isSessionLevelScorer}
                   selectedItemIds={selectedItemIds}
                   onSelectedItemIdsChange={setSelectedItemIds}
+                  existingJevScorer={existingJevScorer}
                 />
               </div>
             }

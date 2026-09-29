@@ -7,6 +7,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import type { Assessment, AssessmentError, AssessmentMetadata, FeedbackAssessment } from '../ModelTrace.types';
 import { AssessmentDisplayValue } from '../../assessments-pane/AssessmentDisplayValue';
 import { FeedbackErrorItem } from '../../assessments-pane/FeedbackErrorItem';
+import { JevAssessmentMetadata } from '../../assessments-pane/JevAssessmentMetadata';
 import { getAssessmentValue } from '../../assessments-pane/utils';
 
 export const SIMPLIFIED_ASSESSMENT_VIEW_MIN_WIDTH = 300;
@@ -104,6 +105,8 @@ const AssessmentCard = ({ assessment }: { assessment: FeedbackAssessment }) => {
           <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={assessment.assessment_name} />
         </div>
       )}
+
+      {!hasError && !hasNullValue && <JevAssessmentMetadata metadata={assessment.metadata} />}
 
       {/* Metadata mini-cards (span name and document URI) */}
       <MetadataDisplay metadata={assessment.metadata as AssessmentMetadata | undefined} />

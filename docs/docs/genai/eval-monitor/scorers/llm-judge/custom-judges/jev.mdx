@@ -1,0 +1,178 @@
+---
+title: Jev (TypeSafe)
+description: Evaluate with TypeSafe Jev using the MLflow SDK or UI, preserve decision probabilities, and register judges for automatic evaluation through AI Gateway.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Jev (TypeSafe)
+
+Use <APILink fn="mlflow.genai.scorers.make_jev_scorer">`make_jev_scorer()`</APILink> to evaluate application responses with TypeSafe's Jev models. You can also create a **Jev (TypeSafe)** judge in the MLflow UI. Both flows in OSS MLflow use the same native scorer configuration, which can be registered and versioned in an experiment.
+
+A Jev scorer defines one question and its answer type. MLflow sends the row's `inputs`, `outputs`, and `expectations` as structured state, then records the decision as an assessment. Questions are literal instructions that can refer to these state fields by name. Template substitution, full-trace exploration, and conversation evaluation are not supported by this scorer.
+
+## Choose an answer type
+
+| Answer type | Criteria                                           | Assessment value                                                |
+| ----------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| `noul`      | Optional descriptions under `"true"` and `"false"` | A probability from 0 to 1, or a boolean when `threshold` is set |
+| `choice`    | A map from each label to its description           | The selected label                                              |
+| `score`     | An ordered list of 2 to 10 level descriptions      | A fractional score from 0 to the last level's index             |
+
+`threshold` is only supported for `noul`. A probability equal to or greater than the threshold produces `True`. MLflow preserves the original probability in the assessment metadata.
+
+Jev responses contain a typed decision and probability data. Assessments have no generated text rationale. See the [TypeSafe API reference](https://docs.typesafe.ai/api) for the underlying request and response formats.
+
+## Evaluate with the SDK
+
+Install MLflow with GenAI dependencies and [connect to an MLflow tracking server](/genai/getting-started/connect-environment). Set `TYPESAFE_API_KEY` in your local environment to call TypeSafe directly:
+
+```bash
+pip install 'mlflow[genai]'
+export MLFLOW_TRACKING_URI=http://localhost:5000
+```
+
+Create a scorer and evaluate precomputed outputs:
+
+```python
+import mlflow
+from mlflow.genai.scorers import make_jev_scorer
+
+mlflow.set_experiment("jev-evaluation")
+
+relevance = make_jev_scorer(
+    name="answer_relevance",
+    model="typesafe:/jev-latest",
+    question="Does outputs answer the question in inputs?",
+    answer_type="noul",
+    criteria={
+        "true": "The answer directly addresses the user's question.",
+        "false": "The answer is unrelated or does not address the question.",
+    },
+    threshold=0.7,
+)
+
+results = mlflow.genai.evaluate(
+    data=[
+        {
+            "inputs": {"question": "How do I reset my password?"},
+            "outputs": "Select Forgot password on the sign-in page to receive a reset link.",
+            "expectations": {"expected_response": "Use the Forgot password link."},
+        }
+    ],
+    scorers=[relevance],
+)
+```
+
+To return a numeric probability instead of a boolean, omit `threshold`. To classify or rate an answer, change the answer type and criteria:
+
+```python
+category = make_jev_scorer(
+    name="request_category",
+    model="typesafe:/jev-latest",
+    question="Which category describes the question in inputs?",
+    answer_type="choice",
+    criteria={
+        "account": "Account access, sign-in, or password help.",
+        "billing": "Invoices, payments, or subscriptions.",
+        "other": "Another type of request.",
+    },
+)
+
+completeness = make_jev_scorer(
+    name="answer_completeness",
+    model="typesafe:/jev-latest",
+    question="How completely does outputs answer inputs, considering expectations?",
+    answer_type="score",
+    criteria=[
+        "Does not provide the requested information.",
+        "Provides some useful information but misses a necessary step.",
+        "Provides all the information needed to resolve the question.",
+    ],
+)
+```
+
+The score in this example ranges from 0 to 2 and can fall between levels. Each scorer makes its own provider request for each evaluated row.
+
+## Configure a gateway endpoint
+
+Use an [AI Gateway endpoint](/genai/governance/ai-gateway/endpoints/create-and-manage) for UI execution, saved scorer versions, and automatic evaluation:
+
+1. Open **AI Gateway** and click **Create Endpoint**.
+2. Name the endpoint `jev-evaluator`.
+3. Select **TypeSafe** as the provider and choose a Jev model, such as `jev-latest`.
+4. Create or select a TypeSafe LLM connection with your API key.
+5. Click **Create Endpoint**. Use the endpoint's test panel to send a System One question.
+
+To use this endpoint from Python, set the tracking URI to the server hosting the gateway and use `model="gateway:/jev-evaluator"`. The gateway supplies the TypeSafe credentials. Configure normal MLflow client authentication if your server requires it.
+
+Direct `typesafe:/` models are intended for local SDK evaluation. Saved Jev scorers and server-side test execution require `gateway:/` models so credentials come from the configured connection.
+
+## Create and test a judge in the UI
+
+1. Open your experiment's **Judges** tab.
+2. Open **New LLM judge** and select **Jev (TypeSafe)**.
+3. Enter a **Name** and select a TypeSafe gateway endpoint under **Model**.
+4. Enter the **Question**, referring to `inputs`, `outputs`, or `expectations` as needed.
+5. Choose **Noul (probability)**, **Choice**, or **Score** under **Answer type**.
+6. Enter **Criteria**. For Noul or Choice, use a JSON object of descriptions. For Score, use a JSON array of level descriptions in increasing order. Optionally set a **Threshold** for Noul.
+7. Select sample traces and click **Run judge** to inspect decisions and probabilities.
+8. Configure **Automatic evaluation** if desired, then click **Create judge**.
+
+To update the judge, open **Edit**, change its configuration, test it again, and save. Saving creates a new scorer version in the same experiment.
+
+## Register versions and enable automatic evaluation
+
+Register a gateway-backed scorer through the SDK to make it available in the experiment:
+
+```python
+from mlflow.genai.scorers import ScorerSamplingConfig, get_scorer, make_jev_scorer
+
+relevance = make_jev_scorer(
+    name="answer_relevance",
+    model="gateway:/jev-evaluator",
+    question="Does outputs answer the question in inputs?",
+    answer_type="noul",
+    threshold=0.7,
+)
+registered = relevance.register()
+
+# Load a specific version for reproducible evaluations.
+version_one = get_scorer(name="answer_relevance", version=1)
+
+# Evaluate a sample of newly logged traces in the experiment.
+active = registered.start(sampling_config=ScorerSamplingConfig(sample_rate=0.1))
+```
+
+Stop automatic evaluation when it is no longer needed:
+
+```python
+active.stop()
+```
+
+Registering another scorer with the same name creates the next version. See [Registering and Versioning Scorers](/genai/eval-monitor/scorers/versioning) for version management and [Automatic Evaluation](/genai/eval-monitor/automatic-evaluations) for server and tracing prerequisites.
+
+## Inspect the assessment
+
+The assessment's `value` contains the decision. Additional fields are stored in its string-valued `metadata`:
+
+| Metadata key        | Contents                                                                  |
+| ------------------- | ------------------------------------------------------------------------- |
+| `jev.model`         | The model returned by TypeSafe                                            |
+| `jev.probability`   | The original Noul probability, including when a threshold is applied      |
+| `jev.probabilities` | JSON-encoded label or level probability distribution for Choice and Score |
+| `jev.confidence`    | The confidence returned for Choice and Score                              |
+| `jev.legend`        | JSON-encoded Score level descriptions                                     |
+
+You can inspect this metadata when calling a scorer directly:
+
+```python
+feedback = relevance(
+    inputs={"question": "How do I reset my password?"},
+    outputs="Select Forgot password on the sign-in page.",
+)
+print(feedback.value)
+print(feedback.metadata["jev.probability"])
+```
+
+The [runnable example](https://github.com/mlflow/mlflow/tree/master/examples/jev_evaluation) demonstrates all three answer types with both direct TypeSafe and gateway model URIs.

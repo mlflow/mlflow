@@ -34,14 +34,15 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
     mode: 'onChange', // Enable real-time validation
     defaultValues: {
       scorerType: initialScorerType,
+      ...(initialScorerType === 'jev'
+        ? { question: '', answerType: 'noul', criteria: '', threshold: '' }
+        : { llmTemplate: 'Custom', disableMonitoring: false, isInstructionsJudge: true }),
       name: '',
-      sampleRate: 100,
+      sampleRate: initialScorerType === 'jev' ? 0 : 100,
       filterString: '',
-      llmTemplate: 'Custom',
       model: '',
-      disableMonitoring: false,
-      isInstructionsJudge: true, // Custom template is an instructions judge
-      evaluationScope: initialScope ?? ScorerEvaluationScope.TRACES,
+      evaluationScope:
+        initialScorerType === 'jev' ? ScorerEvaluationScope.TRACES : (initialScope ?? ScorerEvaluationScope.TRACES),
     },
   });
 

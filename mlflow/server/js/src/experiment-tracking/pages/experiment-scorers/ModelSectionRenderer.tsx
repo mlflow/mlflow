@@ -14,11 +14,16 @@ import {
 } from '../../../gateway/utils/gatewayUtils';
 import { useExperimentIds } from '../../components/experiment-page/hooks/useExperimentIds';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
+
+const CHAT_JUDGE_EXCLUDED_PROVIDERS = ['typesafe'];
 
 export interface ModelSectionRendererProps {
   mode: ScorerFormMode;
-  control: Control<LLMScorerFormData>;
-  setValue: UseFormSetValue<LLMScorerFormData>;
+  control: Control<ScorerFormData>;
+  setValue: UseFormSetValue<ScorerFormData>;
+  provider?: string;
+  allowDirectModel?: boolean;
   onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
@@ -27,6 +32,8 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
   control,
   setValue,
   onUserSelect,
+  provider,
+  allowDirectModel = true,
 }) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
@@ -97,7 +104,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
             />
           )}
         />
-        {!isReadOnly && (
+        {!isReadOnly && allowDirectModel && (
           <div css={{ marginTop: theme.spacing.sm }}>
             <Typography.Link
               componentId="mlflow.experiment-scorers.switch-to-endpoint-link"
@@ -133,6 +140,8 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
         render={({ field }) => (
           <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
             <EndpointSelector
+              provider={provider}
+              excludeProviders={provider ? undefined : CHAT_JUDGE_EXCLUDED_PROVIDERS}
               currentEndpointName={currentEndpointName}
               onEndpointSelect={(endpointName) => {
                 const modelValue = formatGatewayModelFromEndpoint(endpointName);
@@ -146,7 +155,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
           </div>
         )}
       />
-      {!isReadOnly && (
+      {!isReadOnly && allowDirectModel && (
         <div css={{ marginTop: theme.spacing.sm }}>
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage
