@@ -522,6 +522,24 @@ def test_skill_identity_is_workspace_scoped(store, workspaces_enabled):
         assert store.get_skill("reviewer", organization="acme").workspace == "team-a"
 
 
+def test_skill_tag_search_is_workspace_scoped(store, workspaces_enabled):
+    if not workspaces_enabled:
+        pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
+
+    with WorkspaceContext("team-a"):
+        store.create_skill("reviewer", organization="acme")
+        store.set_skill_tag("reviewer", "team", "platform", organization="acme")
+
+    with WorkspaceContext("team-b"):
+        store.create_skill("reviewer", organization="acme")
+        assert store.get_skill("reviewer", organization="acme").tags == {}
+        assert store.search_skills(filter_string="tags.team = 'platform'") == []
+
+    with WorkspaceContext("team-a"):
+        results = store.search_skills(filter_string="tags.team = 'platform'")
+        assert [skill.workspace for skill in results] == ["team-a"]
+
+
 def _persist_skill_version(store, version=1, **kwargs):
     with store.ManagedSessionMaker(read_only=False) as session:
         return store._persist_skill_version(
