@@ -2,6 +2,7 @@ import cgi
 import os
 import pathlib
 import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from io import BytesIO
@@ -21,9 +22,21 @@ from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
 @contextmanager
+def _launch_service(cmd, port, *, env=None, cwd=None):
+    with subprocess.Popen(cmd, env=env, cwd=cwd) as process:
+        try:
+            _await_server_up_or_die(port)
+            yield process
+        finally:
+            kill_process_tree(process.pid)
+
+
+@contextmanager
 def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
     extra_cmd = [] if is_windows() else ["--gunicorn-opts", "--log-level debug"]
     cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "server",
         "--host",
@@ -38,12 +51,8 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         artifacts_destination,
         *extra_cmd,
     ]
-    with subprocess.Popen(cmd) as process:
-        try:
-            _await_server_up_or_die(port)
-            yield process
-        finally:
-            kill_process_tree(process.pid)
+    with _launch_service(cmd, port) as process:
+        yield process
 
 
 class ArtifactsServer(NamedTuple):
@@ -237,6 +246,109 @@ def test_download_artifacts(artifacts_server, tmp_path):
     dest_path = download_artifacts(run_id=run.info.run_id, artifact_path="dir")
     assert os.listdir(dest_path) == ["b.txt"]
     assert read_file(os.path.join(dest_path, "b.txt")) == "1"
+
+
+@pytest.mark.skipif(is_windows(), reason="The Moto server command is not supported on Windows")
+def test_http_artifact_root_uses_presigned_only_split_server(tmp_path):
+    boto3 = pytest.importorskip("boto3")
+    pytest.importorskip("moto.server")
+
+    moto_port = get_safe_port()
+    moto_url = f"http://{LOCALHOST}:{moto_port}"
+    server_env = {
+        **os.environ,
+        "AWS_ACCESS_KEY_ID": "testing",
+        "AWS_SECRET_ACCESS_KEY": "testing",
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "MLFLOW_S3_ENDPOINT_URL": moto_url,
+    }
+    moto_cmd = [
+        sys.executable,
+        "-m",
+        "moto.server",
+        "--host",
+        LOCALHOST,
+        "--port",
+        str(moto_port),
+    ]
+
+    with _launch_service(moto_cmd, moto_port, env=server_env, cwd=tmp_path):
+        s3_client = boto3.client(
+            "s3",
+            endpoint_url=moto_url,
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+            region_name="us-east-1",
+        )
+        bucket = "mlflow-presigned-only-test"
+        s3_client.create_bucket(Bucket=bucket)
+
+        artifact_port = get_safe_port()
+        artifact_server_url = f"http://{LOCALHOST}:{artifact_port}"
+        extra_cmd = [] if is_windows() else ["--gunicorn-opts", "--log-level debug"]
+        artifact_server_cmd = [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--host",
+            LOCALHOST,
+            "--port",
+            str(artifact_port),
+            "--artifacts-only",
+            "--artifacts-presigned-only",
+            "--artifacts-destination",
+            f"s3://{bucket}",
+            *extra_cmd,
+        ]
+
+        with _launch_service(artifact_server_cmd, artifact_port, env=server_env, cwd=tmp_path):
+            tracking_port = get_safe_port()
+            tracking_server_url = f"http://{LOCALHOST}:{tracking_port}"
+            backend_store_uri = f"sqlite:///{tmp_path / 'mlruns.db'}"
+            default_artifact_root = f"{artifact_server_url}/api/2.0/mlflow-artifacts/artifacts"
+            tracking_server_cmd = [
+                sys.executable,
+                "-m",
+                "mlflow",
+                "server",
+                "--host",
+                LOCALHOST,
+                "--port",
+                str(tracking_port),
+                "--backend-store-uri",
+                backend_store_uri,
+                "--default-artifact-root",
+                default_artifact_root,
+                "--no-serve-artifacts",
+                *extra_cmd,
+            ]
+
+            with _launch_service(tracking_server_cmd, tracking_port, env=server_env, cwd=tmp_path):
+                client = MlflowClient(tracking_uri=tracking_server_url)
+                experiment_id = client.create_experiment("split-server-presigned-only")
+                run = client.create_run(experiment_id)
+                local_file = tmp_path / "artifact.txt"
+                local_file.write_text("presigned transfer")
+
+                assert run.info.artifact_uri.startswith(default_artifact_root)
+                client.log_artifact(run.info.run_id, str(local_file))
+
+                object_key = f"{experiment_id}/{run.info.run_id}/artifacts/{local_file.name}"
+                assert s3_client.get_object(Bucket=bucket, Key=object_key)["Body"].read() == (
+                    b"presigned transfer"
+                )
+
+                download_dir = tmp_path / "download"
+                downloaded_path = client.download_artifacts(
+                    run.info.run_id, local_file.name, download_dir
+                )
+                assert pathlib.Path(downloaded_path).read_text() == "presigned transfer"
+
+                legacy_response = requests.get(
+                    f"{artifact_server_url}/api/2.0/mlflow-artifacts/artifacts/{object_key}"
+                )
+                assert legacy_response.status_code == 409
 
 
 def is_github_actions():
