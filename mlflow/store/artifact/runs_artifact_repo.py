@@ -7,7 +7,7 @@ import mlflow
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.uri import (
@@ -16,6 +16,13 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _is_missing_artifact_error(error: Exception) -> bool:
+    return isinstance(error, FileNotFoundError) or (
+        isinstance(error, MlflowException)
+        and error.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    )
 
 
 class RunsArtifactRepository(ArtifactRepository):
@@ -208,10 +215,12 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         dst_path = dst_path or create_tmp_dir()
         run_out_path: str | None = None
+        run_error: Exception | None = None
         try:
             # This fails when the run has no artifacts, so we catch the exception
             run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
-        except Exception:
+        except Exception as e:
+            run_error = e
             _logger.debug(
                 f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.",
                 exc_info=True,
@@ -220,20 +229,43 @@ class RunsArtifactRepository(ArtifactRepository):
         # If there are artifacts with the same name in the run and model, the model artifacts
         # will overwrite the run artifacts.
         model_out_path: str | None = None
+        model_error: Exception | None = None
         try:
             model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
-        except Exception:
+        except Exception as e:
+            model_error = e
             _logger.debug(
                 f"Failed to download model artifacts from {self.artifact_uri}/{artifact_path}.",
                 exc_info=True,
             )
         path = run_out_path or model_out_path
         if path is None:
+            # A missing run artifact can still belong to a logged model. Once both locations
+            # have been tried, prefer a backend error over a misleading not-found response.
+            backend_error = next(
+                (
+                    e
+                    for e in (run_error, model_error)
+                    if e is not None and not _is_missing_artifact_error(e)
+                ),
+                None,
+            )
+            if backend_error is not None:
+                error_code = (
+                    ErrorCode.Value(backend_error.error_code)
+                    if isinstance(backend_error, MlflowException)
+                    else INTERNAL_ERROR
+                )
+                raise MlflowException(
+                    f"Failed to download artifacts from path {artifact_path!r} "
+                    "due to a backend error.",
+                    error_code=error_code,
+                ) from backend_error
             raise MlflowException(
                 f"Failed to download artifacts from path {artifact_path!r}, "
                 "please ensure that the path is correct.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
-            )
+            ) from (run_error or model_error)
         return path
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> str | None:

@@ -456,7 +456,7 @@ class S3ArtifactRepository(
             raise MlflowException(
                 f"Failed to list artifacts in {self.artifact_uri}: {error_message}",
                 error_code=mlflow_error_code,
-            )
+            ) from error
 
     def list_artifacts(self, path=None):
         """
@@ -532,13 +532,22 @@ class S3ArtifactRepository(
             local_path: Absolute path where the file should be saved locally.
                 The parent directory must exist.
         """
+        from botocore.exceptions import ClientError
+
         (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         download_kwargs = (
             {"ExtraArgs": self._bucket_owner_params} if self._bucket_owner_params else {}
         )
-        s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
+        try:
+            s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
+        except ClientError as error:
+            boto_error = error.response["Error"]
+            raise MlflowException(
+                f"Failed to download artifact from {self.artifact_uri}: {boto_error['Message']}",
+                error_code=BOTO_TO_MLFLOW_ERROR.get(boto_error["Code"], INTERNAL_ERROR),
+            ) from error
 
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)

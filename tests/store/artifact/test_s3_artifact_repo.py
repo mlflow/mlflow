@@ -460,6 +460,51 @@ def test_list_artifacts_error_handling(s3_artifact_root, boto_error_code, expect
         assert boto_error_message in exc_info.value.message
 
 
+@pytest.mark.parametrize(
+    ("boto_error_code", "expected_mlflow_error"),
+    [
+        ("404", "RESOURCE_DOES_NOT_EXIST"),
+        ("NoSuchKey", "RESOURCE_DOES_NOT_EXIST"),
+        ("AccessDenied", "PERMISSION_DENIED"),
+        ("UnknownError", "INTERNAL_ERROR"),
+    ],
+)
+def test_download_file_error_handling(tmp_path, boto_error_code, expected_mlflow_error):
+    repo = S3ArtifactRepository("s3://test-bucket/some/path")
+    error = botocore.exceptions.ClientError(
+        {"Error": {"Code": boto_error_code, "Message": "S3 download failed"}}, "GetObject"
+    )
+    s3_client = mock.Mock()
+    s3_client.download_file.side_effect = error
+
+    with (
+        mock.patch.object(repo, "_get_s3_client", return_value=s3_client),
+        pytest.raises(MlflowException, match="S3 download failed") as exc_info,
+    ):
+        repo._download_file("model", str(tmp_path / "model"))
+
+    assert exc_info.value.error_code == expected_mlflow_error
+    assert exc_info.value.__cause__ is error
+
+
+def test_download_artifacts_preserves_missing_key_error_code(tmp_path):
+    repo = S3ArtifactRepository("s3://test-bucket/some/path")
+    s3_client = mock.Mock()
+    s3_client.get_paginator.return_value.paginate.return_value = [{"Contents": []}]
+    s3_client.download_file.side_effect = botocore.exceptions.ClientError(
+        {"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject"
+    )
+
+    with (
+        mock.patch.object(repo, "_get_s3_client", return_value=s3_client),
+        pytest.raises(MlflowException, match="The following failures occurred") as exc_info,
+    ):
+        repo.download_artifacts("model", str(tmp_path))
+
+    repo.thread_pool.shutdown(wait=True)
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
