@@ -30,11 +30,16 @@ interface EndpointOption {
   label: string;
   provider?: string;
   modelName?: string;
+  disabled?: boolean;
 }
 
 export interface EndpointSelectorProps {
   /** Whether this workflow supports endpoints backed by TypeSafe. */
   allowTypeSafe?: boolean;
+  /** Whether to show unsupported TypeSafe endpoints as disabled instead of hiding them. */
+  showDisabledTypeSafe?: boolean;
+  /** Explanation shown below disabled TypeSafe endpoints. */
+  typeSafeDisabledReason?: React.ReactNode;
   /** Current selected endpoint name */
   currentEndpointName?: string;
   /** Called when user selects an endpoint */
@@ -61,6 +66,8 @@ export interface EndpointSelectorProps {
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   allowTypeSafe = false,
+  showDisabledTypeSafe = false,
+  typeSafeDisabledReason,
   currentEndpointName,
   onEndpointSelect,
   disabled = false,
@@ -78,15 +85,20 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   const { data: endpoints, isLoading, error, refetch } = useEndpointsQuery();
 
-  const selectableEndpoints = useMemo(
+  const visibleEndpoints = useMemo(
     () =>
       endpoints.filter(
         (endpoint) =>
           !excludeEndpointIds?.includes(endpoint.endpoint_id) &&
           !endpointHasMixedTypeSafeProviders(endpoint) &&
-          (allowTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe'])),
+          (allowTypeSafe || showDisabledTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe'])),
       ),
-    [allowTypeSafe, endpoints, excludeEndpointIds],
+    [allowTypeSafe, endpoints, excludeEndpointIds, showDisabledTypeSafe],
+  );
+
+  const selectableEndpoints = useMemo(
+    () => visibleEndpoints.filter((endpoint) => allowTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe'])),
+    [allowTypeSafe, visibleEndpoints],
   );
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -122,16 +134,17 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   // Build endpoint options for the dropdown
   const endpointOptions: EndpointOption[] = useMemo(() => {
-    return selectableEndpoints.map((endpoint) => {
+    return visibleEndpoints.map((endpoint) => {
       const displayInfo = getEndpointDisplayInfo(endpoint);
       return {
         value: endpoint.name,
         label: endpoint.name,
         provider: displayInfo?.provider,
         modelName: displayInfo?.modelName,
+        disabled: !allowTypeSafe && endpointUsesAnyProvider(endpoint, ['typesafe']),
       };
     });
-  }, [selectableEndpoints]);
+  }, [allowTypeSafe, visibleEndpoints]);
 
   const currentEndpoint = useMemo(() => {
     const endpoint = endpoints.find(({ name }) => name === currentEndpointName);
@@ -244,13 +257,26 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                 <DialogComboboxOptionListSelectItem
                   key={option.value}
                   value={option.value}
-                  onChange={() => onEndpointSelect(option.value)}
+                  onChange={() => {
+                    if (!option.disabled) {
+                      onEndpointSelect(option.value);
+                    }
+                  }}
                   checked={currentEndpointName === option.value}
+                  disabled={option.disabled}
+                  aria-disabled={option.disabled}
                 >
                   {option.label}
                   {option.provider && option.modelName && (
                     <DialogComboboxHintRow>
                       {option.provider} / {option.modelName}
+                    </DialogComboboxHintRow>
+                  )}
+                  {option.disabled && typeSafeDisabledReason && (
+                    <DialogComboboxHintRow>
+                      <span css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm - 1 }}>
+                        {typeSafeDisabledReason}
+                      </span>
                     </DialogComboboxHintRow>
                   )}
                 </DialogComboboxOptionListSelectItem>

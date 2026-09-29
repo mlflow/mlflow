@@ -6,7 +6,7 @@ import { transformScheduledScorer } from '../utils/scorerTransformUtils';
 import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { isObject } from 'lodash';
 import { useTemplateOptions } from '../llmScorerUtils';
-import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
+import { TEMPLATE_INSTRUCTIONS_MAP, TEMPLATE_OUTPUT_TYPE_MAP } from '../prompts';
 import { createTraceLocationForExperiment } from '@databricks/web-shared/genai-traces-table';
 
 /**
@@ -67,6 +67,7 @@ export const useRunSerializedScorer = ({
             model: endpointName,
             is_instructions_judge: true,
             isSessionLevelScorer: scope === ScorerEvaluationScope.SESSIONS,
+            outputType: TEMPLATE_OUTPUT_TYPE_MAP[scorerOrTemplate],
           }
         : {
             name: displayMap[scorerOrTemplate],

@@ -585,6 +585,10 @@ describe('RunEvaluationButton', () => {
       expect(templateSerialized.name).toBe('Safety');
       expect(templateSerialized.instructions_judge_pydantic_data.model).toBe('gateway:/my-chat-endpoint');
       expect(templateSerialized.instructions_judge_pydantic_data.instructions).toContain('safety classifier');
+      expect(templateSerialized.instructions_judge_pydantic_data.feedback_value_type).toEqual({
+        type: 'string',
+        enum: ['yes', 'no'],
+      });
     });
 
     it('opens the new run in the split-view side panel and resets state on success', async () => {

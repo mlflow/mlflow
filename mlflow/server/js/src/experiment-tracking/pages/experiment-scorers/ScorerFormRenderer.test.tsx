@@ -22,8 +22,21 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
 jest.mock('../../components/EndpointSelector', () => ({
-  EndpointSelector: ({ allowTypeSafe }: { allowTypeSafe?: boolean }) => (
-    <div data-testid="endpoint-selector" data-allow-typesafe={String(allowTypeSafe ?? false)} />
+  EndpointSelector: ({
+    allowTypeSafe,
+    showDisabledTypeSafe,
+    typeSafeDisabledReason,
+  }: {
+    allowTypeSafe?: boolean;
+    showDisabledTypeSafe?: boolean;
+    typeSafeDisabledReason?: string;
+  }) => (
+    <div
+      data-testid="endpoint-selector"
+      data-allow-typesafe={String(allowTypeSafe ?? false)}
+      data-show-disabled-typesafe={String(showDisabledTypeSafe ?? false)}
+      data-typesafe-disabled-reason={typeSafeDisabledReason}
+    />
   ),
 }));
 
@@ -115,19 +128,88 @@ describe('ScorerFormRenderer', () => {
     mockEndpoints = [];
   });
 
-  it('excludes TypeSafe endpoints for agentic trace judges', () => {
-    render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ trace }}', outputTypeKind: 'bool' }} />);
+  it('waits for name entry to finish before opening evaluation criteria', async () => {
+    const user = userEvent.setup();
+    render(<TestWrapper defaultValues={{ name: '' }} />);
 
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    const generalSection = screen.getByRole('button', { name: /General/ });
+    const evaluationCriteriaSection = screen.getByRole('button', { name: /Evaluation criteria/ });
+    await user.type(screen.getByPlaceholderText('Custom'), 'My judge');
+
+    expect(generalSection).toHaveAttribute('aria-expanded', 'true');
+    expect(evaluationCriteriaSection).toHaveAttribute('aria-expanded', 'false');
+
+    await user.tab();
+
+    expect(generalSection).toHaveAttribute('aria-expanded', 'false');
+    expect(evaluationCriteriaSection).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('allows TypeSafe endpoints for structured boolean judges', () => {
+  it('explains that TypeSafe endpoints do not support the trace variable', async () => {
+    const user = userEvent.setup();
+    render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ trace }}', outputTypeKind: 'bool' }} />);
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
+
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-show-disabled-typesafe', 'true');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute(
+      'data-typesafe-disabled-reason',
+      'TypeSafe endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a TypeSafe endpoint.',
+    );
+  });
+
+  it('allows TypeSafe endpoints for structured boolean judges', async () => {
+    const user = userEvent.setup();
     render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ outputs }}', outputTypeKind: 'bool' }} />);
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
 
     expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
   });
 
-  it('excludes TypeSafe endpoints until a categorical judge has nonblank options', () => {
+  it('uses the known categorical output type when Completeness is selected', async () => {
+    const user = userEvent.setup();
+    render(
+      <TestWrapper
+        defaultValues={{
+          llmTemplate: 'Custom',
+          instructions: '',
+          outputTypeKind: 'default',
+          isInstructionsJudge: true,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    await user.click(screen.getByRole('combobox', { name: 'LLM judge' }));
+    await user.click(screen.getByText('Completeness'));
+
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
+  });
+
+  it('uses the known categorical output type when Equivalence is selected', async () => {
+    const user = userEvent.setup();
+    render(
+      <TestWrapper
+        defaultValues={{
+          llmTemplate: 'Custom',
+          instructions: '',
+          outputTypeKind: 'default',
+          isInstructionsJudge: true,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    await user.click(screen.getByRole('combobox', { name: 'LLM judge' }));
+    await user.click(screen.getByText('Equivalence'));
+
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
+  });
+
+  it('excludes TypeSafe endpoints until a categorical judge has nonblank options', async () => {
+    const user = userEvent.setup();
     const { unmount } = render(
       <TestWrapper
         defaultValues={{
@@ -137,7 +219,12 @@ describe('ScorerFormRenderer', () => {
         }}
       />,
     );
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
     expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute(
+      'data-typesafe-disabled-reason',
+      'TypeSafe endpoints require Boolean output or Categorical output with at least one option.',
+    );
     unmount();
 
     render(
@@ -149,6 +236,7 @@ describe('ScorerFormRenderer', () => {
         }}
       />,
     );
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
     expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
   });
 
@@ -168,6 +256,7 @@ describe('ScorerFormRenderer', () => {
         onFormSubmit={onFormSubmit}
       />,
     );
+    await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
     await user.click(screen.getByRole('button', { name: 'Create judge' }));
 
     expect(await screen.findByText('Mixed TypeSafe and chat endpoints are not supported.')).toBeInTheDocument();

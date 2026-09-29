@@ -79,7 +79,11 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
-from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
+from mlflow.genai.judges.typesafe import (
+    _invoke_typesafe_judge,
+    _is_typesafe_model,
+    _try_invoke_gateway_typesafe_judge,
+)
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -535,6 +539,18 @@ class RetrievalRelevance(BuiltInScorer):
                         inference_params=self.inference_params,
                         extra_headers=self.extra_headers,
                     )
+                elif (
+                    feedback := _try_invoke_gateway_typesafe_judge(
+                        model,
+                        instructions=RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        state={"input": request, "doc": chunk["content"]},
+                        feedback_value_type=Literal["yes", "no"],
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    )
+                ) is not None:
+                    pass
                 else:
                     prompt = get_prompt(request=request, context=chunk["content"])
                     feedback = invoke_judge_model(
@@ -2203,6 +2219,18 @@ class Equivalence(BuiltInScorer):
                 inference_params=self.inference_params,
                 extra_headers=self.extra_headers,
             )
+        elif (
+            feedback := _try_invoke_gateway_typesafe_judge(
+                model,
+                instructions=EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                state={"output": actual_output, "expected_output": expected_output},
+                feedback_value_type=Literal["yes", "no"],
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            )
+        ) is not None:
+            pass
         else:
             prompt = get_prompt(
                 output=outputs_str,

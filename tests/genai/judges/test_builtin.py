@@ -481,10 +481,10 @@ def test_is_safe_oss_with_custom_model(monkeypatch: pytest.MonkeyPatch):
     assert kwargs["assessment_name"] == "safety"
 
 
-def _assert_typesafe_call(invoke, expected_state) -> None:
+def _assert_typesafe_call(invoke, expected_state, model_uri="typesafe:/jev-latest") -> None:
     invoke.assert_called_once()
     args, kwargs = invoke.call_args
-    assert args == ("typesafe:/jev-latest",)
+    assert args == (model_uri,)
     assert _EVALUATED_SENTINEL not in kwargs["instructions"]
     assert kwargs["state"] == expected_state
     assert kwargs["feedback_value_type"] == Literal["yes", "no"]
@@ -494,71 +494,71 @@ def _assert_typesafe_call(invoke, expected_state) -> None:
     assert "let's think step by step" not in kwargs["instructions"].lower()
 
 
-@pytest.mark.parametrize(
-    ("judge_fn", "judge_kwargs", "expected_state"),
-    [
-        (
-            judges.is_context_relevant,
-            {"request": _EVALUATED_SENTINEL, "context": _EVALUATED_SENTINEL},
-            {"input": _EVALUATED_SENTINEL, "output": _EVALUATED_SENTINEL},
-        ),
-        (
-            judges.is_context_sufficient,
-            {
-                "request": _EVALUATED_SENTINEL,
-                "context": _EVALUATED_SENTINEL,
-                "expected_facts": [_EVALUATED_SENTINEL],
-            },
-            {
-                "input": _EVALUATED_SENTINEL,
-                "ground_truth": [_EVALUATED_SENTINEL],
-                "retrieval_context": _EVALUATED_SENTINEL,
-            },
-        ),
-        (
-            judges.is_correct,
-            {
-                "request": _EVALUATED_SENTINEL,
-                "response": _EVALUATED_SENTINEL,
-                "expected_response": _EVALUATED_SENTINEL,
-            },
-            {
-                "input": _EVALUATED_SENTINEL,
-                "output": _EVALUATED_SENTINEL,
-                "ground_truth": _EVALUATED_SENTINEL,
-            },
-        ),
-        (
-            judges.is_grounded,
-            {
-                "request": _EVALUATED_SENTINEL,
-                "response": _EVALUATED_SENTINEL,
-                "context": _EVALUATED_SENTINEL,
-            },
-            {
-                "input": _EVALUATED_SENTINEL,
-                "output": _EVALUATED_SENTINEL,
-                "retrieval_context": _EVALUATED_SENTINEL,
-            },
-        ),
-        (
-            judges.is_safe,
-            {"content": _EVALUATED_SENTINEL},
-            {"content": _EVALUATED_SENTINEL},
-        ),
-        (
-            judges.meets_guidelines,
-            {
-                "guidelines": [_EVALUATED_SENTINEL],
-                "context": {"response": _EVALUATED_SENTINEL},
-            },
-            {
-                "guidelines": [_EVALUATED_SENTINEL],
-                "guidelines_context": {"response": _EVALUATED_SENTINEL},
-            },
-        ),
-    ],
-)
+_TYPESAFE_JUDGE_CASES = [
+    (
+        judges.is_context_relevant,
+        {"request": _EVALUATED_SENTINEL, "context": _EVALUATED_SENTINEL},
+        {"input": _EVALUATED_SENTINEL, "output": _EVALUATED_SENTINEL},
+    ),
+    (
+        judges.is_context_sufficient,
+        {
+            "request": _EVALUATED_SENTINEL,
+            "context": _EVALUATED_SENTINEL,
+            "expected_facts": [_EVALUATED_SENTINEL],
+        },
+        {
+            "input": _EVALUATED_SENTINEL,
+            "ground_truth": [_EVALUATED_SENTINEL],
+            "retrieval_context": _EVALUATED_SENTINEL,
+        },
+    ),
+    (
+        judges.is_correct,
+        {
+            "request": _EVALUATED_SENTINEL,
+            "response": _EVALUATED_SENTINEL,
+            "expected_response": _EVALUATED_SENTINEL,
+        },
+        {
+            "input": _EVALUATED_SENTINEL,
+            "output": _EVALUATED_SENTINEL,
+            "ground_truth": _EVALUATED_SENTINEL,
+        },
+    ),
+    (
+        judges.is_grounded,
+        {
+            "request": _EVALUATED_SENTINEL,
+            "response": _EVALUATED_SENTINEL,
+            "context": _EVALUATED_SENTINEL,
+        },
+        {
+            "input": _EVALUATED_SENTINEL,
+            "output": _EVALUATED_SENTINEL,
+            "retrieval_context": _EVALUATED_SENTINEL,
+        },
+    ),
+    (
+        judges.is_safe,
+        {"content": _EVALUATED_SENTINEL},
+        {"content": _EVALUATED_SENTINEL},
+    ),
+    (
+        judges.meets_guidelines,
+        {
+            "guidelines": [_EVALUATED_SENTINEL],
+            "context": {"response": _EVALUATED_SENTINEL},
+        },
+        {
+            "guidelines": [_EVALUATED_SENTINEL],
+            "guidelines_context": {"response": _EVALUATED_SENTINEL},
+        },
+    ),
+]
+
+
+@pytest.mark.parametrize(("judge_fn", "judge_kwargs", "expected_state"), _TYPESAFE_JUDGE_CASES)
 def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
     with mock.patch(
         "mlflow.genai.judges.builtin._invoke_typesafe_judge",
@@ -567,6 +567,17 @@ def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
         judge_fn(model="typesafe:/jev-latest", **judge_kwargs)
 
     _assert_typesafe_call(mock_invoke, expected_state)
+
+
+@pytest.mark.parametrize(("judge_fn", "judge_kwargs", "expected_state"), _TYPESAFE_JUDGE_CASES)
+def test_builtin_judge_invokes_gateway_typesafe(judge_fn, judge_kwargs, expected_state):
+    with mock.patch(
+        "mlflow.genai.judges.builtin._try_invoke_gateway_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judge_fn(model="gateway:/jev-evaluator", **judge_kwargs)
+
+    _assert_typesafe_call(mock_invoke, expected_state, "gateway:/jev-evaluator")
 
 
 def test_builtin_judge_forwards_typesafe_extra_headers():

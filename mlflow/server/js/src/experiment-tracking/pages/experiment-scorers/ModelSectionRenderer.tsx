@@ -22,15 +22,9 @@ export interface ModelSectionRendererProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
-  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
-export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
-  mode,
-  control,
-  setValue,
-  onUserSelect,
-}) => {
+export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode, control, setValue }) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const { trigger } = useFormContext<LLMScorerFormData>();
@@ -44,6 +38,8 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
   const currentEndpointName = getEndpointNameFromGatewayModel(currentModel);
   const isTraceBased = /\{\{\s*trace\s*\}\}/.test(instructions ?? '');
   const hasCategoricalOptions = categoricalOptions?.split('\n').some((option) => option.trim()) ?? false;
+  // TODO: Track TypeSafe-compatible pre-built templates separately from their output types.
+  // A compatible output is necessary but does not guarantee System One runtime support.
   const isTypeSafeCompatibleJudge =
     !isTraceBased && (outputTypeKind === 'bool' || (outputTypeKind === 'categorical' && hasCategoricalOptions));
   const currentEndpointUsesTypeSafe = endpoints.some(
@@ -170,23 +166,33 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
         control={control}
         rules={{
           required: true,
-          validate: () =>
-            currentEndpointHasMixedTypeSafeProviders
-              ? 'Mixed TypeSafe and chat endpoints are not supported.'
-              : isTypeSafeCompatibleJudge ||
-                !currentEndpointUsesTypeSafe ||
-                'TypeSafe endpoints require a boolean or categorical non-agentic judge.',
+          validate: () => {
+            if (currentEndpointHasMixedTypeSafeProviders) {
+              return 'Mixed TypeSafe and chat endpoints are not supported.';
+            }
+            if (isTypeSafeCompatibleJudge || !currentEndpointUsesTypeSafe) {
+              return true;
+            }
+            return isTraceBased
+              ? 'TypeSafe endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a TypeSafe endpoint.'
+              : 'TypeSafe endpoints require Boolean output or Categorical output with at least one option.';
+          },
         }}
         render={({ fieldState }) => (
           <>
             <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
               <EndpointSelector
                 allowTypeSafe={isTypeSafeCompatibleJudge}
+                showDisabledTypeSafe
+                typeSafeDisabledReason={
+                  isTraceBased
+                    ? 'TypeSafe endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a TypeSafe endpoint.'
+                    : 'TypeSafe endpoints require Boolean output or Categorical output with at least one option.'
+                }
                 currentEndpointName={currentEndpointName}
                 onEndpointSelect={(endpointName) => {
                   const modelValue = formatGatewayModelFromEndpoint(endpointName);
                   setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
-                  onUserSelect?.('model', modelValue);
                 }}
                 disabled={isReadOnly}
                 componentIdPrefix="mlflow.experiment-scorers.endpoint"

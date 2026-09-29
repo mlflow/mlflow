@@ -1,5 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
-import { renderWithDesignSystem, screen, within } from '../../common/utils/TestUtils.react18';
+import { fireEvent, renderWithDesignSystem, screen, within } from '../../common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 import { EndpointSelector } from './EndpointSelector';
 import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
@@ -252,6 +252,30 @@ describe('EndpointSelector', () => {
     expect(within(screen.getByRole('listbox')).getByText('typesafe-endpoint')).toBeInTheDocument();
   });
 
+  test('can show unsupported TypeSafe endpoints as disabled with an explanation', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector
+        showDisabledTypeSafe
+        typeSafeDisabledReason="Select a compatible output type."
+        onEndpointSelect={mockOnEndpointSelect}
+      />,
+    );
+    await userEvent.click(screen.getByRole('combobox'));
+
+    const option = within(screen.getByRole('listbox')).getByText('typesafe-endpoint').closest('[role="option"]');
+    expect(option).toHaveAttribute('aria-disabled', 'true');
+    expect(within(screen.getByRole('listbox')).getByText('Select a compatible output type.')).toBeInTheDocument();
+    fireEvent.keyDown(option!, { key: 'Enter' });
+    expect(mockOnEndpointSelect).not.toHaveBeenCalled();
+  });
+
   test('always excludes mixed TypeSafe and chat endpoints', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [mockTypesafeEndpoint, mixedProviderEndpoint],
@@ -296,6 +320,21 @@ describe('EndpointSelector', () => {
     renderWithDesignSystem(<EndpointSelector autoSelectFirstEndpoint onEndpointSelect={mockOnEndpointSelect} />);
 
     expect(mockOnEndpointSelect).toHaveBeenCalledWith('openai-endpoint');
+  });
+
+  test('does not auto-select a disabled TypeSafe endpoint', () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector showDisabledTypeSafe autoSelectFirstEndpoint onEndpointSelect={mockOnEndpointSelect} />,
+    );
+
+    expect(mockOnEndpointSelect).not.toHaveBeenCalled();
   });
 
   test('keeps a current incompatible endpoint visible until the user replaces it', async () => {

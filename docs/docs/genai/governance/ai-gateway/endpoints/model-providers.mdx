@@ -304,7 +304,7 @@ curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
   }'
 ```
 
-TypeSafe gateway endpoints are raw System One endpoints, not chat endpoints. Use them for direct System One requests through Gateway-managed credentials. They are separate from MLflow judges that use `make_judge(model="typesafe:/...")`; do not pass a TypeSafe gateway endpoint as `model="gateway:/..."` to `make_judge()`.
+TypeSafe gateway endpoints are System One endpoints, not chat endpoints. Use them for direct System One requests through Gateway-managed credentials or as `model="gateway:/<endpoint-name>"` for supported structured MLflow judges. Chat-only judge flows and evaluation instructions containing `{{ trace }}` remain unsupported.
 
 ### Portkey
 

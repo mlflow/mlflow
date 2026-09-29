@@ -299,6 +299,24 @@ def test_retrieval_relevance_invokes_typesafe():
     assert "rationale" not in kwargs["instructions"].lower()
 
 
+def test_retrieval_relevance_invokes_gateway_typesafe():
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers._try_invoke_gateway_typesafe_judge",
+        return_value=Feedback(name="retrieval_relevance", value="yes"),
+    ) as mock_invoke:
+        RetrievalRelevance(model="gateway:/jev-evaluator")._compute_span_relevance(
+            "span-id",
+            _EVALUATED_SENTINEL,
+            [{"content": _EVALUATED_SENTINEL}],
+        )
+
+    assert mock_invoke.call_args.args == ("gateway:/jev-evaluator",)
+    assert mock_invoke.call_args.kwargs["state"] == {
+        "input": _EVALUATED_SENTINEL,
+        "doc": _EVALUATED_SENTINEL,
+    }
+
+
 def test_retrieval_sufficiency(sample_rag_trace):
     # 1. Test with default scorer
     with patch(
@@ -2537,6 +2555,25 @@ def test_equivalence_invokes_typesafe():
     assert kwargs["extra_headers"] == extra_headers
     assert "json format" not in kwargs["instructions"].lower()
     assert "rationale" not in kwargs["instructions"].lower()
+
+
+def test_equivalence_invokes_gateway_typesafe():
+    actual_output = f"actual_{_EVALUATED_SENTINEL}"
+    expected_output = f"expected_{_EVALUATED_SENTINEL}"
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers._try_invoke_gateway_typesafe_judge",
+        return_value=Feedback(name="equivalence", value="yes"),
+    ) as mock_invoke:
+        Equivalence(model="gateway:/jev-evaluator")(
+            outputs=actual_output,
+            expectations={"expected_response": expected_output},
+        )
+
+    assert mock_invoke.call_args.args == ("gateway:/jev-evaluator",)
+    assert mock_invoke.call_args.kwargs["state"] == {
+        "output": actual_output,
+        "expected_output": expected_output,
+    }
 
 
 def test_retrieval_relevance_passes_inference_params(sample_rag_trace):

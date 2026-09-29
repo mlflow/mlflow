@@ -28,7 +28,7 @@ import { formatGatewayModelFromEndpoint, getEndpointNameFromGatewayModel } from 
 import { ScorerEvaluationScope } from '../experiment-scorers/constants';
 import { useGetScheduledScorers } from '../experiment-scorers/hooks/useGetScheduledScorers';
 import { useTemplateOptions } from '../experiment-scorers/llmScorerUtils';
-import { TEMPLATE_INSTRUCTIONS_MAP } from '../experiment-scorers/prompts';
+import { TEMPLATE_INSTRUCTIONS_MAP, TEMPLATE_OUTPUT_TYPE_MAP } from '../experiment-scorers/prompts';
 import { LLM_TEMPLATE, type LLMScorer, type ScheduledScorer } from '../experiment-scorers/types';
 import { transformScheduledScorer } from '../experiment-scorers/utils/scorerTransformUtils';
 import { useInvokeGenAIEvaluation } from './hooks/useInvokeGenAIEvaluation';
@@ -128,6 +128,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
             model: currentEndpointModel,
             is_instructions_judge: true,
             isSessionLevelScorer: false,
+            outputType: TEMPLATE_OUTPUT_TYPE_MAP[template],
           }
         : {
             name: displayMap[template] ?? template,

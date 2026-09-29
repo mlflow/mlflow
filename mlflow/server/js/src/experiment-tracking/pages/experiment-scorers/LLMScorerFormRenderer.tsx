@@ -25,7 +25,7 @@ import { isScorerModelSelectionEnabled, isScorerOutputTypeSelectorEnabled } from
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
-import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
+import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES, TEMPLATE_OUTPUT_TYPE_MAP } from './prompts';
 import EvaluateTracesSection from './EvaluateTracesSection';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
@@ -81,8 +81,16 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
   const handleTemplateChange = (newTemplate: string) => {
     const instructions = TEMPLATE_INSTRUCTIONS_MAP[newTemplate] || '';
     const isInstructionsJudge = EDITABLE_TEMPLATES.has(newTemplate);
+    const outputType = TEMPLATE_OUTPUT_TYPE_MAP[newTemplate as LLM_TEMPLATE];
     setValue('isInstructionsJudge', isInstructionsJudge);
     setValue('instructions', instructions, { shouldValidate: isInstructionsJudge });
+    if (outputType) {
+      setValue('outputTypeKind', outputType.kind, { shouldValidate: true, shouldDirty: true });
+      setValue('categoricalOptions', outputType.categoricalOptions?.join('\n'), {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
   };
 
   const isReadOnly = mode !== SCORER_FORM_MODE.CREATE;
@@ -183,9 +191,10 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
 interface NameSectionProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
+  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
-const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
+const NameSection: React.FC<NameSectionProps> = ({ mode, control, onUserSelect }) => {
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -215,6 +224,10 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
             placeholder="Custom"
             css={{ cursor: mode === SCORER_FORM_MODE.CREATE ? 'text' : 'auto' }}
             onClick={stopPropagationClick}
+            onBlur={(event) => {
+              field.onBlur();
+              onUserSelect?.('name', event.target.value);
+            }}
           />
         )}
       />
@@ -557,7 +570,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
 
       const values = getValues();
       const updated = { ...values, [fieldName]: newValue };
-      const isComplete = Boolean(updated.name) && Boolean(updated.model) && Boolean(updated.evaluationScope);
+      const isComplete = Boolean(updated.name) && Boolean(updated.evaluationScope);
 
       if (isComplete) {
         accordionRef.current?.progressToSection(AccordionSection.SCORING_CRITERIA);
@@ -569,15 +582,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
   const generalSection = (
     <>
       <ScorerFormEvaluationScopeSelect mode={mode} onUserSelect={checkAndProgressGeneral} />
-      <NameSection mode={mode} control={control} />
-      {isScorerModelSelectionEnabled() && (
-        <ModelSectionRenderer
-          mode={mode}
-          control={control}
-          setValue={setValue}
-          onUserSelect={checkAndProgressGeneral}
-        />
-      )}
+      <NameSection mode={mode} control={control} onUserSelect={checkAndProgressGeneral} />
     </>
   );
 
@@ -591,6 +596,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
       {isScorerOutputTypeSelectorEnabled() && EDITABLE_TEMPLATES.has(selectedTemplate) && (
         <OutputTypeSection mode={mode} control={control} />
       )}
+      {isScorerModelSelectionEnabled() && <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />}
     </>
   );
 

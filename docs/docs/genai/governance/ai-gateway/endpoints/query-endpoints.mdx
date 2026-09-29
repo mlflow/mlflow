@@ -259,7 +259,7 @@ curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
   }'
 ```
 
-The `model` value is the MLflow Gateway endpoint name. For MLflow judges, use direct TypeSafe model URIs such as `model="typesafe:/jev-latest"`; TypeSafe gateway endpoints are not `gateway:/` judge models for `make_judge()`.
+The `model` value is the MLflow Gateway endpoint name. Supported structured MLflow judges can use either a direct TypeSafe model URI such as `model="typesafe:/jev-latest"` or a pure-TypeSafe Gateway endpoint such as `model="gateway:/jev-evaluator"`.
 
 ### OpenAI Passthrough
 
