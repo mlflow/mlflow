@@ -221,7 +221,7 @@ describe('EndpointSelector', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
-  test('excludes endpoints when any model mapping uses an incompatible provider', async () => {
+  test('excludes TypeSafe endpoints by default', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [...mockEndpoints, mockTypesafeEndpoint, mixedProviderEndpoint],
       isLoading: false,
@@ -229,9 +229,7 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(
-      <EndpointSelector excludeProviders={['typesafe']} onEndpointSelect={mockOnEndpointSelect} />,
-    );
+    renderWithDesignSystem(<EndpointSelector onEndpointSelect={mockOnEndpointSelect} />);
     await userEvent.click(screen.getByRole('combobox'));
 
     const listbox = screen.getByRole('listbox');
@@ -240,7 +238,7 @@ describe('EndpointSelector', () => {
     expect(within(listbox).queryByText('mixed-provider-endpoint')).not.toBeInTheDocument();
   });
 
-  test('includes TypeSafe endpoints when the workflow does not exclude them', async () => {
+  test('includes TypeSafe endpoints when the workflow explicitly allows them', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [mockTypesafeEndpoint],
       isLoading: false,
@@ -248,7 +246,7 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(<EndpointSelector onEndpointSelect={mockOnEndpointSelect} />);
+    renderWithDesignSystem(<EndpointSelector allowTypeSafe onEndpointSelect={mockOnEndpointSelect} />);
     await userEvent.click(screen.getByRole('combobox'));
 
     expect(within(screen.getByRole('listbox')).getByText('typesafe-endpoint')).toBeInTheDocument();
@@ -262,7 +260,7 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(<EndpointSelector onEndpointSelect={mockOnEndpointSelect} />);
+    renderWithDesignSystem(<EndpointSelector allowTypeSafe onEndpointSelect={mockOnEndpointSelect} />);
     await userEvent.click(screen.getByRole('combobox'));
 
     const listbox = screen.getByRole('listbox');
@@ -295,13 +293,7 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(
-      <EndpointSelector
-        excludeProviders={['typesafe']}
-        autoSelectFirstEndpoint
-        onEndpointSelect={mockOnEndpointSelect}
-      />,
-    );
+    renderWithDesignSystem(<EndpointSelector autoSelectFirstEndpoint onEndpointSelect={mockOnEndpointSelect} />);
 
     expect(mockOnEndpointSelect).toHaveBeenCalledWith('openai-endpoint');
   });
@@ -315,11 +307,7 @@ describe('EndpointSelector', () => {
     } as any);
 
     renderWithDesignSystem(
-      <EndpointSelector
-        excludeProviders={['typesafe']}
-        currentEndpointName="typesafe-endpoint"
-        onEndpointSelect={mockOnEndpointSelect}
-      />,
+      <EndpointSelector currentEndpointName="typesafe-endpoint" onEndpointSelect={mockOnEndpointSelect} />,
     );
 
     expect(screen.getByText('typesafe-endpoint')).toBeInTheDocument();

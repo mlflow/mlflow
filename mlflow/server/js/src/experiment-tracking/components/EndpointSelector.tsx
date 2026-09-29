@@ -33,8 +33,8 @@ interface EndpointOption {
 }
 
 export interface EndpointSelectorProps {
-  /** Providers that are incompatible with this selector's workflow. */
-  excludeProviders?: string[];
+  /** Whether this workflow supports endpoints backed by TypeSafe. */
+  allowTypeSafe?: boolean;
   /** Current selected endpoint name */
   currentEndpointName?: string;
   /** Called when user selects an endpoint */
@@ -60,7 +60,7 @@ export interface EndpointSelectorProps {
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
-  excludeProviders,
+  allowTypeSafe = false,
   currentEndpointName,
   onEndpointSelect,
   disabled = false,
@@ -84,9 +84,9 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
         (endpoint) =>
           !excludeEndpointIds?.includes(endpoint.endpoint_id) &&
           !endpointHasMixedTypeSafeProviders(endpoint) &&
-          !endpointUsesAnyProvider(endpoint, excludeProviders ?? []),
+          (allowTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe'])),
       ),
-    [endpoints, excludeEndpointIds, excludeProviders],
+    [allowTypeSafe, endpoints, excludeEndpointIds],
   );
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -108,13 +108,16 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const handleCreateEndpointSuccess = useCallback(
     async (endpoint: Endpoint) => {
       await refetch();
-      if (!endpointHasMixedTypeSafeProviders(endpoint) && !endpointUsesAnyProvider(endpoint, excludeProviders ?? [])) {
+      if (
+        !endpointHasMixedTypeSafeProviders(endpoint) &&
+        (allowTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe']))
+      ) {
         onEndpointSelect(endpoint.name);
       }
       onEndpointCreated?.(endpoint);
       setIsCreateModalOpen(false);
     },
-    [refetch, onEndpointSelect, onEndpointCreated, excludeProviders],
+    [refetch, onEndpointSelect, onEndpointCreated, allowTypeSafe],
   );
 
   // Build endpoint options for the dropdown

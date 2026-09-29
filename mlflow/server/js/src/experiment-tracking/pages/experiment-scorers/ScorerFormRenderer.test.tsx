@@ -22,8 +22,8 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
 jest.mock('../../components/EndpointSelector', () => ({
-  EndpointSelector: ({ excludeProviders }: { excludeProviders?: string[] }) => (
-    <div data-testid="endpoint-selector" data-exclude-providers={excludeProviders?.join(',')} />
+  EndpointSelector: ({ allowTypeSafe }: { allowTypeSafe?: boolean }) => (
+    <div data-testid="endpoint-selector" data-allow-typesafe={String(allowTypeSafe ?? false)} />
   ),
 }));
 
@@ -118,13 +118,13 @@ describe('ScorerFormRenderer', () => {
   it('excludes TypeSafe endpoints for agentic trace judges', () => {
     render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ trace }}', outputTypeKind: 'bool' }} />);
 
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-exclude-providers', 'typesafe');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
   });
 
   it('allows TypeSafe endpoints for structured boolean judges', () => {
     render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ outputs }}', outputTypeKind: 'bool' }} />);
 
-    expect(screen.getByTestId('endpoint-selector')).not.toHaveAttribute('data-exclude-providers');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
   });
 
   it('excludes TypeSafe endpoints until a categorical judge has nonblank options', () => {
@@ -137,7 +137,7 @@ describe('ScorerFormRenderer', () => {
         }}
       />,
     );
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-exclude-providers', 'typesafe');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
     unmount();
 
     render(
@@ -149,7 +149,7 @@ describe('ScorerFormRenderer', () => {
         }}
       />,
     );
-    expect(screen.getByTestId('endpoint-selector')).not.toHaveAttribute('data-exclude-providers');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
   });
 
   it('rejects a mixed TypeSafe and chat endpoint for a structured boolean judge', async () => {

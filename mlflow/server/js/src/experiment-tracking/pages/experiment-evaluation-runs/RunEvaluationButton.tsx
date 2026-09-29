@@ -293,6 +293,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
                   />
                 </Typography.Text>
                 <EndpointSelector
+                  allowTypeSafe
                   currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointModel)}
                   onEndpointSelect={(endpointName) => {
                     setCurrentEndpointModel(formatGatewayModelFromEndpoint(endpointName));

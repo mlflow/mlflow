@@ -8,15 +8,15 @@ jest.mock('../../../components/EndpointSelector', () => ({
   EndpointSelector: ({
     currentEndpointName,
     onEndpointSelect,
-    excludeProviders,
+    allowTypeSafe,
   }: {
     currentEndpointName?: string;
     onEndpointSelect: (name: string) => void;
-    excludeProviders?: string[];
+    allowTypeSafe?: boolean;
   }) => (
     <input
       data-testid="endpoint-selector-test-input"
-      data-exclude-providers={excludeProviders?.join(',')}
+      data-allow-typesafe={String(allowTypeSafe ?? false)}
       value={currentEndpointName ?? ''}
       onChange={(event) => onEndpointSelect(event.target.value)}
     />
@@ -67,7 +67,7 @@ describe('PlaygroundTopBar', () => {
   it('renders the endpoint selector and the four top-bar buttons', () => {
     renderTopBar();
     expect(screen.getByTestId('endpoint-selector-test-input')).toBeInTheDocument();
-    expect(screen.getByTestId('endpoint-selector-test-input')).toHaveAttribute('data-exclude-providers', 'typesafe');
+    expect(screen.getByTestId('endpoint-selector-test-input')).toHaveAttribute('data-allow-typesafe', 'false');
     expect(screen.getByRole('button', { name: /open model parameters/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open variable values/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();

@@ -181,7 +181,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
           <>
             <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
               <EndpointSelector
-                excludeProviders={isTypeSafeCompatibleJudge ? undefined : ['typesafe']}
+                allowTypeSafe={isTypeSafeCompatibleJudge}
                 currentEndpointName={currentEndpointName}
                 onEndpointSelect={(endpointName) => {
                   const modelValue = formatGatewayModelFromEndpoint(endpointName);

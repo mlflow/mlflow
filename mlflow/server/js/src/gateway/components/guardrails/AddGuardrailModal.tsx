@@ -443,7 +443,6 @@ export const AddGuardrailModal = ({ open, onClose, onSuccess, endpointId, experi
                 <FormattedMessage defaultMessage="Guardrail Model" description="Guardrail model label" />
               </Typography.Text>
               <EndpointSelector
-                excludeProviders={['typesafe']}
                 componentIdPrefix="mlflow.gateway.guardrails.config-model"
                 currentEndpointName={modelEndpoint}
                 onEndpointSelect={setModelEndpoint}

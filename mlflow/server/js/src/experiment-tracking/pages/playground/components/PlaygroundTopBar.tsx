@@ -65,7 +65,6 @@ export const PlaygroundTopBar = ({
       }}
     >
       <EndpointSelector
-        excludeProviders={['typesafe']}
         componentIdPrefix="mlflow.playground.endpoint-selector"
         currentEndpointName={endpointName}
         onEndpointSelect={onEndpointSelect}
