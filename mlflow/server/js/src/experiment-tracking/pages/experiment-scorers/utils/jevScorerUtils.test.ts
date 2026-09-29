@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { parseJevCriteria } from './jevScorerUtils';
+import { parseJevCriteria, validateJevCriteria } from './jevScorerUtils';
 import {
   convertFormDataToScheduledScorer,
   transformScheduledScorer,
@@ -79,6 +79,12 @@ describe('Jev scorer configuration', () => {
 });
 
 describe('Jev criteria validation', () => {
+  it.each(['', '   '])('shows the expected criteria shape when criteria are blank (%j)', (text) => {
+    expect(validateJevCriteria('choice', text)).toBe('object');
+    expect(validateJevCriteria('score', text)).toBe('score');
+    expect(validateJevCriteria('noul', text)).toBe(true);
+  });
+
   it.each([
     ['choice', '[]'],
     ['choice', '{}'],

@@ -12,7 +12,10 @@ class JevCriteriaValidationError extends Error {
 }
 
 export function parseJevCriteria(answerType: JevAnswerType, text: string): JevCriteria {
-  if (!text.trim() && answerType === 'noul') return null;
+  if (!text.trim()) {
+    if (answerType === 'noul') return null;
+    throw new JevCriteriaValidationError(answerType === 'score' ? 'score' : 'object');
+  }
   let criteria: unknown;
   try {
     criteria = JSON.parse(text);
