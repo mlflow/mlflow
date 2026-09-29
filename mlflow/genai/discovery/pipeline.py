@@ -394,7 +394,12 @@ def _dedup_issues(
 
     group_by_root: dict[int, _DedupGroup] = {}
     for group in result.groups:
-        if len(group.indices) < 2:
+        if (
+            len(group.indices) < 2
+            or len(set(group.indices)) != len(group.indices)
+            or any(idx < 0 or idx >= len(issues) for idx in group.indices)
+        ):
+            _logger.debug("Skipping invalid deduplication group: %s", group.indices)
             continue
         root = min(group.indices)
         group_by_root[root] = group

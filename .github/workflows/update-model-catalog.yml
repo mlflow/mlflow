@@ -36,7 +36,7 @@ env:
 jobs:
   sync:
     if: github.repository == 'mlflow/mlflow' && github.event_name != 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -99,7 +99,7 @@ jobs:
   create-pr:
     needs: sync
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.sync.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -144,15 +144,18 @@ jobs:
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
-            gh pr edit "$existing_pr" --add-label auto-rerun
+            gh pr edit "$existing_pr" \
+              --remove-reviewer TomeHirata \
+              --add-label auto-rerun \
+              --add-label team-review
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
           else
             pr_url=$(gh pr create \
               --title "Update model catalog from upstream sources" \
               --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --reviewer "TomeHirata" \
-              --label auto-rerun)
+              --label auto-rerun \
+              --label team-review)
             echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
           fi

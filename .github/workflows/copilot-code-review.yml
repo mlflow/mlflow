@@ -29,10 +29,15 @@ jobs:
   # Must be named `copilot-setup-steps` even in this file, otherwise Copilot
   # ignores it and falls back to `copilot-setup-steps.yml`.
   copilot-setup-steps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
     steps:
-      - name: Complete setup
-        run: echo "No additional setup required."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+      - uses: ./.github/actions/setup-node

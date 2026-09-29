@@ -117,6 +117,7 @@ class _DependencyTypeEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_Depend
     DATABRICKS_UC_FUNCTION: _DependencyType.ValueType  # 3
     DATABRICKS_UC_CONNECTION: _DependencyType.ValueType  # 4
     DATABRICKS_TABLE: _DependencyType.ValueType  # 5
+    DATABRICKS_UC_MODEL_SERVICE: _DependencyType.ValueType  # 6
 
 class DependencyType(_DependencyType, metaclass=_DependencyTypeEnumTypeWrapper): ...
 
@@ -126,6 +127,7 @@ DATABRICKS_MODEL_ENDPOINT: DependencyType.ValueType  # 2
 DATABRICKS_UC_FUNCTION: DependencyType.ValueType  # 3
 DATABRICKS_UC_CONNECTION: DependencyType.ValueType  # 4
 DATABRICKS_TABLE: DependencyType.ValueType  # 5
+DATABRICKS_UC_MODEL_SERVICE: DependencyType.ValueType  # 6
 Global___DependencyType: _TypeAlias = DependencyType  # noqa: Y015
 
 class _TableType:

@@ -1,6 +1,166 @@
 {
   "schema_version": "1.0",
   "models": {
+    "anthropic/claude-fable-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 1.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-haiku-4-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0,
+        "cache_read_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-opus-4-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-opus-4-6": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-opus-4-7": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-opus-4-8": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-opus-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-sonnet-4-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-sonnet-4-6": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "anthropic/claude-sonnet-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
     "codellama-34b-instruct": {
       "mode": "chat",
       "context_window": {
@@ -40,6 +200,159 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "google/gemini-2.5-flash": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-2.5-pro": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3-flash-preview": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3-pro-preview": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3.1-flash-lite": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.025
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3.1-pro-preview": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3.5-flash": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 9.0,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3.5-flash-lite": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3.6-flash": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "google/gemini-3.7-flash": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.75,
+        "output_per_million_tokens": 3.75,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
     },
     "llama-2-70b-chat": {
       "mode": "chat",
@@ -140,6 +453,364 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5-mini": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.025
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.1": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.2": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.175
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.4": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.25,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 22.5
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.4-mini": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.75,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.4-nano": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.25,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 45.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.6-luna": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.02,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 0.4,
+            "output_per_million_tokens": 1.8,
+            "cache_read_per_million_tokens": 0.04
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.6-sol": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 45.0,
+            "cache_read_per_million_tokens": 1.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "openai/gpt-5.6-terra": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/deepseek-v4-flash-0731": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.13,
+        "output_per_million_tokens": 0.26,
+        "cache_read_per_million_tokens": 0.028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/glm-5.2": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/glm-5.3": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.26
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/glm-5.3-flash": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/kimi-k2.7-code": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.95,
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.19
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/kimi-k3": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/nemotron-3-ultra-550b-a55b": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/nemotron-3.5-lightning-30b-a3b": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.0115,
+        "output_per_million_tokens": 0.17,
+        "cache_read_per_million_tokens": 0.00115
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "perplexity/sonar": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.0625
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
     },
     "pplx-70b-chat": {
       "mode": "chat",
@@ -296,6 +967,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "preset/advanced-deep-research": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "preset/deep-research": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "preset/fast-search": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "preset/pro-search": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
     },
     "sonar": {
       "mode": "chat",
@@ -507,6 +1222,157 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "xai/grok-4-1-fast-non-reasoning": {
+      "mode": "responses",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "xai/grok-4.20-multi-agent": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "xai/grok-4.20-non-reasoning": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "xai/grok-4.20-reasoning": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "xai/grok-4.3": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "xai/grok-4.5": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.3,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0,
+            "cache_read_per_million_tokens": 0.6
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
+    },
+    "xai/grok-4.6": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.5,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0,
+            "cache_read_per_million_tokens": 1.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-23"
     }
   }
 }

@@ -419,12 +419,14 @@ from mlflow.server.workspace_helpers import (
     _get_workspace_store,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.uri import is_models_uri
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -1004,8 +1006,7 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     )
 
 
-def _get_permission_from_registered_model_name() -> Permission:
-    name = _get_request_param("name")
+def _get_registered_model_permission(name: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1017,6 +1018,10 @@ def _get_permission_from_registered_model_name() -> Permission:
             workspace_label="registered model",
         ),
     )
+
+
+def _get_permission_from_registered_model_name() -> Permission:
+    return _get_registered_model_permission(_get_request_param("name"))
 
 
 def _get_permission_from_prompt_name() -> Permission:
@@ -1038,26 +1043,28 @@ def _get_permission_from_prompt_name() -> Permission:
     )
 
 
-def _get_permission_from_registered_model_or_prompt_name() -> Permission:
-    """Resolve permission for a shared model-registry route in a single DB round-trip.
-
-    Fetches the ``RegisteredModel`` once, classifies it as prompt or model via
-    ``._is_prompt()``, and resolves the workspace from the same object — avoiding
-    the separate classify fetch that ``_request_targets_prompt`` would add.
-    """
-    name = _get_request_param("name")
+def _get_registered_model_or_prompt_permission(name: str) -> Permission:
+    """Resolve a persisted registry entity's permission in its actual namespace."""
     username = authenticate_request().username
-    workspace_name = None
-    resource_type = "registered_model"
+    rm = _get_model_registry_store().get_registered_model(name)
+    resource_type = "prompt" if rm._is_prompt() else "registered_model"
+    workspace_name = getattr(rm, "workspace", None)
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+    )
+
+
+def _get_permission_from_registered_model_or_prompt_name() -> Permission:
+    """Resolve permission for a shared model-registry route in a single DB round-trip."""
+    name = _get_request_param("name")
     try:
-        rm = _get_model_registry_store().get_registered_model(name)
-        resource_type = "prompt" if rm._is_prompt() else "registered_model"
-        workspace_name = getattr(rm, "workspace", None)
+        return _get_registered_model_or_prompt_permission(name)
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
+    username = authenticate_request().username
     return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+        _role_permission_for_known_workspace(username, "registered_model", name, None)
     )
 
 
@@ -1406,11 +1413,9 @@ def _validate_can_manage_registered_model_or_prompt():
 
 
 def validate_can_create_model_version():
-    # A model version anchors its `source` inside the artifact directory of the run/model
-    # named by `run_id`/`model_id`. Downstream artifact reads are gated on the model version's
-    # registered model, so without a read check here a caller could point `source` at another
-    # user's run/model and read those artifacts through their own registered model. Require read
-    # on the source run/model to keep create-time access consistent with artifact-read gating.
+    # Downstream artifact reads are gated on the destination registered model. Require read on
+    # the resource that owns the source so creating a version cannot grant access to artifacts
+    # the caller could not already read.
     if not _validate_can_update_registered_model_or_prompt():
         return False
     # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
@@ -1418,6 +1423,14 @@ def validate_can_create_model_version():
     # anchor the version to. A raw-body key check would miss the aliases and skip the READ
     # check while the handler still binds the source run/model from them.
     msg = _get_request_message(CreateModelVersion())
+    if is_models_uri(msg.source):
+        parsed_source = _parse_model_uri(msg.source)
+        if parsed_source.name is not None:
+            # A registered model is itself the artifact access boundary. The copied version's
+            # lineage IDs are metadata and do not require separate run/logged-model access.
+            return _can_read_model_version_source(
+                _get_registered_model_or_prompt_permission, parsed_source.name
+            )
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
@@ -5300,6 +5313,7 @@ _ROUTES_NEEDING_BODY = frozenset((
     "/gateway/openai/v1/embeddings",
     "/gateway/openai/v1/responses",
     "/gateway/anthropic/v1/messages",
+    "/gateway/typesafe/v1/systemone",
 ))
 
 
