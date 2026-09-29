@@ -137,6 +137,7 @@ async def test_system_one_rejects_chat_endpoint_for_runtime_fallback():
         models=[GatewayModelConfig("md-chat", "openai", "gpt-4o", {"api_key": "key"})],
     )
     with (
+        patch("mlflow.server.gateway_api._get_store"),
         patch("mlflow.server.gateway_api._validate_store"),
         patch(
             "mlflow.server.gateway_api._create_provider_from_endpoint_name",
