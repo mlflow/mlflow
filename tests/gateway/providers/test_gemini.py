@@ -1312,6 +1312,37 @@ async def test_gemini_chat_stream(resp):
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("split_across_chunks", [False, True])
+async def test_gemini_chat_stream_parallel_tool_calls_get_distinct_indices(split_across_chunks):
+    call_a = {"functionCall": {"name": "get_weather", "args": {"city": "Baku"}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {"tz": "UTC"}}}
+    part_groups = [[call_a], [call_b]] if split_across_chunks else [[call_a, call_b]]
+    resp = [
+        line
+        for parts in part_groups
+        for line in (
+            b"data: "
+            + json.dumps({"candidates": [{"content": {"parts": parts}}]}).encode()
+            + b"\n",
+            b"\n",
+        )
+    ] + [b"data: [DONE]\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    calls = [tc for c in chunks for tc in c.choices[0].delta.tool_calls]
+    assert [(tc.index, tc.function.name) for tc in calls] == [(0, "get_weather"), (1, "get_time")]
+    assert [json.loads(tc.function.arguments) for tc in calls] == [
+        {"city": "Baku"},
+        {"tz": "UTC"},
+    ]
+
+
 def chat_function_calling_stream_response():
     return [
         b'data: {"candidates": [{"content": {"parts": [{"functionCall": {"name": "get_weather", '
