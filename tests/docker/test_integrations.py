@@ -48,8 +48,7 @@ def test_backend_and_artifact_store_integration(compose_file):
                 input_example=["a", "b", "c"],
             )
     except Exception:
-        # Container output isn't captured by testcontainers, and `stop()` removes the
-        # containers, so dump the logs before tearing down to make failures debuggable.
+        # Container logs aren't shown on failure and `stop()` deletes them, so dump them first.
         stdout, stderr = compose.get_logs()
         print(f"docker compose logs:\n{stdout}\n{stderr}")  # noqa: T201
         raise
