@@ -118,6 +118,17 @@ export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
 mlflow server --host 0.0.0.0 --port 5000
 ```
 
+If Redis is unavailable during the pre-request budget check, Gateway returns HTTP 503, even
+when no budget policy applies: it cannot safely verify that no limit applies until Redis responds.
+An exceeded budget still returns HTTP 429. If Redis fails later while recording a completed
+request's cost, Gateway logs a warning. Redis connection attempts time out after 1 second and
+commands after 2 seconds by default. To adjust these limits, set `socket_connect_timeout` and
+`socket_timeout` (in seconds) in the Redis URL, for example:
+
+```bash
+export MLFLOW_GATEWAY_BUDGET_REDIS_URL='redis://localhost:6379/0?socket_connect_timeout=2&socket_timeout=3'
+```
+
 ## Policy Refresh Interval
 
 Both strategies periodically re-fetch budget policies from the database. The interval is controlled by `MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL` (default: `600` seconds). Decrease the value to pick up policy changes faster; increase it to reduce database load.

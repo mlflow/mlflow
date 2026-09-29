@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
+import mlflow.gateway.budget_tracker as _bt_module
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDuration,
@@ -11,9 +13,12 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.gateway.budget import check_budget_limit, make_budget_on_complete
 from mlflow.gateway.budget_tracker import BudgetTracker
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 fakeredis = pytest.importorskip("fakeredis")
+redis = pytest.importorskip("redis")
 
 
 def _make_policy(
@@ -60,6 +65,132 @@ def _make_shared_trackers():
 def test_redis_tracker_is_budget_tracker():
     tracker = _make_tracker()
     assert isinstance(tracker, BudgetTracker)
+
+
+def test_redis_client_has_bounded_default_timeouts_with_url_overrides():
+    from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
+
+    tracker = RedisBudgetTracker(_redis_url="redis://localhost:6379/0")
+    connection = tracker._client.connection_pool.connection_kwargs
+    assert connection["socket_connect_timeout"] == 1
+    assert connection["socket_timeout"] == 2
+
+    tracker = RedisBudgetTracker(
+        _redis_url="redis://localhost:6379/0?socket_connect_timeout=4&socket_timeout=5"
+    )
+    connection = tracker._client.connection_pool.connection_kwargs
+    assert connection["socket_connect_timeout"] == 4
+    assert connection["socket_timeout"] == 5
+
+
+@pytest.mark.parametrize("scenario", ["no-policy", "reject-policy", "other-workspace-policy"])
+@pytest.mark.parametrize("cached", [False, True], ids=["refresh", "cached"])
+@pytest.mark.parametrize(
+    "error_type", [redis.exceptions.ConnectionError, redis.exceptions.TimeoutError]
+)
+def test_redis_outage_fails_closed_with_503(scenario, cached, error_type):
+    if scenario == "no-policy":
+        policies = []
+    else:
+        policy = _make_policy(
+            budget_action=BudgetAction.REJECT,
+            target_scope=(
+                BudgetTargetScope.WORKSPACE
+                if scenario == "other-workspace-policy"
+                else BudgetTargetScope.GLOBAL
+            ),
+            workspace="other" if scenario == "other-workspace-policy" else None,
+        )
+        policies = [policy]
+    tracker = _make_tracker()
+    if cached:
+        tracker.refresh_policies(policies)
+    store = MagicMock()
+    store.list_budget_policies.return_value = policies
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test", endpoint_name="test-endpoint", models=[]
+    )
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        patch.object(tracker._client, "smembers", side_effect=error_type("Redis unavailable")),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        check_budget_limit(store, endpoint_config, workspace="current")
+
+    assert exc_info.value.status_code == 503
+    assert "Budget backend unavailable" in exc_info.value.detail
+
+
+@pytest.mark.parametrize("has_policy", [False, True], ids=["no-policy", "reject-policy"])
+def test_redis_healthy_request_checks_budget_normally(has_policy):
+    policies = [_make_policy(budget_action=BudgetAction.REJECT)] if has_policy else []
+    tracker = _make_tracker()
+    store = MagicMock()
+    store.list_budget_policies.return_value = policies
+    store.sum_gateway_trace_cost.return_value = 0.0
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test", endpoint_name="test-endpoint", models=[]
+    )
+
+    with patch.object(_bt_module, "_budget_tracker", tracker):
+        check_budget_limit(store, endpoint_config)
+
+
+def test_redis_exceeded_budget_remains_429():
+    policy = _make_policy(budget_action=BudgetAction.REJECT, budget_amount=100)
+    tracker = _make_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(150)
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test", endpoint_name="test-endpoint", models=[]
+    )
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        check_budget_limit(MagicMock(), endpoint_config)
+
+    assert exc_info.value.status_code == 429
+
+
+@pytest.mark.parametrize("error_type", [ValueError, redis.exceptions.ResponseError])
+def test_redis_programming_error_is_not_reported_as_outage(error_type):
+    tracker = _make_tracker()
+    tracker.refresh_policies([])
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test", endpoint_name="test-endpoint", models=[]
+    )
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        patch.object(tracker, "should_reject_request", side_effect=error_type("bad logic")),
+        pytest.raises(error_type, match="bad logic"),
+    ):
+        check_budget_limit(MagicMock(), endpoint_config)
+
+
+def test_redis_cost_recording_failure_warns_without_raising():
+    tracker = _make_tracker()
+    tracker.mark_refreshed()
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
+        patch("mlflow.gateway.budget.mlflow.get_current_active_span", return_value=MagicMock()),
+        patch("mlflow.gateway.budget._compute_cost_from_child_spans", return_value=1.0),
+        patch("mlflow.gateway.budget._logger.warning") as warning,
+        patch.object(
+            tracker._client,
+            "smembers",
+            side_effect=redis.exceptions.ConnectionError("Redis unavailable"),
+        ),
+    ):
+        make_budget_on_complete(MagicMock(), workspace=None)()
+
+    warning.assert_called_once()
+    assert "Failed to record budget cost in Redis" in warning.call_args.args[0]
 
 
 def test_record_cost_below_limit():
