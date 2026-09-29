@@ -18,7 +18,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import { CreateEndpointModal } from '../../gateway/components/endpoint-form';
-import { endpointUsesAnyProvider, getEndpointDisplayInfo } from '../../gateway/utils/gatewayUtils';
+import { getEndpointDisplayInfo } from '../../gateway/utils/gatewayUtils';
 import type { Endpoint } from '../../gateway/types';
 
 interface EndpointOption {
@@ -29,8 +29,6 @@ interface EndpointOption {
 }
 
 export interface EndpointSelectorProps {
-  /** Exclude endpoints using these providers, including fallback models. */
-  excludeProviders?: string[];
   /** Current selected endpoint name */
   currentEndpointName?: string;
   /** Called when user selects an endpoint */
@@ -56,7 +54,6 @@ export interface EndpointSelectorProps {
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
-  excludeProviders,
   currentEndpointName,
   onEndpointSelect,
   disabled = false,
@@ -74,33 +71,13 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   const { data: endpoints, isLoading, error, refetch } = useEndpointsQuery();
 
-  const selectableEndpoints = useMemo(
-    () =>
-      endpoints.filter(
-        (endpoint) =>
-          !excludeEndpointIds?.includes(endpoint.endpoint_id) &&
-          !endpointUsesAnyProvider(endpoint, excludeProviders ?? []),
-      ),
-    [endpoints, excludeEndpointIds, excludeProviders],
-  );
-
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    if (autoSelectFirstEndpoint && selectableEndpoints.length > 0 && !currentEndpointName) {
-      onEndpointSelect(selectableEndpoints[0].name);
+    if (autoSelectFirstEndpoint && endpoints && endpoints.length > 0 && !currentEndpointName) {
+      onEndpointSelect(endpoints[0].name);
     }
-  }, [autoSelectFirstEndpoint, selectableEndpoints, onEndpointSelect, currentEndpointName]);
-
-  useEffect(() => {
-    const currentEndpointIsExcluded =
-      currentEndpointName &&
-      endpoints.some(({ name }) => name === currentEndpointName) &&
-      !selectableEndpoints.some(({ name }) => name === currentEndpointName);
-    if (currentEndpointIsExcluded && !disabled) {
-      onEndpointSelect(autoSelectFirstEndpoint ? (selectableEndpoints[0]?.name ?? '') : '');
-    }
-  }, [autoSelectFirstEndpoint, currentEndpointName, disabled, endpoints, onEndpointSelect, selectableEndpoints]);
+  }, [autoSelectFirstEndpoint, endpoints, onEndpointSelect, currentEndpointName]);
 
   const handleOpenCreateModal = useCallback(() => {
     setIsCreateModalOpen(true);
@@ -113,43 +90,31 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const handleCreateEndpointSuccess = useCallback(
     async (endpoint: Endpoint) => {
       await refetch();
-      const usesExcludedProvider = endpointUsesAnyProvider(endpoint, excludeProviders ?? []);
-      if (!usesExcludedProvider) {
-        onEndpointSelect(endpoint.name);
-      }
+      onEndpointSelect(endpoint.name);
       onEndpointCreated?.(endpoint);
       setIsCreateModalOpen(false);
     },
-    [refetch, onEndpointSelect, onEndpointCreated, excludeProviders],
+    [refetch, onEndpointSelect, onEndpointCreated],
   );
 
   // Build endpoint options for the dropdown
   const endpointOptions: EndpointOption[] = useMemo(() => {
-    return selectableEndpoints.map((endpoint) => {
-      const displayInfo = getEndpointDisplayInfo(endpoint);
-      return {
-        value: endpoint.name,
-        label: endpoint.name,
-        provider: displayInfo?.provider,
-        modelName: displayInfo?.modelName,
-      };
-    });
-  }, [selectableEndpoints]);
+    return endpoints
+      .filter((endpoint) => !excludeEndpointIds?.includes(endpoint.endpoint_id))
+      .map((endpoint) => {
+        const displayInfo = getEndpointDisplayInfo(endpoint);
+        return {
+          value: endpoint.name,
+          label: endpoint.name,
+          provider: displayInfo?.provider,
+          modelName: displayInfo?.modelName,
+        };
+      });
+  }, [endpoints, excludeEndpointIds]);
 
   const currentEndpoint = useMemo(() => {
-    const endpoint = endpoints.find(({ name }) => name === currentEndpointName);
-    if (!endpoint) {
-      return undefined;
-    }
-
-    const displayInfo = getEndpointDisplayInfo(endpoint);
-    return {
-      value: endpoint.name,
-      label: endpoint.name,
-      provider: displayInfo?.provider,
-      modelName: displayInfo?.modelName,
-    };
-  }, [endpoints, currentEndpointName]);
+    return endpointOptions.find((opt) => opt.value === currentEndpointName);
+  }, [endpointOptions, currentEndpointName]);
 
   // When the endpoint name doesn't match any loaded endpoint (e.g., after a rename),
   // notify the parent so it can refetch scorer data with the resolved endpoint name.
