@@ -114,12 +114,81 @@ def test_redis_outage_fails_closed_with_503(scenario, cached, error_type):
     with (
         patch.object(_bt_module, "_budget_tracker", tracker),
         patch.object(tracker._client, "smembers", side_effect=error_type("Redis unavailable")),
-        pytest.raises(HTTPException) as exc_info,
+        pytest.raises(HTTPException, match="Budget backend unavailable") as exc_info,
     ):
         check_budget_limit(store, endpoint_config, workspace="current")
 
     assert exc_info.value.status_code == 503
     assert "Budget backend unavailable" in exc_info.value.detail
+
+
+def test_redis_refresh_failure_backs_off_without_allowing_requests():
+    tracker = _make_tracker()
+    store = MagicMock()
+    store.list_budget_policies.return_value = []
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test", endpoint_name="test-endpoint", models=[]
+    )
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        patch.object(
+            tracker._client,
+            "smembers",
+            side_effect=redis.exceptions.ConnectionError("Redis unavailable"),
+        ),
+    ):
+        with pytest.raises(HTTPException, match="Budget backend unavailable") as exc_info:
+            check_budget_limit(store, endpoint_config)
+        assert exc_info.value.status_code == 503
+        assert tracker.needs_refresh()
+
+        # The next request still fails closed but does not immediately retry Redis or the DB.
+        with pytest.raises(HTTPException, match="Budget backend unavailable") as exc_info:
+            check_budget_limit(store, endpoint_config)
+        assert exc_info.value.status_code == 503
+        store.list_budget_policies.assert_called_once()
+
+    tracker._refresh_retry_after = 0
+    with patch.object(_bt_module, "_budget_tracker", tracker):
+        check_budget_limit(store, endpoint_config)
+    assert store.list_budget_policies.call_count == 2
+
+
+def test_redis_backfill_failure_invalidates_successful_refresh():
+    tracker = _make_tracker()
+    store = MagicMock()
+    store.list_budget_policies.return_value = []
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test", endpoint_name="test-endpoint", models=[]
+    )
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        patch.object(
+            tracker,
+            "backfill_spend",
+            side_effect=redis.exceptions.TimeoutError("Redis timed out"),
+        ),
+        pytest.raises(HTTPException, match="Budget backend unavailable") as exc_info,
+    ):
+        check_budget_limit(store, endpoint_config)
+
+    assert exc_info.value.status_code == 503
+    assert tracker.needs_refresh()
+
+    with (
+        patch.object(_bt_module, "_budget_tracker", tracker),
+        pytest.raises(HTTPException, match="Budget backend unavailable") as exc_info,
+    ):
+        check_budget_limit(store, endpoint_config)
+    assert exc_info.value.status_code == 503
+    store.list_budget_policies.assert_called_once()
+
+    tracker._refresh_retry_after = 0
+    with patch.object(_bt_module, "_budget_tracker", tracker):
+        check_budget_limit(store, endpoint_config)
+    assert store.list_budget_policies.call_count == 2
 
 
 @pytest.mark.parametrize("has_policy", [False, True], ids=["no-policy", "reject-policy"])
@@ -148,7 +217,7 @@ def test_redis_exceeded_budget_remains_429():
 
     with (
         patch.object(_bt_module, "_budget_tracker", tracker),
-        pytest.raises(HTTPException) as exc_info,
+        pytest.raises(HTTPException, match="Budget limit exceeded") as exc_info,
     ):
         check_budget_limit(MagicMock(), endpoint_config)
 
@@ -178,7 +247,7 @@ def test_redis_cost_recording_failure_warns_without_raising():
     with (
         patch.object(_bt_module, "_budget_tracker", tracker),
         patch("mlflow.server.handlers._get_model_registry_store", return_value=None),
-        patch("mlflow.gateway.budget.mlflow.get_current_active_span", return_value=MagicMock()),
+        patch("mlflow.gateway.budget.mlflow.get_current_active_span"),
         patch("mlflow.gateway.budget._compute_cost_from_child_spans", return_value=1.0),
         patch("mlflow.gateway.budget._logger.warning") as warning,
         patch.object(

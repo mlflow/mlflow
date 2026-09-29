@@ -28,6 +28,11 @@ from mlflow.webhooks.delivery import deliver_webhook
 from mlflow.webhooks.types import BudgetPolicyExceededPayload
 
 _logger = logging.getLogger(__name__)
+_REDIS_REFRESH_RETRY_DELAY_SECONDS = 1
+
+
+class _RedisRefreshPostponed(Exception):
+    """A failed Redis refresh is in its short retry backoff period."""
 
 
 def _is_redis_error(exc: Exception) -> bool:
@@ -106,6 +111,8 @@ def calculate_existing_cost_for_windows(
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     """Refresh budget policies from the database if stale."""
     tracker = get_budget_tracker()
+    if tracker.refresh_is_postponed():
+        raise _RedisRefreshPostponed()
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
@@ -116,6 +123,10 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             # A failed Redis refresh means we cannot know whether a budget applies.
             # Do not use a possibly stale policy cache to make an allow decision.
             if _is_redis_error(e):
+                if _is_redis_unavailable(e):
+                    tracker.postpone_refresh(_REDIS_REFRESH_RETRY_DELAY_SECONDS)
+                else:
+                    tracker.invalidate()
                 raise
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
@@ -210,7 +221,7 @@ def check_budget_limit(
             workspace=workspace, endpoint_id=endpoint_config.endpoint_id, username=username
         )
     except Exception as e:
-        if not _is_redis_unavailable(e):
+        if not (isinstance(e, _RedisRefreshPostponed) or _is_redis_unavailable(e)):
             raise
         _logger.warning("Budget check failed because Redis is unavailable", exc_info=True)
         exc = HTTPException(

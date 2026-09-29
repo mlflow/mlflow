@@ -1554,7 +1554,6 @@ def test_response_timing_headers_error(store: SqlAlchemyStore):
 def test_redis_outage_returns_503_before_provider_call(stream, has_policy):
     redis = pytest.importorskip("redis")
 
-    import mlflow.gateway.budget_tracker as budget_tracker
     from mlflow.entities.gateway_budget_policy import (
         BudgetAction,
         BudgetDuration,
@@ -1563,6 +1562,7 @@ def test_redis_outage_returns_503_before_provider_call(stream, has_policy):
         BudgetUnit,
         GatewayBudgetPolicy,
     )
+    from mlflow.gateway import budget_tracker
     from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
 
     policies = (
