@@ -24,6 +24,7 @@ from mlflow.genai.judges.instructions_judge.constants import (
 )
 from mlflow.genai.judges.typesafe import (
     _invoke_typesafe_judge,
+    _is_gateway_model,
     _is_typesafe_model,
     _try_invoke_gateway_typesafe_judge,
 )
@@ -650,7 +651,7 @@ class InstructionsJudge(Judge):
         }
 
         gateway_typesafe_feedback = None
-        if not is_trace_based and self._base_url is None and self._model.startswith("gateway:/"):
+        if not is_trace_based and self._base_url is None and _is_gateway_model(self._model):
             gateway_typesafe_feedback = _try_invoke_gateway_typesafe_judge(
                 self._model,
                 **typesafe_kwargs,

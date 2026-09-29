@@ -665,6 +665,8 @@ def _create_provider_from_endpoint_name(
     endpoint_name: str,
     endpoint_type: EndpointType,
     enable_tracing: bool = True,
+    *,
+    allow_typesafe: bool = False,
 ) -> tuple[BaseProvider, GatewayEndpointConfig]:
     """
     Create a provider from an endpoint name.
@@ -674,11 +676,14 @@ def _create_provider_from_endpoint_name(
         endpoint_name: The endpoint name.
         endpoint_type: Endpoint type (chat or embeddings).
         enable_tracing: If True, enables MLflow tracing for provider calls.
+        allow_typesafe: If True, allows construction of TypeSafe providers for System One.
 
     Returns:
         Tuple of (provider instance, endpoint config)
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    if not allow_typesafe:
+        _reject_typesafe_incompatible_endpoint(endpoint_config)
     _enable_upstream_ssrf_protection(endpoint_config)
     return _create_provider(
         endpoint_config, endpoint_type, enable_tracing=enable_tracing
@@ -777,8 +782,6 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
-        _reject_typesafe_incompatible_endpoint(endpoint_config)
-
         if payload.stream:
             # Post-LLM guardrails are not applied to streaming responses.
             # Pre-LLM guardrails run inside the trace as child spans; violations
@@ -864,8 +867,6 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
-        _reject_typesafe_incompatible_endpoint(endpoint_config)
-
         return await maybe_traced_gateway_call(
             provider.embeddings,
             endpoint_config,
@@ -920,7 +921,6 @@ async def chat_completions(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1068,7 +1068,6 @@ async def openai_passthrough_chat(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1173,7 +1172,6 @@ async def openai_passthrough_embeddings(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1235,7 +1233,7 @@ async def typesafe_passthrough_system_one(request: Request):
     # DB-backed endpoints have no task type. This placeholder only constructs the
     # provider configuration; System One bypasses the unified chat schema.
     provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
+        store, endpoint_name, EndpointType.LLM_V1_CHAT, allow_typesafe=True
     )
     uses_typesafe = [model.provider == Provider.TYPESAFE for model in endpoint_config.models]
     if not any(uses_typesafe):
@@ -1318,7 +1316,6 @@ async def _openai_responses_passthrough_unary(
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1397,7 +1394,6 @@ async def openai_passthrough_responses(request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, EndpointType.LLM_V1_CHAT
         )
-        _reject_typesafe_incompatible_endpoint(endpoint_config)
         _set_gateway_telemetry_state(request, endpoint_config)
         check_budget_limit(
             store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1521,7 +1517,6 @@ async def anthropic_passthrough_messages(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1633,7 +1628,6 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1711,7 +1705,6 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1794,7 +1787,6 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    _reject_typesafe_incompatible_endpoint(endpoint_config)
     # The caller controls the upstream path here, so guard even provider-default base URLs.
     _enable_upstream_ssrf_protection(endpoint_config, raw_proxy=True)
     _set_gateway_telemetry_state(request, endpoint_config)

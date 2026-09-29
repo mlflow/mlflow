@@ -36,6 +36,9 @@ from mlflow.utils.rest_utils import http_request
 
 _DIRECT_ENDPOINT = f"{TYPESAFE_API_BASE_URL}/{TYPESAFE_SYSTEM_ONE_PATH}"
 _RETRY_CODES = (408, 429, 500, 502, 503, 504, 529)
+_GATEWAY_PROVIDER = "gateway"
+_TYPESAFE_PROVIDER = "typesafe"
+_SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
 _NON_TYPESAFE_GATEWAY_DETAIL = "Gateway endpoint does not use the TypeSafe provider."
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
@@ -58,7 +61,12 @@ _AnswerSpec = _NoulSpec | _ChoiceSpec
 
 def _is_typesafe_model(model_uri: str) -> bool:
     provider, separator, _ = model_uri.partition(":/")
-    return bool(separator) and provider == "typesafe"
+    return bool(separator) and provider == _TYPESAFE_PROVIDER
+
+
+def _is_gateway_model(model_uri: str) -> bool:
+    provider, separator, _ = model_uri.partition(":/")
+    return bool(separator) and provider == _GATEWAY_PROVIDER
 
 
 class _GatewayEndpointNotTypeSafe(Exception):
@@ -67,7 +75,7 @@ class _GatewayEndpointNotTypeSafe(Exception):
 
 def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs) -> Feedback | None:
     provider, separator, _ = model_uri.partition(":/")
-    if not separator or provider != "gateway":
+    if not separator or provider != _GATEWAY_PROVIDER:
         return None
     if any(
         kwargs.get(name) is not None for name in ("inference_params", "base_url", "extra_headers")
@@ -100,7 +108,7 @@ def _invoke_typesafe_judge(
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     provider, model_name = _parse_model_uri(model_uri)
-    if provider not in {"gateway", "typesafe"}:
+    if provider not in _SUPPORTED_PROVIDERS:
         raise MlflowException.invalid_parameter_value(
             f"Expected a typesafe:/ or gateway:/ model URI, got {model_uri!r}."
         )
@@ -117,10 +125,12 @@ def _invoke_typesafe_judge(
 
     response = (
         _send_gateway_request(payload, num_retries)
-        if provider == "gateway"
+        if provider == _GATEWAY_PROVIDER
         else _send_request(payload, num_retries)
     )
-    response_data = _parse_json_response(response, allow_gateway_fallback=provider == "gateway")
+    response_data = _parse_json_response(
+        response, allow_gateway_fallback=provider == _GATEWAY_PROVIDER
+    )
     value, metadata, _, _ = _parse_response(response_data, answer_spec)
 
     return Feedback(
@@ -434,6 +444,7 @@ def _invalid_response(answer_type: str) -> MlflowException:
 
 __all__ = [
     "_invoke_typesafe_judge",
+    "_is_gateway_model",
     "_is_typesafe_model",
     "_try_invoke_gateway_typesafe_judge",
 ]

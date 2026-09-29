@@ -13,6 +13,7 @@ from mlflow.genai.judges.typesafe import (
     _RETRY_CODES,
     _build_question,
     _invoke_typesafe_judge,
+    _is_gateway_model,
     _is_typesafe_model,
     _try_invoke_gateway_typesafe_judge,
 )
@@ -66,6 +67,8 @@ def test_is_typesafe_model(model_uri, expected):
 
 def test_gateway_model_is_not_classified_as_direct_typesafe():
     assert _is_typesafe_model("gateway:/jev-evaluator") is False
+    assert _is_gateway_model("gateway:/jev-evaluator") is True
+    assert _is_gateway_model("typesafe:/jev-evaluator") is False
 
 
 def test_gateway_chat_endpoint_falls_back_during_runtime_invocation():

@@ -7,9 +7,10 @@ from fastapi.testclient import TestClient
 
 import mlflow
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
-from mlflow.gateway.config import GatewayRequestType
+from mlflow.gateway.config import EndpointType, GatewayRequestType
 from mlflow.gateway.guardrails import GuardrailViolation
 from mlflow.server.gateway_api import (
+    _create_provider_from_endpoint_name,
     gateway_router,
     typesafe_passthrough_system_one,
 )
@@ -71,6 +72,20 @@ def _request():
         "state": {"inputs": "What is MLflow?", "outputs": "An ML platform."},
         "questions": {"relevance": {"type": "noul", "instructions": "Is the answer relevant?"}},
     }
+
+
+def test_provider_creation_rejects_typesafe_before_construction(endpoint):
+    with (
+        patch("mlflow.server.gateway_api._create_provider") as create_provider,
+        pytest.raises(HTTPException, match="only support structured judge evaluation"),
+    ):
+        _create_provider_from_endpoint_name(
+            endpoint.store,
+            endpoint.endpoint.name,
+            EndpointType.LLM_V1_CHAT,
+        )
+
+    create_provider.assert_not_called()
 
 
 def _response():
