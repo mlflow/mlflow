@@ -31,6 +31,17 @@ class MockGatewayHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(content_length))
 
+        if self.path == "/gateway/typesafe/v1/systemone":
+            response_body = json.dumps({
+                "detail": "Gateway endpoint does not use the TypeSafe provider."
+            }).encode()
+            self.send_response(422)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response_body)))
+            self.end_headers()
+            self.wfile.write(response_body)
+            return
+
         model = body.get("model", "")
         messages = body.get("messages", [])
         prompt_text = str(messages)

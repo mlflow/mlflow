@@ -40,10 +40,10 @@ MLflow supports calling model providers directly using the format `provider:/mod
 | Databricks     | `databricks:/databricks-claude-sonnet-4-5`                      | [Databricks SDK authentication](https://docs.databricks.com/aws/en/dev-tools/auth/index.html) (e.g. `DATABRICKS_HOST` + `DATABRICKS_TOKEN`, or other supported methods)                 |
 
 :::warning
-Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. For supported chat-completion providers, use AI Gateway endpoints if you want to run judges from the UI. TypeSafe Gateway passthrough endpoints cannot back MLflow judges and are not available in judge model selectors.
+Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run judges from the UI.
 :::
 
-TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use `typesafe:/` model URIs only with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe). TypeSafe AI Gateway passthrough endpoints expose raw System One requests and are not `gateway:/` judge models for `make_judge()`.
+TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use either a direct `typesafe:/` model URI or a `gateway:/` endpoint whose model mappings all use TypeSafe, with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe).
 
 For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 

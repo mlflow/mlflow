@@ -10,9 +10,11 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.typesafe import (
+    _RETRY_CODES,
     _build_question,
     _invoke_typesafe_judge,
     _is_typesafe_model,
+    _try_invoke_gateway_typesafe_judge,
 )
 from mlflow.genai.scorers import Safety
 from mlflow.tracing.constant import AssessmentMetadataKey
@@ -55,12 +57,176 @@ def _invoke(
     [
         ("typesafe:/jev-latest", True),
         ("typesafe://jev-latest", True),
-        ("gateway:/jev-evaluator", False),
         ("typesafe", False),
     ],
 )
 def test_is_typesafe_model(model_uri, expected):
     assert _is_typesafe_model(model_uri) is expected
+
+
+def test_gateway_model_is_not_classified_as_direct_typesafe():
+    assert _is_typesafe_model("gateway:/jev-evaluator") is False
+
+
+def test_gateway_chat_endpoint_falls_back_during_runtime_invocation():
+    response = mock.Mock(status_code=422)
+    response.json.return_value = {"detail": "Gateway endpoint does not use the TypeSafe provider."}
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+    ):
+        assert (
+            _try_invoke_gateway_typesafe_judge(
+                "gateway:/chat-endpoint",
+                instructions="Does {{ outputs }} answer {{ inputs }}?",
+                state={"inputs": "Question", "outputs": "Answer"},
+                feedback_value_type=bool,
+                assessment_name="quality",
+            )
+            is None
+        )
+
+
+def test_gateway_404_preserves_chat_fallback_for_older_servers():
+    response = mock.Mock(status_code=404)
+    response.json.return_value = {"detail": "Not Found"}
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+    ):
+        assert (
+            _try_invoke_gateway_typesafe_judge(
+                "gateway:/chat-endpoint",
+                instructions="Does {{ outputs }} answer {{ inputs }}?",
+                state={"inputs": "Question", "outputs": "Answer"},
+                feedback_value_type=bool,
+                assessment_name="quality",
+            )
+            is None
+        )
+
+
+def test_gateway_typesafe_endpoint_404_does_not_fall_back_to_chat():
+    response = mock.Mock(status_code=404)
+    response.json.return_value = {"detail": "Endpoint not found"}
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+        pytest.raises(MlflowException, match="TypeSafe evaluation failed with HTTP 404"),
+    ):
+        _try_invoke_gateway_typesafe_judge(
+            "gateway:/typesafe-endpoint",
+            instructions="Does {{ outputs }} answer {{ inputs }}?",
+            state={"inputs": "Question", "outputs": "Answer"},
+            feedback_value_type=bool,
+            assessment_name="quality",
+        )
+
+
+def test_gateway_chat_judge_with_unsupported_typesafe_options_skips_native_attempt():
+    with mock.patch("mlflow.genai.judges.typesafe.http_request") as request:
+        assert (
+            _try_invoke_gateway_typesafe_judge(
+                "gateway:/chat-endpoint",
+                instructions="Explain {{ outputs }}",
+                state={"outputs": "Answer"},
+                feedback_value_type=str,
+                assessment_name="quality",
+            )
+            is None
+        )
+    request.assert_not_called()
+
+
+def test_gateway_mixed_provider_runtime_invocation_is_rejected():
+    response = mock.Mock(status_code=400)
+    response.json.return_value = {
+        "detail": "Gateway judge endpoints cannot mix TypeSafe and chat model providers."
+    }
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+        pytest.raises(MlflowException, match="TypeSafe evaluation failed with HTTP 400"),
+    ):
+        _try_invoke_gateway_typesafe_judge(
+            "gateway:/mixed-endpoint",
+            instructions="Does {{ outputs }} answer {{ inputs }}?",
+            state={"inputs": "Question", "outputs": "Answer"},
+            feedback_value_type=bool,
+            assessment_name="quality",
+        )
+
+
+def test_gateway_invocation_uses_system_one_route_without_typesafe_api_key(monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    response = _response({"type": "noul", "noul": 0.8})
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds") as get_creds,
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+    ):
+        feedback = _invoke(model_uri="gateway:/jev-evaluator")
+
+    assert feedback.source.source_id == "gateway:/jev-evaluator"
+    request.assert_called_once_with(
+        host_creds=get_creds.return_value,
+        endpoint="/gateway/typesafe/v1/systemone",
+        method="POST",
+        max_retries=10,
+        backoff_factor=1,
+        backoff_jitter=0.1,
+        retry_codes=_RETRY_CODES,
+        timeout=mock.ANY,
+        raise_on_status=False,
+        json={
+            "model": "jev-evaluator",
+            "state": {"inputs": "Question", "outputs": "Answer"},
+            "questions": {
+                "evaluation": {
+                    "type": "noul",
+                    "instructions": "Does state.outputs answer state.inputs?",
+                }
+            },
+        },
+    )
+
+
+def test_make_judge_invokes_gateway_typesafe_through_public_api():
+    evaluation_response = _response({"type": "noul", "noul": 0.9})
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            return_value=evaluation_response,
+        ) as request,
+    ):
+        feedback = make_judge(
+            name="quality",
+            instructions="Does {{ outputs }} answer {{ inputs }}?",
+            model="gateway:/jev-evaluator",
+            feedback_value_type=bool,
+        )(inputs={"question": "Why?"}, outputs={"answer": "Because."})
+
+    assert feedback.value is True
+    request.assert_called_once()
+    assert request.call_args.kwargs["endpoint"] == "/gateway/typesafe/v1/systemone"
 
 
 def test_direct_bool_invocation_uses_native_evaluation(monkeypatch):
@@ -208,7 +374,7 @@ def test_invalid_literal_feedback_value_type(feedback_value_type, message):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"model_uri": "openai:/gpt-4"}, "Expected a typesafe:/ model URI"),
+        ({"model_uri": "openai:/gpt-4"}, "Expected a typesafe:/ or gateway:/ model URI"),
         ({"instructions": " "}, "instructions must be a non-empty string"),
         ({"instructions": "Evaluate {{ trace }}"}, "trace-based tool calling"),
         ({"state": []}, "state must be a dictionary"),

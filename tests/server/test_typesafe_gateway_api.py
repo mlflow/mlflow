@@ -9,7 +9,10 @@ import mlflow
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.gateway.config import GatewayRequestType
 from mlflow.gateway.guardrails import GuardrailViolation
-from mlflow.server.gateway_api import gateway_router, typesafe_passthrough_system_one
+from mlflow.server.gateway_api import (
+    gateway_router,
+    typesafe_passthrough_system_one,
+)
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
@@ -120,6 +123,113 @@ def test_system_one_route_credentials_tracing_and_budgets(endpoint):
     assert span.outputs == _response()
 
 
+@pytest.mark.asyncio
+async def test_system_one_rejects_chat_endpoint_for_runtime_fallback():
+    request = MagicMock()
+    request.state.cached_body = _request()
+    request.state.username = None
+    request.state.user_id = None
+    provider = MagicMock()
+    provider.passthrough = AsyncMock()
+    config = GatewayEndpointConfig(
+        endpoint_id="ep-chat",
+        endpoint_name="chat-evaluator",
+        models=[GatewayModelConfig("md-chat", "openai", "gpt-4o", {"api_key": "key"})],
+    )
+    with (
+        patch("mlflow.server.gateway_api._validate_store"),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
+            return_value=(provider, config),
+        ),
+        pytest.raises(HTTPException, match="does not use the TypeSafe provider") as exc,
+    ):
+        await typesafe_passthrough_system_one(request)
+
+    assert exc.value.status_code == 422
+    provider.passthrough.assert_not_called()
+
+
+def test_chat_route_rejects_typesafe_endpoint(endpoint):
+    app = FastAPI()
+    app.include_router(gateway_router)
+    with patch("mlflow.gateway.providers.typesafe.send_request") as send:
+        response = TestClient(app).post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={
+                "model": endpoint.endpoint.name,
+                "messages": [{"role": "user", "content": "Inspect this trace"}],
+            },
+        )
+
+    assert response.status_code == 400
+    assert "only support structured judge evaluation" in response.json()["detail"]
+    send.assert_not_called()
+
+
+def test_invocations_chat_route_rejects_typesafe_endpoint(endpoint):
+    app = FastAPI()
+    app.include_router(gateway_router)
+    with patch("mlflow.gateway.providers.typesafe.send_request") as send:
+        response = TestClient(app).post(
+            f"/gateway/{endpoint.endpoint.name}/mlflow/invocations",
+            json={"messages": [{"role": "user", "content": "Inspect this trace"}]},
+        )
+
+    assert response.status_code == 400
+    assert "only support structured judge evaluation" in response.json()["detail"]
+    send.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        (
+            "/gateway/openai/v1/chat/completions",
+            {"model": "{endpoint}", "messages": [{"role": "user", "content": "Hello"}]},
+        ),
+        ("/gateway/openai/v1/responses", {"model": "{endpoint}", "input": "Hello"}),
+        ("/gateway/openai/v1/responses/compact", {"model": "{endpoint}", "input": "Hello"}),
+        (
+            "/gateway/anthropic/v1/messages",
+            {
+                "model": "{endpoint}",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "max_tokens": 10,
+            },
+        ),
+        (
+            "/gateway/gemini/v1beta/models/{endpoint}:generateContent",
+            {"contents": [{"parts": [{"text": "Hello"}]}]},
+        ),
+        (
+            "/gateway/gemini/v1beta/models/{endpoint}:streamGenerateContent",
+            {"contents": [{"parts": [{"text": "Hello"}]}]},
+        ),
+        ("/gateway/{endpoint}/mlflow/invocations", {"input": "Hello"}),
+        ("/gateway/openai/v1/embeddings", {"model": "{endpoint}", "input": "Hello"}),
+        ("/gateway/proxy/{endpoint}/systemone", {"state": {}, "questions": {}}),
+    ],
+)
+def test_typed_passthrough_routes_reject_typesafe_endpoint(endpoint, path, body):
+    app = FastAPI()
+    app.include_router(gateway_router)
+    endpoint_name = endpoint.endpoint.name
+    request_body = {
+        key: value.format(endpoint=endpoint_name) if isinstance(value, str) else value
+        for key, value in body.items()
+    }
+    with patch("mlflow.gateway.providers.typesafe.send_request") as send:
+        response = TestClient(app).post(
+            path.format(endpoint=endpoint_name),
+            json=request_body,
+        )
+
+    assert response.status_code == 400
+    assert "only support structured judge evaluation" in response.json()["detail"]
+    send.assert_not_called()
+
+
 @pytest.mark.parametrize("endpoint", ["team-a"], indirect=True)
 def test_system_one_cannot_invoke_endpoint_in_another_workspace(endpoint):
     app = FastAPI()
@@ -223,7 +333,7 @@ async def test_system_one_rejects_mixed_model_providers(linkage):
             return_value=(provider, config),
         ),
     ):
-        with pytest.raises(HTTPException, match="requires all endpoint models") as exc:
+        with pytest.raises(HTTPException, match="cannot mix TypeSafe and chat") as exc:
             await typesafe_passthrough_system_one(request)
     assert exc.value.status_code == 400
     provider.passthrough.assert_not_called()

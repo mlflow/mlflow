@@ -726,6 +726,19 @@ def _get_guardrails_and_auth(
     return guardrails, extract_auth_headers(headers)
 
 
+def _reject_typesafe_incompatible_endpoint(endpoint_config: GatewayEndpointConfig) -> None:
+    uses_typesafe = [model.provider == Provider.TYPESAFE for model in endpoint_config.models]
+    if any(uses_typesafe):
+        if all(uses_typesafe):
+            detail = (
+                "TypeSafe Gateway endpoints only support structured judge evaluation through "
+                "the System One route."
+            )
+        else:
+            detail = "Gateway judge endpoints cannot mix TypeSafe and chat model providers."
+        raise HTTPException(status_code=400, detail=detail)
+
+
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
 @_record_gateway_invocation(GatewayInvocationType.MLFLOW_INVOCATIONS)
@@ -764,6 +777,7 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
+        _reject_typesafe_incompatible_endpoint(endpoint_config)
 
         if payload.stream:
             # Post-LLM guardrails are not applied to streaming responses.
@@ -850,6 +864,7 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, endpoint_type
         )
+        _reject_typesafe_incompatible_endpoint(endpoint_config)
 
         return await maybe_traced_gateway_call(
             provider.embeddings,
@@ -905,6 +920,7 @@ async def chat_completions(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1052,6 +1068,7 @@ async def openai_passthrough_chat(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1156,6 +1173,7 @@ async def openai_passthrough_embeddings(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1219,11 +1237,16 @@ async def typesafe_passthrough_system_one(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    if any(model.provider != Provider.TYPESAFE for model in endpoint_config.models):
+    uses_typesafe = [model.provider == Provider.TYPESAFE for model in endpoint_config.models]
+    if not any(uses_typesafe):
+        raise HTTPException(
+            status_code=422,
+            detail="Gateway endpoint does not use the TypeSafe provider.",
+        )
+    if not all(uses_typesafe):
         raise HTTPException(
             status_code=400,
-            detail="TypeSafe System One requires all endpoint models, including fallbacks, "
-            "to use the TypeSafe provider.",
+            detail="Gateway judge endpoints cannot mix TypeSafe and chat model providers.",
         )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
@@ -1295,6 +1318,7 @@ async def _openai_responses_passthrough_unary(
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1373,6 +1397,7 @@ async def openai_passthrough_responses(request: Request):
         provider, endpoint_config = _create_provider_from_endpoint_name(
             store, endpoint_name, EndpointType.LLM_V1_CHAT
         )
+        _reject_typesafe_incompatible_endpoint(endpoint_config)
         _set_gateway_telemetry_state(request, endpoint_config)
         check_budget_limit(
             store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1496,6 +1521,7 @@ async def anthropic_passthrough_messages(request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1607,6 +1633,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1684,6 +1711,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)
@@ -1766,6 +1794,7 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    _reject_typesafe_incompatible_endpoint(endpoint_config)
     # The caller controls the upstream path here, so guard even provider-default base URLs.
     _enable_upstream_ssrf_protection(endpoint_config, raw_proxy=True)
     _set_gateway_telemetry_state(request, endpoint_config)
