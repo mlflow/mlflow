@@ -291,6 +291,8 @@ def test_invalid_choice_response(changes, direct_request):
 def test_gateway_uses_tracking_auth_and_workspace(monkeypatch, auth):
     monkeypatch.setenv("MLFLOW_GATEWAY_URI", "https://mlflow.example.com/prefix")
     monkeypatch.setenv("TYPESAFE_API_KEY", "must-not-forward")
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
     if auth == "basic":
         monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
         monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "password")
@@ -298,6 +300,9 @@ def test_gateway_uses_tracking_auth_and_workspace(monkeypatch, auth):
         monkeypatch.setenv("MLFLOW_TRACKING_TOKEN", "tracking-token")
     with (
         WorkspaceContext("team-a"),
+        mock.patch(
+            "mlflow.utils.credentials._read_mlflow_creds_from_file", return_value=(None, None)
+        ),
         mock.patch("mlflow.utils.rest_utils._get_http_response_with_retries") as request,
     ):
         request.return_value.status_code = 200
