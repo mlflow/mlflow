@@ -1204,7 +1204,9 @@ def _make_dedup_response(
 def test_cluster_and_identify_limits_combined_refined_issues(
     severities, max_issues, expected_indices, empty_refinement, caplog, monkeypatch
 ):
-    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    logger = logging.getLogger("mlflow.genai.discovery.pipeline")
+    monkeypatch.setattr(logger, "handlers", [caplog.handler])
+    monkeypatch.setattr(logger, "propagate", False)
     labels = [f"Tool {i} failed" for i in range(5)]
     analyses = [
         _ConversationAnalysis(full_rationale=label, affected_trace_ids=[f"trace-{i}"])
@@ -1283,7 +1285,9 @@ def test_cluster_and_identify_limits_combined_refined_issues(
 def test_cluster_and_identify_limits_rejected_singleton_merge(
     severities, max_issues, expected_indices, caplog, monkeypatch
 ):
-    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    logger = logging.getLogger("mlflow.genai.discovery.pipeline")
+    monkeypatch.setattr(logger, "handlers", [caplog.handler])
+    monkeypatch.setattr(logger, "propagate", False)
     analyses = [
         _ConversationAnalysis(full_rationale=f"Failure {i}", affected_trace_ids=[f"trace-{i}"])
         for i in range(3)
