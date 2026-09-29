@@ -492,6 +492,142 @@ def test_create_multipart_upload(s3_artifact_root):
     assert uploads[0]["UploadId"] == create.upload_id
 
 
+def test_create_multipart_upload_preserves_content_metadata_and_encryption_headers(
+    tmp_path, monkeypatch
+):
+    local_file = tmp_path / "model.json.gz"
+    local_file.write_bytes(b"content")
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "kms-key",
+        }),
+    )
+    repo = S3ArtifactRepository("s3://bucket/root")
+    s3_client = mock.Mock()
+    s3_client.meta.service_model.operation_model.return_value.input_shape.members = {
+        "ContentType",
+        "ContentEncoding",
+        "ServerSideEncryption",
+        "SSEKMSKeyId",
+    }
+    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
+    s3_client.generate_presigned_url.return_value = "https://example.com/upload"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
+        response = repo.create_multipart_upload(str(local_file))
+
+    s3_client.create_multipart_upload.assert_called_once_with(
+        Bucket="bucket",
+        Key="root/model.json.gz",
+        ContentType="application/json",
+        ContentEncoding="gzip",
+        ServerSideEncryption="aws:kms",
+        SSEKMSKeyId="kms-key",
+    )
+    s3_client.generate_presigned_url.assert_called_once_with(
+        "upload_part",
+        Params={
+            "Bucket": "bucket",
+            "Key": "root/model.json.gz",
+            "PartNumber": 1,
+            "UploadId": "upload-id",
+        },
+    )
+    assert response.credentials[0].headers == {}
+
+
+def test_create_multipart_upload_returns_required_sse_customer_headers(tmp_path, monkeypatch):
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"content")
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "customer-key",
+            "SSECustomerKeyMD5": "customer-key-md5",
+        }),
+    )
+    repo = S3ArtifactRepository("s3://bucket/root")
+    s3_client = mock.Mock()
+    s3_client.meta.service_model.operation_model.return_value.input_shape.members = {
+        "ContentType",
+        "SSECustomerAlgorithm",
+        "SSECustomerKey",
+        "SSECustomerKeyMD5",
+    }
+    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
+    s3_client.generate_presigned_url.return_value = "https://example.com/upload"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
+        response = repo.create_multipart_upload(str(local_file))
+
+    s3_client.generate_presigned_url.assert_called_once_with(
+        "upload_part",
+        Params={
+            "Bucket": "bucket",
+            "Key": "root/artifact.bin",
+            "PartNumber": 1,
+            "UploadId": "upload-id",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "customer-key",
+            "SSECustomerKeyMD5": "customer-key-md5",
+        },
+    )
+    assert response.credentials[0].headers == {
+        "x-amz-server-side-encryption-customer-algorithm": "AES256",
+        "x-amz-server-side-encryption-customer-key": "customer-key",
+        "x-amz-server-side-encryption-customer-key-MD5": "customer-key-md5",
+    }
+
+
+def test_create_multipart_upload_normalizes_sse_customer_key_for_part_signature(
+    tmp_path, monkeypatch
+):
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"content")
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "customer-key",
+        }),
+    )
+    repo = S3ArtifactRepository("s3://bucket/root")
+    s3_client = mock.Mock()
+    s3_client.meta.service_model.operation_model.return_value.input_shape.members = {
+        "SSECustomerAlgorithm",
+        "SSECustomerKey",
+        "SSECustomerKeyMD5",
+    }
+    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
+    s3_client.generate_presigned_url.return_value = "https://example.com/upload"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
+        response = repo.create_multipart_upload(str(local_file))
+
+    expected_key = "Y3VzdG9tZXIta2V5"
+    expected_md5 = "xUvIiqGwjknkCReLkVcZIw=="
+    s3_client.generate_presigned_url.assert_called_once_with(
+        "upload_part",
+        Params={
+            "Bucket": "bucket",
+            "Key": "root/artifact.bin",
+            "PartNumber": 1,
+            "UploadId": "upload-id",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": expected_key,
+            "SSECustomerKeyMD5": expected_md5,
+        },
+    )
+    assert response.credentials[0].headers == {
+        "x-amz-server-side-encryption-customer-algorithm": "AES256",
+        "x-amz-server-side-encryption-customer-key": expected_key,
+        "x-amz-server-side-encryption-customer-key-MD5": expected_md5,
+    }
+
+
 def test_complete_multipart_upload(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     local_file = "local_file"
@@ -719,16 +855,19 @@ def test_list_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatc
     assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
 
 
-def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
+def test_multipart_upload_with_bucket_owner(monkeypatch):
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
+    repo_with_owner = S3ArtifactRepository("s3://bucket/root")
 
     mock_s3 = mock.Mock()
+    mock_s3.meta.service_model.operation_model.return_value.input_shape.members = {
+        "ExpectedBucketOwner"
+    }
     mock_s3.create_multipart_upload.return_value = {"UploadId": "test-upload-id"}
     mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
 
     with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
-        repo_with_owner.create_multipart_upload("local_file", num_parts=2)
+        response = repo_with_owner.create_multipart_upload("local_file", num_parts=2)
 
     mock_s3.create_multipart_upload.assert_called_once()
     call_kwargs = mock_s3.create_multipart_upload.call_args[1]
@@ -739,6 +878,10 @@ def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
         params = call[1]["Params"]
         assert "ExpectedBucketOwner" in params
         assert params["ExpectedBucketOwner"] == "123456789012"
+    assert all(
+        credential.headers == {"x-amz-expected-bucket-owner": "123456789012"}
+        for credential in response.credentials
+    )
 
 
 def test_delete_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):

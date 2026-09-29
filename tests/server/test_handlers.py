@@ -286,7 +286,7 @@ from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.server_info import (
-    SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED,
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_STORE_TYPE,
@@ -504,17 +504,17 @@ def test_server_info_multipart_capabilities_disabled_by_default():
         data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
-        assert data[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is False
+        assert data[SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY] is False
 
 
 def test_server_info_advertises_presigned_only_mode(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
     with app.test_client() as c:
         response = c.get("/api/3.0/mlflow/server-info")
 
     assert response.status_code == 200
-    assert response.get_json()[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is True
+    assert response.get_json()[SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY] is True
 
 
 def test_server_info_artifacts_only_skips_tracking_store_and_advertises_artifact_capabilities(
@@ -537,7 +537,7 @@ def test_server_info_artifacts_only_skips_tracking_store_and_advertises_artifact
 
     monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
     monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
     with (
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store,
@@ -555,7 +555,7 @@ def test_server_info_artifacts_only_skips_tracking_store_and_advertises_artifact
     assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
     assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is True
     assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is True
-    assert data[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is True
+    assert data[SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY] is True
     mock_get_tracking_store.assert_not_called()
     mock_get_artifact_repo.assert_called_once()
 
@@ -5355,7 +5355,7 @@ def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_pa
 
 
 def test_get_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/run-artifacts"
     mock_artifact_repo = mock.MagicMock()
@@ -5379,7 +5379,7 @@ def test_get_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch
 
 
 def test_get_model_version_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
     artifact_uri = "s3://bucket/model-artifacts"
     mock_artifact_repo = mock.MagicMock()
 
@@ -5410,7 +5410,7 @@ def test_get_model_version_artifact_rejects_legacy_download_in_presigned_only_mo
 
 
 def test_get_logged_model_artifact_rejects_legacy_download_in_presigned_only_mode(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
     artifact_uri = "s3://bucket/logged-model-artifacts"
     mock_logged_model = mock.MagicMock(artifact_location=artifact_uri)
     mock_artifact_repo = mock.MagicMock()
@@ -5570,7 +5570,7 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
 def test_download_artifact_rejects_legacy_transfer_in_presigned_only_mode(
     enable_serve_artifacts, monkeypatch
 ):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
     with app.test_request_context(method="GET"):
         response = _download_artifact("model.pkl")
@@ -5606,7 +5606,7 @@ def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_ar
 def test_upload_artifact_rejects_legacy_transfer_in_presigned_only_mode(
     enable_serve_artifacts, monkeypatch
 ):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
     with app.test_request_context(method="PUT", data=b"legacy upload"):
         response = _upload_artifact("model.pkl")
@@ -6683,7 +6683,7 @@ def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
 
 
 def test_upload_artifact_handler_rejects_legacy_transfer_in_presigned_only_mode(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
     with (
         app.test_request_context(

@@ -12,7 +12,7 @@ from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
-    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
 )
 from mlflow.exceptions import MlflowException
@@ -210,14 +210,14 @@ def test_run_server_propagates_presigned_only_mode(mock_exec_cmd, monkeypatch):
             default_artifact_root="",
             serve_artifacts=True,
             artifacts_only=False,
-            artifacts_only_presigned=True,
+            artifacts_presigned_only=True,
             artifacts_destination="s3://bucket",
             host="",
             port="",
         )
 
     assert (
-        mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ARTIFACTS_ONLY_PRESIGNED.name] == "true"
+        mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name] == "true"
     )
 
 

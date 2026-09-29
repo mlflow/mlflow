@@ -26,12 +26,74 @@ from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    ServerInfoResponse,
+)
 
 
 @pytest.mark.parametrize("scheme", ["http", "https"])
 def test_artifact_uri_factory(scheme):
     repo = get_artifact_repository(f"{scheme}://test.com")
     assert isinstance(repo, HttpArtifactRepository)
+
+
+def test_canonical_http_artifact_uri_discovers_server_capabilities(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/mlflow/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+    response = ServerInfoResponse(
+        status_code=200,
+        data={
+            SERVER_INFO_MULTIPART_UPLOADS_ENABLED: True,
+            SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: True,
+            SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: True,
+        },
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info", return_value=response
+    ) as mock_fetch_server_info:
+        assert repo._is_multipart_upload_enabled() is True
+        assert repo._is_multipart_download_enabled() is True
+        assert repo._is_artifacts_presigned_only() is True
+
+    host_creds = mock_fetch_server_info.call_args.args[0]
+    assert host_creds.host == "https://artifacts.example.com/mlflow"
+    mock_fetch_server_info.assert_called_once()
+
+
+def test_non_artifact_http_uri_does_not_probe_server_info(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = HttpArtifactRepository("https://example.com/files")
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info"
+    ) as mock_fetch_server_info:
+        assert repo._is_multipart_upload_enabled() is False
+
+    mock_fetch_server_info.assert_not_called()
+
+
+def test_non_artifact_http_uri_ignores_forced_multipart_download(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    repo = HttpArtifactRepository("https://example.com/files")
+
+    with (
+        mock.patch.object(repo, "_get_presigned_download_url") as mock_get_presigned,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        repo._download_file("artifact.txt", str(tmp_path / "artifact.txt"))
+
+    mock_get_presigned.assert_not_called()
+    mock_http_request.assert_called_once_with(repo._host_creds, "/artifact.txt", "GET", stream=True)
 
 
 class MockResponse:
@@ -68,7 +130,9 @@ class FileObjectMatcher:
 
 
 @pytest.fixture
-def http_artifact_repo():
+def http_artifact_repo(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "false")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "false")
     artifact_uri = "http://test.com/api/2.0/mlflow-artifacts/artifacts"
     return HttpArtifactRepository(artifact_uri)
 
@@ -130,7 +194,7 @@ def test_log_artifact(
             http_artifact_repo.log_artifact(file_path, artifact_path)
 
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
-    # Multipart mode applies to every artifact, including files below the former threshold.
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", "1")
     with mock.patch.object(
         http_artifact_repo, "_try_multipart_upload", return_value=200
     ) as mock_mpu:
@@ -203,13 +267,14 @@ def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_rep
     mock_put.assert_called_once()
 
 
-def test_empty_file_uses_one_multipart_upload_part(http_artifact_repo, tmp_path, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+def test_empty_file_uses_one_multipart_upload_part(http_artifact_repo, tmp_path):
     file_path = tmp_path / "empty.bin"
     file_path.write_bytes(b"")
     credential = MultipartUploadCredential(url="url", part_number=1, headers={})
 
     with (
+        mock.patch.object(http_artifact_repo, "_is_multipart_upload_enabled", return_value=True),
+        mock.patch.object(http_artifact_repo, "_is_artifacts_presigned_only", return_value=True),
         mock.patch.object(
             http_artifact_repo,
             "create_multipart_upload",
@@ -692,12 +757,12 @@ def test_download_file_multipart_success_does_not_call_proxy_download(
             ),
         ),
         mock.patch.object(mlflow_artifact_repo_for_download, "_multipart_download"),
-        mock.patch.object(HttpArtifactRepository, "_download_file") as mock_parent_download,
+        mock.patch("mlflow.store.artifact.http_artifact_repo.http_request") as mock_proxy_download,
     ):
         file_path = tmp_path / "file.bin"
         mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
 
-        mock_parent_download.assert_not_called()
+        mock_proxy_download.assert_not_called()
 
 
 def test_download_file_fallback_when_presigned_not_supported(
@@ -719,6 +784,11 @@ def test_download_file_fallback_when_presigned_not_supported(
             mlflow_artifact_repo_for_download,
             "_get_presigned_download_url",
             side_effect=HTTPError(response=mock_response),
+        ),
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_is_artifacts_presigned_only",
+            return_value=False,
         ),
         mock.patch(
             "mlflow.store.artifact.http_artifact_repo.http_request",

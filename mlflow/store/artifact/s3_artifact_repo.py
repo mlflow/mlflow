@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import logging
 import os
@@ -62,6 +64,7 @@ _S3_PARAM_TO_HEADER = {
     "ContentDisposition": "Content-Disposition",
     "ContentEncoding": "Content-Encoding",
     "ContentLanguage": "Content-Language",
+    "ExpectedBucketOwner": "x-amz-expected-bucket-owner",
     "Expires": "Expires",
     "GrantFullControl": "x-amz-grant-full-control",
     "GrantRead": "x-amz-grant-read",
@@ -71,6 +74,7 @@ _S3_PARAM_TO_HEADER = {
     "ObjectLockMode": "x-amz-object-lock-mode",
     "ObjectLockRetainUntilDate": "x-amz-object-lock-retain-until-date",
     "RequestPayer": "x-amz-request-payer",
+    "ChecksumAlgorithm": "x-amz-sdk-checksum-algorithm",
     "SSECustomerAlgorithm": "x-amz-server-side-encryption-customer-algorithm",
     "SSECustomerKey": "x-amz-server-side-encryption-customer-key",
     "SSECustomerKeyMD5": "x-amz-server-side-encryption-customer-key-MD5",
@@ -81,6 +85,31 @@ _S3_PARAM_TO_HEADER = {
     "Tagging": "x-amz-tagging",
     "WebsiteRedirectLocation": "x-amz-website-redirect-location",
 }
+
+_S3_UPLOAD_PART_ARGS = {
+    "ChecksumAlgorithm",
+    "ExpectedBucketOwner",
+    "RequestPayer",
+    "SSECustomerAlgorithm",
+    "SSECustomerKey",
+    "SSECustomerKeyMD5",
+}
+
+
+def _normalize_sse_customer_upload_part_args(upload_part_args):
+    """Match Botocore's SSE-C header transformation before signing upload parts."""
+    if "SSECustomerKey" not in upload_part_args or "SSECustomerKeyMD5" in upload_part_args:
+        return upload_part_args
+
+    key = upload_part_args["SSECustomerKey"]
+    key_bytes = key.encode("utf-8") if isinstance(key, str) else key
+    return {
+        **upload_part_args,
+        "SSECustomerKey": base64.b64encode(key_bytes).decode("utf-8"),
+        "SSECustomerKeyMD5": base64.b64encode(
+            hashlib.md5(key_bytes, usedforsecurity=False).digest()
+        ).decode("utf-8"),
+    }
 
 
 def _get_utcnow_timestamp():
@@ -334,6 +363,10 @@ class S3ArtifactRepository(
             return None
 
     def _upload_file(self, s3_client, local_file, bucket, key):
+        extra_args = self._get_upload_extra_args(local_file)
+        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+
+    def _get_upload_extra_args(self, local_file):
         extra_args = {}
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
@@ -344,7 +377,7 @@ class S3ArtifactRepository(
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
-        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+        return extra_args
 
     def log_artifact(self, local_file, artifact_path=None):
         """
@@ -591,12 +624,24 @@ class S3ArtifactRepository(
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
+        upload_extra_args = self._get_upload_extra_args(local_file)
+        create_allowed_args = s3_client.meta.service_model.operation_model(
+            "CreateMultipartUpload"
+        ).input_shape.members
         create_response = s3_client.create_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
-            **self._bucket_owner_params,
+            **{
+                key: value for key, value in upload_extra_args.items() if key in create_allowed_args
+            },
         )
         upload_id = create_response["UploadId"]
+        upload_part_args = _normalize_sse_customer_upload_part_args({
+            key: value for key, value in upload_extra_args.items() if key in _S3_UPLOAD_PART_ARGS
+        })
+        upload_part_headers = {
+            _S3_PARAM_TO_HEADER[key]: str(value) for key, value in upload_part_args.items()
+        }
         credentials = []
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
             url = s3_client.generate_presigned_url(
@@ -606,14 +651,14 @@ class S3ArtifactRepository(
                     "Key": dest_path,
                     "PartNumber": i,
                     "UploadId": upload_id,
-                    **self._bucket_owner_params,
+                    **upload_part_args,
                 },
             )
             credentials.append(
                 MultipartUploadCredential(
                     url=url,
                     part_number=i,
-                    headers={},
+                    headers=upload_part_headers,
                 )
             )
         return CreateMultipartUploadResponse(

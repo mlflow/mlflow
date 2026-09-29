@@ -94,18 +94,17 @@ def artifacts_only_config_validation(
         )
 
 
-def artifacts_only_presigned_config_validation(
-    artifacts_only_presigned: bool,
+def artifacts_presigned_only_config_validation(
+    artifacts_presigned_only: bool,
     serve_artifacts: bool,
-    artifacts_only: bool,
     artifacts_destination: str,
 ) -> None:
-    if not artifacts_only_presigned:
+    if not artifacts_presigned_only:
         return
-    if not (serve_artifacts or artifacts_only):
+    if not serve_artifacts:
         raise click.UsageError(
-            "--artifacts-only-presigned requires artifact serving to be enabled with "
-            "--serve-artifacts or --artifacts-only."
+            "--artifacts-presigned-only requires artifact serving to be enabled; "
+            "--no-serve-artifacts is not supported."
         )
 
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
@@ -119,7 +118,7 @@ def artifacts_only_presigned_config_validation(
         missing.append("presigned downloads")
     if missing:
         raise click.UsageError(
-            "--artifacts-only-presigned requires an artifacts destination that supports "
+            "--artifacts-presigned-only requires an artifacts destination that supports "
             + " and ".join(missing)
             + f" (got {artifacts_destination!r})."
         )

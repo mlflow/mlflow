@@ -1,4 +1,4 @@
-from mlflow.environment_variables import MLFLOW_ARTIFACTS_ONLY_PRESIGNED
+from mlflow.environment_variables import MLFLOW_ARTIFACTS_PRESIGNED_ONLY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_CONFLICT
 
@@ -15,10 +15,10 @@ _PRESIGNED_ONLY_DOWNLOAD_MESSAGE = (
 
 
 def reject_legacy_artifact_upload() -> None:
-    if MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get():
+    if MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get():
         raise MlflowException(_PRESIGNED_ONLY_UPLOAD_MESSAGE, error_code=RESOURCE_CONFLICT)
 
 
 def reject_legacy_artifact_download() -> None:
-    if MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get():
+    if MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get():
         raise MlflowException(_PRESIGNED_ONLY_DOWNLOAD_MESSAGE, error_code=RESOURCE_CONFLICT)

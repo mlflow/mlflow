@@ -1,8 +1,11 @@
 import logging
 import os
 import posixpath
+import threading
 import time
 from concurrent.futures import as_completed
+from http import HTTPStatus
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from requests import HTTPError
@@ -15,10 +18,13 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_S3_IGNORE_TLS,
 )
 from mlflow.exceptions import (
@@ -42,9 +48,18 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
+    SERVER_INFO_ENDPOINT,
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    fetch_server_info,
+)
 from mlflow.utils.uri import validate_path_is_safe
 
 _logger = logging.getLogger(__name__)
+
+_ARTIFACTS_SERVICE_ROOT = "/api/2.0/mlflow-artifacts/artifacts"
 
 
 class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -56,6 +71,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         # inherited thread_pool to avoid deadlocks when a file-download task waits on
         # chunk-download tasks. Not explicitly shut down (consistent with thread_pool).
         self._chunk_thread_pool = None
+        self._server_capabilities: dict[str, bool] | None = None
+        self._server_capabilities_lock = threading.Lock()
 
     @property
     def chunk_thread_pool(self):
@@ -69,10 +86,78 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def _is_multipart_upload_enabled(self):
         """Whether presigned multipart upload should be attempted. Subclasses may override."""
-        return MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+        if MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.is_set():
+            return MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+        return self._fetch_server_capabilities().get(SERVER_INFO_MULTIPART_UPLOADS_ENABLED, False)
+
+    def _is_multipart_download_enabled(self):
+        if MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.is_set():
+            return MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
+        return self._fetch_server_capabilities().get(SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED, False)
+
+    def _is_artifacts_presigned_only(self):
+        return self._fetch_server_capabilities().get(SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY, False)
+
+    def _artifact_server_base_uri(self):
+        """Return the deployment root for canonical MLflow artifact-service URLs."""
+        parsed = urlparse(self.artifact_uri)
+        prefix, separator, suffix = parsed.path.partition(_ARTIFACTS_SERVICE_ROOT)
+        if not separator or (suffix and not suffix.startswith("/")):
+            return None
+        return urlunparse((parsed.scheme, parsed.netloc, prefix.rstrip("/"), "", "", ""))
+
+    def _fetch_server_capabilities(self):
+        """Fetch and cache artifact capabilities for canonical MLflow service URLs."""
+        if self._server_capabilities is not None:
+            return self._server_capabilities
+
+        with self._server_capabilities_lock:
+            if self._server_capabilities is not None:
+                return self._server_capabilities
+
+            base_uri = self._artifact_server_base_uri()
+            if base_uri is None:
+                self._server_capabilities = {}
+                return self._server_capabilities
+
+            try:
+                response = fetch_server_info(get_default_host_creds(base_uri))
+                if response.status_code == 200:
+                    data = response.data
+                    self._server_capabilities = {
+                        SERVER_INFO_MULTIPART_UPLOADS_ENABLED: data.get(
+                            SERVER_INFO_MULTIPART_UPLOADS_ENABLED, False
+                        ),
+                        SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: data.get(
+                            SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED, False
+                        ),
+                        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: data.get(
+                            SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY, False
+                        ),
+                    }
+                else:
+                    _logger.debug(
+                        "Failed to fetch artifact capabilities from %s (status=%s); "
+                        "defaulting to disabled.",
+                        SERVER_INFO_ENDPOINT,
+                        response.status_code,
+                    )
+                    self._server_capabilities = {}
+            except Exception:
+                _logger.debug(
+                    "Failed to fetch artifact capabilities from %s; defaulting to disabled.",
+                    SERVER_INFO_ENDPOINT,
+                    exc_info=True,
+                )
+                self._server_capabilities = {}
+
+            return self._server_capabilities
 
     def _should_multipart_upload(self, local_file):
-        return self._is_multipart_upload_enabled()
+        return self._is_multipart_upload_enabled() and (
+            os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+            or self._is_artifacts_presigned_only()
+        )
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
@@ -82,10 +167,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 self._try_multipart_upload(local_file, artifact_path)
                 return
             except _UnsupportedMultipartUploadException:
-                # Preserve the legacy fallback only when multipart was explicitly requested by
-                # the client. If the server advertised multipart support, a 501 response is a
-                # server-side inconsistency and falling back would violate presigned-only mode.
-                if not MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.is_set():
+                if self._is_artifacts_presigned_only():
                     raise
 
         file_name = os.path.basename(local_file)
@@ -144,7 +226,38 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return sorted(file_infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        """Download a file by streaming through the tracking server."""
+        """Download directly through a presigned URL when supported, otherwise proxy it."""
+        # The presigned endpoint is part of MLflow's canonical artifact-service API.
+        # A generic HTTP artifact repository must continue to stream from its configured URL,
+        # even when the process-wide multipart-download override is enabled.
+        if self._artifact_server_base_uri() is not None and self._is_multipart_download_enabled():
+            try:
+                presigned_response = self._get_presigned_download_url(remote_file_path)
+                file_size = presigned_response.file_size
+                if file_size is not None:
+                    chunk_size = MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get()
+                    self._multipart_download(
+                        presigned_response=presigned_response,
+                        remote_file_path=remote_file_path,
+                        local_path=local_path,
+                        file_size=file_size,
+                        chunk_size=chunk_size,
+                    )
+                    return
+            except HTTPError as e:
+                if (
+                    not self._is_artifacts_presigned_only()
+                    and e.response is not None
+                    and e.response.status_code in (HTTPStatus.NOT_IMPLEMENTED, HTTPStatus.NOT_FOUND)
+                ):
+                    _logger.warning(
+                        "Presigned download is unavailable (HTTP %s). Falling back to proxied "
+                        "download.",
+                        e.response.status_code,
+                    )
+                else:
+                    raise
+
         endpoint = posixpath.join("/", remote_file_path)
         resp = http_request(self._host_creds, endpoint, "GET", stream=True)
         augmented_raise_for_status(resp)

@@ -226,9 +226,9 @@ for permanently removing Run metadata and artifacts for deleted runs.
 
 ## Presigned transfers for proxied artifact access
 
-The Tracking Server supports uploading artifacts using multipart upload for proxied artifact access.
-Recent clients automatically use this flow for every artifact, regardless of file size, when the server advertises
-that the configured artifact store supports it. You can also explicitly enable it on the client:
+The Tracking Server supports uploading large artifacts using multipart upload for proxied artifact access.
+Recent clients automatically use this flow when the server advertises that the configured artifact store supports it.
+You can also explicitly enable it on the client:
 
 ```bash
 export MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD=true
@@ -239,9 +239,8 @@ generate presigned urls for each part, and let the client upload the parts direc
 Once all parts are uploaded, the Tracking Server will complete the multipart upload.
 None of the data will pass through the Tracking Server.
 
-When multipart upload is explicitly enabled against an older server that does not support it, the client falls back to
-the legacy proxied upload. If the server advertises support but multipart upload fails, an exception is thrown instead
-of sending artifact bytes through the Tracking Server.
+If multipart upload is unavailable at runtime, the client falls back to the legacy proxied upload unless the server
+advertises that presigned-only mode is enabled.
 
 MLflow supports multipart upload for the following storage for proxied artifact access:
 
@@ -250,24 +249,29 @@ MLflow supports multipart upload for the following storage for proxied artifact 
 
 You can configure the following environment variables:
 
+- `MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE` - Specifies the minimum file size in bytes to use multipart upload
+  when logging artifacts (Default: 500 MB). Presigned-only servers bypass this threshold.
 - `MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE` - Specifies the chunk size in bytes to use when performing multipart upload
   (Default: 100 MB)
 
 ### Presigned-only server mode
 
-To guarantee that artifact bytes never pass through the Tracking Server, start it with
-`--artifacts-only-presigned` and a supported artifact destination:
+To require presigned transfers for run and model artifacts served by the legacy artifact endpoints,
+start the Tracking Server with `--artifacts-presigned-only` and a supported artifact destination:
 
 ```bash
 mlflow server \
   --artifacts-destination s3://my-bucket \
-  --artifacts-only-presigned
+  --artifacts-presigned-only
 ```
 
-You can also set `MLFLOW_ARTIFACTS_ONLY_PRESIGNED=true`. In this mode, the legacy proxied upload and download
+You can also set `MLFLOW_ARTIFACTS_PRESIGNED_ONLY=true`. In this mode, the legacy proxied upload and download
 byte-stream endpoints return HTTP 409 with instructions to upgrade the MLflow client. Listing and deleting artifacts
 remain available through the Tracking Server. The server validates at startup that the artifact destination supports
 both presigned multipart uploads and downloads. Currently, Amazon S3 is supported.
+
+This mode applies to run and model artifacts served by the legacy artifact endpoints. Trace attachments and
+artifact-backed trace data are not yet covered and can still pass through the Tracking Server.
 
 ## Presigned URLs for direct artifact downloads \{#presigned-download-urls}
 
