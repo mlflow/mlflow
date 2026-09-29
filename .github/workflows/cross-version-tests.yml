@@ -11,6 +11,8 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
       - ".claude/**"
   workflow_dispatch:
     inputs:
