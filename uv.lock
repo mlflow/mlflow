@@ -4542,6 +4542,7 @@ databricks = [
     { name = "google-cloud-storage" },
 ]
 db = [
+    { name = "psycopg", extra = ["binary"] },
     { name = "psycopg2-binary" },
     { name = "pymssql" },
     { name = "pymysql" },
@@ -4772,6 +4773,7 @@ requires-dist = [
     { name = "pandas", specifier = "<4" },
     { name = "prometheus-flask-exporter", marker = "extra == 'extras'" },
     { name = "protobuf", specifier = ">=3.12.0,<8" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'db'" },
     { name = "psycopg2-binary", marker = "extra == 'db'" },
     { name = "pyarrow", specifier = ">=4.0.0,<26" },
     { name = "pyarrow", marker = "extra == 'extras'" },
