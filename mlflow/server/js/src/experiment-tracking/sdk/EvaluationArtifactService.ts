@@ -1,5 +1,6 @@
 import { getArtifactChunkedText, getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
 import type { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types';
+import { fetchRunArtifactWithPresignedUrl } from '../utils/PresignedArtifactUtils';
 
 // Reflects structure logged by mlflow.log_table()
 export interface RawEvaluationArtifact {
@@ -18,7 +19,7 @@ export const fetchEvaluationTableArtifact = async (
 ): Promise<EvaluationArtifactTable> => {
   const fullArtifactSrcPath = getArtifactLocationUrl(artifactPath, runUuid);
 
-  return getArtifactChunkedText(fullArtifactSrcPath)
+  return fetchRunArtifactWithPresignedUrl(runUuid, artifactPath, fullArtifactSrcPath, getArtifactChunkedText)
     .then((artifactContent) => {
       try {
         return JSON.parse(artifactContent);
