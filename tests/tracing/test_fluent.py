@@ -33,6 +33,7 @@ from mlflow.entities.trace_location import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import NOT_FOUND, RESOURCE_DOES_NOT_EXIST, RESOURCE_EXHAUSTED
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
@@ -1100,6 +1101,31 @@ def test_get_trace():
     with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
         assert mlflow.get_trace("not_found") is None
         mock_logger.warning.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("error_code", "expect_retry"),
+    [(RESOURCE_EXHAUSTED, False), (NOT_FOUND, True), (RESOURCE_DOES_NOT_EXIST, True)],
+)
+def test_get_trace_flush_retry_depends_on_error(error_code, expect_retry, mock_client, caplog):
+    trace_id = "tr-test"
+    error = MlflowException("Trace lookup failed: backend error", error_code=error_code)
+    trace = Trace(info=create_test_trace_info(trace_id), data=TraceData([]))
+    mock_client.get_trace.side_effect = [error, trace]
+
+    with mock.patch("mlflow.tracing.fluent._flush_pending_async_trace_writes") as flush:
+        result = mlflow.get_trace(trace_id, flush=True)
+
+    if expect_retry:
+        assert result is trace
+        flush.assert_called_once_with()
+        assert mock_client.get_trace.call_args_list == [mock.call(trace_id), mock.call(trace_id)]
+        assert "Failed to get trace from the tracking store" not in caplog.text
+    else:
+        assert result is None
+        flush.assert_not_called()
+        mock_client.get_trace.assert_called_once_with(trace_id)
+        assert f"Failed to get trace from the tracking store: {error}" in caplog.text
 
 
 def test_test_search_traces_empty(mock_client):

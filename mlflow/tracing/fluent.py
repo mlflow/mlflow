@@ -24,6 +24,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_EXHAUSTED, ErrorCode
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.client import TracingClient
@@ -930,7 +931,8 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     except MlflowException as e:
         exc = e
 
-    if flush:
+    # Flushing pending writes cannot resolve warehouse capacity or rate-limit errors.
+    if flush and exc.error_code != ErrorCode.Name(RESOURCE_EXHAUSTED):
         _flush_pending_async_trace_writes()
         exc = None
         try:
