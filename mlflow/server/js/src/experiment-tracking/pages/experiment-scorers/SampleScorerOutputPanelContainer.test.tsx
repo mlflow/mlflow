@@ -8,7 +8,7 @@ import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { LLM_TEMPLATE, type EvaluateTracesParams } from './types';
+import { LLM_TEMPLATE, type EvaluateTracesParams, type JevScorer } from './types';
 import { jest } from '@jest/globals';
 import { describe } from '@jest/globals';
 import { beforeEach } from '@jest/globals';
@@ -75,6 +75,7 @@ interface TestWrapperProps {
   selectedItemIds?: string[];
   onSelectedItemIdsChange?: (itemIds: string[]) => void;
   isSessionLevelScorer?: boolean;
+  existingJevScorer?: JevScorer;
 }
 
 function TestWrapper({
@@ -83,6 +84,7 @@ function TestWrapper({
   selectedItemIds = [],
   onSelectedItemIdsChange = jest.fn(),
   isSessionLevelScorer,
+  existingJevScorer,
 }: TestWrapperProps) {
   const form = useForm<ScorerFormData>({
     defaultValues: {
@@ -107,6 +109,7 @@ function TestWrapper({
           selectedItemIds={selectedItemIds}
           onSelectedItemIdsChange={onSelectedItemIdsChange}
           isSessionLevelScorer={isSessionLevelScorer}
+          existingJevScorer={existingJevScorer}
         />
       </FormProvider>
     </IntlProvider>
@@ -541,6 +544,47 @@ describe('SampleScorerOutputPanelContainer', () => {
     expect(props.assessments?.[0]).toMatchObject({
       feedback: { value: false },
       metadata: { 'jev.probability': '0.4' },
+    });
+  });
+
+  it('preserves SDK-only Jev settings in an edit preview', async () => {
+    const existingJevScorer: JevScorer = {
+      type: 'jev',
+      name: 'quality',
+      model: 'gateway:/jev',
+      question: 'Original question',
+      answerType: 'noul',
+      criteria: null,
+      threshold: null,
+      sdkConfig: { description: 'SDK description', aggregations: ['mean'], timeout: 30 },
+    };
+    mockEvaluateTraces.mockResolvedValue([]);
+
+    renderComponent({
+      existingJevScorer,
+      selectedItemIds: ['tr-jev'],
+      defaultValues: {
+        scorerType: 'jev',
+        name: 'quality',
+        model: 'gateway:/jev',
+        question: 'Updated question',
+        answerType: 'noul',
+        criteria: '',
+        threshold: '',
+      },
+    });
+
+    await waitFor(() =>
+      expect(mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0].isRunScorerDisabled).toBe(false),
+    );
+    const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+    await props.handleRunScorer();
+
+    expect(JSON.parse(mockEvaluateTraces.mock.calls[0][0].serializedScorer!)).toMatchObject({
+      description: 'SDK description',
+      aggregations: ['mean'],
+      timeout: 30,
+      jev_scorer_pydantic_data: { question: 'Updated question', timeout: 30 },
     });
   });
 });

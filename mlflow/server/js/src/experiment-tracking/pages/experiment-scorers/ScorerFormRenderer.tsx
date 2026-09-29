@@ -18,6 +18,7 @@ import JevScorerFormRenderer, { type JevScorerFormData } from './JevScorerFormRe
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
+import type { JevScorer } from './types';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 
@@ -38,6 +39,7 @@ interface ScorerFormRendererProps {
   isSubmitDisabled: boolean;
   experimentId: string;
   initialSelectedItemIds?: string[];
+  existingJevScorer?: JevScorer;
 }
 
 // Extracted form content component
@@ -96,6 +98,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   isSubmitDisabled,
   experimentId,
   initialSelectedItemIds,
+  existingJevScorer,
 }) => {
   const { theme } = useDesignSystemTheme();
   const [leftPaneWidth, setLeftPaneWidth] = useState(800);
@@ -198,6 +201,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                   isSessionLevelScorer={isSessionLevelScorer}
                   selectedItemIds={selectedItemIds}
                   onSelectedItemIdsChange={setSelectedItemIds}
+                  existingJevScorer={existingJevScorer}
                 />
               </div>
             }

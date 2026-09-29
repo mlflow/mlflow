@@ -11,7 +11,7 @@ import { convertEvaluationResultToAssessment } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './constants';
 
-import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
+import { LLM_TEMPLATE, isGuidelinesTemplate, type JevScorer } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
@@ -31,6 +31,7 @@ interface SampleScorerOutputPanelContainerProps {
   isSessionLevelScorer?: boolean;
   selectedItemIds: string[];
   onSelectedItemIdsChange: (itemIds: string[]) => void;
+  existingJevScorer?: JevScorer;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
@@ -40,6 +41,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   isSessionLevelScorer,
   selectedItemIds,
   onSelectedItemIdsChange,
+  existingJevScorer,
 }) => {
   const intl = useIntl();
   const {
@@ -62,7 +64,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
 
-  const getSerializedScorerFromForm = useGetSerializedScorerFromForm();
+  const getSerializedScorerFromForm = useGetSerializedScorerFromForm(existingJevScorer);
 
   const [evaluateTraces, { latestEvaluation: data, isLoading, error, reset }] = useEvaluateTraces({
     onScorerFinished,

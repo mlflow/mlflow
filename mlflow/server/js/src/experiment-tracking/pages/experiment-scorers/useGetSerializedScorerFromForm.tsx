@@ -1,21 +1,25 @@
 import { useFormContext } from 'react-hook-form';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { convertFormDataToScheduledScorer, transformScheduledScorer } from './utils/scorerTransformUtils';
+import type { JevScorer } from './types';
 import { useCallback } from 'react';
 
 /**
  * Returns a function that can be used to build the serialized scorer based on the current form data.
  */
-export const useGetSerializedScorerFromForm = () => {
+export const useGetSerializedScorerFromForm = (existingJevScorer?: JevScorer) => {
   const { getValues } = useFormContext<ScorerFormData>();
 
   return useCallback(() => {
     const formData = getValues();
     // Convert the form data to a scheduled scorer
-    const scheduledScorer = convertFormDataToScheduledScorer(formData, undefined);
+    const scheduledScorer = convertFormDataToScheduledScorer(
+      formData,
+      formData.scorerType === 'jev' ? existingJevScorer : undefined,
+    );
     // Transform the scheduled scorer to a backend scorer config
     const scorerConfig = transformScheduledScorer(scheduledScorer);
     // Return the serialized scorer
     return scorerConfig.serialized_scorer;
-  }, [getValues]);
+  }, [getValues, existingJevScorer]);
 };

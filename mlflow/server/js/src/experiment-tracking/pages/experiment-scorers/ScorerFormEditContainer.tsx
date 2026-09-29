@@ -101,6 +101,7 @@ const ScorerFormEditContainer: React.FC<ScorerFormEditContainerProps> = ({ exper
           handleCancel={handleCancel}
           isSubmitDisabled={isSubmitDisabled}
           experimentId={experimentId}
+          existingJevScorer={existingScorer.type === 'jev' ? existingScorer : undefined}
         />
       </FormProvider>
     </div>
