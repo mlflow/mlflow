@@ -76,7 +76,7 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
-    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -418,7 +418,7 @@ from mlflow.utils.providers import (
 )
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
-    SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED,
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
@@ -7666,7 +7666,7 @@ def build_server_info_payload() -> dict[str, Any]:
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
         SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
-        SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED: MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get(),
+        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get(),
     }
 
 

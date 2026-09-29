@@ -30,7 +30,7 @@ def client_no_serve(monkeypatch):
 def client_presigned_only(monkeypatch):
     monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "/tmp/mlflow-artifacts-test")
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
     monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
     return TestClient(create_fastapi_app())
 
