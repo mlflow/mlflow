@@ -321,6 +321,9 @@ def _parse_json_response(response, *, allow_gateway_fallback: bool = False) -> d
                 detail = response.json().get("detail")
             except (AttributeError, ValueError):
                 detail = None
+            # MLflow <= 3.16.0 does not expose /gateway/typesafe/v1/systemone. FastAPI's
+            # unmatched-route contract on those servers is exactly 404 {"detail": "Not Found"}.
+            # Endpoint lookup and upstream 404s must use a different detail and propagate.
             if (response.status_code == 404 and detail == "Not Found") or (
                 response.status_code == 422 and detail == _NON_TYPESAFE_GATEWAY_DETAIL
             ):
