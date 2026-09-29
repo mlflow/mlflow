@@ -14,10 +14,13 @@ import {
 import { createListFromObject, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { DecisionAnswersRenderer } from '../../decision/DecisionAnswersRenderer';
+import { resolveDecisionViewModel } from '../../decision/resolveDecisionViewModel';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
+import { ModelTraceExplorerDecisionInputs } from './ModelTraceExplorerDecisionInputs';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -132,6 +135,7 @@ export function ModelTraceExplorerDefaultSpanView({
   );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
+  const decisionViewModel = useMemo(() => resolveDecisionViewModel(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -221,22 +225,37 @@ export function ModelTraceExplorerDefaultSpanView({
     </DropdownMenu.Root>
   );
 
-  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {fields.map(({ key, value }, index) => (
-        <ModelTraceExplorerFieldRenderer
-          key={key || index}
-          title={key}
-          data={value}
-          renderMode="default"
-          assessments={activeSpan?.assessments}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-          containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
+  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
+    if (!searchFilter && decisionViewModel) {
+      if (section === 'outputs') {
+        return <DecisionAnswersRenderer answers={decisionViewModel.answers} />;
+      }
+      return (
+        <ModelTraceExplorerDecisionInputs
+          fields={fields}
+          viewModels={decisionViewModel.inputs.fields}
+          assessments={activeSpan.assessments}
         />
-      ))}
-    </div>
-  );
+      );
+    }
+
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        {fields.map(({ key, value }, index) => (
+          <ModelTraceExplorerFieldRenderer
+            key={key || index}
+            title={key}
+            data={value}
+            renderMode="default"
+            assessments={activeSpan?.assessments}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
+          />
+        ))}
+      </div>
+    );
+  };
 
   const filterNonChatFields = (
     section: 'inputs' | 'outputs',
@@ -258,6 +277,10 @@ export function ModelTraceExplorerDefaultSpanView({
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
+      if (decisionViewModel && !searchFilter) {
+        return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
+      }
+
       if (section === 'inputs' && inputChatMessages.length > 0) {
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

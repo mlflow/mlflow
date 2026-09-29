@@ -943,6 +943,19 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.modelName).toBe('gpt-4o-mini');
   });
 
+  it('should extract model provider from mlflow.llm.provider attribute', () => {
+    const spanWithProvider: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.provider': 'typesafe',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithProvider, 0, 0, [], {}, '');
+    expect(normalized.modelProvider).toBe('typesafe');
+  });
+
   it('should extract cost from mlflow.llm.cost attribute', () => {
     const spanWithCost: ModelTraceSpanV3 = {
       ...MOCK_V3_SPANS[0],
@@ -1025,9 +1038,10 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.cost).toBeUndefined();
   });
 
-  it('should return undefined model and cost when attributes are not present', () => {
+  it('should return undefined model metadata and cost when attributes are not present', () => {
     const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
     expect(normalized.modelName).toBeUndefined();
+    expect(normalized.modelProvider).toBeUndefined();
     expect(normalized.cost).toBeUndefined();
   });
 });

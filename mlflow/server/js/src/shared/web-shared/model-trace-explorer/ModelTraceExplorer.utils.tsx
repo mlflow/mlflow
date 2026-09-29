@@ -87,6 +87,7 @@ import {
   SPAN_ATTRIBUTE_COST_KEY,
   SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
+  SPAN_ATTRIBUTE_MODEL_PROVIDER_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
 import { getExperimentPageTracesTabRoute } from './routes';
@@ -565,8 +566,11 @@ export const normalizeNewSpanData = (
     inputs,
   );
 
-  // Extract model name, cost info, and linked gateway trace ID
+  // Extract model metadata, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
+  const modelProvider = tryDeserializeAttribute(
+    getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_PROVIDER_KEY) as string,
+  );
   const cost = getCostFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
   );
@@ -611,6 +615,7 @@ export const normalizeNewSpanData = (
     assessments,
     traceId,
     modelName,
+    modelProvider,
     cost,
     linkedGatewayTraceId,
     logLevel,
