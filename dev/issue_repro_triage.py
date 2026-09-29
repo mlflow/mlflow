@@ -159,6 +159,8 @@ def _load_issue(path: Path, expected_issue_number: int) -> dict[str, Any]:
     issue = json.loads(payload)
     if not isinstance(issue, dict) or issue.get("number") != expected_issue_number:
         raise ValueError("issue context binding mismatch")
+    # Keep this guard even though the workflow strips pull_request from issue.json;
+    # direct CLI invocations may pass a raw GitHub issue payload.
     if "pull_request" in issue or issue.get("state") != "open":
         raise ValueError("target must be an open issue")
     return issue

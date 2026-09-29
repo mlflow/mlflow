@@ -63,10 +63,14 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          gh api "repos/$REPOSITORY/issues/$ISSUE_NUMBER" > issue-raw.json
-          jq -e 'select(.state == "open" and (has("pull_request") | not)) |
-            {number, state, title, body, labels: [.labels[].name]}' \
-            issue-raw.json > issue.json
+          gh api --fail-with-body "repos/$REPOSITORY/issues/$ISSUE_NUMBER" > issue-raw.json
+          if ! jq -e '.state == "open" and (has("pull_request") | not)' issue-raw.json > /dev/null; then
+            issue_type="$(jq -r 'if has("pull_request") then "pull request" else "issue" end' issue-raw.json)"
+            issue_state="$(jq -r '.state // "unknown"' issue-raw.json)"
+            echo "::error::issue_number must identify an open issue; got $issue_state $issue_type #$ISSUE_NUMBER"
+            exit 1
+          fi
+          jq '{number, state, title, body, labels: [.labels[].name]}' issue-raw.json > issue.json
           rm issue-raw.json
 
       - name: Build offline reproduction image
