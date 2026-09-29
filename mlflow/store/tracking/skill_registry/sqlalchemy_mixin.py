@@ -74,11 +74,9 @@ class SqlAlchemySkillRegistryMixin:
     SKILL_VERSION_SEARCH_QUERY_SCOPE_PREFIX = "skill_versions"
 
     def _base_skill_query(self, session):
-        return (
-            self._get_query(session, SqlSkill).options(
-                subqueryload(SqlSkill.tags),
-                subqueryload(SqlSkill.skill_aliases),
-            )
+        return self._get_query(session, SqlSkill).options(
+            subqueryload(SqlSkill.tags),
+            subqueryload(SqlSkill.skill_aliases),
         )
 
     def _skill_query(self, session):
