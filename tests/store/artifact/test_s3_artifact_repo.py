@@ -495,14 +495,16 @@ def test_download_artifacts_preserves_missing_key_error_code(tmp_path):
         {"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject"
     )
 
-    with (
-        mock.patch.object(repo, "_get_s3_client", return_value=s3_client),
-        pytest.raises(MlflowException, match="The following failures occurred") as exc_info,
-    ):
-        repo.download_artifacts("model", str(tmp_path))
+    try:
+        with (
+            mock.patch.object(repo, "_get_s3_client", return_value=s3_client),
+            pytest.raises(MlflowException, match="The following failures occurred") as exc_info,
+        ):
+            repo.download_artifacts("model", str(tmp_path))
 
-    repo.thread_pool.shutdown(wait=True)
-    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+        assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    finally:
+        repo.thread_pool.shutdown(wait=True)
 
 
 def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
