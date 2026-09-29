@@ -1336,8 +1336,16 @@ class Scorer(BaseModel):
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
 
-    def _check_can_be_registered(self, error_message: str | None = None) -> None:
+    def _check_can_be_registered(
+        self, error_message: str | None = None, *, in_ensemble: bool = False
+    ) -> None:
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        if self.kind == ScorerKind.JEV and in_ensemble:
+            raise MlflowException.invalid_parameter_value(
+                "Server-side Jev scorers in ensembles are not supported because nested "
+                "gateway endpoints cannot be bound to a registered scorer."
+            )
 
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
@@ -1352,7 +1360,7 @@ class Scorer(BaseModel):
         # the same rule the sub-scorer would raise on its own).
         if self.kind == ScorerKind.ENSEMBLE:
             for sub_scorer in self._scorers:
-                sub_scorer._check_can_be_registered(error_message)
+                sub_scorer._check_can_be_registered(error_message, in_ensemble=True)
 
         # NB: Custom (@scorer) scorers use exec() when they run, which poses a code execution
         # risk, so registration is restricted to environments that accept that risk. Against a

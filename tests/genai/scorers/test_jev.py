@@ -12,7 +12,13 @@ from mlflow.entities import (
     GatewayModelLinkageType,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import JevScorer, Scorer, ScorerSamplingConfig, make_jev_scorer
+from mlflow.genai.scorers import (
+    JevScorer,
+    Scorer,
+    ScorerSamplingConfig,
+    make_jev_scorer,
+    make_scorer_ensemble,
+)
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.registry import get_scorer, list_scorers
@@ -423,6 +429,20 @@ def test_registration_rejects_direct_model(direct_request):
     with pytest.raises(MlflowException, match="requires a gateway:/ endpoint"):
         _scorer().register()
     direct_request.assert_not_called()
+
+
+def test_registration_rejects_jev_nested_in_ensemble_before_store_access():
+    ensemble = make_scorer_ensemble(
+        name="ensemble",
+        scorers=[_scorer(model="gateway:/evaluator")],
+        ensemble_fn="mean",
+    )
+    with (
+        mock.patch("mlflow.genai.scorers.registry._get_scorer_store") as store,
+        pytest.raises(MlflowException, match="nested gateway endpoints cannot be bound"),
+    ):
+        ensemble.register()
+    store.assert_not_called()
 
 
 def test_registration_rejects_databricks():
