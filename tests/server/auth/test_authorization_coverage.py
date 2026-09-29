@@ -104,6 +104,7 @@ def _fastapi_native_routes():
         job_api_router,
         mcp_server_router,
         otel_router,
+        server_info_router,
     )
 
     def _methods(route):
@@ -113,7 +114,14 @@ def _fastapi_native_routes():
             if m not in ("HEAD", "OPTIONS")
         ]
 
-    for router in (artifact_router, assistant_router, gateway_router, job_api_router, otel_router):
+    for router in (
+        artifact_router,
+        assistant_router,
+        gateway_router,
+        job_api_router,
+        otel_router,
+        server_info_router,
+    ):
         for route in router.routes:
             for method in _methods(route):
                 yield route.path, method

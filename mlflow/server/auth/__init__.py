@@ -530,7 +530,11 @@ def is_unprotected_route(path: str) -> bool:
     # both the unprefixed and the prefixed forms so health checks don't end
     # up requiring auth on prefixed deployments.
     prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
-    return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
+    if path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed):
+        return True
+    # Capability routes such as server-info are public. Strip --static-prefix
+    # before the suffix match so a prefixed native FastAPI route is not fail-closed.
+    return _matches_route_suffix(_strip_static_prefix(path), _PUBLIC_ROUTE_SUFFIXES)
 
 
 def make_basic_auth_response() -> Response:

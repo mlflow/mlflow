@@ -6926,8 +6926,7 @@ def _update_endpoint_guardrail_config():
     return _wrap_response(response_message)
 
 
-@catch_mlflow_exception
-def _get_server_info():
+def build_server_info_payload() -> dict:
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -6968,13 +6967,18 @@ def _get_server_info():
                 exc_info=True,
             )
 
-    return jsonify({
+    return {
         SERVER_INFO_STORE_TYPE: store_type,
         SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
-    })
+    }
+
+
+@catch_mlflow_exception
+def _get_server_info():
+    return jsonify(build_server_info_payload())
 
 
 @catch_mlflow_exception

@@ -39,6 +39,7 @@ from mlflow.server.mcp_server_api import (
     mcp_server_router,
 )
 from mlflow.server.otel_api import otel_router
+from mlflow.server.server_info_api import server_info_router
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
@@ -248,6 +249,8 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     add_mcp_exception_handlers(fastapi_app)
     for route_prefix in get_mcp_server_api_route_prefixes():
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
+
+    fastapi_app.include_router(server_info_router, prefix=static_prefix)
 
     # Mount the entire Flask application at the root path.
     # Must come AFTER include_router so native FastAPI routes take precedence.
