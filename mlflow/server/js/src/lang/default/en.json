@@ -623,6 +623,10 @@
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
   },
+  "0UjEHT": {
+    "defaultMessage": "Free-text search matches name and description through {searchText}. Structured filters are sent as {filterString} clauses.",
+    "description": "Tooltip explaining Skill Registry catalog search"
+  },
   "0W7Pi4": {
     "defaultMessage": "Tag{count, plural, =0 {} other { · #}}",
     "description": "Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
@@ -1043,6 +1047,10 @@
     "defaultMessage": "Could not assign yourself to the queue: {error}",
     "description": "Review queue: error toast when self-assigning to a queue fails"
   },
+  "2O3wqu": {
+    "defaultMessage": "Loading skills...",
+    "description": "Loading state for Skill Registry card grid"
+  },
   "2OifbU": {
     "defaultMessage": "Inputs cannot be empty",
     "description": "Status text shown in the dataset record drawer footer when the inputs editor is empty (would otherwise wipe the field server-side)"
@@ -1227,6 +1235,14 @@
     "defaultMessage": "Git commit",
     "description": "Usage overview > metrics filter > git commit column option label"
   },
+  "2xOenV": {
+    "defaultMessage": "Description",
+    "description": "Header for the description column in the Skill Registry table"
+  },
+  "2yONCo": {
+    "defaultMessage": "Skills",
+    "description": "Skill Registry page title"
+  },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
@@ -1310,6 +1326,10 @@
   "3PBIB8": {
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
+  },
+  "3PV8Q2": {
+    "defaultMessage": "Use",
+    "description": "Header for the use-skill action column in the Skill Registry table"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -1730,6 +1750,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5GYNxI": {
+    "defaultMessage": "No skills yet",
+    "description": "Empty state title for the Skill Registry"
   },
   "5K6npM": {
     "defaultMessage": "Analyze with Assistant",
@@ -3047,6 +3071,10 @@
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoint bindings drawer > Created date"
   },
+  "AG9haN": {
+    "defaultMessage": "Retry",
+    "description": "Retry button for Skill Registry catalog error"
+  },
   "AGLzB5": {
     "defaultMessage": "my-api-key",
     "description": "Placeholder for secret name input"
@@ -3611,6 +3639,10 @@
     "defaultMessage": "Error",
     "description": "Traces table state badge label for an errored trace"
   },
+  "CVrzsg": {
+    "defaultMessage": "List view",
+    "description": "Aria label for Skill Registry list view toggle"
+  },
   "CX/MSu": {
     "defaultMessage": "Unsafe",
     "description": "Evaluation results > safety assessment > negative value label. Displayed if evaluation result is considered as unsafe."
@@ -3782,6 +3814,10 @@
   "DCkSC3": {
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
+  },
+  "DEGkua": {
+    "defaultMessage": "Filter by active status",
+    "description": "Aria label for Skill Registry active status filter toggle"
   },
   "DHFf28": {
     "defaultMessage": "Or {enterManually}",
@@ -4198,6 +4234,10 @@
   "FBR3Q/": {
     "defaultMessage": "Overview",
     "description": "Label for the overview tab on the logged model details page"
+  },
+  "FBfSN1": {
+    "defaultMessage": "Active",
+    "description": "Skill catalog status label for active"
   },
   "FBlbEZ": {
     "defaultMessage": "Remove message",
@@ -5294,6 +5334,10 @@
   "Jj2kRy": {
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
+  },
+  "JkFprj": {
+    "defaultMessage": "Use",
+    "description": "Button to use a skill from the Skill Registry catalog"
   },
   "JmNdE4": {
     "defaultMessage": "required",
@@ -6643,9 +6687,17 @@
     "defaultMessage": "Workspace Manager",
     "description": "Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
   },
+  "P1Bmq/": {
+    "defaultMessage": "Search skills",
+    "description": "Placeholder for Skill Registry free-text search"
+  },
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
+  },
+  "P4DtIO": {
+    "defaultMessage": "Source",
+    "description": "Aria label for Skill Registry source type filter"
   },
   "P5OG6u": {
     "defaultMessage": "Select field",
@@ -6826,6 +6878,10 @@
   "PpP8du": {
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
+  },
+  "PqfbSD": {
+    "defaultMessage": "Deprecated",
+    "description": "Skill catalog status label for deprecated"
   },
   "PtjdJS": {
     "defaultMessage": "Graph",
@@ -7227,6 +7283,10 @@
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
   },
+  "RUqpLa": {
+    "defaultMessage": "Latest version",
+    "description": "Header for the latest version column in the Skill Registry table"
+  },
   "RWVGkL": {
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
@@ -7266,6 +7326,10 @@
   "RekJb/": {
     "defaultMessage": "Account",
     "description": "Sidebar account menu item"
+  },
+  "Rfs/Cv": {
+    "defaultMessage": "No skills found",
+    "description": "Empty state when skill search returns no results"
   },
   "RgVN+O": {
     "defaultMessage": "View all",
@@ -7326,6 +7390,10 @@
   "RtRy6v": {
     "defaultMessage": "Name must start and end with a letter or digit, be less than 63 characters long, and contain only letters, digits, dots (.), underscores (_), and hyphens (-).",
     "description": "Webhook name validation error"
+  },
+  "RvdwBR": {
+    "defaultMessage": "Examples:",
+    "description": "Text header for examples of Skill Registry search syntax"
   },
   "Rwi+VC": {
     "defaultMessage": "avg score",
@@ -7506,6 +7574,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "Scb7Om": {
+    "defaultMessage": "Grid view",
+    "description": "Aria label for Skill Registry grid view toggle"
   },
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
@@ -8251,6 +8323,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment creation form"
   },
+  "VYEXZx": {
+    "defaultMessage": "All sources",
+    "description": "Skill catalog source filter option for any source"
+  },
   "VYfxMp": {
     "defaultMessage": "{hours}h ago",
     "description": "Review queue table: date-added cell, hours ago"
@@ -8639,6 +8715,10 @@
     "defaultMessage": "Flag for review",
     "description": "Button text for assigning a trace to reviewers via a review queue"
   },
+  "WyQmOr": {
+    "defaultMessage": "Draft",
+    "description": "Skill catalog status label for draft"
+  },
   "WybkD9": {
     "defaultMessage": "Review",
     "description": "Label for the review tab in the MLflow experiment navbar"
@@ -8950,6 +9030,10 @@
   "Y73UT6": {
     "defaultMessage": "Endpoint name is required",
     "description": "Error message when endpoint name is empty"
+  },
+  "Y763zC": {
+    "defaultMessage": "Active",
+    "description": "Filter toggle for skills with an active latest version"
   },
   "Y7DzTT": {
     "defaultMessage": "Input",
@@ -9263,6 +9347,10 @@
     "defaultMessage": "just now",
     "description": "Indicates a time duration that just passed"
   },
+  "ZQhA9L": {
+    "defaultMessage": "Skill details will appear here.",
+    "description": "Placeholder copy on the Skill detail route boundary"
+  },
   "ZQpc2w": {
     "defaultMessage": "Enter dataset name",
     "description": "Dataset name placeholder"
@@ -9566,6 +9654,10 @@
   "aaVp/T": {
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
+  },
+  "ab/eEU": {
+    "defaultMessage": "All organizations",
+    "description": "Placeholder for Skill Registry organization typeahead when no organization is selected"
   },
   "abIH3b": {
     "defaultMessage": "All providers",
@@ -10342,6 +10434,10 @@
   "dh5dT7": {
     "defaultMessage": "Flag for review",
     "description": "Bulk action that assigns the selected traces to a review queue"
+  },
+  "dkv7sq": {
+    "defaultMessage": "Beta",
+    "description": "Skill Registry beta feature tag"
   },
   "dkw8bG": {
     "defaultMessage": "Deny",
@@ -11187,6 +11283,10 @@
     "defaultMessage": "Link copied to clipboard.",
     "description": "Review queue: toast after copying a shareable queue link"
   },
+  "ghH+7l": {
+    "defaultMessage": "Skills",
+    "description": "Sidebar link for Skill Registry page"
+  },
   "ghgW69": {
     "defaultMessage": "Select traces",
     "description": "Button to open the trace selection modal from the run evaluation modal"
@@ -11210,6 +11310,10 @@
   "gjMj0f": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse"
+  },
+  "gjfRjy": {
+    "defaultMessage": "Name",
+    "description": "Header for the name column in the Skill Registry table"
   },
   "gkGvc6": {
     "defaultMessage": "Add a new question, or click a question to edit it.",
@@ -11734,6 +11838,10 @@
   "iUTr0e": {
     "defaultMessage": "{tagCount, plural, one {1 tag} other {# tags}}",
     "description": "Compact trace tags count in the trace details header"
+  },
+  "iVNBVv": {
+    "defaultMessage": "Source",
+    "description": "Header for the latest-resolved source type column in the Skill Registry table"
   },
   "iVeCOa": {
     "defaultMessage": "My webhook",
@@ -12591,6 +12699,10 @@
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
   },
+  "lsnwFv": {
+    "defaultMessage": "You do not have permission to view skills.",
+    "description": "Description for Skill Registry permission-denied state"
+  },
   "ltqNpe": {
     "defaultMessage": "Creation time",
     "description": "Label for the creation time column in the logged model list page"
@@ -13127,6 +13239,10 @@
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
   },
+  "o+56O0": {
+    "defaultMessage": "Pull this skill into your local environment:",
+    "description": "Instruction text for the Skill Registry use-skill modal"
+  },
   "o0NwZU": {
     "defaultMessage": "Quality metrics computed by scorers.",
     "description": "Description for the scorer insights section"
@@ -13459,6 +13575,10 @@
     "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
     "description": "Confirmation toast shown after copying a saved experiment view share link"
   },
+  "pKPHyQ": {
+    "defaultMessage": "Permission denied",
+    "description": "Title for Skill Registry permission-denied state"
+  },
   "pMb1cg": {
     "defaultMessage": "Download {contentType} ({size})",
     "description": "Download link for media content that exceeds the rendering size limit"
@@ -13582,6 +13702,10 @@
   "pvvUpM": {
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
     "description": "Body for the V2 evaluation dataset delete confirmation modal on the detail page"
+  },
+  "pwko9l": {
+    "defaultMessage": "Try clearing your filters or searching for a different term.",
+    "description": "Empty-search description for the Skill Registry catalog"
   },
   "pxRaW6": {
     "defaultMessage": "Schema",
@@ -13822,6 +13946,10 @@
   "qwSqlQ": {
     "defaultMessage": "Rationale (optional)",
     "description": "Review question preview free-form rationale placeholder"
+  },
+  "qxjHQW": {
+    "defaultMessage": "Status",
+    "description": "Header for the derived parent status column in the Skill Registry table"
   },
   "qz9XeG": {
     "defaultMessage": "Cancel",
@@ -14515,6 +14643,10 @@
     "defaultMessage": "Prompt",
     "description": "Label for the prompt picker on the playground prompt-registry modal"
   },
+  "tY4NFM": {
+    "defaultMessage": "Skills you can read will appear here once they are registered.",
+    "description": "Empty state description for an empty Skill Registry"
+  },
   "ta42Qe": {
     "defaultMessage": "Active",
     "description": "Webhook status field label"
@@ -14598,6 +14730,10 @@
   "u1UjvS": {
     "defaultMessage": "e.g. Hallucination review",
     "description": "Create review queue: name field placeholder"
+  },
+  "u2ClJj": {
+    "defaultMessage": "Organization",
+    "description": "Header for the organization column in the Skill Registry table"
   },
   "u5B9TA": {
     "defaultMessage": "Load prompt",
@@ -14907,6 +15043,10 @@
     "defaultMessage": "Processing",
     "description": "Processing indicator while Assistant is streaming a response"
   },
+  "vZmzdA": {
+    "defaultMessage": "Skills",
+    "description": "Breadcrumb link back to the Skill Registry catalog"
+  },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
@@ -15010,6 +15150,10 @@
   "w/sljb": {
     "defaultMessage": "Sort descending",
     "description": "Label for the sort descending button in the logged model list page"
+  },
+  "w0ZdqD": {
+    "defaultMessage": "Last modified",
+    "description": "Header for the last modified column in the Skill Registry table"
   },
   "w2+rkp": {
     "defaultMessage": "Search metrics",
@@ -15618,6 +15762,10 @@
   "yDNm+u": {
     "defaultMessage": "{tokenCount, number} tokens",
     "description": "Compact token count in the trace details header"
+  },
+  "yFMMAm": {
+    "defaultMessage": "Use {name}",
+    "description": "Title for the Skill Registry use-skill modal"
   },
   "yFl8nB": {
     "defaultMessage": "This model will be deprecated on {date}",
