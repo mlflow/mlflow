@@ -545,7 +545,8 @@ class S3ArtifactRepository(
         except ClientError as error:
             boto_error = error.response["Error"]
             raise MlflowException(
-                f"Failed to download artifact from {self.artifact_uri}: {boto_error['Message']}",
+                f"Failed to download artifact from s3://{bucket}/{s3_full_path}: "
+                f"{boto_error['Message']}",
                 error_code=BOTO_TO_MLFLOW_ERROR.get(boto_error["Code"], INTERNAL_ERROR),
             ) from error
 

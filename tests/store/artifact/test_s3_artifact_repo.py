@@ -483,6 +483,7 @@ def test_download_file_error_handling(tmp_path, boto_error_code, expected_mlflow
     ):
         repo._download_file("model", str(tmp_path / "model"))
 
+    assert "s3://test-bucket/some/path/model" in str(exc_info.value)
     assert exc_info.value.error_code == expected_mlflow_error
     assert exc_info.value.__cause__ is error
 
