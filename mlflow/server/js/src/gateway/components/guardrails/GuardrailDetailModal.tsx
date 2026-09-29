@@ -7,6 +7,7 @@ import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { registerScorer } from '../../../experiment-tracking/pages/experiment-scorers/api';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
 import { EndpointSelector } from '../../../experiment-tracking/components/EndpointSelector';
+import { endpointUsesAnyProvider } from '../../utils/gatewayUtils';
 import { STAGE_HINTS, validateStageInstructions } from './guardrailValidation';
 import { PipelineStagePicker } from './PipelineStagePicker';
 import { ActionPicker } from './ActionPicker';
@@ -89,6 +90,9 @@ export const GuardrailDetailModal = ({
   const parsedScorer = parseScorer(guardrail?.scorer?.serialized_scorer);
   const initialPrompt = extractInitialPrompt(parsedScorer);
   const initialModelEndpoint = extractInitialModelEndpoint(parsedScorer, endpoints);
+  const selectedModelEndpoint = endpoints.find((endpoint) => endpoint.name === modelEndpoint);
+  const modelEndpointIsCompatible =
+    !selectedModelEndpoint || !endpointUsesAnyProvider(selectedModelEndpoint, ['typesafe']);
 
   // Reset form when guardrail changes
   useEffect(() => {
@@ -122,7 +126,7 @@ export const GuardrailDetailModal = ({
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!guardrailConfig || !guardrail || !hasChanges) return;
+    if (!guardrailConfig || !guardrail || !hasChanges || !modelEndpointIsCompatible) return;
     setIsSaving(true);
     setError(null);
     try {
@@ -199,6 +203,7 @@ export const GuardrailDetailModal = ({
     experimentId,
     onSuccess,
     onClose,
+    modelEndpointIsCompatible,
   ]);
 
   const handleDelete = useCallback(() => {
@@ -233,7 +238,7 @@ export const GuardrailDetailModal = ({
               type="primary"
               onClick={handleSave}
               loading={isSaving}
-              disabled={!hasChanges || isSaving || instructionsError !== null}
+              disabled={!hasChanges || isSaving || instructionsError !== null || !modelEndpointIsCompatible}
             >
               <FormattedMessage defaultMessage="Save" description="Save guardrail changes button" />
             </Button>
@@ -304,12 +309,21 @@ export const GuardrailDetailModal = ({
               <FormattedMessage defaultMessage="Guardrail Model" description="Guardrail model label" />
             </Typography.Text>
             <EndpointSelector
+              excludeProviders={['typesafe']}
               componentIdPrefix="mlflow.gateway.guardrails.detail-model"
               currentEndpointName={modelEndpoint}
               onEndpointSelect={setModelEndpoint}
               showCreateButton={false}
               excludeEndpointIds={[endpointId]}
             />
+            {!modelEndpointIsCompatible && (
+              <Typography.Text color="error">
+                <FormattedMessage
+                  defaultMessage="Select a chat-compatible endpoint before saving this guardrail."
+                  description="Error shown when a guardrail uses an incompatible model endpoint"
+                />
+              </Typography.Text>
+            )}
           </div>
         </div>
 

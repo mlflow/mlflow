@@ -18,7 +18,11 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import { CreateEndpointModal } from '../../gateway/components/endpoint-form';
-import { getEndpointDisplayInfo } from '../../gateway/utils/gatewayUtils';
+import {
+  endpointHasMixedTypeSafeProviders,
+  endpointUsesAnyProvider,
+  getEndpointDisplayInfo,
+} from '../../gateway/utils/gatewayUtils';
 import type { Endpoint } from '../../gateway/types';
 
 interface EndpointOption {
@@ -29,6 +33,8 @@ interface EndpointOption {
 }
 
 export interface EndpointSelectorProps {
+  /** Providers that are incompatible with this selector's workflow. */
+  excludeProviders?: string[];
   /** Current selected endpoint name */
   currentEndpointName?: string;
   /** Called when user selects an endpoint */
@@ -54,6 +60,7 @@ export interface EndpointSelectorProps {
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
+  excludeProviders,
   currentEndpointName,
   onEndpointSelect,
   disabled = false,
@@ -71,13 +78,24 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   const { data: endpoints, isLoading, error, refetch } = useEndpointsQuery();
 
+  const selectableEndpoints = useMemo(
+    () =>
+      endpoints.filter(
+        (endpoint) =>
+          !excludeEndpointIds?.includes(endpoint.endpoint_id) &&
+          !endpointHasMixedTypeSafeProviders(endpoint) &&
+          !endpointUsesAnyProvider(endpoint, excludeProviders ?? []),
+      ),
+    [endpoints, excludeEndpointIds, excludeProviders],
+  );
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    if (autoSelectFirstEndpoint && endpoints && endpoints.length > 0 && !currentEndpointName) {
-      onEndpointSelect(endpoints[0].name);
+    if (autoSelectFirstEndpoint && selectableEndpoints.length > 0 && !currentEndpointName) {
+      onEndpointSelect(selectableEndpoints[0].name);
     }
-  }, [autoSelectFirstEndpoint, endpoints, onEndpointSelect, currentEndpointName]);
+  }, [autoSelectFirstEndpoint, selectableEndpoints, onEndpointSelect, currentEndpointName]);
 
   const handleOpenCreateModal = useCallback(() => {
     setIsCreateModalOpen(true);
@@ -90,31 +108,41 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const handleCreateEndpointSuccess = useCallback(
     async (endpoint: Endpoint) => {
       await refetch();
-      onEndpointSelect(endpoint.name);
+      if (!endpointHasMixedTypeSafeProviders(endpoint) && !endpointUsesAnyProvider(endpoint, excludeProviders ?? [])) {
+        onEndpointSelect(endpoint.name);
+      }
       onEndpointCreated?.(endpoint);
       setIsCreateModalOpen(false);
     },
-    [refetch, onEndpointSelect, onEndpointCreated],
+    [refetch, onEndpointSelect, onEndpointCreated, excludeProviders],
   );
 
   // Build endpoint options for the dropdown
   const endpointOptions: EndpointOption[] = useMemo(() => {
-    return endpoints
-      .filter((endpoint) => !excludeEndpointIds?.includes(endpoint.endpoint_id))
-      .map((endpoint) => {
-        const displayInfo = getEndpointDisplayInfo(endpoint);
-        return {
-          value: endpoint.name,
-          label: endpoint.name,
-          provider: displayInfo?.provider,
-          modelName: displayInfo?.modelName,
-        };
-      });
-  }, [endpoints, excludeEndpointIds]);
+    return selectableEndpoints.map((endpoint) => {
+      const displayInfo = getEndpointDisplayInfo(endpoint);
+      return {
+        value: endpoint.name,
+        label: endpoint.name,
+        provider: displayInfo?.provider,
+        modelName: displayInfo?.modelName,
+      };
+    });
+  }, [selectableEndpoints]);
 
   const currentEndpoint = useMemo(() => {
-    return endpointOptions.find((opt) => opt.value === currentEndpointName);
-  }, [endpointOptions, currentEndpointName]);
+    const endpoint = endpoints.find(({ name }) => name === currentEndpointName);
+    if (!endpoint) {
+      return undefined;
+    }
+    const displayInfo = getEndpointDisplayInfo(endpoint);
+    return {
+      value: endpoint.name,
+      label: endpoint.name,
+      provider: displayInfo?.provider,
+      modelName: displayInfo?.modelName,
+    };
+  }, [endpoints, currentEndpointName]);
 
   // When the endpoint name doesn't match any loaded endpoint (e.g., after a rename),
   // notify the parent so it can refetch scorer data with the resolved endpoint name.

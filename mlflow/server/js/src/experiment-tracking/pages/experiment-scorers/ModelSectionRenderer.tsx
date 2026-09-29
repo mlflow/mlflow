@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Control, UseFormSetValue } from 'react-hook-form';
-import { Controller, useWatch } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { useDesignSystemTheme, Typography, Input, FormUI } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -11,7 +11,10 @@ import {
   getModelProvider,
   getEndpointNameFromGatewayModel,
   formatGatewayModelFromEndpoint,
+  endpointHasMixedTypeSafeProviders,
+  endpointUsesAnyProvider,
 } from '../../../gateway/utils/gatewayUtils';
+import { useEndpointsQuery } from '../../../gateway/hooks/useEndpointsQuery';
 import { useExperimentIds } from '../../components/experiment-page/hooks/useExperimentIds';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 
@@ -30,10 +33,46 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
+  const { trigger } = useFormContext<LLMScorerFormData>();
+  const { data: endpoints } = useEndpointsQuery();
   const [experimentId] = useExperimentIds();
 
   const currentModel = useWatch({ control, name: 'model' });
+  const instructions = useWatch({ control, name: 'instructions' });
+  const outputTypeKind = useWatch({ control, name: 'outputTypeKind' }) ?? 'default';
+  const categoricalOptions = useWatch({ control, name: 'categoricalOptions' });
   const currentEndpointName = getEndpointNameFromGatewayModel(currentModel);
+  const isTraceBased = /\{\{\s*trace\s*\}\}/.test(instructions ?? '');
+  const hasCategoricalOptions = categoricalOptions?.split('\n').some((option) => option.trim()) ?? false;
+  const isTypeSafeCompatibleJudge =
+    !isTraceBased && (outputTypeKind === 'bool' || (outputTypeKind === 'categorical' && hasCategoricalOptions));
+  const currentEndpointUsesTypeSafe = endpoints.some(
+    (endpoint) => endpoint.name === currentEndpointName && endpointUsesAnyProvider(endpoint, ['typesafe']),
+  );
+  const currentEndpointHasMixedTypeSafeProviders = endpoints.some(
+    (endpoint) => endpoint.name === currentEndpointName && endpointHasMixedTypeSafeProviders(endpoint),
+  );
+  const previousCompatibility = useRef({
+    currentEndpointUsesTypeSafe,
+    currentEndpointHasMixedTypeSafeProviders,
+    isTypeSafeCompatibleJudge,
+  });
+
+  useEffect(() => {
+    const previous = previousCompatibility.current;
+    previousCompatibility.current = {
+      currentEndpointUsesTypeSafe,
+      currentEndpointHasMixedTypeSafeProviders,
+      isTypeSafeCompatibleJudge,
+    };
+    if (
+      previous.currentEndpointUsesTypeSafe !== currentEndpointUsesTypeSafe ||
+      previous.currentEndpointHasMixedTypeSafeProviders !== currentEndpointHasMixedTypeSafeProviders ||
+      previous.isTypeSafeCompatibleJudge !== isTypeSafeCompatibleJudge
+    ) {
+      void trigger('model');
+    }
+  }, [currentEndpointUsesTypeSafe, currentEndpointHasMixedTypeSafeProviders, isTypeSafeCompatibleJudge, trigger]);
 
   // When the endpoint name from the scorer doesn't match any loaded endpoint
   // (e.g., after a rename), invalidate the scorers cache to refetch from the backend.
@@ -129,21 +168,33 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
       <Controller
         name="model"
         control={control}
-        rules={{ required: true }}
-        render={({ field }) => (
-          <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
-            <EndpointSelector
-              currentEndpointName={currentEndpointName}
-              onEndpointSelect={(endpointName) => {
-                const modelValue = formatGatewayModelFromEndpoint(endpointName);
-                setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
-                onUserSelect?.('model', modelValue);
-              }}
-              disabled={isReadOnly}
-              componentIdPrefix="mlflow.experiment-scorers.endpoint"
-              onEndpointNotFound={handleEndpointNotFound}
-            />
-          </div>
+        rules={{
+          required: true,
+          validate: () =>
+            currentEndpointHasMixedTypeSafeProviders
+              ? 'Mixed TypeSafe and chat endpoints are not supported.'
+              : isTypeSafeCompatibleJudge ||
+                !currentEndpointUsesTypeSafe ||
+                'TypeSafe endpoints require a boolean or categorical non-agentic judge.',
+        }}
+        render={({ fieldState }) => (
+          <>
+            <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
+              <EndpointSelector
+                excludeProviders={isTypeSafeCompatibleJudge ? undefined : ['typesafe']}
+                currentEndpointName={currentEndpointName}
+                onEndpointSelect={(endpointName) => {
+                  const modelValue = formatGatewayModelFromEndpoint(endpointName);
+                  setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
+                  onUserSelect?.('model', modelValue);
+                }}
+                disabled={isReadOnly}
+                componentIdPrefix="mlflow.experiment-scorers.endpoint"
+                onEndpointNotFound={handleEndpointNotFound}
+              />
+            </div>
+            {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+          </>
         )}
       />
       {!isReadOnly && (

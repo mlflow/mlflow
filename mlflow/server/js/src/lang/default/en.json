@@ -4015,6 +4015,10 @@
     "defaultMessage": "Compare",
     "description": "Compare button on run detail page"
   },
+  "EDXmlA": {
+    "defaultMessage": "Select a chat-compatible endpoint before saving this guardrail.",
+    "description": "Error shown when a guardrail uses an incompatible model endpoint"
+  },
   "EE/OnY": {
     "defaultMessage": "How a reviewer sees the question",
     "description": "Review question preview panel header subtitle"

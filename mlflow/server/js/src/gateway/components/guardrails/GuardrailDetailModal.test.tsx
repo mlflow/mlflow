@@ -12,10 +12,10 @@ jest.mock('../../api', () => ({
     removeGuardrailFromEndpoint: jest.fn(),
   },
 }));
-jest.mock('../../hooks/useEndpointsQuery', () => {
-  const data: never[] = [];
-  return { useEndpointsQuery: () => ({ data }) };
-});
+let mockEndpoints: any[] = [];
+jest.mock('../../hooks/useEndpointsQuery', () => ({
+  useEndpointsQuery: () => ({ data: mockEndpoints }),
+}));
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
@@ -56,6 +56,7 @@ describe('GuardrailDetailModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEndpoints = [];
   });
 
   test('renders guardrail title and version', () => {
@@ -89,6 +90,63 @@ describe('GuardrailDetailModal', () => {
     const textarea = screen.getByRole('textbox');
     fireEvent.change(textarea, { target: { value: 'Is {{ inputs }} safe?' } });
 
+    expect(screen.getByRole('button', { name: /Save/ })).not.toBeDisabled();
+  });
+
+  test('requires replacing an existing TypeSafe guardrail model before saving', () => {
+    mockEndpoints = [
+      {
+        endpoint_id: 'ep-typesafe',
+        name: 'typesafe-endpoint',
+        model_mappings: [{ model_definition: { provider: 'typesafe' } }],
+      },
+    ];
+    const config = {
+      ...mockConfig,
+      guardrail: {
+        ...mockConfig.guardrail,
+        scorer: {
+          ...mockConfig.guardrail.scorer,
+          serialized_scorer: JSON.stringify({
+            instructions_judge_pydantic_data: {
+              model: 'gateway:/typesafe-endpoint',
+              instructions: 'Is {{ inputs }} safe?',
+            },
+          }),
+        },
+      },
+    };
+    renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} guardrailConfig={config} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Updated {{ inputs }} check' } });
+
+    expect(screen.getByText('Select a chat-compatible endpoint before saving this guardrail.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+  });
+
+  test('keeps an endpoint with unknown provider metadata editable', () => {
+    const config = {
+      ...mockConfig,
+      guardrail: {
+        ...mockConfig.guardrail,
+        scorer: {
+          ...mockConfig.guardrail.scorer,
+          serialized_scorer: JSON.stringify({
+            instructions_judge_pydantic_data: {
+              model: 'gateway:/use-only-endpoint',
+              instructions: 'Is {{ inputs }} safe?',
+            },
+          }),
+        },
+      },
+    };
+    renderWithDesignSystem(<GuardrailDetailModal {...defaultProps} guardrailConfig={config} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Updated {{ inputs }} check' } });
+
+    expect(
+      screen.queryByText('Select a chat-compatible endpoint before saving this guardrail.'),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save/ })).not.toBeDisabled();
   });
 

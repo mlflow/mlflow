@@ -1,5 +1,16 @@
 import { describe, it, expect } from '@jest/globals';
-import { generateCopyName, hasMixedTypeSafeProviders } from './gatewayUtils';
+import type { Endpoint } from '../types';
+import {
+  endpointHasMixedTypeSafeProviders,
+  endpointUsesAnyProvider,
+  generateCopyName,
+  hasMixedTypeSafeProviders,
+} from './gatewayUtils';
+
+const endpointWithProviders = (providers?: string[]): Endpoint =>
+  ({
+    model_mappings: providers?.map((provider) => ({ model_definition: { provider } })),
+  }) as Endpoint;
 
 describe('gatewayUtils', () => {
   describe('hasMixedTypeSafeProviders', () => {
@@ -13,6 +24,30 @@ describe('gatewayUtils', () => {
       [['anthropic', 'typesafe'], true],
     ])('checks provider compatibility for %j', (providers, expected) => {
       expect(hasMixedTypeSafeProviders(providers.map((provider) => ({ provider })))).toBe(expected);
+    });
+  });
+
+  describe('endpointUsesAnyProvider', () => {
+    it.each<[string[] | undefined, boolean]>([
+      [undefined, false],
+      [[], false],
+      [['openai'], false],
+      [['typesafe'], true],
+      [['typesafe', 'openai'], true],
+    ])('checks endpoint mappings for %j', (providers, expected) => {
+      expect(endpointUsesAnyProvider(endpointWithProviders(providers), ['typesafe'])).toBe(expected);
+    });
+  });
+
+  describe('endpointHasMixedTypeSafeProviders', () => {
+    it.each<[string[] | undefined, boolean]>([
+      [undefined, false],
+      [[], false],
+      [['openai'], false],
+      [['typesafe'], false],
+      [['typesafe', 'openai'], true],
+    ])('checks endpoint mappings for %j', (providers, expected) => {
+      expect(endpointHasMixedTypeSafeProviders(endpointWithProviders(providers))).toBe(expected);
     });
   });
 

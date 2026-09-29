@@ -66,6 +66,32 @@ const mockEndpoints: Endpoint[] = [
   },
 ];
 
+const mockTypesafeEndpoint: Endpoint = {
+  ...mockEndpoints[0],
+  endpoint_id: 'ep-typesafe',
+  name: 'typesafe-endpoint',
+  model_mappings: [
+    {
+      ...mockEndpoints[0].model_mappings[0],
+      mapping_id: 'mm-typesafe',
+      endpoint_id: 'ep-typesafe',
+      model_definition: {
+        ...mockEndpoints[0].model_mappings[0].model_definition!,
+        model_definition_id: 'md-typesafe',
+        provider: 'typesafe',
+        model_name: 'jev-latest',
+      },
+    },
+  ],
+};
+
+const mixedProviderEndpoint: Endpoint = {
+  ...mockTypesafeEndpoint,
+  endpoint_id: 'ep-mixed',
+  name: 'mixed-provider-endpoint',
+  model_mappings: [...mockTypesafeEndpoint.model_mappings, ...mockEndpoints[0].model_mappings],
+};
+
 describe('EndpointSelector', () => {
   const mockOnEndpointSelect = jest.fn();
   const mockRefetch = jest.fn();
@@ -193,5 +219,112 @@ describe('EndpointSelector', () => {
     // Combobox should be rendered but listbox should not be present
     expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  test('excludes endpoints when any model mapping uses an incompatible provider', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [...mockEndpoints, mockTypesafeEndpoint, mixedProviderEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector excludeProviders={['typesafe']} onEndpointSelect={mockOnEndpointSelect} />,
+    );
+    await userEvent.click(screen.getByRole('combobox'));
+
+    const listbox = screen.getByRole('listbox');
+    expect(within(listbox).getByText('openai-endpoint')).toBeInTheDocument();
+    expect(within(listbox).queryByText('typesafe-endpoint')).not.toBeInTheDocument();
+    expect(within(listbox).queryByText('mixed-provider-endpoint')).not.toBeInTheDocument();
+  });
+
+  test('includes TypeSafe endpoints when the workflow does not exclude them', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(<EndpointSelector onEndpointSelect={mockOnEndpointSelect} />);
+    await userEvent.click(screen.getByRole('combobox'));
+
+    expect(within(screen.getByRole('listbox')).getByText('typesafe-endpoint')).toBeInTheDocument();
+  });
+
+  test('always excludes mixed TypeSafe and chat endpoints', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint, mixedProviderEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(<EndpointSelector onEndpointSelect={mockOnEndpointSelect} />);
+    await userEvent.click(screen.getByRole('combobox'));
+
+    const listbox = screen.getByRole('listbox');
+    expect(within(listbox).getByText('typesafe-endpoint')).toBeInTheDocument();
+    expect(within(listbox).queryByText('mixed-provider-endpoint')).not.toBeInTheDocument();
+  });
+
+  test('keeps an existing mixed endpoint visible until it is replaced', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint, mixedProviderEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector currentEndpointName="mixed-provider-endpoint" onEndpointSelect={mockOnEndpointSelect} />,
+    );
+
+    expect(screen.getByText('mixed-provider-endpoint')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(within(screen.getByRole('listbox')).queryByText('mixed-provider-endpoint')).not.toBeInTheDocument();
+  });
+
+  test('auto-selects the first compatible endpoint', () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [mockTypesafeEndpoint, ...mockEndpoints],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector
+        excludeProviders={['typesafe']}
+        autoSelectFirstEndpoint
+        onEndpointSelect={mockOnEndpointSelect}
+      />,
+    );
+
+    expect(mockOnEndpointSelect).toHaveBeenCalledWith('openai-endpoint');
+  });
+
+  test('keeps a current incompatible endpoint visible until the user replaces it', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [...mockEndpoints, mockTypesafeEndpoint],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <EndpointSelector
+        excludeProviders={['typesafe']}
+        currentEndpointName="typesafe-endpoint"
+        onEndpointSelect={mockOnEndpointSelect}
+      />,
+    );
+
+    expect(screen.getByText('typesafe-endpoint')).toBeInTheDocument();
+    expect(mockOnEndpointSelect).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(within(screen.getByRole('listbox')).queryByText('typesafe-endpoint')).not.toBeInTheDocument();
   });
 });

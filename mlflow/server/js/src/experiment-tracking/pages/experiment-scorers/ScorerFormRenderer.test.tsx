@@ -8,6 +8,9 @@ import ScorerFormRenderer from './ScorerFormRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import type { Endpoint } from '../../../gateway/types';
+
+let mockEndpoints: Endpoint[] = [];
 
 // Mock the feature flag
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -19,7 +22,13 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
 jest.mock('../../components/EndpointSelector', () => ({
-  EndpointSelector: () => <div data-testid="endpoint-selector" />,
+  EndpointSelector: ({ excludeProviders }: { excludeProviders?: string[] }) => (
+    <div data-testid="endpoint-selector" data-exclude-providers={excludeProviders?.join(',')} />
+  ),
+}));
+
+jest.mock('../../../gateway/hooks/useEndpointsQuery', () => ({
+  useEndpointsQuery: () => ({ data: mockEndpoints }),
 }));
 
 // Mock useExperimentIds used by ModelSectionRenderer for cache invalidation
@@ -56,9 +65,10 @@ const queryClient = new QueryClient({
 interface TestWrapperProps {
   defaultValues?: Partial<ScorerFormData>;
   initialSelectedItemIds?: string[];
+  onFormSubmit?: (data: ScorerFormData) => void;
 }
 
-function TestWrapper({ defaultValues, initialSelectedItemIds }: TestWrapperProps) {
+function TestWrapper({ defaultValues, initialSelectedItemIds, onFormSubmit = jest.fn() }: TestWrapperProps) {
   const form = useForm<ScorerFormData>({
     defaultValues: {
       name: 'Test Scorer',
@@ -80,7 +90,7 @@ function TestWrapper({ defaultValues, initialSelectedItemIds }: TestWrapperProps
             <ScorerFormRenderer
               mode={SCORER_FORM_MODE.CREATE}
               handleSubmit={form.handleSubmit}
-              onFormSubmit={jest.fn()}
+              onFormSubmit={onFormSubmit}
               control={form.control}
               setValue={form.setValue}
               getValues={form.getValues}
@@ -102,6 +112,66 @@ function TestWrapper({ defaultValues, initialSelectedItemIds }: TestWrapperProps
 describe('ScorerFormRenderer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEndpoints = [];
+  });
+
+  it('excludes TypeSafe endpoints for agentic trace judges', () => {
+    render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ trace }}', outputTypeKind: 'bool' }} />);
+
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-exclude-providers', 'typesafe');
+  });
+
+  it('allows TypeSafe endpoints for structured boolean judges', () => {
+    render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ outputs }}', outputTypeKind: 'bool' }} />);
+
+    expect(screen.getByTestId('endpoint-selector')).not.toHaveAttribute('data-exclude-providers');
+  });
+
+  it('excludes TypeSafe endpoints until a categorical judge has nonblank options', () => {
+    const { unmount } = render(
+      <TestWrapper
+        defaultValues={{
+          instructions: 'Inspect {{ outputs }}',
+          outputTypeKind: 'categorical',
+          categoricalOptions: ' \n ',
+        }}
+      />,
+    );
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-exclude-providers', 'typesafe');
+    unmount();
+
+    render(
+      <TestWrapper
+        defaultValues={{
+          instructions: 'Inspect {{ outputs }}',
+          outputTypeKind: 'categorical',
+          categoricalOptions: 'good\nbad',
+        }}
+      />,
+    );
+    expect(screen.getByTestId('endpoint-selector')).not.toHaveAttribute('data-exclude-providers');
+  });
+
+  it('rejects a mixed TypeSafe and chat endpoint for a structured boolean judge', async () => {
+    const user = userEvent.setup();
+    const onFormSubmit = jest.fn();
+    mockEndpoints = [
+      {
+        name: 'some-model',
+        model_mappings: [{ model_definition: { provider: 'typesafe' } }, { model_definition: { provider: 'openai' } }],
+      } as Endpoint,
+    ];
+
+    render(
+      <TestWrapper
+        defaultValues={{ instructions: 'Inspect {{ outputs }}', outputTypeKind: 'bool' }}
+        onFormSubmit={onFormSubmit}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Create judge' }));
+
+    expect(await screen.findByText('Mixed TypeSafe and chat endpoints are not supported.')).toBeInTheDocument();
+    expect(onFormSubmit).not.toHaveBeenCalled();
   });
 
   describe('Preset Modal Behavior', () => {

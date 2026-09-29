@@ -7,6 +7,18 @@ export const hasMixedTypeSafeProviders = (models: { provider: string }[]): boole
   models.some((model) => model.provider === 'typesafe') &&
   models.some((model) => model.provider && model.provider !== 'typesafe');
 
+export const endpointUsesAnyProvider = (endpoint: Endpoint, providers: readonly string[]): boolean =>
+  endpoint.model_mappings?.some(
+    (mapping) => mapping.model_definition && providers.includes(mapping.model_definition.provider),
+  ) ?? false;
+
+export const endpointHasMixedTypeSafeProviders = (endpoint: Endpoint): boolean =>
+  hasMixedTypeSafeProviders(
+    endpoint.model_mappings?.flatMap((mapping) =>
+      mapping.model_definition ? [{ provider: mapping.model_definition.provider }] : [],
+    ) ?? [],
+  );
+
 export enum ModelProvider {
   GATEWAY = 'gateway',
   DATABRICKS = 'databricks',
