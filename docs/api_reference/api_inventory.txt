@@ -1121,6 +1121,9 @@ mlflow.genai.scorers.Fluency.model_post_init
 mlflow.genai.scorers.Guidelines
 mlflow.genai.scorers.Guidelines.get_input_fields
 mlflow.genai.scorers.Guidelines.model_post_init
+mlflow.genai.scorers.JevScorer
+mlflow.genai.scorers.JevScorer.model_dump
+mlflow.genai.scorers.JevScorer.model_post_init
 mlflow.genai.scorers.KnowledgeRetention
 mlflow.genai.scorers.KnowledgeRetention.model_post_init
 mlflow.genai.scorers.PIIDetection
@@ -1297,8 +1300,10 @@ mlflow.genai.scorers.guardrails.SecretsPresent.model_post_init
 mlflow.genai.scorers.guardrails.ToxicLanguage
 mlflow.genai.scorers.guardrails.ToxicLanguage.model_post_init
 mlflow.genai.scorers.guardrails.get_scorer
+mlflow.genai.scorers.jev.JevScorer
 mlflow.genai.scorers.list_scorers
 mlflow.genai.scorers.majority_vote
+mlflow.genai.scorers.make_jev_scorer
 mlflow.genai.scorers.make_scorer_ensemble
 mlflow.genai.scorers.maximum
 mlflow.genai.scorers.mean
