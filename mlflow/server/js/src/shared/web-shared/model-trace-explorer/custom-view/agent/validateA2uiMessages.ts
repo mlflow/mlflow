@@ -19,6 +19,7 @@ import { KeyValueViewer } from '../catalog-primitives/KeyValueViewer';
 import { Markdown } from '../catalog-primitives/Markdown';
 import { RadioGroup } from '../catalog-primitives/RadioGroup';
 import { StatCard } from '../catalog-primitives/StatCard';
+import { TraceImage } from '../catalog-primitives/TraceImage';
 import {
   SPAN_FIELD_SOURCE_NAME,
   isKnownSource,
@@ -41,6 +42,7 @@ const COMPONENT_SCHEMAS: Record<string, ZodTypeAny> = Object.fromEntries(
     Icon,
     Card,
     Markdown,
+    TraceImage,
     AssessmentBoard,
     AssessmentCard,
     KeyValueViewer,
