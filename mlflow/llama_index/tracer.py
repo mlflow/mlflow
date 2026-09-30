@@ -41,6 +41,12 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_tools
 
+try:
+    from llama_index.core.instrumentation.span import active_span_id
+except ImportError:
+    # Older LlamaIndex releases do not expose the instrumentation context variable.
+    active_span_id = None
+
 _logger = logging.getLogger(__name__)
 
 
@@ -185,7 +191,11 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         **kwargs: Any,
     ) -> _LlamaSpan:
         with self.lock:
-            parent = self.open_spans.get(parent_span_id) if parent_span_id else None
+            parent = (
+                self.open_spans.get(parent_span_id) or self._pending_spans.get(parent_span_id)
+                if parent_span_id
+                else None
+            )
 
         parent_span = parent._mlflow_span if parent else mlflow.get_current_active_span()
 
@@ -250,7 +260,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 ):
                     # If the result is a generator, we keep the span in progress for streaming
                     # and end it when the generator is exhausted.
-                    is_pended = self._stream_resolver.register_stream_span(span, result)
+                    is_pended = self._stream_resolver.register_stream_span(
+                        span, result, llama_span_id=id_
+                    )
                     if is_pended:
                         self._pending_spans[id_] = llama_span
                         # We still need to detach the span from the context, otherwise it will
@@ -583,7 +595,7 @@ class StreamResolver:
     """
 
     def __init__(self):
-        self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator]] = {}
+        self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator, str | None]] = {}
         # Maps a span_id -> (status, output_text) for ancestor spans whose descendant
         # stream was resolved before the ancestor exited and registered as a pending
         # stream. In llama-index-core >= 0.14.17, the LLM stream end event can fire and
@@ -602,13 +614,17 @@ class StreamResolver:
             )
         )
 
-    def register_stream_span(self, span: LiveSpan, result: Any) -> bool:
+    def register_stream_span(
+        self, span: LiveSpan, result: Any, llama_span_id: str | None = None
+    ) -> bool:
         """
         Register the pending streaming span with the associated generator.
 
         Args:
             span: The span that has a streaming output.
             result: The streaming result that is being processed.
+            llama_span_id: The corresponding LlamaIndex span ID, used to restore its
+                context while a deferred response generator runs.
 
         Returns:
             True if the span is registered successfully, False otherwise.
@@ -635,8 +651,64 @@ class StreamResolver:
             if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
                 return False
 
-        self._span_id_to_span_and_gen[span.span_id] = (span, stream)
+        if isinstance(result, (StreamingResponse, AsyncStreamingResponse)):
+            # A response synthesizer can return a generator that was created by an
+            # already-pending child span. LlamaIndex resumes that generator after it
+            # has reset its span context, so work performed while streaming would
+            # otherwise start a new MLflow trace. Restore the innermost pending
+            # span's context only while advancing the generator.
+            parent_span, parent_llama_span_id = next(
+                (
+                    (pending_span, pending_llama_span_id)
+                    for pending_span, pending_stream, pending_llama_span_id in (
+                        self._span_id_to_span_and_gen.values()
+                    )
+                    if pending_stream is stream
+                ),
+                (span, llama_span_id),
+            )
+            stream = self._with_span_context(stream, parent_span, parent_llama_span_id)
+            result.response_gen = stream
+        self._span_id_to_span_and_gen[span.span_id] = (span, stream, llama_span_id)
         return True
+
+    @staticmethod
+    def _with_span_context(
+        stream: Generator, span: LiveSpan, llama_span_id: str | None
+    ) -> Generator:
+        if inspect.isasyncgen(stream):
+
+            async def async_generator():
+                while True:
+                    llama_token = active_span_id.set(llama_span_id) if active_span_id else None
+                    token = set_span_in_context(span)
+                    try:
+                        chunk = await stream.__anext__()
+                    except StopAsyncIteration:
+                        return
+                    finally:
+                        detach_span_from_context(token)
+                        if llama_token:
+                            active_span_id.reset(llama_token)
+                    yield chunk
+
+            return async_generator()
+
+        def generator():
+            while True:
+                llama_token = active_span_id.set(llama_span_id) if active_span_id else None
+                token = set_span_in_context(span)
+                try:
+                    chunk = next(stream)
+                except StopIteration:
+                    return
+                finally:
+                    detach_span_from_context(token)
+                    if llama_token:
+                        active_span_id.reset(llama_token)
+                yield chunk
+
+        return generator()
 
     def _record_pending_resolution(
         self,
@@ -703,7 +775,7 @@ class StreamResolver:
         Finish the streaming span and recursively resolve the parent spans that
         returns the same (or derived) stream.
         """
-        _, stream = self._span_id_to_span_and_gen.pop(span.span_id, (None, None))
+        _, stream, _ = self._span_id_to_span_and_gen.pop(span.span_id, (None, None, None))
         if not stream:
             return
 
@@ -731,7 +803,7 @@ class StreamResolver:
         # stream to be exhausted.
         while span.parent_id in self._span_id_to_span_and_gen:
             if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id, None):
-                span, stream = span_and_stream
+                span, stream, _ = span_and_stream
                 # We reuse the same output text for parent spans. This may not be 100% correct
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
