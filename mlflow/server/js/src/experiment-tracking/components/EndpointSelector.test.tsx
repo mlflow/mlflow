@@ -7,8 +7,12 @@ import type { Endpoint } from '../../gateway/types';
 
 jest.mock('../../gateway/hooks/useEndpointsQuery');
 jest.mock('../../gateway/components/endpoint-form', () => ({
-  CreateEndpointModal: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
-    open ? <div data-testid="create-endpoint-modal">Create Endpoint Modal</div> : null,
+  CreateEndpointModal: ({ open, excludeProviders }: { open: boolean; excludeProviders?: string[] }) =>
+    open ? (
+      <div data-testid="create-endpoint-modal" data-exclude-providers={(excludeProviders ?? []).join(',')}>
+        Create Endpoint Modal
+      </div>
+    ) : null,
 }));
 
 const mockEndpoints: Endpoint[] = [
@@ -172,6 +176,38 @@ describe('EndpointSelector', () => {
 
     // Modal should be visible
     expect(screen.getByTestId('create-endpoint-modal')).toBeInTheDocument();
+  });
+
+  test('excludes TypeSafe from endpoint creation in chat-only contexts', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(<EndpointSelector onEndpointSelect={mockOnEndpointSelect} />);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(screen.getByText('Create new endpoint'));
+
+    expect(screen.getByTestId('create-endpoint-modal')).toHaveAttribute('data-exclude-providers', 'typesafe');
+  });
+
+  test('keeps TypeSafe endpoint creation available in judge contexts', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(<EndpointSelector showDisabledTypeSafe onEndpointSelect={mockOnEndpointSelect} />);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(screen.getByText('Create new endpoint'));
+
+    expect(screen.getByTestId('create-endpoint-modal')).toHaveAttribute('data-exclude-providers', '');
   });
 
   test('displays current endpoint name when provided', () => {

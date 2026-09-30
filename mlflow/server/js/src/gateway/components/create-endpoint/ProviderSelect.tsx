@@ -18,6 +18,7 @@ interface ProviderSelectProps {
   error?: string;
   componentId?: string;
   hideLabel?: boolean;
+  excludeProviders?: string[];
 }
 
 export const ProviderSelect = ({
@@ -27,6 +28,7 @@ export const ProviderSelect = ({
   error,
   componentId = 'mlflow.gateway.provider-select',
   hideLabel = false,
+  excludeProviders,
 }: ProviderSelectProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -45,10 +47,14 @@ export const ProviderSelect = ({
     }
 
     const commonSet = new Set<string>(COMMON_PROVIDERS);
+    const excludedProviderSet = new Set(excludeProviders ?? []);
 
     const commonProviders: string[] = [];
     const otherUngrouped: string[] = [];
     for (const provider of providers) {
+      if (excludedProviderSet.has(provider)) {
+        continue;
+      }
       if (commonSet.has(provider)) {
         commonProviders.push(provider);
       } else {
@@ -115,7 +121,7 @@ export const ProviderSelect = ({
       },
       hasOtherProviders: otherUngrouped.length > 0,
     };
-  }, [providers, intl]);
+  }, [providers, intl, excludeProviders]);
 
   const handleChange = useCallback(
     (newValue: string | null) => {

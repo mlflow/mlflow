@@ -102,6 +102,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   );
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const createEndpointExcludeProviders = allowTypeSafe || showDisabledTypeSafe ? undefined : ['typesafe'];
 
   useEffect(() => {
     if (autoSelectFirstEndpoint && selectableEndpoints.length > 0 && !currentEndpointName) {
@@ -301,6 +302,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
           open={isCreateModalOpen}
           onClose={handleCloseCreateModal}
           onSuccess={handleCreateEndpointSuccess}
+          excludeProviders={createEndpointExcludeProviders}
         />
       )}
     </>

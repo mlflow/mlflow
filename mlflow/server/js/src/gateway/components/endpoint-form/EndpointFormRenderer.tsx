@@ -54,6 +54,8 @@ export interface EndpointFormRendererProps {
   embedded?: boolean;
   /** Keep the provider fixed when creating an endpoint for a specific evaluator. */
   providerDisabled?: boolean;
+  /** Exclude providers from the provider picker when creating from a filtered context. */
+  excludeProviders?: string[];
 }
 
 /**
@@ -82,6 +84,7 @@ export const EndpointFormRenderer = ({
   componentId = `mlflow.gateway.endpoint`,
   embedded = false,
   providerDisabled = false,
+  excludeProviders,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -288,6 +291,7 @@ export const EndpointFormRenderer = ({
                         });
                       }}
                       error={fieldState.error?.message}
+                      excludeProviders={excludeProviders}
                       componentId={`${componentId}.provider`}
                     />
                   )}

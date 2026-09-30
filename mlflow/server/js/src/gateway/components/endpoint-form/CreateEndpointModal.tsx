@@ -12,9 +12,17 @@ interface CreateEndpointModalProps {
   onSuccess?: (endpoint: Endpoint) => void;
   /** Restrict endpoint creation to this provider. */
   provider?: string;
+  /** Exclude providers from endpoint creation in filtered picker contexts. */
+  excludeProviders?: string[];
 }
 
-export const CreateEndpointModal = ({ open, onClose, onSuccess, provider }: CreateEndpointModalProps) => {
+export const CreateEndpointModal = ({
+  open,
+  onClose,
+  onSuccess,
+  provider,
+  excludeProviders,
+}: CreateEndpointModalProps) => {
   const intl = useIntl();
 
   const {
@@ -68,6 +76,7 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess, provider }: Crea
           onCancel={handleCancel}
           onNameBlur={handleNameBlur}
           componentId="mlflow.gateway.create-endpoint-modal"
+          excludeProviders={excludeProviders}
           embedded
         />
       </FormProvider>
