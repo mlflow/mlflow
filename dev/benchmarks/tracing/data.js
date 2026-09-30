@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790781928415,
+  "lastUpdate": 1790782678101,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "tomu.hirata@gmail.com",
-            "name": "Tomu Hirata",
-            "username": "TomeHirata"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dfda0bb8818dcd8e4bd4758d956a7607e6021caa",
-          "message": "Preserve OTel resource attributes during OTLP trace ingestion (#23829)\n\nSigned-off-by: Tomu Hirata <tomu.hirata@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-11T04:44:30Z",
-          "tree_id": "d21da58beba434f1cab7a975503c388f936abf3c",
-          "url": "https://github.com/mlflow/mlflow/commit/dfda0bb8818dcd8e4bd4758d956a7607e6021caa"
-        },
-        "date": 1781153266321,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 48.098360099996285,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 22.69206567647289,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 20.3684708499992,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 21.293889847457375,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 19.33776421428693,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.5577111999944,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.928080200000977,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sourcehatchery@gmail.com",
+            "name": "Cheolhee Lee",
+            "username": "iamhuman-cheolheelee"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60c0735c3f1972fc77a58f42f7f73f6e3c4ca110",
+          "message": "End OpenAI autolog stream span with `ERROR` status when the stream raises mid-iteration (#26305)\n\nSigned-off-by: chlee <sourcehatchery@gmail.com>",
+          "timestamp": "2026-09-30T15:31:49Z",
+          "tree_id": "c0f60ecf505ef28a68bb97810c3e5e5eaf329b4b",
+          "url": "https://github.com/mlflow/mlflow/commit/60c0735c3f1972fc77a58f42f7f73f6e3c4ca110"
+        },
+        "date": 1790782674550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 84.30160024999864,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.148835507042971,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.024026717949372,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.001226122581028,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.207017645390462,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.215777666668032,
             "unit": "ms"
           }
         ]
