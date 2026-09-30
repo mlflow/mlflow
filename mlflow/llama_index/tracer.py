@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+from contextlib import contextmanager
 from functools import singledispatchmethod
 from typing import Any, Generator
 
@@ -48,6 +49,20 @@ except ImportError:
     active_span_id = None
 
 _logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _stream_span_context(span: LiveSpan, llama_span_id: str | None):
+    mlflow_token = set_span_in_context(span)
+    try:
+        llama_token = active_span_id.set(llama_span_id) if active_span_id else None
+        try:
+            yield
+        finally:
+            if llama_token:
+                active_span_id.reset(llama_token)
+    finally:
+        detach_span_from_context(mlflow_token)
 
 
 def _get_llama_index_version() -> Version:
@@ -680,32 +695,22 @@ class StreamResolver:
 
             async def async_generator():
                 while True:
-                    llama_token = active_span_id.set(llama_span_id) if active_span_id else None
-                    token = set_span_in_context(span)
                     try:
-                        chunk = await stream.__anext__()
+                        with _stream_span_context(span, llama_span_id):
+                            chunk = await stream.__anext__()
                     except StopAsyncIteration:
                         return
-                    finally:
-                        detach_span_from_context(token)
-                        if llama_token:
-                            active_span_id.reset(llama_token)
                     yield chunk
 
             return async_generator()
 
         def generator():
             while True:
-                llama_token = active_span_id.set(llama_span_id) if active_span_id else None
-                token = set_span_in_context(span)
                 try:
-                    chunk = next(stream)
+                    with _stream_span_context(span, llama_span_id):
+                        chunk = next(stream)
                 except StopIteration:
                     return
-                finally:
-                    detach_span_from_context(token)
-                    if llama_token:
-                        active_span_id.reset(llama_token)
                 yield chunk
 
         return generator()
