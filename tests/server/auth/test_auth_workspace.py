@@ -2833,6 +2833,62 @@ def test_graphql_run_search_filter_honors_a_run_deny(workspace_permission_setup)
     assert _check("mlflowSearchDatasets") is True
 
 
+def test_graphql_model_version_search_gates_a_run_selector(workspace_permission_setup):
+    """The middleware filters unreadable version ROWS, which cannot cover a ``run_id`` selector:
+    the caller learns the run a returned version belongs to from the query matching at all, not
+    from any field. REST refuses the request; GraphQL accepted it because
+    ``_check_authorization`` had no branch for this field.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "*", READ.name), ("run", "*", DENY.name)],
+    )
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+
+    def _check(filter_string):
+        with auth_module.app.test_request_context("/graphql", method="POST"):
+            return middleware._check_authorization(
+                "mlflowSearchModelVersions",
+                {"input": SimpleNamespace(filter=filter_string)},
+                username,
+            )
+
+    # a run selector is refused, however it is spelled
+    assert _check("run_id = 'run-1'") is False
+    assert _check("name = 'm' AND run_id = 'run-1'") is False
+    assert _check("attributes.run_id = 'run-1'") is False
+    # and a search that names no run is unaffected
+    assert _check("name = 'm'") is True
+    assert _check("") is True
+    assert _check(None) is True
+
+
+def test_graphql_model_version_search_selector_allowed_without_a_run_deny(
+    workspace_permission_setup,
+):
+    # No run grant: the selector is not an oracle, so it passes exactly as on REST.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+
+    with auth_module.app.test_request_context("/graphql", method="POST"):
+        assert (
+            middleware._check_authorization(
+                "mlflowSearchModelVersions",
+                {"input": SimpleNamespace(filter="run_id = 'run-1'")},
+                username,
+            )
+            is True
+        )
+
+
 def _search_model_versions_names(rows):
     payload = json.dumps({"model_versions": rows})
     flask_resp = Response(payload, mimetype="application/json")
