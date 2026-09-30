@@ -819,7 +819,12 @@ def _validate_skill_alias(alias):
 
 
 def _validate_skill_tag(key, value):
-    _validate_tag(key, value)
+    _validate_tag_name(key)
+    _validate_tag_value(value)
+    return RunTag(
+        _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key),
+        _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value),
+    )
 
 
 def _validate_skill_artifact_path(path):

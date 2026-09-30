@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.validation import (
+    MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH,
     _validate_agent_plugin_name,
     _validate_organization_name,
     _validate_skill_alias,
@@ -99,10 +100,20 @@ def test_skill_alias_reuses_model_alias_rules():
         _validate_skill_alias("latest")
 
 
-def test_skill_tag_reuses_tag_rules():
+def test_skill_tag_validates_key_and_value():
     _validate_skill_tag("team", "platform")
     with pytest.raises(MlflowException, match="Missing value for required parameter"):
         _validate_skill_tag(None, "v")
+    with pytest.raises(MlflowException, match="Tag value cannot be None"):
+        _validate_skill_tag("team", None)
+
+
+def test_skill_tag_uses_registry_tag_value_limits():
+    value = "x" * 9000
+    assert _validate_skill_tag("team", value).value == value
+
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
+        _validate_skill_tag("team", "x" * (MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH + 1))
 
 
 @pytest.mark.parametrize("path", ["code-review", "a/b/c", "dir/file.md"])
