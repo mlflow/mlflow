@@ -58,6 +58,8 @@ def count_rows(data: Any) -> int:
 def test_add_scorer_metadata_for_registered_scorer():
     scorer = RelevanceToQuery(name="registered_scorer")
     scorer._scorer_version = 3
+    scorer._canonical_resource_name = "experiments/123/scorers/cmVnaXN0ZXJlZF9zY29yZXI/versions/3"
+    scorer._canonical_resource_name_type = "databricks_scorer_version"
     feedback = Feedback(value=True, metadata={"user-key": "user-value"})
 
     add_scorer_metadata(scorer, [feedback])
@@ -66,6 +68,10 @@ def test_add_scorer_metadata_for_registered_scorer():
         "user-key": "user-value",
         AssessmentMetadataKey.SCORER_NAME: "registered_scorer",
         AssessmentMetadataKey.SCORER_VERSION: "3",
+        AssessmentMetadataKey.SCORER_RESOURCE_NAME: (
+            "experiments/123/scorers/cmVnaXN0ZXJlZF9zY29yZXI/versions/3"
+        ),
+        AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE: "databricks_scorer_version",
     }
 
 

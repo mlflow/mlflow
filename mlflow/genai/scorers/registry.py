@@ -22,7 +22,9 @@ from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
     SCORER_BACKEND_TRACKING,
+    SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
     Scorer,
+    ScorerCanonicalResourceType,
     ScorerSamplingConfig,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -517,6 +519,32 @@ class DatabricksStore(AbstractScorerStore):
     def _scorer_resource_key(name: str) -> str:
         return urlsafe_b64encode(name.encode("utf-8")).decode("ascii").rstrip("=")
 
+    @classmethod
+    def _scorer_version_resource_name(cls, experiment_id: str, name: str, version: int) -> str:
+        version = cls._validate_version(version)
+        return (
+            f"experiments/{experiment_id}/scorers/{cls._scorer_resource_key(name)}"
+            f"/versions/{version}"
+        )
+
+    def _canonical_resource_name(
+        self,
+        experiment_id: str,
+        config: _DatabricksScheduledScorerConfig,
+    ) -> str | None:
+        scorer_version = getattr(config, _SCORER_VERSION_ATTRIBUTE, None)
+        if scorer_version is None:
+            return None
+        return self._scorer_version_resource_name(experiment_id, config.name, scorer_version)
+
+    def _canonical_resource_name_type(
+        self,
+        config: _DatabricksScheduledScorerConfig,
+    ) -> ScorerCanonicalResourceType | None:
+        if getattr(config, _SCORER_VERSION_ATTRIBUTE, None) is None:
+            return None
+        return SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS
+
     def _scheduled_scorers_endpoint(self, experiment_id: str) -> str:
         return (
             f"{self._MANAGED_EVALS_SCHEDULED_SCORERS_BASE}/{self._encode_path_param(experiment_id)}"
@@ -761,6 +789,8 @@ class DatabricksStore(AbstractScorerStore):
                         filter_string=config.filter_string,
                     ),
                     scorer_version=config.scorer_version,
+                    canonical_resource_name=self._canonical_resource_name(experiment_id, config),
+                    canonical_resource_name_type=self._canonical_resource_name_type(config),
                 )
         raise MlflowException(f"Updated scheduled scorer response did not include '{name}'.")
 
@@ -788,6 +818,8 @@ class DatabricksStore(AbstractScorerStore):
                 filter_string=response_config.filter_string,
             ),
             scorer_version=response_config.scorer_version,
+            canonical_resource_name=self._canonical_resource_name(experiment_id, response_config),
+            canonical_resource_name_type=self._canonical_resource_name_type(response_config),
         )
         return response_config.scorer_version
 
@@ -807,6 +839,10 @@ class DatabricksStore(AbstractScorerStore):
                     filter_string=scheduled_scorer.filter_string,
                 ),
                 scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
+                canonical_resource_name=self._canonical_resource_name(
+                    experiment_id, scheduled_scorer
+                ),
+                canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
             )
             for scheduled_scorer in scheduled_scorers
         ]
@@ -837,6 +873,8 @@ class DatabricksStore(AbstractScorerStore):
                     filter_string=current_config.filter_string,
                 ),
                 scorer_version=version_config.scorer_version,
+                canonical_resource_name=version_config.name,
+                canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
             )
 
         # Get the scheduled scorer from the server
@@ -857,6 +895,8 @@ class DatabricksStore(AbstractScorerStore):
                 filter_string=scheduled_scorer.filter_string,
             ),
             scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
+            canonical_resource_name=self._canonical_resource_name(experiment_id, scheduled_scorer),
+            canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
         )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
@@ -880,6 +920,8 @@ class DatabricksStore(AbstractScorerStore):
                         filter_string=current_config.filter_string,
                     ),
                     scorer_version=config.scorer_version,
+                    canonical_resource_name=config.name,
+                    canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
                 ),
                 config.scorer_version,
             )

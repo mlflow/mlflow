@@ -253,6 +253,14 @@ def test_databricks_backend_registers_with_patch_and_post_fallback():
         assert store.register_scorer("exp_123", scorer_v1) == 1
         assert store.register_scorer("exp_123", scorer_v2) == 2
 
+    assert scorer_v1.canonical_resource_name == (
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_v1.name, 1)
+    )
+    assert scorer_v2.canonical_resource_name == (
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_v2.name, 2)
+    )
+    assert scorer_v1.canonical_resource_name_type == "databricks_scorer_version"
+    assert scorer_v2.canonical_resource_name_type == "databricks_scorer_version"
     assert scorer_v2._sampling_config == ScorerSamplingConfig(
         sample_rate=0.4,
         filter_string="trace.status = 'OK'",
@@ -621,6 +629,8 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
 
     assert exact.name == scorer_name
     assert exact.scorer_version == 1
+    assert exact.canonical_resource_name == v1_version_config["name"]
+    assert exact.canonical_resource_name_type == "databricks_scorer_version"
     assert exact._sampling_config == ScorerSamplingConfig(
         sample_rate=0.5,
         filter_string="trace.status = 'OK'",
@@ -628,6 +638,14 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
     assert [version for _, version in versions] == [1, 2]
     assert [scorer.name for scorer, _ in versions] == [scorer_name, scorer_name]
     assert [scorer.scorer_version for scorer, _ in versions] == [1, 2]
+    assert [scorer.canonical_resource_name for scorer, _ in versions] == [
+        v1_version_config["name"],
+        v2_version_config["name"],
+    ]
+    assert [scorer.canonical_resource_name_type for scorer, _ in versions] == [
+        "databricks_scorer_version",
+        "databricks_scorer_version",
+    ]
 
     scorer_key = "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI"
     assert mock_http.call_args_list[0].kwargs["endpoint"] == (
@@ -797,6 +815,17 @@ def test_databricks_backend_historical_scorer_scheduling_preserves_current_defin
         stopped_config,
     ]
     assert [started.guidelines, updated.guidelines, stopped.guidelines] == [["v2"]] * 3
+    assert [
+        scorer.canonical_resource_name for scorer in [historical, started, updated, stopped]
+    ] == [
+        historical_config["name"],
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_name, 2),
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_name, 2),
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_name, 2),
+    ]
+    assert [
+        scorer.canonical_resource_name_type for scorer in [historical, started, updated, stopped]
+    ] == ["databricks_scorer_version"] * 4
 
 
 def _mock_gateway_endpoint():
