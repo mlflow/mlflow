@@ -12,6 +12,7 @@ from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.typesafe import (
     _RETRY_CODES,
     _build_question,
+    _gateway_typesafe_negative_cache,
     _invoke_typesafe_judge,
     _is_gateway_model,
     _is_typesafe_model,
@@ -22,6 +23,13 @@ from mlflow.tracing.constant import AssessmentMetadataKey
 
 _REQUEST_TARGET = "mlflow.genai.judges.typesafe._get_http_response_with_retries"
 _DEFAULT_STATE = object()
+
+
+@pytest.fixture(autouse=True)
+def clear_gateway_typesafe_negative_cache():
+    _gateway_typesafe_negative_cache.clear()
+    yield
+    _gateway_typesafe_negative_cache.clear()
 
 
 def _response(answer, usage=None):
@@ -93,6 +101,29 @@ def test_gateway_chat_endpoint_falls_back_during_runtime_invocation():
         )
 
 
+def test_gateway_chat_endpoint_negative_result_is_cached():
+    response = mock.Mock(status_code=422)
+    response.json.return_value = {"detail": "Gateway endpoint does not use the TypeSafe provider."}
+    kwargs = {
+        "instructions": "Does {{ outputs }} answer {{ inputs }}?",
+        "state": {"inputs": "Question", "outputs": "Answer"},
+        "feedback_value_type": bool,
+        "assessment_name": "quality",
+    }
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ) as resolve_gateway_uri,
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+    ):
+        assert _try_invoke_gateway_typesafe_judge("gateway:/chat-endpoint", **kwargs) is None
+        assert _try_invoke_gateway_typesafe_judge("gateway:/chat-endpoint", **kwargs) is None
+
+    assert resolve_gateway_uri.call_count == 3
+    request.assert_called_once()
+
+
 def test_gateway_404_preserves_chat_fallback_for_older_servers():
     response = mock.Mock(status_code=404)
     response.json.return_value = {"detail": "Not Found"}
@@ -115,6 +146,28 @@ def test_gateway_404_preserves_chat_fallback_for_older_servers():
         )
 
 
+def test_gateway_typesafe_success_does_not_cache_negative_result():
+    response = _response({"type": "noul", "noul": 0.8})
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+    ):
+        feedback = _try_invoke_gateway_typesafe_judge(
+            "gateway:/typesafe-endpoint",
+            instructions="Does {{ outputs }} answer {{ inputs }}?",
+            state={"inputs": "Question", "outputs": "Answer"},
+            feedback_value_type=bool,
+            assessment_name="quality",
+        )
+
+    assert feedback.value is True
+    request.assert_called_once()
+    assert _gateway_typesafe_negative_cache == {}
+
+
 def test_gateway_typesafe_endpoint_404_does_not_fall_back_to_chat():
     response = mock.Mock(status_code=404)
     response.json.return_value = {"detail": "Endpoint not found"}
@@ -133,6 +186,7 @@ def test_gateway_typesafe_endpoint_404_does_not_fall_back_to_chat():
             feedback_value_type=bool,
             assessment_name="quality",
         )
+    assert _gateway_typesafe_negative_cache == {}
 
 
 def test_gateway_chat_judge_with_unsupported_typesafe_options_skips_native_attempt():

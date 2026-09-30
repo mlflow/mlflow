@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Any, Literal, get_args, get_origin
 
@@ -40,6 +41,10 @@ _GATEWAY_PROVIDER = "gateway"
 _TYPESAFE_PROVIDER = "typesafe"
 _SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
 _NON_TYPESAFE_GATEWAY_DETAIL = "Gateway endpoint does not use the TypeSafe provider."
+# Cache only negative capability checks so chat-backed gateway judges do not probe
+# System One on every row while endpoint reconfiguration still self-heals quickly.
+_GATEWAY_TYPESAFE_NEGATIVE_CACHE_TTL_SECONDS = 300
+_gateway_typesafe_negative_cache: dict[tuple[str, str], float] = {}
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
@@ -73,6 +78,26 @@ class _GatewayEndpointNotTypeSafe(Exception):
     pass
 
 
+def _gateway_typesafe_negative_cache_key(model_uri: str) -> tuple[str, str]:
+    return (_resolve_gateway_uri(), model_uri)
+
+
+def _is_gateway_typesafe_negative_cached(cache_key: tuple[str, str]) -> bool:
+    expires_at = _gateway_typesafe_negative_cache.get(cache_key)
+    if expires_at is None:
+        return False
+    if expires_at <= time.monotonic():
+        _gateway_typesafe_negative_cache.pop(cache_key, None)
+        return False
+    return True
+
+
+def _cache_gateway_typesafe_negative(cache_key: tuple[str, str]) -> None:
+    _gateway_typesafe_negative_cache[cache_key] = (
+        time.monotonic() + _GATEWAY_TYPESAFE_NEGATIVE_CACHE_TTL_SECONDS
+    )
+
+
 def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs) -> Feedback | None:
     provider, separator, _ = model_uri.partition(":/")
     if not separator or provider != _GATEWAY_PROVIDER:
@@ -85,9 +110,13 @@ def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs) -> Feedback | N
         _build_question(kwargs["feedback_value_type"])
     except (KeyError, MlflowException):
         return None
+    cache_key = _gateway_typesafe_negative_cache_key(model_uri)
+    if _is_gateway_typesafe_negative_cached(cache_key):
+        return None
     try:
         return _invoke_typesafe_judge(model_uri, **kwargs)
     except _GatewayEndpointNotTypeSafe:
+        _cache_gateway_typesafe_negative(cache_key)
         return None
 
 
