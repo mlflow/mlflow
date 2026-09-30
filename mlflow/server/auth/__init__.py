@@ -1491,7 +1491,22 @@ def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
 
 
 def validate_can_create_prompt_optimization_job():
-    """Submitting hands work to a worker running with NO caller identity."""
+    """Submitting hands work to a worker running with NO caller identity.
+
+    KNOWN INCOMPLETE, deliberately. The prompt-optimization endpoints are slated for removal in
+    3.17.0, so this surface is not being hardened further; it is left no weaker than the coarser
+    gate it replaces. Two gaps are known and unfixed:
+
+    * ``_source_prompt_requirements`` splits the prompt name at the FIRST ``@``, while
+      ``load_prompt`` parses an alias at the LAST one. For a name containing ``@``, the grant is
+      checked on a different prompt than the worker loads, so a ``DENY`` on the real prompt does
+      not stop the job.
+    * ``_optimizer_gateway_endpoint`` yields an endpoint NAME, but ``gateway_endpoint`` grants are
+      keyed by generated id (``e-...``). The requirement therefore finds no grant and a denied
+      endpoint is not blocked.
+
+    Both are unreachable once the endpoints go. Anyone keeping this code instead must fix them.
+    """
     message = _get_request_message(CreatePromptOptimizationJob())
     experiment_id = message.experiment_id
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
