@@ -6115,12 +6115,22 @@ _TRACE_METADATA_SIBLING_TIERS = {
 
 
 def _denied_sibling_tiers(username: str, resource_types) -> "set[str]":
+    # Memoized per request. A REST redactor runs once per response, but the GraphQL
+    # ``run.modelVersions`` field resolves once per run, so an uncached gate would cost a grants
+    # query per row. Grants cannot change mid-request, so the cached set stays correct.
+    key = (username, tuple(resource_types))
+    cache = g.setdefault("_denied_sibling_tier_cache", {}) if has_request_context() else None
+    if cache is not None and key in cache:
+        return cache[key]
     gate = retention_gate(
         username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [Requirement(resource_type, "*", ACTION_NOT_DENIED) for resource_type in resource_types],
     )
-    return {resource_type for resource_type in resource_types if not gate.retains(resource_type)}
+    denied = {resource_type for resource_type in resource_types if not gate.retains(resource_type)}
+    if cache is not None:
+        cache[key] = denied
+    return denied
 
 
 _MODEL_VERSION_SIBLING_FIELDS = {
@@ -7341,7 +7351,16 @@ class GraphQLAuthorizationMiddleware:
         # through when its parent type is listed in ``PROTECTED_NESTED_FIELDS``.
         if field_name == "modelVersions":
             can_read = self._model_version_read_predicate(username)
-            return [mv for mv in result if can_read(mv)]
+            retained = [mv for mv in result if can_read(mv)]
+            _withhold_denied_version_siblings(retained, username)
+            return retained
+        # The resolvers hand back the same protobuf ``Response`` messages the REST handlers
+        # build, so the REST redaction cores apply unchanged. ``/graphql`` is excluded from
+        # ``AFTER_REQUEST_HANDLERS``, so this is the only place they run for a GraphQL request.
+        if field_name == "mlflowGetRun":
+            _withhold_denied_run_model_links([result.run], username)
+        elif field_name == "mlflowSearchRuns":
+            _withhold_denied_run_model_links(result.runs, username)
         return result
 
     def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
@@ -7361,6 +7380,9 @@ class GraphQLAuthorizationMiddleware:
             filtered = [mv for mv in result.model_versions if can_read(mv)]
             del result.model_versions[:]
             result.model_versions.extend(filtered)
+            # A retained version can still carry a denied run's or model's content, exactly as
+            # in REST's ``filter_search_model_versions``.
+            _withhold_denied_version_siblings(result.model_versions, username)
         return result
 
 

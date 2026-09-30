@@ -2889,6 +2889,137 @@ def test_graphql_model_version_search_selector_allowed_without_a_run_deny(
         )
 
 
+def _graphql_post_resolve(username, field_name, result):
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+    # The row filter is out of scope here; these tests cover sibling redaction on RETAINED rows.
+    middleware._model_version_read_predicate = lambda _username: lambda _mv: True
+    with auth_module.app.test_request_context("/graphql", method="POST"):
+        return middleware._post_resolve(field_name, result, username)
+
+
+def _a_run_with_model_links():
+    from mlflow.protos.service_pb2 import GetRun
+
+    response = GetRun.Response()
+    response.run.inputs.model_inputs.add().model_id = "m-in"
+    response.run.outputs.model_outputs.add().model_id = "m-out"
+    metric = response.run.data.metrics.add()
+    metric.key, metric.value, metric.model_id = "acc", 1.0, "m-metric"
+    return response
+
+
+def _a_version_with_siblings():
+    from mlflow.protos.model_registry_pb2 import SearchModelVersions
+
+    response = SearchModelVersions.Response()
+    version = response.model_versions.add()
+    version.name, version.version = "m", "1"
+    version.run_id, version.run_link = "run-1", "http://run"
+    version.model_id = "m-9"
+    return response
+
+
+def test_graphql_get_run_withholds_denied_model_links(workspace_permission_setup):
+    """The GraphQL resolvers return the same protobuf ``Response`` the REST handlers build, but
+    ``/graphql`` is excluded from AFTER_REQUEST_HANDLERS, so REST's redact_get_run_model_links
+    never ran for a GraphQL read and a denied logged model's ids stayed visible.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", EDIT.name), ("logged_model", "*", DENY.name)],
+    )
+
+    response = _graphql_post_resolve(username, "mlflowGetRun", _a_run_with_model_links())
+    assert list(response.run.inputs.model_inputs) == []
+    assert list(response.run.outputs.model_outputs) == []
+    assert response.run.data.metrics[0].model_id == ""
+    # the metric itself survives; only the denied reference is withheld
+    assert response.run.data.metrics[0].key == "acc"
+
+    from mlflow.protos.service_pb2 import SearchRuns
+
+    search = SearchRuns.Response()
+    search.runs.add().inputs.model_inputs.add().model_id = "m-in"
+    search = _graphql_post_resolve(username, "mlflowSearchRuns", search)
+    assert list(search.runs[0].inputs.model_inputs) == []
+
+
+def test_graphql_get_run_keeps_model_links_without_a_logged_model_deny(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    response = _graphql_post_resolve(username, "mlflowGetRun", _a_run_with_model_links())
+    assert len(response.run.inputs.model_inputs) == 1
+    assert response.run.data.metrics[0].model_id == "m-metric"
+
+
+@pytest.mark.parametrize(
+    ("denied_tier", "cleared", "kept"),
+    [
+        ("run", ("run_id", "run_link"), ("model_id",)),
+        ("logged_model", ("model_id",), ("run_id", "run_link")),
+    ],
+)
+def test_graphql_model_version_search_withholds_denied_siblings(
+    workspace_permission_setup, denied_tier, cleared, kept
+):
+    """REST's filter_search_model_versions drops unreadable rows AND clears denied siblings on the
+    rows it keeps. GraphQL did only the first half, so a readable version still carried a denied
+    run's id or a denied model's content. Each tier clears only its own fields.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "*", READ.name), (denied_tier, "*", DENY.name)],
+    )
+
+    response = _graphql_post_resolve(
+        username, "mlflowSearchModelVersions", _a_version_with_siblings()
+    )
+    version = response.model_versions[0]
+    for field in cleared:
+        assert getattr(version, field) == "", field
+    for field in kept:
+        assert getattr(version, field) != "", field
+    # the row is retained either way; only the sibling reference is withheld
+    assert version.name == "m"
+
+
+def test_graphql_nested_model_versions_withholds_denied_siblings(workspace_permission_setup):
+    """run.modelVersions resolves once per run through the same path, so it needs the same
+    redaction as the top-level search.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "*", READ.name), ("run", "*", DENY.name)],
+    )
+
+    versions = list(_a_version_with_siblings().model_versions)
+    retained = _graphql_post_resolve(username, "modelVersions", versions)
+    assert len(retained) == 1
+    assert retained[0].run_id == ""
+    assert retained[0].run_link == ""
+    assert retained[0].model_id == "m-9"
+
+
 def _search_model_versions_names(rows):
     payload = json.dumps({"model_versions": rows})
     flask_resp = Response(payload, mimetype="application/json")
