@@ -70,6 +70,10 @@ describe('buildSearchFilterClause', () => {
     expect(buildSearchFilterClause('status IN ("active", "paused")')).toBe('status IN ("active", "paused")');
   });
 
+  it('passes through NOT IN filter syntax', () => {
+    expect(buildSearchFilterClause('status NOT IN ("draft", "deleted")')).toBe('status NOT IN ("draft", "deleted")');
+  });
+
   it('passes through complete multi-clause filter expressions', () => {
     expect(buildSearchFilterClause('status = "active" AND organization = "acme"')).toBe(
       'status = "active" AND organization = "acme"',
