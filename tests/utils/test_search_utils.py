@@ -27,6 +27,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchLoggedModelsPaginationToken,
     SearchLoggedModelsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -956,3 +957,58 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "order_by"),
+    [
+        ("", None),
+        (None, []),
+        ("", []),
+        ("", [{"field_name": "name"}]),
+        ("name = 'm'", []),
+    ],
+)
+def test_logged_models_page_token_round_trips_empty_filter_and_order_by(filter_string, order_by):
+    """A page token must match the request that produced it.
+
+    An empty filter string or order by used to survive encoding but come back as
+    None, so the second page of a search was rejected against its own token.
+    """
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["0"],
+        filter_string=filter_string,
+        order_by=order_by,
+        offset=100,
+    )
+
+    decoded = SearchLoggedModelsPaginationToken.decode(token.encode())
+
+    decoded.validate(["0"], filter_string, order_by)
+    assert decoded.offset == 100
+
+
+def test_logged_models_page_token_treats_empty_and_missing_as_the_same():
+    empty = SearchLoggedModelsPaginationToken(experiment_ids=["0"], filter_string="", order_by=[])
+    missing = SearchLoggedModelsPaginationToken(experiment_ids=["0"])
+
+    assert empty.filter_string is None
+    assert empty.order_by is None
+    # A token built one way still accepts a request phrased the other way.
+    empty.validate(["0"], None, None)
+    missing.validate(["0"], "", [])
+
+
+def test_logged_models_page_token_still_rejects_a_genuine_mismatch():
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["0"], filter_string="name = 'a'", order_by=[{"field_name": "name"}]
+    )
+
+    with pytest.raises(MlflowException, match="Experiment IDs in the page token"):
+        token.validate(["1"], "name = 'a'", [{"field_name": "name"}])
+
+    with pytest.raises(MlflowException, match="Filter string in the page token"):
+        token.validate(["0"], "name = 'b'", [{"field_name": "name"}])
+
+    with pytest.raises(MlflowException, match="Order by in the page token"):
+        token.validate(["0"], "name = 'a'", [{"field_name": "creation_time"}])

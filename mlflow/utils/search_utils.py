@@ -2714,6 +2714,14 @@ class SearchLoggedModelsPaginationToken:
     order_by: list[dict[str, Any]] | None = None
     offset: int = 0
 
+    def __post_init__(self) -> None:
+        # An empty filter string means the same thing as no filter string, and an
+        # empty order by the same as no order by. Canonicalize both to None so a
+        # token always compares equal to the request that produced it, whichever
+        # form the caller used.
+        self.filter_string = self.filter_string or None
+        self.order_by = self.order_by or None
+
     def to_json(self) -> str:
         return json.dumps(asdict(self))
 
@@ -2729,8 +2737,8 @@ class SearchLoggedModelsPaginationToken:
 
         return cls(
             experiment_ids=token.get("experiment_ids"),
-            filter_string=token.get("filter_string") or None,
-            order_by=token.get("order_by") or None,
+            filter_string=token.get("filter_string"),
+            order_by=token.get("order_by"),
             offset=token.get("offset") or 0,
         )
 
@@ -2740,6 +2748,11 @@ class SearchLoggedModelsPaginationToken:
         filter_string: str | None,
         order_by: list[dict[str, Any]] | None,
     ) -> None:
+        # Normalize the request the same way the token is, so a caller passing
+        # "" or [] still matches a token that recorded them as None.
+        filter_string = filter_string or None
+        order_by = order_by or None
+
         if self.experiment_ids != experiment_ids:
             raise MlflowException.invalid_parameter_value(
                 f"Experiment IDs in the page token do not match the requested experiment IDs. "
