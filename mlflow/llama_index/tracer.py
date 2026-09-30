@@ -55,7 +55,11 @@ _logger = logging.getLogger(__name__)
 def _stream_span_context(span: LiveSpan, llama_span_id: str | None):
     mlflow_token = set_span_in_context(span)
     try:
-        llama_token = active_span_id.set(llama_span_id) if active_span_id else None
+        llama_token = (
+            active_span_id.set(llama_span_id)
+            if active_span_id and llama_span_id is not None
+            else None
+        )
         try:
             yield
         finally:
@@ -194,7 +198,10 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return "MlflowSpanHandler"
 
     def get_span_for_event(self, event: BaseEvent) -> LiveSpan:
-        llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
+        with self.lock:
+            llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(
+                event.span_id
+            )
         return llama_span._mlflow_span if llama_span else None
 
     def new_span(
@@ -279,7 +286,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                         span, result, llama_span_id=id_
                     )
                     if is_pended:
-                        self._pending_spans[id_] = llama_span
+                        with self.lock:
+                            self._pending_spans[id_] = llama_span
                         # We still need to detach the span from the context, otherwise it will
                         # be considered as "active"
                         detach_span_from_context(token)
@@ -318,7 +326,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
         self._stream_resolver.resolve(span, event, open_span_ids=self._open_mlflow_span_ids())
-        self._pending_spans.pop(event.span_id, None)
+        with self.lock:
+            self._pending_spans.pop(event.span_id, None)
 
     def _open_mlflow_span_ids(self) -> set[str]:
         """MLflow span IDs of the currently open (still executing) LlamaIndex spans."""
