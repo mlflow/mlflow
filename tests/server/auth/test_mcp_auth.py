@@ -2,8 +2,10 @@
 # basic-auth app. The server is spawned the same way as the other FastAPI auth tests; a
 # ``NO_PERMISSIONS`` default makes every grant explicit so denials are meaningful.
 
+import inspect
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -23,8 +25,8 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.mcp.server import collect_category_tools
-from mlflow.mcp.server_app import LOCAL_EXECUTION_TOOLS, SERVER_MCP_TOOL_CATEGORIES
+from mlflow.mcp.tools import SHARED_TOOLS
+from mlflow.mcp.tools.experiments import search_experiments
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import mcp_tools
@@ -127,10 +129,14 @@ async def _call(
     tool: str,
     workspace: str | None = None,
     **arguments,
-) -> str:
+) -> dict[str, Any]:
     async with _mcp_client(url, credentials, workspace=workspace) as client:
         result = await client.call_tool(tool, arguments)
-    return result.content[0].text
+    return result.structured_content
+
+
+def _names(page: dict[str, Any]) -> list[str]:
+    return [experiment["name"] for experiment in page["experiments"]]
 
 
 def _admin_client(url: str, monkeypatch) -> MlflowClient:
@@ -178,8 +184,8 @@ def test_missing_or_wrong_credentials_get_the_rest_basic_auth_challenge(mcp_serv
 
 @pytest.mark.asyncio
 async def test_endpoint_is_open_when_auth_app_is_not_active(unauthenticated_mcp_server):
-    text = await _call(unauthenticated_mcp_server, None, "search_experiments")
-    assert "Default" in text
+    page = await _call(unauthenticated_mcp_server, None, "search_experiments")
+    assert _names(page) == ["Default"]
 
 
 # --------------------------------------------------------------------------- authorization
@@ -190,9 +196,13 @@ async def test_reader_is_scoped_to_granted_experiment(mcp_server, monkeypatch):
     exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
     reader = _reader(mcp_server, exp_a)
 
-    assert "exp-a" in await _call(mcp_server, reader, "get_experiment", experiment_id=exp_a)
+    experiment = await _call(mcp_server, reader, "get_experiment", experiment_id=exp_a)
+    assert experiment["name"] == "exp-a"
     # An empty trace search still exercises the experiment read gate.
-    await _call(mcp_server, reader, "search_traces", experiment_id=exp_a)
+    assert await _call(mcp_server, reader, "search_traces", experiment_id=exp_a) == {
+        "traces": [],
+        "next_page_token": None,
+    }
 
     for tool in ("get_experiment", "search_traces"):
         with pytest.raises(ToolError, match="^Permission denied$"):
@@ -212,18 +222,20 @@ async def test_reader_cannot_delete_traces_but_manager_and_admin_can(mcp_server,
         )
 
     for credentials in (manager, ADMIN):
-        text = await _call(
+        result = await _call(
             mcp_server, credentials, "delete_traces", experiment_id=exp_a, max_timestamp_millis=now
         )
-        assert "Deleted 0 trace" in text
+        assert result == {"experiment_id": exp_a, "deleted_count": 0}
 
 
 @pytest.mark.asyncio
 async def test_admin_passes_every_check(mcp_server, monkeypatch):
     (exp_b,) = _experiments(mcp_server, monkeypatch, ["exp-b"])
-    assert "exp-b" in await _call(mcp_server, ADMIN, "get_experiment", experiment_id=exp_b)
+    experiment = await _call(mcp_server, ADMIN, "get_experiment", experiment_id=exp_b)
+    assert experiment["name"] == "exp-b"
     await _call(mcp_server, ADMIN, "rename_experiment", experiment_id=exp_b, new_name="exp-b2")
-    assert "exp-b2" in await _call(mcp_server, ADMIN, "get_experiment", experiment_id=exp_b)
+    experiment = await _call(mcp_server, ADMIN, "get_experiment", experiment_id=exp_b)
+    assert experiment["name"] == "exp-b2"
 
 
 @pytest.mark.asyncio
@@ -234,7 +246,7 @@ async def test_run_tools_resolve_the_run_experiment(mcp_server, monkeypatch):
     run_b = client.create_run(exp_b).info.run_id
     reader = _reader(mcp_server, exp_a)
 
-    assert run_a in await _call(mcp_server, reader, "describe_run", run_id=run_a)
+    assert (await _call(mcp_server, reader, "describe_run", run_id=run_a))["run_id"] == run_a
     with pytest.raises(ToolError, match="^Permission denied$"):
         await _call(mcp_server, reader, "describe_run", run_id=run_b)
     # A missing run denies rather than surfacing a not-found error.
@@ -249,7 +261,8 @@ async def test_trace_tools_resolve_the_trace_experiment(mcp_server, monkeypatch)
     trace_b = _log_trace(mcp_server, monkeypatch, exp_b)
     reader = _reader(mcp_server, exp_a)
 
-    assert trace_a in await _call(mcp_server, reader, "get_trace", trace_id=trace_a)
+    trace = (await _call(mcp_server, reader, "get_trace", trace_id=trace_a))["trace"]
+    assert trace["info"]["trace_id"] == trace_a
     with pytest.raises(ToolError, match="^Permission denied$"):
         await _call(mcp_server, reader, "get_trace", trace_id=trace_b)
     with pytest.raises(ToolError, match="^Permission denied$"):
@@ -268,70 +281,133 @@ async def test_unscoped_search_experiments_fills_the_page_with_readable_rows(
     ids = _experiments(mcp_server, monkeypatch, [f"exp-{i}" for i in range(5)])
     reader = _reader(mcp_server, ids[0], ids[1])
 
-    text = await _call(mcp_server, reader, "search_experiments", max_results=2)
-    assert "exp-0" in text
-    assert "exp-1" in text
-    assert all(name not in text for name in ("exp-2", "exp-3", "exp-4", "Default"))
+    page = await _call(mcp_server, reader, "search_experiments", max_results=2)
+    assert sorted(_names(page)) == ["exp-0", "exp-1"]
+    # The page is full; the token resumes after the rows it consumed, and nothing is left.
+    assert page["next_page_token"] is not None
+    rest = await _call(
+        mcp_server, reader, "search_experiments", max_results=2, page_token=page["next_page_token"]
+    )
+    assert rest == {"experiments": [], "next_page_token": None}
 
     unlimited = await _call(mcp_server, reader, "search_experiments")
-    assert unlimited == text
+    assert unlimited["experiments"] == page["experiments"]
+    assert unlimited["next_page_token"] is None
 
-    assert "exp-4" in await _call(mcp_server, ADMIN, "search_experiments", max_results=2)
+    admin_page = await _call(mcp_server, ADMIN, "search_experiments", max_results=2)
+    assert _names(admin_page) == ["exp-4", "exp-3"]
 
 
 @pytest.mark.asyncio
-async def test_search_experiments_advertises_page_token_and_admin_ignores_it(
-    mcp_server, monkeypatch
-):
-    _experiments(mcp_server, monkeypatch, ["exp-a"])
-    nobody = create_user(mcp_server)
-    async with _mcp_client(mcp_server, nobody) as client:
-        tools = {tool.name: tool for tool in await client.list_tools()}
-    assert "page_token" in tools["search_experiments"].inputSchema["properties"]
-
-    text = await _call(mcp_server, ADMIN, "search_experiments", page_token="ignored")
-    assert "exp-a" in text
+async def test_admin_search_experiments_pages_with_the_store_token(mcp_server, monkeypatch):
+    _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
+    first = await _call(mcp_server, ADMIN, "search_experiments", max_results=2)
+    assert _names(first) == ["exp-b", "exp-a"]
+    second = await _call(
+        mcp_server, ADMIN, "search_experiments", max_results=2, page_token=first["next_page_token"]
+    )
+    assert _names(second) == ["Default"]
+    assert second["next_page_token"] is None
 
 
-class _PagedExperimentStore:
-    def __init__(self, pages: list[list[str]]):
-        self.pages = pages
-        self.calls = 0
+class _OffsetPagedClient:
+    """
+    Stand-in for ``MlflowClient`` over a fixed experiment list, paged with offset tokens like the
+    SQL and file stores.
+    """
 
-    def search_experiments(self, view_type, max_results, page_token):
-        self.calls += 1
-        index = int(page_token or 0)
+    def __init__(self, experiment_ids: list[str]):
+        self.experiment_ids = experiment_ids
+        self.page_sizes: list[int] = []
+
+    def search_experiments(self, view_type, max_results, filter_string, order_by, page_token):
+        self.page_sizes.append(max_results)
+        start = int(page_token or 0)
+        end = start + max_results
         experiments = [
             Experiment(experiment_id, experiment_id, f"file:///{experiment_id}", "active")
-            for experiment_id in self.pages[index]
+            for experiment_id in self.experiment_ids[start:end]
         ]
-        token = str(index + 1) if index + 1 < len(self.pages) else None
-        return PagedList(experiments, token)
+        return PagedList(experiments, str(end) if end < len(self.experiment_ids) else None)
 
 
-def test_search_readable_experiments_stops_at_the_store_page_cap(monkeypatch):
-    # Only the last store page is readable, and it sits past the cap.
+@pytest.fixture
+def paged_client(monkeypatch):
+    def install(experiment_ids: list[str]) -> _OffsetPagedClient:
+        client = _OffsetPagedClient(experiment_ids)
+        monkeypatch.setattr(mcp_tools, "MlflowClient", lambda: client)
+        monkeypatch.setattr(mcp_tools, "get_mcp_request_username", lambda: "reader")
+        monkeypatch.setattr(
+            auth_module,
+            "_role_based_read_predicate",
+            lambda username, resource: lambda experiment_id: experiment_id.startswith("r"),
+        )
+        return client
+
+    return install
+
+
+def _walk(max_results: int | None) -> list[list[str]]:
+    pages = []
+    page_token = None
+    while True:
+        page = search_readable_experiments(max_results=max_results, page_token=page_token)
+        pages.append([e.experiment_id for e in page.experiments])
+        if (page_token := page.next_page_token) is None:
+            return pages
+
+
+@pytest.mark.parametrize("max_results", [1, 2, 3, 5, 100, None])
+def test_search_readable_experiments_walks_interleaved_rows_without_gaps_or_duplicates(
+    paged_client, max_results
+):
+    # Readable ("r") and unreadable ("u") rows interleaved irregularly, including runs of each.
+    layout = "rurruuurrrruuuuuurururrr"
+    experiment_ids = [f"{kind}{i}" for i, kind in enumerate(layout)]
+    client = paged_client(experiment_ids)
+
+    pages = _walk(max_results)
+
+    readable = [e for e in experiment_ids if e.startswith("r")]
+    assert [e for page in pages for e in page] == readable
+    if max_results is not None:
+        assert all(len(page) <= max_results for page in pages)
+        # Every page except the last one is full.
+        assert all(len(page) == max_results for page in pages[:-1])
+        # Each store request asks for exactly the remaining slots of the page.
+        assert all(0 < size <= max_results for size in client.page_sizes)
+
+
+def test_search_readable_experiments_returns_the_token_of_a_full_page(paged_client):
+    paged_client(["r0", "r1", "u2", "r3"])
+    page = search_readable_experiments(max_results=2)
+    assert [e.experiment_id for e in page.experiments] == ["r0", "r1"]
+    assert page.next_page_token == "2"
+
+    page = search_readable_experiments(max_results=2, page_token=page.next_page_token)
+    assert [e.experiment_id for e in page.experiments] == ["r3"]
+    assert page.next_page_token is None
+
+
+def test_search_readable_experiments_stops_at_the_store_page_cap(paged_client):
+    # Only the row after the capped pages is readable.
     cap = SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES
-    pages = [[f"hidden-{i}-a", f"hidden-{i}-b"] for i in range(cap)] + [["readable-a"]]
-    store = _PagedExperimentStore(pages)
-    monkeypatch.setattr(mcp_tools, "_get_tracking_store", lambda: store)
-    monkeypatch.setattr(mcp_tools, "get_mcp_request_username", lambda: "reader")
-    monkeypatch.setattr(
-        auth_module,
-        "_role_based_read_predicate",
-        lambda username, resource: lambda experiment_id: experiment_id.startswith("readable"),
-    )
+    client = paged_client([f"u{i}" for i in range(2 * cap)] + ["r-last"])
 
     first = search_readable_experiments(max_results=2)
-    assert store.calls == cap
-    assert "hidden" not in first
-    assert "readable-a" not in first
-    assert first.endswith(f"Next page token: {cap}")
+    assert len(client.page_sizes) == cap
+    assert first.experiments == []
+    assert first.next_page_token == str(2 * cap)
 
-    second = search_readable_experiments(max_results=2, page_token=str(cap))
-    assert store.calls == cap + 1
-    assert "readable-a" in second
-    assert "Next page token" not in second
+    second = search_readable_experiments(max_results=2, page_token=first.next_page_token)
+    assert [e.experiment_id for e in second.experiments] == ["r-last"]
+    assert second.next_page_token is None
+
+
+def test_search_readable_experiments_rejects_negative_max_results(paged_client):
+    paged_client([])
+    with pytest.raises(MlflowException, match="non-negative"):
+        search_readable_experiments(max_results=-1)
 
 
 @pytest.mark.asyncio
@@ -340,9 +416,10 @@ async def test_reader_can_search_experiments_with_no_grants_and_sees_nothing(
 ):
     _experiments(mcp_server, monkeypatch, ["exp-a"])
     nobody = create_user(mcp_server)
-    text = await _call(mcp_server, nobody, "search_experiments")
-    assert "exp-a" not in text
-    assert "Default" not in text
+    assert await _call(mcp_server, nobody, "search_experiments") == {
+        "experiments": [],
+        "next_page_token": None,
+    }
 
 
 @pytest.mark.parametrize("mcp_server", [{"MLFLOW_BASIC_AUTH_FAIL_CLOSED": "true"}], indirect=True)
@@ -350,7 +427,8 @@ async def test_reader_can_search_experiments_with_no_grants_and_sees_nothing(
 async def test_fail_closed_mode_keeps_the_authenticated_endpoint_reachable(mcp_server, monkeypatch):
     (exp_a,) = _experiments(mcp_server, monkeypatch, ["exp-a"])
     reader = _reader(mcp_server, exp_a)
-    assert "exp-a" in await _call(mcp_server, reader, "get_experiment", experiment_id=exp_a)
+    experiment = await _call(mcp_server, reader, "get_experiment", experiment_id=exp_a)
+    assert experiment["name"] == "exp-a"
 
 
 @pytest.mark.parametrize("mcp_server", [{STATIC_PREFIX_ENV_VAR: "/myprefix"}], indirect=True)
@@ -365,7 +443,7 @@ async def test_static_prefix_route_is_authenticated_and_authorized(mcp_server, m
     reader = _reader(mcp_server + "/myprefix", exp_a)
     async with _mcp_client(mcp_server, reader, path="/myprefix/mcp") as client:
         result = await client.call_tool("get_experiment", {"experiment_id": exp_a})
-        assert "exp-a" in result.content[0].text
+        assert result.structured_content["name"] == "exp-a"
         with pytest.raises(ToolError, match="^Permission denied$"):
             await client.call_tool("get_experiment", {"experiment_id": exp_b})
 
@@ -424,12 +502,11 @@ async def test_workspace_header_scopes_tool_results_and_permission_checks(worksp
     reader = (username, password)
 
     # (a) The header selects the workspace the tools and the permission checks run in.
-    text = await _call(url, reader, "get_experiment", workspace="ws-a", experiment_id=exp_a)
-    assert "exp-in-a" in text
+    experiment = await _call(url, reader, "get_experiment", workspace="ws-a", experiment_id=exp_a)
+    assert experiment["name"] == "exp-in-a"
     listing = await _call(url, reader, "search_experiments", workspace="ws-a")
-    assert "exp-in-a" in listing
-    assert "exp-in-b" not in listing
-    assert "exp-in-a" not in await _call(url, reader, "search_experiments", workspace="ws-b")
+    assert _names(listing) == ["exp-in-a"]
+    assert _names(await _call(url, reader, "search_experiments", workspace="ws-b")) == []
 
     # (b) The grant lives in workspace A: the same experiment id addressed through workspace B
     # is denied, as is an experiment that belongs to another workspace.
@@ -456,13 +533,15 @@ def test_find_fastapi_validator_resolves_the_mcp_path_under_a_static_prefix(monk
 
 
 def test_every_served_tool_has_a_rule_and_nothing_else():
-    served = {
-        tool.name
-        for tool in collect_category_tools(SERVER_MCP_TOOL_CATEGORIES)
-        if tool.name not in LOCAL_EXECUTION_TOOLS
-    }
+    served = {tool.name for tool in SHARED_TOOLS}
     assert served == set(MCP_TOOL_RULES)
     check_mcp_tool_coverage(served)
+
+
+def test_search_override_has_the_signature_of_the_tool():
+    assert list(inspect.signature(search_readable_experiments).parameters) == list(
+        inspect.signature(search_experiments).parameters
+    )
 
 
 def test_startup_coverage_check_rejects_an_unlisted_tool():

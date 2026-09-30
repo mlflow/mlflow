@@ -9,12 +9,12 @@ from starlette.testclient import TestClient
 
 from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_MCP
 from mlflow.mcp.server import collect_category_tools
-from mlflow.mcp.server_app import LOCAL_EXECUTION_TOOLS, SERVER_MCP_TOOL_CATEGORIES
+from mlflow.mcp.tools import SHARED_TOOLS
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR, handlers
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 
-_ML_ONLY_TOOLS = {"serve_model", "predict_with_model", "create_deployment", "list_deployments"}
+_ALL_CATEGORIES = ("traces", "scorers", "experiments", "runs", "models", "deployments")
 
 
 @pytest.fixture
@@ -56,17 +56,19 @@ def test_mcp_endpoint_absent_without_flag(backend_store_env):
 
 
 @pytest.mark.asyncio
-async def test_mcp_endpoint_lists_genai_tools_only(mcp_app):
+async def test_mcp_endpoint_serves_exactly_the_shared_tools(mcp_app):
     async with _mcp_client(mcp_app) as client:
-        names = {tool.name for tool in await client.list_tools()}
+        tools = await client.list_tools()
 
-    assert {"search_experiments", "list_runs", "search_traces", "list_scorers"} <= names
-    assert names.isdisjoint(_ML_ONLY_TOOLS)
+    assert {tool.name for tool in tools} == {tool.name for tool in SHARED_TOOLS}
+    assert all(tool.outputSchema["type"] == "object" for tool in tools)
     # Tools that execute work locally stay on the stdio server.
-    assert names.isdisjoint(LOCAL_EXECUTION_TOOLS)
-    assert LOCAL_EXECUTION_TOOLS <= {
-        tool.name for tool in collect_category_tools(SERVER_MCP_TOOL_CATEGORIES)
+    stdio_only = {tool.name for tool in collect_category_tools(_ALL_CATEGORIES)} - {
+        tool.name for tool in tools
     }
+    assert {"evaluate_traces", "serve_model", "predict_with_model", "create_deployment"} <= (
+        stdio_only
+    )
 
 
 @pytest.mark.asyncio
@@ -76,11 +78,16 @@ async def test_mcp_tool_round_trips_through_backend_store(mcp_app):
 
     async with _mcp_client(mcp_app) as client:
         result = await client.call_tool("search_experiments", {})
-        assert "created-in-store" in result.content[0].text
+        names = {e["name"] for e in result.structured_content["experiments"]}
+        assert "created-in-store" in names
 
-        await client.call_tool("create_experiment", {"experiment_name": "created-via-mcp"})
+        result = await client.call_tool("create_experiment", {"experiment_name": "created-via-mcp"})
 
-    assert store.get_experiment_by_name("created-via-mcp") is not None
+    experiment = store.get_experiment_by_name("created-via-mcp")
+    assert result.structured_content == {
+        "experiment_id": experiment.experiment_id,
+        "name": "created-via-mcp",
+    }
 
 
 @pytest.mark.asyncio

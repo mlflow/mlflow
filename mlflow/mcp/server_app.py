@@ -2,6 +2,7 @@
 Streamable HTTP MCP endpoint served by the MLflow tracking server (``mlflow server --enable-mcp``).
 """
 
+import functools
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -9,32 +10,24 @@ from typing import TYPE_CHECKING, Any
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from mlflow.exceptions import MlflowException
-from mlflow.mcp.request_context import MCP_REQUEST_USERNAME
-from mlflow.mcp.server import collect_category_tools, create_mcp
+from mlflow.mcp.request_context import MCP_HTTP_REQUEST, MCP_REQUEST_USERNAME
+from mlflow.mcp.server import create_mcp, shared_function_tool
+from mlflow.mcp.tools import SHARED_TOOLS, SharedTool
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import McpRunEvent
 from mlflow.telemetry.track import _record_event
 
 if TYPE_CHECKING:
-    from fastmcp.tools import FunctionTool
     from starlette.applications import Starlette
 
-# Tool categories served remotely. The models and deployments categories are left to the stdio
-# server: their tools build Docker images, start local servers and spawn subprocesses on the
-# machine running them, which is the tracking server host when served over HTTP.
-SERVER_MCP_TOOL_CATEGORIES = ("traces", "scorers", "experiments", "runs")
-
-# Tools of the served categories that are still withheld from the HTTP endpoint because they
-# execute work locally rather than against the tracking store:
+# The endpoint serves the typed tools shared with the stdio server. Tools that execute work
+# locally stay on the stdio server (``mlflow mcp run``), where the process belongs to the caller:
 #
-# - ``evaluate_traces`` runs scorers, including LLM judges, in the calling process. Over HTTP that
-#   is the tracking server, using the server's own environment and API credentials, so a remote
-#   caller could spend those credentials with nothing more than an update grant on an experiment.
-#
-# These tools remain available on the stdio server (``mlflow mcp run``), where the process
-# belongs to the caller.
-LOCAL_EXECUTION_TOOLS = frozenset({"evaluate_traces"})
+# - ``evaluate_traces`` runs scorers, including LLM judges. Over HTTP that would use the tracking
+#   server's own environment and API credentials on behalf of any caller with an update grant.
+# - The models and deployments tools build Docker images, start local servers and spawn
+#   subprocesses on the machine running them.
 
 
 @dataclass(frozen=True)
@@ -49,35 +42,28 @@ class McpToolPolicy:
             has no authorization rule, so a new tool cannot be served unguarded.
         is_admin: Whether the user bypasses authorization and result filtering.
         overrides: Replacement implementations for non-admin callers of tools whose results must
-            be filtered per caller (unscoped searches).
-        override_parameters: JSON schema properties an override accepts on top of the tool's
-            own, keyed by tool name. They are advertised in the tool's input schema and dropped
-            from the arguments of admin calls, which run the original tool.
+            be filtered per caller (unscoped searches). An override takes the same arguments and
+            returns the same model as the tool it replaces.
     """
 
     authorize: Callable[[str, str | None, dict[str, Any]], None]
     validate_coverage: Callable[[Iterable[str]], None]
     is_admin: Callable[[str | None], bool]
-    overrides: Mapping[str, Callable[..., str]] = field(default_factory=dict)
-    override_parameters: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    overrides: Mapping[str, Callable[..., Any]] = field(default_factory=dict)
 
 
-def _authorized_tool(tool: "FunctionTool", policy: McpToolPolicy) -> "FunctionTool":
+def _authorized_fn(tool: SharedTool, policy: McpToolPolicy) -> Callable[..., Any]:
     from fastmcp.exceptions import ToolError
-    from fastmcp.tools import FunctionTool
 
-    original_fn = tool.fn
     override_fn = policy.overrides.get(tool.name)
-    extra_parameters = policy.override_parameters.get(tool.name, {}) if override_fn else {}
-    parameters = tool.parameters
-    if extra_parameters:
-        properties = {**parameters.get("properties", {}), **extra_parameters}
-        parameters = {**parameters, "properties": properties}
 
-    def authorized_fn(**kwargs: Any) -> str:
+    # ``functools.wraps`` carries the typed signature, annotations and docstring over, so FastMCP
+    # validates the arguments against the tool's own schema before the authorization check runs.
+    @functools.wraps(tool.fn)
+    def authorized_fn(**kwargs: Any) -> Any:
         username = MCP_REQUEST_USERNAME.get()
         if policy.is_admin(username):
-            return original_fn(**{k: v for k, v in kwargs.items() if k not in extra_parameters})
+            return tool.fn(**kwargs)
         try:
             policy.authorize(tool.name, username, kwargs)
         except MlflowException as e:
@@ -85,15 +71,9 @@ def _authorized_tool(tool: "FunctionTool", policy: McpToolPolicy) -> "FunctionTo
                 # Deliberately generic: the message must not reveal whether the resource exists.
                 raise ToolError("Permission denied") from None
             raise
-        fn = override_fn or original_fn
-        return fn(**kwargs)
+        return (override_fn or tool.fn)(**kwargs)
 
-    return FunctionTool(
-        fn=authorized_fn,
-        name=tool.name,
-        description=tool.description,
-        parameters=parameters,
-    )
+    return authorized_fn
 
 
 class _McpRequestIdentity:
@@ -111,11 +91,13 @@ class _McpRequestIdentity:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         username = scope.get("state", {}).get("username")
-        token = MCP_REQUEST_USERNAME.set(username)
+        username_token = MCP_REQUEST_USERNAME.set(username)
+        http_token = MCP_HTTP_REQUEST.set(True)
         try:
             await self.app(scope, receive, send)
         finally:
-            MCP_REQUEST_USERNAME.reset(token)
+            MCP_HTTP_REQUEST.reset(http_token)
+            MCP_REQUEST_USERNAME.reset(username_token)
 
 
 def create_server_mcp_app(path: str, tool_policy: McpToolPolicy | None = None) -> "Starlette":
@@ -140,19 +122,18 @@ def create_server_mcp_app(path: str, tool_policy: McpToolPolicy | None = None) -
             "`pip install fastmcp` or start the server without `--enable-mcp`."
         ) from e
 
-    # The MCP tools go through the MLflow client API. Resolving the server's tracking store first
-    # points the in-process tracking URI at the backend store, so the tools read and write the
-    # same store the REST API serves rather than a local ./mlruns directory.
+    # The tools resolve their store from the configured tracking URI, like any MLflow client.
+    # Initializing the server's tracking store first points that URI at the backend store, so the
+    # tools read and write the same store the REST API serves rather than a local ./mlruns.
     _get_tracking_store()
 
-    tools = [
-        tool
-        for tool in collect_category_tools(SERVER_MCP_TOOL_CATEGORIES)
-        if tool.name not in LOCAL_EXECUTION_TOOLS
-    ]
-    if tool_policy is not None:
-        tool_policy.validate_coverage(tool.name for tool in tools)
-        tools = [_authorized_tool(tool, tool_policy) for tool in tools]
+    if tool_policy is None:
+        tools = [shared_function_tool(tool) for tool in SHARED_TOOLS]
+    else:
+        tool_policy.validate_coverage(tool.name for tool in SHARED_TOOLS)
+        tools = [
+            shared_function_tool(tool, _authorized_fn(tool, tool_policy)) for tool in SHARED_TOOLS
+        ]
 
     mcp = create_mcp(tools=tools)
     # Same event as ``mlflow mcp run``; the marker tells the two transports apart.

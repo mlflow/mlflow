@@ -8,22 +8,21 @@ like the same operation through the REST API; where the REST gate differs from t
 the entry says which handler it mirrors.
 """
 
-import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.request_context import get_mcp_request_username
 from mlflow.mcp.server_app import McpToolPolicy
+from mlflow.mcp.tools._args import as_list, as_view_type, check_non_negative
+from mlflow.mcp.tools._types import ExperimentInfo, ExperimentPage
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import Permission
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.data_utils import is_uri
-from mlflow.utils.string_utils import _create_table
+from mlflow.tracking import MlflowClient
 
 PermissionName = Literal["can_read", "can_update", "can_delete", "can_manage"]
 Resolver = Callable[[dict[str, Any], str], list[Permission]]
@@ -210,71 +209,54 @@ def is_mcp_admin(username: str | None) -> bool:
 # before the page is filled, the rows collected so far are returned with a token to continue from.
 SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES = 10
 
-_PAGE_TOKEN_PARAMETER = {
-    "page_token": {
-        "anyOf": [{"type": "string"}, {"type": "null"}],
-        "default": None,
-        "description": "Token returned by a previous call to continue the search from.",
-    }
-}
-
 
 def search_readable_experiments(
-    view: str = "active_only", max_results: int | None = None, page_token: str | None = None
-) -> str:
+    view: str = "active_only",
+    max_results: int | None = None,
+    page_token: str | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | str | None = None,
+) -> ExperimentPage:
     """
-    ``mlflow experiments search`` for a non-admin caller.
+    ``search_experiments`` for a non-admin caller: same arguments and result, minus the
+    experiments the caller cannot read.
 
-    Same arguments and output as the CLI command, minus the rows the caller cannot read. Like
-    ``filter_search_experiments`` for the REST API, the store is paged further until
-    ``max_results`` readable rows are collected or the store is exhausted, so a page is not
-    left short by unreadable rows. ``max_results=None`` returns every readable experiment, as
-    the CLI does. At most ``SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES`` store pages are read
-    per call; if the store has more, the output ends with a next page token to pass back as
-    ``page_token``.
+    Like ``filter_search_experiments`` for the REST API, the store is paged further until
+    ``max_results`` readable experiments are collected or the store is exhausted, so a page is
+    not left short by unreadable rows. Each store request asks for exactly the remaining slots,
+    so every row of a fetched page is consumed and the store's token always resumes right after
+    it. At most ``SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES`` store pages are read per call;
+    the result carries the last store token whenever the store has more rows.
+    ``max_results=None`` collects every readable experiment within that bound.
     """
-    if max_results is not None and max_results < 0:
-        raise MlflowException.invalid_parameter_value("max-results must be a non-negative integer")
-    view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
+    check_non_negative(max_results, "max_results")
+    view_type = as_view_type(view)
+    order_by_list = as_list(order_by)
     can_read = auth_module._role_based_read_predicate(get_mcp_request_username(), "experiment")
-    tracking_store = _get_tracking_store()
-
-    def filled() -> bool:
-        return max_results is not None and len(readable) >= max_results
+    client = MlflowClient()
 
     readable = []
-    next_page_token = None
-    page_size = min(max_results or SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_DEFAULT)
     for _ in range(SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES):
-        if filled():
+        if max_results is None:
+            page_size = SEARCH_MAX_RESULTS_DEFAULT
+        elif (page_size := max_results - len(readable)) == 0:
             break
-        page = tracking_store.search_experiments(
-            view_type=view_type, max_results=page_size, page_token=page_token
+        page = client.search_experiments(
+            view_type=view_type,
+            max_results=page_size,
+            filter_string=filter_string,
+            order_by=order_by_list,
+            page_token=page_token,
         )
-        readable.extend(experiment for experiment in page if can_read(experiment.experiment_id))
-        page_token = page.token
-        if not page_token:
+        readable.extend(e for e in page if can_read(e.experiment_id))
+        page_token = page.token or None
+        if page_token is None:
             break
-    else:
-        if not filled():
-            next_page_token = page_token
-    if max_results is not None:
-        readable = readable[:max_results]
 
-    table = [
-        [
-            experiment.experiment_id,
-            experiment.name,
-            experiment.artifact_location
-            if is_uri(experiment.artifact_location)
-            else os.path.abspath(experiment.artifact_location),
-        ]
-        for experiment in readable
-    ]
-    output = _create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"])
-    if next_page_token:
-        output += f"\n\nNext page token: {next_page_token}"
-    return output
+    return ExperimentPage(
+        experiments=[ExperimentInfo.from_entity(e) for e in readable],
+        next_page_token=page_token,
+    )
 
 
 def get_mcp_tool_policy() -> McpToolPolicy:
@@ -283,5 +265,4 @@ def get_mcp_tool_policy() -> McpToolPolicy:
         validate_coverage=check_mcp_tool_coverage,
         is_admin=is_mcp_admin,
         overrides={"search_experiments": search_readable_experiments},
-        override_parameters={"search_experiments": _PAGE_TOKEN_PARAMETER},
     )
