@@ -2790,6 +2790,21 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     )
 
 
+def _wildcard_grant_workspace() -> "str | None":
+    """The workspace a wildcard grant is written to and read from.
+
+    A ``"*"`` pattern names no resource, so there is nothing to fetch a workspace from. The
+    store's write path already resolves this from the request rather than the resource
+    (``grant_user_resource_permission`` -> ``_get_active_workspace_name``), so authorization has
+    to agree with it or the two halves disagree about which workspace the grant is in.
+
+    ``None`` when workspaces are enabled and the request names none, which callers deny on.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return DEFAULT_WORKSPACE_NAME
+    return workspace_context.get_request_workspace()
+
+
 def _resolve_user_permission_for_resource(
     username: str, resource_type: str, resource_id: str
 ) -> Permission:
@@ -2799,6 +2814,14 @@ def _resolve_user_permission_for_resource(
     """
     _reject_workspace_resource_type(resource_type)
     _validate_resource_type(resource_type)
+    if resource_id == "*":
+        # No resource to fetch, so the workspace comes from the request. This is the only
+        # grain the sub-resource tiers have, and it is also how ``experiment``/``*`` is reached.
+        return _get_role_permission_or_default(
+            _role_permission_for_known_workspace(
+                username, resource_type, "*", _wildcard_grant_workspace()
+            )
+        )
     dispatch = _resource_dispatch_keys(resource_type, resource_id)
     if dispatch is None:
         raise MlflowException(
@@ -2826,6 +2849,21 @@ def validate_can_manage_resource() -> bool:
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
     requester = authenticate_request().username
+    if resource_id == "*":
+        # A wildcard grant is not attached to any resource, so there is no resource-level
+        # MANAGE to check. It is gated like the role API instead -- admin or workspace admin --
+        # because both write the same rows, and the per-user route must not be the softer one.
+        #
+        # The type checks below are what ``_resolve_user_permission_for_resource`` would have
+        # run; this branch bypasses it, so they have to be repeated or ``workspace`` slips past
+        # its own rejection.
+        _reject_workspace_resource_type(resource_type)
+        _validate_resource_type(resource_type)
+        user = store.get_user(requester)
+        if user.is_admin:
+            return True
+        workspace = _wildcard_grant_workspace()
+        return workspace is not None and _is_workspace_admin(user.id, workspace)
     return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
 
 
@@ -2834,6 +2872,8 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
     if the resource can't be located. Fail-closed: any lookup failure returns
     None so authorization gates deny rather than leak across workspaces.
     """
+    if resource_id == "*":
+        return _wildcard_grant_workspace()
     try:
         dispatch = _resource_dispatch_keys(resource_type, resource_id)
     except MlflowException:

@@ -5395,6 +5395,77 @@ def test_validate_can_manage_resource_other_resource_denied(workspace_permission
         assert not auth_module.validate_can_manage_resource()
 
 
+def _grant_request(username, resource_type, resource_id, permission="READ"):
+    return auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "permission": permission,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "resource_type",
+    ["run", "trace", "assessment", "logged_model", "review_queue", "experiment"],
+)
+def test_wildcard_grants_reach_the_per_user_api(workspace_permission_setup, resource_type):
+    """A ``"*"`` pattern names no resource, so the dispatch that resolves a workspace by fetching
+    the resource has nothing to fetch and used to raise. Sub-resource tiers have no other grain,
+    so without this they were unreachable through these endpoints entirely.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with _grant_request(username, resource_type, "*"):
+        assert auth_module.validate_can_manage_resource() is True
+    # and the resolver agrees, rather than raising "not supported by the per-user ... APIs"
+    assert auth_module._resolve_user_permission_for_resource(username, resource_type, "*")
+
+
+def test_wildcard_grant_resolves_the_granted_permission(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("run", "*", EDIT.name)])
+
+    assert auth_module._resolve_user_permission_for_resource(username, "run", "*").name == EDIT.name
+    # an ungranted tier is not lifted by the run grant
+    assert (
+        auth_module._resolve_user_permission_for_resource(username, "trace", "*").name != EDIT.name
+    )
+
+
+def test_wildcard_grant_requires_workspace_admin(workspace_permission_setup):
+    """Gated like the role API, since both write the same rows -- a workspace member without
+    MANAGE must not reach wildcard granting by the per-user route.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    with _grant_request(username, "run", "*"):
+        assert auth_module.validate_can_manage_resource() is False
+
+
+def test_wildcard_grant_still_rejects_the_workspace_type(workspace_permission_setup):
+    # The wildcard branch bypasses the shared resolver, so it has to repeat its type rejections.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with _grant_request(username, "workspace", "*", "MANAGE"):
+        with pytest.raises(MlflowException, match="not supported by the per-user"):
+            auth_module.validate_can_manage_resource()
+    with _grant_request(username, "bogus_type", "*"):
+        with pytest.raises(MlflowException, match="Invalid resource type"):
+            auth_module.validate_can_manage_resource()
+
+
 def test_validate_can_manage_resource_no_grant_denied(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
