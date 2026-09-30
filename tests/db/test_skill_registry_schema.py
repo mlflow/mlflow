@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -482,6 +483,12 @@ _SKILL_REGISTRY_TABLES = frozenset({
 })
 
 
+def _skill_registry_migration_parent(config):
+    # Read from the migration rather than hardcoded, so the downgrade undoes only this
+    # migration even after other migrations are added beneath it.
+    return ScriptDirectory.from_config(config).get_revision("e7d1f4b2a9c6").down_revision
+
+
 def test_db_backend_migration_downgrade_and_reupgrade(store):
     # Cross-dialect twin of test_migration_downgrade_and_reupgrade. FK-aware drop
     # ordering is stricter on MySQL/MSSQL than on SQLite, so this re-proves a clean
@@ -492,7 +499,7 @@ def test_db_backend_migration_downgrade_and_reupgrade(store):
     config = _get_alembic_config(url)
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
     try:
-        command.downgrade(config, "b7e2c1a4d9f3")
+        command.downgrade(config, _skill_registry_migration_parent(config))
         assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
     finally:
         command.upgrade(config, "head")
