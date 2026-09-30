@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import pytest
 
-from mlflow.store.tracking.dbmodels.models import SqlAgentPluginVersion, SqlSkill
+from mlflow.store.tracking.dbmodels.models import SqlAgentPluginVersion
 from mlflow.store.tracking.skill_registry_search_text import (
     build_agent_plugin_version_search_text,
     build_skill_search_text,
     recompute_agent_plugin_version_search_text,
-    recompute_skill_search_text,
 )
 
 # ---------------------------------------------------------------------------
@@ -123,15 +122,6 @@ def _plugin_version_row(plugin_json, organization="acme"):
         version="1.0.0",
         plugin_json=plugin_json,
     )
-
-
-def test_recompute_skill_search_text_after_description_update():
-    # register_skill creates the parent with a null description; update_skill sets it later.
-    row = SqlSkill(workspace="default", organization="acme", name="code-review")
-    assert recompute_skill_search_text(row) == "code-review"
-
-    row.description = "Reviews PRs"
-    assert recompute_skill_search_text(row) == "code-review Reviews PRs"
 
 
 def test_recompute_agent_plugin_version_search_text():

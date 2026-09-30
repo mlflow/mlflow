@@ -661,7 +661,7 @@ def test_migration_downgrade_and_reupgrade(store, db_uri):
     assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
 
     # Re-upgrade restores them, proving the up/down pair round-trips.
-    command.upgrade(config, "e7d1f4b2a9c6")
+    command.upgrade(config, "head")
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
 
 

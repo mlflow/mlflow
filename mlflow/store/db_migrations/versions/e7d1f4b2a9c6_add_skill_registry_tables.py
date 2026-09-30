@@ -36,6 +36,17 @@ AGENT_PLUGIN_VERSION_STRING = (
     .with_variant(mssql.VARCHAR(128, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
 )
 
+SKILL_REGISTRY_TAG_KEY_STRING = (
+    sa
+    .String(length=250)
+    .with_variant(mysql.VARCHAR(250, collation="utf8mb4_bin"), "mysql")
+    .with_variant(mssql.VARCHAR(250, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
+
+SKILL_REGISTRY_TAG_VALUE_TEXT = (
+    sa.Text().with_variant(mysql.MEDIUMTEXT, "mysql").with_variant(mssql.NVARCHAR(None), "mssql")
+)
+
 
 def upgrade():
     json_type = _get_json_type()
@@ -123,8 +134,8 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("key", sa.String(length=250), nullable=False),
-        sa.Column("value", sa.Text(), nullable=True),
+        sa.Column("key", SKILL_REGISTRY_TAG_KEY_STRING, nullable=False),
+        sa.Column("value", SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name"],
             ["skills.workspace", "skills.organization", "skills.name"],
@@ -151,8 +162,8 @@ def upgrade():
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("key", sa.String(length=250), nullable=False),
-        sa.Column("value", sa.Text(), nullable=True),
+        sa.Column("key", SKILL_REGISTRY_TAG_KEY_STRING, nullable=False),
+        sa.Column("value", SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name", "version"],
             [
@@ -291,8 +302,8 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("key", sa.String(length=250), nullable=False),
-        sa.Column("value", sa.Text(), nullable=True),
+        sa.Column("key", SKILL_REGISTRY_TAG_KEY_STRING, nullable=False),
+        sa.Column("value", SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name"],
             ["agent_plugins.workspace", "agent_plugins.organization", "agent_plugins.name"],
@@ -321,8 +332,8 @@ def upgrade():
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column("version", AGENT_PLUGIN_VERSION_STRING, nullable=False),
-        sa.Column("key", sa.String(length=250), nullable=False),
-        sa.Column("value", sa.Text(), nullable=True),
+        sa.Column("key", SKILL_REGISTRY_TAG_KEY_STRING, nullable=False),
+        sa.Column("value", SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name", "version"],
             [
