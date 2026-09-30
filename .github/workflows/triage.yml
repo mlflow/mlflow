@@ -1,0 +1,38 @@
+name: Triage
+
+on:
+  issues:
+    types: [opened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  label:
+    if: github.repository == 'mlflow/mlflow' && github.event.issue.labels[0] == null
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          title="${TITLE#"${TITLE%%[![:space:]]*}"}"
+          case "${title^^}" in
+            "[BUG]"* | "[SETUP-BUG]"*) labels="bug" ;;
+            "[FR]"*) labels="enhancement" ;;
+            "[DOC-FIX]"*) labels="bug,area/docs" ;;
+            *) echo "No matching title prefix"; exit 0 ;;
+          esac
+          gh issue edit "$ISSUE_URL" --add-label "$labels"
