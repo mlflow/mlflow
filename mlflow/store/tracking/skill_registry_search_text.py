@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from mlflow.store.tracking.dbmodels.models import (
         SqlAgentPluginVersion,
-        SqlSkill,
     )
 
 _WHITESPACE_RUN = re.compile(r"\s+")
@@ -31,8 +30,11 @@ def _normalize(text: str | None) -> str:
     return _WHITESPACE_RUN.sub(" ", s).strip() if s else ""
 
 
-def build_skill_search_text(name: str, description: str | None = None) -> str:
-    """Build the ``search_text`` projection for a skill from its name and description."""
+def build_skill_search_text(
+    name: str,
+    description: str | None = None,
+) -> str:
+    """Build the ``search_text`` projection for a skill from discovery metadata."""
     parts = [_normalize(name), _normalize(description)]
     return " ".join(part for part in parts if part)
 
@@ -60,11 +62,6 @@ def build_agent_plugin_version_search_text(
         parts.extend(_normalize(kw) for kw in keywords)
     parts.append(_normalize(author_name))
     return " ".join(part for part in parts if part)
-
-
-def recompute_skill_search_text(skill_row: SqlSkill) -> str:
-    """Rebuild ``search_text`` from an ``SqlSkill`` row, e.g. after its description changes."""
-    return build_skill_search_text(name=skill_row.name, description=skill_row.description)
 
 
 def recompute_agent_plugin_version_search_text(
