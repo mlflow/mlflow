@@ -911,8 +911,7 @@ def test_stream_resolver_restores_pending_parent_context():
             assert (current_span.span_id if current_span else None) == original_span_id
             if active_span_id:
                 assert active_span_id.get() == original_llama_span_id
-        with pytest.raises(StopIteration):
-            next(response.response_gen)
+        assert list(response.response_gen) == []
     finally:
         child.end()
         parent.end()
