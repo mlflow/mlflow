@@ -43,7 +43,7 @@ MLflow supports calling model providers directly using the format `provider:/mod
 Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run judges from the UI.
 :::
 
-TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use either a direct `typesafe:/` model URI or a `gateway:/` endpoint whose model mappings all use TypeSafe, with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe).
+TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use either a direct `typesafe:/` model URI or a `gateway:/` endpoint whose model mappings all support the `system_one` capability. TypeSafe provider models and OpenRouter Jev decision models (`typesafe/jev-1.13` and `~typesafe/jev-latest`) can provide that capability. OpenRouter `typesafe/jev-router` remains a chat model. See [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe) for supported outputs.
 
 For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 

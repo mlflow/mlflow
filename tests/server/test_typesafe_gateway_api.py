@@ -74,6 +74,64 @@ def _request():
     }
 
 
+@pytest.fixture(params=[None, "team-a"])
+def openrouter_endpoint(request, tmp_path, db_uri, monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "typesafe-gateway-test-passphrase")
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(request.param is not None).lower())
+    store_class = WorkspaceAwareSqlAlchemyStore if request.param else SqlAlchemyStore
+    store = store_class(db_uri, tmp_path.as_uri())
+    mlflow.set_tracking_uri(db_uri)
+    with WorkspaceContext(request.param):
+        experiment_id = store.create_experiment("gateway/openrouter-jev-evaluator")
+        secret = store.create_gateway_secret(
+            secret_name="openrouter-key",
+            secret_value={"api_key": "openrouter-secret"},
+            provider="openrouter",
+        )
+        model = store.create_gateway_model_definition(
+            name="openrouter-jev-model",
+            secret_id=secret.secret_id,
+            provider="openrouter",
+            model_name="typesafe/jev-1.13",
+        )
+        endpoint = store.create_gateway_endpoint(
+            name="openrouter-jev-evaluator",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id=model.model_definition_id,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                )
+            ],
+            usage_tracking=True,
+            experiment_id=experiment_id,
+        )
+        with patch("mlflow.server.gateway_api._get_store", return_value=store):
+            yield SimpleNamespace(
+                store=store,
+                endpoint=endpoint,
+                experiment_id=experiment_id,
+                workspace=request.param,
+            )
+    mlflow.set_tracking_uri(None)
+
+
+def _openrouter_request():
+    return {
+        "model": "openrouter-jev-evaluator",
+        "state": {"inputs": "What is MLflow?", "outputs": "An ML platform."},
+        "questions": {"evaluation": {"type": "noul", "instructions": "Is it relevant?"}},
+    }
+
+
+def _openrouter_response():
+    return {
+        "model": "typesafe/jev-1.13",
+        "answers": {"evaluation": {"type": "noul", "noul": 0.95}},
+        "usage": {"input_tokens": 100, "output_tokens": 20},
+    }
+
+
 def test_provider_creation_rejects_typesafe_before_construction(endpoint):
     with (
         patch("mlflow.server.gateway_api._create_provider") as create_provider,
@@ -136,6 +194,83 @@ def test_system_one_route_credentials_tracing_and_budgets(endpoint):
         TokenUsageKey.TOTAL_TOKENS: 120,
     }
     assert span.outputs == _response()
+
+
+def test_openrouter_jev_system_one_route(openrouter_endpoint):
+    app = FastAPI()
+    app.include_router(gateway_router)
+    request = _openrouter_request()
+
+    assert list(openrouter_endpoint.endpoint.to_proto().capabilities.supported_actions) == [
+        "system_one"
+    ]
+
+    with patch(
+        "mlflow.gateway.providers.openai_compatible.send_request",
+        return_value=_openrouter_response(),
+    ) as send:
+        response = TestClient(app).post("/gateway/typesafe/v1/systemone", json=request)
+
+    assert response.status_code == 200
+    assert response.json() == _openrouter_response()
+    send.assert_awaited_once_with(
+        headers={"Authorization": "Bearer openrouter-secret"},
+        base_url="https://openrouter.ai/api/v1",
+        path="systemone",
+        payload={**request, "model": "typesafe/jev-1.13"},
+    )
+
+
+def test_openrouter_jev_chat_route_is_rejected(openrouter_endpoint):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    with patch("mlflow.gateway.providers.openai_compatible.send_request") as send:
+        response = TestClient(app).post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={
+                "model": openrouter_endpoint.endpoint.name,
+                "messages": [{"role": "user", "content": "Inspect this trace"}],
+            },
+        )
+
+    assert response.status_code == 400
+    assert "only support structured judge evaluation" in response.json()["detail"]
+    send.assert_not_called()
+
+
+def test_openrouter_router_model_stays_on_normal_chat_routes():
+    config = GatewayEndpointConfig(
+        endpoint_id="ep-router",
+        endpoint_name="router-evaluator",
+        models=[
+            GatewayModelConfig("md-router", "openrouter", "typesafe/jev-router", {"api_key": "key"})
+        ],
+    )
+    provider = MagicMock()
+
+    with (
+        patch("mlflow.server.gateway_api._get_store"),
+        patch("mlflow.server.gateway_api._validate_store"),
+        patch("mlflow.server.gateway_api.get_endpoint_config", return_value=config),
+        patch(
+            "mlflow.server.gateway_api._create_provider", return_value=(provider, config)
+        ) as create_provider,
+    ):
+        with pytest.raises(HTTPException, match="does not use the TypeSafe provider"):
+            _create_provider_from_endpoint_name(
+                MagicMock(),
+                "router-evaluator",
+                EndpointType.LLM_V1_CHAT,
+                allow_system_one=True,
+            )
+
+        create_provider.assert_not_called()
+
+        _create_provider_from_endpoint_name(
+            MagicMock(), "router-evaluator", EndpointType.LLM_V1_CHAT
+        )
+        create_provider.assert_called_once()
 
 
 @pytest.mark.asyncio

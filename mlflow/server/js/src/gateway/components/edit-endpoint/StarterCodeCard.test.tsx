@@ -6,7 +6,7 @@ import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import * as FetchUtils from '../../../common/utils/FetchUtils';
 
-const renderCard = (props: { endpointName: string; provider?: string }) =>
+const renderCard = (props: { endpointName: string; provider?: string; systemOneCapable?: boolean }) =>
   renderWithDesignSystem(
     <MemoryRouter>
       <QueryClientProvider client={new QueryClient()}>
@@ -74,6 +74,18 @@ describe('StarterCodeCard', () => {
     expect(code).toContain('"model": "jev-evaluator"');
     expect(code).toContain('"type": "noul"');
     expect(code).not.toContain('messages');
+  });
+
+  it('shows the System One API for OpenRouter Jev capability endpoints', () => {
+    renderCard({
+      endpointName: 'openrouter-jev-evaluator',
+      provider: 'openrouter',
+      systemOneCapable: true,
+    });
+
+    expect(screen.getByText('System One')).toBeInTheDocument();
+    expect(screen.queryByText('MLflow Chat Completions')).not.toBeInTheDocument();
+    expect(document.querySelector('pre')?.textContent).toContain('/gateway/typesafe/v1/systemone');
   });
 
   it('updates the API when the endpoint provider changes', () => {

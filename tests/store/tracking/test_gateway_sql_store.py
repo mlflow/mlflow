@@ -740,6 +740,30 @@ def test_create_gateway_endpoint_rejects_mixed_system_one_models(store: SqlAlche
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def test_create_gateway_endpoint_rejects_mixed_openrouter_system_one_models(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="mixed-openrouter-key", secret_value={"api_key": "value"}
+    )
+    openrouter_model = store.create_gateway_model_definition(
+        name=f"mixed-openrouter-model-{uuid.uuid4().hex}",
+        secret_id=secret.secret_id,
+        provider="openrouter",
+        model_name="typesafe/jev-1.13",
+    )
+    chat_model = _create_gateway_test_model_definition(store, "mixed-openrouter-chat")
+
+    with pytest.raises(MlflowException, match="cannot mix System One and chat"):
+        store.create_gateway_endpoint(
+            name=f"mixed-openrouter-endpoint-{uuid.uuid4().hex[:8]}",
+            model_configs=[
+                _primary_gateway_model_config(openrouter_model.model_definition_id),
+                _primary_gateway_model_config(chat_model.model_definition_id),
+            ],
+        )
+
+
 def test_update_gateway_endpoint_rejects_mixed_system_one_models(store: SqlAlchemyStore):
     system_one_model = _create_system_one_test_model_definition(store, "mixed-update-system-one")
     chat_model = _create_gateway_test_model_definition(store, "mixed-update-chat")

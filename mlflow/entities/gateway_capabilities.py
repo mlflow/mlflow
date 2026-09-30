@@ -8,6 +8,10 @@ from typing import Protocol
 from mlflow.exceptions import MlflowException
 
 SYSTEM_ONE_ACTION = "system_one"
+OPENROUTER_SYSTEM_ONE_MODELS = frozenset({
+    "typesafe/jev-1.13",
+    "~typesafe/jev-latest",
+})
 
 
 class _GatewayModel(Protocol):
@@ -17,7 +21,9 @@ class _GatewayModel(Protocol):
 
 def model_supports_system_one(provider: str, model_name: str) -> bool:
     """Return whether a provider/model mapping can serve System One."""
-    return provider == "typesafe"
+    return provider == "typesafe" or (
+        provider == "openrouter" and model_name in OPENROUTER_SYSTEM_ONE_MODELS
+    )
 
 
 def endpoint_system_one_state(models: Iterable[_GatewayModel]) -> tuple[bool, bool]:

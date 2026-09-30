@@ -7,7 +7,9 @@ import { APILink } from "@site/src/components/APILink";
 
 # TypeSafe Judge Models
 
-Use TypeSafe System One models with <APILink fn="mlflow.genai.judges.make_judge">`make_judge()`</APILink> when your judge should return a typed decision instead of generated text. MLflow invokes System One directly with a `typesafe:/` model URI or through a pure-TypeSafe `gateway:/` endpoint and records the typed answer as an assessment.
+Use TypeSafe System One models with <APILink fn="mlflow.genai.judges.make_judge">`make_judge()`</APILink> when your judge should return a typed decision instead of generated text. MLflow invokes System One directly with a `typesafe:/` model URI or through a System One-capable `gateway:/` endpoint and records the typed answer as an assessment.
+
+Gateway endpoints backed by OpenRouter Jev decision models (`typesafe/jev-1.13` or `~typesafe/jev-latest`) also expose the `system_one` capability and use the same System One route. OpenRouter `typesafe/jev-router` is a chat/text model and remains on normal chat routes.
 
 ```bash
 export TYPESAFE_API_KEY=...
@@ -64,7 +66,7 @@ MLflow converts each literal value to a TypeSafe Choice label. Literal values mu
 
 ## Built-in judges
 
-The following built-in MLflow judges support direct `typesafe:/` models and pure-TypeSafe `gateway:/` endpoints:
+The following built-in MLflow judges support direct `typesafe:/` models and System One-capable `gateway:/` endpoints:
 
 - Answer quality: `Completeness`, `Correctness`, `Equivalence`, `Fluency`, `RelevanceToQuery`, `Safety`, and `Summarization`
 - Retrieval: `RetrievalGroundedness`, `RetrievalRelevance`, and `RetrievalSufficiency`
@@ -118,13 +120,13 @@ TypeSafe judge models in MLflow currently have these limits:
 - Trace-based judging with `{{ trace }}` is not supported. Use structured `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, or `{{ conversation }}` state instead.
 - Referenced state values must be JSON-serializable and cannot contain NaN or infinity.
 - `inference_params`, `base_url`, and `extra_headers` are not supported for TypeSafe judge models, whether direct or Gateway-backed.
-- A TypeSafe Gateway endpoint cannot mix TypeSafe models with chat-provider primary or fallback models.
+- A System One-capable Gateway endpoint cannot mix System One models with chat-provider primary or fallback models.
 - TypeSafe judge responses do not include generated text rationales.
 - Each MLflow judge sends one TypeSafe question. Multi-question batching through a single `make_judge()` judge is not supported.
 
 ## Relationship to AI Gateway
 
-Use `model="gateway:/<endpoint-name>"` to run a TypeSafe judge with credentials managed by MLflow AI Gateway. MLflow resolves the endpoint during judge execution and invokes the native System One API when every model mapping uses TypeSafe. Unsupported mixed-provider endpoints and evaluation instructions containing `{{ trace }}` fail before model invocation.
+Use `model="gateway:/<endpoint-name>"` to run a System One judge with credentials managed by MLflow AI Gateway. MLflow resolves the endpoint during judge execution and invokes the native System One API when every model mapping supports the `system_one` capability. Unsupported mixed-provider endpoints and evaluation instructions containing `{{ trace }}` fail before model invocation.
 
 The same Gateway integration is available directly through `POST /gateway/typesafe/v1/systemone` when you want to submit native System One requests instead of using `make_judge()`.
 
