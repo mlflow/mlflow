@@ -297,10 +297,11 @@ def build_otlp_export_request(spans: "list[Span]") -> ExportTraceServiceRequest:
     The resource is taken from the first span's underlying OTel span (all spans of
     a trace share their tracer's resource), and every span is emitted under a
     single ``scope_spans`` message. This is the serialization path shared by the
-    MLflow REST ``log_spans`` API and the Zerobus direct-write exporter, so both
-    produce identical payloads. In particular, ``Span.to_otel_proto`` decodes the
-    JSON-encoded attribute values (e.g. ``mlflow.spanType``) into plain proto
-    values, which the raw ReadableSpan serialization would leave double-encoded.
+    MLflow REST ``log_spans`` API and the Databricks OTel collector direct-write
+    exporter, so both produce identical payloads. In particular,
+    ``Span.to_otel_proto`` decodes the JSON-encoded attribute values (e.g.
+    ``mlflow.spanType``) into plain proto values, which the raw ReadableSpan
+    serialization would leave double-encoded.
 
     Args:
         spans: MLflow ``Span`` objects wrapping OTel ``ReadableSpan``s. Must be

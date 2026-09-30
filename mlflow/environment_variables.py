@@ -1052,23 +1052,23 @@ MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EXPORTER", True)
 
-#: When set to ``True``, MLflow will attempt to export trace spans directly to the Databricks
-#: Zerobus OTLP ingest endpoint instead of the MLflow REST ``log_spans`` API. Trace-level
-#: metadata (TraceInfo) continues to flow through the existing MLflow backend path. Service
-#: principal credentials (``client_id`` + ``client_secret``) must be configured for the
-#: Databricks tracking URI, and the Zerobus endpoint must be resolvable, or the exporter falls
-#: back to the standard UC table path. This feature is experimental and DEFAULT OFF.
-#: (default: ``False``)
-MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT", False
+#: When ``True`` (default) and the trace destination is a Unity Catalog location with
+#: service-principal credentials, MLflow exports trace spans directly to the Databricks
+#: OTel collector instead of the MLflow tracing server. Trace-level metadata (TraceInfo)
+#: still flows through the MLflow backend. Set to ``False`` to always use the MLflow
+#: tracing server span export path.
+#: (default: ``True``)
+MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT", True
 )
 
-#: Explicit Zerobus OTLP ingest endpoint override. When set, ``resolve_zerobus_endpoint`` uses
-#: this value instead of auto-assembling the endpoint from workspace metadata. The value must
-#: pass the ``is_zerobus_host`` validator. Takes effect only when
-#: ``MLFLOW_ENABLE_ZEROBUS_TRACE_EXPORT`` is ``True``.
+#: Explicit Databricks OTel collector ingest endpoint override. When set, the endpoint
+#: resolver uses this value instead of auto-assembling it from workspace metadata. The
+#: value must pass the ``is_databricks_otel_collector_host`` validator.
 #: (default: ``None``)
-MLFLOW_ZEROBUS_ENDPOINT = _EnvironmentVariable("MLFLOW_ZEROBUS_ENDPOINT", str, None)
+MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", str, None
+)
 
 #: By default, MLflow uses an isolated TracerProvider instance to generate traces, instead of the
 #: OpenTelemetry's singleton TracerProvider. Set this to False to let MLflow share the same OTel
