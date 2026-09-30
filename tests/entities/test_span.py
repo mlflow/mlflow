@@ -1,4 +1,6 @@
+import copy
 import json
+import pickle
 from datetime import datetime
 from unittest import mock
 
@@ -1574,3 +1576,142 @@ def test_span_get_raises_helpful_attribute_error():
         _ = noop_span.get
     with pytest.raises(AttributeError, match=expected_pattern):
         noop_span.get("name")
+
+
+def test_span_deepcopy_and_pickle():
+    with mlflow.start_span("test_span", span_type=SpanType.LLM) as live_span:
+        live_span.set_inputs({"prompt": "hello"})
+        live_span.set_outputs({"response": "world"})
+        live_span.set_attributes({"model": "gpt-4", "custom_attr": 42})
+        live_span.add_event(SpanEvent("test_event", 123456789, {"event_key": "val"}))
+
+    span = live_span.to_immutable_span()
+
+    # Test copy.deepcopy
+    copied_span = copy.deepcopy(span)
+    assert isinstance(copied_span, Span)
+    assert copied_span is not span
+    assert copied_span.to_dict() == span.to_dict()
+    assert copied_span.name == span.name
+    assert copied_span.inputs == span.inputs
+    assert copied_span.outputs == span.outputs
+    assert copied_span.trace_id == span.trace_id
+    assert copied_span.span_id == span.span_id
+    assert copied_span.attributes == span.attributes
+
+    # Mutating copy's attributes should not mutate original
+    copied_span.attributes["model"] = "gpt-3.5"
+    assert span.attributes["model"] == "gpt-4"
+
+    # Test pickle
+    pickled = pickle.dumps(span)
+    unpickled_span = pickle.loads(pickled)
+    assert isinstance(unpickled_span, Span)
+    assert unpickled_span.to_dict() == span.to_dict()
+    assert unpickled_span.name == span.name
+    assert unpickled_span.inputs == span.inputs
+    assert unpickled_span.outputs == span.outputs
+    assert unpickled_span.trace_id == span.trace_id
+    assert unpickled_span.span_id == span.span_id
+
+
+def test_lazy_span_deepcopy_and_pickle_unmaterialized():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("lazy_test", span_type=SpanType.TOOL) as live_span:
+        live_span.set_inputs({"query": "SELECT 1"})
+        live_span.set_outputs({"rows": 1})
+    span = live_span.to_immutable_span()
+
+    lazy_span = LazySpan(span.to_dict())
+    assert lazy_span.__dict__.get("_materialized") is False
+
+    # Deepcopy should remain unmaterialized
+    copied_lazy = copy.deepcopy(lazy_span)
+    assert isinstance(copied_lazy, LazySpan)
+    assert copied_lazy is not lazy_span
+    assert copied_lazy.__dict__.get("_materialized") is False
+    assert lazy_span.__dict__.get("_materialized") is False
+
+    # Pickle should preserve unmaterialized state
+    pickled = pickle.dumps(lazy_span)
+    assert lazy_span.__dict__.get("_materialized") is False
+    unpickled_lazy = pickle.loads(pickled)
+    assert isinstance(unpickled_lazy, LazySpan)
+    assert unpickled_lazy.__dict__.get("_materialized") is False
+
+    # Materializing copied or unpickled lazy span should yield exact properties
+    assert copied_lazy.inputs == span.inputs
+    assert copied_lazy.__dict__.get("_materialized") is True
+    assert unpickled_lazy.inputs == span.inputs
+    assert unpickled_lazy.__dict__.get("_materialized") is True
+    assert copied_lazy.to_dict() == span.to_dict()
+    assert unpickled_lazy.to_dict() == span.to_dict()
+
+
+def test_lazy_span_deepcopy_and_pickle_materialized():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("lazy_mat_test") as live_span:
+        live_span.set_inputs({"data": [1, 2, 3]})
+        live_span.set_outputs({"result": 6})
+    span = live_span.to_immutable_span()
+
+    lazy_span = LazySpan(span.to_dict())
+    # Force materialization before copy/pickle
+    _ = lazy_span.inputs
+    assert lazy_span.__dict__.get("_materialized") is True
+
+    copied_lazy = copy.deepcopy(lazy_span)
+    assert isinstance(copied_lazy, LazySpan)
+    assert copied_lazy.__dict__.get("_materialized") is True
+    assert copied_lazy.to_dict() == span.to_dict()
+    assert copied_lazy.inputs == span.inputs
+
+    unpickled_lazy = pickle.loads(pickle.dumps(lazy_span))
+    assert isinstance(unpickled_lazy, LazySpan)
+    assert unpickled_lazy.__dict__.get("_materialized") is True
+    assert unpickled_lazy.to_dict() == span.to_dict()
+    assert unpickled_lazy.inputs == span.inputs
+
+
+def test_noop_span_deepcopy_and_pickle():
+    from mlflow.entities.span import NoOpSpan
+
+    noop = NoOpSpan()
+    copied_noop = copy.deepcopy(noop)
+    assert isinstance(copied_noop, NoOpSpan)
+    assert copied_noop.trace_id == noop.trace_id
+
+    unpickled_noop = pickle.loads(pickle.dumps(noop))
+    assert isinstance(unpickled_noop, NoOpSpan)
+    assert unpickled_noop.trace_id == noop.trace_id
+
+
+def test_trace_deepcopy_and_pickle():
+    with mlflow.start_span("trace_test_root") as root:
+        root.set_inputs({"question": "test deepcopy"})
+        root.set_outputs({"answer": "success"})
+        trace_id = root.trace_id
+
+    trace = mlflow.get_trace(trace_id, flush=True)
+    assert trace is not None
+    assert len(trace.data.spans) == 1
+
+    # Deepcopy trace containing LazySpan
+    copied_trace = copy.deepcopy(trace)
+    assert copied_trace is not trace
+    assert copied_trace.trace_id == trace.trace_id
+    assert len(copied_trace.data.spans) == 1
+    # Verify the span inside copied trace matches
+    assert copied_trace.data.spans[0].name == "trace_test_root"
+    assert copied_trace.data.spans[0].inputs == {"question": "test deepcopy"}
+    assert copied_trace.data.spans[0].outputs == {"answer": "success"}
+
+    # Pickle trace containing LazySpan
+    unpickled_trace = pickle.loads(pickle.dumps(trace))
+    assert unpickled_trace.trace_id == trace.trace_id
+    assert len(unpickled_trace.data.spans) == 1
+    assert unpickled_trace.data.spans[0].name == "trace_test_root"
+    assert unpickled_trace.data.spans[0].inputs == {"question": "test deepcopy"}
+    assert unpickled_trace.data.spans[0].outputs == {"answer": "success"}

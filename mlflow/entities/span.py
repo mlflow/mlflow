@@ -1,5 +1,6 @@
 import ast
 import base64
+import copy
 import json
 import logging
 from functools import cached_property
@@ -385,6 +386,15 @@ class Span:
             "attributes": dict(self._span.attributes),
             "links": [link.to_dict() for link in self.links],
         }
+
+    def __reduce__(self):
+        return (_reconstruct_span, (self.to_dict(), getattr(self, "_attachments", {})))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Span":
+        new_span = Span.from_dict(copy.deepcopy(self.to_dict(), memo))
+        new_span._attachments = copy.deepcopy(getattr(self, "_attachments", {}), memo)
+        memo[id(self)] = new_span
+        return new_span
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -1394,9 +1404,12 @@ class LazySpan(Span):
         return json.dumps(self.__dict__["_span_dict"], separators=(",", ":"))
 
     def _ensure_materialized(self) -> None:
-        if self.__dict__["_materialized"]:
+        if self.__dict__.get("_materialized", False):
             return
-        span = Span.from_dict(self.__dict__["_span_dict"])
+        span_dict = self.__dict__.get("_span_dict")
+        if span_dict is None:
+            return
+        span = Span.from_dict(span_dict)
         self.__dict__["_span"] = span._span
         self.__dict__["_attributes"] = span._attributes
         self.__dict__["_attachments"] = span._attachments
@@ -1409,6 +1422,36 @@ class LazySpan(Span):
             return object.__getattribute__(self, name)
         except AttributeError:
             return super().__getattr__(name)
+
+    def __reduce__(self):
+        return (
+            _reconstruct_lazy_span,
+            (
+                self.__dict__["_span_dict"],
+                self.__dict__["_raw_json"],
+                self.__dict__.get("_materialized", False),
+                self.__dict__.get("_attachments", {}),
+            ),
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "LazySpan":
+        cls = self.__class__
+        if not self.__dict__.get("_materialized", False):
+            new_lazy = cls(
+                copy.deepcopy(self.__dict__["_span_dict"], memo),
+                raw_json=self.__dict__["_raw_json"],
+            )
+            memo[id(self)] = new_lazy
+            return new_lazy
+
+        new_lazy = cls(
+            copy.deepcopy(self.__dict__["_span_dict"], memo),
+            raw_json=self.__dict__["_raw_json"],
+        )
+        memo[id(self)] = new_lazy
+        new_lazy._ensure_materialized()
+        new_lazy._attachments = copy.deepcopy(self.__dict__.get("_attachments", {}), memo)
+        return new_lazy
 
     def __repr__(self):
         if self.__dict__.get("_materialized"):
@@ -1428,6 +1471,25 @@ class LazySpan(Span):
             f"span_id={span_dict.get('span_id')!r}, "
             f"parent_id={span_dict.get('parent_span_id')!r})"
         )
+
+
+def _reconstruct_span(span_dict: dict[str, Any], attachments: dict[str, Any]) -> Span:
+    span = Span.from_dict(span_dict)
+    span._attachments = attachments
+    return span
+
+
+def _reconstruct_lazy_span(
+    span_dict: dict[str, Any],
+    raw_json: str | None,
+    materialized: bool,
+    attachments: dict[str, Any],
+) -> LazySpan:
+    lazy = LazySpan(span_dict, raw_json=raw_json)
+    if materialized:
+        lazy._ensure_materialized()
+        lazy._attachments = attachments
+    return lazy
 
 
 class NoOpSpan(Span):
@@ -1454,6 +1516,14 @@ class NoOpSpan(Span):
         self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
         self._links = []
+
+    def __reduce__(self):
+        return (NoOpSpan, (self._span,))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "NoOpSpan":
+        new_noop = NoOpSpan(copy.deepcopy(self._span, memo))
+        memo[id(self)] = new_noop
+        return new_noop
 
     @property
     def trace_id(self):
