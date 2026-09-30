@@ -713,12 +713,6 @@ VALID_MLFLOW_MESSAGES = [
     "mlflowSetGatewayEndpointTag",
     "mlflowDeleteGatewayEndpointTag",
     "mlflowGetSecretsConfig",
-    # ===== Prompt Optimization =====
-    "mlflowCreatePromptOptimizationJob",
-    "mlflowGetPromptOptimizationJob",
-    "mlflowSearchPromptOptimizationJobs",
-    "mlflowCancelPromptOptimizationJob",
-    "mlflowDeletePromptOptimizationJob",
     # ===== Webhooks =====
     "mlflowCreateWebhook",
     "mlflowListWebhooks",
@@ -793,9 +787,6 @@ VALID_MLFLOW_MESSAGES = [
     "mlflowWebhook",
     "mlflowWebhookTestResult",
     "mlflowJobState",
-    "mlflowPromptOptimizationJobTag",
-    "mlflowPromptOptimizationJobConfig",
-    "mlflowPromptOptimizationJob",
     "mlflowartifactsFileInfo",
     "mlflowartifactsMultipartUploadCredential",
     "mlflowartifactsMultipartUploadPart",
@@ -810,7 +801,6 @@ MLFLOW_PROTOS = [
     "assessments.proto",
     "datasets.proto",
     "jobs.proto",
-    "prompt_optimization.proto",
 ]
 
 # Order of services in documentation (services not listed will be sorted alphabetically at the end)

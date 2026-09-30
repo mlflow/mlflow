@@ -46,7 +46,6 @@ from mlflow.telemetry.events import (
     McpRegistryCreateServerVersionEvent,
     McpRegistryRegisterServerFromUrlEvent,
     MergeRecordsEvent,
-    OptimizePromptsJobEvent,
     PromptOptimizationEvent,
     SimulateConversationEvent,
     StartTraceEvent,
@@ -615,32 +614,6 @@ def test_gateway_list_budget_policies_parse_params():
 def test_simulate_conversation_parse_params():
     result = SimulateConversationEvent.parse({})
     assert result == {"callsite": "conversation_simulator"}
-
-
-def test_optimize_prompts_job_event_name():
-    assert OptimizePromptsJobEvent.name == "optimize_prompts_job"
-
-
-@pytest.mark.parametrize(
-    ("arguments", "expected_params"),
-    [
-        (
-            {"optimizer_type": "gepa", "scorer_names": ["Correctness", "Safety"]},
-            {"optimizer_type": "gepa", "scorer_count": 2},
-        ),
-        (
-            {"optimizer_type": "metaprompt", "scorer_names": ["Correctness"]},
-            {"optimizer_type": "metaprompt", "scorer_count": 1},
-        ),
-        (
-            {"optimizer_type": "gepa", "scorer_names": []},
-            {"optimizer_type": "gepa", "scorer_count": 0},
-        ),
-        ({}, None),
-    ],
-)
-def test_optimize_prompts_job_parse_params(arguments, expected_params):
-    assert OptimizePromptsJobEvent.parse(arguments) == expected_params
 
 
 @pytest.mark.parametrize(

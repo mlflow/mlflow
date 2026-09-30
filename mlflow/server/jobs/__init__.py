@@ -22,7 +22,6 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.scorers.job.invoke_scorer_job",
     "mlflow.genai.scorers.job.run_online_trace_scorer_job",
     "mlflow.genai.scorers.job.run_online_session_scorer_job",
-    "mlflow.genai.optimize.job.optimize_prompts_job",
     "mlflow.genai.discovery.job.invoke_issue_detection_job",
     "mlflow.genai.evaluation.job.invoke_genai_evaluate_job",
 ]
@@ -36,7 +35,6 @@ _ALLOWED_JOB_NAME_LIST = [
     "invoke_scorer",
     "run_online_trace_scorer",
     "run_online_session_scorer",
-    "optimize_prompts",
     "invoke_issue_detection",
     "invoke_genai_evaluate",
 ]
