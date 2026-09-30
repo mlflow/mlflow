@@ -33,7 +33,7 @@ def stdio_client(tracking_uri: str, tools: str = "genai") -> Client:
 async def http_client(app, url: str = "http://testserver/mcp") -> AsyncIterator[Client]:
     # The MCP session manager is started by the server lifespan, so run it around the client.
     # Docker lookup is disabled to keep the unrelated sandbox cleanup out of these tests.
-    with mock.patch("mlflow.server.fastapi_app.shutil.which", return_value=None):
+    with mock.patch("mlflow.server.fastapi_app.shutil.which", return_value=None) as which_mock:
         async with app.router.lifespan_context(app):
             transport = StreamableHttpTransport(
                 url,
@@ -43,6 +43,7 @@ async def http_client(app, url: str = "http://testserver/mcp") -> AsyncIterator[
             )
             async with Client(transport) as client:
                 yield client
+        which_mock.assert_any_call("docker")
 
 
 @dataclass

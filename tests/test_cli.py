@@ -256,13 +256,16 @@ def test_server_enable_mcp_sets_environment_flag(monkeypatch):
     monkeypatch.setenv(MLFLOW_SERVER_ENABLE_MCP.name, "false")
     with (
         mock.patch("mlflow.server._run_server") as run_server_mock,
-        mock.patch("mlflow.server.handlers.initialize_backend_stores"),
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
     ):
         result = CliRunner().invoke(
             server, ["--enable-mcp"], catch_exceptions=False, standalone_mode=False
         )
 
     assert result.exit_code == 0
+    init_backend_mock.assert_called_once_with(
+        mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None, read_replica_backend_store_uri=None
+    )
     run_server_mock.assert_called_once()
     assert MLFLOW_SERVER_ENABLE_MCP.get() is True
 
