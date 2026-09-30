@@ -5466,8 +5466,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -6816,8 +6816,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -11246,8 +11246,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 2.2,
