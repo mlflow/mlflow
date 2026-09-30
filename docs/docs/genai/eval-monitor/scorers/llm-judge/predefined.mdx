@@ -107,6 +107,25 @@ results = mlflow.genai.evaluate(
 | [ToolCallCorrectness](/genai/eval-monitor/scorers/llm-judge/tool-call/correctness)\*\* | Are the tool calls and arguments correct for the user query? | No                     | ⚠️ **Trace Required** |
 | [ToolCallEfficiency](/genai/eval-monitor/scorers/llm-judge/tool-call/efficiency)\*\*   | Are the tool calls efficient without redundancy?             | No                     | ⚠️ **Trace Required** |
 
+### Agent Goals
+
+<APILink fn="mlflow.genai.scorers.SubGoalCompletion">SubGoalCompletion</APILink> checks several goals in one trace. It returns yes/no and a short reason for each goal. Give each goal a stable ID so you can compare results across runs.
+
+```python
+import mlflow
+from mlflow.genai.scorers import SubGoalCompletion
+
+scorer = SubGoalCompletion(
+    subgoals={
+        "searched_docs": "The agent searched the docs for the answer.",
+        "filed_ticket": "The agent filed a support ticket.",
+    }
+)
+result = mlflow.genai.evaluate(data=mlflow.search_traces(), scorers=[scorer])
+```
+
+Each goal should apply to every trace. This scorer has no "not applicable" result and does not show which span met a goal.
+
 \*Can extract expectations from trace assessments if available.
 
 \*\*Indicates experimental features that may change in future releases.

@@ -3031,6 +3031,128 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         )
 
 
+class _SubGoalResult(pydantic.BaseModel):
+    goal_id: str
+    result: Literal["yes", "no"]
+    rationale: str = pydantic.Field(min_length=1)
+
+
+class _SubGoalResults(pydantic.BaseModel):
+    results: list[_SubGoalResult]
+
+
+@format_docstring(_MODEL_API_DOC)
+class SubGoalCompletion(BuiltInScorer):
+    """
+    Check which named goals an agent met in one trace.
+
+    One judge call checks all goals. The scorer returns one Feedback for each
+    goal. Use stable goal IDs to compare results across runs. Each goal should
+    apply to every trace.
+
+    Args:
+        subgoals: A map of goal IDs to goal descriptions.
+        name: The scorer name. Defaults to "subgoal_completion".
+        model: {{ model }}
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import SubGoalCompletion
+
+        trace = mlflow.get_trace("your-trace-id")
+        scorer = SubGoalCompletion(
+            subgoals={
+                "searched_docs": "The agent searched the docs for the answer.",
+                "filed_ticket": "The agent filed a support ticket.",
+            }
+        )
+        feedbacks = scorer(trace=trace)
+    """
+
+    name: str = "subgoal_completion"
+    subgoals: dict[str, str]
+    model: str | None = None
+    aggregations: None = None
+    extra_headers: None = None
+    required_columns: set[str] = {"trace"}
+    description: str = "Check whether an agent met each goal in a trace."
+
+    @pydantic.field_validator("subgoals")
+    @classmethod
+    def _validate_subgoals(cls, subgoals: dict[str, str]) -> dict[str, str]:
+        if not subgoals:
+            raise ValueError("subgoals must contain at least one goal")
+        for goal_id, goal in subgoals.items():
+            if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", goal_id):
+                raise ValueError(
+                    f"Goal ID {goal_id!r} must start with a letter and use only letters, "
+                    "numbers, underscores, or hyphens"
+                )
+            if not goal.strip():
+                raise ValueError(f"subgoal {goal_id!r} must have a description")
+        return subgoals
+
+    @property
+    def instructions(self) -> str:
+        return (
+            "Check each goal in the trace. Use the trace tools to read the request, "
+            "response, and spans. Return one result for each goal ID. Say 'yes' only "
+            "if the trace shows that the goal was met. Otherwise, say 'no'. "
+            "Give a short reason for each result. Do not guess."
+        )
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [JudgeField(name="trace", description="The trace to check.")]
+
+    def __call__(self, *, trace: Trace) -> list[Feedback]:
+        from mlflow.types.llm import ChatMessage
+
+        if not isinstance(trace, Trace):
+            raise MlflowException.invalid_parameter_value(
+                "SubGoalCompletion needs an MLflow trace for each row."
+            )
+
+        model = self.model or get_default_model()
+        subgoals_json = json.dumps(self.subgoals, ensure_ascii=False)
+        response = get_chat_completions_with_structured_output(
+            model_uri=model,
+            messages=[
+                ChatMessage(role="system", content=self.instructions),
+                ChatMessage(
+                    role="user",
+                    content=f"Check these goals:\n{subgoals_json}",
+                ),
+            ],
+            output_schema=_SubGoalResults,
+            trace=trace,
+            inference_params=self.inference_params,
+        )
+
+        results = {result.goal_id: result for result in response.results}
+        expected_ids = set(self.subgoals)
+        if len(results) != len(response.results) or results.keys() != expected_ids:
+            raise MlflowException("The judge must return each goal ID once, with no extra IDs.")
+
+        source = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model)
+        return [
+            Feedback(
+                name=f"{self.name}/{goal_id}",
+                value=results[goal_id].result,
+                rationale=results[goal_id].rationale,
+                source=source,
+                metadata={"subgoal": goal},
+            )
+            for goal_id, goal in self.subgoals.items()
+        ]
+
+
 @format_docstring(_MODEL_API_DOC)
 class Completeness(BuiltInScorer):
     """
