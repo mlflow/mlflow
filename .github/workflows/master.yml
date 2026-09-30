@@ -172,17 +172,23 @@ jobs:
 
       - name: Run migration check
         run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-
           ./tests/db/compose.sh down --volumes --remove-orphans
+          results=()
+          failed=0
           for service in $(./tests/db/compose.sh config --services | grep '^migration-')
           do
-            ./tests/db/compose.sh run --rm --no-TTY $service
+            if ./tests/db/compose.sh run --rm --no-TTY "$service"; then
+              results+=("$service: ✅")
+            else
+              status=$?
+              results+=("$service: ❌ (exit code $status)")
+              echo "::error::Migration check failed for $service (exit code $status)"
+              failed=1
+            fi
           done
 
-          test $err = 0
+          printf '%s\n' "${results[@]}"
+          exit "$failed"
 
       - name: Clean up
         run: |
