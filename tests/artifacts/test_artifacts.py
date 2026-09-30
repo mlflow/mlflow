@@ -164,6 +164,25 @@ def test_load_text_and_dict_read_utf8_regardless_of_default_encoding(monkeypatch
     assert mlflow.artifacts.load_dict(str(base / "data.json")) == data
 
 
+@pytest.mark.parametrize(
+    ("load", "file_name", "content"),
+    [
+        (mlflow.artifacts.load_text, "text.txt", "café"),
+        (mlflow.artifacts.load_dict, "data.json", '{"city": "café"}'),
+    ],
+)
+def test_load_text_and_dict_explain_non_utf8_artifacts(tmp_path, load, file_name, content):
+    path = tmp_path / file_name
+    path.write_bytes(content.encode("cp1252"))
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+
+    with pytest.raises(MlflowException, match="is not valid UTF-8") as exc_info:
+        load(uri)
+    assert isinstance(exc_info.value.__cause__, UnicodeDecodeError)
+
+
 def test_load_json_invalid_json(run_with_text_artifact):
     artifact = run_with_text_artifact
     with pytest.raises(mlflow.exceptions.MlflowException, match="Unable to form a JSON object"):
