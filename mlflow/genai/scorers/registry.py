@@ -337,14 +337,18 @@ class MlflowTrackingStore(AbstractScorerStore):
             scorer_version: The registered scorer version entity.
             online_config: Optional OnlineScoringConfig from the tracking store.
         """
-        scorer._registered_backend = SCORER_BACKEND_TRACKING
-        scorer._experiment_id = scorer_version.experiment_id
-        scorer._scorer_version = scorer_version.scorer_version
+        sampling_config = None
         if online_config is not None:
-            scorer._sampling_config = ScorerSamplingConfig(
+            sampling_config = ScorerSamplingConfig(
                 sample_rate=online_config.sample_rate,
                 filter_string=online_config.filter_string,
             )
+        scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=scorer_version.experiment_id,
+            sampling_config=sampling_config,
+            scorer_version=scorer_version.scorer_version,
+        )
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
@@ -527,21 +531,28 @@ class DatabricksStore(AbstractScorerStore):
             f"/versions/{version}"
         )
 
+    @staticmethod
+    def _scheduled_scorer_version(config: Any) -> int | None:
+        scorer_version = getattr(config, _SCORER_VERSION_ATTRIBUTE, None)
+        if isinstance(scorer_version, bool) or not isinstance(scorer_version, int):
+            return None
+        return scorer_version
+
     def _canonical_resource_name(
         self,
         experiment_id: str,
-        config: _DatabricksScheduledScorerConfig,
+        config: Any,
     ) -> str | None:
-        scorer_version = getattr(config, _SCORER_VERSION_ATTRIBUTE, None)
+        scorer_version = self._scheduled_scorer_version(config)
         if scorer_version is None:
             return None
         return self._scorer_version_resource_name(experiment_id, config.name, scorer_version)
 
     def _canonical_resource_name_type(
         self,
-        config: _DatabricksScheduledScorerConfig,
+        config: Any,
     ) -> ScorerCanonicalResourceType | None:
-        if getattr(config, _SCORER_VERSION_ATTRIBUTE, None) is None:
+        if self._scheduled_scorer_version(config) is None:
             return None
         return SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS
 
@@ -788,7 +799,7 @@ class DatabricksStore(AbstractScorerStore):
                         sample_rate=config.sample_rate,
                         filter_string=config.filter_string,
                     ),
-                    scorer_version=config.scorer_version,
+                    scorer_version=self._scheduled_scorer_version(config),
                     canonical_resource_name=self._canonical_resource_name(experiment_id, config),
                     canonical_resource_name_type=self._canonical_resource_name_type(config),
                 )
@@ -817,7 +828,7 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=response_config.sample_rate,
                 filter_string=response_config.filter_string,
             ),
-            scorer_version=response_config.scorer_version,
+            scorer_version=self._scheduled_scorer_version(response_config),
             canonical_resource_name=self._canonical_resource_name(experiment_id, response_config),
             canonical_resource_name_type=self._canonical_resource_name_type(response_config),
         )
@@ -838,7 +849,7 @@ class DatabricksStore(AbstractScorerStore):
                     sample_rate=scheduled_scorer.sample_rate,
                     filter_string=scheduled_scorer.filter_string,
                 ),
-                scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
+                scorer_version=self._scheduled_scorer_version(scheduled_scorer),
                 canonical_resource_name=self._canonical_resource_name(
                     experiment_id, scheduled_scorer
                 ),
@@ -873,6 +884,8 @@ class DatabricksStore(AbstractScorerStore):
                     filter_string=current_config.filter_string,
                 ),
                 scorer_version=version_config.scorer_version,
+                # The scorer-version endpoint returns the canonical Databricks resource
+                # name; keep it verbatim rather than reconstructing it from request inputs.
                 canonical_resource_name=version_config.name,
                 canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
             )
@@ -894,7 +907,7 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=scheduled_scorer.sample_rate,
                 filter_string=scheduled_scorer.filter_string,
             ),
-            scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
+            scorer_version=self._scheduled_scorer_version(scheduled_scorer),
             canonical_resource_name=self._canonical_resource_name(experiment_id, scheduled_scorer),
             canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
         )
@@ -920,6 +933,8 @@ class DatabricksStore(AbstractScorerStore):
                         filter_string=current_config.filter_string,
                     ),
                     scorer_version=config.scorer_version,
+                    # The scorer-version list endpoint returns the canonical Databricks resource
+                    # name; keep it verbatim rather than reconstructing it from request inputs.
                     canonical_resource_name=config.name,
                     canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
                 ),
