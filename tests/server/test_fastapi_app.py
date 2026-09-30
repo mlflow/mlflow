@@ -6,7 +6,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER
-from mlflow.server.fastapi_app import add_mcp_exception_handlers, create_fastapi_app
+from mlflow.server.fastapi_app import add_registry_exception_handlers, create_fastapi_app
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 
@@ -37,7 +37,7 @@ def test_mcp_exception_handler_delegates_for_non_mcp_routes():
     async def existing_mlflow_exception_handler(request, exc):
         return JSONResponse(status_code=418, content={"detail": "delegated"})
 
-    add_mcp_exception_handlers(app)
+    add_registry_exception_handlers(app)
 
     @app.get("/non-mcp")
     async def non_mcp():
@@ -56,6 +56,7 @@ _NATIVE_ROUTER_PROBES = (
     ("POST", "/ajax-api/3.0/jobs/search"),
     ("POST", "/gateway/mlflow/v1/chat/completions"),
     ("GET", "/ajax-api/3.0/mlflow/assistant/config"),
+    ("POST", "/ajax-api/3.0/mlflow/skills"),
 )
 
 
