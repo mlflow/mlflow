@@ -344,6 +344,7 @@ def _end_span_on_success(
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             output = []
+            chunk = None
             for i, chunk in enumerate(stream):
                 _add_span_event(span, i, chunk)
                 output.append(chunk)
@@ -355,6 +356,7 @@ def _end_span_on_success(
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
             output = []
+            chunk = None
             async for chunk in stream:
                 _add_span_event(span, len(output), chunk)
                 output.append(chunk)

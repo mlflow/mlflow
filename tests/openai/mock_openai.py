@@ -12,6 +12,7 @@ from mlflow.types.chat import ChatCompletionRequest
 EMPTY_CHOICES = "EMPTY_CHOICES"
 LIST_CONTENT = "LIST_CONTENT"
 AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
+EMPTY_STREAM = "EMPTY_STREAM"
 
 app = fastapi.FastAPI()
 
@@ -188,6 +189,8 @@ async def chat(payload: ChatCompletionRequest):
             content = (
                 f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
             )
+        elif EMPTY_STREAM == payload.messages[0].content:
+            content = iter(["data: [DONE]\n\n"])
         elif AZURE_ANNOTATIONS == payload.messages[0].content:
             content = (
                 f"data: {json.dumps(d)}\n\n"

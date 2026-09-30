@@ -28,7 +28,12 @@ from mlflow.tracing.constant import (
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.openai.mock_openai import AZURE_ANNOTATIONS, EMPTY_CHOICES, LIST_CONTENT
+from tests.openai.mock_openai import (
+    AZURE_ANNOTATIONS,
+    EMPTY_CHOICES,
+    EMPTY_STREAM,
+    LIST_CONTENT,
+)
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
@@ -507,6 +512,23 @@ async def test_chat_completions_streaming_empty_choices(client):
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_no_chunks(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": EMPTY_STREAM}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    assert chunks == []
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+    assert trace.data.spans[0].outputs is None
 
 
 @pytest.mark.asyncio
