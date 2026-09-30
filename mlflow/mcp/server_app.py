@@ -44,24 +44,25 @@ class McpToolPolicy:
         overrides: Replacement implementations for non-admin callers of tools whose results must
             be filtered per caller (unscoped searches). An override takes the same arguments and
             returns the same model as the tool it replaces.
+        on_success: Called with ``(username, result)`` after a tool succeeds, for every caller.
+            Grants the creator MANAGE on what a create tool made, like the REST after-request
+            handlers do for the same operations.
     """
 
     authorize: Callable[[str, str | None, dict[str, Any]], None]
     validate_coverage: Callable[[Iterable[str]], None]
     is_admin: Callable[[str | None], bool]
     overrides: Mapping[str, Callable[..., Any]] = field(default_factory=dict)
+    on_success: Mapping[str, Callable[[str, Any], None]] = field(default_factory=dict)
 
 
 def _authorized_fn(tool: SharedTool, policy: McpToolPolicy) -> Callable[..., Any]:
     from fastmcp.exceptions import ToolError
 
     override_fn = policy.overrides.get(tool.name)
+    on_success = policy.on_success.get(tool.name)
 
-    # ``functools.wraps`` carries the typed signature, annotations and docstring over, so FastMCP
-    # validates the arguments against the tool's own schema before the authorization check runs.
-    @functools.wraps(tool.fn)
-    def authorized_fn(**kwargs: Any) -> Any:
-        username = MCP_REQUEST_USERNAME.get()
+    def run(username: str | None, **kwargs: Any) -> Any:
         if policy.is_admin(username):
             return tool.fn(**kwargs)
         try:
@@ -72,6 +73,16 @@ def _authorized_fn(tool: SharedTool, policy: McpToolPolicy) -> Callable[..., Any
                 raise ToolError("Permission denied") from None
             raise
         return (override_fn or tool.fn)(**kwargs)
+
+    # ``functools.wraps`` carries the typed signature, annotations and docstring over, so FastMCP
+    # validates the arguments against the tool's own schema before the authorization check runs.
+    @functools.wraps(tool.fn)
+    def authorized_fn(**kwargs: Any) -> Any:
+        username = MCP_REQUEST_USERNAME.get()
+        result = run(username, **kwargs)
+        if on_success is not None:
+            on_success(username, result)
+        return result
 
     return authorized_fn
 

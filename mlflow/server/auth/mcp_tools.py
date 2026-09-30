@@ -16,7 +16,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.mcp.request_context import get_mcp_request_username
 from mlflow.mcp.server_app import McpToolPolicy
 from mlflow.mcp.tools._args import as_list, as_view_type, check_non_negative
-from mlflow.mcp.tools._types import ExperimentInfo, ExperimentPage
+from mlflow.mcp.tools._types import (
+    CreatedRun,
+    ExperimentInfo,
+    ExperimentPage,
+    ExperimentRef,
+    RegisteredScorer,
+)
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import Permission
@@ -259,10 +265,32 @@ def search_readable_experiments(
     )
 
 
+# Creator grants, mirroring the REST after-request handlers of the same operations
+# (CreateExperiment -> set_can_manage_experiment_permission, RegisterScorer ->
+# set_can_manage_scorer_permission). CreateRun grants nothing over REST; only the experiment
+# ``create_run`` creates from a missing name is granted, as CreateExperiment would.
+def _grant_experiment_creator(username: str, result: ExperimentRef) -> None:
+    auth_module.grant_creator_experiment_permission(username, result.experiment_id)
+
+
+def _grant_run_experiment_creator(username: str, result: CreatedRun) -> None:
+    if result._created_experiment:
+        auth_module.grant_creator_experiment_permission(username, result.experiment_id)
+
+
+def _grant_scorer_creator(username: str, result: RegisteredScorer) -> None:
+    auth_module.grant_creator_scorer_permission(username, result.experiment_id, result.name)
+
+
 def get_mcp_tool_policy() -> McpToolPolicy:
     return McpToolPolicy(
         authorize=authorize_mcp_tool_call,
         validate_coverage=check_mcp_tool_coverage,
         is_admin=is_mcp_admin,
         overrides={"search_experiments": search_readable_experiments},
+        on_success={
+            "create_experiment": _grant_experiment_creator,
+            "create_run": _grant_run_experiment_creator,
+            "register_llm_judge_scorer": _grant_scorer_creator,
+        },
     )

@@ -3758,12 +3758,16 @@ def _before_request():
         return make_forbidden_response()
 
 
+def grant_creator_experiment_permission(username: str, experiment_id: str) -> None:
+    store.grant_user_permission(username, "experiment", experiment_id, MANAGE.name)
+
+
 def set_can_manage_experiment_permission(resp: Response):
     response_message = CreateExperiment.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     username = authenticate_request().username
-    store.grant_user_permission(username, "experiment", experiment_id, MANAGE.name)
+    grant_creator_experiment_permission(username, experiment_id)
 
 
 def set_can_manage_registered_model_permission(resp: Response):
@@ -4311,16 +4315,20 @@ def rename_registered_model_permission(resp: Response):
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
 
 
+def grant_creator_scorer_permission(username: str, experiment_id: str, name: str) -> None:
+    # ``grant_user_permission`` is upsert, so re-registration is a no-op
+    # rather than an error — no try/except needed.
+    pattern = store._scorer_pattern(experiment_id, name)
+    store.grant_user_permission(username, "scorer", pattern, MANAGE.name)
+
+
 def set_can_manage_scorer_permission(resp: Response):
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    # ``grant_user_permission`` is upsert, so re-registration is a no-op
-    # rather than an error — no try/except needed.
-    pattern = store._scorer_pattern(experiment_id, name)
-    store.grant_user_permission(username, "scorer", pattern, MANAGE.name)
+    grant_creator_scorer_permission(username, experiment_id, name)
 
 
 def delete_scorer_permissions_cascade(resp: Response):

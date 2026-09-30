@@ -422,6 +422,94 @@ async def test_reader_can_search_experiments_with_no_grants_and_sees_nothing(
     }
 
 
+# --------------------------------------------------------------------------- creator grants
+
+
+async def _assert_manages_experiment(url: str, credentials: tuple[str, str], exp_id: str) -> None:
+    assert (await _call(url, credentials, "get_experiment", experiment_id=exp_id))[
+        "experiment_id"
+    ] == exp_id
+    await _call(url, credentials, "rename_experiment", experiment_id=exp_id, new_name=f"r-{exp_id}")
+    await _call(url, credentials, "delete_experiment", experiment_id=exp_id)
+
+
+@pytest.mark.asyncio
+async def test_creator_manages_the_experiment_it_creates(mcp_server):
+    creator = create_user(mcp_server)
+    created = await _call(mcp_server, creator, "create_experiment", experiment_name="mine")
+
+    # Nobody else is granted anything on it.
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(
+            mcp_server,
+            create_user(mcp_server),
+            "get_experiment",
+            experiment_id=created["experiment_id"],
+        )
+    await _assert_manages_experiment(mcp_server, creator, created["experiment_id"])
+
+
+@pytest.mark.asyncio
+async def test_create_run_grants_only_the_experiment_it_creates(mcp_server, monkeypatch):
+    creator = create_user(mcp_server)
+    run = await _call(mcp_server, creator, "create_run", experiment_name="made-by-run")
+    await _assert_manages_experiment(mcp_server, creator, run["experiment_id"])
+
+    # A run in an existing experiment, addressed by name, leaves the caller's grant as it was.
+    (existing,) = _experiments(mcp_server, monkeypatch, ["existing"])
+    editor = _reader(mcp_server, existing, permission="EDIT")
+    run = await _call(mcp_server, editor, "create_run", experiment_name="existing")
+    assert run["experiment_id"] == existing
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(mcp_server, editor, "delete_experiment", experiment_id=existing)
+
+
+def _scorer_request(url: str, method: str, credentials, path: str, **params) -> requests.Response:
+    body = {"params": params} if method == "GET" else {"json": params}
+    return requests.request(method, f"{url}/api/3.0/mlflow/{path}", auth=credentials, **body)
+
+
+@pytest.mark.asyncio
+async def test_creator_manages_the_scorer_it_registers(mcp_server, monkeypatch):
+    (exp_id,) = _experiments(mcp_server, monkeypatch, ["exp-a"])
+    # EDIT on the experiment allows registering; it confers nothing on the experiment's scorers.
+    creator = _reader(mcp_server, exp_id, permission="EDIT")
+    other_username, _ = create_user(mcp_server)
+
+    registered = await _call(
+        mcp_server,
+        creator,
+        "register_llm_judge_scorer",
+        name="judge",
+        instructions="Is {{ outputs }} correct?",
+        experiment_id=exp_id,
+    )
+    assert registered == {"name": "judge", "experiment_id": exp_id}
+
+    get = _scorer_request(
+        mcp_server, "GET", creator, "scorers/get", experiment_id=exp_id, name="judge"
+    )
+    assert get.status_code == 200
+    listing = await _call(mcp_server, creator, "list_scorers", experiment_id=exp_id)
+    assert [s["name"] for s in listing["scorers"]] == ["judge"]
+    # No REST scorer route is gated on update; granting access to another user needs MANAGE.
+    grant = _scorer_request(
+        mcp_server,
+        "POST",
+        creator,
+        "users/permissions/grant",
+        username=other_username,
+        resource_type="scorer",
+        resource_id=f"{exp_id}/judge",
+        permission="READ",
+    )
+    assert grant.status_code == 200
+    delete = _scorer_request(
+        mcp_server, "DELETE", creator, "scorers/delete", experiment_id=exp_id, name="judge"
+    )
+    assert delete.status_code == 200
+
+
 @pytest.mark.parametrize("mcp_server", [{"MLFLOW_BASIC_AUTH_FAIL_CLOSED": "true"}], indirect=True)
 @pytest.mark.asyncio
 async def test_fail_closed_mode_keeps_the_authenticated_endpoint_reachable(mcp_server, monkeypatch):
@@ -516,6 +604,23 @@ async def test_workspace_header_scopes_tool_results_and_permission_checks(worksp
         await _call(url, reader, "get_experiment", workspace="ws-a", experiment_id=exp_b)
 
 
+@pytest.mark.asyncio
+async def test_creator_grant_lands_in_the_request_workspace(workspace_mcp_server):
+    url = workspace_mcp_server
+    _create_workspace(url, "ws-a")
+    username, password = create_user(url)
+    grant_role_permission(url, username, "workspace", "*", "USE", workspace="ws-a")
+    creator = (username, password)
+
+    created = await _call(
+        url, creator, "create_experiment", workspace="ws-a", experiment_name="mine"
+    )
+    exp_id = created["experiment_id"]
+    experiment = await _call(url, creator, "get_experiment", workspace="ws-a", experiment_id=exp_id)
+    assert experiment["name"] == "mine"
+    await _call(url, creator, "delete_experiment", workspace="ws-a", experiment_id=exp_id)
+
+
 def test_find_fastapi_validator_resolves_the_mcp_path_under_a_static_prefix(monkeypatch):
     monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
     assert auth_module._find_fastapi_validator("/mcp", "POST") is not None
@@ -536,6 +641,17 @@ def test_every_served_tool_has_a_rule_and_nothing_else():
     served = {tool.name for tool in SHARED_TOOLS}
     assert served == set(MCP_TOOL_RULES)
     check_mcp_tool_coverage(served)
+
+
+def test_policy_hooks_name_served_tools():
+    policy = mcp_tools.get_mcp_tool_policy()
+    served = {tool.name for tool in SHARED_TOOLS}
+    assert set(policy.overrides) <= served
+    assert set(policy.on_success) == {
+        "create_experiment",
+        "create_run",
+        "register_llm_judge_scorer",
+    }
 
 
 def test_search_override_has_the_signature_of_the_tool():
