@@ -1019,7 +1019,15 @@ async def list_models(request: Request) -> models.ResponsePayload:
     store = _get_store()
     _validate_store(store)
     endpoints = sorted(
-        (endpoint for endpoint in store.list_gateway_endpoints() if endpoint.name),
+        (
+            endpoint
+            for endpoint in store.list_gateway_endpoints()
+            if endpoint.name
+            and not any(
+                mapping.model_definition and mapping.model_definition.provider == Provider.TYPESAFE
+                for mapping in endpoint.model_mappings
+            )
+        ),
         key=lambda endpoint: endpoint.name,
     )
     return models.ResponsePayload(

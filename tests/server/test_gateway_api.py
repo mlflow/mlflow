@@ -17,6 +17,8 @@ from mlflow.entities import (
     FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointModelConfig,
+    GatewayEndpointModelMapping,
+    GatewayModelDefinition,
     GatewayModelLinkageType,
     RoutingStrategy,
     SpanType,
@@ -1672,6 +1674,52 @@ def test_list_models_endpoint(store: SqlAlchemyStore, endpoint_names, expected_i
             for name in expected_ids
         ],
     }
+
+
+def test_list_models_excludes_typesafe_endpoints(store: SqlAlchemyStore):
+    def endpoint(name: str, provider: str) -> GatewayEndpoint:
+        endpoint_id = f"endpoint-{name}"
+        model_definition_id = f"model-definition-{name}"
+        return GatewayEndpoint(
+            endpoint_id=endpoint_id,
+            name=name,
+            created_at=1234567890123,
+            last_updated_at=1234567890123,
+            model_mappings=[
+                GatewayEndpointModelMapping(
+                    mapping_id=f"mapping-{name}",
+                    endpoint_id=endpoint_id,
+                    model_definition_id=model_definition_id,
+                    model_definition=GatewayModelDefinition(
+                        model_definition_id=model_definition_id,
+                        name=name,
+                        secret_id="secret-id",
+                        secret_name="secret-name",
+                        provider=provider,
+                        model_name=f"{provider}-model",
+                        created_at=1234567890123,
+                        last_updated_at=1234567890123,
+                    ),
+                    weight=1.0,
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    fallback_order=None,
+                    created_at=1234567890123,
+                )
+            ],
+        )
+
+    endpoints = [endpoint("chat", "openai"), endpoint("typesafe", "typesafe")]
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch.object(store, "list_gateway_endpoints", return_value=endpoints),
+    ):
+        response = TestClient(app).get("/gateway/mlflow/v1/models")
+
+    assert response.status_code == 200
+    assert [model["id"] for model in response.json()["data"]] == ["chat"]
 
 
 @pytest.mark.asyncio

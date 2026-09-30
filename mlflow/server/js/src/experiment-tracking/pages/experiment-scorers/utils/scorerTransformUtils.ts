@@ -126,6 +126,14 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
     };
   }
 
+  // Pydantic serializes a one-value Literal as JSON Schema const rather than enum.
+  if (typeof schema['const'] === 'string') {
+    return {
+      kind: 'categorical',
+      categoricalOptions: [schema['const']],
+    };
+  }
+
   const schemaType = schema['type'];
   if (typeof schemaType !== 'string') {
     return undefined;

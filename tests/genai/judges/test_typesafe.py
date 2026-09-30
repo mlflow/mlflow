@@ -20,6 +20,7 @@ from mlflow.genai.judges.typesafe import (
 )
 from mlflow.genai.scorers import Safety
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _REQUEST_TARGET = "mlflow.genai.judges.typesafe._get_http_response_with_retries"
 _DEFAULT_STATE = object()
@@ -122,6 +123,37 @@ def test_gateway_chat_endpoint_negative_result_is_cached():
 
     assert resolve_gateway_uri.call_count == 3
     request.assert_called_once()
+
+
+def test_gateway_negative_cache_is_workspace_scoped():
+    negative_response = mock.Mock(status_code=422)
+    negative_response.json.return_value = {
+        "detail": "Gateway endpoint does not use the TypeSafe provider."
+    }
+    success_response = _response({"type": "noul", "noul": 0.8})
+    kwargs = {
+        "instructions": "Does {{ outputs }} answer {{ inputs }}?",
+        "state": {"inputs": "Question", "outputs": "Answer"},
+        "feedback_value_type": bool,
+        "assessment_name": "quality",
+    }
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[negative_response, success_response],
+        ) as request,
+    ):
+        with ServerWorkspaceContext("team-a"):
+            assert _try_invoke_gateway_typesafe_judge("gateway:/judge", **kwargs) is None
+        with ServerWorkspaceContext("team-b"):
+            feedback = _try_invoke_gateway_typesafe_judge("gateway:/judge", **kwargs)
+
+    assert feedback.value is True
+    assert request.call_count == 2
 
 
 def test_gateway_404_preserves_chat_fallback_for_older_servers():

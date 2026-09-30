@@ -1207,6 +1207,23 @@ describe('output type in transformScorerConfig', () => {
 
     expect(result.outputType).toEqual({ kind: 'categorical', categoricalOptions: ['good', 'bad', 'neutral'] });
   });
+
+  it('should parse a one-value categorical feedback_value_type represented as const', () => {
+    const config: ScorerConfig = {
+      name: 'Test Scorer',
+      serialized_scorer: JSON.stringify({
+        instructions_judge_pydantic_data: {
+          instructions: 'Evaluate',
+          feedback_value_type: { const: 'yes' },
+        },
+      }),
+      custom: {},
+    };
+
+    const result = transformScorerConfig(config) as LLMScorer;
+
+    expect(result.outputType).toEqual({ kind: 'categorical', categoricalOptions: ['yes'] });
+  });
 });
 
 describe('output type in transformScheduledScorer', () => {
