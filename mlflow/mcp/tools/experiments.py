@@ -3,7 +3,6 @@ from typing import Annotated
 from pydantic import Field
 
 from mlflow.exceptions import MlflowException
-from mlflow.experiments import _encode_trace_archival_retention_tag, _encode_trace_archive_now_tag
 from mlflow.mcp.tools._args import (
     DeprecatedOutput,
     OrderBy,
@@ -16,6 +15,10 @@ from mlflow.mcp.tools._args import (
 from mlflow.mcp.tools._types import ExperimentInfo, ExperimentPage, ExperimentRef, ExperimentUpdate
 from mlflow.protos import databricks_pb2
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.utils.trace_archival import (
+    _encode_trace_archival_retention_tag,
+    _encode_trace_archive_now_tag,
+)
 from mlflow.tracing.constant import TraceExperimentTagKey
 from mlflow.tracking import MlflowClient
 from mlflow.utils.validation import _validate_trace_archival_retention_string

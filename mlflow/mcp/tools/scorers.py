@@ -2,10 +2,10 @@ from typing import Annotated
 
 from pydantic import Field
 
-from mlflow.cli.scorers import _builtin_scorer_catalog
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import list_scorers as list_registered_scorers
+from mlflow.genai.scorers.builtin_scorers import _builtin_scorer_catalog
 from mlflow.mcp.tools._args import DeprecatedOutput, as_json_object
 from mlflow.mcp.tools._types import RegisteredScorer, ScorerInfo, ScorerList
 
