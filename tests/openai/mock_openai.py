@@ -13,6 +13,7 @@ EMPTY_CHOICES = "EMPTY_CHOICES"
 LIST_CONTENT = "LIST_CONTENT"
 AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
 EMPTY_STREAM = "EMPTY_STREAM"
+ERROR_MID_STREAM = "ERROR_MID_STREAM"
 
 app = fastapi.FastAPI()
 
@@ -191,6 +192,12 @@ async def chat(payload: ChatCompletionRequest):
             )
         elif EMPTY_STREAM == payload.messages[0].content:
             content = iter(["data: [DONE]\n\n"])
+        elif ERROR_MID_STREAM == payload.messages[0].content:
+            # The OpenAI SDK raises `APIError` when it receives an error event mid-stream
+            content = iter([
+                f"data: {json.dumps(_make_chat_stream_chunk('Hello'))}\n\n",
+                f"data: {json.dumps({'error': {'message': 'Server overloaded'}})}\n\n",
+            ])
         elif AZURE_ANNOTATIONS == payload.messages[0].content:
             content = (
                 f"data: {json.dumps(d)}\n\n"
