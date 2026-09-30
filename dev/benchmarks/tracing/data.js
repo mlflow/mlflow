@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790773627980,
+  "lastUpdate": 1790781928415,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "v_nitor_yash_jivrajani@jazzx.ai",
-            "name": "yashjiv15-jazzx",
-            "username": "yashjiv15-jazzx"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "170c67f8faec185d97a188e510fb4c8c76b333c7",
-          "message": "Fix AI Gateway SSE large-frame read limit (#23880)\n\nSigned-off-by: yashjiv15-jazzx <v_nitor_yash_jivrajani@jazzx.ai>\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>\nCo-authored-by: Weichen Xu <weichen.xu@databricks.com>",
-          "timestamp": "2026-06-11T04:37:36Z",
-          "tree_id": "6056feedb22cfdd08757c2417b5e72fa91fc8711",
-          "url": "https://github.com/mlflow/mlflow/commit/170c67f8faec185d97a188e510fb4c8c76b333c7"
-        },
-        "date": 1781152873619,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.77434164999892,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 26.083667558827315,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 26.284914644066276,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 26.08707553571524,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 24.501493833333846,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.972680600000558,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.566394599998262,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ashtarkb@redhat.com",
+            "name": "ashtarkb",
+            "username": "ashtarkb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2eb8b9e79ab9add6f004de0eb3a1ae0cbe3633f5",
+          "message": "Feat/otlp prometheus metrics (#25192)\n\nSigned-off-by: ashtarkb <ashtarkb@redhat.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+          "timestamp": "2026-09-30T11:23:32-04:00",
+          "tree_id": "eeed095fa18ddd84e996bd1a4cdecd6cc3594f6a",
+          "url": "https://github.com/mlflow/mlflow/commit/2eb8b9e79ab9add6f004de0eb3a1ae0cbe3633f5"
+        },
+        "date": 1790781925506,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 51.588084550006386,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.761144499999883,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.526156936001371,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.623212282258305,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.950732436364278,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.928080200000977,
             "unit": "ms"
           }
         ]
