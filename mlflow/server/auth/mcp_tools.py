@@ -22,7 +22,9 @@ from mlflow.mcp.tools._types import (
     ExperimentPage,
     ExperimentRef,
     RegisteredScorer,
+    ScorerList,
 )
+from mlflow.mcp.tools.scorers import list_scorers
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import Permission
@@ -177,6 +179,8 @@ MCP_TOOL_RULES: dict[str, McpToolRule] = {
     "update_trace_assessment": McpToolRule(_trace, "can_update"),
     "delete_trace_assessment": McpToolRule(_trace, "can_update"),
     # Scorers
+    # Results are filtered per scorer by ``list_readable_scorers`` (ListScorers ->
+    # filter_list_scorers).
     "list_scorers": McpToolRule(check=_can_list_scorers),
     # RegisterScorer -> validate_can_update_experiment (the scorer does not exist yet)
     "register_llm_judge_scorer": McpToolRule(_experiment, "can_update"),
@@ -265,6 +269,23 @@ def search_readable_experiments(
     )
 
 
+def list_readable_scorers(
+    experiment_id: str | None = None,
+    builtin: bool = False,
+    output: str | None = None,
+) -> ScorerList:
+    """
+    ``list_scorers`` for a non-admin caller: the experiment's scorers the caller can read, with
+    the same per-scorer check as ``filter_list_scorers`` for the REST API. The built-in catalog
+    is not a store resource and is returned as is.
+    """
+    result = list_scorers(experiment_id=experiment_id, builtin=builtin, output=output)
+    if experiment_id is None:
+        return result
+    can_read = auth_module.scorer_read_predicate(get_mcp_request_username())
+    return ScorerList(scorers=[s for s in result.scorers if can_read(experiment_id, s.name)])
+
+
 # Creator grants, mirroring the REST after-request handlers of the same operations
 # (CreateExperiment -> set_can_manage_experiment_permission, RegisterScorer ->
 # set_can_manage_scorer_permission). CreateRun grants nothing over REST; only the experiment
@@ -287,7 +308,10 @@ def get_mcp_tool_policy() -> McpToolPolicy:
         authorize=authorize_mcp_tool_call,
         validate_coverage=check_mcp_tool_coverage,
         is_admin=is_mcp_admin,
-        overrides={"search_experiments": search_readable_experiments},
+        overrides={
+            "search_experiments": search_readable_experiments,
+            "list_scorers": list_readable_scorers,
+        },
         on_success={
             "create_experiment": _grant_experiment_creator,
             "create_run": _grant_run_experiment_creator,

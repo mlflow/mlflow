@@ -27,6 +27,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.tools import SHARED_TOOLS
 from mlflow.mcp.tools.experiments import search_experiments
+from mlflow.mcp.tools.scorers import list_scorers
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import mcp_tools
@@ -35,6 +36,7 @@ from mlflow.server.auth.mcp_tools import (
     SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES,
     authorize_mcp_tool_call,
     check_mcp_tool_coverage,
+    list_readable_scorers,
     search_readable_experiments,
 )
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
@@ -510,6 +512,32 @@ async def test_creator_manages_the_scorer_it_registers(mcp_server, monkeypatch):
     assert delete.status_code == 200
 
 
+@pytest.mark.asyncio
+async def test_list_scorers_returns_only_the_scorers_the_caller_can_read(mcp_server, monkeypatch):
+    (exp_id,) = _experiments(mcp_server, monkeypatch, ["exp-a"])
+    for name in ("visible", "hidden"):
+        await _call(
+            mcp_server,
+            ADMIN,
+            "register_llm_judge_scorer",
+            name=name,
+            instructions="Is {{ outputs }} correct?",
+            experiment_id=exp_id,
+        )
+    # Experiment READ passes the list gate but grants nothing on the scorers themselves.
+    reader = _reader(mcp_server, exp_id)
+    assert await _call(mcp_server, reader, "list_scorers", experiment_id=exp_id) == {"scorers": []}
+
+    grant_role_permission(mcp_server, reader[0], "scorer", f"{exp_id}/visible", "READ")
+    listing = await _call(mcp_server, reader, "list_scorers", experiment_id=exp_id)
+    assert [s["name"] for s in listing["scorers"]] == ["visible"]
+    listing = await _call(mcp_server, ADMIN, "list_scorers", experiment_id=exp_id)
+    assert sorted(s["name"] for s in listing["scorers"]) == ["hidden", "visible"]
+    # The built-in catalog is not filtered.
+    builtin = await _call(mcp_server, reader, "list_scorers", builtin=True)
+    assert builtin == await _call(mcp_server, ADMIN, "list_scorers", builtin=True)
+
+
 @pytest.mark.parametrize("mcp_server", [{"MLFLOW_BASIC_AUTH_FAIL_CLOSED": "true"}], indirect=True)
 @pytest.mark.asyncio
 async def test_fail_closed_mode_keeps_the_authenticated_endpoint_reachable(mcp_server, monkeypatch):
@@ -654,10 +682,12 @@ def test_policy_hooks_name_served_tools():
     }
 
 
-def test_search_override_has_the_signature_of_the_tool():
-    assert list(inspect.signature(search_readable_experiments).parameters) == list(
-        inspect.signature(search_experiments).parameters
-    )
+@pytest.mark.parametrize(
+    ("override", "tool"),
+    [(search_readable_experiments, search_experiments), (list_readable_scorers, list_scorers)],
+)
+def test_override_has_the_signature_of_the_tool(override, tool):
+    assert list(inspect.signature(override).parameters) == list(inspect.signature(tool).parameters)
 
 
 def test_startup_coverage_check_rejects_an_unlisted_tool():

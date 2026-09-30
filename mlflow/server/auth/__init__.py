@@ -4384,6 +4384,21 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
+def scorer_read_predicate(username: str) -> Callable[[str, str], bool]:
+    """Build a ``p(experiment_id, scorer_name) -> bool`` predicate: read on both the
+    scorer's experiment and the scorer itself.
+    """
+    can_read_experiment = _role_based_read_predicate(username, "experiment")
+    can_read_scorer = _role_based_read_predicate(username, "scorer")
+
+    def can_read(experiment_id: str, scorer_name: str) -> bool:
+        return can_read_experiment(experiment_id) and can_read_scorer(
+            store._scorer_pattern(experiment_id, scorer_name)
+        )
+
+    return can_read
+
+
 def filter_list_scorers(resp: Response) -> None:
     """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
 
@@ -4399,15 +4414,9 @@ def filter_list_scorers(resp: Response) -> None:
     response_message = ListScorers.Response()
     parse_dict(resp.json, response_message)
 
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
+    can_read = scorer_read_predicate(authenticate_request().username)
     for scorer in list(response_message.scorers):
-        exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
-            continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
+        if not can_read(str(scorer.experiment_id), scorer.scorer_name):
             response_message.scorers.remove(scorer)
     resp.data = message_to_json(response_message)
 

@@ -42,8 +42,8 @@ class McpToolPolicy:
             has no authorization rule, so a new tool cannot be served unguarded.
         is_admin: Whether the user bypasses authorization and result filtering.
         overrides: Replacement implementations for non-admin callers of tools whose results must
-            be filtered per caller (unscoped searches). An override takes the same arguments and
-            returns the same model as the tool it replaces.
+            be filtered per caller (unscoped searches, scorer listings). An override takes the
+            same arguments and returns the same model as the tool it replaces.
         on_success: Called with ``(username, result)`` after a tool succeeds, for every caller.
             Grants the creator MANAGE on what a create tool made, like the REST after-request
             handlers do for the same operations.
