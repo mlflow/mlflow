@@ -87,6 +87,7 @@ const mockTypesafeEndpoint: Endpoint = {
       },
     },
   ],
+  capabilities: { supported_actions: ['system_one'] },
 };
 
 const mixedProviderEndpoint: Endpoint = {
@@ -178,7 +179,7 @@ describe('EndpointSelector', () => {
     expect(screen.getByTestId('create-endpoint-modal')).toBeInTheDocument();
   });
 
-  test('excludes TypeSafe from endpoint creation in chat-only contexts', async () => {
+  test('excludes System One from endpoint creation in chat-only contexts', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: mockEndpoints,
       isLoading: false,
@@ -194,7 +195,7 @@ describe('EndpointSelector', () => {
     expect(screen.getByTestId('create-endpoint-modal')).toHaveAttribute('data-exclude-providers', 'typesafe');
   });
 
-  test('keeps TypeSafe endpoint creation available in judge contexts', async () => {
+  test('keeps System One endpoint creation available in judge contexts', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: mockEndpoints,
       isLoading: false,
@@ -202,7 +203,7 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(<EndpointSelector showDisabledTypeSafe onEndpointSelect={mockOnEndpointSelect} />);
+    renderWithDesignSystem(<EndpointSelector showDisabledSystemOne onEndpointSelect={mockOnEndpointSelect} />);
 
     await userEvent.click(screen.getByRole('combobox'));
     await userEvent.click(screen.getByText('Create new endpoint'));
@@ -257,7 +258,7 @@ describe('EndpointSelector', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
-  test('excludes TypeSafe endpoints by default', async () => {
+  test('excludes System One endpoints by default', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [...mockEndpoints, mockTypesafeEndpoint, mixedProviderEndpoint],
       isLoading: false,
@@ -274,7 +275,7 @@ describe('EndpointSelector', () => {
     expect(within(listbox).queryByText('mixed-provider-endpoint')).not.toBeInTheDocument();
   });
 
-  test('includes TypeSafe endpoints when the workflow explicitly allows them', async () => {
+  test('includes System One endpoints when the workflow explicitly allows them', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [mockTypesafeEndpoint],
       isLoading: false,
@@ -282,13 +283,13 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(<EndpointSelector allowTypeSafe onEndpointSelect={mockOnEndpointSelect} />);
+    renderWithDesignSystem(<EndpointSelector allowSystemOne onEndpointSelect={mockOnEndpointSelect} />);
     await userEvent.click(screen.getByRole('combobox'));
 
     expect(within(screen.getByRole('listbox')).getByText('typesafe-endpoint')).toBeInTheDocument();
   });
 
-  test('can show unsupported TypeSafe endpoints as disabled with an explanation', async () => {
+  test('can show unsupported System One endpoints as disabled with an explanation', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [mockTypesafeEndpoint],
       isLoading: false,
@@ -298,8 +299,8 @@ describe('EndpointSelector', () => {
 
     renderWithDesignSystem(
       <EndpointSelector
-        showDisabledTypeSafe
-        typeSafeDisabledReason="Select a compatible output type."
+        showDisabledSystemOne
+        systemOneDisabledReason="Select a compatible output type."
         onEndpointSelect={mockOnEndpointSelect}
       />,
     );
@@ -312,7 +313,7 @@ describe('EndpointSelector', () => {
     expect(mockOnEndpointSelect).not.toHaveBeenCalled();
   });
 
-  test('always excludes mixed TypeSafe and chat endpoints', async () => {
+  test('always excludes mixed System One and chat endpoints', async () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [mockTypesafeEndpoint, mixedProviderEndpoint],
       isLoading: false,
@@ -320,7 +321,7 @@ describe('EndpointSelector', () => {
       refetch: mockRefetch,
     } as any);
 
-    renderWithDesignSystem(<EndpointSelector allowTypeSafe onEndpointSelect={mockOnEndpointSelect} />);
+    renderWithDesignSystem(<EndpointSelector allowSystemOne onEndpointSelect={mockOnEndpointSelect} />);
     await userEvent.click(screen.getByRole('combobox'));
 
     const listbox = screen.getByRole('listbox');
@@ -358,7 +359,7 @@ describe('EndpointSelector', () => {
     expect(mockOnEndpointSelect).toHaveBeenCalledWith('openai-endpoint');
   });
 
-  test('does not auto-select a disabled TypeSafe endpoint', () => {
+  test('does not auto-select a disabled System One endpoint', () => {
     jest.mocked(useEndpointsQuery).mockReturnValue({
       data: [mockTypesafeEndpoint],
       isLoading: false,
@@ -367,7 +368,7 @@ describe('EndpointSelector', () => {
     } as any);
 
     renderWithDesignSystem(
-      <EndpointSelector showDisabledTypeSafe autoSelectFirstEndpoint onEndpointSelect={mockOnEndpointSelect} />,
+      <EndpointSelector showDisabledSystemOne autoSelectFirstEndpoint onEndpointSelect={mockOnEndpointSelect} />,
     );
 
     expect(mockOnEndpointSelect).not.toHaveBeenCalled();

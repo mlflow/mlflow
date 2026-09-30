@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.gateway_capabilities import endpoint_supported_actions
 from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
 from mlflow.protos.service_pb2 import FallbackStrategy as ProtoFallbackStrategy
 from mlflow.protos.service_pb2 import (
@@ -361,6 +362,7 @@ class GatewayEndpoint(_MlflowObject):
     experiment_id: str | None = None
     usage_tracking: bool = True
     workspace: str | None = None
+    capabilities: list[str] | None = None
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
@@ -386,6 +388,17 @@ class GatewayEndpoint(_MlflowObject):
             proto.experiment_id = self.experiment_id
 
         proto.usage_tracking = self.usage_tracking
+        proto.capabilities.SetInParent()
+        if self.capabilities is not None:
+            proto.capabilities.supported_actions.extend(self.capabilities)
+        else:
+            proto.capabilities.supported_actions.extend(
+                endpoint_supported_actions(
+                    mapping.model_definition
+                    for mapping in self.model_mappings
+                    if mapping.model_definition is not None
+                )
+            )
 
         return proto
 
@@ -405,6 +418,9 @@ class GatewayEndpoint(_MlflowObject):
             experiment_id = proto.experiment_id or None
 
         usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else True
+        capabilities = (
+            list(proto.capabilities.supported_actions) if proto.HasField("capabilities") else None
+        )
 
         return cls(
             endpoint_id=proto.endpoint_id,
@@ -421,6 +437,7 @@ class GatewayEndpoint(_MlflowObject):
             fallback_config=fallback_config,
             experiment_id=experiment_id,
             usage_tracking=usage_tracking,
+            capabilities=capabilities,
         )
 
 

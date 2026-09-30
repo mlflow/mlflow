@@ -409,7 +409,7 @@ const RunJudgeModalImpl = ({
               <FormattedMessage defaultMessage="Endpoint:" description="Label for endpoint selection" />
             </Typography.Text>
             <EndpointSelector
-              allowTypeSafe
+              allowSystemOne
               currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointName)}
               onEndpointSelect={(endpointName) => {
                 const modelValue = formatGatewayModelFromEndpoint(endpointName);

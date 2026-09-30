@@ -31,6 +31,7 @@ import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
 import { hasMixedTypeSafeProviders } from '../../utils/gatewayUtils';
+import { endpointSupportsSystemOne } from '../../utils/gatewayUtils';
 import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
@@ -448,6 +449,7 @@ export const EditEndpointFormRenderer = ({
                           <StarterCodeCard
                             endpointName={endpoint.name}
                             provider={getStarterCodeProvider(endpoint.model_mappings)}
+                            systemOneCapable={endpointSupportsSystemOne(endpoint)}
                           />
                         ))}
                     </>

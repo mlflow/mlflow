@@ -23,19 +23,19 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
 jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: ({
-    allowTypeSafe,
-    showDisabledTypeSafe,
-    typeSafeDisabledReason,
+    allowSystemOne,
+    showDisabledSystemOne,
+    systemOneDisabledReason,
   }: {
-    allowTypeSafe?: boolean;
-    showDisabledTypeSafe?: boolean;
-    typeSafeDisabledReason?: string;
+    allowSystemOne?: boolean;
+    showDisabledSystemOne?: boolean;
+    systemOneDisabledReason?: string;
   }) => (
     <div
       data-testid="endpoint-selector"
-      data-allow-typesafe={String(allowTypeSafe ?? false)}
-      data-show-disabled-typesafe={String(showDisabledTypeSafe ?? false)}
-      data-typesafe-disabled-reason={typeSafeDisabledReason}
+      data-allow-system-one={String(allowSystemOne ?? false)}
+      data-show-disabled-system-one={String(showDisabledSystemOne ?? false)}
+      data-system-one-disabled-reason={systemOneDisabledReason}
     />
   ),
 }));
@@ -150,11 +150,11 @@ describe('ScorerFormRenderer', () => {
     render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ trace }}', outputTypeKind: 'bool' }} />);
     await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
 
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-show-disabled-typesafe', 'true');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'false');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-show-disabled-system-one', 'true');
     expect(screen.getByTestId('endpoint-selector')).toHaveAttribute(
-      'data-typesafe-disabled-reason',
-      'TypeSafe endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a TypeSafe endpoint.',
+      'data-system-one-disabled-reason',
+      'System One endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a System One endpoint.',
     );
   });
 
@@ -163,7 +163,7 @@ describe('ScorerFormRenderer', () => {
     render(<TestWrapper defaultValues={{ instructions: 'Inspect {{ outputs }}', outputTypeKind: 'bool' }} />);
     await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
 
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'true');
   });
 
   it('uses the known categorical output type when Completeness is selected', async () => {
@@ -180,11 +180,11 @@ describe('ScorerFormRenderer', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'false');
     await user.click(screen.getByRole('combobox', { name: 'LLM judge' }));
     await user.click(screen.getByText('Completeness'));
 
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'true');
   });
 
   it('uses the known categorical output type when Equivalence is selected', async () => {
@@ -201,11 +201,11 @@ describe('ScorerFormRenderer', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'false');
     await user.click(screen.getByRole('combobox', { name: 'LLM judge' }));
     await user.click(screen.getByText('Equivalence'));
 
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'true');
   });
 
   it('excludes TypeSafe endpoints until a categorical judge has nonblank options', async () => {
@@ -220,10 +220,10 @@ describe('ScorerFormRenderer', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'false');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'false');
     expect(screen.getByTestId('endpoint-selector')).toHaveAttribute(
-      'data-typesafe-disabled-reason',
-      'TypeSafe endpoints require Boolean output or Categorical output with at least one option.',
+      'data-system-one-disabled-reason',
+      'System One endpoints require Boolean output or Categorical output with at least one option.',
     );
     unmount();
 
@@ -237,7 +237,7 @@ describe('ScorerFormRenderer', () => {
       />,
     );
     await user.click(screen.getByRole('button', { name: /Evaluation criteria/ }));
-    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-typesafe', 'true');
+    expect(screen.getByTestId('endpoint-selector')).toHaveAttribute('data-allow-system-one', 'true');
   });
 
   it('rejects a mixed TypeSafe and chat endpoint for a structured boolean judge', async () => {

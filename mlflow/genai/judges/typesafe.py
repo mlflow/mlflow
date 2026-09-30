@@ -14,6 +14,7 @@ import requests
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.gateway_capabilities import SYSTEM_ONE_ACTION
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import (
@@ -42,11 +43,10 @@ _GATEWAY_PROVIDER = "gateway"
 _TYPESAFE_PROVIDER = "typesafe"
 _SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
 _NON_TYPESAFE_GATEWAY_DETAIL = "Gateway endpoint does not use the TypeSafe provider."
-# Cache only negative capability checks so chat-backed gateway judges do not probe
-# System One on every row while endpoint reconfiguration still self-heals quickly.
-_GATEWAY_TYPESAFE_NEGATIVE_CACHE_TTL_SECONDS = 300
-_GatewayTypesafeNegativeCacheKey = tuple[str, str | None, str]
-_gateway_typesafe_negative_cache: dict[_GatewayTypesafeNegativeCacheKey, float] = {}
+_GATEWAY_CAPABILITY_CACHE_TTL_SECONDS = 300
+_GatewayCapabilityCacheKey = tuple[str, str | None, str]
+_GatewayCachedCapabilities = tuple[float, tuple[str, ...]]
+_gateway_capability_cache: dict[_GatewayCapabilityCacheKey, _GatewayCachedCapabilities] = {}
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
@@ -80,24 +80,58 @@ class _GatewayEndpointNotTypeSafe(Exception):
     pass
 
 
-def _gateway_typesafe_negative_cache_key(model_uri: str) -> _GatewayTypesafeNegativeCacheKey:
+def _gateway_capability_cache_key(model_uri: str) -> _GatewayCapabilityCacheKey:
     return (_resolve_gateway_uri(), get_request_workspace(), model_uri)
 
 
-def _is_gateway_typesafe_negative_cached(cache_key: _GatewayTypesafeNegativeCacheKey) -> bool:
-    expires_at = _gateway_typesafe_negative_cache.get(cache_key)
-    if expires_at is None:
-        return False
+def _cached_gateway_capabilities(
+    cache_key: _GatewayCapabilityCacheKey,
+) -> tuple[str, ...] | None:
+    cached = _gateway_capability_cache.get(cache_key)
+    if cached is None:
+        return None
+    expires_at, capabilities = cached
     if expires_at <= time.monotonic():
-        _gateway_typesafe_negative_cache.pop(cache_key, None)
-        return False
-    return True
+        _gateway_capability_cache.pop(cache_key, None)
+        return None
+    return capabilities
 
 
-def _cache_gateway_typesafe_negative(cache_key: _GatewayTypesafeNegativeCacheKey) -> None:
-    _gateway_typesafe_negative_cache[cache_key] = (
-        time.monotonic() + _GATEWAY_TYPESAFE_NEGATIVE_CACHE_TTL_SECONDS
+def _cache_gateway_capabilities(
+    cache_key: _GatewayCapabilityCacheKey, capabilities: tuple[str, ...]
+) -> None:
+    _gateway_capability_cache[cache_key] = (
+        time.monotonic() + _GATEWAY_CAPABILITY_CACHE_TTL_SECONDS,
+        capabilities,
     )
+
+
+def _fetch_gateway_capabilities(endpoint_name: str) -> tuple[str, ...] | None:
+    """Fetch server-derived endpoint capabilities, or ``None`` when unavailable."""
+    try:
+        response = http_request(
+            host_creds=get_default_host_creds(_resolve_gateway_uri()),
+            endpoint="/api/2.0/mlflow/gateway/endpoints/get",
+            method="GET",
+            params={"name": endpoint_name},
+            timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get(),
+            raise_on_status=False,
+        )
+        if not 200 <= response.status_code < 300:
+            return None
+        endpoint = response.json().get("endpoint")
+        capabilities = endpoint.get("capabilities") if isinstance(endpoint, dict) else None
+        if not isinstance(capabilities, dict) or "supported_actions" not in capabilities:
+            return None
+        supported_actions = capabilities["supported_actions"]
+        if not isinstance(supported_actions, list) or any(
+            not isinstance(action, str) for action in supported_actions
+        ):
+            return None
+        return tuple(supported_actions)
+    except (MlflowException, requests.RequestException, ValueError):
+        # Older servers and metadata failures fall back to the existing probe path.
+        return None
 
 
 def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs) -> Feedback | None:
@@ -112,13 +146,20 @@ def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs) -> Feedback | N
         _build_question(kwargs["feedback_value_type"])
     except (KeyError, MlflowException):
         return None
-    cache_key = _gateway_typesafe_negative_cache_key(model_uri)
-    if _is_gateway_typesafe_negative_cached(cache_key):
+    cache_key = _gateway_capability_cache_key(model_uri)
+    cached_capabilities = _cached_gateway_capabilities(cache_key)
+    if cached_capabilities is not None and SYSTEM_ONE_ACTION not in cached_capabilities:
         return None
+    if cached_capabilities is None:
+        endpoint_name = model_uri.partition(":/")[2]
+        if (capabilities := _fetch_gateway_capabilities(endpoint_name)) is not None:
+            _cache_gateway_capabilities(cache_key, capabilities)
+            if SYSTEM_ONE_ACTION not in capabilities:
+                return None
     try:
         return _invoke_typesafe_judge(model_uri, **kwargs)
     except _GatewayEndpointNotTypeSafe:
-        _cache_gateway_typesafe_negative(cache_key)
+        _cache_gateway_capabilities(cache_key, ())
         return None
 
 

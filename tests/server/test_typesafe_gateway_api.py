@@ -155,7 +155,11 @@ async def test_system_one_rejects_chat_endpoint_for_runtime_fallback():
         patch("mlflow.server.gateway_api._get_store"),
         patch("mlflow.server.gateway_api._validate_store"),
         patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
+            "mlflow.server.gateway_api.get_endpoint_config",
+            return_value=config,
+        ),
+        patch(
+            "mlflow.server.gateway_api._create_provider",
             return_value=(provider, config),
         ),
         pytest.raises(HTTPException, match="does not use the TypeSafe provider") as exc,
@@ -343,13 +347,18 @@ async def test_system_one_rejects_mixed_model_providers(linkage):
         ],
     )
     with (
+        patch("mlflow.server.gateway_api._get_store"),
         patch("mlflow.server.gateway_api._validate_store"),
         patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
+            "mlflow.server.gateway_api.get_endpoint_config",
+            return_value=config,
+        ),
+        patch(
+            "mlflow.server.gateway_api._create_provider",
             return_value=(provider, config),
         ),
     ):
-        with pytest.raises(HTTPException, match="cannot mix TypeSafe and chat") as exc:
+        with pytest.raises(HTTPException, match="cannot mix System One and chat") as exc:
             await typesafe_passthrough_system_one(request)
     assert exc.value.status_code == 400
     provider.passthrough.assert_not_called()

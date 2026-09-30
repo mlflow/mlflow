@@ -12,7 +12,7 @@ from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.typesafe import (
     _RETRY_CODES,
     _build_question,
-    _gateway_typesafe_negative_cache,
+    _gateway_capability_cache,
     _invoke_typesafe_judge,
     _is_gateway_model,
     _is_typesafe_model,
@@ -27,10 +27,10 @@ _DEFAULT_STATE = object()
 
 
 @pytest.fixture(autouse=True)
-def clear_gateway_typesafe_negative_cache():
-    _gateway_typesafe_negative_cache.clear()
+def clear_gateway_capability_cache():
+    _gateway_capability_cache.clear()
     yield
-    _gateway_typesafe_negative_cache.clear()
+    _gateway_capability_cache.clear()
 
 
 def _response(answer, usage=None):
@@ -39,6 +39,15 @@ def _response(answer, usage=None):
     if usage is not None:
         body["usage"] = usage
     response.json.return_value = body
+    return response
+
+
+def _metadata_response(supported_actions=None):
+    response = mock.Mock(status_code=200)
+    endpoint = {}
+    if supported_actions is not None:
+        endpoint["capabilities"] = {"supported_actions": supported_actions}
+    response.json.return_value = {"endpoint": endpoint}
     return response
 
 
@@ -81,14 +90,19 @@ def test_gateway_model_is_not_classified_as_direct_typesafe():
 
 
 def test_gateway_chat_endpoint_falls_back_during_runtime_invocation():
-    response = mock.Mock(status_code=422)
-    response.json.return_value = {"detail": "Gateway endpoint does not use the TypeSafe provider."}
+    system_one_response = mock.Mock(status_code=422)
+    system_one_response.json.return_value = {
+        "detail": "Gateway endpoint does not use the TypeSafe provider."
+    }
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[_metadata_response(None), system_one_response],
+        ) as request,
     ):
         assert (
             _try_invoke_gateway_typesafe_judge(
@@ -100,11 +114,10 @@ def test_gateway_chat_endpoint_falls_back_during_runtime_invocation():
             )
             is None
         )
+    assert request.call_count == 2
 
 
-def test_gateway_chat_endpoint_negative_result_is_cached():
-    response = mock.Mock(status_code=422)
-    response.json.return_value = {"detail": "Gateway endpoint does not use the TypeSafe provider."}
+def test_gateway_empty_capability_list_skips_system_one_and_is_cached():
     kwargs = {
         "instructions": "Does {{ outputs }} answer {{ inputs }}?",
         "state": {"inputs": "Question", "outputs": "Answer"},
@@ -114,22 +127,20 @@ def test_gateway_chat_endpoint_negative_result_is_cached():
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
-        ) as resolve_gateway_uri,
+        ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            return_value=_metadata_response([]),
+        ) as request,
     ):
         assert _try_invoke_gateway_typesafe_judge("gateway:/chat-endpoint", **kwargs) is None
         assert _try_invoke_gateway_typesafe_judge("gateway:/chat-endpoint", **kwargs) is None
 
-    assert resolve_gateway_uri.call_count == 3
     request.assert_called_once()
 
 
-def test_gateway_negative_cache_is_workspace_scoped():
-    negative_response = mock.Mock(status_code=422)
-    negative_response.json.return_value = {
-        "detail": "Gateway endpoint does not use the TypeSafe provider."
-    }
+def test_gateway_capability_cache_is_workspace_scoped():
     success_response = _response({"type": "noul", "noul": 0.8})
     kwargs = {
         "instructions": "Does {{ outputs }} answer {{ inputs }}?",
@@ -144,7 +155,11 @@ def test_gateway_negative_cache_is_workspace_scoped():
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
         mock.patch(
             "mlflow.genai.judges.typesafe.http_request",
-            side_effect=[negative_response, success_response],
+            side_effect=[
+                _metadata_response([]),
+                _metadata_response(["system_one"]),
+                success_response,
+            ],
         ) as request,
     ):
         with ServerWorkspaceContext("team-a"):
@@ -153,18 +168,21 @@ def test_gateway_negative_cache_is_workspace_scoped():
             feedback = _try_invoke_gateway_typesafe_judge("gateway:/judge", **kwargs)
 
     assert feedback.value is True
-    assert request.call_count == 2
+    assert request.call_count == 3
 
 
 def test_gateway_404_preserves_chat_fallback_for_older_servers():
-    response = mock.Mock(status_code=404)
-    response.json.return_value = {"detail": "Not Found"}
+    system_one_response = mock.Mock(status_code=404)
+    system_one_response.json.return_value = {"detail": "Not Found"}
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[_metadata_response(None), system_one_response],
+        ),
     ):
         assert (
             _try_invoke_gateway_typesafe_judge(
@@ -178,14 +196,17 @@ def test_gateway_404_preserves_chat_fallback_for_older_servers():
         )
 
 
-def test_gateway_typesafe_success_does_not_cache_negative_result():
+def test_gateway_system_one_capability_invokes_system_one_directly():
     response = _response({"type": "noul", "noul": 0.8})
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[_metadata_response(["system_one"]), response],
+        ) as request,
     ):
         feedback = _try_invoke_gateway_typesafe_judge(
             "gateway:/typesafe-endpoint",
@@ -196,19 +217,22 @@ def test_gateway_typesafe_success_does_not_cache_negative_result():
         )
 
     assert feedback.value is True
-    request.assert_called_once()
-    assert _gateway_typesafe_negative_cache == {}
+    assert request.call_count == 2
+    assert "system_one" in next(iter(_gateway_capability_cache.values()))[1]
 
 
 def test_gateway_typesafe_endpoint_404_does_not_fall_back_to_chat():
-    response = mock.Mock(status_code=404)
-    response.json.return_value = {"detail": "Endpoint not found"}
+    system_one_response = mock.Mock(status_code=404)
+    system_one_response.json.return_value = {"detail": "Endpoint not found"}
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[_metadata_response(["system_one"]), system_one_response],
+        ),
         pytest.raises(MlflowException, match="TypeSafe evaluation failed with HTTP 404"),
     ):
         _try_invoke_gateway_typesafe_judge(
@@ -218,7 +242,7 @@ def test_gateway_typesafe_endpoint_404_does_not_fall_back_to_chat():
             feedback_value_type=bool,
             assessment_name="quality",
         )
-    assert _gateway_typesafe_negative_cache == {}
+    assert "system_one" in next(iter(_gateway_capability_cache.values()))[1]
 
 
 def test_gateway_chat_judge_with_unsupported_typesafe_options_skips_native_attempt():
@@ -237,8 +261,8 @@ def test_gateway_chat_judge_with_unsupported_typesafe_options_skips_native_attem
 
 
 def test_gateway_mixed_provider_runtime_invocation_is_rejected():
-    response = mock.Mock(status_code=400)
-    response.json.return_value = {
+    system_one_response = mock.Mock(status_code=400)
+    system_one_response.json.return_value = {
         "detail": "Gateway judge endpoints cannot mix TypeSafe and chat model providers."
     }
     with (
@@ -246,7 +270,10 @@ def test_gateway_mixed_provider_runtime_invocation_is_rejected():
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[_metadata_response(None), system_one_response],
+        ),
         pytest.raises(MlflowException, match="TypeSafe evaluation failed with HTTP 400"),
     ):
         _try_invoke_gateway_typesafe_judge(
@@ -303,7 +330,7 @@ def test_make_judge_invokes_gateway_typesafe_through_public_api():
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
         mock.patch(
             "mlflow.genai.judges.typesafe.http_request",
-            return_value=evaluation_response,
+            side_effect=[_metadata_response(["system_one"]), evaluation_response],
         ) as request,
     ):
         feedback = make_judge(
@@ -314,7 +341,7 @@ def test_make_judge_invokes_gateway_typesafe_through_public_api():
         )(inputs={"question": "Why?"}, outputs={"answer": "Because."})
 
     assert feedback.value is True
-    request.assert_called_once()
+    assert request.call_count == 2
     assert request.call_args.kwargs["endpoint"] == "/gateway/typesafe/v1/systemone"
 
 

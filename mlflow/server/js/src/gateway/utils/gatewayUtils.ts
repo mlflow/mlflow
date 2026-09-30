@@ -2,6 +2,7 @@ import type { Endpoint } from '../types';
 
 export const GATEWAY_MODEL_PREFIX = 'gateway:/';
 const DATABRICKS_MODEL_PREFIX = 'databricks:/';
+export const SYSTEM_ONE_ACTION = 'system_one';
 
 export const hasMixedTypeSafeProviders = (models: { provider: string }[]): boolean =>
   models.some((model) => model.provider === 'typesafe') &&
@@ -11,6 +12,24 @@ export const endpointUsesAnyProvider = (endpoint: Endpoint, providers: readonly 
   endpoint.model_mappings?.some(
     (mapping) => mapping.model_definition && providers.includes(mapping.model_definition.provider),
   ) ?? false;
+
+export const endpointSupportsAction = (endpoint: Endpoint, action: string): boolean => {
+  if (endpoint.capabilities !== undefined) {
+    return endpoint.capabilities.supported_actions?.includes(action) ?? false;
+  }
+
+  if (action !== SYSTEM_ONE_ACTION) {
+    return false;
+  }
+
+  const models = endpoint.model_mappings?.flatMap((mapping) =>
+    mapping.model_definition ? [{ provider: mapping.model_definition.provider }] : [],
+  );
+  return !!models?.length && models.every((model) => model.provider === 'typesafe');
+};
+
+export const endpointSupportsSystemOne = (endpoint: Endpoint): boolean =>
+  endpointSupportsAction(endpoint, SYSTEM_ONE_ACTION);
 
 export const endpointHasMixedTypeSafeProviders = (endpoint: Endpoint): boolean =>
   hasMixedTypeSafeProviders(

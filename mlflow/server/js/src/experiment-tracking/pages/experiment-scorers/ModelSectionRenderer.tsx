@@ -12,7 +12,7 @@ import {
   getEndpointNameFromGatewayModel,
   formatGatewayModelFromEndpoint,
   endpointHasMixedTypeSafeProviders,
-  endpointUsesAnyProvider,
+  endpointSupportsSystemOne,
 } from '../../../gateway/utils/gatewayUtils';
 import { useEndpointsQuery } from '../../../gateway/hooks/useEndpointsQuery';
 import { useExperimentIds } from '../../components/experiment-page/hooks/useExperimentIds';
@@ -42,14 +42,14 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
   // A compatible output is necessary but does not guarantee System One runtime support.
   const isTypeSafeCompatibleJudge =
     !isTraceBased && (outputTypeKind === 'bool' || (outputTypeKind === 'categorical' && hasCategoricalOptions));
-  const currentEndpointUsesTypeSafe = endpoints.some(
-    (endpoint) => endpoint.name === currentEndpointName && endpointUsesAnyProvider(endpoint, ['typesafe']),
+  const currentEndpointSupportsSystemOne = endpoints.some(
+    (endpoint) => endpoint.name === currentEndpointName && endpointSupportsSystemOne(endpoint),
   );
   const currentEndpointHasMixedTypeSafeProviders = endpoints.some(
     (endpoint) => endpoint.name === currentEndpointName && endpointHasMixedTypeSafeProviders(endpoint),
   );
   const previousCompatibility = useRef({
-    currentEndpointUsesTypeSafe,
+    currentEndpointSupportsSystemOne,
     currentEndpointHasMixedTypeSafeProviders,
     isTypeSafeCompatibleJudge,
   });
@@ -57,18 +57,18 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
   useEffect(() => {
     const previous = previousCompatibility.current;
     previousCompatibility.current = {
-      currentEndpointUsesTypeSafe,
+      currentEndpointSupportsSystemOne,
       currentEndpointHasMixedTypeSafeProviders,
       isTypeSafeCompatibleJudge,
     };
     if (
-      previous.currentEndpointUsesTypeSafe !== currentEndpointUsesTypeSafe ||
+      previous.currentEndpointSupportsSystemOne !== currentEndpointSupportsSystemOne ||
       previous.currentEndpointHasMixedTypeSafeProviders !== currentEndpointHasMixedTypeSafeProviders ||
       previous.isTypeSafeCompatibleJudge !== isTypeSafeCompatibleJudge
     ) {
       void trigger('model');
     }
-  }, [currentEndpointUsesTypeSafe, currentEndpointHasMixedTypeSafeProviders, isTypeSafeCompatibleJudge, trigger]);
+  }, [currentEndpointSupportsSystemOne, currentEndpointHasMixedTypeSafeProviders, isTypeSafeCompatibleJudge, trigger]);
 
   // When the endpoint name from the scorer doesn't match any loaded endpoint
   // (e.g., after a rename), invalidate the scorers cache to refetch from the backend.
@@ -170,24 +170,24 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
             if (currentEndpointHasMixedTypeSafeProviders) {
               return 'Mixed TypeSafe and chat endpoints are not supported.';
             }
-            if (isTypeSafeCompatibleJudge || !currentEndpointUsesTypeSafe) {
+            if (isTypeSafeCompatibleJudge || !currentEndpointSupportsSystemOne) {
               return true;
             }
             return isTraceBased
-              ? 'TypeSafe endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a TypeSafe endpoint.'
-              : 'TypeSafe endpoints require Boolean output or Categorical output with at least one option.';
+              ? 'System One endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a System One endpoint.'
+              : 'System One endpoints require Boolean output or Categorical output with at least one option.';
           },
         }}
         render={({ fieldState }) => (
           <>
             <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
               <EndpointSelector
-                allowTypeSafe={isTypeSafeCompatibleJudge}
-                showDisabledTypeSafe
-                typeSafeDisabledReason={
+                allowSystemOne={isTypeSafeCompatibleJudge}
+                showDisabledSystemOne
+                systemOneDisabledReason={
                   isTraceBased
-                    ? 'TypeSafe endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a TypeSafe endpoint.'
-                    : 'TypeSafe endpoints require Boolean output or Categorical output with at least one option.'
+                    ? 'System One endpoints do not support {{ trace }}. Remove {{ trace }} from the instructions to use a System One endpoint.'
+                    : 'System One endpoints require Boolean output or Categorical output with at least one option.'
                 }
                 currentEndpointName={currentEndpointName}
                 onEndpointSelect={(endpointName) => {

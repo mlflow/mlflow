@@ -6260,6 +6260,32 @@ class GatewayEndpointModelMapping(_message.Message):
 Global___GatewayEndpointModelMapping: _TypeAlias = GatewayEndpointModelMapping  # noqa: Y015
 
 @_typing.final
+class GatewayEndpointCapabilities(_message.Message):
+    """Capability actions that an endpoint can serve. The list is derived from the
+    endpoint's model mappings and is not client-editable.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SUPPORTED_ACTIONS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def supported_actions(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Stable action identifiers, such as "system_one"."""
+
+    def __init__(
+        self,
+        *,
+        supported_actions: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["supported_actions", b"supported_actions"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GatewayEndpointCapabilities: _TypeAlias = GatewayEndpointCapabilities  # noqa: Y015
+
+@_typing.final
 class GatewayEndpoint(_message.Message):
     """Endpoint entity representing an LLM gateway endpoint"""
 
@@ -6277,6 +6303,7 @@ class GatewayEndpoint(_message.Message):
     FALLBACK_CONFIG_FIELD_NUMBER: _builtins.int
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
     USAGE_TRACKING_FIELD_NUMBER: _builtins.int
+    CAPABILITIES_FIELD_NUMBER: _builtins.int
     endpoint_id: _builtins.str
     """Unique identifier for the endpoint"""
     name: _builtins.str
@@ -6310,6 +6337,10 @@ class GatewayEndpoint(_message.Message):
     def fallback_config(self) -> Global___FallbackConfig:
         """Fallback configuration (populated if routing_strategy is FALLBACK)"""
 
+    @_builtins.property
+    def capabilities(self) -> Global___GatewayEndpointCapabilities:
+        """Capability actions that every model mapping on this endpoint can serve."""
+
     def __init__(
         self,
         *,
@@ -6325,10 +6356,11 @@ class GatewayEndpoint(_message.Message):
         fallback_config: Global___FallbackConfig | None = ...,
         experiment_id: _builtins.str | None = ...,
         usage_tracking: _builtins.bool | None = ...,
+        capabilities: Global___GatewayEndpointCapabilities | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "created_by", b"created_by", "endpoint_id", b"endpoint_id", "experiment_id", b"experiment_id", "fallback_config", b"fallback_config", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "name", b"name", "routing_strategy", b"routing_strategy", "usage_tracking", b"usage_tracking"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["capabilities", b"capabilities", "created_at", b"created_at", "created_by", b"created_by", "endpoint_id", b"endpoint_id", "experiment_id", b"experiment_id", "fallback_config", b"fallback_config", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "name", b"name", "routing_strategy", b"routing_strategy", "usage_tracking", b"usage_tracking"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["created_at", b"created_at", "created_by", b"created_by", "endpoint_id", b"endpoint_id", "experiment_id", b"experiment_id", "fallback_config", b"fallback_config", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "model_mappings", b"model_mappings", "name", b"name", "routing_strategy", b"routing_strategy", "tags", b"tags", "usage_tracking", b"usage_tracking"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["capabilities", b"capabilities", "created_at", b"created_at", "created_by", b"created_by", "endpoint_id", b"endpoint_id", "experiment_id", b"experiment_id", "fallback_config", b"fallback_config", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "model_mappings", b"model_mappings", "name", b"name", "routing_strategy", b"routing_strategy", "tags", b"tags", "usage_tracking", b"usage_tracking"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

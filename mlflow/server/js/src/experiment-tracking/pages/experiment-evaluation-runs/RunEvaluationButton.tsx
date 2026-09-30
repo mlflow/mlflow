@@ -294,7 +294,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
                   />
                 </Typography.Text>
                 <EndpointSelector
-                  allowTypeSafe
+                  allowSystemOne
                   currentEndpointName={getEndpointNameFromGatewayModel(currentEndpointModel)}
                   onEndpointSelect={(endpointName) => {
                     setCurrentEndpointModel(formatGatewayModelFromEndpoint(endpointName));

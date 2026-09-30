@@ -664,6 +664,18 @@ def _primary_gateway_model_config(model_definition_id: str) -> GatewayEndpointMo
     )
 
 
+def _create_system_one_test_model_definition(store: SqlAlchemyStore, prefix: str):
+    secret = store.create_gateway_secret(
+        secret_name=f"{prefix}-key-{uuid.uuid4().hex}", secret_value={"api_key": "value"}
+    )
+    return store.create_gateway_model_definition(
+        name=f"{prefix}-model-{uuid.uuid4().hex}",
+        secret_id=secret.secret_id,
+        provider="typesafe",
+        model_name="jev-latest",
+    )
+
+
 @pytest.mark.parametrize("bad_experiment_id", ["not-a-number", ""])
 def test_gateway_endpoint_rejects_non_numeric_experiment_id(
     store: SqlAlchemyStore, bad_experiment_id
@@ -690,6 +702,63 @@ def test_gateway_endpoint_rejects_non_numeric_experiment_id(
         store.update_gateway_endpoint(endpoint.endpoint_id, experiment_id=bad_experiment_id)
 
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_gateway_endpoint_derives_system_one_capability(store: SqlAlchemyStore):
+    system_one_model = _create_system_one_test_model_definition(store, "capability-system-one")
+    chat_model = _create_gateway_test_model_definition(store, "capability-chat")
+
+    system_one_endpoint = store.create_gateway_endpoint(
+        name=f"system-one-endpoint-{uuid.uuid4().hex[:8]}",
+        model_configs=[_primary_gateway_model_config(system_one_model.model_definition_id)],
+    )
+    chat_endpoint = store.create_gateway_endpoint(
+        name=f"chat-endpoint-{uuid.uuid4().hex[:8]}",
+        model_configs=[_primary_gateway_model_config(chat_model.model_definition_id)],
+    )
+
+    system_one_proto = system_one_endpoint.to_proto()
+    chat_proto = chat_endpoint.to_proto()
+    assert system_one_proto.HasField("capabilities")
+    assert list(system_one_proto.capabilities.supported_actions) == ["system_one"]
+    assert chat_proto.HasField("capabilities")
+    assert list(chat_proto.capabilities.supported_actions) == []
+
+
+def test_create_gateway_endpoint_rejects_mixed_system_one_models(store: SqlAlchemyStore):
+    system_one_model = _create_system_one_test_model_definition(store, "mixed-create-system-one")
+    chat_model = _create_gateway_test_model_definition(store, "mixed-create-chat")
+
+    with pytest.raises(MlflowException, match="cannot mix System One and chat") as exc:
+        store.create_gateway_endpoint(
+            name=f"mixed-create-endpoint-{uuid.uuid4().hex[:8]}",
+            model_configs=[
+                _primary_gateway_model_config(system_one_model.model_definition_id),
+                _primary_gateway_model_config(chat_model.model_definition_id),
+            ],
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_update_gateway_endpoint_rejects_mixed_system_one_models(store: SqlAlchemyStore):
+    system_one_model = _create_system_one_test_model_definition(store, "mixed-update-system-one")
+    chat_model = _create_gateway_test_model_definition(store, "mixed-update-chat")
+    endpoint = store.create_gateway_endpoint(
+        name=f"mixed-update-endpoint-{uuid.uuid4().hex[:8]}",
+        model_configs=[_primary_gateway_model_config(chat_model.model_definition_id)],
+    )
+
+    with pytest.raises(MlflowException, match="cannot mix System One and chat"):
+        store.update_gateway_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_configs=[
+                _primary_gateway_model_config(system_one_model.model_definition_id),
+                _primary_gateway_model_config(chat_model.model_definition_id),
+            ],
+        )
+
+    updated = store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+    assert updated.to_proto().capabilities.supported_actions == []
 
 
 @pytest.mark.parametrize("experiment_id", ["0", 0])
@@ -1043,6 +1112,21 @@ def test_attach_model_to_gateway_endpoint(store: SqlAlchemyStore):
     assert mapping.endpoint_id == endpoint.endpoint_id
     assert mapping.model_definition_id == model_def2.model_definition_id
     assert mapping.weight == 2.0
+
+
+def test_attach_model_rejects_mixed_system_one_models(store: SqlAlchemyStore):
+    system_one_model = _create_system_one_test_model_definition(store, "mixed-attach-system-one")
+    chat_model = _create_gateway_test_model_definition(store, "mixed-attach-chat")
+    endpoint = store.create_gateway_endpoint(
+        name=f"mixed-attach-endpoint-{uuid.uuid4().hex[:8]}",
+        model_configs=[_primary_gateway_model_config(chat_model.model_definition_id)],
+    )
+
+    with pytest.raises(MlflowException, match="cannot mix System One and chat"):
+        store.attach_model_to_endpoint(
+            endpoint_id=endpoint.endpoint_id,
+            model_config=_primary_gateway_model_config(system_one_model.model_definition_id),
+        )
 
 
 def test_attach_duplicate_model_raises(store: SqlAlchemyStore):

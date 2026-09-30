@@ -149,6 +149,9 @@ export interface Endpoint {
   };
   experiment_id?: string;
   usage_tracking?: boolean;
+  capabilities?: {
+    supported_actions: string[];
+  };
   tags?: EndpointTag[];
 }
 

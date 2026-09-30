@@ -18,6 +18,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from mlflow.entities.gateway_capabilities import endpoint_system_one_state
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -666,7 +667,7 @@ def _create_provider_from_endpoint_name(
     endpoint_type: EndpointType,
     enable_tracing: bool = True,
     *,
-    allow_typesafe: bool = False,
+    allow_system_one: bool = False,
 ) -> tuple[BaseProvider, GatewayEndpointConfig]:
     """
     Create a provider from an endpoint name.
@@ -676,14 +677,39 @@ def _create_provider_from_endpoint_name(
         endpoint_name: The endpoint name.
         endpoint_type: Endpoint type (chat or embeddings).
         enable_tracing: If True, enables MLflow tracing for provider calls.
-        allow_typesafe: If True, allows construction of TypeSafe providers for System One.
+        allow_system_one: If True, allows construction of System One-capable providers.
 
     Returns:
         Tuple of (provider instance, endpoint config)
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-    if not allow_typesafe:
-        _reject_typesafe_incompatible_endpoint(endpoint_config)
+    any_system_one, all_system_one = endpoint_system_one_state(endpoint_config.models)
+    if allow_system_one:
+        if not all_system_one:
+            if any_system_one:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Gateway judge endpoints cannot mix System One and chat model providers."
+                    ),
+                )
+            raise HTTPException(
+                status_code=422,
+                detail="Gateway endpoint does not use the TypeSafe provider.",
+            )
+    elif any_system_one:
+        if all_system_one:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "System One Gateway endpoints only support structured judge evaluation "
+                    "through the System One route."
+                ),
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway judge endpoints cannot mix System One and chat model providers.",
+        )
     _enable_upstream_ssrf_protection(endpoint_config)
     return _create_provider(
         endpoint_config, endpoint_type, enable_tracing=enable_tracing
@@ -729,19 +755,6 @@ def _get_guardrails_and_auth(
     bypass = headers.get(_SANITIZE_BYPASS_HEADER) == "1"
     guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
     return guardrails, extract_auth_headers(headers)
-
-
-def _reject_typesafe_incompatible_endpoint(endpoint_config: GatewayEndpointConfig) -> None:
-    uses_typesafe = [model.provider == Provider.TYPESAFE for model in endpoint_config.models]
-    if any(uses_typesafe):
-        if all(uses_typesafe):
-            detail = (
-                "TypeSafe Gateway endpoints only support structured judge evaluation through "
-                "the System One route."
-            )
-        else:
-            detail = "Gateway judge endpoints cannot mix TypeSafe and chat model providers."
-        raise HTTPException(status_code=400, detail=detail)
 
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
@@ -1241,19 +1254,8 @@ async def typesafe_passthrough_system_one(request: Request):
     # DB-backed endpoints have no task type. This placeholder only constructs the
     # provider configuration; System One bypasses the unified chat schema.
     provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT, allow_typesafe=True
+        store, endpoint_name, EndpointType.LLM_V1_CHAT, allow_system_one=True
     )
-    uses_typesafe = [model.provider == Provider.TYPESAFE for model in endpoint_config.models]
-    if not any(uses_typesafe):
-        raise HTTPException(
-            status_code=422,
-            detail="Gateway endpoint does not use the TypeSafe provider.",
-        )
-    if not all(uses_typesafe):
-        raise HTTPException(
-            status_code=400,
-            detail="Gateway judge endpoints cannot mix TypeSafe and chat model providers.",
-        )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)

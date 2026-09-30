@@ -349,9 +349,10 @@ export const CodingAgentStarterCard = ({ endpointName, codingAgent }: CodingAgen
 interface StarterCodeCardProps {
   endpointName: string;
   provider?: string;
+  systemOneCapable?: boolean;
 }
 
-export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps) => {
+export const StarterCodeCard = ({ endpointName, provider, systemOneCapable }: StarterCodeCardProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedApi, setSelectedApi] = useState<ApiVariant>('chat-completions');
   const [language, setLanguage] = useState<'curl' | 'python'>('curl');
@@ -363,16 +364,24 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
     setIsTryItOpen(true);
   }, []);
 
-  const passthrough = useMemo(() => getPassthroughForProvider(provider), [provider]);
+  const passthrough = useMemo(
+    () =>
+      systemOneCapable
+        ? { variant: 'typesafe-systemone' as const, label: 'System One' }
+        : getPassthroughForProvider(provider),
+    [provider, systemOneCapable],
+  );
 
   const apiOptions = useMemo(() => {
     const options: { value: ApiVariant; label: string }[] =
-      provider === 'typesafe' ? [] : [{ value: 'chat-completions', label: 'MLflow Chat Completions' }];
+      systemOneCapable || provider === 'typesafe'
+        ? []
+        : [{ value: 'chat-completions', label: 'MLflow Chat Completions' }];
     if (passthrough) {
       options.push({ value: passthrough.variant, label: passthrough.label });
     }
     return options;
-  }, [passthrough, provider]);
+  }, [passthrough, provider, systemOneCapable]);
 
   const activeApi = apiOptions.some((option) => option.value === selectedApi) ? selectedApi : apiOptions[0].value;
 

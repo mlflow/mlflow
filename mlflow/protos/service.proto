@@ -5357,6 +5357,13 @@ message GatewayEndpointModelMapping {
   optional int32 fallback_order = 9;
 }
 
+// Capability actions that an endpoint can serve. The list is derived from the
+// endpoint's model mappings and is not client-editable.
+message GatewayEndpointCapabilities {
+  // Stable action identifiers, such as "system_one".
+  repeated string supported_actions = 1;
+}
+
 // Endpoint entity representing an LLM gateway endpoint
 message GatewayEndpoint {
   // Unique identifier for the endpoint
@@ -5385,6 +5392,8 @@ message GatewayEndpoint {
   // When true, an experiment will be auto-created if not provided,
   // and traces will be logged for endpoint invocations.
   optional bool usage_tracking = 12;
+  // Capability actions that every model mapping on this endpoint can serve.
+  optional GatewayEndpointCapabilities capabilities = 13;
 }
 
 // Tag associated with an endpoint

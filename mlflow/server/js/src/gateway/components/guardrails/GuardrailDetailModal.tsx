@@ -7,7 +7,7 @@ import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { registerScorer } from '../../../experiment-tracking/pages/experiment-scorers/api';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../../../experiment-tracking/pages/experiment-scorers/prompts';
 import { EndpointSelector } from '../../../experiment-tracking/components/EndpointSelector';
-import { endpointUsesAnyProvider } from '../../utils/gatewayUtils';
+import { endpointSupportsSystemOne } from '../../utils/gatewayUtils';
 import { STAGE_HINTS, validateStageInstructions } from './guardrailValidation';
 import { PipelineStagePicker } from './PipelineStagePicker';
 import { ActionPicker } from './ActionPicker';
@@ -91,8 +91,7 @@ export const GuardrailDetailModal = ({
   const initialPrompt = extractInitialPrompt(parsedScorer);
   const initialModelEndpoint = extractInitialModelEndpoint(parsedScorer, endpoints);
   const selectedModelEndpoint = endpoints.find((endpoint) => endpoint.name === modelEndpoint);
-  const modelEndpointIsCompatible =
-    !selectedModelEndpoint || !endpointUsesAnyProvider(selectedModelEndpoint, ['typesafe']);
+  const modelEndpointIsCompatible = !selectedModelEndpoint || !endpointSupportsSystemOne(selectedModelEndpoint);
 
   // Reset form when guardrail changes
   useEffect(() => {

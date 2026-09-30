@@ -28,6 +28,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.entities.gateway_capabilities import validate_system_one_endpoint
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -668,6 +669,7 @@ class SqlAlchemyGatewayStoreMixin:
                     f"Model definitions not found: {', '.join(missing)}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
+            validate_system_one_endpoint(existing_model_defs)
 
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
@@ -832,13 +834,20 @@ class SqlAlchemyGatewayStoreMixin:
             if model_configs is not None:
                 # Validate all model definitions exist
                 all_model_def_ids = {config.model_definition_id for config in model_configs}
-                for model_def_id in all_model_def_ids:
-                    self._get_entity_or_raise(
-                        session,
-                        SqlGatewayModelDefinition,
-                        {"model_definition_id": model_def_id},
-                        "GatewayModelDefinition",
+                existing_model_defs = (
+                    self
+                    ._get_query(session, SqlGatewayModelDefinition)
+                    .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
+                    .all()
+                )
+                if {
+                    model.model_definition_id for model in existing_model_defs
+                } != all_model_def_ids:
+                    raise MlflowException(
+                        f"Model definitions not found: {', '.join(sorted(all_model_def_ids))}",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
                     )
+                validate_system_one_endpoint(existing_model_defs)
 
                 # Delete all existing linkages
                 session.query(SqlGatewayEndpointModelMapping).filter(
@@ -979,12 +988,20 @@ class SqlAlchemyGatewayStoreMixin:
             sql_endpoint = self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
-            self._get_entity_or_raise(
+            new_model_definition = self._get_entity_or_raise(
                 session,
                 SqlGatewayModelDefinition,
                 {"model_definition_id": model_config.model_definition_id},
                 "GatewayModelDefinition",
             )
+            validate_system_one_endpoint([
+                *(
+                    mapping.model_definition
+                    for mapping in sql_endpoint.model_mappings
+                    if mapping.model_definition is not None
+                ),
+                new_model_definition,
+            ])
 
             mapping_id = f"m-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()

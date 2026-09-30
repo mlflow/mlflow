@@ -20,7 +20,7 @@ import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import { CreateEndpointModal } from '../../gateway/components/endpoint-form';
 import {
   endpointHasMixedTypeSafeProviders,
-  endpointUsesAnyProvider,
+  endpointSupportsSystemOne,
   getEndpointDisplayInfo,
 } from '../../gateway/utils/gatewayUtils';
 import type { Endpoint } from '../../gateway/types';
@@ -34,12 +34,12 @@ interface EndpointOption {
 }
 
 export interface EndpointSelectorProps {
-  /** Whether this workflow supports endpoints backed by TypeSafe. */
-  allowTypeSafe?: boolean;
-  /** Whether to show unsupported TypeSafe endpoints as disabled instead of hiding them. */
-  showDisabledTypeSafe?: boolean;
-  /** Explanation shown below disabled TypeSafe endpoints. */
-  typeSafeDisabledReason?: React.ReactNode;
+  /** Whether this workflow supports endpoints that are exclusive to System One. */
+  allowSystemOne?: boolean;
+  /** Whether to show unsupported System One endpoints as disabled instead of hiding them. */
+  showDisabledSystemOne?: boolean;
+  /** Explanation shown below disabled System One endpoints. */
+  systemOneDisabledReason?: React.ReactNode;
   /** Current selected endpoint name */
   currentEndpointName?: string;
   /** Called when user selects an endpoint */
@@ -65,9 +65,9 @@ export interface EndpointSelectorProps {
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
-  allowTypeSafe = false,
-  showDisabledTypeSafe = false,
-  typeSafeDisabledReason,
+  allowSystemOne = false,
+  showDisabledSystemOne = false,
+  systemOneDisabledReason,
   currentEndpointName,
   onEndpointSelect,
   disabled = false,
@@ -91,18 +91,18 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
         (endpoint) =>
           !excludeEndpointIds?.includes(endpoint.endpoint_id) &&
           !endpointHasMixedTypeSafeProviders(endpoint) &&
-          (allowTypeSafe || showDisabledTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe'])),
+          (allowSystemOne || showDisabledSystemOne || !endpointSupportsSystemOne(endpoint)),
       ),
-    [allowTypeSafe, endpoints, excludeEndpointIds, showDisabledTypeSafe],
+    [allowSystemOne, endpoints, excludeEndpointIds, showDisabledSystemOne],
   );
 
   const selectableEndpoints = useMemo(
-    () => visibleEndpoints.filter((endpoint) => allowTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe'])),
-    [allowTypeSafe, visibleEndpoints],
+    () => visibleEndpoints.filter((endpoint) => allowSystemOne || !endpointSupportsSystemOne(endpoint)),
+    [allowSystemOne, visibleEndpoints],
   );
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const createEndpointExcludeProviders = allowTypeSafe || showDisabledTypeSafe ? undefined : ['typesafe'];
+  const createEndpointExcludeProviders = allowSystemOne || showDisabledSystemOne ? undefined : ['typesafe'];
 
   useEffect(() => {
     if (autoSelectFirstEndpoint && selectableEndpoints.length > 0 && !currentEndpointName) {
@@ -121,16 +121,13 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const handleCreateEndpointSuccess = useCallback(
     async (endpoint: Endpoint) => {
       await refetch();
-      if (
-        !endpointHasMixedTypeSafeProviders(endpoint) &&
-        (allowTypeSafe || !endpointUsesAnyProvider(endpoint, ['typesafe']))
-      ) {
+      if (!endpointHasMixedTypeSafeProviders(endpoint) && (allowSystemOne || !endpointSupportsSystemOne(endpoint))) {
         onEndpointSelect(endpoint.name);
       }
       onEndpointCreated?.(endpoint);
       setIsCreateModalOpen(false);
     },
-    [refetch, onEndpointSelect, onEndpointCreated, allowTypeSafe],
+    [refetch, onEndpointSelect, onEndpointCreated, allowSystemOne],
   );
 
   // Build endpoint options for the dropdown
@@ -142,10 +139,10 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
         label: endpoint.name,
         provider: displayInfo?.provider,
         modelName: displayInfo?.modelName,
-        disabled: !allowTypeSafe && endpointUsesAnyProvider(endpoint, ['typesafe']),
+        disabled: !allowSystemOne && endpointSupportsSystemOne(endpoint),
       };
     });
-  }, [allowTypeSafe, visibleEndpoints]);
+  }, [allowSystemOne, visibleEndpoints]);
 
   const currentEndpoint = useMemo(() => {
     const endpoint = endpoints.find(({ name }) => name === currentEndpointName);
@@ -273,10 +270,10 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                       {option.provider} / {option.modelName}
                     </DialogComboboxHintRow>
                   )}
-                  {option.disabled && typeSafeDisabledReason && (
+                  {option.disabled && systemOneDisabledReason && (
                     <DialogComboboxHintRow>
                       <span css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm - 1 }}>
-                        {typeSafeDisabledReason}
+                        {systemOneDisabledReason}
                       </span>
                     </DialogComboboxHintRow>
                   )}

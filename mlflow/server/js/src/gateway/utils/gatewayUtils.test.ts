@@ -1,7 +1,10 @@
 import { describe, it, expect } from '@jest/globals';
 import type { Endpoint } from '../types';
 import {
+  SYSTEM_ONE_ACTION,
   endpointHasMixedTypeSafeProviders,
+  endpointSupportsAction,
+  endpointSupportsSystemOne,
   endpointUsesAnyProvider,
   generateCopyName,
   hasMixedTypeSafeProviders,
@@ -13,6 +16,31 @@ const endpointWithProviders = (providers?: string[]): Endpoint =>
   }) as Endpoint;
 
 describe('gatewayUtils', () => {
+  describe('endpointSupportsAction', () => {
+    it('uses the server-provided capability envelope when present', () => {
+      const endpoint = {
+        capabilities: { supported_actions: ['system_one'] },
+      } as Endpoint;
+      expect(endpointSupportsAction(endpoint, SYSTEM_ONE_ACTION)).toBe(true);
+      expect(endpointSupportsAction(endpoint, 'future_action')).toBe(false);
+    });
+
+    it('treats an empty capability envelope as no supported actions', () => {
+      const endpoint = {
+        capabilities: { supported_actions: [] },
+      } as unknown as Endpoint;
+      expect(endpointSupportsAction(endpoint, SYSTEM_ONE_ACTION)).toBe(false);
+    });
+
+    it('falls back to TypeSafe mappings when the server omits capabilities', () => {
+      const endpoint = endpointWithProviders(['typesafe']);
+      expect(endpointSupportsSystemOne(endpoint)).toBe(true);
+
+      const chatEndpoint = endpointWithProviders(['openai']);
+      expect(endpointSupportsSystemOne(chatEndpoint)).toBe(false);
+    });
+  });
+
   describe('hasMixedTypeSafeProviders', () => {
     it.each<[string[], boolean]>([
       [[], false],
