@@ -70,6 +70,26 @@ describe('buildSearchFilterClause', () => {
     expect(buildSearchFilterClause('status IN ("active", "paused")')).toBe('status IN ("active", "paused")');
   });
 
+  it('passes through complete multi-clause filter expressions', () => {
+    expect(buildSearchFilterClause('status = "active" AND organization = "acme"')).toBe(
+      'status = "active" AND organization = "acme"',
+    );
+    expect(buildSearchFilterClause('tags.`mlflow.organization` = "production"')).toBe(
+      'tags.`mlflow.organization` = "production"',
+    );
+  });
+
+  it('treats SQL keywords in ordinary phrases as free text', () => {
+    expect(buildSearchFilterClause('write in python', 'search_text')).toBe("search_text ILIKE '%write in python%'");
+    expect(buildSearchFilterClause('write like Shakespeare', 'search_text')).toBe(
+      "search_text ILIKE '%write like Shakespeare%'",
+    );
+    expect(buildSearchFilterClause('this is useful', 'search_text')).toBe("search_text ILIKE '%this is useful%'");
+    expect(buildSearchFilterClause('name..description = "review"', 'search_text')).toBe(
+      `search_text ILIKE '%name..description = "review"%'`,
+    );
+  });
+
   it('is case-insensitive for SQL keywords', () => {
     expect(buildSearchFilterClause('name ilike "%test%"')).toBe('name ilike "%test%"');
   });

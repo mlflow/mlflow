@@ -1,4 +1,10 @@
-const SQL_KEYWORD_PATTERN = /(\s+(ILIKE|LIKE|IN|IS)\s+)|=|!=|<=|>=|<|>/i;
+// Avoid treating operator words in ordinary phrases as structured search syntax.
+const FILTER_IDENTIFIER_PATTERN = String.raw`[A-Za-z_][A-Za-z0-9_]*(?:\.(?:[A-Za-z_][A-Za-z0-9_]*|\x60[^\x60]+\x60))*`;
+const FILTER_CLAUSE_PATTERN = String.raw`${FILTER_IDENTIFIER_PATTERN}\s+(?:(?:ILIKE|LIKE)\s+(?:"[^"]*"|'[^']*')|(?:=|!=|<=|>=|<|>)\s+(?:"[^"]*"|'[^']*'|-?\d+(?:\.\d+)?|TRUE|FALSE|NULL)|IN\s+\(\s*(?:"[^"]*"|'[^']*')(?:\s*,\s*(?:"[^"]*"|'[^']*'))*\s*\)|IS\s+(?:NOT\s+)?NULL)`;
+const SQL_FILTER_PATTERN = new RegExp(
+  `^\\s*${FILTER_CLAUSE_PATTERN}(?:\\s+AND\\s+${FILTER_CLAUSE_PATTERN})*\\s*$`,
+  'i',
+);
 
 type SearchParamValue = string | number | string[] | undefined;
 
@@ -22,16 +28,16 @@ export const buildSearchParams = (params: Record<string, SearchParamValue>): str
 
 /**
  * Builds a filter clause from a search string.
- * If the input contains SQL-like operators (ILIKE, LIKE, IN, IS, =, !=, etc.),
- * it is passed through as-is. Otherwise, it is treated as a plain name search
- * with special SQL characters escaped.
+ * If the input is a valid filter expression, it is passed through as-is.
+ * Otherwise, it is treated as a plain name search with special SQL characters
+ * escaped.
  */
 export const buildSearchFilterClause = (searchFilter?: string, fieldName = 'name'): string | undefined => {
   if (!searchFilter) {
     return undefined;
   }
 
-  if (SQL_KEYWORD_PATTERN.test(searchFilter)) {
+  if (SQL_FILTER_PATTERN.test(searchFilter)) {
     return searchFilter;
   }
 

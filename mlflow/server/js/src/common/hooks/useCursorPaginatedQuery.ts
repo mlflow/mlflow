@@ -1,5 +1,5 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import type { CursorPaginationProps } from '@databricks/design-system';
 
@@ -18,6 +18,7 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
   queryFn,
   extractData,
   enabled,
+  keepPreviousData = true,
 }: {
   queryKeyPrefix: string;
   searchFilter?: string;
@@ -26,9 +27,19 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
   queryFn: (params: { searchFilter?: string; pageToken?: string; pageSize: number }) => Promise<TResponse>;
   extractData: (response: TResponse) => TData | undefined;
   enabled?: boolean;
+  keepPreviousData?: boolean;
 }) => {
-  const previousPageTokens = useRef<(string | undefined)[]>([]);
-  const [currentPageToken, setCurrentPageToken] = useState<string | undefined>(undefined);
+  const paginationScope = JSON.stringify([searchFilter, extraQueryKeys]);
+  const [paginationState, setPaginationState] = useState(() => ({
+    scope: paginationScope,
+    pageToken: undefined as string | undefined,
+    previousPageTokens: [] as (string | undefined)[],
+  }));
+
+  if (paginationState.scope !== paginationScope) {
+    setPaginationState({ scope: paginationScope, pageToken: undefined, previousPageTokens: [] });
+  }
+  const currentPageToken = paginationState.scope === paginationScope ? paginationState.pageToken : undefined;
 
   const [pageSize, setPageSize] = useLocalStorage({
     key: storageKey,
@@ -36,23 +47,16 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
     initialValue: DEFAULT_PAGE_SIZE,
   });
 
-  const extraQueryKeysStable = JSON.stringify(extraQueryKeys);
-  useEffect(() => {
-    setCurrentPageToken(undefined);
-    previousPageTokens.current = [];
-  }, [searchFilter, extraQueryKeysStable]);
-
   const pageSizeSelect = useMemo<CursorPaginationProps['pageSizeSelect']>(
     () => ({
       options: PAGE_SIZE_OPTIONS,
       default: pageSize,
       onChange(newPageSize) {
         setPageSize(newPageSize);
-        setCurrentPageToken(undefined);
-        previousPageTokens.current = [];
+        setPaginationState({ scope: paginationScope, pageToken: undefined, previousPageTokens: [] });
       },
     }),
-    [pageSize, setPageSize],
+    [pageSize, setPageSize, paginationScope],
   );
 
   const queryResult = useQuery<TResponse, Error>(
@@ -60,22 +64,35 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
     {
       queryFn: () => queryFn({ searchFilter, pageToken: currentPageToken, pageSize }),
       retry: false,
-      keepPreviousData: true,
+      keepPreviousData,
       enabled,
     },
   );
 
   const onNextPage = useCallback(() => {
     if (queryResult.isFetching) return;
-    previousPageTokens.current.push(currentPageToken);
-    setCurrentPageToken(queryResult.data?.next_page_token ?? undefined);
-  }, [queryResult.data?.next_page_token, queryResult.isFetching, currentPageToken]);
+    setPaginationState({
+      scope: paginationScope,
+      pageToken: queryResult.data?.next_page_token ?? undefined,
+      previousPageTokens: [...paginationState.previousPageTokens, currentPageToken],
+    });
+  }, [
+    queryResult.data?.next_page_token,
+    queryResult.isFetching,
+    currentPageToken,
+    paginationScope,
+    paginationState.previousPageTokens,
+  ]);
 
   const onPreviousPage = useCallback(() => {
     if (queryResult.isFetching) return;
-    const previousPageToken = previousPageTokens.current.pop();
-    setCurrentPageToken(previousPageToken);
-  }, [queryResult.isFetching]);
+    const previousPageToken = paginationState.previousPageTokens[paginationState.previousPageTokens.length - 1];
+    setPaginationState({
+      scope: paginationScope,
+      pageToken: previousPageToken,
+      previousPageTokens: paginationState.previousPageTokens.slice(0, -1),
+    });
+  }, [queryResult.isFetching, paginationScope, paginationState.previousPageTokens]);
 
   return {
     data: queryResult.data ? extractData(queryResult.data) : undefined,

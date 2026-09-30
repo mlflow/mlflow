@@ -47,37 +47,39 @@ export const SkillCardGrid = ({
     );
   }
 
-  if (!skills?.length) {
-    return <SkillsEmptyState isFiltered={isFiltered} />;
-  }
-
   return (
     <div css={{ ...flexColumnContainerStyles, minHeight: 0 }}>
-      <div role="list" aria-label="Skills" css={cardGridStyles(theme)}>
-        {skills.map((skill) => (
-          <div role="listitem" key={formatSkillListKey(skill)}>
-            <SkillCard skill={skill} />
-          </div>
-        ))}
-      </div>
-      <div
-        css={{
-          flexShrink: 0,
-          display: 'flex',
-          justifyContent: 'flex-end',
-          paddingTop: theme.spacing.sm,
-          paddingBottom: theme.spacing.sm,
-        }}
-      >
-        <CursorPagination
-          hasNextPage={hasNextPage}
-          hasPreviousPage={hasPreviousPage}
-          onNextPage={onNextPage}
-          onPreviousPage={onPreviousPage}
-          pageSizeSelect={pageSizeSelect}
-          componentId="mlflow.skill_registry.grid.pagination"
-        />
-      </div>
+      {skills?.length ? (
+        <div role="list" aria-label="Skills" css={cardGridStyles(theme)}>
+          {skills.map((skill) => (
+            <div role="listitem" key={formatSkillListKey(skill)}>
+              <SkillCard skill={skill} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <SkillsEmptyState isFiltered={isFiltered} />
+      )}
+      {(skills?.length || hasNextPage || hasPreviousPage) && (
+        <div
+          css={{
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            paddingTop: theme.spacing.sm,
+            paddingBottom: theme.spacing.sm,
+          }}
+        >
+          <CursorPagination
+            hasNextPage={hasNextPage}
+            hasPreviousPage={hasPreviousPage}
+            onNextPage={onNextPage}
+            onPreviousPage={onPreviousPage}
+            pageSizeSelect={pageSizeSelect}
+            componentId="mlflow.skill_registry.grid.pagination"
+          />
+        </div>
+      )}
     </div>
   );
 };

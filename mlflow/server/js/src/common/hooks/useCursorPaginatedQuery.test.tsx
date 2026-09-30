@@ -227,6 +227,47 @@ describe('useCursorPaginatedQuery', () => {
     expect(result.current.hasPreviousPage).toBe(false);
   });
 
+  it('resets the cursor before querying a changed scope', async () => {
+    const capturedRequests: { scope: string | null; token: string | null }[] = [];
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedRequests.push({
+          scope: req.url.searchParams.get('scope'),
+          token: req.url.searchParams.get('page_token'),
+        });
+        return res(ctx.json({ items: ['item'], next_page_token: 'next' }));
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ scope }: { scope: string }) =>
+        useCursorPaginatedQuery({
+          ...defaultOptions,
+          extraQueryKeys: { scope },
+          queryFn: ({ pageToken, pageSize }) => {
+            const params = new URLSearchParams({ scope, max_results: String(pageSize) });
+            if (pageToken) params.set('page_token', pageToken);
+            return fetch(getAjaxUrl(`${BASE_URL}?${params.toString()}`)).then((r) => r.json()) as Promise<TestResponse>;
+          },
+        }),
+      { wrapper: createWrapper(), initialProps: { scope: 'team-a' } },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    act(() => result.current.onNextPage());
+    await waitFor(() =>
+      expect(capturedRequests.some(({ scope, token }) => scope === 'team-a' && token === 'next')).toBe(true),
+    );
+
+    rerender({ scope: 'team-b' });
+
+    await waitFor(() => {
+      expect(capturedRequests.filter(({ scope }) => scope === 'team-b')).toHaveLength(1);
+    });
+    expect(capturedRequests.filter(({ scope }) => scope === 'team-b')).toEqual([{ scope: 'team-b', token: null }]);
+    expect(result.current.hasPreviousPage).toBe(false);
+  });
+
   it('enabled=false prevents query from firing', async () => {
     let requestCount = 0;
     mockServer.use(

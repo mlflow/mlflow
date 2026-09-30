@@ -102,6 +102,15 @@ describe('buildSkillCatalogFilterString', () => {
     expect(buildSkillCatalogFilterString({ searchText: 'review' })).toBe("search_text ILIKE '%review%'");
   });
 
+  it('keeps ordinary phrases containing SQL keywords on the free-text path', () => {
+    expect(buildSkillCatalogFilterString({ searchText: 'write in python' })).toBe(
+      "search_text ILIKE '%write in python%'",
+    );
+    expect(buildSkillCatalogFilterString({ searchText: 'write like Shakespeare' })).toBe(
+      "search_text ILIKE '%write like Shakespeare%'",
+    );
+  });
+
   it('escapes ILIKE wildcards and quotes in free-text search', () => {
     expect(buildSkillCatalogFilterString({ searchText: "O'Brien_100%" })).toBe(
       "search_text ILIKE '%O''Brien\\_100\\%%'",

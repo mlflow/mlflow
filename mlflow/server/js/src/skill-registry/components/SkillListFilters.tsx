@@ -70,7 +70,6 @@ const SkillOrganizationTypeahead = ({
     setItems: setFilteredItems,
     multiSelect: false,
     allowNewValue: true,
-    preventUnsetOnBlur: true,
     itemToString: (item) => item ?? '',
     matcher: (item, query) => {
       const needle = query.replace(/^@/, '').toLowerCase();

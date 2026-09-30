@@ -1,5 +1,5 @@
-import { describe, it, expect } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, it, expect } from '@jest/globals';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -10,6 +10,7 @@ import SkillRegistryPage from './SkillRegistryPage';
 import SkillDetailPage from './SkillDetailPage';
 import { rest } from 'msw';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import {
   createMockSkill,
   getMockedSearchSkillsErrorResponse,
@@ -28,6 +29,10 @@ const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
 
 describe('SkillRegistryPage', () => {
   const server = setupServer(getMockedSearchSkillsResponse([]));
+
+  beforeEach(() => {
+    setActiveWorkspace(null);
+  });
 
   const renderPage = (initialEntries = ['/skills']) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -215,6 +220,29 @@ describe('SkillRegistryPage', () => {
     });
   });
 
+  it('filters organizations that are not in the loaded suggestions', async () => {
+    const capturedFilters: (string | null)[] = [];
+    server.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilters.push(req.url.searchParams.get('filter_string'));
+        return res(
+          ctx.json({ skills: [createMockSkill({ name: 'code-review', organization: 'acme' })], next_page_token: null }),
+        );
+      }),
+    );
+    renderPage();
+
+    await screen.findByText('code-review');
+    const organization = screen.getByPlaceholderText('All organizations');
+    await userEvent.type(organization, '@other-org');
+    await userEvent.tab();
+
+    await waitFor(() => {
+      expect(capturedFilters).toContain("organization = 'other-org'");
+      expect(organization).toHaveValue('@other-org');
+    });
+  });
+
   it('renders list view columns without organization in the name', async () => {
     server.use(
       getMockedSearchSkillsResponse([
@@ -280,6 +308,72 @@ describe('SkillRegistryPage', () => {
     await waitFor(() => {
       expect(screen.getByText('page-one')).toBeInTheDocument();
     });
+  });
+
+  it('keeps Previous available when the current card page is empty', async () => {
+    server.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        if (req.url.searchParams.get('page_token') === 'page-2') {
+          return res(ctx.json({ skills: [], next_page_token: null }));
+        }
+        return res(ctx.json({ skills: [createMockSkill({ name: 'page-one' })], next_page_token: 'page-2' }));
+      }),
+    );
+    renderPage();
+
+    await screen.findByText('page-one');
+    await userEvent.click(screen.getByText('Next'));
+
+    await screen.findByText('No skills yet');
+    expect(screen.getByText('Previous')).toBeInTheDocument();
+  });
+
+  it('scopes results and cursor history to the active workspace', async () => {
+    const requests: { workspace: string | null; pageToken: string | null }[] = [];
+    const unblockWorkspaceRequests: (() => void)[] = [];
+    server.use(
+      rest.get(getAjaxUrl(BASE_URL), async (req, res, ctx) => {
+        const workspace = req.headers.get('X-MLFLOW-WORKSPACE');
+        const pageToken = req.url.searchParams.get('page_token');
+        requests.push({ workspace, pageToken });
+
+        if (workspace === 'team-b') {
+          await new Promise<void>((resolve) => unblockWorkspaceRequests.push(resolve));
+          return res(ctx.json({ skills: [createMockSkill({ name: 'team-b-page-one' })], next_page_token: null }));
+        }
+
+        if (pageToken === 'team-a-page-2') {
+          return res(ctx.json({ skills: [createMockSkill({ name: 'team-a-page-two' })], next_page_token: null }));
+        }
+        return res(
+          ctx.json({ skills: [createMockSkill({ name: 'team-a-page-one' })], next_page_token: 'team-a-page-2' }),
+        );
+      }),
+    );
+
+    act(() => setActiveWorkspace('team-a'));
+    renderPage();
+
+    try {
+      await screen.findByText('team-a-page-one');
+      await userEvent.click(screen.getByText('Next'));
+      await screen.findByText('team-a-page-two');
+
+      act(() => setActiveWorkspace('team-b'));
+      await waitFor(() => expect(requests.some(({ workspace }) => workspace === 'team-b')).toBe(true));
+
+      expect(requests.filter(({ workspace }) => workspace === 'team-b')).toEqual([
+        { workspace: 'team-b', pageToken: null },
+      ]);
+      expect(screen.queryByText('team-a-page-two')).not.toBeInTheDocument();
+      expect(screen.getByText('Loading skills...')).toBeInTheDocument();
+
+      unblockWorkspaceRequests.forEach((unblock) => unblock());
+      await screen.findByText('team-b-page-one');
+    } finally {
+      unblockWorkspaceRequests.forEach((unblock) => unblock());
+      act(() => setActiveWorkspace(null));
+    }
   });
 
   it('navigates from a catalog card to the Skill detail route', async () => {
