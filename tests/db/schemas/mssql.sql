@@ -227,8 +227,8 @@ CREATE TABLE agent_plugin_tags (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT agent_plugin_tags_pk PRIMARY KEY (workspace, organization, name, key),
 	CONSTRAINT agent_plugin_tags_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
@@ -603,8 +603,8 @@ CREATE TABLE skill_tags (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT skill_tags_pk PRIMARY KEY (workspace, organization, name, key),
 	CONSTRAINT skill_tags_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
@@ -684,8 +684,8 @@ CREATE TABLE agent_plugin_version_tags (
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
-	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT agent_plugin_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
 	CONSTRAINT agent_plugin_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES agent_plugin_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
@@ -926,8 +926,8 @@ CREATE TABLE skill_version_tags (
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	version INTEGER NOT NULL,
-	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT skill_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
 	CONSTRAINT skill_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )

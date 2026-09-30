@@ -14,6 +14,11 @@ from mlflow.store.tracking.file_store import FileStore
         ("create_skill_version", ("reviewer",), {}),
         ("bulk_register_skills", ([],), {}),
         ("get_skill_version", ("reviewer", 1), {}),
+        ("search_skill_versions", ("reviewer",), {}),
+        ("set_skill_tag", ("reviewer", "team", "platform"), {}),
+        ("delete_skill_tag", ("reviewer", "team"), {}),
+        ("set_skill_version_tag", ("reviewer", 1, "release", "stable"), {}),
+        ("delete_skill_version_tag", ("reviewer", 1, "release"), {}),
     ],
 )
 def test_file_store_does_not_implement_skill_registry(
