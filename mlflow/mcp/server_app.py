@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Any
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from mlflow.exceptions import MlflowException
-from mlflow.mcp.request_context import MCP_HTTP_REQUEST, MCP_REQUEST_USERNAME
+from mlflow.mcp.request_context import (
+    MCP_CREATED_EXPERIMENT_ID,
+    MCP_HTTP_REQUEST,
+    MCP_REQUEST_USERNAME,
+)
 from mlflow.mcp.server import create_mcp, shared_function_tool
 from mlflow.mcp.tools import SHARED_TOOLS, SharedTool
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
@@ -47,6 +51,9 @@ class McpToolPolicy:
         on_success: Called with ``(username, result)`` after a tool succeeds, for every caller.
             Grants the creator MANAGE on what a create tool made, like the REST after-request
             handlers do for the same operations.
+        grant_created_experiment: Called with ``(username, experiment_id)`` for an experiment a
+            call created as a side effect (``create_run`` given a missing name), whether or not
+            the call then succeeds.
     """
 
     authorize: Callable[[str, str | None, dict[str, Any]], None]
@@ -54,6 +61,7 @@ class McpToolPolicy:
     is_admin: Callable[[str | None], bool]
     overrides: Mapping[str, Callable[..., Any]] = field(default_factory=dict)
     on_success: Mapping[str, Callable[[str, Any], None]] = field(default_factory=dict)
+    grant_created_experiment: Callable[[str, str], None] | None = None
 
 
 def _authorized_fn(tool: SharedTool, policy: McpToolPolicy) -> Callable[..., Any]:
@@ -79,7 +87,16 @@ def _authorized_fn(tool: SharedTool, policy: McpToolPolicy) -> Callable[..., Any
     @functools.wraps(tool.fn)
     def authorized_fn(**kwargs: Any) -> Any:
         username = MCP_REQUEST_USERNAME.get()
-        result = run(username, **kwargs)
+        created_token = MCP_CREATED_EXPERIMENT_ID.set(None)
+        try:
+            result = run(username, **kwargs)
+        finally:
+            created_experiment_id = MCP_CREATED_EXPERIMENT_ID.get()
+            MCP_CREATED_EXPERIMENT_ID.reset(created_token)
+            # The experiment exists even if the call failed after creating it; without the
+            # grant its creator could not reach it under a NO_PERMISSIONS default.
+            if created_experiment_id is not None and policy.grant_created_experiment is not None:
+                policy.grant_created_experiment(username, created_experiment_id)
         if on_success is not None:
             on_success(username, result)
         return result

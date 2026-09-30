@@ -466,6 +466,25 @@ async def test_create_run_grants_only_the_experiment_it_creates(mcp_server, monk
         await _call(mcp_server, editor, "delete_experiment", experiment_id=existing)
 
 
+@pytest.mark.asyncio
+async def test_create_run_grants_the_experiment_it_creates_when_the_run_fails(mcp_server):
+    creator = create_user(mcp_server)
+    # The store rejects the run only after the tool has created the experiment.
+    with pytest.raises(ToolError, match="Both 'run_name' argument and 'mlflow.runName' tag"):
+        await _call(
+            mcp_server,
+            creator,
+            "create_run",
+            experiment_name="orphaned",
+            run_name="b",
+            tags={"mlflow.runName": "a"},
+        )
+
+    experiment = await _call(mcp_server, creator, "get_experiment", experiment_name="orphaned")
+    assert experiment["name"] == "orphaned"
+    await _call(mcp_server, creator, "delete_experiment", experiment_id=experiment["experiment_id"])
+
+
 def _scorer_request(url: str, method: str, credentials, path: str, **params) -> requests.Response:
     body = {"params": params} if method == "GET" else {"json": params}
     return requests.request(method, f"{url}/api/3.0/mlflow/{path}", auth=credentials, **body)
@@ -675,11 +694,7 @@ def test_policy_hooks_name_served_tools():
     policy = mcp_tools.get_mcp_tool_policy()
     served = {tool.name for tool in SHARED_TOOLS}
     assert set(policy.overrides) <= served
-    assert set(policy.on_success) == {
-        "create_experiment",
-        "create_run",
-        "register_llm_judge_scorer",
-    }
+    assert set(policy.on_success) == {"create_experiment", "register_llm_judge_scorer"}
 
 
 @pytest.mark.parametrize(

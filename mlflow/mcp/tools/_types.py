@@ -7,7 +7,7 @@ annotation and sends the dumped model as ``structuredContent`` alongside its JSO
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel
 
 from mlflow.entities import Assessment, Expectation, Experiment, Feedback, Run
 
@@ -119,9 +119,6 @@ class CreatedRun(BaseModel):
     experiment_id: str
     run_name: str | None
     status: str
-    # Whether this call created the experiment (given by name). Private, so it stays out of the
-    # tool's output; the server's authorization layer reads it to grant the creator MANAGE.
-    _created_experiment: bool = PrivateAttr(default=False)
 
 
 class RunRef(BaseModel):

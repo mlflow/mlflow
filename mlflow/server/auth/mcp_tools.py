@@ -17,7 +17,6 @@ from mlflow.mcp.request_context import get_mcp_request_username
 from mlflow.mcp.server_app import McpToolPolicy
 from mlflow.mcp.tools._args import as_list, as_view_type, check_non_negative
 from mlflow.mcp.tools._types import (
-    CreatedRun,
     ExperimentInfo,
     ExperimentPage,
     ExperimentRef,
@@ -288,15 +287,11 @@ def list_readable_scorers(
 
 # Creator grants, mirroring the REST after-request handlers of the same operations
 # (CreateExperiment -> set_can_manage_experiment_permission, RegisterScorer ->
-# set_can_manage_scorer_permission). CreateRun grants nothing over REST; only the experiment
-# ``create_run`` creates from a missing name is granted, as CreateExperiment would.
+# set_can_manage_scorer_permission). CreateRun grants nothing over REST; the experiment
+# ``create_run`` creates from a missing name is granted through ``grant_created_experiment``, as
+# CreateExperiment would, even when the run itself then fails.
 def _grant_experiment_creator(username: str, result: ExperimentRef) -> None:
     auth_module.grant_creator_experiment_permission(username, result.experiment_id)
-
-
-def _grant_run_experiment_creator(username: str, result: CreatedRun) -> None:
-    if result._created_experiment:
-        auth_module.grant_creator_experiment_permission(username, result.experiment_id)
 
 
 def _grant_scorer_creator(username: str, result: RegisteredScorer) -> None:
@@ -314,7 +309,7 @@ def get_mcp_tool_policy() -> McpToolPolicy:
         },
         on_success={
             "create_experiment": _grant_experiment_creator,
-            "create_run": _grant_run_experiment_creator,
             "register_llm_judge_scorer": _grant_scorer_creator,
         },
+        grant_created_experiment=auth_module.grant_creator_experiment_permission,
     )

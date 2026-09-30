@@ -4,7 +4,11 @@ from pydantic import Field
 
 from mlflow.entities import LifecycleStage
 from mlflow.exceptions import MlflowException
-from mlflow.mcp.request_context import get_mcp_request_username, is_mcp_http_request
+from mlflow.mcp.request_context import (
+    get_mcp_request_username,
+    is_mcp_http_request,
+    mark_mcp_created_experiment,
+)
 from mlflow.mcp.tools._args import OrderBy, PageToken, View, as_list, as_tag_dict, as_view_type
 from mlflow.mcp.tools._types import (
     CreatedRun,
@@ -153,24 +157,21 @@ def create_run(
             )
         user_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
-    created_experiment = False
     if experiment_name is not None:
         if experiment := client.get_experiment_by_name(experiment_name):
             experiment_id = experiment.experiment_id
         else:
             experiment_id = client.create_experiment(experiment_name)
-            created_experiment = True
+            mark_mcp_created_experiment(experiment_id)
 
     run = client.create_run(experiment_id, tags=_run_tags(user_tags), run_name=run_name)
     client.set_terminated(run.info.run_id, status=final_status)
-    result = CreatedRun(
+    return CreatedRun(
         run_id=run.info.run_id,
         experiment_id=run.info.experiment_id,
         run_name=run.info.run_name,
         status=final_status,
     )
-    result._created_experiment = created_experiment
-    return result
 
 
 def link_traces_to_run(
