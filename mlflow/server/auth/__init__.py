@@ -1132,16 +1132,34 @@ _ARTIFACT_PROXY_CHILD_FOLDERS = {
 }
 
 
-def _artifact_proxy_child_type(artifact_path: str) -> "str | None":
+_ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS = (
+    RESOURCE_TYPE_RUN,
+    RESOURCE_TYPE_TRACE,
+    RESOURCE_TYPE_LOGGED_MODEL,
+)
+
+
+def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tuple[str, ...]":
+    """The child tiers the path is judged against.
+
+    A point operation names one tier, or none for an experiment-level artifact. A ``recursive``
+    operation -- only delete, which removes a whole subtree -- is judged against every tier it
+    can reach, so stripping a path segment cannot turn a denied delete into a permitted one.
+    """
     remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
     segments = [segment for segment in remainder.split("/") if segment]
     if not segments:
-        return None
+        # The experiment artifact root contains every child tier's subtree.
+        return _ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS if recursive else ()
     if child_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(segments[0]):
-        return child_type
-    # ``<run_id>/artifacts/...``: only treat it as a run when the run layout is actually present,
-    # so an experiment-level file is still judged on the experiment alone.
-    return RESOURCE_TYPE_RUN if len(segments) > 1 and segments[1] == "artifacts" else None
+        return (child_type,)
+    if len(segments) > 1 and segments[1] == "artifacts":
+        return (RESOURCE_TYPE_RUN,)
+    # A bare ``<run_id>`` cannot be told apart from an experiment-level file, since run ids carry
+    # no distinguishing shape. A point read or write of it is the experiment's business, but a
+    # recursive delete of it removes that run's artifacts, so deleting is judged as a run. The
+    # experiment fallback keeps a caller holding no run grant judged on the experiment.
+    return (RESOURCE_TYPE_RUN,) if recursive else ()
 
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
@@ -1155,13 +1173,19 @@ _ARTIFACT_PROXY_UNPARSABLE = object()
 
 _ARTIFACT_PROXY_CAN = {"read": "can_read", "update": "can_update", "manage": "can_manage"}
 
+# The DELETE routes map to ``manage``, and only they remove a subtree rather than one object.
+_ARTIFACT_PROXY_RECURSIVE_ACTIONS = frozenset({"manage"})
 
-def _artifact_proxy_child(artifact_path: "str | None"):
-    """Resolve an artifact proxy path to the sub-resource it names.
 
-    Returns ``(child_type, experiment_key)``, ``None`` when the path names no child tier
-    (an experiment-level artifact), or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot
-    be canonicalized -- which must deny rather than fall through.
+def _artifact_proxy_child(artifact_path: "str | None", action: str):
+    """Resolve an artifact proxy path to the sub-resources the request is judged against.
+
+    Returns ``(child_types, experiment_key)``, ``None`` when no child tier applies -- either the
+    path names no experiment, or it is an experiment-level artifact, and the caller falls through
+    to the experiment -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot be canonicalized,
+    which must deny rather than fall through.
+
+    ``action`` is needed because a recursive delete reaches tiers a point read does not.
     """
     if not artifact_path:
         return None
@@ -1169,10 +1193,14 @@ def _artifact_proxy_child(artifact_path: "str | None"):
     if canonical is None:
         return _ARTIFACT_PROXY_UNPARSABLE
     match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
-    child_type = _artifact_proxy_child_type(canonical) if match else None
-    if child_type is None:
+    if match is None:
         return None
-    return child_type, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+    child_types = _artifact_proxy_child_types(
+        canonical, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
+    )
+    if not child_types:
+        return None
+    return child_types, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
 
 
 def _authorize_artifact_proxy_resolved(
@@ -1183,20 +1211,24 @@ def _authorize_artifact_proxy_resolved(
     An artifact under ``<experiment>/<run_id>/artifacts/`` is the run's payload, so it is
     gated like any other run mutation: the experiment carries the READ baseline and the run
     tier carries the action, which lets a positive run grant decide exactly as it does on
-    ``UpdateRun``. A path naming no child tier keeps the experiment at the action level,
-    since there is no tier to carry it.
+    ``UpdateRun``. A recursive delete of an ancestor directory carries the action on every tier
+    it reaches, so the broad path is never the softer one. A path naming no child tier keeps the
+    experiment at the action level, since there is no tier to carry it.
     """
     if child is _ARTIFACT_PROXY_UNPARSABLE:
         return False
     if child is None:
         return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
-    child_type, experiment = child
+    child_types, experiment = child
     return authorize(
         username,
         experiment,
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment[1], "read"),
-            Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,)),
+            *(
+                Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))
+                for child_type in child_types
+            ),
         ],
     )
 
@@ -1204,7 +1236,7 @@ def _authorize_artifact_proxy_resolved(
 def _authorize_flask_artifact_proxy(action: str) -> bool:
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
     return _authorize_artifact_proxy_resolved(
-        _artifact_proxy_child(_artifact_proxy_path()),
+        _artifact_proxy_child(_artifact_proxy_path(), action),
         username,
         action,
         _get_permission_from_experiment_id_artifact_proxy,
@@ -7974,7 +8006,7 @@ def _authorize_fastapi_artifact_proxy(
     path: str, username: str, query_path: "str | None", action: str
 ) -> bool:
     return _authorize_artifact_proxy_resolved(
-        _artifact_proxy_child(_artifact_proxy_path_from_request_path(path, query_path)),
+        _artifact_proxy_child(_artifact_proxy_path_from_request_path(path, query_path), action),
         username,
         action,
         lambda: _get_proxy_artifact_permission(path, username, query_path),

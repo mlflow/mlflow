@@ -3161,6 +3161,76 @@ def test_artifact_proxy_still_inherits_from_the_experiment(workspace_permission_
     )
 
 
+def test_artifact_proxy_ancestor_delete_cannot_evade_the_run_tier(workspace_permission_setup):
+    """Deleting through this route is recursive, so an ancestor directory must be judged against
+    the tiers it reaches. ``<experiment>/<run_id>`` holds the same bytes as
+    ``<experiment>/<run_id>/artifacts``, and the experiment artifact root holds every tier's
+    subtree, so gating only the leaf let a caller strip a path segment and delete what the leaf
+    check refused.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", MANAGE.name), ("run", "*", DENY.name)],
+    )
+
+    delete = "validate_can_delete_experiment_artifact_proxy"
+    # the leaf was already refused
+    assert _run_artifact_proxy(delete, "1/abc123/artifacts/model.pkl", method="DELETE") is False
+    assert _run_artifact_proxy(delete, "1/abc123/artifacts", method="DELETE") is False
+    # and the ancestor directory, which removes the same bytes, must be too
+    assert _run_artifact_proxy(delete, "1/abc123", method="DELETE") is False
+    # as must the experiment artifact root, which removes every run's artifacts
+    assert _run_artifact_proxy(delete, "1", method="DELETE") is False
+    # reads are point operations and are unchanged: an experiment-level file is not run payload
+    assert (
+        _run_artifact_proxy("validate_can_read_experiment_artifact_proxy", "1/plain-file.txt")
+        is True
+    )
+
+
+@pytest.mark.parametrize("denied_tier", ["run", "trace", "logged_model"])
+def test_artifact_proxy_experiment_root_delete_honors_every_contained_tier(
+    workspace_permission_setup, denied_tier
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", MANAGE.name), (denied_tier, "*", DENY.name)],
+    )
+
+    assert (
+        _run_artifact_proxy("validate_can_delete_experiment_artifact_proxy", "1", method="DELETE")
+        is False
+    )
+
+
+def test_artifact_proxy_ancestor_delete_still_inherits_from_the_experiment(
+    workspace_permission_setup,
+):
+    """No child grant: the experiment decides the ancestor delete, exactly as on master. This is
+    what keeps the ambiguous ``<experiment>/<file>`` case harmless -- it is judged as a run only
+    for callers who actually hold a run grant.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", MANAGE.name)])
+
+    delete = "validate_can_delete_experiment_artifact_proxy"
+    assert _run_artifact_proxy(delete, "1/abc123", method="DELETE") is True
+    assert _run_artifact_proxy(delete, "1/notes.txt", method="DELETE") is True
+    assert _run_artifact_proxy(delete, "1", method="DELETE") is True
+
+
 def test_version_point_reads_honor_a_version_deny(workspace_permission_setup):
     """A version DENY must withhold a version whether it is fetched by name or found by searching;
     GetModelVersion and friends consulted only the parent. GetRegisteredModel shares the old
