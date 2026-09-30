@@ -110,7 +110,8 @@ async def main():
         for tool in await client.list_tools():
             print(tool.name)
         result = await client.call_tool("search_experiments", {"max_results": 5})
-        print(result.content[0].text)
+        for experiment in result.structured_content["experiments"]:
+            print(experiment["experiment_id"], experiment["name"])
 
 
 asyncio.run(main())
@@ -123,12 +124,14 @@ asyncio.run(main())
 
 The endpoint serves the `traces`, `scorers`, `experiments` and `runs` categories. The `MLFLOW_MCP_TOOLS` variable that selects categories for `mlflow mcp run` does not apply to the endpoint.
 
-| Category    | Tools                                                                                                                                                                                                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Experiments | `create_experiment`, `get_experiment`, `search_experiments`, `rename_experiment`, `update_experiment`, `delete_experiment`, `restore_experiment`                                                                                                                             |
-| Runs        | `create_run`, `describe_run`, `list_runs`, `delete_run`, `restore_run`, `link_traces_to_run`                                                                                                                                                                                 |
-| Traces      | `search_traces`, `get_trace`, `delete_traces`, `set_trace_tag`, `delete_trace_tag`, `log_trace_feedback`, `log_trace_expectation`, `get_trace_assessment`, `update_trace_assessment`, `delete_trace_assessment`                                                              |
-| Scorers     | `list_scorers`, `register_llm_judge_scorer`                                                                                                                                                                                                                                  |
+| Category    | Tools                                                                                                                                                                                                           |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Experiments | `create_experiment`, `get_experiment`, `search_experiments`, `rename_experiment`, `update_experiment`, `delete_experiment`, `restore_experiment`                                                                |
+| Runs        | `create_run`, `describe_run`, `list_runs`, `delete_run`, `restore_run`, `link_traces_to_run`                                                                                                                    |
+| Traces      | `search_traces`, `get_trace`, `delete_traces`, `set_trace_tag`, `delete_trace_tag`, `log_trace_feedback`, `log_trace_expectation`, `get_trace_assessment`, `update_trace_assessment`, `delete_trace_assessment` |
+| Scorers     | `list_scorers`, `register_llm_judge_scorer`                                                                                                                                                                     |
+
+The endpoint and `mlflow mcp run` serve the same implementation of these tools, so a tool takes the same arguments and returns the same results on both.
 
 Two groups of tools available to `mlflow mcp run` are deliberately not served, because they execute work on the machine running the MCP server, which over HTTP is the tracking server host:
 
@@ -137,6 +140,56 @@ Two groups of tools available to `mlflow mcp run` are deliberately not served, b
 
 Both remain available on the stdio server, where the process belongs to the caller.
 
+## Structured results
+
+Each served tool declares an output schema and returns its result as structured content: a JSON object that follows that schema, together with the same object serialized as JSON text for clients that only read text content. Clients that support structured content can use the fields directly instead of parsing text.
+
+For example, `search_experiments` returns a page of experiments and a token for the next page:
+
+```json
+{
+  "experiments": [
+    {
+      "experiment_id": "1",
+      "name": "chatbot-eval",
+      "artifact_location": "s3://mlflow-artifacts/1",
+      "lifecycle_stage": "active",
+      "creation_time": 1760000000000,
+      "last_update_time": 1760000000000,
+      "tags": {}
+    }
+  ],
+  "next_page_token": "eyJvZmZzZXQiOiAxfQ=="
+}
+```
+
+A few conventions apply across tools:
+
+- **Paging.** `search_experiments`, `list_runs` and `search_traces` return `next_page_token` when more results exist. Pass it back as `page_token` to continue; it is `null` on the last page.
+- **Traces.** `search_traces` and `get_trace` return traces in the shape of `Trace.to_dict()`, with `info` and `data.spans`. Pass `extract_fields` (for example `["info.trace_id", "info.state"]`) to return only those fields.
+- **Assessments.** The feedback and expectation tools return the assessment, including its `assessment_id`, `kind` (`feedback` or `expectation`), `value`, `source` and timestamps.
+- **Lists and objects.** Arguments that take a list, such as `trace_ids`, `order_by` or `extract_fields`, also accept a comma-separated string. Arguments that take an object, such as `metadata`, also accept a JSON string.
+
+### Argument shape changes
+
+The tools used to take some arguments in the shape of the `mlflow` CLI options they wrapped. The typed shape below is what the tools advertise now; the old shape is still accepted unless noted. The same applies to `mlflow mcp run`.
+
+| Tool                                                                     | Argument                                                 | Old shape                          | New shape                                  | Old shape accepted                    |
+| ------------------------------------------------------------------------ | -------------------------------------------------------- | ---------------------------------- | ------------------------------------------ | ------------------------------------- |
+| `search_traces`                                                          | `order_by`                                               | Comma-separated string             | List of strings                            | Yes                                   |
+| `search_traces`, `get_trace`                                             | `extract_fields`                                         | Comma-separated string             | List of strings                            | Yes                                   |
+| `search_traces`                                                          | `sql_warehouse_id`                                       | String                             | Removed                                    | No: rejected                          |
+| `search_traces`, `get_experiment`, `list_scorers`                        | `output`                                                 | `"table"` or `"json"`              | Deprecated: results are always structured  | Yes, ignored                          |
+| `delete_traces`                                                          | `trace_ids`                                              | Comma-separated string             | List of strings                            | Yes                                   |
+| `log_trace_feedback`, `log_trace_expectation`, `update_trace_assessment` | `value`                                                  | String, parsed as JSON if possible | Any JSON value                             | Yes: strings are still parsed as JSON |
+| `log_trace_feedback`, `log_trace_expectation`, `update_trace_assessment` | `metadata`                                               | JSON string                        | Object                                     | Yes                                   |
+| `log_trace_feedback`, `log_trace_expectation`                            | `source_type`                                            | String                             | One of `HUMAN`, `LLM_JUDGE`, `CODE`        | Yes, for valid values                 |
+| `create_run`                                                             | `tags`                                                   | List of `key=value` strings        | Object                                     | Yes                                   |
+| `create_run`                                                             | `status`                                                 | String                             | `FINISHED`, `FAILED` or `KILLED`, any case | Yes                                   |
+| `register_llm_judge_scorer`                                              | `extra_headers`                                          | JSON string                        | Object                                     | Yes                                   |
+| `search_experiments`                                                     | `page_token`, `filter_string`, `order_by`                | Not available                      | New arguments                              | Not applicable                        |
+| `list_runs`                                                              | `max_results`, `page_token`, `filter_string`, `order_by` | Not available                      | New arguments                              | Not applicable                        |
+
 ## Authentication and authorization
 
 Without the [basic-auth app](/self-hosting/security/basic-http-auth), the endpoint is open to anyone who can reach the server, exactly like the REST API.
@@ -144,8 +197,9 @@ Without the [basic-auth app](/self-hosting/security/basic-http-auth), the endpoi
 With `--app-name basic-auth`, the endpoint is protected by the same permission middleware as the other native server routes:
 
 - **Authentication.** Every request needs HTTP basic credentials of an MLflow user. Missing or wrong credentials get the same `401` challenge as the REST API.
+- **Run attribution.** Runs created with `create_run` are attributed to the authenticated user.
 - **Per-tool authorization.** One path carries every tool, so the route only authenticates and each tool call is authorized against the resource it touches, with the permission the corresponding tracking operation requires. `get_experiment` needs `READ` on the experiment, `set_trace_tag` needs `EDIT` on the trace's experiment (resolved from the trace id), `delete_run` needs `MANAGE` on the run's experiment, and so on. A call the user is not allowed to make fails with a `Permission denied` tool error that does not reveal whether the resource exists.
-- **Filtered searches.** `search_experiments` returns only the experiments the user can read, filling `max_results` from readable rows the way the REST search does. To bound the work per call, it reads at most 10 store pages. If the page is not filled by then, the output ends with a next page token, which the caller passes back as `page_token` to continue.
+- **Filtered searches.** `search_experiments` returns only the experiments the user can read, filling `max_results` from readable rows the way the REST search does. To bound the work per call, it reads at most 10 store pages. Whenever more experiments remain, whether the page is full or the read limit was reached first, the result carries a `next_page_token` to pass back as `page_token`. A page that stopped at the read limit can hold fewer than `max_results` experiments, or none; keep paging until `next_page_token` is `null`.
 - **Admins** bypass authorization, as with the REST API.
 - **Workspaces.** When [workspaces](/self-hosting/workspaces/getting-started) are enabled, send the `X-MLFLOW-WORKSPACE` header with the MCP request. Tool results and permission checks are scoped to that workspace.
 
