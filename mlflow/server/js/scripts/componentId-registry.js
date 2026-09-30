@@ -2089,6 +2089,7 @@ module.exports = {
   "mlflow.skill_registry.table.source": "",
   "mlflow.skill_registry.table.status": "",
   "mlflow.skill_registry.use": "",
+  "mlflow.skill_registry.use.permission_tooltip": "",
   "mlflow.skill_registry.use_modal": "",
   "mlflow.skill_registry.use_modal.copy": "",
   "mlflow.skill_registry.view_toggle": "",

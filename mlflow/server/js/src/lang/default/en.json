@@ -1683,6 +1683,10 @@
     "defaultMessage": "Content too large to render ({size}). Displaying as plain text.",
     "description": "Message shown when chat content exceeds the markdown rendering size limit"
   },
+  "4x17ta": {
+    "defaultMessage": "You do not have permission to use this skill.",
+    "description": "Tooltip shown when a user cannot use a skill"
+  },
   "4yjF8O": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
