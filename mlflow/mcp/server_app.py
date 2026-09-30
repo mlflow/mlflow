@@ -50,12 +50,16 @@ class McpToolPolicy:
         is_admin: Whether the user bypasses authorization and result filtering.
         overrides: Replacement implementations for non-admin callers of tools whose results must
             be filtered per caller (unscoped searches).
+        override_parameters: JSON schema properties an override accepts on top of the tool's
+            own, keyed by tool name. They are advertised in the tool's input schema and dropped
+            from the arguments of admin calls, which run the original tool.
     """
 
     authorize: Callable[[str, str | None, dict[str, Any]], None]
     validate_coverage: Callable[[Iterable[str]], None]
     is_admin: Callable[[str | None], bool]
     overrides: Mapping[str, Callable[..., str]] = field(default_factory=dict)
+    override_parameters: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 def _authorized_tool(tool: "FunctionTool", policy: McpToolPolicy) -> "FunctionTool":
@@ -64,11 +68,16 @@ def _authorized_tool(tool: "FunctionTool", policy: McpToolPolicy) -> "FunctionTo
 
     original_fn = tool.fn
     override_fn = policy.overrides.get(tool.name)
+    extra_parameters = policy.override_parameters.get(tool.name, {}) if override_fn else {}
+    parameters = tool.parameters
+    if extra_parameters:
+        properties = {**parameters.get("properties", {}), **extra_parameters}
+        parameters = {**parameters, "properties": properties}
 
     def authorized_fn(**kwargs: Any) -> str:
         username = MCP_REQUEST_USERNAME.get()
         if policy.is_admin(username):
-            return original_fn(**kwargs)
+            return original_fn(**{k: v for k, v in kwargs.items() if k not in extra_parameters})
         try:
             policy.authorize(tool.name, username, kwargs)
         except MlflowException as e:
@@ -83,7 +92,7 @@ def _authorized_tool(tool: "FunctionTool", policy: McpToolPolicy) -> "FunctionTo
         fn=authorized_fn,
         name=tool.name,
         description=tool.description,
-        parameters=tool.parameters,
+        parameters=parameters,
     )
 
 

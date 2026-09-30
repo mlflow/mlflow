@@ -70,46 +70,24 @@ claude mcp add --transport http mlflow http://localhost:5000/mcp \
   </TabItem>
   <TabItem label="Claude Desktop" value="claude-desktop">
 
-Claude Desktop connects to remote MCP servers through **Settings → Connectors → Add custom connector**, where you enter the endpoint URL. For a server behind basic auth, or on plans without custom connectors, bridge the HTTP endpoint through the `mcp-remote` package in `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "mlflow": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "http://localhost:5000/mcp",
-        "--header",
-        "Authorization: Basic ${MLFLOW_BASIC_AUTH}"
-      ],
-      "env": {
-        "MLFLOW_BASIC_AUTH": "<base64 of username:password>"
-      }
-    }
-  }
-}
-```
+Add the endpoint URL as a custom connector, for example `https://mlflow.example.com/mcp`. See Anthropic's guide, [Get started with custom connectors using remote MCP](https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp), for where to add it and which plans support it. Claude Desktop's configuration options may change, so treat that guide as the source of truth, including for passing basic-auth credentials.
 
   </TabItem>
   <TabItem label="Cursor" value="cursor">
 
-Add to `.cursor/mcp.json`:
+A minimal entry in Cursor's MCP configuration points at the endpoint URL:
 
 ```json
 {
   "mcpServers": {
     "mlflow": {
-      "url": "http://localhost:5000/mcp",
-      "headers": {
-        "Authorization": "Basic <base64 of username:password>"
-      }
+      "url": "http://localhost:5000/mcp"
     }
   }
 }
 ```
 
-Omit `headers` when the server runs without the basic-auth app.
+The configuration format may change between Cursor releases. See [Cursor's MCP documentation](https://cursor.com/docs/context/mcp) for the current format, including how to send an `Authorization` header when the server runs the basic-auth app.
 
   </TabItem>
   <TabItem label="Python" value="python">
@@ -167,7 +145,7 @@ With `--app-name basic-auth`, the endpoint is protected by the same permission m
 
 - **Authentication.** Every request needs HTTP basic credentials of an MLflow user. Missing or wrong credentials get the same `401` challenge as the REST API.
 - **Per-tool authorization.** One path carries every tool, so the route only authenticates and each tool call is authorized against the resource it touches, with the permission the corresponding tracking operation requires. `get_experiment` needs `READ` on the experiment, `set_trace_tag` needs `EDIT` on the trace's experiment (resolved from the trace id), `delete_run` needs `MANAGE` on the run's experiment, and so on. A call the user is not allowed to make fails with a `Permission denied` tool error that does not reveal whether the resource exists.
-- **Filtered searches.** `search_experiments` returns only the experiments the user can read, filling `max_results` from readable rows the way the REST search does.
+- **Filtered searches.** `search_experiments` returns only the experiments the user can read, filling `max_results` from readable rows the way the REST search does. To bound the work per call, it reads at most 10 store pages. If the page is not filled by then, the output ends with a next page token, which the caller passes back as `page_token` to continue.
 - **Admins** bypass authorization, as with the REST API.
 - **Workspaces.** When [workspaces](/self-hosting/workspaces/getting-started) are enabled, send the `X-MLFLOW-WORKSPACE` header with the MCP request. Tool results and permission checks are scoped to that workspace.
 

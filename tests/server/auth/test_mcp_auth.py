@@ -14,6 +14,7 @@ from fastmcp.exceptions import ToolError
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities import Experiment
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -26,12 +27,16 @@ from mlflow.mcp.server import collect_category_tools
 from mlflow.mcp.server_app import LOCAL_EXECUTION_TOOLS, SERVER_MCP_TOOL_CATEGORIES
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server import auth as auth_module
+from mlflow.server.auth import mcp_tools
 from mlflow.server.auth.mcp_tools import (
     MCP_TOOL_RULES,
+    SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES,
     authorize_mcp_tool_call,
     check_mcp_tool_coverage,
+    search_readable_experiments,
 )
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -272,6 +277,61 @@ async def test_unscoped_search_experiments_fills_the_page_with_readable_rows(
     assert unlimited == text
 
     assert "exp-4" in await _call(mcp_server, ADMIN, "search_experiments", max_results=2)
+
+
+@pytest.mark.asyncio
+async def test_search_experiments_advertises_page_token_and_admin_ignores_it(
+    mcp_server, monkeypatch
+):
+    _experiments(mcp_server, monkeypatch, ["exp-a"])
+    nobody = create_user(mcp_server)
+    async with _mcp_client(mcp_server, nobody) as client:
+        tools = {tool.name: tool for tool in await client.list_tools()}
+    assert "page_token" in tools["search_experiments"].inputSchema["properties"]
+
+    text = await _call(mcp_server, ADMIN, "search_experiments", page_token="ignored")
+    assert "exp-a" in text
+
+
+class _PagedExperimentStore:
+    def __init__(self, pages: list[list[str]]):
+        self.pages = pages
+        self.calls = 0
+
+    def search_experiments(self, view_type, max_results, page_token):
+        self.calls += 1
+        index = int(page_token or 0)
+        experiments = [
+            Experiment(experiment_id, experiment_id, f"file:///{experiment_id}", "active")
+            for experiment_id in self.pages[index]
+        ]
+        token = str(index + 1) if index + 1 < len(self.pages) else None
+        return PagedList(experiments, token)
+
+
+def test_search_readable_experiments_stops_at_the_store_page_cap(monkeypatch):
+    # Only the last store page is readable, and it sits past the cap.
+    cap = SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES
+    pages = [[f"hidden-{i}-a", f"hidden-{i}-b"] for i in range(cap)] + [["readable-a"]]
+    store = _PagedExperimentStore(pages)
+    monkeypatch.setattr(mcp_tools, "_get_tracking_store", lambda: store)
+    monkeypatch.setattr(mcp_tools, "get_mcp_request_username", lambda: "reader")
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda username, resource: lambda experiment_id: experiment_id.startswith("readable"),
+    )
+
+    first = search_readable_experiments(max_results=2)
+    assert store.calls == cap
+    assert "hidden" not in first
+    assert "readable-a" not in first
+    assert first.endswith(f"Next page token: {cap}")
+
+    second = search_readable_experiments(max_results=2, page_token=str(cap))
+    assert store.calls == cap + 1
+    assert "readable-a" in second
+    assert "Next page token" not in second
 
 
 @pytest.mark.asyncio

@@ -206,7 +206,22 @@ def is_mcp_admin(username: str | None) -> bool:
     return username is not None and auth_module.store.get_user(username).is_admin
 
 
-def search_readable_experiments(view: str = "active_only", max_results: int | None = None) -> str:
+# Bounds the store round trips of one call when few experiments are readable. When the cap is hit
+# before the page is filled, the rows collected so far are returned with a token to continue from.
+SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES = 10
+
+_PAGE_TOKEN_PARAMETER = {
+    "page_token": {
+        "anyOf": [{"type": "string"}, {"type": "null"}],
+        "default": None,
+        "description": "Token returned by a previous call to continue the search from.",
+    }
+}
+
+
+def search_readable_experiments(
+    view: str = "active_only", max_results: int | None = None, page_token: str | None = None
+) -> str:
     """
     ``mlflow experiments search`` for a non-admin caller.
 
@@ -214,7 +229,9 @@ def search_readable_experiments(view: str = "active_only", max_results: int | No
     ``filter_search_experiments`` for the REST API, the store is paged further until
     ``max_results`` readable rows are collected or the store is exhausted, so a page is not
     left short by unreadable rows. ``max_results=None`` returns every readable experiment, as
-    the CLI does.
+    the CLI does. At most ``SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES`` store pages are read
+    per call; if the store has more, the output ends with a next page token to pass back as
+    ``page_token``.
     """
     if max_results is not None and max_results < 0:
         raise MlflowException.invalid_parameter_value("max-results must be a non-negative integer")
@@ -222,10 +239,15 @@ def search_readable_experiments(view: str = "active_only", max_results: int | No
     can_read = auth_module._role_based_read_predicate(get_mcp_request_username(), "experiment")
     tracking_store = _get_tracking_store()
 
+    def filled() -> bool:
+        return max_results is not None and len(readable) >= max_results
+
     readable = []
-    page_token = None
+    next_page_token = None
     page_size = min(max_results or SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_DEFAULT)
-    while max_results != 0 and (max_results is None or len(readable) < max_results):
+    for _ in range(SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES):
+        if filled():
+            break
         page = tracking_store.search_experiments(
             view_type=view_type, max_results=page_size, page_token=page_token
         )
@@ -233,6 +255,9 @@ def search_readable_experiments(view: str = "active_only", max_results: int | No
         page_token = page.token
         if not page_token:
             break
+    else:
+        if not filled():
+            next_page_token = page_token
     if max_results is not None:
         readable = readable[:max_results]
 
@@ -246,7 +271,10 @@ def search_readable_experiments(view: str = "active_only", max_results: int | No
         ]
         for experiment in readable
     ]
-    return _create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"])
+    output = _create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"])
+    if next_page_token:
+        output += f"\n\nNext page token: {next_page_token}"
+    return output
 
 
 def get_mcp_tool_policy() -> McpToolPolicy:
@@ -255,4 +283,5 @@ def get_mcp_tool_policy() -> McpToolPolicy:
         validate_coverage=check_mcp_tool_coverage,
         is_admin=is_mcp_admin,
         overrides={"search_experiments": search_readable_experiments},
+        override_parameters={"search_experiments": _PAGE_TOKEN_PARAMETER},
     )
