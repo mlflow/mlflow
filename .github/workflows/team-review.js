@@ -190,12 +190,18 @@ module.exports = async ({ github, context }) => {
     pull_number,
   });
   const requested = requestedReviewers.data.users.map((u) => u.login);
-  if (requested.length > 0) {
-    console.log("Reviewers already requested; skipping team review");
+
+  const stats = await loadStats(github, owner, repo);
+  const requestedTeamMembers = requested.filter(
+    (r) => r in stats.reviewCounts && r !== copilotInitiator
+  );
+  if (requestedTeamMembers.length > 0) {
+    console.log(
+      `Team reviewers already requested (${requestedTeamMembers.join(", ")}); skipping team review`
+    );
     return;
   }
 
-  const stats = await loadStats(github, owner, repo);
   const eligibleReviewers = Object.keys(stats.reviewCounts).filter(
     (m) => !approved.includes(m) && !requested.includes(m) && m !== author && m !== copilotInitiator
   );
