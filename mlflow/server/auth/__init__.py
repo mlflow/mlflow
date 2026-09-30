@@ -1871,23 +1871,33 @@ def validate_can_update_run():
 
 
 def _authorize_create_in_experiment_as(
-    username: str, experiment_id: str, created_type: str
+    username: str,
+    experiment_id: str,
+    created_type: str,
+    extra: "Sequence[Requirement]" = (),
 ) -> bool:
     # Takes the username explicitly for the FastAPI validators, which are handed one rather
     # than running inside a Flask request context.
+    #
+    # ``extra`` carries a veto for a type the request writes ALONGSIDE the created one, which a
+    # create otherwise never mentions. Kept here rather than inlined at the call site so this
+    # stays the single definition of what a create in an experiment requires.
     return authorize(
         username,
         (RESOURCE_TYPE_EXPERIMENT, experiment_id),
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
             Requirement(created_type, "*", ACTION_NOT_DENIED),
+            *extra,
         ],
     )
 
 
-def _authorize_create_in_experiment(experiment_id: str, created_type: str) -> bool:
+def _authorize_create_in_experiment(
+    experiment_id: str, created_type: str, extra: "Sequence[Requirement]" = ()
+) -> bool:
     return _authorize_create_in_experiment_as(
-        authenticate_request().username, experiment_id, created_type
+        authenticate_request().username, experiment_id, created_type, extra
     )
 
 
@@ -3785,7 +3795,15 @@ def validate_can_start_trace_v3():
     experiment_id = message.trace.trace_info.trace_location.mlflow_experiment.experiment_id
     if not experiment_id:
         return False
-    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE)
+    # ``store.start_trace`` persists ``trace_info.assessments``, and the SDK routes
+    # ``log_assessment`` on an active trace through here instead of ``CreateAssessment``, so
+    # without this veto a denied assessment tier is bypassed by the ordinary logging path.
+    extra = (
+        (Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),)
+        if message.trace.trace_info.assessments
+        else ()
+    )
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE, extra)
 
 
 def validate_can_link_traces_to_run():

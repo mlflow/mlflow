@@ -6715,6 +6715,57 @@ def test_start_trace_v3_accepts_camel_case_locations(workspace_permission_setup)
     assert _run({}) is False
 
 
+_AN_ASSESSMENT = [{"assessment_name": "f", "trace_id": "tr-1", "feedback": {"value": 1.0}}]
+
+
+def _run_start_trace_v3(assessments=None):
+    trace_info = {"trace_location": _snake_location("exp-1")}
+    if assessments is not None:
+        trace_info["assessments"] = assessments
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces",
+        method="POST",
+        json={"trace": {"trace_info": trace_info}},
+    ):
+        return auth_module.validate_can_start_trace_v3()
+
+
+def test_start_trace_v3_honors_an_assessment_deny_on_inline_assessments(
+    workspace_permission_setup,
+):
+    """``store.start_trace`` persists ``trace_info.assessments``, and the SDK routes
+    ``log_assessment`` on an active trace through this route rather than ``CreateAssessment``. So a
+    denied assessment tier was bypassed by the ordinary logging path while the explicit route was
+    refused.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", EDIT.name), ("assessment", "*", DENY.name)],
+    )
+
+    assert _run_start_trace_v3(_AN_ASSESSMENT) is False
+    # The veto is conditional: a trace carrying no assessment is unaffected by the denial.
+    assert _run_start_trace_v3() is True
+    assert _run_start_trace_v3([]) is True
+
+
+def test_start_trace_v3_inline_assessments_still_inherit_from_the_experiment(
+    workspace_permission_setup,
+):
+    # No assessment grant: the experiment decides, exactly as before.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+
+    assert _run_start_trace_v3(_AN_ASSESSMENT) is True
+
+
 _PROMPT_TAGS = [{"key": "mlflow.prompt.is_prompt", "value": "true"}]
 
 
