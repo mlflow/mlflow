@@ -7323,6 +7323,14 @@ class GraphQLAuthorizationMiddleware:
                     return False
                 input_obj.experiment_ids = readable_ids
 
+        elif field_name == "mlflowSearchModelVersions":
+            # Row filtering in ``_post_resolve`` cannot cover a ``run_id`` selector: the caller
+            # learns the run a returned version belongs to from the query matching at all, not from
+            # a field. So this refuses the request exactly as REST's
+            # ``validate_can_search_model_versions`` does.
+            if _model_version_filter_selects_run(getattr(input_obj, "filter", None) or ""):
+                return _run_tier_not_denied_in_workspace(username)
+
         return True
 
     def _post_resolve(self, field_name: str, result, username: str):
