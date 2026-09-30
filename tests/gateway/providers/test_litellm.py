@@ -292,11 +292,12 @@ async def test_chat_stream_keeps_parallel_tool_call_indices():
         yield make_chunk((1, None, None, '{"tz": "UTC"}'))
         yield make_chunk((0, None, None, '{"city": "Baku"}'))
 
-    with mock.patch("litellm.acompletion", return_value=mock_stream()):
+    with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_acompletion:
         provider = LiteLLMProvider(EndpointConfig(**chat_config()), enable_tracing=True)
         payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
         chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
 
+    mock_acompletion.assert_called_once()
     calls = [tc for c in chunks for tc in c.choices[0].delta.tool_calls]
     assert [tc.index for tc in calls] == [0, 1, 1, 0]
     args = {}

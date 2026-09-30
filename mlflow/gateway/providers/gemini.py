@@ -443,7 +443,7 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(
-        cls, resp: dict[str, Any], config, tool_call_offset: int = 0
+        cls, resp: dict[str, Any], config, tool_call_offsets: dict[int, int] | None = None
     ) -> chat_schema.StreamResponsePayload:
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         #
@@ -478,7 +478,7 @@ class GeminiAdapter(ProviderAdapter):
                     # it still contains the full function call arguments data.
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, True, tool_call_offset
+                            parts, finish_reason, idx, True, (tool_call_offsets or {}).get(idx, 0)
                         )
                     )
                     continue
@@ -900,8 +900,8 @@ class GeminiProvider(BaseProvider):
         )
 
         # Gemini sends each functionCall whole, but calls can arrive across chunks, so
-        # number them per stream.
-        tool_call_count = 0
+        # number them per stream, separately for each candidate.
+        tool_call_counts: dict[int, int] = {}
         async for raw in handle_incomplete_chunks(sse):
             text = raw.decode("utf-8", errors="ignore").strip()
             if not text.startswith("data:"):
@@ -910,10 +910,12 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
-            yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_count)
-            for cand in resp.get("candidates", [])[:1]:
+            yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
+            for idx, cand in enumerate(resp.get("candidates", [])):
                 parts = cand.get("content", {}).get("parts", [])
-                tool_call_count += sum(1 for part in parts if part.get("functionCall"))
+                tool_call_counts[idx] = tool_call_counts.get(idx, 0) + sum(
+                    1 for part in parts if part.get("functionCall")
+                )
 
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]
