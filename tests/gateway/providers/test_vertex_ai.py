@@ -290,6 +290,36 @@ async def test_chat_tool_calling_preserves_thought_signature():
     assert part["thoughtSignature"] == "opaque_thought_sig_token"
 
 
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_tool_choice(stream):
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"] = payload["messages"][:1]
+    payload["stream"] = stream
+    payload["tool_choice"] = {"type": "function", "function": {"name": "get_weather"}}
+    response = _chat_response()
+    mock_response = (
+        MockAsyncStreamingResponse([f"data: {json.dumps(response)}\n\n".encode()])
+        if stream
+        else MockAsyncResponse(response)
+    )
+    mock_client = mock_http_client(mock_response)
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        request = chat.RequestPayload(**payload)
+        if stream:
+            chunks = [chunk async for chunk in provider.chat_stream(request)]
+            assert chunks
+        else:
+            await provider.chat(request)
+
+    mock_client.post.assert_called_once()
+    sent_payload = mock_client.post.call_args.kwargs["json"]
+    assert sent_payload["toolConfig"] == {
+        "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": ["get_weather"]}
+    }
+
+
 @pytest.mark.asyncio
 async def test_chat_stream_tool_calling_omits_function_call_id():
     provider = _make_provider()
