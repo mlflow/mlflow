@@ -145,8 +145,11 @@ def _hash_array_like_obj_as_bytes(data):
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], np.ndarray):
         # convert numpy array of numpy arrays into 2d numpy arrays
         # because numpy array of numpy arrays are not hashable
-        hashable = np.array(data.tolist())
-        return _hash_ndarray_as_bytes(hashable)
+        try:
+            hashable = np.array(data.tolist())
+            return _hash_ndarray_as_bytes(hashable)
+        except ValueError:
+            return _hash_array_of_dict_as_bytes(data)
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
