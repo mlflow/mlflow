@@ -387,8 +387,6 @@ jobs:
             "network": {
               "allowedDomains": [
                 "localhost:8080",
-                "localhost:5000",
-                "localhost:3000",
                 "pypi.org",
                 "files.pythonhosted.org",
                 "registry.npmjs.org"
@@ -450,40 +448,6 @@ jobs:
             [[ "$snapshot" == *mlflow-browser-smoke* ]]
             agent-browser close
           '
-      - if: needs.safety.outputs.needs_ui == 'true'
-        id: ui
-        name: Start MLflow UI
-        timeout-minutes: 15
-        run: |
-          log="$RUNNER_TEMP/triage-ui.log"
-          if [ -f mlflow/server/js/build/index.html ]; then
-            ui_url=http://localhost:5000
-            mkdir -p "$RUNNER_TEMP/triage-ui/artifacts"
-            nohup uv run mlflow server --host localhost --port 5000 \
-              --backend-store-uri "sqlite:///$RUNNER_TEMP/triage-ui/mlflow.db" \
-              --default-artifact-root "$RUNNER_TEMP/triage-ui/artifacts" \
-              > "$log" 2>&1 < /dev/null &
-          else
-            nohup env HOST=localhost CI=false uv run dev/run_dev_server.py \
-              > "$log" 2>&1 < /dev/null &
-          fi
-          ui_pid=$!
-          for _ in $(seq 1 360); do
-            if [ -z "${ui_url:-}" ]; then
-              ui_url=$(sed -n 's/^Frontend: \(http:\/\/localhost:[0-9]*\).*/\1/p' "$log" | tail -1)
-            fi
-            if [ -n "${ui_url:-}" ] && curl --noproxy '*' -fsS "$ui_url/" > /dev/null; then
-              echo "url=$ui_url" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if ! kill -0 "$ui_pid" 2> /dev/null; then
-              tail -80 "$log"
-              exit 1
-            fi
-            sleep 2
-          done
-          tail -80 "$log"
-          exit 1
       - name: Triage issue
         env:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
@@ -492,8 +456,9 @@ jobs:
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
-          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
+          AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
+          NEEDS_UI: ${{ needs.safety.outputs.needs_ui }}
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
             Read the GitHub issue in ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
@@ -503,9 +468,9 @@ jobs:
             1. Run `uv run python -c "import mlflow; print(mlflow.__version__)"` in the
                current directory and note the version.
             2. UI reproduction needed: ${{ needs.safety.outputs.needs_ui }}.
-               If true, the MLflow UI is already running at ${{ steps.ui.outputs.url }}.
-               Keep browser navigation on local MLflow URLs. Run
-               `agent-browser open ${{ steps.ui.outputs.url }}`, inspect
+               If true, read the URL from /tmp/triage-ui-url; the MLflow UI is
+               already running there. Keep browser navigation on local MLflow
+               URLs. Run `agent-browser open <UI URL>`, inspect
                `agent-browser snapshot -i`, then run `agent-browser screenshot --full`
                without a filename. The screenshot must be saved under
                /tmp/triage-out/media; include its printed absolute path in the
@@ -523,17 +488,8 @@ jobs:
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout 30m srt --settings "$RUNNER_TEMP/srt.json" -- \
-            env -u NO_PROXY -u no_proxy claude \
-            --model databricks-claude-sonnet-5-5 \
-            --effort high \
-            --max-budget-usd 5 \
-            --permission-mode auto \
-            --disallowed-tools WebSearch \
-            --print \
-            --verbose \
-            --output-format stream-json \
-            "$PROMPT" \
+          timeout 40m srt --settings "$RUNNER_TEMP/srt.json" -- \
+            .claude/scripts/run-triage.sh \
             | .claude/scripts/stream.sh "$TRANSCRIPT" || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Write triage summary
