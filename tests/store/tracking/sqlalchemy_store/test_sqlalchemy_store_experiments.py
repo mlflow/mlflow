@@ -946,6 +946,20 @@ def test_create_experiments(store: SqlAlchemyStore):
         store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
 
 
+@pytest.mark.parametrize("name", [" ", "\t\n", "\u2003"])
+def test_experiment_name_cannot_be_whitespace(store: SqlAlchemyStore, name):
+    with pytest.raises(MlflowException, match="Invalid experiment name") as exc:
+        store.create_experiment(name)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert len(store.search_experiments()) == 1
+
+    experiment_id = store.create_experiment(" valid name ")
+    with pytest.raises(MlflowException, match="Invalid experiment name") as exc:
+        store.rename_experiment(experiment_id, name)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert store.get_experiment(experiment_id).name == " valid name "
+
+
 def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore, workspaces_enabled):
     artifact_location = None if workspaces_enabled else "some location"
     experiment_id = store.create_experiment(
