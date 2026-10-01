@@ -4062,6 +4062,52 @@ def test_log_outputs(store: SqlAlchemyStore):
     assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
 
 
+@pytest.mark.parametrize("scope_size", [800, 900, 901, 1200])
+def test_search_logged_models_large_experiment_scope_paginates(
+    store: SqlAlchemyStore, scope_size, limit_sqlite_variables
+):
+    limit_sqlite_variables(store.engine)
+    experiment_ids = [str(10000 + index) for index in range(scope_size)]
+    models = []
+    for index, name in zip([0, scope_size // 2, scope_size - 1], ["model-a", "model-b", "model-c"]):
+        experiment_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+        experiment_ids[index] = experiment_id
+        models.append(
+            store.create_logged_model(
+                experiment_id=experiment_id,
+                name=name,
+                params=[LoggedModelParameter("scope-test", "match")],
+            )
+        )
+    excluded_experiment = store.create_experiment(f"excluded-{uuid.uuid4()}")
+    store.create_logged_model(experiment_id=excluded_experiment, name="model-excluded")
+
+    def check_parameter_count(conn, cursor, statement, parameters, context, executemany):
+        assert len(parameters) <= 999
+
+    if store._get_dialect() == "sqlite":
+        sqlalchemy.event.listen(store.engine, "before_cursor_execute", check_parameter_count)
+    try:
+        param_values = ["match", *[f"other-{index}" for index in range(400)]]
+        kwargs = {
+            "experiment_ids": experiment_ids,
+            "filter_string": "name LIKE 'model-%' AND params.`scope-test` IN ("
+            + ", ".join(repr(value) for value in param_values)
+            + ")",
+            "max_results": 2,
+            "order_by": [{"field_name": "name", "ascending": True}],
+        }
+        first_page = store.search_logged_models(**kwargs)
+        assert [model.model_id for model in first_page] == [model.model_id for model in models[:2]]
+        assert first_page.token is not None
+        second_page = store.search_logged_models(**kwargs, page_token=first_page.token)
+        assert [model.model_id for model in second_page] == [models[2].model_id]
+        assert second_page.token is None
+    finally:
+        if store._get_dialect() == "sqlite":
+            sqlalchemy.event.remove(store.engine, "before_cursor_execute", check_parameter_count)
+
+
 def test_search_logged_models_quoted_value_that_looks_like_a_tuple(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(
