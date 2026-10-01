@@ -1535,3 +1535,42 @@ def test_span_is_not_iterable():
         iter(span)
     with pytest.raises(TypeError, match="not iterable"):
         _ = "name" in span
+
+
+def test_span_get_raises_helpful_attribute_error():
+    from mlflow.entities.span import LazySpan, NoOpSpan
+
+    expected_pattern = (
+        r"object has no attribute 'get'; a span is not a dict\. "
+        r"Use attribute access such as `span\.name`, `span\.inputs`, "
+        r"`span\.outputs`, or `span\.attributes`, or `span\.get_attribute\(key\)` "
+        r"for a span attribute\."
+    )
+
+    with mlflow.start_span("test_span") as live_span:
+        assert hasattr(live_span, "get") is False
+        with pytest.raises(AttributeError, match=expected_pattern):
+            _ = live_span.get
+        with pytest.raises(AttributeError, match=expected_pattern):
+            live_span.get("name")
+
+    span = live_span.to_immutable_span()
+    assert hasattr(span, "get") is False
+    with pytest.raises(AttributeError, match=expected_pattern):
+        _ = span.get
+    with pytest.raises(AttributeError, match=expected_pattern):
+        span.get("name")
+
+    lazy_span = LazySpan(span.to_dict())
+    assert hasattr(lazy_span, "get") is False
+    with pytest.raises(AttributeError, match=expected_pattern):
+        _ = lazy_span.get
+    with pytest.raises(AttributeError, match=expected_pattern):
+        lazy_span.get("name")
+
+    noop_span = NoOpSpan()
+    assert hasattr(noop_span, "get") is False
+    with pytest.raises(AttributeError, match=expected_pattern):
+        _ = noop_span.get
+    with pytest.raises(AttributeError, match=expected_pattern):
+        noop_span.get("name")

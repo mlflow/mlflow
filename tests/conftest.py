@@ -656,6 +656,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/statsmodels",
             "tests/tensorflow",
             "tests/transformers",
+            "tests/typesafe",
             "tests/xgboost",
             # Lazy loading test.
             "tests/test_mlflow_lazily_imports_ml_packages.py",
