@@ -376,6 +376,21 @@ const validateTemplateComponent = (component: Record<string, unknown>): string |
     }
   }
 
+  // TraceImage.uri is a DynamicString at render time (the resolved
+  // `mlflow-attachment://` URI), but a TEMPLATE must bind it to a spanField so
+  // each opened trace fetches its own image. A literal URI copied from
+  // traceSample would freeze every subsequent trace to the authoring image.
+  if (componentName === 'TraceImage') {
+    const uri = component['uri'];
+    if (!isSourceMarker(uri) || uri.$source !== SPAN_FIELD_SOURCE_NAME || !isValidSpanFieldMarker(uri)) {
+      return (
+        `Component "${id}" (${componentName}) must bind "uri" to a valid spanField marker. ` +
+        `Use { "$source": "spanField", "spanRef": <selector>, "field": "inputs"|"outputs"|"attributes", ` +
+        `"path": [...] }; a literal mlflow-attachment:// URI is not reusable across traces.`
+      );
+    }
+  }
+
   if ('renderIfSpan' in component && !isValidSpanRefSelector(unwrapSpanRefSelector(component['renderIfSpan']))) {
     return (
       `Component "${id}" (${componentName}) has an invalid "renderIfSpan" guard. Use a spanRef selector: ` +

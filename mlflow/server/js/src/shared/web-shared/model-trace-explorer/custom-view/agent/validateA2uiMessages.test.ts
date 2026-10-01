@@ -419,6 +419,22 @@ describe('validateTemplate catalog allowlist', () => {
     expect(result).toEqual({ ok: true, messages: expect.any(Array) });
   });
 
+  it('rejects a TraceImage whose uri is a literal attachment URI', () => {
+    const result = validateTemplate(
+      templateWith([
+        {
+          id: 'root',
+          component: 'TraceImage',
+          uri: 'mlflow-attachment://image-id?content_type=image%2Fjpeg&trace_id=tr-123',
+        },
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('must bind "uri" to a valid spanField marker'),
+    });
+  });
+
   it('rejects a component whose type collides with an Object.prototype member', () => {
     const result = validateTemplate(
       templateWith([
