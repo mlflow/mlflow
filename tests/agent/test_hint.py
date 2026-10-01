@@ -10,7 +10,7 @@ from mlflow.agent import hint
 from mlflow.agent.agents import AGENTS
 
 # Captured before the autouse fixture stubs it out.
-_REAL_BUNDLED_LOOKUP = hint._bundled_skill_manifest
+_REAL_BUNDLED_LOOKUP = hint._bundled_skills_dir
 
 
 @pytest.fixture
@@ -44,7 +44,8 @@ def bundled_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     manifest.parent.mkdir(parents=True)
     manifest.write_text("---\nname: tracing\n---\n")
     (skills / "README.md").write_text("# MLflow skills\n")
-    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: manifest)
+    monkeypatch.setattr(hint, "_bundled_skills_dir", lambda: skills)
+    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda *args, **kwargs: manifest)
     monkeypatch.setattr(hint.resources, "files", lambda _package: skills)
     return manifest
 
@@ -70,12 +71,14 @@ def test_hints_under_each_supported_agent(
     monkeypatch.setenv(marker, "1")
     message = hint_message()
     assert message is not None
-    # The hint points at the skill rather than restating its contents.
-    assert hint.TRACING_SKILL in message
-    assert "before writing any tracing" in message
+    # The hint points at the skills directory rather than restating its contents.
+    assert (
+        "MLflow skills for instrumenting, querying, and debugging traces are bundled at" in message
+    )
+    assert "read its README and load the matching SKILL.md" in message
     # One line, so any `| tail -N` or `| head -N` an agent appends keeps all of it.
     assert len(message.splitlines()) == 1
-    assert str(bundled_skill) in message
+    assert str(bundled_skill.parent.parent) in message
 
 
 def test_empty_marker_is_not_a_detection(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
@@ -102,16 +105,50 @@ def test_points_at_the_bundled_skill_rather_than_the_network(
 ):
     monkeypatch.setenv("CLAUDECODE", "1")
     message = hint_message()
-    assert str(bundled_skill) in message
+    assert str(bundled_skill.parent.parent) in message
     assert "github.com" not in message
     assert "http" not in message
 
 
 def test_silent_when_the_install_ships_no_skill(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLAUDECODE", "1")
-    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: None)
+    monkeypatch.setattr(hint, "_bundled_skills_dir", lambda: None)
     # Nothing local to point at, so say nothing rather than send the agent elsewhere.
     assert hint_message() is None
+
+
+def test_missing_skills_dir_is_claimed_once(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    lookup_mock = mock.Mock(return_value=None)
+    monkeypatch.setattr(hint, "_bundled_skills_dir", lookup_mock)
+    assert hint_message() is None
+    assert hint_message() is None
+    assert lookup_mock.call_count == 1
+
+
+def test_hint_is_emitted_once(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with mock.patch.object(hint._logger, "info") as info:
+        hint.maybe_hint_tracing_skill()
+        hint.maybe_hint_tracing_skill()
+    info.assert_called_once()
+
+
+def test_hint_is_emitted_once_across_threads(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with mock.patch.object(hint._logger, "info") as info:
+        threads = [
+            threading.Thread(
+                target=hint.maybe_hint_tracing_skill,
+                name=f"skills-hint-test-{index}",
+            )
+            for index in range(5)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    info.assert_called_once()
 
 
 def test_bundled_lookup_survives_a_missing_skills_package(monkeypatch: pytest.MonkeyPatch):
