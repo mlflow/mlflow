@@ -467,7 +467,9 @@ class GeminiAdapter(ProviderAdapter):
         #   "model": "gemini-2.0-flash"
         # }
         choices = []
-        for idx, cand in enumerate(resp.get("candidates", [])):
+        for pos, cand in enumerate(resp.get("candidates", [])):
+            # A chunk may carry only some candidates, so use the API index, not the position.
+            idx = cand.get("index", pos)
             parts = cand.get("content", {}).get("parts", [])
             finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
@@ -911,7 +913,8 @@ class GeminiProvider(BaseProvider):
                 break
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
-            for idx, cand in enumerate(resp.get("candidates", [])):
+            for pos, cand in enumerate(resp.get("candidates", [])):
+                idx = cand.get("index", pos)
                 parts = cand.get("content", {}).get("parts", [])
                 tool_call_counts[idx] = tool_call_counts.get(idx, 0) + sum(
                     1 for part in parts if part.get("functionCall")
