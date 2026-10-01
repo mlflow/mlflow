@@ -3772,6 +3772,12 @@
       "pricing": {
         "input_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.625
+          }
+        },
         "modality": {
           "image": {
             "cache_read_per_million_tokens": 2.0,
@@ -3787,7 +3793,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "gpt-image-2.5-flare-2026-09-08": {
       "mode": "image_generation",
@@ -3816,6 +3822,12 @@
       "pricing": {
         "input_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.625
+          }
+        },
         "modality": {
           "image": {
             "cache_read_per_million_tokens": 2.0,
@@ -3831,7 +3843,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "gpt-image-2.5-sunburst-2026-09-08": {
       "mode": "image_generation",

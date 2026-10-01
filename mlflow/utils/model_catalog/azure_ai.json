@@ -1303,8 +1303,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-19",
-      "last_updated_at": "2026-09-18"
+      "deprecation_date": "2026-11-15",
+      "last_updated_at": "2026-10-01"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -1349,8 +1349,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-19",
-      "last_updated_at": "2026-09-18"
+      "deprecation_date": "2026-11-24",
+      "last_updated_at": "2026-10-01"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -1527,8 +1527,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-19",
-      "last_updated_at": "2026-09-18"
+      "deprecation_date": "2026-11-15",
+      "last_updated_at": "2026-10-01"
     },
     "claude-sonnet-4-6": {
       "mode": "chat",
