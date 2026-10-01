@@ -33,6 +33,16 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 PREFIX = "/ajax-api/3.0/mlflow/skills"
 
+
+@pytest.fixture
+def mock_icon_hostname_resolution():
+    with mock.patch(
+        "mlflow.utils.validation._resolve_hostname_with_timeout",
+        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+    ):
+        yield
+
+
 EXPECTED_ROUTE_METHODS = {
     "": {"get", "post"},
     "/register": {"post"},
@@ -261,7 +271,9 @@ def test_register_rejects_unknown_request_fields(tmp_path: Path, db_uri: str):
     register.assert_not_called()
 
 
-def test_create_and_get_skill_without_organization(tmp_path: Path, db_uri: str):
+def test_create_and_get_skill_without_organization(
+    tmp_path: Path, db_uri: str, mock_icon_hostname_resolution
+):
     client, store = _create_client(tmp_path, db_uri)
     with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
         response = client.post(
@@ -340,7 +352,9 @@ def test_create_and_get_organization_skill(tmp_path: Path, db_uri: str):
         assert response.json()["organization"] == "acme"
 
 
-def test_update_skill_distinguishes_omitted_and_explicit_null_fields(tmp_path: Path, db_uri: str):
+def test_update_skill_distinguishes_omitted_and_explicit_null_fields(
+    tmp_path: Path, db_uri: str, mock_icon_hostname_resolution
+):
     client, store = _create_client(tmp_path, db_uri)
     store.create_skill(
         "code-review",

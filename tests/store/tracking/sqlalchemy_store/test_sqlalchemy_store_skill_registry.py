@@ -45,6 +45,15 @@ from mlflow.utils.workspace_context import WorkspaceContext
 pytestmark = pytest.mark.notrackingurimock
 
 
+@pytest.fixture
+def mock_icon_hostname_resolution():
+    with mock.patch(
+        "mlflow.utils.validation._resolve_hostname_with_timeout",
+        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+    ):
+        yield
+
+
 def test_create_and_get_skill(store):
     created = store.create_skill(
         "reviewer",
@@ -100,7 +109,7 @@ def test_update_skill_distinguishes_omitted_and_null_values(store):
     assert cleared.last_updated_by == "bob"
 
 
-def test_update_skill_preserves_resolved_fields(store):
+def test_update_skill_preserves_resolved_fields(store, mock_icon_hostname_resolution):
     store.create_skill_version("reviewer")
     store.create_skill_version("reviewer", status=SkillStatus.DRAFT.value)
 
@@ -146,7 +155,7 @@ def test_skill_source_type_is_resolved_from_latest_live_version(store):
     assert skill.source_type is None
 
 
-def test_skill_icons_round_trip_and_can_be_cleared(store):
+def test_skill_icons_round_trip_and_can_be_cleared(store, mock_icon_hostname_resolution):
     icons = [{"src": "https://example.com/reviewer.svg", "sizes": ["any"]}]
     created = store.create_skill("reviewer", icons=icons)
     assert created.icons == icons
@@ -169,7 +178,7 @@ def test_skill_icons_round_trip_and_can_be_cleared(store):
         ([{"src": "https://8.8.8.8/icon.png"}] * 101, "at most 100 items"),
     ],
 )
-def test_skill_icons_are_validated_on_create(store, icons, message):
+def test_skill_icons_are_validated_on_create(store, icons, message, mock_icon_hostname_resolution):
     with pytest.raises(MlflowException, match=message) as exc:
         store.create_skill("reviewer", icons=icons)
 
@@ -178,7 +187,7 @@ def test_skill_icons_are_validated_on_create(store, icons, message):
         store.get_skill("reviewer")
 
 
-def test_skill_icons_are_validated_on_update(store):
+def test_skill_icons_are_validated_on_update(store, mock_icon_hostname_resolution):
     original_icons = [{"src": "https://8.8.8.8/original.png"}]
     store.create_skill("reviewer", icons=original_icons)
 
@@ -199,7 +208,9 @@ def _get_skill_search_text(store, name="reviewer", organization="acme"):
         )
 
 
-def test_skill_search_text_is_persisted_and_recomputed_for_description_only(store):
+def test_skill_search_text_is_persisted_and_recomputed_for_description_only(
+    store, mock_icon_hostname_resolution
+):
     store.create_skill(
         "reviewer",
         organization="acme",
@@ -740,7 +751,9 @@ def test_skill_version_source_round_trip(store, source_type, source, expected_so
     assert retrieved.digest == digest
 
 
-def test_skill_version_auto_creates_parent_and_preserves_existing_parent(store):
+def test_skill_version_auto_creates_parent_and_preserves_existing_parent(
+    store, mock_icon_hostname_resolution
+):
     created = _persist_skill_version(store, status=SkillStatus.DRAFT.value)
     assert created.status == SkillStatus.DRAFT
 
