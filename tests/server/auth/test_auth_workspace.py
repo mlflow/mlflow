@@ -8085,6 +8085,87 @@ def test_logged_model_metrics_withhold_a_denied_runs_id(
     assert metric["model_id"] == "m-1"
 
 
+@pytest.mark.parametrize(
+    ("redactor", "route"),
+    [
+        ("redact_get_logged_model_run_ids", "/api/2.0/mlflow/logged-models/m-1"),
+        ("redact_created_logged_model_run_ids", "/api/2.0/mlflow/logged-models"),
+        ("redact_finalize_logged_model_run_ids", "/api/2.0/mlflow/logged-models/m-1"),
+        ("redact_set_logged_model_tags_run_ids", "/api/2.0/mlflow/logged-models/m-1/tags"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("run_grant", "source_kept"),
+    [(None, True), ("READ", True), ("DENY", False)],
+    ids=["no-run-grant", "run-read", "run-deny"],
+)
+def test_logged_model_withholds_a_denied_source_run(
+    workspace_permission_setup, monkeypatch, redactor, route, run_grant, source_kept
+):
+    """The redactors cleared metric run_id but left model.info.source_run_id, so a denied run's id
+    came back one field over from the reference that was being withheld.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    if run_grant:
+        _grant(store, username, "team-a", [("run", "*", run_grant)])
+
+    payload = {
+        "model": {
+            "info": {"model_id": "m-1", "experiment_id": "exp-1", "source_run_id": "run-1"},
+            "data": {"metrics": [_metric_row()]},
+        }
+    }
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(route, method="POST"):
+        with workspace_context.WorkspaceContext("team-a"):
+            getattr(auth_module, redactor)(flask_resp)
+    info = json.loads(flask_resp.get_data(as_text=True))["model"]["info"]
+
+    assert bool(info.get("source_run_id")) is source_kept
+    # The model is the subject and survives either way.
+    assert info["model_id"] == "m-1"
+
+
+def test_search_logged_models_withholds_a_denied_source_run(
+    workspace_permission_setup, monkeypatch
+):
+    """The listing path builds its own response and backfills pages, so it carries the redaction
+    separately from the shared point-read helper.
+    """
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), ("run", "*", DENY.name)],
+    )
+
+    payload = {
+        "models": [
+            {
+                "info": {"model_id": "m-1", "experiment_id": "exp-1", "source_run_id": "run-1"},
+                "data": {"metrics": [_metric_row()]},
+            }
+        ]
+    }
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/logged-models/search", method="POST", json={"experiment_ids": ["exp-1"]}
+    ):
+        with workspace_context.WorkspaceContext("team-a"):
+            auth_module.filter_search_logged_models(flask_resp)
+    models = json.loads(flask_resp.get_data(as_text=True))["models"]
+
+    assert [m["info"]["model_id"] for m in models] == ["m-1"]
+    assert "source_run_id" not in models[0]["info"]
+
+
 def _metric_row(model_id="m-1", run_id="run-1"):
     return {
         "key": "acc",
