@@ -19,7 +19,7 @@ URL="https://github.com/vercel-labs/agent-browser/releases/download/v$VERSION/ag
 tmp_bin="$(mktemp)"
 trap 'rm -f "$tmp_bin"' EXIT
 
-curl -fsSL --retry 3 --retry-delay 2 "$URL" -o "$tmp_bin"
+curl -fsSL --connect-timeout 10 --max-time 120 --retry 3 --retry-delay 2 "$URL" -o "$tmp_bin"
 echo "${CHECKSUM}  $tmp_bin" | sha256sum -c -
 mkdir -p ~/.local/bin
 chmod +x "$tmp_bin"
