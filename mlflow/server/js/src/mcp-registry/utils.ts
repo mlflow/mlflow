@@ -2,7 +2,6 @@ import type { TagProps } from '@databricks/design-system';
 import type {
   ConnectOptionKey,
   MCPAccessEndpoint,
-  MCPIcon,
   MCPServer,
   MCPRemoteTransportType,
   MCPTool,
@@ -12,24 +11,8 @@ import type {
 } from './types';
 import { MCPStatus, MCPServerAction } from './types';
 
-export const resolveIcon = (icons?: MCPIcon[], isDarkMode?: boolean): MCPIcon | undefined => {
-  if (!icons?.length) return undefined;
-  const preferred = isDarkMode ? 'dark' : 'light';
-  return icons.find((i) => i.theme === preferred) ?? icons.find((i) => !i.theme);
-};
-
-export const sanitizeHref = (url: string | undefined): string | undefined => {
-  if (!url) return undefined;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return url;
-    }
-  } catch {
-    // malformed URL
-  }
-  return undefined;
-};
+export { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '../common/hooks/useCursorPaginatedQuery';
+export { resolveIcon, sanitizeHref } from '../common/utils/registryIcons';
 
 export const STATUS_TAG_COLOR: Record<MCPStatus, TagProps['color']> = {
   [MCPStatus.DRAFT]: 'charcoal',
@@ -56,9 +39,6 @@ export const MCP_QUERY_KEYS = {
   SERVER_LATEST_VERSION: 'mcp_server_latest_version',
   SERVER_ENDPOINTS: 'mcp_server_endpoints',
 } as const;
-
-export const DEFAULT_PAGE_SIZE = 25;
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export const resolveDisplayName = (server: { display_name?: string; name: string }): string => {
   return server.display_name || server.name;
