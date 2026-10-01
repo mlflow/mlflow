@@ -65,6 +65,14 @@ class Requirement(NamedTuple):
     grant on this resource's own type -- inheritance declared per operation rather than in a
     global parent map.
 
+    A fallback entry is either a bare ``(resource_type, resource_id)`` key, which inherits this
+    requirement's own ``action``, or a ``Requirement`` naming its own ``action`` for that rung.
+    The second form exists because a destructive operation on a sub-resource can require
+    ``delete`` of a grant on the tier itself while a caller holding no tier grant inherits the
+    weaker level the pre-existing check used -- two cases that differ by WHICH key governs, not
+    by the permission it yields. A fallback ``Requirement`` may not itself carry
+    ``fallback_if_no_grant``: a chain is declared in one place, flat and readable.
+
     Two shapes are used in practice:
 
     * an operation on an EXISTING sub-resource states one requirement whose chain ends where
@@ -80,15 +88,42 @@ class Requirement(NamedTuple):
     resource_type: str
     resource_id: str | None  # None for create-in-workspace
     action: str  # read | use | update | delete | manage | create | not_denied
-    fallback_if_no_grant: "tuple[tuple[str, str], ...]" = ()
+    # Each entry: a bare (type, id) key inheriting ``action``, or a Requirement with its own.
+    fallback_if_no_grant: "tuple[tuple[str, str] | Requirement, ...]" = ()
+
+
+def requirement_rungs(requirement: Requirement) -> "list[tuple[GrantLoadKey, str]]":
+    """Each key that could decide ``requirement`` paired with the action it must satisfy.
+
+    Own key first, then each fallback in order. A bare ``(type, id)`` fallback inherits
+    ``requirement.action``; a ``Requirement`` fallback supplies its own.
+    """
+    rungs = [
+        (
+            GrantLoadKey(requirement.resource_type, requirement.resource_id or "*"),
+            requirement.action,
+        )
+    ]
+    for entry in requirement.fallback_if_no_grant:
+        if isinstance(entry, Requirement):
+            if entry.fallback_if_no_grant:
+                raise ValueError(
+                    f"Fallback requirement {entry.resource_type!r} may not declare its own "
+                    "fallback_if_no_grant; list every rung on the outermost requirement."
+                )
+            rungs.append((
+                GrantLoadKey(entry.resource_type, entry.resource_id or "*"),
+                entry.action,
+            ))
+        else:
+            resource_type, resource_id = entry
+            rungs.append((GrantLoadKey(resource_type, resource_id), requirement.action))
+    return rungs
 
 
 def requirement_to_grant_load_keys(requirement: Requirement) -> list[GrantLoadKey]:
     """The keys that could decide ``requirement``: its own first, then each fallback."""
-    return [
-        GrantLoadKey(requirement.resource_type, requirement.resource_id or "*"),
-        *(GrantLoadKey(t, i) for t, i in requirement.fallback_if_no_grant),
-    ]
+    return [key for key, _action in requirement_rungs(requirement)]
 
 
 def requirements_to_grant_load_keys(
@@ -143,14 +178,51 @@ def governing_permission(
     absent: Permission,
 ) -> Permission:
     """Which key's grant governs ``requirement`` -- the tier override."""
-    for key in requirement_to_grant_load_keys(requirement):
+    return governing_permission_and_action(requirement, grants, default_permission, absent)[0]
+
+
+def governing_permission_and_action(
+    requirement: Requirement,
+    grants: "dict[GrantLoadKey, Permission | None]",
+    default_permission: str,
+    absent: Permission,
+) -> "tuple[Permission, str]":
+    """The governing permission AND the action that rung requires.
+
+    They are resolved together because a fallback rung may carry a different action from the
+    requirement's own key, so the permission alone no longer determines what must be satisfied.
+    """
+    rungs = requirement_rungs(requirement)
+    for key, action in rungs:
         grant = grants[key]
         if grant is not None:
-            return grant if grant.denied else floor_positive_permission(grant, default_permission)
-    return floor_positive_permission(absent, default_permission)
+            permission = (
+                grant if grant.denied else floor_positive_permission(grant, default_permission)
+            )
+            return permission, action
+    # No rung held a grant: the last rung's action is the inherited level, which is the one a
+    # caller with no grant anywhere has to clear.
+    return floor_positive_permission(absent, default_permission), rungs[-1][1]
+
+
+def action_met(action: str, permission: Permission) -> bool:
+    if action == ACTION_NOT_DENIED:
+        return not permission.denied
+    return bool(getattr(permission, _ACTION_CAPABILITY[action]))
 
 
 def requirement_met(requirement: Requirement, permission: Permission) -> bool:
-    if requirement.action == ACTION_NOT_DENIED:
-        return not permission.denied
-    return bool(getattr(permission, _ACTION_CAPABILITY[requirement.action]))
+    return action_met(requirement.action, permission)
+
+
+def requirement_satisfied(
+    requirement: Requirement,
+    grants: "dict[GrantLoadKey, Permission | None]",
+    default_permission: str,
+    absent: Permission,
+) -> bool:
+    """Whether ``requirement`` is satisfied, honoring a fallback rung's own action."""
+    permission, action = governing_permission_and_action(
+        requirement, grants, default_permission, absent
+    )
+    return action_met(action, permission)
