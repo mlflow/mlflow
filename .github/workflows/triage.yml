@@ -462,11 +462,21 @@ jobs:
                10,000 characters. Create the output directory first.
         run: |
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
+          mkdir -p "${TMPDIR:-/tmp}"
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           timeout 40m srt --settings "$RUNNER_TEMP/srt.json" -- \
-            .claude/scripts/run-triage.sh \
+            env -u NO_PROXY -u no_proxy claude \
+            --model databricks-claude-sonnet-5-5 \
+            --effort high \
+            --max-budget-usd 5 \
+            --permission-mode auto \
+            --disallowed-tools WebSearch \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "$PROMPT" \
             | .claude/scripts/stream.sh "$TRANSCRIPT" || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Write triage summary
