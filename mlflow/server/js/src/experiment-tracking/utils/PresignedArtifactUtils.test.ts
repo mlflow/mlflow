@@ -95,6 +95,34 @@ describe('presigned artifact utilities', () => {
     await expect(resolvePresignedArtifactDownload(params)).rejects.toMatchObject({ status: 501 });
   });
 
+  it('falls back when a browser CORS error blocks a presigned preview unless the server enforces it', async () => {
+    mockedMultipartDownloads.mockReturnValue(true);
+    jest.spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl').mockResolvedValue({
+      url: 'https://storage.example/file',
+      headers: {},
+    });
+    const getArtifact = jest
+      .fn<(url: string, options?: unknown) => Promise<string>>()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce('legacy contents');
+    const params = {
+      runUuid: 'run-id',
+      path: 'file.txt',
+      artifactRootUri: 'mlflow-artifacts:/12/run-id/artifacts',
+    };
+
+    await expect(fetchArtifactWithPresignedUrl(params, '/get-artifact', getArtifact)).resolves.toBe('legacy contents');
+    expect(getArtifact).toHaveBeenNthCalledWith(1, 'https://storage.example/file', { headers: {} });
+    expect(getArtifact).toHaveBeenNthCalledWith(2, '/get-artifact');
+
+    mockedPresignedOnly.mockReturnValue(true);
+    getArtifact.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(fetchArtifactWithPresignedUrl(params, '/get-artifact', getArtifact)).rejects.toThrow(
+      'Failed to fetch',
+    );
+    expect(getArtifact).toHaveBeenCalledTimes(1);
+  });
+
   it('resolves direct logged-model artifacts through their download credentials', async () => {
     jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead').mockResolvedValue({
       credentials: [
@@ -140,6 +168,23 @@ describe('presigned artifact utilities', () => {
       headers: { 'Content-Type': 'application/json' },
       body: '{"value":1}',
     });
+  });
+
+  it('allows a legacy upload fallback after a browser CORS error unless the server enforces it', async () => {
+    mockedRunUploadSupported.mockReturnValue(true);
+    jest.spyOn(MlflowService, 'getRun').mockResolvedValue({
+      run: { info: { artifactUri: 's3://bucket/run-id/artifacts' } },
+    } as any);
+    jest.spyOn(MlflowService, 'createPresignedUploadUrl').mockResolvedValue({
+      presigned_url: 'https://storage.example/upload',
+      headers: {},
+    });
+    jest.spyOn(global, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(uploadArtifactWithPresignedUrl('run-id', 'prompt.json', '{}')).resolves.toBe(false);
+
+    mockedPresignedOnly.mockReturnValue(true);
+    await expect(uploadArtifactWithPresignedUrl('run-id', 'prompt.json', '{}')).rejects.toThrow('Failed to fetch');
   });
 
   it('completes a one-part upload for proxied run artifacts', async () => {

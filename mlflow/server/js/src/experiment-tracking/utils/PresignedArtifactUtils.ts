@@ -66,6 +66,10 @@ export const getProxiedArtifactPath = (artifactRootUri?: string, artifactPath = 
 const getErrorStatus = (error: unknown) => (error instanceof ErrorWrapper ? error.getStatus() : undefined);
 
 const canFallBackFromPresignedError = (error: unknown) => {
+  // Browser fetch reports network and CORS failures as TypeError without an HTTP status.
+  if (error instanceof TypeError) {
+    return true;
+  }
   const status = getErrorStatus(error);
   return status !== undefined && PRESIGNED_FALLBACK_STATUSES.includes(status);
 };
@@ -167,9 +171,17 @@ export const fetchArtifactWithPresignedUrl = async <T>(
   getArtifactData: GetArtifactDataFn<T>,
 ) => {
   const presigned = await resolvePresignedArtifactDownload(params);
-  return presigned
-    ? getArtifactData(presigned.url, { headers: presigned.headers })
-    : getArtifactData(legacyArtifactLocation);
+  if (!presigned) {
+    return getArtifactData(legacyArtifactLocation);
+  }
+  try {
+    return await getArtifactData(presigned.url, { headers: presigned.headers });
+  } catch (error) {
+    if (!getArtifactsPresignedOnlySync() && canFallBackFromPresignedError(error)) {
+      return getArtifactData(legacyArtifactLocation);
+    }
+    throw error;
+  }
 };
 
 export const fetchRunArtifactWithPresignedUrl = async <T>(
