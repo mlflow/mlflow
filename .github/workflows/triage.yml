@@ -164,6 +164,18 @@ jobs:
           result=$(jq -ce 'select(.stop_reason == "end_turn") | .content[] | select(.type == "text") | .text | fromjson' <<< "$response")
           decision=$(jq -r .decision <<< "$result")
           echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          # $GITHUB_OUTPUT is line-based; a newline in model text could inject another output (e.g. decision=safe).
+          echo "rationale=$(jq -r '.rationale | [splits("\\s+")] | join(" ") | .[:240]' <<< "$result")" >> "$GITHUB_OUTPUT"
+      - name: Write summary
+        if: always()
+        env:
+          DECISION: ${{ steps.assess.outputs.decision || 'uncertain' }}
+          RATIONALE: ${{ steps.assess.outputs.rationale || 'Safety assessment failed operationally.' }}
+        run: |
+          # The rationale is untrusted. Escape it and keep it in an HTML block so it can't render links or markup.
+          jq -rn --arg decision "$DECISION" --arg rationale "$RATIONALE" \
+            '"### AI safety assessment\n\n<p><strong>\($decision | @html)</strong>: \($rationale | @html)</p>"' \
+            >> "$GITHUB_STEP_SUMMARY"
       - if: steps.assess.outputs.decision == 'safe'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
