@@ -363,6 +363,12 @@ class MCPServerResponse(BaseModel):
         )
 
 
+def _mcp_server_response_with_actions(server: MCPServer, request: Request) -> MCPServerResponse:
+    resolver = getattr(request.state, "mcp_server_allowed_actions", None)
+    actions = resolver(server.name) if resolver else ["USE", "UPDATE", "DELETE", "MANAGE"]
+    return MCPServerResponse.from_entity(server).model_copy(update={"allowed_actions": actions})
+
+
 class MCPServerVersionResponse(BaseModel):
     name: str
     version: str
@@ -600,29 +606,13 @@ def search_mcp_servers(
 ) -> SearchMCPServersResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    username = getattr(request.state, "username", None)
-    is_admin = getattr(request.state, "is_admin", False)
-
     results = _get_tracking_store().search_mcp_servers(
-        filter_string=filter_string,
+        filter_string=getattr(request.state, "mlflow_scoped_mcp_server_filter", filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
     )
-    if username:
-        from mlflow.server.auth import _get_mcp_server_permission, _permission_to_allowed_actions
-
-        def _with_actions(s):
-            actions = (
-                ["USE", "UPDATE", "DELETE", "MANAGE"]
-                if is_admin
-                else _permission_to_allowed_actions(_get_mcp_server_permission(s.name, username))
-            )
-            return MCPServerResponse.from_entity(s).model_copy(update={"allowed_actions": actions})
-
-        servers = [_with_actions(s) for s in results]
-    else:
-        servers = [MCPServerResponse.from_entity(s) for s in results]
+    servers = [_mcp_server_response_with_actions(server, request) for server in results]
     return SearchMCPServersResponse(mcp_servers=servers, next_page_token=results.token)
 
 
@@ -893,11 +883,11 @@ def delete_mcp_server_alias(name: str, alias: str) -> dict[str, Any]:
 
 # Catch-all — must be registered last so {name:path} doesn't swallow sub-resource routes
 @mcp_server_router.get("/{name:path}", response_model=MCPServerResponse)
-def get_mcp_server(name: str) -> MCPServerResponse:
+def get_mcp_server(name: str, request: Request) -> MCPServerResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     server = _get_tracking_store().get_mcp_server(name)
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.patch("/{name:path}", response_model=MCPServerResponse)

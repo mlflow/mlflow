@@ -1,4 +1,3 @@
-import json
 import logging
 import threading
 import urllib
@@ -28,9 +27,12 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
+    _SQLITE_LARGE_IN_THRESHOLD,
     _all_tables_exist,
+    _get_large_sqlite_in_subquery,
     _get_managed_session_maker,
     _get_routing_session_maker,
+    _get_sqlite_safe_statement,
     _initialize_tables,
     create_sqlalchemy_engine_with_retry,
 )
@@ -72,21 +74,6 @@ from mlflow.utils.validation import (
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
-
-_SQLITE_LARGE_IN_THRESHOLD = 900
-
-
-def _get_large_sqlite_in_subquery(session: Session, values: tuple[str, ...]):
-    try:
-        session.execute(select(sqlalchemy.func.json_valid("[]"))).scalar()
-    except sqlalchemy.exc.OperationalError as e:
-        if "no such function" in str(e).lower():
-            raise MlflowException.invalid_parameter_value(
-                "Large SQLite IN filters require SQLite JSON support (json_each)."
-            ) from e
-        raise
-    json_values = sqlalchemy.func.json_each(json.dumps(values)).table_valued("value")
-    return select(json_values.c.value)
 
 
 def _get_attribute_filter(session: Session, attr, comparator, value, dialect):
@@ -601,7 +588,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             if page_token:
                 query = query.offset(offset)
-            sql_registered_models = session.execute(query).scalars().all()
+            sql_registered_models = (
+                session.execute(_get_sqlite_safe_statement(query, session)).scalars().all()
+            )
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_registered_models), offset, max_results
             )
@@ -1401,7 +1390,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             if page_token:
                 query = query.offset(offset)
-            sql_model_versions = session.execute(query).scalars().all()
+            sql_model_versions = (
+                session.execute(_get_sqlite_safe_statement(query, session)).scalars().all()
+            )
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_model_versions), offset, max_results
             )

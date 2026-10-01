@@ -1,10 +1,12 @@
 import hashlib
+import json
 import logging
 import os
 import re
 import sqlite3
 import tempfile
 import time
+from collections.abc import Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from packaging.version import Version
 from sqlalchemy import BigInteger, event, func, literal_column, sql
+from sqlalchemy.orm import Session
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
@@ -23,7 +26,8 @@ from sqlalchemy.pool import (
     SingletonThreadPool,
     StaticPool,
 )
-from sqlalchemy.sql.elements import BinaryExpression
+from sqlalchemy.sql import operators, visitors
+from sqlalchemy.sql.elements import BinaryExpression, BindParameter
 
 # CRITICAL: Import ORM modules to register all table metadata with Base.metadata.
 # _all_tables_exist() depends on Base.metadata.tables being fully populated.
@@ -56,6 +60,59 @@ from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 _logger = logging.getLogger(__name__)
 
 MAX_RETRY_COUNT = 10
+_SQLITE_LARGE_IN_THRESHOLD = 900
+_SQLITE_MAX_VARIABLE_NUMBER = 999
+
+
+def _get_sqlite_safe_statement(statement, session: Session):
+    dialect = session.get_bind().dialect
+    if dialect.name != SQLITE:
+        return statement
+
+    def parameter_count(stmt):
+        compiled = stmt.compile(dialect=dialect, compile_kwargs={"render_postcompile": True})
+        return len(compiled.positiontup)
+
+    if parameter_count(statement) <= _SQLITE_MAX_VARIABLE_NUMBER:
+        return statement
+
+    def replace(element):
+        if (
+            isinstance(element, BinaryExpression)
+            and element.operator in (operators.in_op, operators.not_in_op)
+            and isinstance(element.right, BindParameter)
+            and element.right.expanding
+            and isinstance(element.right.value, (list, tuple, set))
+            and len(element.right.value) > 1
+            and all(isinstance(value, (str, int)) for value in element.right.value)
+        ):
+            in_filter = element.left.in_(
+                _get_large_sqlite_in_subquery(session, list(element.right.value))
+            )
+            return ~in_filter if element.operator == operators.not_in_op else in_filter
+
+    # Count the final statement, including joins, workspace predicates, and pagination.
+    # Multiple small IN lists can exceed the limit just as a single large list can.
+    statement = visitors.replacement_traverse(statement, {}, replace)
+    if parameter_count(statement) > _SQLITE_MAX_VARIABLE_NUMBER:
+        raise MlflowException.invalid_parameter_value(
+            "SQLite search filters exceed the statement's limit of 999 bound parameters."
+        )
+    return statement
+
+
+def _get_large_sqlite_in_subquery(session: Session, values: Sequence[str | int]):
+    try:
+        session.execute(sqlalchemy.select(sqlalchemy.func.json_valid("[]"))).scalar()
+    except sqlalchemy.exc.OperationalError as e:
+        if "no such function" in str(e).lower():
+            raise MlflowException.invalid_parameter_value(
+                "Large SQLite IN filters require SQLite JSON support (json_each)."
+            ) from e
+        raise
+    # A single JSON binding keeps large scopes below SQLite's host-parameter limit.
+    json_values = sqlalchemy.func.json_each(json.dumps(values)).table_valued("value")
+    return sqlalchemy.select(json_values.c.value)
 
 
 def _get_package_dir():

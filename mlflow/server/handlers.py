@@ -24,7 +24,7 @@ from flask import (
     Response,
     current_app,
     g,
-    has_app_context,
+    has_request_context,
     jsonify,
     request,
     send_file,
@@ -1053,6 +1053,15 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
+def _get_scoped_request_data(flask_request: Request, key: str) -> dict[str, Any] | None:
+    # Authorization overrides belong only to the active request, not an explicit alternate request.
+    if has_request_context() and (
+        flask_request is request or flask_request is request._get_current_object()
+    ):
+        return g.get(key)
+    return None
+
+
 def _get_normalized_request_json(flask_request: Request = request) -> dict[str, Any]:
     """
     Get request JSON with normalization for legacy clients.
@@ -1065,7 +1074,7 @@ def _get_normalized_request_json(flask_request: Request = request) -> dict[str, 
     Returns:
         The request data as a dictionary (empty dict if no body).
     """
-    request_json = g.get("mlflow_scoped_request_json") if has_app_context() else None
+    request_json = _get_scoped_request_data(flask_request, "mlflow_scoped_request_json")
     if request_json is None:
         request_json = _get_request_json(flask_request)
 
@@ -1162,21 +1171,31 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
             return field.name in scoped_request_json or field.json_name in scoped_request_json
         if request.method == "GET":
             scoped_request_overrides = g.get("mlflow_scoped_request_overrides")
-            if scoped_request_overrides is not None:
-                return (
-                    field.name in scoped_request_overrides
-                    or field.json_name in scoped_request_overrides
-                )
-            return field.name in request.args
+            if scoped_request_overrides is not None and (
+                field.name in scoped_request_overrides
+                or field.json_name in scoped_request_overrides
+            ):
+                return True
+            return field.name in request.args or field.json_name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
     except RuntimeError:
         return False
 
 
+def _get_search_filter(filter_string: str) -> str:
+    # Protobuf deserialization strips string subclasses. Recover the server-generated scope
+    # from the current request so parsers can keep it separate from the caller's filter.
+    for key in ("mlflow_scoped_request_json", "mlflow_scoped_request_overrides"):
+        if (data := _get_scoped_request_data(request, key)) is not None:
+            if (scoped_filter := data.get("filter")) == filter_string:
+                return scoped_filter
+    return filter_string
+
+
 def _get_request_message(request_message, flask_request=request, schema=None):
-    scoped_request_overrides = (
-        g.get("mlflow_scoped_request_overrides") if has_app_context() else None
+    scoped_request_overrides = _get_scoped_request_data(
+        flask_request, "mlflow_scoped_request_overrides"
     )
     if flask_request.method == "GET" and (flask_request.args or scoped_request_overrides):
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
@@ -2793,7 +2812,7 @@ def _search_experiments():
         view_type=request_message.view_type,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        filter_string=request_message.filter,
+        filter_string=_get_search_filter(request_message.filter),
         page_token=request_message.page_token or None,
     )
     response_message = SearchExperiments.Response()
@@ -3047,7 +3066,7 @@ def _search_registered_models():
     )
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
-        filter_string=request_message.filter,
+        filter_string=_get_search_filter(request_message.filter),
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         page_token=request_message.page_token or None,
@@ -3630,7 +3649,7 @@ def _search_model_versions():
 def search_model_versions_impl(request_message):
     store = _get_model_registry_store()
     model_versions = store.search_model_versions(
-        filter_string=request_message.filter,
+        filter_string=_get_search_filter(request_message.filter),
         max_results=request_message.max_results,
         order_by=request_message.order_by,
         page_token=request_message.page_token or None,
