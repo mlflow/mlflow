@@ -15,6 +15,8 @@ def register_artifact_dataset_sources():
 
     registered_source_schemes = set()
     artifact_schemes_to_exclude = [
+        # The file scheme source also resolves local paths without a URI scheme.
+        "",
         "http",
         "https",
         "runs",

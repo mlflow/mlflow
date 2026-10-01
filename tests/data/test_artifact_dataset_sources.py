@@ -1,5 +1,6 @@
 import json
 import os
+import warnings
 from unittest import mock
 
 import pytest
@@ -7,6 +8,23 @@ import pytest
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json, resolve_dataset_source
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+
+
+@pytest.mark.parametrize("uri_format", ["relative", "absolute", "file", "path"])
+def test_local_dataset_source_resolves_without_ambiguity(tmp_path, uri_format):
+    source_uri = {
+        "relative": "data.csv",
+        "absolute": str(tmp_path / "data.csv"),
+        "file": (tmp_path / "data.csv").as_uri(),
+        "path": tmp_path / "data.csv",
+    }[uri_format]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        source = resolve_dataset_source(source_uri)
+    assert caught == []
+    assert source._get_source_type() == "local"
+    assert source.uri == str(source_uri)
+    assert get_dataset_source_from_json(source.to_json(), "local").uri == str(source_uri)
 
 
 @pytest.mark.parametrize(
