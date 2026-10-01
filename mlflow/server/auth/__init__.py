@@ -1786,12 +1786,18 @@ def validate_can_update_experiment():
     return _get_permission_from_experiment_id().can_update
 
 
+# Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
+# become unreachable with their experiment, so the delete reaches them all the same -- and
+# ``_hard_delete_experiment`` (``mlflow gc``) destroys them outright through the scorers and
+# scorer_versions foreign keys, both declared ON DELETE CASCADE.
 _EXPERIMENT_CASCADE_TIERS = (
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_LOGGED_MODEL,
     RESOURCE_TYPE_ASSESSMENT,
     RESOURCE_TYPE_REVIEW_QUEUE,
+    RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SCORER_VERSION,
 )
 
 
