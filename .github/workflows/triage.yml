@@ -458,11 +458,12 @@ jobs:
                current directory and note the version.
             2. Take a screenshot of the local MLflow UI. If
                mlflow/server/js/build/index.html exists, start the backend on
-               127.0.0.1:5000 in the background with a temporary SQLite store and
-               artifact directory, then use the UI it serves. Otherwise,
-               run `CI=false uv run dev/run_dev_server.py` in the background, send
-               its output to a log, and use the frontend URL printed there. Wait until the
-               UI responds. Keep browser navigation on local MLflow URLs. Run
+               localhost:5000 in the background with a temporary SQLite store and
+               artifact directory, then open http://localhost:5000. Otherwise,
+               run `HOST=localhost CI=false uv run dev/run_dev_server.py` in the
+               background, send its output to a log, and use the frontend URL printed
+               there. Wait until the UI responds. Keep browser navigation on local
+               MLflow URLs. Run
                `agent-browser open <UI URL>`, inspect `agent-browser snapshot -i`,
                then run `agent-browser screenshot --full` without a filename. The
                screenshot must be saved under /tmp/triage-out/media; include its
