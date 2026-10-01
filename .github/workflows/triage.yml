@@ -363,7 +363,8 @@ jobs:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: placeholder
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
-          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5-5
+          # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
@@ -406,6 +407,11 @@ jobs:
                    (.summary | type == "string" and length > 0))
             | "### Issue triage\n\n<p><strong>Issue #\($number)</strong> (MLflow \(.version | @html)): \(.summary | @html)</p>"
           ' /tmp/triage-out/report.json >> "$GITHUB_STEP_SUMMARY"
+      # Paths and status codes only; nginx doesn't log request headers.
+      - name: Gateway proxy log
+        if: always()
+        continue-on-error: true
+        run: docker logs gw-proxy
       - name: Stop gateway proxy
         if: always()
         run: docker rm -f gw-proxy 2>/dev/null || true
