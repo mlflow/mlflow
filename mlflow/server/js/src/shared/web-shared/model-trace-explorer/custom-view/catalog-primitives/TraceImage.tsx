@@ -14,7 +14,7 @@ const TraceImageApi = {
     .object({
       uri: DynamicStringSchema.describe('An mlflow-attachment:// URI for an image stored on the current trace.'),
       title: DynamicStringSchema.describe('Optional heading shown above the image.').optional(),
-      weight: z.number().optional(),
+      weight: z.number().describe('Relative flex weight when placed directly inside a Row/Column.').optional(),
     })
     .strict(),
 } satisfies ComponentApi;
@@ -22,11 +22,13 @@ const TraceImageApi = {
 export const TraceImage: ReactComponentImplementation = createComponentImplementation(TraceImageApi, ({ props }) => {
   const uri = asString(props.uri);
   const title = props.title ? asString(props.title) : '';
+  const weight = typeof props.weight === 'number' ? props.weight : undefined;
+  const flexStyle = weight !== undefined ? { flex: `${weight}`, minWidth: 0 } : undefined;
   const attachment = parseAttachmentUri(uri);
 
   if (!attachment || !attachment.contentType.startsWith('image/')) {
     return (
-      <Typography.Text color="secondary">
+      <Typography.Text color="secondary" css={flexStyle}>
         <FormattedMessage
           defaultMessage="Image unavailable"
           description="Fallback shown when a custom trace view image binding is missing or invalid"
@@ -36,12 +38,14 @@ export const TraceImage: ReactComponentImplementation = createComponentImplement
   }
 
   return (
-    <ModelTraceExplorerAttachmentRenderer
-      title={title}
-      attachmentId={attachment.attachmentId}
-      traceId={attachment.traceId}
-      contentType={attachment.contentType}
-      size={attachment.size}
-    />
+    <div css={flexStyle}>
+      <ModelTraceExplorerAttachmentRenderer
+        title={title}
+        attachmentId={attachment.attachmentId}
+        traceId={attachment.traceId}
+        contentType={attachment.contentType}
+        size={attachment.size}
+      />
+    </div>
   );
 });
