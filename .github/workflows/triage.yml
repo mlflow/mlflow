@@ -183,32 +183,44 @@ jobs:
             In the rationale, say in one sentence what would take the agent beyond normal
             work on the issue, or why nothing does, without quoting the issue.
         run: |
+          # Databricks supports structured outputs for Claude only on its OpenAI-compatible
+          # surface (response_format); the Anthropic surface rejects output_config.format.
+          # https://docs.databricks.com/aws/en/machine-learning/model-serving/structured-outputs
           payload=$(jq -c --arg prompt "$PROMPT" '{
             model: "databricks-claude-sonnet-5-5",
             max_tokens: 4096,
-            system: $prompt,
-            messages: [{role: "user", content: ({title, body} | tojson)}],
-            output_config: {effort: "low", format: {type: "json_schema", schema: {
-              type: "object",
-              additionalProperties: false,
-              required: ["decision", "rationale"],
-              properties: {
-                decision: {type: "string", enum: ["safe", "unsafe", "uncertain"]},
-                rationale: {type: "string"}
+            messages: [
+              {role: "system", content: $prompt},
+              {role: "user", content: ({title, body} | tojson)}
+            ],
+            response_format: {type: "json_schema", json_schema: {
+              name: "safety_decision",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["decision", "rationale"],
+                properties: {
+                  decision: {type: "string", enum: ["safe", "unsafe", "uncertain"]},
+                  rationale: {type: "string"}
+                }
               }
-            }}}
+            }}
           }' "$RUNNER_TEMP/sanitized_issue.json")
           # On failure, print the gateway's error body; it names the cause (e.g. an unknown model).
           response=$(curl -sS --fail-with-body --max-time 30 --retry 3 \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            -H "anthropic-version: 2023-06-01" \
             -H "$CUSTOM_HEADERS" \
             --data-binary "$payload" \
-            "$BASE_URL/anthropic/v1/messages") || { printf '%s\n' "$response" >&2; exit 1; }
+            "$BASE_URL/openai/v1/chat/completions") || { printf '%s\n' "$response" >&2; exit 1; }
           # Structured outputs guarantee the schema on a complete reply. Anything else
-          # (refusal, max_tokens) produces no result, so jq -e fails the step.
-          result=$(jq -ce 'select(.stop_reason == "end_turn") | .content[] | select(.type == "text") | .text | fromjson' <<< "$response")
+          # (refusal, length) produces no result, so jq -e fails the step.
+          result=$(jq -ce '
+            .choices[0] | select(.finish_reason == "stop") | .message.content
+            | if type == "array" then map(select(.type == "text") | .text) | join("") else . end
+            | fromjson
+          ' <<< "$response")
           decision=$(jq -r .decision <<< "$result")
           echo "decision=$decision" >> "$GITHUB_OUTPUT"
           # $GITHUB_OUTPUT is line-based; a newline in model text could inject another output (e.g. decision=safe).
