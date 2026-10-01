@@ -244,3 +244,98 @@ def test_empty_attributes():
     span = _make_span(attributes={})
     result = translate_span_to_genai(span)
     assert result.attributes == {}
+
+
+# --- gen_ai.input.messages: ToolCallResponsePart shape ---
+# https://github.com/open-telemetry/semantic-conventions-genai/blob/main/model/gen-ai/gen-ai-input-messages.json
+# ToolCallResponsePart requires "type" and "response".
+
+
+@pytest.mark.parametrize(
+    ("message_format", "inputs"),
+    [
+        (
+            "openai",
+            {
+                "messages": [
+                    {"role": "user", "content": "weather in SF?"},
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {"name": "get_weather", "arguments": "{}"},
+                            }
+                        ],
+                    },
+                    {"role": "tool", "tool_call_id": "call_1", "content": "sunny"},
+                ]
+            },
+        ),
+        (
+            "openai",
+            {
+                "input": [
+                    {"type": "function_call", "call_id": "call_1", "name": "f", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call_1", "output": "sunny"},
+                ]
+            },
+        ),
+        (
+            "anthropic",
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": "call_1", "content": "sunny"}
+                        ],
+                    }
+                ]
+            },
+        ),
+        (
+            "gemini",
+            {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {"function_response": {"name": "f", "response": {"out": "sunny"}}}
+                        ],
+                    }
+                ]
+            },
+        ),
+        (
+            "bedrock",
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"toolResult": {"toolUseId": "call_1", "content": [{"text": "sunny"}]}}
+                        ],
+                    }
+                ]
+            },
+        ),
+    ],
+)
+def test_tool_call_response_part_uses_semconv_response_field(message_format, inputs):
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.MESSAGE_FORMAT: json.dumps(message_format),
+            SpanAttributeKey.INPUTS: json.dumps(inputs),
+        }
+    )
+    result = translate_span_to_genai(span)
+
+    input_msgs = json.loads(result.attributes[GenAiSemconvKey.INPUT_MESSAGES])
+    tool_parts = [p for m in input_msgs for p in m["parts"] if p["type"] == "tool_call_response"]
+    assert len(tool_parts) == 1
+    assert "response" in tool_parts[0]
+    assert "result" not in tool_parts[0]
