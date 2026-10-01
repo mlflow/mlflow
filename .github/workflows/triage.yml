@@ -379,6 +379,8 @@ jobs:
                 "localhost:8080",
                 "localhost:5000",
                 "localhost:3000",
+                "127.0.0.1:5000",
+                "127.0.0.1:3000",
                 "pypi.org",
                 "files.pythonhosted.org",
                 "registry.npmjs.org"
@@ -431,7 +433,7 @@ jobs:
           trap 'kill "$page_server_pid" 2>/dev/null || true; rm -rf "$page_dir"' EXIT
           curl --retry 10 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:5000/ > /dev/null
           srt --settings "$RUNNER_TEMP/srt.json" -- bash -e -o pipefail -c '
-            agent-browser open http://localhost:5000/
+            agent-browser open http://127.0.0.1:5000/
             snapshot=$(agent-browser snapshot)
             [[ "$snapshot" == *mlflow-browser-smoke* ]]
             agent-browser close
