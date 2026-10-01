@@ -125,7 +125,9 @@ pattern - `(run, *, DENY)` is valid, while `(run, r-abc123, READ)` is
 rejected with a 400. A per-id grant here could be honoured on a point route
 but not in a search, and a grant that holds in one place and silently lapses
 in another is worse than no grant, so the server refuses it at the source
-rather than dropping it later.
+rather than dropping it later. The admin UI reflects this: picking a tier
+disables the specific-resource scope, so the pickers cannot compose a grant
+the server would reject.
 :::
 
 Editing a run in experiment 42, to show how the two combine. The first five rows have
@@ -495,6 +497,19 @@ flowchart LR
     R --> P2["trace *<br/>DENY"]
 ```
 
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
+
+1. Navigate to `/admin` → **Roles** → **Create role**, named `exp-reviewer`.
+2. Add a permission: **Resource type** `Experiment`, scope _All experiments_, **Permission** `READ`.
+3. Add a second permission: **Resource type** `Trace`, **Permission** `DENY`.
+   The scope is fixed at _All traces_ — a tier is wildcard grain only, so the
+   specific-resource option is disabled.
+4. Assign `carol` to the role → review changes → apply.
+
+</TabItem>
+<TabItem value="api" label="Role API">
+
 ```python
 role = auth_client.create_role(name="exp-reviewer", workspace="ml-research")
 auth_client.add_role_permission(
@@ -505,6 +520,9 @@ auth_client.add_role_permission(
 )
 auth_client.assign_role(username="carol", role_id=role.id)
 ```
+
+</TabItem>
+</Tabs>
 
 Carol can read every experiment in the workspace and the runs inside them, while trace
 reads and searches are refused. Note the `*` pattern: sub-resource tiers are wildcard
@@ -522,6 +540,17 @@ flowchart LR
     R --> P2["run *<br/>EDIT"]
 ```
 
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
+
+1. Navigate to `/admin` → **Roles** → **Create role**, named `run-annotator`.
+2. Add a permission: **Resource type** `Experiment`, scope _All experiments_, **Permission** `READ`.
+3. Add a second permission: **Resource type** `Run`, **Permission** `EDIT`.
+4. Assign `dave` to the role → review changes → apply.
+
+</TabItem>
+<TabItem value="api" label="Role API">
+
 ```python
 role = auth_client.create_role(name="run-annotator", workspace="ml-research")
 auth_client.add_role_permission(
@@ -532,6 +561,9 @@ auth_client.add_role_permission(
 )
 auth_client.assign_role(username="dave", role_id=role.id)
 ```
+
+</TabItem>
+</Tabs>
 
 Dave can update runs and log to them, but renaming or deleting the experiment is refused —
 the run tier decides run operations outright rather than being max'd against its parent.
