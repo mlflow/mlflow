@@ -40,6 +40,7 @@ def test_list_provider_names_returns_bundled_providers():
     assert "openai" in providers
     assert "anthropic" in providers
     assert "bedrock" in providers
+    assert providers == sorted(providers)
 
 
 def test_list_provider_names_excludes_non_json():
@@ -67,6 +68,39 @@ def test_load_provider_returns_empty_for_unknown(monkeypatch):
     monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
     _load_bundled_provider.cache_clear()
     assert _load_provider("nonexistent_provider_xyz") == {}
+
+
+def test_typesafe_models_and_credentials(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    assert "typesafe" in get_all_providers()
+    models = get_models("typesafe")
+    assert {model["model"] for model in models} == {
+        "jev-latest",
+        "jev-preview",
+        "jev-1.13.0",
+    }
+    for model in models:
+        assert model["mode"] == "evaluation"
+        assert model["input_cost_per_token"] == pytest.approx(0.042 / 1_000_000)
+        assert model["output_cost_per_token"] == 0
+        assert model["supports_vision"] is False
+        assert model["supports_function_calling"] is False
+
+    config = get_provider_config_response("typesafe")
+    assert config["default_mode"] == "api_key"
+    assert config["auth_modes"][0]["secret_fields"] == [
+        {"name": "api_key", "type": "string", "description": "TypeSafe API Key", "required": True}
+    ]
+    assert config["auth_modes"][0]["config_fields"] == []
+
+    input_cost, output_cost = cost_per_token(
+        model="jev-preview",
+        prompt_tokens=1_000_000,
+        completion_tokens=0,
+        custom_llm_provider="typesafe",
+    )
+    assert input_cost == pytest.approx(0.042)
+    assert output_cost == 0
 
 
 def test_load_provider_flattens_pricing(monkeypatch):
@@ -154,6 +188,23 @@ def test_get_models_filters_by_consolidated_provider():
         openai_models = get_models(provider="openai")
         assert len(openai_models) == 1
         assert openai_models[0]["model"] == "gpt-4o"
+
+
+def test_get_models_includes_responses_mode_and_excludes_unsupported_modes():
+    data = {
+        "bedrock_mantle": {
+            "openai.gpt-5.6-sol": {"mode": "responses"},
+            "openai.gpt-oss-120b": {"mode": "chat"},
+            "some-audio-model": {"mode": "audio_transcription"},
+        },
+    }
+    with _mock_catalog(data)[0], _mock_catalog(data)[1]:
+        models = get_models(provider="bedrock_mantle")
+        model_names = {m["model"] for m in models}
+
+        assert "openai.gpt-5.6-sol" in model_names
+        assert "openai.gpt-oss-120b" in model_names
+        assert "some-audio-model" not in model_names
 
 
 def test_get_models_does_not_modify_other_providers():

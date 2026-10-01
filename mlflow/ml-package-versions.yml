@@ -669,7 +669,7 @@ langchain:
           "transformers",
           "torch",
           "torchvision",
-          "openai",
+          "openai<3",
           "google-search-results",
           "psutil",
           "faiss-cpu",
@@ -721,7 +721,7 @@ langchain:
     maximum: "1.3.17"
     requirements:
       ">= 0.0.0": [
-          "openai",
+          "openai<3",
           "google-search-results",
           "faiss-cpu",
           # Required to run tests/openai/mock_openai.py
@@ -928,6 +928,21 @@ anthropic:
     # Our CI runs tests for every minor version of the library by default, which results in
     # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
     test_every_n_versions: 10
+    test_tracing_sdk: true
+
+typesafe:
+  package_info:
+    genai: true
+    repo: https://github.com/typesafe-ai/typesafe-sdk-python/tree/HEAD
+    pip_release: "typesafe-sdk"
+    module_name: "typesafe_sdk"
+    install_dev: |
+      uv pip install --system git+https://github.com/typesafe-ai/typesafe-sdk-python
+  autologging:
+    minimum: "0.7.0"
+    maximum: "0.7.1"
+    requirements:
+    run: pytest tests/typesafe
     test_tracing_sdk: true
 
 crewai:

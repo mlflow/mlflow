@@ -8011,6 +8011,10 @@
     "defaultMessage": "Admin",
     "description": "Roles table column flagging admin roles when workspaces are disabled"
   },
+  "Ulp7ge": {
+    "defaultMessage": "TypeSafe endpoints require all primary and fallback models to use TypeSafe.",
+    "description": "Validation error for mixing TypeSafe evaluation models with other providers"
+  },
   "UmwZQv": {
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
