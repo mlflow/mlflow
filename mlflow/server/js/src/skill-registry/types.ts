@@ -44,6 +44,7 @@ export interface Skill extends SkillAuditFields {
   icons: RegistryIcon[] | null;
   status: SkillStatus | null;
   latest_version: number | null;
+  source_type?: SkillSourceType | null;
   aliases: SkillAlias[];
   tags: SkillTags;
   allowed_actions?: SkillAction[];
