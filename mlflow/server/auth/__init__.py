@@ -548,7 +548,12 @@ def is_unprotected_route(path: str) -> bool:
     # both the unprefixed and the prefixed forms so health checks don't end
     # up requiring auth on prefixed deployments.
     prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
-    return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
+    if path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed):
+        return True
+    # Server-info is public, including on a basic-auth server, so a client can read
+    # how the server is configured before logging in. Keep the payload free of
+    # secrets; see build_server_info_payload.
+    return _matches_route_suffix(_strip_static_prefix(path), _PUBLIC_ROUTE_SUFFIXES)
 
 
 def make_basic_auth_response() -> Response:
@@ -3621,7 +3626,8 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
 
 # Fail-closed net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED).
 _PUBLIC_ROUTE_SUFFIXES = (
-    "/mlflow/server-info",  # capability discovery; no tenant data
+    # Public capability discovery. No login. Do not add tenant data here.
+    "/mlflow/server-info",
 )
 
 # Routes that self-authorize (e.g. filter results by the caller) rather than via a
@@ -6081,7 +6087,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     async def fastapi_permission_middleware(request, call_next):
         path = get_routed_asgi_path(request)
 
-        # Skip unprotected routes
+        # Skip routes that do not require login, including server-info.
         if is_unprotected_route(path):
             return await call_next(request)
 
