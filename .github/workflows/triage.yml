@@ -436,6 +436,39 @@ jobs:
             [[ "$snapshot" == *mlflow-browser-smoke* ]]
             agent-browser close
           '
+      - id: ui
+        name: Start MLflow UI
+        timeout-minutes: 15
+        run: |
+          log="$RUNNER_TEMP/triage-ui.log"
+          if [ -f mlflow/server/js/build/index.html ]; then
+            ui_url=http://localhost:5000
+            mkdir -p "$RUNNER_TEMP/triage-ui/artifacts"
+            nohup uv run mlflow server --host localhost --port 5000 \
+              --backend-store-uri "sqlite:///$RUNNER_TEMP/triage-ui/mlflow.db" \
+              --default-artifact-root "$RUNNER_TEMP/triage-ui/artifacts" \
+              > "$log" 2>&1 < /dev/null &
+          else
+            nohup env HOST=localhost CI=false uv run dev/run_dev_server.py \
+              > "$log" 2>&1 < /dev/null &
+          fi
+          ui_pid=$!
+          for _ in $(seq 1 360); do
+            if [ -z "${ui_url:-}" ]; then
+              ui_url=$(sed -n 's/^Frontend: \(http:\/\/localhost:[0-9]*\).*/\1/p' "$log" | tail -1)
+            fi
+            if [ -n "${ui_url:-}" ] && curl --noproxy '*' -fsS "$ui_url/" > /dev/null; then
+              echo "url=$ui_url" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if ! kill -0 "$ui_pid" 2> /dev/null; then
+              tail -80 "$log"
+              exit 1
+            fi
+            sleep 2
+          done
+          tail -80 "$log"
+          exit 1
       - name: Triage issue
         env:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
@@ -454,15 +487,10 @@ jobs:
 
             1. Run `uv run python -c "import mlflow; print(mlflow.__version__)"` in the
                current directory and note the version.
-            2. Take a screenshot of the local MLflow UI. If
-               mlflow/server/js/build/index.html exists, start the backend on
-               localhost:5000 in the background with a temporary SQLite store and
-               artifact directory, then open http://localhost:5000. Otherwise,
-               run `HOST=localhost CI=false uv run dev/run_dev_server.py` in the
-               background, send its output to a log, and use the frontend URL printed
-               there. Wait until the UI responds. Keep browser navigation on local
-               MLflow URLs. Run
-               `agent-browser open <UI URL>`, inspect `agent-browser snapshot -i`,
+            2. Take a screenshot of the MLflow UI already running at
+               ${{ steps.ui.outputs.url }}. Keep browser navigation on local MLflow
+               URLs. Run `agent-browser open ${{ steps.ui.outputs.url }}`, inspect
+               `agent-browser snapshot -i`,
                then run `agent-browser screenshot --full` without a filename. The
                screenshot must be saved under /tmp/triage-out/media; include its
                printed absolute path in the report. If startup or browser launch
