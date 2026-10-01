@@ -3843,11 +3843,17 @@ def validate_can_create_assessment():
 
 
 def validate_can_update_assessment():
+    """UpdateAssessment: ``update`` on the assessment tier, inheriting the experiment.
+
+    The experiment is the assessment's parent resource, so it is the only rung of the chain.
+    The trace is how the route addresses the assessment -- the experiment is resolved FROM the
+    trace id -- so it carries the veto rather than a judgment of its own, matching every other
+    assessment requirement and ``validate_can_delete_assessment``.
+    """
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
     experiment, experiment_id = resolved
-    trace = (RESOURCE_TYPE_TRACE, "*")
     return authorize(
         authenticate_request().username,
         experiment,
@@ -3855,10 +3861,7 @@ def validate_can_update_assessment():
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
             Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
             Requirement(
-                RESOURCE_TYPE_ASSESSMENT,
-                "*",
-                "update",
-                fallback_if_no_grant=(trace, experiment),
+                RESOURCE_TYPE_ASSESSMENT, "*", "update", fallback_if_no_grant=(experiment,)
             ),
         ],
     )
