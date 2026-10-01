@@ -313,17 +313,46 @@ jobs:
           done
           echo "::error::Gateway proxy did not become ready"
           exit 1
-      - name: Check sandbox restrictions
+      - name: Write sandbox settings
         run: |
+          cat > "$RUNNER_TEMP/srt.json" <<'EOF'
+          {
+            "network": {
+              "allowedDomains": [
+                "localhost:8080",
+                "pypi.org",
+                "files.pythonhosted.org",
+                "registry.npmjs.org"
+              ],
+              "deniedDomains": []
+            },
+            "filesystem": {
+              "denyRead": [
+                "~/.ssh",
+                "~/.docker",
+                "~/.config/gh",
+                "/etc/gw-proxy",
+                "/home/runner/work/_temp/_runner_file_commands"
+              ],
+              "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
+              "denyWrite": []
+            }
+          }
+          EOF
+          # srt skips write rules for paths that don't exist yet.
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
           touch ~/.claude.json
+      - name: Check sandbox restrictions
+        run: |
+          # Otherwise a sandbox that fails to start would pass every check below.
+          srt --settings "$RUNNER_TEMP/srt.json" -- true
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
             'curl -sf https://example.com' \
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
             'cat /etc/gw-proxy/nginx.conf' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
-            if srt --settings .github/srt.json -- bash -c "$command"; then
+            if srt --settings "$RUNNER_TEMP/srt.json" -- bash -c "$command"; then
               echo "::error::Sandbox allowed a forbidden operation"
               exit 1
             fi
@@ -352,7 +381,7 @@ jobs:
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout 30m srt --settings .github/srt.json -- \
+          timeout 30m srt --settings "$RUNNER_TEMP/srt.json" -- \
             env -u NO_PROXY -u no_proxy claude \
             --model databricks-claude-sonnet-5-5 \
             --effort high \
