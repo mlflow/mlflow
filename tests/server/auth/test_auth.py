@@ -1493,6 +1493,43 @@ def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monk
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_model_searches_accept_readable_multiline_names(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    reader, reader_password = create_user(client.tracking_uri)
+    readable_names = ["plain-model", "model\nwith-newline", "model\rwith-carriage-return"]
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("multiline-model-search")
+        run = client.create_run(experiment_id)
+        for name in [*readable_names, "hidden-model"]:
+            client.create_registered_model(name)
+            client.create_model_version(
+                name, f"runs:/{run.info.run_id}/model", run_id=run.info.run_id
+            )
+    for name in readable_names:
+        grant_role_permission(client.tracking_uri, reader, "registered_model", name, "READ")
+
+    with User(reader, reader_password, monkeypatch):
+        assert sorted(model.name for model in client.search_registered_models()) == sorted(
+            readable_names
+        )
+        assert sorted(version.name for version in client.search_model_versions()) == sorted(
+            readable_names
+        )
+        assert [
+            model.name
+            for model in client.search_registered_models(filter_string="name = 'plain-model'")
+        ] == ["plain-model"]
+        assert [
+            version.name
+            for version in client.search_model_versions(filter_string="name = 'plain-model'")
+        ] == ["plain-model"]
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_search_model_versions(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -7400,20 +7437,9 @@ def test_response_filter_matches_endpoint_functions(endpoint_fn):
     assert _find_fastapi_response_filter(request) is not None
 
 
-def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
+def test_server_detail_does_not_require_a_response_filter():
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
-    handler = _find_fastapi_response_filter(request)
-    assert handler is not None
-    monkeypatch.setattr(
-        auth_module,
-        "_get_mcp_server_permission",
-        lambda name, username: READ,
-    )
-    request = SimpleNamespace()
-    body = json.dumps({"name": "com.test/server"}).encode()
-    result = json.loads(handler("testuser", body, request))
-    assert result["name"] == "com.test/server"
-    assert result["allowed_actions"] == []
+    assert _find_fastapi_response_filter(request) is None
 
 
 def test_response_filter_skips_sub_resource_endpoints():

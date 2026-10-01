@@ -45,6 +45,31 @@ if TYPE_CHECKING:
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
 
+class SearchFilterWithScope(str):
+    """A filter carrying a trusted server scope separately from untrusted filter text.
+
+    The string representation preserves compatibility with stores that consume filter strings.
+    MLflow parsers parse only the caller's text, retaining sqlparse's resource limits, and append
+    the scope as a comparison without tokenizing its potentially large set of values.
+    """
+
+    def __new__(cls, filter_string: str, scope_key: str, scope_values: set[str]):
+        values = tuple(sorted(scope_values))
+        scope = f"{scope_key} IN ({', '.join(repr(value) for value in values)})"
+        obj = super().__new__(cls, f"{filter_string} AND {scope}" if filter_string else scope)
+        obj.filter_string = filter_string
+        obj.scope_key = scope_key
+        obj.scope_values = values
+        return obj
+
+    def parse(self, parser):
+        comparisons = parser.parse_search_filter(self.filter_string)
+        # Validate the scope key and comparator using the same parser as the caller's filter.
+        scope = parser.parse_search_filter(f"{self.scope_key} IN ('')")[0]
+        scope["value"] = self.scope_values
+        return [*comparisons, scope]
+
+
 def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
     regex = re.escape(pattern)
     regex = regex.replace("%", ".*").replace("_", ".")
@@ -586,6 +611,8 @@ class SearchUtils:
 
     @classmethod
     def parse_search_filter(cls, filter_string):
+        if isinstance(filter_string, SearchFilterWithScope):
+            return filter_string.parse(cls)
         if not filter_string:
             return []
         try:
@@ -1661,6 +1688,8 @@ class SearchModelVersionUtils(SearchUtils):
 
     @classmethod
     def parse_search_filter(cls, filter_string):
+        if isinstance(filter_string, SearchFilterWithScope):
+            return filter_string.parse(cls)
         if not filter_string:
             return []
         try:

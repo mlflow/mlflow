@@ -1416,3 +1416,41 @@ def mock_litellm_cost():
 
     with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost
+
+
+@pytest.fixture
+def limit_sqlite_variables(request):
+    def limit_engine(engine):
+        from sqlalchemy import event
+
+        if engine.dialect.name != "sqlite":
+            pytest.skip("SQLite parameter-limit regression")
+
+        def checkout(dbapi_connection, connection_record, connection_proxy):
+            if hasattr(dbapi_connection, "setlimit"):
+                connection_record.info["previous_variable_limit"] = dbapi_connection.setlimit(
+                    sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 999
+                )
+
+        def checkin(dbapi_connection, connection_record):
+            previous = connection_record.info.pop("previous_variable_limit", None)
+            if previous is not None and dbapi_connection is not None:
+                dbapi_connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, previous)
+
+        def check_parameters(conn, cursor, statement, parameters, context, executemany):
+            # Python 3.10 lacks setlimit; still verify every executed statement's budget.
+            if not executemany:
+                assert len(parameters) <= 999
+
+        listeners = [
+            ("checkout", checkout),
+            ("checkin", checkin),
+            ("before_cursor_execute", check_parameters),
+        ]
+        for name, listener in listeners:
+            event.listen(engine, name, listener)
+            request.addfinalizer(
+                lambda name=name, listener=listener: event.remove(engine, name, listener)
+            )
+
+    return limit_engine

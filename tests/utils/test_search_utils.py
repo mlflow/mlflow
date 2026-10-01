@@ -3,6 +3,7 @@ import json
 import re
 
 import pytest
+import sqlparse
 
 from mlflow.entities import (
     Dataset,
@@ -27,13 +28,63 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchFilterWithScope,
     SearchLoggedModelsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
     SearchMCPServerVersionUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
     SearchTraceUtils,
     SearchUtils,
 )
+
+
+@pytest.mark.parametrize(
+    ("parser", "scope_key"),
+    [
+        (SearchExperimentsUtils, "experiment_id"),
+        (SearchModelUtils, "name"),
+        (SearchModelVersionUtils, "name"),
+        (SearchMCPServerUtils, "name"),
+    ],
+)
+@pytest.mark.skipif(
+    not hasattr(sqlparse.engine.grouping, "MAX_GROUPING_TOKENS"),
+    reason="This sqlparse version has no grouping token limit",
+)
+def test_search_filter_with_scope_preserves_parser_limits(parser, scope_key):
+    values = {str(index) for index in range(3400)}
+    caller_filter = "name = 'visible'"
+    scoped_filter = SearchFilterWithScope(caller_filter, scope_key, values)
+
+    assert parser.parse_search_filter(scoped_filter) == [
+        {"type": "attribute", "key": "name", "comparator": "=", "value": "visible"},
+        {"type": "attribute", "key": scope_key, "comparator": "IN", "value": tuple(sorted(values))},
+    ]
+    # The same large list supplied by a client must still pass through sqlparse's guards.
+    with pytest.raises(MlflowException, match="Error on parsing filter"):
+        parser.parse_search_filter(str(scoped_filter))
+    with pytest.raises(MlflowException, match="Error on parsing filter"):
+        parser.parse_search_filter(SearchFilterWithScope(str(scoped_filter), scope_key, {"1"}))
+
+
+@pytest.mark.parametrize(
+    ("parser", "scope_key"),
+    [
+        (SearchExperimentsUtils, "experiment_id"),
+        (SearchModelUtils, "name"),
+        (SearchModelVersionUtils, "name"),
+        (SearchMCPServerUtils, "name"),
+    ],
+)
+@pytest.mark.parametrize(
+    "caller_filter",
+    ["name = 'x' --", "name = 'x' /*", "name = 'x' OR name = 'y'", "name = 'x';"],
+)
+def test_search_filter_with_scope_rejects_invalid_caller_filter(parser, scope_key, caller_filter):
+    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string"):
+        parser.parse_search_filter(SearchFilterWithScope(caller_filter, scope_key, {"1"}))
 
 
 @pytest.mark.parametrize(

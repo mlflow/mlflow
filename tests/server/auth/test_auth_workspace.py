@@ -5,7 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from flask import Response, request
+from flask import Flask, Response, request
+from werkzeug.datastructures import Authorization
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
@@ -30,6 +31,7 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
 from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces, _get_request_message
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import workspace_context
 from mlflow.utils.search_utils import (
     SearchMCPServerUtils,
@@ -38,19 +40,28 @@ from mlflow.utils.search_utils import (
 )
 
 from tests.helper_functions import random_str
-
-
-def test_quote_filter_values_uses_mlflow_filter_literal_escaping():
-    assert auth_module._quote_filter_values({"model's-name", r"model\name"}) == (
-        r"'model\'s-name', 'model\\name'"
-    )
+from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
 
 @pytest.mark.parametrize(
     "parser", [SearchModelUtils, SearchModelVersionUtils, SearchMCPServerUtils]
 )
-def test_quote_filter_values_round_trips_through_search_parsers(parser):
-    values = {"model's-name", r"model\name", r"model\name's"}
+@pytest.mark.parametrize(
+    "value",
+    [
+        "model's-name",
+        r"model\name",
+        r"model\name's",
+        "model\nname",
+        "model\rname",
+        "model\tname",
+        "model\x00name",
+        "model\"'name",
+        "模型\u2028name",
+    ],
+)
+def test_quote_filter_values_round_trips_through_search_parsers(parser, value):
+    values = {value, "plain-model"}
 
     parsed = parser.parse_search_filter(f"name IN ({auth_module._quote_filter_values(values)})")
 
@@ -125,17 +136,42 @@ def test_request_scoper_preserves_camel_case_experiment_ids(monkeypatch):
         assert auth_module._get_normalized_request_json() == {"experimentIds": ["2"]}
 
 
-@pytest.mark.parametrize("experiment_ids", [None, "1", {"1": True}])
-def test_request_scoper_leaves_malformed_experiment_ids_for_handler_validation(
-    monkeypatch, experiment_ids
+@pytest.mark.parametrize(
+    "scoper", [auth_module._scope_experiment_ids, auth_module._scope_list_scorers]
+)
+@pytest.mark.parametrize("field", ["experiment_ids", "experimentIds"])
+@pytest.mark.parametrize("experiment_ids", [None, "1", {"1": True}, [1], [[]]])
+def test_request_scoper_rejects_malformed_experiment_ids(
+    monkeypatch, scoper, field, experiment_ids
 ):
     monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
-    request_json = {"experiment_ids": experiment_ids}
+    request_json = {field: experiment_ids}
     with auth_module.app.test_request_context(
         method="POST", content_type="application/json", data=json.dumps(request_json)
     ):
-        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
-        assert auth_module._get_normalized_request_json() == request_json
+        with pytest.raises(MlflowException, match="must be a list of strings") as exc:
+            auth_module._scope_request(scoper, "user")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("field", ["experiment_id", "experimentId"])
+@pytest.mark.parametrize("experiment_id", [None, 1, [], {}])
+def test_scorer_request_scoper_rejects_malformed_experiment_id(monkeypatch, field, experiment_id):
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
+    with pytest.raises(MlflowException, match="must be a string") as exc:
+        auth_module._scope_list_scorers({field: experiment_id}, "user")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "scoper", [auth_module._scope_search_experiments, auth_module._scope_model_search]
+)
+@pytest.mark.parametrize("filter_value", [1, [], {}])
+def test_request_scoper_rejects_malformed_filter(monkeypatch, scoper, filter_value):
+    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
+    with pytest.raises(MlflowException, match="'filter' must be a string") as exc:
+        scoper({"filter": filter_value}, "user")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_model_search_scopes_more_than_500_names(monkeypatch):
@@ -676,6 +712,148 @@ def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission:
             pass
         return
     store.set_workspace_permission("team-a", username, permission)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "method", "handler", "store_method"),
+    [
+        ("batchGet", "GET", _batch_get_traces, "batch_get_traces"),
+        ("batchGetInfos", "POST", _batch_get_trace_infos, "batch_get_trace_infos"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("workspace_permission", "experiment_pattern", "status_code", "experiment_ids"),
+    [
+        (USE, None, 403, None),
+        (USE, "1", 200, ["1"]),
+        (USE, "*", 200, None),
+        (MANAGE, None, 200, None),
+    ],
+)
+def test_batch_trace_workspace_members_require_resource_read_grants(
+    workspace_permission_setup,
+    monkeypatch,
+    endpoint,
+    handler,
+    store_method,
+    method,
+    workspace_permission,
+    experiment_pattern,
+    status_code,
+    experiment_ids,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, workspace_permission.name)
+    if experiment_pattern is not None:
+        role = store.create_role(name="trace-reader", workspace="team-a")
+        store.add_role_permission(role.id, "experiment", experiment_pattern, USE.name)
+        store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: Authorization("basic", {"username": username, "password": "supersecurepassword"}),
+    )
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
+    tracking_store = Mock()
+    batch_get = getattr(tracking_store, store_method)
+    batch_get.return_value = []
+    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
+    app = Flask(__name__)
+    app.before_request(auth_module._before_request)
+    path = f"/api/3.0/mlflow/traces/{endpoint}"
+    app.add_url_rule(path, view_func=handler, methods=[method])
+    trace_ids = ["trace-1", "trace-2"]
+    kwargs = (
+        {"query_string": {"trace_ids": trace_ids}}
+        if method == "GET"
+        else {"json": {"trace_ids": trace_ids}}
+    )
+
+    response = app.test_client().open(path, method=method, **kwargs)
+
+    assert response.status_code == status_code
+    if status_code == 403:
+        batch_get.assert_not_called()
+    else:
+        args = (trace_ids, None) if endpoint == "batchGet" else (trace_ids,)
+        expected_kwargs = {"experiment_ids": experiment_ids} if experiment_ids is not None else {}
+        batch_get.assert_called_once_with(*args, **expected_kwargs)
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "method", "handler", "response_field"),
+    [
+        ("batchGet", "GET", _batch_get_traces, "traces"),
+        ("batchGetInfos", "POST", _batch_get_trace_infos, "trace_infos"),
+    ],
+)
+@pytest.mark.parametrize("prefix", ["/api/3.0/mlflow", "/ajax-api/3.0/mlflow"])
+@pytest.mark.parametrize("request_case", ["readable", "unreadable", "missing", "mixed"])
+def test_batch_trace_queries_filter_mixed_trace_ids(
+    workspace_permission_setup,
+    db_uri,
+    tmp_path,
+    request,
+    monkeypatch,
+    endpoint,
+    method,
+    handler,
+    response_field,
+    prefix,
+    request_case,
+):
+    auth_store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(auth_store, username, USE.name)
+    tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
+    request.addfinalizer(tracking_store._dispose_engine)
+    readable_experiment = tracking_store.create_experiment("readable")
+    unreadable_experiment = tracking_store.create_experiment("unreadable")
+    readable_trace = f"tr-{random_str()}"
+    unreadable_trace = f"tr-{random_str()}"
+    for experiment_id, trace_id in [
+        (readable_experiment, readable_trace),
+        (unreadable_experiment, unreadable_trace),
+    ]:
+        tracking_store.log_spans(experiment_id, [create_test_span(trace_id=trace_id)])
+    role = auth_store.create_role(name="trace-reader", workspace="team-a")
+    auth_store.add_role_permission(role.id, "experiment", readable_experiment, READ.name)
+    auth_store.assign_role_to_user(auth_store.get_user(username).id, role.id)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: Authorization("basic", {"username": username, "password": "supersecurepassword"}),
+    )
+    missing_trace = f"tr-{random_str()}"
+    trace_ids = {
+        "readable": [readable_trace],
+        "unreadable": [unreadable_trace],
+        "missing": [missing_trace],
+        "mixed": [unreadable_trace, missing_trace, readable_trace],
+    }[request_case]
+    app = Flask(__name__)
+    app.before_request(auth_module._before_request)
+    path = f"{prefix}/traces/{endpoint}"
+    app.add_url_rule(path, view_func=handler, methods=[method])
+    kwargs = (
+        {"query_string": {"trace_ids": trace_ids}}
+        if method == "GET"
+        else {"json": {"trace_ids": trace_ids}}
+    )
+
+    response = app.test_client().open(path, method=method, **kwargs)
+
+    assert response.status_code == 200
+    results = response.json.get(response_field, [])
+    infos = [result["trace_info"] for result in results] if endpoint == "batchGet" else results
+    assert [info["trace_id"] for info in infos] == (
+        [readable_trace] if request_case in ("readable", "mixed") else []
+    )
 
 
 def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
@@ -1244,19 +1422,21 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     role = store.create_role(name="exp-1-reader", workspace="team-a")
-    store.add_role_permission(role.id, "experiment", "exp-1", "READ")
+    store.add_role_permission(role.id, "experiment", "1", "READ")
     store.assign_role_to_user(user_id, role.id)
 
     token = workspace_context.set_server_request_workspace("team-a")
     try:
-        # Only exp-1 (via role); exp-2 is filtered out.
-        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == ["exp-1"]
+        # Only experiment 1 (via role); experiment 2 is filtered out.
+        assert auth_module.filter_experiment_ids(["1", "2"]) == ["1"]
     finally:
         workspace_context._WORKSPACE.reset(token)
 
 
-def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, monkeypatch):
-    # Role with ('workspace', '*', USE) should grant read access to all experiments.
+@pytest.mark.parametrize(("permission", "expected_ids"), [(USE, []), (MANAGE, ["exp-1", "exp-2"])])
+def test_filter_experiment_ids_workspace_scope_role(
+    workspace_permission_setup, monkeypatch, permission, expected_ids
+):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -1264,12 +1444,12 @@ def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, 
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     role = store.create_role(name="ws-user", workspace="team-a")
-    store.add_role_permission(role.id, "workspace", "*", "USE")
+    store.add_role_permission(role.id, "workspace", "*", permission.name)
     store.assign_role_to_user(user_id, role.id)
 
     token = workspace_context.set_server_request_workspace("team-a")
     try:
-        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == ["exp-1", "exp-2"]
+        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == expected_ids
     finally:
         workspace_context._WORKSPACE.reset(token)
 
@@ -5973,8 +6153,8 @@ def test_validate_can_manage_resource_workspace_manage_allows(
 def test_validate_can_manage_resource_per_resource_manage_allows(
     workspace_permission_setup,
 ):
-    # Per-resource MANAGE delegation: a user with MANAGE on exp-1 (and nothing
-    # else) can grant other users access to exp-1, mirroring the legacy
+    # Per-resource MANAGE delegation: a user with MANAGE on experiment 1 (and nothing
+    # else) can grant other users access to experiment 1, mirroring the legacy
     # ``validate_can_manage_experiment`` semantics.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -5982,7 +6162,7 @@ def test_validate_can_manage_resource_per_resource_manage_allows(
 
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     role = store.create_role(name="exp-1-manager", workspace="team-a")
-    store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
+    store.add_role_permission(role.id, "experiment", "1", MANAGE.name)
     store.assign_role_to_user(user_id, role.id)
 
     with auth_module.app.test_request_context(
@@ -5991,7 +6171,7 @@ def test_validate_can_manage_resource_per_resource_manage_allows(
         json={
             "username": username,
             "resource_type": "experiment",
-            "resource_id": "exp-1",
+            "resource_id": "1",
             "permission": "READ",
         },
     ):
@@ -5999,14 +6179,14 @@ def test_validate_can_manage_resource_per_resource_manage_allows(
 
 
 def test_validate_can_manage_resource_other_resource_denied(workspace_permission_setup):
-    # MANAGE on exp-1 doesn't extend to exp-2.
+    # MANAGE on experiment 1 doesn't extend to experiment 2.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
 
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     role = store.create_role(name="exp-1-manager", workspace="team-a")
-    store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
+    store.add_role_permission(role.id, "experiment", "1", MANAGE.name)
     store.assign_role_to_user(user_id, role.id)
 
     with auth_module.app.test_request_context(
@@ -6015,7 +6195,7 @@ def test_validate_can_manage_resource_other_resource_denied(workspace_permission
         json={
             "username": username,
             "resource_type": "experiment",
-            "resource_id": "exp-2",
+            "resource_id": "2",
             "permission": "READ",
         },
     ):

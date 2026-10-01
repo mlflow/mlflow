@@ -21,7 +21,6 @@ import os
 import re
 import secrets
 import threading
-import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
@@ -424,6 +423,7 @@ from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_normalized_request_json,
     _get_request_message,
+    _get_search_filter,
     _get_tracking_store,
     _get_validated_flask_request_json,
     catch_mlflow_exception,
@@ -472,9 +472,9 @@ from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchFilterWithScope, SearchUtils
 from mlflow.utils.uri import is_models_uri, validate_path_is_safe
-from mlflow.utils.validation import _validate_password
+from mlflow.utils.validation import _parse_experiment_id, _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
@@ -3166,18 +3166,17 @@ def get_readable_resource_ids_for_user(username: str, resource_type: str) -> set
 
 
 def _quote_filter_values(values: set[str]) -> str:
-    def quote(value: str) -> str:
-        # Filter values are parsed with ``ast.literal_eval``, not SQL literal parsing.
-        return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-    return ", ".join(quote(value) for value in sorted(values))
+    # Filter lists are parsed with ``ast.literal_eval``, so use Python string literals.
+    return ", ".join(repr(value) for value in sorted(values))
 
 
-def _append_request_filter(request_json: dict[str, Any], auth_filter: str) -> None:
+def _append_request_filter(
+    request_json: dict[str, Any], scope_key: str, scope_values: set[str]
+) -> None:
     filter_string = request_json.get("filter")
     if filter_string is not None and not isinstance(filter_string, str):
-        return
-    request_json["filter"] = f"{filter_string} AND {auth_filter}" if filter_string else auth_filter
+        raise MlflowException.invalid_parameter_value("'filter' must be a string.")
+    request_json["filter"] = SearchFilterWithScope(filter_string or "", scope_key, scope_values)
 
 
 def _request_field(request_json: dict[str, Any], name: str) -> tuple[str, Any] | None:
@@ -3191,8 +3190,24 @@ def _request_field(request_json: dict[str, Any], name: str) -> tuple[str, Any] |
     return None
 
 
-def _scope_experiment_ids(request_json: dict[str, Any], username: str) -> None:
+def _get_readable_experiment_ids_for_user(username: str) -> set[str] | None:
     readable_ids = get_readable_resource_ids_for_user(username, "experiment")
+    if readable_ids is None:
+        return None
+
+    valid_ids = set()
+    for experiment_id in readable_ids:
+        try:
+            _parse_experiment_id(experiment_id)
+        except MlflowException:
+            # Older role grants may contain exact patterns that numeric store queries cannot use.
+            continue
+        valid_ids.add(experiment_id)
+    return valid_ids
+
+
+def _scope_experiment_ids(request_json: dict[str, Any], username: str) -> None:
+    readable_ids = _get_readable_experiment_ids_for_user(username)
     if readable_ids is None:
         return
 
@@ -3201,21 +3216,23 @@ def _scope_experiment_ids(request_json: dict[str, Any], username: str) -> None:
         request_json["experiment_ids"] = sorted(readable_ids)
     else:
         name, requested_ids = field
-        if not isinstance(requested_ids, list):
-            return
+        if not isinstance(requested_ids, list) or not all(
+            isinstance(experiment_id, str) for experiment_id in requested_ids
+        ):
+            raise MlflowException.invalid_parameter_value(f"'{name}' must be a list of strings.")
         request_json[name] = [
             experiment_id for experiment_id in requested_ids if experiment_id in readable_ids
         ]
 
 
 def _scope_search_experiments(request_json: dict[str, Any], username: str) -> None:
-    readable_ids = get_readable_resource_ids_for_user(username, "experiment")
+    readable_ids = _get_readable_experiment_ids_for_user(username)
     if readable_ids is None:
         return
     # MLflow-generated experiment IDs are non-negative. An empty finite scope must still produce
     # a valid request filter so the generic handler can execute without auth-specific branches.
     values = readable_ids or {"-1"}
-    _append_request_filter(request_json, f"experiment_id IN ({_quote_filter_values(values)})")
+    _append_request_filter(request_json, "experiment_id", values)
 
 
 def _scope_model_search(request_json: dict[str, Any], username: str) -> None:
@@ -3225,11 +3242,11 @@ def _scope_model_search(request_json: dict[str, Any], username: str) -> None:
         return
     readable_ids = model_ids | prompt_ids
     values = readable_ids or {""}
-    _append_request_filter(request_json, f"name IN ({_quote_filter_values(values)})")
+    _append_request_filter(request_json, "name", values)
 
 
 def _scope_list_scorers(request_json: dict[str, Any], username: str) -> None:
-    readable_ids = get_readable_resource_ids_for_user(username, "experiment")
+    readable_ids = _get_readable_experiment_ids_for_user(username)
     if readable_ids is None:
         return
 
@@ -3237,7 +3254,7 @@ def _scope_list_scorers(request_json: dict[str, Any], username: str) -> None:
     if singular_field is not None:
         name, experiment_id = singular_field
         if not isinstance(experiment_id, str):
-            return
+            raise MlflowException.invalid_parameter_value(f"'{name}' must be a string.")
         if experiment_id in readable_ids:
             return
         request_json.pop(name)
@@ -3276,13 +3293,9 @@ def _scope_mcp_server_search_query(request: StarletteRequest, username: str) -> 
         return
     filter_string = request.query_params.get("filter_string")
     names = readable_names or {""}
-    auth_filter = f"name IN ({_quote_filter_values(names)})"
-    scoped_filter = f"{filter_string} AND {auth_filter}" if filter_string else auth_filter
-    query_params = [
-        (key, value) for key, value in request.query_params.multi_items() if key != "filter_string"
-    ]
-    query_params.append(("filter_string", scoped_filter))
-    request.scope["query_string"] = urllib.parse.urlencode(query_params).encode()
+    request.state.mlflow_scoped_mcp_server_filter = SearchFilterWithScope(
+        filter_string or "", "name", names
+    )
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -5576,11 +5589,9 @@ def _before_request():
     if validator := _find_validator(request):
         if not validator():
             return make_forbidden_response()
-        if request_scoper := _find_request_scoper(request):
-            _scope_request(request_scoper, authorization.username)
-    elif request_scoper := _find_request_scoper(request):
+    if request_scoper := _find_request_scoper(request):
         _scope_request(request_scoper, authorization.username)
-    elif _is_proxy_artifact_path(request.path):
+    elif validator is None and _is_proxy_artifact_path(request.path):
         proxy_validator = _get_proxy_artifact_validator(request.method, request.view_args)
         if proxy_validator is None:
             # Unrecognized method on a proxy-artifact URL: fail closed when the flag is on.
@@ -5589,7 +5600,8 @@ def _before_request():
         elif not proxy_validator():
             return make_forbidden_response()
     elif (
-        MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+        validator is None
+        and MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
         and not _authorized_outside_before_request(request)
         and not _is_known_ungated_route(request.path)
     ):
@@ -5988,13 +6000,14 @@ def filter_search_registered_models(resp: Response):
 
     # re-fetch to fill max results
     request_message = _get_request_message(SearchRegisteredModels())
+    filter_string = _get_search_filter(request_message.filter)
     while (
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
     ):
         refetched: PagedList[RegisteredModel] = (
             _get_model_registry_store().search_registered_models(
-                filter_string=request_message.filter,
+                filter_string=filter_string,
                 max_results=request_message.max_results,
                 order_by=request_message.order_by,
                 page_token=response_message.next_page_token,
@@ -8796,6 +8809,11 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 content=json.loads(e.serialize_as_json()),
             )
         workspace_context.set_server_request_workspace(workspace.name if workspace else None)
+
+        if not user.is_admin:
+            request.state.mcp_server_allowed_actions = lambda name: _permission_to_allowed_actions(
+                _get_mcp_server_permission(name, user.username)
+            )
 
         if (
             not user.is_admin

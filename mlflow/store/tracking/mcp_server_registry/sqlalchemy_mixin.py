@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 import uuid
 from dataclasses import asdict, replace
@@ -27,6 +26,11 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.db.db_types import MYSQL, SQLITE
+from mlflow.store.db.utils import (
+    _SQLITE_LARGE_IN_THRESHOLD,
+    _get_large_sqlite_in_subquery,
+    _get_sqlite_safe_statement,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -61,7 +65,6 @@ from mlflow.utils.validation import (
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
 
 _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN", "NOT IN"}
-_SQLITE_LARGE_IN_THRESHOLD = 900
 
 
 def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
@@ -215,7 +218,13 @@ class SqlAlchemyMCPServerRegistryMixin:
                 query = _apply_mcp_server_filter(query, filter_string, self._get_dialect(), session)
             order_clauses = _parse_search_mcp_servers_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            server_rows = query.all()
+            server_rows = (
+                session
+                .execute(_get_sqlite_safe_statement(query.statement, session))
+                .unique()
+                .scalars()
+                .all()
+            )
             resolved_versions = self._get_nested_endpoint_resolved_versions(session, server_rows)
             servers = [server.to_mlflow_entity(resolved_versions) for server in server_rows]
             next_token = None
@@ -1242,19 +1251,6 @@ def _resolved_endpoint_targets_subquery(
     # Use sa.union_all to combine multiple branches
     stmt = branches[0] if len(branches) == 1 else sa.union_all(*branches)
     return stmt.subquery("resolved_endpoint_targets")
-
-
-def _get_large_sqlite_in_subquery(session, values: tuple[str, ...]):
-    try:
-        session.execute(sa.select(sa.func.json_valid("[]"))).scalar()
-    except sa.exc.OperationalError as e:
-        if "no such function" in str(e).lower():
-            raise MlflowException.invalid_parameter_value(
-                "Large SQLite IN filters require SQLite JSON support (json_each)."
-            ) from e
-        raise
-    json_values = sa.func.json_each(json.dumps(values)).table_valued("value")
-    return sa.select(json_values.c.value)
 
 
 def _apply_mcp_server_filter(query, filter_string, dialect, session):
