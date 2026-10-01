@@ -9,7 +9,9 @@ from mlflow.server.auth.permissions import (
     DENY,
     EDIT,
     MANAGE,
+    NO_PERMISSIONS,
     READ,
+    RESOURCE_TYPE_ASSESSMENT,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_RUN,
@@ -27,6 +29,8 @@ from mlflow.server.auth.requirements import (
     governing_permission,
     is_workspace_admin_grant,
     requirement_met,
+    requirement_rungs,
+    requirement_satisfied,
     requirement_to_grant_load_keys,
     requirements_to_grant_load_keys,
 )
@@ -54,10 +58,7 @@ def decide(requirements, rows):
     else:
         permissions = {key: fold_grants_for_key(rows, key) for key in keys}
     return all(
-        requirement_met(
-            requirement,
-            governing_permission(requirement, permissions, DEFAULT_PERMISSION, ABSENT),
-        )
+        requirement_satisfied(requirement, permissions, DEFAULT_PERMISSION, ABSENT)
         for requirement in requirements
     )
 
@@ -97,6 +98,98 @@ def test_keys_are_deduplicated_across_requirements_sharing_a_fallback():
     ])
     assert keys.count(GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5")) == 1
     assert len(keys) == 3
+
+
+# ------------------------------------------------------ per-rung actions
+
+
+def test_a_bare_fallback_key_inherits_the_requirement_action():
+    requirement = Requirement(
+        RESOURCE_TYPE_ASSESSMENT,
+        "*",
+        "delete",
+        fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, "5"),),
+    )
+    assert requirement_rungs(requirement) == [
+        (GrantLoadKey(RESOURCE_TYPE_ASSESSMENT, "*"), "delete"),
+        (GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5"), "delete"),
+    ]
+
+
+def test_a_requirement_fallback_carries_its_own_action():
+    requirement = Requirement(
+        RESOURCE_TYPE_ASSESSMENT,
+        "*",
+        "delete",
+        fallback_if_no_grant=(Requirement(RESOURCE_TYPE_EXPERIMENT, "5", "update"),),
+    )
+    assert requirement_rungs(requirement) == [
+        (GrantLoadKey(RESOURCE_TYPE_ASSESSMENT, "*"), "delete"),
+        (GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5"), "update"),
+    ]
+    # The action does not change the key, so it still loads once.
+    assert requirement_to_grant_load_keys(requirement) == [
+        GrantLoadKey(RESOURCE_TYPE_ASSESSMENT, "*"),
+        GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, "5"),
+    ]
+
+
+def test_a_fallback_requirement_may_not_declare_its_own_fallbacks():
+    nested = Requirement(
+        RESOURCE_TYPE_TRACE,
+        "*",
+        "update",
+        fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, "5"),),
+    )
+    requirement = Requirement(
+        RESOURCE_TYPE_ASSESSMENT, "*", "delete", fallback_if_no_grant=(nested,)
+    )
+    with pytest.raises(ValueError, match="may not declare its own fallback_if_no_grant"):
+        requirement_rungs(requirement)
+
+
+def test_the_governing_rungs_action_decides_not_the_requirements_own():
+    # ``delete`` on the tier, inheriting experiment ``update`` -- the DeleteAssessment shape.
+    requirement = Requirement(
+        RESOURCE_TYPE_ASSESSMENT,
+        "*",
+        "delete",
+        fallback_if_no_grant=(Requirement(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, "update"),),
+    )
+    assessment = GrantLoadKey(RESOURCE_TYPE_ASSESSMENT, "*")
+    experiment = GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID)
+
+    # A grant on the tier governs, so ``delete`` applies: EDIT is not enough, MANAGE is.
+    assert not requirement_satisfied(
+        requirement, {assessment: EDIT, experiment: MANAGE}, NO_PERMISSIONS.name, NO_PERMISSIONS
+    )
+    assert requirement_satisfied(
+        requirement, {assessment: MANAGE, experiment: None}, NO_PERMISSIONS.name, NO_PERMISSIONS
+    )
+
+    # No grant on the tier: the experiment rung governs and only needs ``update``.
+    assert requirement_satisfied(
+        requirement, {assessment: None, experiment: EDIT}, NO_PERMISSIONS.name, NO_PERMISSIONS
+    )
+    assert not requirement_satisfied(
+        requirement, {assessment: None, experiment: READ}, NO_PERMISSIONS.name, NO_PERMISSIONS
+    )
+
+
+def test_with_no_grant_on_any_rung_the_last_rungs_action_applies():
+    requirement = Requirement(
+        RESOURCE_TYPE_ASSESSMENT,
+        "*",
+        "delete",
+        fallback_if_no_grant=(Requirement(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID, "update"),),
+    )
+    permissions = {
+        GrantLoadKey(RESOURCE_TYPE_ASSESSMENT, "*"): None,
+        GrantLoadKey(RESOURCE_TYPE_EXPERIMENT, EXPERIMENT_ID): None,
+    }
+    # An absent grant resolving to EDIT clears the inherited ``update``, not ``delete``.
+    assert requirement_satisfied(requirement, permissions, EDIT.name, EDIT)
+    assert not requirement_satisfied(requirement, permissions, READ.name, READ)
 
 
 # ----------------------------------------------------- the fold WITHIN a key

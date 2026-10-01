@@ -317,11 +317,13 @@ from mlflow.server.auth.permissions import (
 from mlflow.server.auth.requirements import (
     ACTION_NOT_DENIED,
     Requirement,
+    action_met,
     floor_positive_permission,
     fold_grants_for_key,
-    governing_permission,
+    governing_permission_and_action,
     is_workspace_admin_grant,
     requirement_met,
+    requirement_satisfied,
     requirement_to_grant_load_keys,
     requirements_to_grant_load_keys,
 )
@@ -869,12 +871,15 @@ def resolve_permissions(
     return [fold_grants_for_key(grants, key) for key in keys]
 
 
-def resolve_requirements(
+def _resolve_requirement_decisions(
     username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
-) -> "list[Permission] | None":
+) -> "list[tuple[Permission, str]] | None":
     """
-    The permission that governs each requirement, from one grants query in the anchor's
-    workspace. ``None`` when the anchor workspace cannot be resolved (callers deny).
+    The governing permission AND the action it must satisfy, per requirement, from one grants
+    query in the anchor's workspace. ``None`` when the anchor workspace cannot be resolved.
+
+    The action travels with the permission because a fallback rung may carry a different action
+    from the requirement's own key, so the permission alone no longer says what to check.
     """
     workspace_name = get_anchor_workspace(*anchor)
     if workspace_name is None:
@@ -883,22 +888,34 @@ def resolve_requirements(
     permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
     absent = _absent_permission(workspace_name)
     return [
-        governing_permission(requirement, permissions, auth_config.default_permission, absent)
+        governing_permission_and_action(
+            requirement, permissions, auth_config.default_permission, absent
+        )
         for requirement in requirements
     ]
+
+
+def resolve_requirements(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> "list[Permission] | None":
+    """
+    The permission that governs each requirement, from one grants query in the anchor's
+    workspace. ``None`` when the anchor workspace cannot be resolved (callers deny).
+    """
+    decisions = _resolve_requirement_decisions(username, anchor, requirements)
+    if decisions is None:
+        return None
+    return [permission for permission, _action in decisions]
 
 
 def authorize(
     username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
 ) -> bool:
     """Allow only if EVERY requirement is met by the permission that governs it."""
-    permissions = resolve_requirements(username, anchor, requirements)
-    if permissions is None:
+    decisions = _resolve_requirement_decisions(username, anchor, requirements)
+    if decisions is None:
         return False
-    return all(
-        requirement_met(requirement, permission)
-        for requirement, permission in zip(requirements, permissions)
-    )
+    return all(action_met(action, permission) for permission, action in decisions)
 
 
 class RetentionGate:
@@ -948,11 +965,8 @@ class RetentionGate:
             permissions = {
                 key: self._fold(key) for key in requirement_to_grant_load_keys(requirement)
             }
-            decided = requirement_met(
-                requirement,
-                governing_permission(
-                    requirement, permissions, self._default_permission, self._absent
-                ),
+            decided = requirement_satisfied(
+                requirement, permissions, self._default_permission, self._absent
             )
             self._decided[cache_key] = decided
         return decided
@@ -2998,7 +3012,7 @@ def _role_based_read_predicate(
     Build a ``p(resource_id) -> bool`` predicate from ``username``'s role grants in the active
     workspace.
 
-    Every row is decided by ``governing_permission`` and ``requirement_met`` -- the same two
+    Every row is decided by ``governing_permission_and_action`` and ``action_met`` -- the same
     functions behind ``authorize`` -- against ``Requirement(resource_type, row_id, "read")``. That
     shared path is the point: a row cannot be visible in a listing but unreadable at its own point
     route, or the reverse.
@@ -3851,33 +3865,24 @@ def validate_can_update_assessment():
 
 
 def validate_can_delete_assessment():
-    """DeleteAssessment: the assessment tier carries ``delete``, but only once the caller holds a
-    grant there.
+    """DeleteAssessment: ``delete`` on the assessment tier, inheriting experiment ``update``.
 
-    ``Requirement`` carries one action, and the two cases here differ by WHICH key governs rather
-    than by the permission that key yields, so neither a single action nor two AND'd requirements
-    can state them. An explicit ``(assessment, *, EDIT)`` must not delete, since ``EDIT.can_delete``
-    is false and a child grant is the narrower judgment. A caller holding no assessment grant has
-    to stay at master's level for this route, which is trace ``update`` -- master mapped it to
-    ``validate_can_update_trace_by_trace_id``, not to anything requiring ``delete``. Carrying
-    ``delete`` down the fallback chain instead would refuse an experiment EDIT holder a delete
-    master allows. Hence the action is chosen from whether a grant exists on the tier at all; when
-    one does, the fallbacks never fire, so the shape stays identical either way.
+    An explicit ``(assessment, *, EDIT)`` must not delete -- ``EDIT.can_delete`` is false and a
+    grant on the tier is the narrower judgment. A caller holding no assessment grant inherits
+    master's level for this route, which is ``update``: master mapped it to
+    ``validate_can_update_trace_by_trace_id``, not to anything requiring ``delete``. The two
+    cases differ by WHICH rung governs rather than by the permission it yields, which is why the
+    experiment rung names its own action.
+
+    The trace is only how the route addresses the assessment -- the experiment is resolved FROM
+    the trace id -- so it carries the veto and not a rung of the chain.
     """
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
     experiment, experiment_id = resolved
-    trace = (RESOURCE_TYPE_TRACE, "*")
-    username = authenticate_request().username
-    workspace_name = get_anchor_workspace(*experiment)
-    if workspace_name is None:
-        return False
-    own_grant = _role_grant_for_resource(
-        store.get_user(username).id, RESOURCE_TYPE_ASSESSMENT, "*", workspace_name
-    )
     return authorize(
-        username,
+        authenticate_request().username,
         experiment,
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
@@ -3885,8 +3890,10 @@ def validate_can_delete_assessment():
             Requirement(
                 RESOURCE_TYPE_ASSESSMENT,
                 "*",
-                "delete" if own_grant is not None else "update",
-                fallback_if_no_grant=(trace, experiment),
+                "delete",
+                fallback_if_no_grant=(
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+                ),
             ),
         ],
     )
