@@ -19,6 +19,7 @@ from mlflow.gateway.constants import (
     TYPESAFE_API_BASE_URL,
     TYPESAFE_SYSTEM_ONE_PATH,
 )
+from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -29,10 +30,24 @@ from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.request_utils import _get_http_response_with_retries
+from mlflow.utils.rest_utils import http_request
 
 _DIRECT_ENDPOINT = f"{TYPESAFE_API_BASE_URL}/{TYPESAFE_SYSTEM_ONE_PATH}"
 _RETRY_CODES = (408, 429, 500, 502, 503, 504, 529)
+_GATEWAY_PROVIDER = "gateway"
+_TYPESAFE_PROVIDER = "typesafe"
+_SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
+_LEGACY_NON_TYPESAFE_GATEWAY_DETAIL = "Gateway endpoint does not use the TypeSafe provider."
+_NON_TYPESAFE_GATEWAY_DETAIL = (
+    "Gateway endpoint does not use a System One model. Use a TypeSafe or OpenRouter "
+    "Jev decision model."
+)
+_NON_TYPESAFE_GATEWAY_DETAILS = {
+    _LEGACY_NON_TYPESAFE_GATEWAY_DETAIL,
+    _NON_TYPESAFE_GATEWAY_DETAIL,
+}
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
@@ -54,7 +69,26 @@ _AnswerSpec = _NoulSpec | _ChoiceSpec
 
 def _is_typesafe_model(model_uri: str) -> bool:
     provider, separator, _ = model_uri.partition(":/")
-    return bool(separator) and provider == "typesafe"
+    return bool(separator) and provider == _TYPESAFE_PROVIDER
+
+
+def _is_gateway_model(model_uri: str) -> bool:
+    provider, separator, _ = model_uri.partition(":/")
+    return bool(separator) and provider == _GATEWAY_PROVIDER
+
+
+class _GatewayEndpointNotSystemOne(Exception):
+    pass
+
+
+def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs):
+    provider, separator, _ = model_uri.partition(":/")
+    if not separator or provider != _GATEWAY_PROVIDER:
+        return None
+    try:
+        return _invoke_typesafe_judge(model_uri, **kwargs)
+    except _GatewayEndpointNotSystemOne:
+        return None
 
 
 @record_usage_event(InvokeCustomJudgeModelEvent)
@@ -74,9 +108,9 @@ def _invoke_typesafe_judge(
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     provider, model_name = _parse_model_uri(model_uri)
-    if provider != "typesafe":
+    if provider not in _SUPPORTED_PROVIDERS:
         raise MlflowException.invalid_parameter_value(
-            f"Expected a typesafe:/ model URI, got {model_uri!r}."
+            f"Expected a typesafe:/ or gateway:/ model URI, got {model_uri!r}."
         )
     _validate_options(inference_params, base_url, extra_headers)
     _validate_input(instructions, state)
@@ -89,8 +123,14 @@ def _invoke_typesafe_judge(
         "questions": {_QUESTION_NAME: question},
     }
 
-    response = _send_request(payload, num_retries)
-    response_data = _parse_json_response(response)
+    response = (
+        _send_gateway_request(payload, num_retries)
+        if provider == _GATEWAY_PROVIDER
+        else _send_request(payload, num_retries)
+    )
+    response_data = _parse_json_response(
+        response, allow_gateway_fallback=provider == _GATEWAY_PROVIDER
+    )
     value, metadata, _, _ = _parse_response(response_data, answer_spec)
 
     return Feedback(
@@ -170,6 +210,22 @@ def _send_request(payload: dict[str, Any], num_retries: int):
             "Failed to connect to the TypeSafe evaluation endpoint.",
             error_code=INTERNAL_ERROR,
         ) from None
+
+
+def _send_gateway_request(payload: dict[str, Any], num_retries: int):
+    gateway_uri = _resolve_gateway_uri()
+    return http_request(
+        host_creds=get_default_host_creds(gateway_uri),
+        endpoint="/gateway/typesafe/v1/systemone",
+        method="POST",
+        max_retries=num_retries,
+        backoff_factor=1,
+        backoff_jitter=0.1,
+        retry_codes=_RETRY_CODES,
+        timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get(),
+        raise_on_status=False,
+        json=payload,
+    )
 
 
 def _rewrite_state_references(instructions: str, state: dict[str, Any]) -> str:
@@ -258,8 +314,17 @@ def _describe_literal(value: Any) -> str:
     return f"The evaluation result is {_literal_label(value)}."
 
 
-def _parse_json_response(response) -> dict[str, Any]:
+def _parse_json_response(response, *, allow_gateway_fallback: bool = False) -> dict[str, Any]:
     if not 200 <= response.status_code < 300:
+        if allow_gateway_fallback and response.status_code in (404, 422):
+            try:
+                detail = response.json().get("detail")
+            except (AttributeError, ValueError):
+                detail = None
+            if (response.status_code == 404 and detail == "Not Found") or (
+                response.status_code == 422 and detail in _NON_TYPESAFE_GATEWAY_DETAILS
+            ):
+                raise _GatewayEndpointNotSystemOne
         if response.status_code in (401, 403):
             error_code = UNAUTHENTICATED
         elif response.status_code < 500:
@@ -377,4 +442,9 @@ def _invalid_response(answer_type: str) -> MlflowException:
     )
 
 
-__all__ = ["_invoke_typesafe_judge", "_is_typesafe_model"]
+__all__ = [
+    "_invoke_typesafe_judge",
+    "_is_gateway_model",
+    "_is_typesafe_model",
+    "_try_invoke_gateway_typesafe_judge",
+]

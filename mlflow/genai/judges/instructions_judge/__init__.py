@@ -22,7 +22,12 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
-from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
+from mlflow.genai.judges.typesafe import (
+    _invoke_typesafe_judge,
+    _is_gateway_model,
+    _is_typesafe_model,
+    _try_invoke_gateway_typesafe_judge,
+)
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
@@ -625,6 +630,7 @@ class InstructionsJudge(Judge):
         else:
             _logger.debug("Using standard (non-agentic) judge mode.")
 
+        feedback = None
         if _is_typesafe_model(self._model):
             if is_trace_based:
                 raise MlflowException.invalid_parameter_value(
@@ -651,7 +657,28 @@ class InstructionsJudge(Judge):
                 base_url=self._base_url,
                 extra_headers=self._extra_headers,
             )
-        else:
+        elif _is_gateway_model(self._model):
+            feedback = _try_invoke_gateway_typesafe_judge(
+                self._model,
+                instructions=self._instructions,
+                state={
+                    variable: value
+                    for variable, value in (
+                        (self._TEMPLATE_VARIABLE_INPUTS, inputs),
+                        (self._TEMPLATE_VARIABLE_OUTPUTS, outputs),
+                        (self._TEMPLATE_VARIABLE_EXPECTATIONS, expectations),
+                        (self._TEMPLATE_VARIABLE_CONVERSATION, conversation),
+                    )
+                    if variable in self.template_variables
+                },
+                feedback_value_type=self._feedback_value_type,
+                assessment_name=self.name,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
+
+        if feedback is None:
             system_content = self._build_system_message(is_trace_based)
             user_content = self._build_user_message(inputs, outputs, expectations, conversation)
 

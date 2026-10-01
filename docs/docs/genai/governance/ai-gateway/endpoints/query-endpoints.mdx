@@ -242,7 +242,7 @@ For detailed information on passthrough APIs for each provider, see [Model Provi
 
 ### TypeSafe Passthrough
 
-TypeSafe passthrough endpoints accept raw System One requests at `POST /gateway/typesafe/v1/systemone`. These endpoints are for structured evaluation with TypeSafe's native request schema. They do not support chat completions, embeddings, mixed TypeSafe/chat routing, or streaming.
+System One passthrough endpoints accept requests at `POST /gateway/typesafe/v1/systemone`. These endpoints support TypeSafe provider models and OpenRouter Jev decision models (`typesafe/jev-1.13` and `~typesafe/jev-latest`). They do not support chat completions, embeddings, mixed System One/chat routing, or streaming. OpenRouter `typesafe/jev-router` remains a chat model.
 
 ```bash
 curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
@@ -259,7 +259,7 @@ curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
   }'
 ```
 
-The `model` value is the MLflow Gateway endpoint name. For MLflow judges, use direct TypeSafe model URIs such as `model="typesafe:/jev-latest"`; TypeSafe gateway endpoints are not `gateway:/` judge models for `make_judge()`.
+The `model` value is the MLflow Gateway endpoint name. Supported structured MLflow judges can use a direct TypeSafe model URI such as `model="typesafe:/jev-latest"` or a System One Gateway endpoint such as `model="gateway:/jev-evaluator"`.
 
 ### OpenAI Passthrough
 
