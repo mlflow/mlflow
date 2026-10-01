@@ -1,0 +1,22 @@
+{
+  "network": {
+    "allowedDomains": [
+      "localhost:8080",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "registry.npmjs.org"
+    ],
+    "deniedDomains": []
+  },
+  "filesystem": {
+    "denyRead": [
+      "~/.ssh",
+      "~/.docker",
+      "~/.config/gh",
+      "/etc/gw-proxy",
+      "/home/runner/work/_temp/_runner_file_commands"
+    ],
+    "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
+    "denyWrite": []
+  }
+}
