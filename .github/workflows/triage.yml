@@ -143,6 +143,7 @@ jobs:
       contents: read
     outputs:
       decision: ${{ steps.assess.outputs.decision }}
+      needs_ui: ${{ steps.assess.outputs.needs_ui }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,6 +207,11 @@ jobs:
 
             In the rationale, say in one sentence what would take the agent beyond normal
             work on the issue, or why nothing does, without quoting the issue.
+
+            Set needs_ui to true when investigating the issue requires inspecting or
+            interacting with the MLflow web UI. For backend, API, or integration bugs
+            that do not involve the UI, set it to false. If UI involvement is unclear,
+            set it to true.
         run: |
           payload=$(jq -c --arg prompt "$PROMPT" '{
             model: "databricks-gpt-6-luna",
@@ -220,10 +226,11 @@ jobs:
               schema: {
                 type: "object",
                 additionalProperties: false,
-                required: ["decision", "rationale"],
+                required: ["decision", "rationale", "needs_ui"],
                 properties: {
                   decision: {type: "string", enum: ["safe", "unsafe", "uncertain"]},
-                  rationale: {type: "string"}
+                  rationale: {type: "string"},
+                  needs_ui: {type: "boolean"}
                 }
               }
             }}
@@ -244,6 +251,7 @@ jobs:
           ' <<< "$response")
           decision=$(jq -r .decision <<< "$result")
           echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          echo "needs_ui=$(jq -r .needs_ui <<< "$result")" >> "$GITHUB_OUTPUT"
           # $GITHUB_OUTPUT is line-based; a newline in model text could inject another output (e.g. decision=safe).
           echo "rationale=$(jq -r '.rationale | [splits("\\s+")] | join(" ") | .[:240]' <<< "$result")" >> "$GITHUB_OUTPUT"
       - name: Write summary
@@ -314,14 +322,16 @@ jobs:
               host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
               client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
               client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
-      - id: build-cache-key
+      - if: needs.safety.outputs.needs_ui == 'true'
+        id: build-cache-key
         run: |
           node_version=$(node --version)
           yarn_version=$(cd mlflow/server/js && yarn --version)
           fingerprint=$(git ls-files -z -- mlflow/server/js .github/actions/setup-node |
             xargs -0 sha256sum | sha256sum | cut -d ' ' -f1)
           echo "key=mlflow-js-build-${RUNNER_OS}-${node_version}-${yarn_version}-${fingerprint}" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: needs.safety.outputs.needs_ui == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: mlflow/server/js/build
           key: ${{ steps.build-cache-key.outputs.key }}
@@ -407,8 +417,6 @@ jobs:
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
       - name: Check sandbox restrictions
-        env:
-          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
         run: |
           # Otherwise a sandbox that fails to start would pass every check below.
           srt --settings "$RUNNER_TEMP/srt.json" -- true
@@ -424,6 +432,11 @@ jobs:
               exit 1
             fi
           done
+      - if: needs.safety.outputs.needs_ui == 'true'
+        name: Check browser access
+        env:
+          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
+        run: |
           page_dir=$(mktemp -d)
           echo '<h1>mlflow-browser-smoke</h1>' > "$page_dir/index.html"
           python -m http.server 5000 --bind 127.0.0.1 --directory "$page_dir" > "$RUNNER_TEMP/triage-browser-smoke.log" 2>&1 &
@@ -436,7 +449,8 @@ jobs:
             [[ "$snapshot" == *mlflow-browser-smoke* ]]
             agent-browser close
           '
-      - id: ui
+      - if: needs.safety.outputs.needs_ui == 'true'
+        id: ui
         name: Start MLflow UI
         timeout-minutes: 15
         run: |
@@ -487,14 +501,16 @@ jobs:
 
             1. Run `uv run python -c "import mlflow; print(mlflow.__version__)"` in the
                current directory and note the version.
-            2. Take a screenshot of the MLflow UI already running at
-               ${{ steps.ui.outputs.url }}. Keep browser navigation on local MLflow
-               URLs. Run `agent-browser open ${{ steps.ui.outputs.url }}`, inspect
-               `agent-browser snapshot -i`,
-               then run `agent-browser screenshot --full` without a filename. The
-               screenshot must be saved under /tmp/triage-out/media; include its
-               printed absolute path in the report. If startup or browser launch
-               fails, state the specific blocker instead of claiming a screenshot.
+            2. UI reproduction needed: ${{ needs.safety.outputs.needs_ui }}.
+               If true, the MLflow UI is already running at ${{ steps.ui.outputs.url }}.
+               Keep browser navigation on local MLflow URLs. Run
+               `agent-browser open ${{ steps.ui.outputs.url }}`, inspect
+               `agent-browser snapshot -i`, then run `agent-browser screenshot --full`
+               without a filename. The screenshot must be saved under
+               /tmp/triage-out/media; include its printed absolute path in the
+               report. If startup or browser launch fails, state the specific
+               blocker instead of claiming a screenshot. If false, do not start
+               the UI or browser and note that no UI reproduction was needed.
             3. Write /tmp/triage-out/report.json as
                {"issue_number": <issue number>, "body": "<Markdown>"}, where the body
                summarizes the issue in a few sentences for an MLflow maintainer and
