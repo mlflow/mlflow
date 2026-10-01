@@ -184,7 +184,7 @@ jobs:
             work on the issue, or why nothing does, without quoting the issue.
         run: |
           payload=$(jq -c --arg prompt "$PROMPT" '{
-            model: "claude-sonnet-5-5",
+            model: "databricks-claude-sonnet-5-5",
             max_tokens: 4096,
             system: $prompt,
             messages: [{role: "user", content: ({title, body} | tojson)}],
@@ -198,13 +198,14 @@ jobs:
               }
             }}}
           }' "$RUNNER_TEMP/sanitized_issue.json")
+          # On failure, print the gateway's error body; it names the cause (e.g. an unknown model).
           response=$(curl -sS --fail-with-body --max-time 30 --retry 3 \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -H "anthropic-version: 2023-06-01" \
             -H "$CUSTOM_HEADERS" \
             --data-binary "$payload" \
-            "$BASE_URL/anthropic/v1/messages")
+            "$BASE_URL/anthropic/v1/messages") || { printf '%s\n' "$response" >&2; exit 1; }
           # Structured outputs guarantee the schema on a complete reply. Anything else
           # (refusal, max_tokens) produces no result, so jq -e fails the step.
           result=$(jq -ce 'select(.stop_reason == "end_turn") | .content[] | select(.type == "text") | .text | fromjson' <<< "$response")
