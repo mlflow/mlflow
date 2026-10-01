@@ -1,6 +1,6 @@
 // Avoid treating operator words in ordinary phrases as structured search syntax.
-const FILTER_IDENTIFIER_PATTERN = String.raw`[A-Za-z_][A-Za-z0-9_]*(?:\.(?:[A-Za-z_][A-Za-z0-9_]*|\x60[^\x60]+\x60))*`;
-const FILTER_CLAUSE_PATTERN = String.raw`${FILTER_IDENTIFIER_PATTERN}\s+(?:(?:ILIKE|LIKE)\s+(?:"[^"]*"|'[^']*')|(?:=|!=|<=|>=|<|>)\s+(?:"[^"]*"|'[^']*'|-?\d+(?:\.\d+)?|TRUE|FALSE|NULL)|(?:NOT\s+)?IN\s+\(\s*(?:"[^"]*"|'[^']*')(?:\s*,\s*(?:"[^"]*"|'[^']*'))*\s*\)|IS\s+(?:NOT\s+)?NULL)`;
+const FILTER_IDENTIFIER_PATTERN = String.raw`[A-Za-z_][A-Za-z0-9_]*(?:\.(?:[A-Za-z_][A-Za-z0-9_]*|"[^"]+"|\x60[^\x60]+\x60))*`;
+const FILTER_CLAUSE_PATTERN = String.raw`${FILTER_IDENTIFIER_PATTERN}(?:\s+(?:(?:ILIKE|LIKE)\s+(?:"[^"]*"|'[^']*')|(?:NOT\s+)?IN\s+\(\s*(?:"[^"]*"|'[^']*')(?:\s*,\s*(?:"[^"]*"|'[^']*'))*\s*\)|IS\s+(?:NOT\s+)?NULL)|\s*(?:=|!=|<=|>=|<|>)\s*(?:"[^"]*"|'[^']*'|-?\d+(?:\.\d+)?|TRUE|FALSE|NULL))`;
 const SQL_FILTER_PATTERN = new RegExp(
   `^\\s*${FILTER_CLAUSE_PATTERN}(?:\\s+AND\\s+${FILTER_CLAUSE_PATTERN})*\\s*$`,
   'i',

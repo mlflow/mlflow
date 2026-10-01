@@ -55,6 +55,26 @@ describe('buildSearchFilterClause', () => {
     expect(buildSearchFilterClause('tags.env = "prod"')).toBe('tags.env = "prod"');
   });
 
+  it.each([
+    "tags.demo='true'",
+    "tags.demo= 'true'",
+    "tags.demo ='true'",
+    "tags.demo = 'true'",
+    `tags."demo"='true'`,
+    `tags."demo" = 'true'`,
+    `tags."mlflow.organization" = 'production'`,
+    "tags.`demo`='true'",
+    "tags.`demo` = 'true'",
+    `tags."demo"='true' AND tags.env='prod'`,
+    'count!=10',
+    'count<10',
+    'count>10',
+    'count<=10',
+    'count>=10',
+  ])('passes through compact comparisons and quoted tag keys: %s', (filter) => {
+    expect(buildSearchFilterClause(filter)).toBe(filter);
+  });
+
   it('passes through not-equals filter syntax', () => {
     expect(buildSearchFilterClause('tags.status != "archived"')).toBe('tags.status != "archived"');
   });
@@ -101,5 +121,6 @@ describe('buildSearchFilterClause', () => {
   it('requires whitespace before SQL keywords to avoid false positives', () => {
     expect(buildSearchFilterClause('prompt-ILIKE-test')).toBe("name ILIKE '%prompt-ILIKE-test%'");
     expect(buildSearchFilterClause('prompt-LIKE-test')).toBe("name ILIKE '%prompt-LIKE-test%'");
+    expect(buildSearchFilterClause('namelike "test"')).toBe(`name ILIKE '%namelike "test"%'`);
   });
 });
