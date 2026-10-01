@@ -250,7 +250,7 @@ deny_ubuntu_latest contains msg if {
 	job_uses_ubuntu_latest(job)
 	msg := sprintf(
 		concat("", [
-			"Job '%s' uses 'ubuntu-latest'. Use 'ubuntu-24.04' instead. ",
+			"Job '%s' uses 'ubuntu-latest'. Use 'ubuntu-slim' for lightweight jobs or 'ubuntu-24.04' otherwise. ",
 			"See https://github.com/mlflow/mlflow/issues/26183 for details.",
 		]),
 		[job_id],
