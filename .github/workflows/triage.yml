@@ -435,15 +435,15 @@ jobs:
       - if: needs.safety.outputs.needs_ui == 'true'
         name: Check browser access
         env:
-          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
+          AGENT_BROWSER_ARGS: --no-sandbox
         run: |
-          page_dir=$(mktemp -d)
-          echo '<h1>mlflow-browser-smoke</h1>' > "$page_dir/index.html"
-          python -m http.server 5000 --bind 127.0.0.1 --directory "$page_dir" > "$RUNNER_TEMP/triage-browser-smoke.log" 2>&1 &
-          page_server_pid=$!
-          trap 'kill "$page_server_pid" 2>/dev/null || true; rm -rf "$page_dir"' EXIT
-          curl --retry 10 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:5000/ > /dev/null
           srt --settings "$RUNNER_TEMP/srt.json" -- bash -e -o pipefail -c '
+            page_dir=$(mktemp -d)
+            trap '\''kill "$page_server_pid" 2>/dev/null || true; rm -rf "$page_dir"'\'' EXIT
+            echo "<h1>mlflow-browser-smoke</h1>" > "$page_dir/index.html"
+            python -m http.server 5000 --bind 127.0.0.1 --directory "$page_dir" > /tmp/triage-browser-smoke.log 2>&1 &
+            page_server_pid=$!
+            curl --noproxy "*" --retry 10 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:5000/ > /dev/null
             agent-browser open http://localhost:5000/
             snapshot=$(agent-browser snapshot)
             [[ "$snapshot" == *mlflow-browser-smoke* ]]
