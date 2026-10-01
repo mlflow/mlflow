@@ -20,6 +20,8 @@ import issue_safety as safety
         ("ghp_" + "a" * 36, ""),
         ("A bug", "AKIA" + "A" * 16),
         ("A bug", "api_key: sk-" + "a" * 25),
+        ("A bug", "Authorization: Bearer " + "a" * 32),
+        ("A bug", "AWS_SECRET_ACCESS_KEY=" + "a" * 40),
     ],
 )
 def test_preflight_blocks_secrets_before_cleaning(title, body):

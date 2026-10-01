@@ -18,7 +18,9 @@ SECRET_PATTERN = re.compile(
     r"-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----"
     r"|\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}"
     r"|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,})\b"
-    r"|\b(?:password|passwd|api[_-]?key|access[_-]?token|client[_-]?secret)"
+    r"|\bBearer\s+\S{16,}"
+    r"|\b(?:password|passwd|api[_-]?key|access[_-]?token|client[_-]?secret"
+    r"|aws[_-]?secret[_-]?access[_-]?key)"
     r"\s*[:=]\s*[\"']?\S{8,}",
     re.IGNORECASE,
 )
