@@ -26,7 +26,7 @@ jobs:
       github.repository == 'mlflow/mlflow' &&
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
