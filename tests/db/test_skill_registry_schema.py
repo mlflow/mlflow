@@ -1,8 +1,10 @@
 # Cross-dialect (Docker matrix) tests for the RFC-0008 skill registry schema: they run
 # against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL)
 # and prove cascade / restrict / uniqueness and latest-resolution behavior at the SQL
-# layer rather than through application checks. The store layer does not exist yet, so
-# these operate directly on the ORM models.
+# layer rather than through application checks. They operate on the ORM models and raw
+# SQL rather than the store, so a rule enforced only in application code would fail
+# here. The store's behavior on every engine is covered separately by
+# tests/store/tracking/sqlalchemy_store, which the database CI job also runs.
 #
 # Several tests here intentionally mirror SQLite-only tests in
 # tests/store/tracking/test_skill_registry_dbmodels.py: those give fast feedback in the
@@ -23,6 +25,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -30,8 +33,11 @@ from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
+    SqlAgentPluginAlias,
+    SqlAgentPluginTag,
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
+    SqlAgentPluginVersionTag,
     SqlSkill,
     SqlSkillAlias,
     SqlSkillTag,
@@ -214,6 +220,221 @@ def test_db_backend_restrict_delete_of_referenced_skill_version(store):
             )
 
 
+def _pinned_rows(session, *, skill, plugin):
+    return (
+        session.query(SqlSkill).filter_by(organization="acme", name=skill).count(),
+        session.query(SqlSkillVersion).filter_by(organization="acme", name=skill).count(),
+        session.query(SqlAgentPluginVersionMember).filter_by(plugin_name=plugin).count(),
+    )
+
+
+def test_db_backend_pinned_version_blocks_cascading_delete_of_its_skill(store):
+    # Deleting the parent cascades into skill_versions, where the membership foreign key
+    # (NO ACTION) must stop it, so the whole statement fails and nothing is removed.
+    # test_db_backend_restrict_delete_of_referenced_skill_version deletes the version
+    # directly; this is the cascade path an administrative hard delete takes.
+    with session_scope(store) as session:
+        _seed_skill(session, organization="acme", name="pinned-parent-skill")
+        _seed_assembled_plugin(
+            session,
+            organization="acme",
+            name="pinned-parent-plugin",
+            version="1.0.0",
+            members=[("acme", "pinned-parent-skill", 1)],
+        )
+    with session_scope(store, commit=False) as session:
+        with pytest.raises(IntegrityError, match=r"(?i)(constraint|duplicate)"):
+            session.execute(
+                sa.delete(SqlSkill).where(
+                    SqlSkill.workspace == "default",
+                    SqlSkill.organization == "acme",
+                    SqlSkill.name == "pinned-parent-skill",
+                )
+            )
+    with session_scope(store, commit=False) as session:
+        assert _pinned_rows(
+            session, skill="pinned-parent-skill", plugin="pinned-parent-plugin"
+        ) == (1, 1, 1)
+
+
+def test_db_backend_soft_delete_of_pinned_version_is_allowed(store):
+    # The membership foreign key guards physical deletion only. Soft-deleting a pinned
+    # version is a status update, which the schema must allow: it is how the version is
+    # withdrawn from every plugin that contains it.
+    with session_scope(store) as session:
+        _seed_skill(session, organization="acme", name="soft-pinned-skill")
+        _seed_assembled_plugin(
+            session,
+            organization="acme",
+            name="soft-pinned-plugin",
+            version="1.0.0",
+            members=[("acme", "soft-pinned-skill", 1)],
+        )
+    with session_scope(store) as session:
+        session.execute(
+            sa
+            .update(SqlSkillVersion)
+            .where(
+                SqlSkillVersion.workspace == "default",
+                SqlSkillVersion.organization == "acme",
+                SqlSkillVersion.name == "soft-pinned-skill",
+                SqlSkillVersion.version == 1,
+            )
+            .values(status="deleted")
+        )
+    with session_scope(store, commit=False) as session:
+        version = session.get(SqlSkillVersion, ("default", "acme", "soft-pinned-skill", 1))
+        assert version.status == "deleted"
+        assert _pinned_rows(session, skill="soft-pinned-skill", plugin="soft-pinned-plugin") == (
+            1,
+            1,
+            1,
+        )
+
+
+def _add_assembled_plugin_version(session, *, workspace, name):
+    session.add(SqlAgentPlugin(workspace=workspace, organization="acme", name=name))
+    session.add(
+        SqlAgentPluginVersion(
+            workspace=workspace,
+            organization="acme",
+            name=name,
+            version="1.0.0",
+            plugin_json={"name": name, "version": "1.0.0"},
+            source_type="assembled",
+            source="assembled",
+        )
+    )
+
+
+def _add_skill_version(session, *, workspace, name):
+    session.add(SqlSkill(workspace=workspace, organization="acme", name=name))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name=name,
+            version=1,
+            source_type="git",
+            source="s.git",
+        )
+    )
+
+
+def test_db_backend_member_cannot_pin_a_skill_version_in_another_workspace(store):
+    # The membership foreign key reuses plugin_workspace for the skill side, so a plugin
+    # version can only pin skill versions in its own workspace: a membership never crosses
+    # a workspace boundary.
+    with session_scope(store) as session:
+        _add_skill_version(session, workspace="xws-skills", name="xws-skill")
+        _add_assembled_plugin_version(session, workspace="xws-plugins", name="xws-plugin")
+
+    def pin(session):
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace="xws-plugins",
+                plugin_organization="acme",
+                plugin_name="xws-plugin",
+                plugin_version="1.0.0",
+                member_organization="acme",
+                member_name="xws-skill",
+                member_version=1,
+            )
+        )
+        session.flush()
+
+    with session_scope(store, commit=False) as session:
+        with pytest.raises(IntegrityError, match=r"(?i)foreign key"):
+            pin(session)
+
+    # The same pin is accepted once that skill version exists in the plugin's workspace,
+    # so the rejection above comes from the workspace alone.
+    with session_scope(store) as session:
+        _add_skill_version(session, workspace="xws-plugins", name="xws-skill")
+    with session_scope(store) as session:
+        pin(session)
+    with session_scope(store, commit=False) as session:
+        members = session.query(SqlAgentPluginVersionMember).filter_by(plugin_name="xws-plugin")
+        assert [(m.plugin_workspace, m.member_name) for m in members] == [
+            ("xws-plugins", "xws-skill")
+        ]
+
+
+def _widest(model, column, fill):
+    return fill * getattr(model, column).type.length
+
+
+def test_db_backend_keys_accept_values_at_their_declared_maximum(store):
+    # https://github.com/mlflow/rfcs/pull/47 sized every composite key to fit each engine's
+    # index limit. MySQL enforces that when the migration creates the index, but SQL Server
+    # only warns then, and rejects a row once its key actually exceeds 900 bytes. So insert
+    # every table's key columns at their declared maximum and read them back unchanged,
+    # which also catches a column silently truncating a value. Widths come from the models,
+    # so widening a column later is covered too.
+    workspace = _widest(SqlSkill, "workspace", "w")
+    organization = _widest(SqlSkill, "organization", "o")
+    skill = _widest(SqlSkill, "name", "s")
+    plugin = _widest(SqlAgentPlugin, "name", "p")
+    tag_key = _widest(SqlSkillTag, "key", "k")
+    alias = _widest(SqlSkillAlias, "alias", "a")
+    # The longest valid SemVer at the column width: a prerelease that fills it.
+    version = "1.0.0-" + "r" * (SqlAgentPluginVersion.version.type.length - len("1.0.0-"))
+    digest = _widest(SqlSkillVersion, "digest", "f")
+
+    skill_key = {"workspace": workspace, "organization": organization, "name": skill}
+    plugin_key = {"workspace": workspace, "organization": organization, "name": plugin}
+    with session_scope(store) as session:
+        session.add(SqlSkill(**skill_key))
+        session.add(
+            SqlSkillVersion(
+                **skill_key, version=1, source_type="git", source="s.git", digest=digest
+            )
+        )
+        session.add(SqlSkillTag(**skill_key, key=tag_key, value="v"))
+        session.add(SqlSkillVersionTag(**skill_key, version=1, key=tag_key, value="v"))
+        session.add(SqlSkillAlias(**skill_key, alias=alias, version=1))
+        session.add(SqlAgentPlugin(**plugin_key))
+        session.add(
+            SqlAgentPluginVersion(
+                **plugin_key,
+                version=version,
+                plugin_json={"name": plugin, "version": version},
+                source_type="assembled",
+                source="assembled",
+            )
+        )
+        session.add(SqlAgentPluginTag(**plugin_key, key=tag_key, value="v"))
+        session.add(SqlAgentPluginVersionTag(**plugin_key, version=version, key=tag_key, value="v"))
+        session.add(SqlAgentPluginAlias(**plugin_key, alias=alias, version=version))
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace=workspace,
+                plugin_organization=organization,
+                plugin_name=plugin,
+                plugin_version=version,
+                member_organization=organization,
+                member_name=skill,
+                member_version=1,
+            )
+        )
+
+    with session_scope(store, commit=False) as session:
+        stored = session.get(SqlSkillVersion, (workspace, organization, skill, 1))
+        assert stored.digest == digest
+        assert session.get(SqlSkillTag, (workspace, organization, skill, tag_key)) is not None
+        assert session.get(SqlSkillVersionTag, (workspace, organization, skill, 1, tag_key))
+        assert session.get(SqlSkillAlias, (workspace, organization, skill, alias)) is not None
+        assert session.get(SqlAgentPluginTag, (workspace, organization, plugin, tag_key))
+        assert session.get(
+            SqlAgentPluginVersionTag, (workspace, organization, plugin, version, tag_key)
+        )
+        assert session.get(SqlAgentPluginAlias, (workspace, organization, plugin, alias))
+        member = session.get(
+            SqlAgentPluginVersionMember, (workspace, organization, plugin, version, skill)
+        )
+        assert (member.member_organization, member.member_name) == (organization, skill)
+
+
 def test_db_backend_duplicate_member_name_rejected(store):
     # Cross-dialect twin of test_duplicate_member_name_rejected.
     # Within a single plugin version, the same skill name can't appear more than once --
@@ -262,6 +483,12 @@ _SKILL_REGISTRY_TABLES = frozenset({
 })
 
 
+def _skill_registry_migration_parent(config):
+    # Read from the migration rather than hardcoded, so the downgrade undoes only this
+    # migration even after other migrations are added beneath it.
+    return ScriptDirectory.from_config(config).get_revision("e7d1f4b2a9c6").down_revision
+
+
 def test_db_backend_migration_downgrade_and_reupgrade(store):
     # Cross-dialect twin of test_migration_downgrade_and_reupgrade. FK-aware drop
     # ordering is stricter on MySQL/MSSQL than on SQLite, so this re-proves a clean
@@ -272,7 +499,7 @@ def test_db_backend_migration_downgrade_and_reupgrade(store):
     config = _get_alembic_config(url)
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
     try:
-        command.downgrade(config, "b7e2c1a4d9f3")
+        command.downgrade(config, _skill_registry_migration_parent(config))
         assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
     finally:
         command.upgrade(config, "head")
