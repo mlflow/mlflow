@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Path, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 from starlette.datastructures import UploadFile
+from starlette.types import Message, Receive
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_source import (
@@ -20,6 +23,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.skill_registry.registration import (
     SkillVersionRegistration,
     bulk_register_skill_versions,
+    get_max_upload_size,
     register_skill_version,
 )
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
@@ -36,6 +40,14 @@ _SKILL_REGISTRY_API_PREFIX = "/api/3.0/mlflow/skills"
 # ``/@org/versions``; skill-name segments therefore cannot begin with ``@``.
 _SKILL_NAME_PATH_PATTERN = r"^[^@/][^/]*$"
 SkillNamePath = Annotated[str, Path(pattern=_SKILL_NAME_PATH_PATTERN)]
+
+# Multipart bodies include the archive plus the metadata part, part headers, and boundaries.
+# Keep this allowance bounded so the transport limit remains close to the archive limit while
+# allowing normal multipart requests to reach the registration-level checks.
+_MULTIPART_REQUEST_OVERHEAD = 2 * 1024 * 1024
+_MAX_REGISTRATION_METADATA_SIZE = 1 * 1024 * 1024
+_MAX_MULTIPART_FILES = 2
+_MAX_MULTIPART_FIELDS = 1
 
 
 def get_skill_registry_api_route_prefixes() -> tuple[str, ...]:
@@ -73,6 +85,8 @@ class SkillIconPayload(BaseModel):
 
 
 class CreateSkillRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     organization: str = ""
     description: str | None = None
@@ -80,6 +94,8 @@ class CreateSkillRequest(BaseModel):
 
 
 class UpdateSkillRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     description: str | None = None
     icons: list[SkillIconPayload] | None = None
 
@@ -134,16 +150,22 @@ class SearchSkillsResponse(BaseModel):
 
 
 class SetSkillAliasRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     alias: str
     version: int
 
 
 class SetTagRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     key: str
     value: str
 
 
 class CreateSkillVersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     organization: str = ""
     source_type: str | None = None
@@ -155,8 +177,7 @@ class CreateSkillVersionRequest(BaseModel):
 
 
 class RegisterSkillRequest(CreateSkillVersionRequest):
-    name: str | None = None
-    organization: str = ""
+    pass
 
 
 class BulkRegisterSkillRequest(BaseModel):
@@ -179,7 +200,23 @@ class BulkRegisterSkillsRequest(BaseModel):
 
 
 class UpdateSkillVersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     status: str | None = None
+
+
+def _skill_source_response_fields(
+    source: GitSource | OCISource | ZipSource | MlflowSource | str | None,
+) -> tuple[str | None, str | None, str | None]:
+    if isinstance(source, GitSource):
+        return source.url, source.ref, source.subpath
+    if isinstance(source, OCISource):
+        return source.image, None, source.subpath
+    if isinstance(source, ZipSource):
+        return source.url, None, source.subpath
+    if isinstance(source, MlflowSource):
+        return source.artifact_path, None, source.subpath
+    return source, None, None
 
 
 class SkillVersionResponse(BaseModel):
@@ -201,27 +238,7 @@ class SkillVersionResponse(BaseModel):
 
     @classmethod
     def from_entity(cls, entity: SkillVersion) -> SkillVersionResponse:
-        source = entity.source
-        if isinstance(source, GitSource):
-            source_value = source.url
-            ref = source.ref
-            subpath = source.subpath
-        elif isinstance(source, OCISource):
-            source_value = source.image
-            ref = None
-            subpath = source.subpath
-        elif isinstance(source, ZipSource):
-            source_value = source.url
-            ref = None
-            subpath = source.subpath
-        elif isinstance(source, MlflowSource):
-            source_value = source.artifact_path
-            ref = None
-            subpath = source.subpath
-        else:
-            source_value = source
-            ref = None
-            subpath = None
+        source_value, ref, subpath = _skill_source_response_fields(entity.source)
 
         return cls(
             name=entity.name,
@@ -297,26 +314,22 @@ def _validate_skill_path_identity(organization: str, name: str) -> None:
     _validate_skill_name(name)
 
 
-def _validate_skill_version_path(version: int) -> None:
-    _validate_skill_version(version)
-
-
 async def _create_skill_version(
     name: str,
     request: Request,
     organization: str = "",
 ) -> SkillVersionResponse:
-    registration, content, multipart = await _parse_registration_request(
+    async with _parse_registration_request(
         request,
         name=name,
         organization=organization,
-    )
-    version = await asyncio.to_thread(
-        register_skill_version,
-        registration,
-        content=content,
-        multipart=multipart,
-    )
+    ) as (registration, content, multipart):
+        version = await asyncio.to_thread(
+            register_skill_version,
+            registration,
+            content=content,
+            multipart=multipart,
+        )
     return SkillVersionResponse.from_entity(version)
 
 
@@ -324,7 +337,7 @@ def _get_skill_version(name: str, version: int, organization: str = "") -> Skill
     from mlflow.server.handlers import _get_tracking_store
 
     _validate_skill_path_identity(organization, name)
-    _validate_skill_version_path(version)
+    _validate_skill_version(version)
     return SkillVersionResponse.from_entity(
         _get_tracking_store().get_skill_version(
             name=name,
@@ -446,7 +459,7 @@ def _set_skill_version_tag(
     from mlflow.server.handlers import _get_tracking_store
 
     _validate_skill_path_identity(organization, name)
-    _validate_skill_version_path(version)
+    _validate_skill_version(version)
     _get_tracking_store().set_skill_version_tag(
         name=name,
         version=version,
@@ -466,7 +479,7 @@ def _delete_skill_version_tag(
     from mlflow.server.handlers import _get_tracking_store
 
     _validate_skill_path_identity(organization, name)
-    _validate_skill_version_path(version)
+    _validate_skill_version(version)
     _get_tracking_store().delete_skill_version_tag(
         name=name,
         version=version,
@@ -485,7 +498,7 @@ def _delete_skill_version(
     from mlflow.server.handlers import _get_tracking_store
 
     _validate_skill_path_identity(organization, name)
-    _validate_skill_version_path(version)
+    _validate_skill_version(version)
     _get_tracking_store().delete_skill_version(
         name=name,
         version=version,
@@ -513,7 +526,7 @@ def _update_skill_version(
     from mlflow.server.handlers import _get_tracking_store
 
     _validate_skill_path_identity(organization, name)
-    _validate_skill_version_path(version)
+    _validate_skill_version(version)
     username = getattr(request.state, "username", None)
     status = body.status if "status" in body.model_fields_set else NOT_SET
     return SkillVersionResponse.from_entity(
@@ -536,7 +549,7 @@ def _registration_from_metadata(
     if isinstance(metadata, (bytes, str)):
         try:
             metadata = json.loads(metadata)
-        except (TypeError, json.JSONDecodeError) as e:
+        except (TypeError, ValueError) as e:
             raise MlflowException.invalid_parameter_value(
                 "The 'metadata' part must contain a valid JSON object."
             ) from e
@@ -564,11 +577,67 @@ def _registration_from_metadata(
     )
 
 
+def _get_multipart_request_size_limit() -> int:
+    return get_max_upload_size() + _MULTIPART_REQUEST_OVERHEAD
+
+
+def _validate_registration_metadata_size(metadata: bytes | str) -> None:
+    metadata_size = len(metadata) if isinstance(metadata, bytes) else len(metadata.encode("utf-8"))
+    if metadata_size > _MAX_REGISTRATION_METADATA_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                "The registration metadata exceeds the maximum allowed size of "
+                f"{_MAX_REGISTRATION_METADATA_SIZE} bytes."
+            ),
+        )
+
+
+def _request_with_multipart_size_limit(request: Request) -> Request:
+    max_bytes = _get_multipart_request_size_limit()
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        "The multipart request body exceeds the maximum allowed size of "
+                        f"{max_bytes} bytes."
+                    ),
+                )
+        except ValueError:
+            # The receive wrapper below remains the authoritative check for malformed or absent
+            # Content-Length headers.
+            pass
+
+    received = 0
+    receive: Receive = request.receive
+
+    async def limited_receive() -> Message:
+        nonlocal received
+        message = await receive()
+        if message["type"] == "http.request":
+            received += len(message.get("body", b""))
+            if received > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        "The multipart request body exceeds the maximum allowed size of "
+                        f"{max_bytes} bytes."
+                    ),
+                )
+        return message
+
+    return Request(request.scope, receive=limited_receive)
+
+
+@asynccontextmanager
 async def _parse_registration_request(
     request: Request,
     name: str | None = None,
     organization: str | None = None,
-) -> tuple[SkillVersionRegistration, Any | None, bool]:
+) -> AsyncIterator[tuple[SkillVersionRegistration, Any | None, bool]]:
     content_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
     username = getattr(request.state, "username", None)
     if content_type == "application/json":
@@ -578,7 +647,7 @@ async def _parse_registration_request(
             raise MlflowException.invalid_parameter_value(
                 "The request body must contain a valid JSON object."
             ) from e
-        return (
+        yield (
             _registration_from_metadata(
                 metadata,
                 username,
@@ -588,30 +657,37 @@ async def _parse_registration_request(
             None,
             False,
         )
+        return
     if content_type != "multipart/form-data":
         raise MlflowException.invalid_parameter_value(
             "Skill registration requires an application/json or multipart/form-data request."
         )
 
-    form = await request.form()
-    metadata = form.get("metadata")
-    content = form.get("content")
-    if isinstance(metadata, UploadFile):
-        metadata = await metadata.read()
-    if not isinstance(content, UploadFile):
-        raise MlflowException.invalid_parameter_value(
-            "Multipart registration requires a 'content' file part."
+    request = _request_with_multipart_size_limit(request)
+    async with request.form(
+        max_files=_MAX_MULTIPART_FILES,
+        max_fields=_MAX_MULTIPART_FIELDS,
+    ) as form:
+        metadata = form.get("metadata")
+        content = form.get("content")
+        if isinstance(metadata, UploadFile):
+            metadata = await metadata.read(_MAX_REGISTRATION_METADATA_SIZE + 1)
+        if isinstance(metadata, (bytes, str)):
+            _validate_registration_metadata_size(metadata)
+        if not isinstance(content, UploadFile):
+            raise MlflowException.invalid_parameter_value(
+                "Multipart registration requires a 'content' file part."
+            )
+        yield (
+            _registration_from_metadata(
+                metadata or "",
+                username,
+                name=name,
+                organization=organization,
+            ),
+            content.file,
+            True,
         )
-    return (
-        _registration_from_metadata(
-            metadata or "",
-            username,
-            name=name,
-            organization=organization,
-        ),
-        content.file,
-        True,
-    )
 
 
 skill_registry_router = APIRouter(tags=["Skill Registry"])
@@ -733,7 +809,7 @@ def set_organization_skill_tag(
     )
 
 
-@skill_registry_router.delete("/@{organization}/{name}/tags/{key}")
+@skill_registry_router.delete("/@{organization}/{name}/tags/{key:path}")
 def delete_organization_skill_tag(
     organization: str,
     name: SkillNamePath,
@@ -758,7 +834,7 @@ def set_organization_skill_version_tag(
     )
 
 
-@skill_registry_router.delete("/@{organization}/{name}/versions/{version}/tags/{key}")
+@skill_registry_router.delete("/@{organization}/{name}/versions/{version}/tags/{key:path}")
 def delete_organization_skill_version_tag(
     organization: str,
     name: SkillNamePath,
@@ -778,7 +854,7 @@ def set_skill_tag(name: SkillNamePath, body: SetTagRequest) -> dict[str, Any]:
     return _set_skill_tag(name=name, key=body.key, value=body.value)
 
 
-@skill_registry_router.delete("/{name}/tags/{key}")
+@skill_registry_router.delete("/{name}/tags/{key:path}")
 def delete_skill_tag(name: SkillNamePath, key: str) -> dict[str, Any]:
     return _delete_skill_tag(name=name, key=key)
 
@@ -797,7 +873,7 @@ def set_skill_version_tag(
     )
 
 
-@skill_registry_router.delete("/{name}/versions/{version}/tags/{key}")
+@skill_registry_router.delete("/{name}/versions/{version}/tags/{key:path}")
 def delete_skill_version_tag(
     name: SkillNamePath,
     version: int,
@@ -879,13 +955,13 @@ async def create_organization_skill_version(
     openapi_extra=_REGISTER_SKILL_OPENAPI_EXTRA,
 )
 async def register_skill(request: Request) -> SkillVersionResponse:
-    registration, content, multipart = await _parse_registration_request(request)
-    version = await asyncio.to_thread(
-        register_skill_version,
-        registration,
-        content=content,
-        multipart=multipart,
-    )
+    async with _parse_registration_request(request) as (registration, content, multipart):
+        version = await asyncio.to_thread(
+            register_skill_version,
+            registration,
+            content=content,
+            multipart=multipart,
+        )
     return SkillVersionResponse.from_entity(version)
 
 

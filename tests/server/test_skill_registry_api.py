@@ -1,16 +1,19 @@
+import asyncio
 import io
 import json
 from pathlib import Path
 from unittest import mock
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from mlflow.entities.skill import Skill, SkillStatus
-from mlflow.entities.skill_source import MlflowSource
+from mlflow.entities.skill_source import GitSource, MlflowSource, OCISource, ZipSource
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
+from mlflow.server import skill_registry_api
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import (
     _SKILL_NAME_PATH_PATTERN,
@@ -47,6 +50,33 @@ EXPECTED_ROUTE_METHODS = {
     "/{name}/aliases/{alias}": {"get", "delete"},
     "/@{organization}/{name}/aliases/{alias}": {"get", "delete"},
 }
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            GitSource(url="https://github.com/acme/skills.git", ref="main", subpath="reviewer"),
+            ("https://github.com/acme/skills.git", "main", "reviewer"),
+        ),
+        (
+            OCISource(image="ghcr.io/acme/skills:latest", subpath="reviewer"),
+            ("ghcr.io/acme/skills:latest", None, "reviewer"),
+        ),
+        (
+            ZipSource(url="https://example.com/skills.zip", subpath="reviewer"),
+            ("https://example.com/skills.zip", None, "reviewer"),
+        ),
+        (
+            MlflowSource(artifact_path="mlflow-artifacts:/skills/reviewer"),
+            ("mlflow-artifacts:/skills/reviewer", None, None),
+        ),
+        ("assembled://reviewer", ("assembled://reviewer", None, None)),
+        (None, (None, None, None)),
+    ],
+)
+def test_skill_source_response_fields(source, expected):
+    assert skill_registry_api._skill_source_response_fields(source) == expected
 
 
 def _create_registry_fastapi_app() -> FastAPI:
@@ -169,6 +199,18 @@ def test_leading_at_sign_is_rejected_for_organization_skill_name(tmp_path: Path,
     assert "should match pattern" in response.json()["message"]
 
 
+def test_malformed_organization_version_route_is_rejected_without_store_call(
+    tmp_path: Path, db_uri: str
+):
+    client, _ = _create_client(tmp_path, db_uri)
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store:
+        response = client.post(f"{PREFIX}/@acme/versions", json={})
+
+    assert response.status_code == 400, response.text
+    assert "should match pattern" in response.json()["message"]
+    get_tracking_store.assert_not_called()
+
+
 def test_invalid_skill_version_is_rejected_before_store_call(tmp_path: Path, db_uri: str):
     client, store = _create_client(tmp_path, db_uri)
     with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
@@ -194,6 +236,25 @@ def test_register_requires_an_explicit_skill_name(tmp_path: Path, db_uri: str):
     register.assert_not_called()
 
 
+def test_register_rejects_unknown_request_fields(tmp_path: Path, db_uri: str):
+    client, _ = _create_client(tmp_path, db_uri)
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/register",
+            json={
+                "name": "code-review",
+                "source_type": "git",
+                "source": "https://github.com/acme/skills.git",
+                "sub_path": "skills/code-review",
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert "sub_path" in response.json()["message"]
+    assert "extra" in response.json()["message"]
+    register.assert_not_called()
+
+
 def test_create_and_get_skill_without_organization(tmp_path: Path, db_uri: str):
     client, store = _create_client(tmp_path, db_uri)
     with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
@@ -202,7 +263,13 @@ def test_create_and_get_skill_without_organization(tmp_path: Path, db_uri: str):
             json={
                 "name": "code-review",
                 "description": "Reviews pull requests",
-                "icons": [{"src": "https://example.com/icon.svg", "theme": "light"}],
+                "icons": [
+                    {
+                        "src": "https://example.com/icon.svg",
+                        "theme": "light",
+                        "futureField": "preserved",
+                    }
+                ],
             },
         )
         assert response.status_code == 200, response.text
@@ -210,12 +277,33 @@ def test_create_and_get_skill_without_organization(tmp_path: Path, db_uri: str):
         assert response.json()["organization"] == ""
         assert response.json()["description"] == "Reviews pull requests"
         assert response.json()["icons"] == [
-            {"src": "https://example.com/icon.svg", "theme": "light"}
+            {
+                "src": "https://example.com/icon.svg",
+                "theme": "light",
+                "futureField": "preserved",
+            }
         ]
 
         response = client.get(f"{PREFIX}/code-review")
         assert response.status_code == 200, response.text
         assert response.json()["name"] == "code-review"
+
+
+def test_create_skill_rejects_invalid_icon(tmp_path: Path, db_uri: str):
+    client, store = _create_client(tmp_path, db_uri)
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        response = client.post(
+            PREFIX,
+            json={
+                "name": "code-review",
+                "icons": [{"src": "javascript:alert(1)"}],
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert "Invalid Icon URL scheme" in response.json()["message"]
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("code-review")
 
 
 def test_create_and_get_organization_skill(tmp_path: Path, db_uri: str):
@@ -413,6 +501,37 @@ def test_skill_tag_routes_forward_identity(tmp_path: Path, db_uri: str):
             version=2,
             key="approved",
             organization="",
+        )
+
+        response = client.post(
+            f"{PREFIX}/@acme/code-review/tags",
+            json={"key": "team/owner", "value": "platform"},
+        )
+        assert response.status_code == 200, response.text
+
+        response = client.delete(f"{PREFIX}/@acme/code-review/tags/team/owner")
+        assert response.status_code == 200, response.text
+        assert response.json() == {}
+        store.delete_skill_tag.assert_called_with(
+            name="code-review",
+            key="team/owner",
+            organization="acme",
+        )
+
+        response = client.post(
+            f"{PREFIX}/@acme/code-review/versions/2/tags",
+            json={"key": "release/channel", "value": "stable"},
+        )
+        assert response.status_code == 200, response.text
+
+        response = client.delete(f"{PREFIX}/@acme/code-review/versions/2/tags/release/channel")
+        assert response.status_code == 200, response.text
+        assert response.json() == {}
+        store.delete_skill_version_tag.assert_called_with(
+            name="code-review",
+            version=2,
+            key="release/channel",
+            organization="acme",
         )
 
 
@@ -614,8 +733,15 @@ def test_create_skill_version_parses_multipart_request(
         source=MlflowSource(artifact_path="mlflow-artifacts:/skills/code-review/token"),
         status=SkillStatus.ACTIVE,
     )
+    captured_content = []
+
+    def register_with_content_capture(*args, **kwargs):
+        captured_content.append(kwargs["content"].read())
+        return version
+
     with mock.patch(
-        "mlflow.server.skill_registry_api.register_skill_version", return_value=version
+        "mlflow.server.skill_registry_api.register_skill_version",
+        side_effect=register_with_content_capture,
     ) as register:
         response = client.post(
             f"{PREFIX}/{path}",
@@ -639,7 +765,124 @@ def test_create_skill_version_parses_multipart_request(
     assert registration.organization == organization
     assert registration.digest == "a" * 64
     assert register.call_args.kwargs["multipart"] is True
-    assert register.call_args.kwargs["content"].read() == b"archive"
+    assert captured_content == [b"archive"]
+    assert register.call_args.kwargs["content"].closed
+
+
+def test_multipart_registration_rejects_oversized_content_length_before_parsing(
+    tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch
+):
+    client, _ = _create_client(tmp_path, db_uri)
+    monkeypatch.setattr(skill_registry_api, "_get_multipart_request_size_limit", lambda: 1)
+
+    with (
+        mock.patch.object(Request, "form") as form,
+        mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register,
+    ):
+        response = client.post(
+            f"{PREFIX}/register",
+            files={
+                "metadata": ("metadata.json", '{"name": "code-review"}', "application/json"),
+                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
+            },
+        )
+
+    assert response.status_code == 413, response.text
+    assert "maximum allowed size" in response.json()["detail"]
+    form.assert_not_called()
+    register.assert_not_called()
+
+
+def test_multipart_registration_rejects_oversized_chunked_body_before_parsing(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(skill_registry_api, "_get_multipart_request_size_limit", lambda: 1)
+    receive_calls = 0
+
+    async def receive():
+        nonlocal receive_calls
+        receive_calls += 1
+        return {"type": "http.request", "body": b"too large", "more_body": True}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": f"{PREFIX}/register",
+            "raw_path": f"{PREFIX}/register".encode(),
+            "query_string": b"",
+            "headers": [(b"content-type", b"multipart/form-data; boundary=boundary")],
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "client": ("testclient", 50000),
+            "http_version": "1.1",
+            "state": {},
+        },
+        receive,
+    )
+
+    async def parse_request():
+        async with skill_registry_api._parse_registration_request(request):
+            pass
+
+    with pytest.raises(HTTPException, match="maximum allowed size") as exc_info:
+        asyncio.run(parse_request())
+
+    assert exc_info.value.status_code == 413
+    assert receive_calls == 1
+
+
+def test_multipart_registration_rejects_oversized_metadata(
+    tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch
+):
+    client, _ = _create_client(tmp_path, db_uri)
+    monkeypatch.setattr(skill_registry_api, "_MAX_REGISTRATION_METADATA_SIZE", 16)
+
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/register",
+            files={
+                "metadata": ("metadata.json", b"x" * 17, "application/json"),
+                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
+            },
+        )
+
+    assert response.status_code == 413, response.text
+    assert "registration metadata" in response.json()["detail"]
+    register.assert_not_called()
+
+
+def test_multipart_registration_rejects_extra_file_parts(tmp_path: Path, db_uri: str):
+    client, _ = _create_client(tmp_path, db_uri)
+
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/register",
+            files={
+                "metadata": ("metadata.json", '{"name": "code-review"}', "application/json"),
+                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
+                "extra": ("extra.bin", io.BytesIO(b"unexpected"), "application/octet-stream"),
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert "maximum number of files" in response.json()["detail"].lower()
+    register.assert_not_called()
+
+
+def test_multipart_registration_rejects_extra_form_fields(tmp_path: Path, db_uri: str):
+    client, _ = _create_client(tmp_path, db_uri)
+
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/register",
+            data={"metadata": '{"name": "code-review"}', "extra": "unexpected"},
+            files={"content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip")},
+        )
+
+    assert response.status_code == 400, response.text
+    assert "maximum number of fields" in response.json()["detail"].lower()
+    register.assert_not_called()
 
 
 def test_create_skill_version_rejects_remote_source_in_multipart(tmp_path: Path, db_uri: str):
@@ -692,8 +935,15 @@ def test_register_local_skill_version_parses_multipart_request(tmp_path: Path, d
         source=MlflowSource(artifact_path="mlflow-artifacts:/skills/code-review/token"),
         status=SkillStatus.ACTIVE,
     )
+    captured_content = []
+
+    def register_with_content_capture(*args, **kwargs):
+        captured_content.append(kwargs["content"].read())
+        return version
+
     with mock.patch(
-        "mlflow.server.skill_registry_api.register_skill_version", return_value=version
+        "mlflow.server.skill_registry_api.register_skill_version",
+        side_effect=register_with_content_capture,
     ) as register:
         response = client.post(
             f"{PREFIX}/register",
@@ -713,7 +963,55 @@ def test_register_local_skill_version_parses_multipart_request(tmp_path: Path, d
     assert registration.name == "code-review"
     assert registration.digest == "a" * 64
     assert register.call_args.kwargs["multipart"] is True
-    assert register.call_args.kwargs["content"].read() == b"archive"
+    assert captured_content == [b"archive"]
+    assert register.call_args.kwargs["content"].closed
+
+
+def test_register_local_skill_version_closes_multipart_file_on_failure(tmp_path: Path, db_uri: str):
+    client, _ = _create_client(tmp_path, db_uri)
+    uploaded_file = None
+
+    def fail_registration(*args, **kwargs):
+        nonlocal uploaded_file
+        uploaded_file = kwargs["content"]
+        raise MlflowException.invalid_parameter_value("registration failed")
+
+    with mock.patch(
+        "mlflow.server.skill_registry_api.register_skill_version",
+        side_effect=fail_registration,
+    ):
+        response = client.post(
+            f"{PREFIX}/register",
+            files={
+                "metadata": (
+                    "metadata.json",
+                    json.dumps({"name": "code-review", "digest": "a" * 64}),
+                    "application/json",
+                ),
+                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert uploaded_file is not None
+    assert uploaded_file.closed
+
+
+def test_register_local_skill_version_rejects_invalid_utf8_metadata(tmp_path: Path, db_uri: str):
+    client, _ = _create_client(tmp_path, db_uri)
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/register",
+            files={
+                "metadata": ("metadata.json", b'{"name": "code-review"}\xff', "application/json"),
+                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert "metadata" in response.json()["message"]
+    assert "valid JSON" in response.json()["message"]
+    register.assert_not_called()
 
 
 @pytest.mark.parametrize("prefix", get_skill_registry_api_route_prefixes())

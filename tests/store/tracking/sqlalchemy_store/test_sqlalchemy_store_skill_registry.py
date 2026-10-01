@@ -125,6 +125,36 @@ def test_skill_icons_round_trip_and_can_be_cleared(store):
     assert unchanged.icons is None
 
 
+@pytest.mark.parametrize(
+    ("icons", "message"),
+    [
+        ([{"src": "javascript:alert(1)"}], "Invalid Icon URL scheme"),
+        (
+            [{"src": "https://8.8.8.8/icon.png", "mimeType": "text/plain"}],
+            "Invalid icon mimeType",
+        ),
+        ([{"src": "https://8.8.8.8/icon.png"}] * 101, "at most 100 items"),
+    ],
+)
+def test_skill_icons_are_validated_on_create(store, icons, message):
+    with pytest.raises(MlflowException, match=message) as exc:
+        store.create_skill("reviewer", icons=icons)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("reviewer")
+
+
+def test_skill_icons_are_validated_on_update(store):
+    original_icons = [{"src": "https://8.8.8.8/original.png"}]
+    store.create_skill("reviewer", icons=original_icons)
+
+    with pytest.raises(MlflowException, match="Invalid Icon URL scheme"):
+        store.update_skill("reviewer", icons=[{"src": "javascript:alert(1)"}])
+
+    assert store.get_skill("reviewer").icons == original_icons
+
+
 def _get_skill_search_text(store, name="reviewer", organization="acme"):
     with store.ManagedSessionMaker() as session:
         return (
