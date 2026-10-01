@@ -262,6 +262,16 @@ class GeminiAdapter(ProviderAdapter):
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
+            match payload.pop("tool_choice", None):
+                case "none":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
+                case "required":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "ANY"}}
+                case {"type": "function", "function": {"name": name}}:
+                    gemini_payload["toolConfig"] = {
+                        "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}
+                    }
+
         return gemini_payload
 
     @classmethod
