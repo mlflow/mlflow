@@ -3827,6 +3827,48 @@ def validate_can_update_assessment():
     )
 
 
+def validate_can_delete_assessment():
+    """DeleteAssessment: the assessment tier carries ``delete``, but only once the caller holds a
+    grant there.
+
+    ``Requirement`` carries one action, and the two cases here differ by WHICH key governs rather
+    than by the permission that key yields, so neither a single action nor two AND'd requirements
+    can state them. An explicit ``(assessment, *, EDIT)`` must not delete, since ``EDIT.can_delete``
+    is false and a child grant is the narrower judgment. A caller holding no assessment grant has
+    to stay at master's level for this route, which is trace ``update`` -- master mapped it to
+    ``validate_can_update_trace_by_trace_id``, not to anything requiring ``delete``. Carrying
+    ``delete`` down the fallback chain instead would refuse an experiment EDIT holder a delete
+    master allows. Hence the action is chosen from whether a grant exists on the tier at all; when
+    one does, the fallbacks never fire, so the shape stays identical either way.
+    """
+    resolved = _assessment_trace_context(_get_request_param("trace_id"))
+    if resolved is None:
+        return False
+    experiment, experiment_id = resolved
+    trace = (RESOURCE_TYPE_TRACE, "*")
+    username = authenticate_request().username
+    workspace_name = get_anchor_workspace(*experiment)
+    if workspace_name is None:
+        return False
+    own_grant = _role_grant_for_resource(
+        store.get_user(username).id, RESOURCE_TYPE_ASSESSMENT, "*", workspace_name
+    )
+    return authorize(
+        username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT,
+                "*",
+                "delete" if own_grant is not None else "update",
+                fallback_if_no_grant=(trace, experiment),
+            ),
+        ],
+    )
+
+
 def validate_can_start_trace():
     return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_TRACE)
 
@@ -4429,7 +4471,7 @@ BEFORE_REQUEST_HANDLERS = {
     CreateAssessment: validate_can_create_assessment,
     GetAssessmentRequest: validate_can_get_assessment,
     UpdateAssessment: validate_can_update_assessment,
-    DeleteAssessment: validate_can_update_assessment,
+    DeleteAssessment: validate_can_delete_assessment,
     # Routes for review queues
     CreateReviewQueue: validate_can_create_review_queue,
     GetReviewQueue: validate_can_view_review_queue,

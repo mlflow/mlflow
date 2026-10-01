@@ -4836,6 +4836,67 @@ def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_
         assert auth_module.validate_can_update_assessment()
 
 
+def _delete_assessment():
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
+        method="DELETE",
+        json={"trace_id": "trace-1"},
+    ):
+        return auth_module.validate_can_delete_assessment()
+
+
+@pytest.mark.parametrize(
+    ("assessment_level", "can_delete"), [(EDIT.name, False), (MANAGE.name, True)]
+)
+def test_delete_assessment_requires_delete_on_an_explicit_grant(
+    workspace_permission_setup, assessment_level, can_delete
+):
+    """DeleteAssessment was mapped to the `update` requirement, so an explicit
+    (assessment, *, EDIT) deleted an assessment even though EDIT.can_delete is false -- while the
+    parent DeleteTraces cascade correctly required assessment-tier delete for the same grants.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", MANAGE.name), ("assessment", "*", assessment_level)],
+    )
+
+    assert _delete_assessment() is can_delete
+    # The update route is unaffected: EDIT can still edit an assessment.
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
+        method="PATCH",
+        json={"trace_id": "trace-1"},
+    ):
+        assert auth_module.validate_can_update_assessment()
+
+
+def test_delete_assessment_without_a_grant_stays_at_the_master_level(workspace_permission_setup):
+    """Master mapped DeleteAssessment to validate_can_update_trace_by_trace_id, so an experiment
+    EDIT holder could delete an assessment. Carrying `delete` down the fallback chain would refuse
+    them, which is why the action is chosen from whether a grant exists on the tier at all.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", EDIT.name)])
+
+    assert _delete_assessment() is True
+
+
+def test_delete_assessment_needs_more_than_experiment_read(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "exp-1", READ.name)])
+
+    assert _delete_assessment() is False
+
+
 # =============================================================================
 # The read predicate: a list row and a point request must reach the same decision.
 # =============================================================================
