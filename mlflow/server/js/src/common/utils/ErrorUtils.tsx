@@ -12,6 +12,7 @@ class ErrorUtils {
     MODEL_SERVING: 'Model Serving',
     RUN_TRACKING: 'Run Tracking',
     MCP_REGISTRY: 'MCP Registry',
+    SKILL_REGISTRY: 'Skill Registry',
   };
 }
 
