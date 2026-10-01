@@ -750,6 +750,30 @@ def test_experiment_validators_workspace_use_allows_create_but_blocks_reads_on_o
         assert auth_module.validate_can_create_experiment()
 
 
+@pytest.mark.parametrize("tier", ["scorer", "scorer_version"])
+def test_experiment_delete_cascade_covers_the_scorer_tiers(workspace_permission_setup, tier):
+    """Scorers are experiment-scoped like runs and traces: a soft delete leaves them unreachable
+    with their experiment, and mlflow gc destroys them outright through the scorers and
+    scorer_versions foreign keys, both ON DELETE CASCADE. Both tiers were absent from
+    _EXPERIMENT_CASCADE_TIERS, so a grant that cannot delete them did not withhold the cascade.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", MANAGE.name), (tier, "*", EDIT.name)],
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/delete", method="POST", json={"experiment_id": "exp-1"}
+    ):
+        # EDIT cannot delete, and tier override means the narrower grant decides.
+        assert not auth_module.validate_can_delete_experiment()
+
+
 def test_workspace_permission_max_merges_legacy_and_role(workspace_permission_setup):
     # Operators mid-migration may have BOTH a legacy grant and a role grant.
     # The effective permission must be the higher of the two — neither side
