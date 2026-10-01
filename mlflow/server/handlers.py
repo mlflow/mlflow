@@ -6045,6 +6045,7 @@ def _search_logged_models():
             "max_results": [_assert_intlike],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
+            "include_metrics": [_assert_bool],
         },
     )
     models = _get_tracking_store().search_logged_models(
@@ -6080,7 +6081,9 @@ def _search_logged_models():
         page_token=request_message.page_token or None,
     )
     response_message = SearchLoggedModels.Response()
-    response_message.models.extend([e.to_proto() for e in models])
+    response_message.models.extend([
+        e.to_proto(include_metrics=request_message.include_metrics) for e in models
+    ])
     if models.token:
         response_message.next_page_token = models.token
     return _wrap_response(response_message)
