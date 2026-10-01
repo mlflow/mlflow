@@ -3,9 +3,15 @@ name: Triage
 on:
   issues:
     types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue to triage"
+        required: true
+        type: number
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
   cancel-in-progress: false
 
 defaults:
@@ -16,8 +22,36 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  security_gate:
+  issue:
     if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: read
+    outputs:
+      number: ${{ fromJSON(steps.issue.outputs.json).number }}
+      title: ${{ fromJSON(steps.issue.outputs.json).title }}
+      body: ${{ fromJSON(steps.issue.outputs.json).body }}
+      url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
+      author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
+    steps:
+      - id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            issue=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")
+          else
+            issue=$(jq .issue "$GITHUB_EVENT_PATH")
+          fi
+          # The issues API also returns pull requests.
+          jq -e 'has("pull_request") | not' <<< "$issue" > /dev/null
+          # Compact JSON keeps the untrusted body on one line of $GITHUB_OUTPUT.
+          echo "json=$(jq -c '{number, title, body: (.body // ""), html_url, author_association}' <<< "$issue")" >> "$GITHUB_OUTPUT"
+  security_gate:
+    needs: issue
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -27,12 +61,12 @@ jobs:
     steps:
       - id: security
         env:
-          SECURITY_MATCH: ${{ contains(github.event.issue.title, 'security') && contains(github.event.issue.title, 'vulnerability') }}
+          SECURITY_MATCH: ${{ contains(needs.issue.outputs.title, 'security') && contains(needs.issue.outputs.title, 'vulnerability') }}
         run: echo "match=$SECURITY_MATCH" >> "$GITHUB_OUTPUT"
       - if: steps.security.outputs.match == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           REPO: ${{ github.repository }}
         run: |
           gh issue close "$ISSUE_NUMBER" --repo "$REPO" --comment "$(cat <<'EOF'
@@ -42,10 +76,8 @@ jobs:
           EOF
           )"
   label:
-    needs: security_gate
-    if: >-
-      github.repository == 'mlflow/mlflow' &&
-      needs.security_gate.outputs.security_match != 'true'
+    needs: [issue, security_gate]
+    if: needs.security_gate.outputs.security_match != 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -56,8 +88,8 @@ jobs:
       - id: label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_URL: ${{ github.event.issue.html_url }}
-          TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ needs.issue.outputs.url }}
+          TITLE: ${{ needs.issue.outputs.title }}
         run: |
           title="${TITLE#"${TITLE%%[![:space:]]*}"}"
           case "${title^^}" in
@@ -74,11 +106,13 @@ jobs:
           # Templates apply these labels already; adding them again is a no-op.
           gh issue edit "$ISSUE_URL" --add-label "$labels"
   safety:
-    needs: label
-    # Scoped to bugs from maintainers for now, so it can be tested by filing an issue.
+    needs: [issue, label]
+    # Scoped to bugs from maintainers for now. Manual runs skip the author check
+    # since only users with write access can dispatch.
     if: >-
       needs.label.outputs.type == 'bug' &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association)
+      (github.event_name == 'workflow_dispatch' ||
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -93,10 +127,10 @@ jobs:
           sparse-checkout: .github/actions/setup-gateway
       - name: Clean issue content
         env:
-          TITLE: ${{ github.event.issue.title }}
-          BODY: ${{ github.event.issue.body }}
+          TITLE: ${{ needs.issue.outputs.title }}
+          BODY: ${{ needs.issue.outputs.body }}
           REPOSITORY: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
         run: |
           # Strip HTML comments, control characters, and invisible Unicode (zero-width,
           # bidi overrides, tag characters) that can hide text from human reviewers.
@@ -150,30 +184,40 @@ jobs:
             work on the issue, or why nothing does, without quoting the issue.
         run: |
           payload=$(jq -c --arg prompt "$PROMPT" '{
-            model: "claude-sonnet-5-5",
+            model: "databricks-gpt-6-luna",
             max_tokens: 4096,
-            system: $prompt,
-            messages: [{role: "user", content: ({title, body} | tojson)}],
-            output_config: {effort: "low", format: {type: "json_schema", schema: {
-              type: "object",
-              additionalProperties: false,
-              required: ["decision", "rationale"],
-              properties: {
-                decision: {type: "string", enum: ["safe", "unsafe", "uncertain"]},
-                rationale: {type: "string"}
+            messages: [
+              {role: "system", content: $prompt},
+              {role: "user", content: ({title, body} | tojson)}
+            ],
+            response_format: {type: "json_schema", json_schema: {
+              name: "safety_decision",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["decision", "rationale"],
+                properties: {
+                  decision: {type: "string", enum: ["safe", "unsafe", "uncertain"]},
+                  rationale: {type: "string"}
+                }
               }
-            }}}
+            }}
           }' "$RUNNER_TEMP/sanitized_issue.json")
+          # On failure, print the gateway's error body; it names the cause (e.g. an unknown model).
           response=$(curl -sS --fail-with-body --max-time 30 --retry 3 \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            -H "anthropic-version: 2023-06-01" \
             -H "$CUSTOM_HEADERS" \
             --data-binary "$payload" \
-            "$BASE_URL/anthropic/v1/messages")
+            "$BASE_URL/openai/v1/chat/completions") || { printf '%s\n' "$response" >&2; exit 1; }
           # Structured outputs guarantee the schema on a complete reply. Anything else
-          # (refusal, max_tokens) produces no result, so jq -e fails the step.
-          result=$(jq -ce 'select(.stop_reason == "end_turn") | .content[] | select(.type == "text") | .text | fromjson' <<< "$response")
+          # (refusal, length) produces no result, so jq -e fails the step.
+          result=$(jq -ce '
+            .choices[0] | select(.finish_reason == "stop") | .message.content
+            | if type == "array" then map(select(.type == "text") | .text) | join("") else . end
+            | fromjson
+          ' <<< "$response")
           decision=$(jq -r .decision <<< "$result")
           echo "decision=$decision" >> "$GITHUB_OUTPUT"
           # $GITHUB_OUTPUT is line-based; a newline in model text could inject another output (e.g. decision=safe).
@@ -191,19 +235,19 @@ jobs:
       - if: steps.assess.outputs.decision == 'safe'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.issue.number }}
+          name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sanitized_issue.json
           if-no-files-found: error
           retention-days: 1
   triage:
-    needs: safety
+    needs: [issue, safety]
     if: needs.safety.outputs.decision == 'safe'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.issue.number }}
+          name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sanitized-issue
       - name: Print sanitized issue
         env:
