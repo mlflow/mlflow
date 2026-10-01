@@ -255,27 +255,36 @@ jobs:
         with:
           name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sanitized-issue
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-node
-      - name: Install sandbox and Claude Code
+      # Independent setup, run together.
+      - parallel:
+          - uses: ./.github/actions/setup-python
+          - uses: ./.github/actions/setup-node
+          - name: Install sandbox dependencies
+            timeout-minutes: 10
+            run: |
+              sudo apt-get update
+              sudo apt-get install -y bubblewrap socat ripgrep
+              if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
+                sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              fi
+          - name: Install Claude Code
+            timeout-minutes: 10
+            run: |
+              .claude/scripts/install-claude.sh
+              claude --version
+          - id: gateway
+            uses: ./.github/actions/setup-gateway
+            with:
+              task: issue-triage
+              host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
+              client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
+              client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+      # Needs setup-node.
+      - name: Install sandbox runtime
         timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap socat ripgrep
-          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
           npm install -g @anthropic-ai/sandbox-runtime@0.0.77
-          .claude/scripts/install-claude.sh
-          claude --version
-      - id: gateway
-        uses: ./.github/actions/setup-gateway
-        with:
-          task: issue-triage
-          host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
-          client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
-          client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
       - name: Start gateway proxy
         env:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
