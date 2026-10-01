@@ -29,14 +29,8 @@ export const useSearchLoggedModelsQuery = (
   },
   {
     enabled = true,
-    includeMetrics = true,
   }: {
     enabled?: boolean;
-    /**
-     * Metrics dominate the size of a logged model. Callers that only render model identity
-     * can set this to false so the server neither loads nor serializes them.
-     */
-    includeMetrics?: boolean;
   } = {},
 ) => {
   // Uniquely identify the query by the experiment IDs, order by, filter query and datasets, and order by asc
@@ -49,7 +43,6 @@ export const useSearchLoggedModelsQuery = (
     JSON.stringify(selectedFilterDatasets),
     orderByDatasetName,
     orderByDatasetDigest,
-    includeMetrics,
   ];
 
   const { data, isLoading, isFetching, fetchNextPage, refetch, error } = useInfiniteQuery<
@@ -72,7 +65,6 @@ export const useSearchLoggedModelsQuery = (
         page_token: pageParam,
         filter: searchQuery,
         datasets: !isEmpty(selectedFilterDatasets) ? selectedFilterDatasets : undefined,
-        include_metrics: includeMetrics,
       };
 
       return fetchAPI(getAjaxUrl('ajax-api/2.0/mlflow/logged-models/search'), { method: 'POST', body: requestBody });
