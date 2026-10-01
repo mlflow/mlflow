@@ -1,15 +1,47 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, BrokenBarrierError
+
 import pytest
+from sqlalchemy.dialects import mysql
 
 from mlflow.exceptions import MlflowException
+from mlflow.server.auth.db.models import SqlRole, SqlRolePermission, SqlUserRoleAssignment
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+from mlflow.server.auth.permissions import (
+    EDIT,
+    MANAGE,
+    READ,
+    RESOURCE_TYPE_AGENT_PLUGIN,
+    RESOURCE_TYPE_EXPERIMENT,
+    RESOURCE_TYPE_SKILL,
+    RESOURCE_TYPE_WORKSPACE,
+    USE,
+    VALID_RESOURCE_TYPES,
+)
 
 # Every concrete resource type the resolver accepts, excluding the special
 # ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
 # form). Those two carry their own validation rules and are exercised by
 # scope-specific tests rather than the shared parametrised matrix below.
 _CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace", "*"})
+_SKILL_REGISTRY_RESOURCE_TYPES = {RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN}
+_COMMON_CONCRETE_RESOURCE_TYPES = sorted(
+    set(_CONCRETE_RESOURCE_TYPES) - _SKILL_REGISTRY_RESOURCE_TYPES
+)
+_RESOURCE_GRANT_CASES = [
+    (resource_type, permission.name, permission)
+    for resource_type in _COMMON_CONCRETE_RESOURCE_TYPES
+    for permission in (READ, USE, EDIT, MANAGE)
+] + [
+    (resource_type, permission.name, permission)
+    for resource_type in sorted(_SKILL_REGISTRY_RESOURCE_TYPES)
+    for permission in (READ, EDIT, MANAGE)
+]
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.db.db_types import MYSQL
+from mlflow.store.tracking.dbmodels.models import SqlSkill
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -331,6 +363,517 @@ def test_update_role_permission_invalid_permission(store):
     rp = store.add_role_permission(role.id, "experiment", "123", "READ")
     with pytest.raises(MlflowException, match="Invalid permission"):
         store.update_role_permission(rp.id, "INVALID")
+
+
+# ---- Session-aware per-user grant helpers ----
+
+
+def test_grant_user_permissions_in_session_commits_with_outer_transaction(store, user):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store.grant_user_permissions_in_session(
+            session,
+            user.username,
+            [
+                (RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name),
+                (RESOURCE_TYPE_AGENT_PLUGIN, "@acme/demo-plugin", MANAGE.name),
+            ],
+        )
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "demo-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == MANAGE
+    )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id,
+            RESOURCE_TYPE_AGENT_PLUGIN,
+            "@acme/demo-plugin",
+            DEFAULT_WORKSPACE_NAME,
+        )
+        == MANAGE
+    )
+
+
+def test_grant_user_permissions_in_session_rolls_back_with_outer_transaction(store, user):
+    def grant_then_abort():
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name)],
+            )
+            raise MlflowException("abort grant transaction")
+
+    with pytest.raises(MlflowException, match="abort grant transaction"):
+        grant_then_abort()
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "demo-skill", DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
+
+
+def test_aborted_grant_rolls_back_created_role_and_assignment(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
+    user = store.create_user("alice", "strong-password")
+
+    def grant_then_abort():
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name)],
+            )
+            raise MlflowException("abort")
+
+    try:
+        with pytest.raises(MlflowException, match="abort"):
+            grant_then_abort()
+
+        with store.ManagedSessionMaker() as session:
+            assert session.query(SqlRole).count() == 0
+            assert session.query(SqlUserRoleAssignment).count() == 0
+            assert session.query(SqlRolePermission).count() == 0
+    finally:
+        store.engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("case_name", "resource_type", "setup_permission", "grant_permission", "grant_method"),
+    [
+        (
+            "insert",
+            RESOURCE_TYPE_SKILL,
+            None,
+            MANAGE.name,
+            "grant_user_resource_permission",
+        ),
+        (
+            "update",
+            RESOURCE_TYPE_SKILL,
+            READ.name,
+            MANAGE.name,
+            "grant_user_permission",
+        ),
+        (
+            "creator_grant",
+            RESOURCE_TYPE_EXPERIMENT,
+            None,
+            MANAGE.name,
+            "grant_user_permission",
+        ),
+    ],
+)
+def test_concurrent_sqlite_user_grants_do_not_lose_one_write(
+    tmp_path,
+    monkeypatch,
+    case_name,
+    resource_type,
+    setup_permission,
+    grant_permission,
+    grant_method,
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / f'{case_name}.db'}")
+    user = store.create_user("alice", "strong-password")
+    resource_patterns = [f"{case_name}-first", f"{case_name}-second"]
+
+    try:
+        store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "seed-role", READ.name)
+        if setup_permission is not None:
+            for resource_pattern in resource_patterns:
+                store.grant_user_permission(
+                    user.username,
+                    resource_type,
+                    resource_pattern,
+                    setup_permission,
+                )
+
+        start_barrier = Barrier(2)
+        lookup_barrier = Barrier(2)
+        original_lookup = store._get_role_permission_in_session
+
+        def lookup(session, role_id, resource_type, resource_pattern, *, for_update=False):
+            result = original_lookup(
+                session,
+                role_id,
+                resource_type,
+                resource_pattern,
+                for_update=for_update,
+            )
+            try:
+                lookup_barrier.wait(timeout=1)
+            except BrokenBarrierError:
+                pass
+            return result
+
+        monkeypatch.setattr(store, "_get_role_permission_in_session", lookup)
+
+        def grant(resource_pattern):
+            start_barrier.wait(timeout=10)
+            try:
+                getattr(store, grant_method)(
+                    user.username,
+                    resource_type,
+                    resource_pattern,
+                    grant_permission,
+                )
+                return "ok"
+            except MlflowException as error:
+                return error.error_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(grant, resource_patterns))
+
+        assert results == ["ok", "ok"]
+        for resource_pattern in resource_patterns:
+            assert (
+                store.get_role_permission_for_resource(
+                    user.id,
+                    resource_type,
+                    resource_pattern,
+                    DEFAULT_WORKSPACE_NAME,
+                )
+                == MANAGE
+            )
+    finally:
+        store.engine.dispose()
+
+
+def test_mysql_upsert_recovery_role_permission_lookup_uses_locking_read(store):
+    store.db_type = MYSQL
+    with store.ManagedSessionMaker(read_only=False) as session:
+        query = store._role_permission_query(
+            session,
+            role_id=1,
+            resource_type=RESOURCE_TYPE_SKILL,
+            resource_pattern="snapshot-race",
+            for_update=True,
+        )
+
+    assert "FOR UPDATE" in str(query.statement.compile(dialect=mysql.dialect()))
+
+
+def test_session_grants_reject_tracking_session_from_separate_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
+    tracking_store = TrackingSqlAlchemyStore(
+        f"sqlite:///{tmp_path / 'tracking.db'}",
+        str(tmp_path / "artifacts"),
+    )
+    auth_store.create_user("alice", "strong-password")
+
+    try:
+        with pytest.raises(MlflowException, match="same database"):
+            with tracking_store.ManagedSessionMaker(read_only=False) as session:
+                auth_store.grant_user_permissions_in_session(
+                    session,
+                    "alice",
+                    [(RESOURCE_TYPE_SKILL, "separate-db-skill", MANAGE.name)],
+                )
+    finally:
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
+def test_session_grants_share_tracking_transaction_when_databases_are_colocated(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    db_uri = f"sqlite:///{tmp_path / 'shared.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    tracking_store = TrackingSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+    user = auth_store.create_user("alice", "strong-password")
+
+    def create_skill_and_grant_then_abort():
+        with tracking_store.ManagedSessionMaker(read_only=False) as session:
+            session.add(
+                SqlSkill(
+                    workspace=DEFAULT_WORKSPACE_NAME,
+                    organization="",
+                    name="shared-db-skill",
+                )
+            )
+            auth_store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "shared-db-skill", MANAGE.name)],
+            )
+            raise MlflowException("abort shared transaction")
+
+    try:
+        with pytest.raises(MlflowException, match="abort shared transaction"):
+            create_skill_and_grant_then_abort()
+
+        with tracking_store.ManagedSessionMaker() as session:
+            assert (
+                session.query(SqlSkill).filter(SqlSkill.name == "shared-db-skill").first() is None
+            )
+        assert (
+            auth_store.get_role_permission_for_resource(
+                user.id,
+                RESOURCE_TYPE_SKILL,
+                "shared-db-skill",
+                DEFAULT_WORKSPACE_NAME,
+            )
+            is None
+        )
+    finally:
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
+@pytest.mark.parametrize("resource_type", [RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN])
+@pytest.mark.parametrize("resource_pattern", ["acme/name", "@", "@acme/", "@acme/name/extra"])
+def test_skill_registry_grant_rejects_invalid_resource_pattern(
+    store,
+    user,
+    resource_type,
+    resource_pattern,
+):
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.grant_user_permission(user.username, resource_type, resource_pattern, MANAGE.name)
+
+
+def test_skill_registry_session_grant_rejects_invalid_resource_pattern(store, user):
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "acme/name", MANAGE.name)],
+            )
+
+
+def test_skill_registry_role_permission_rejects_invalid_resource_pattern(store):
+    role = store.create_role("skill-admin", DEFAULT_WORKSPACE_NAME)
+
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.add_role_permission(role.id, RESOURCE_TYPE_SKILL, "acme/name", MANAGE.name)
+
+
+def test_skill_registry_grant_allows_resource_type_wildcard(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "*", MANAGE.name)
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id,
+            RESOURCE_TYPE_SKILL,
+            "any-skill",
+            DEFAULT_WORKSPACE_NAME,
+        )
+        == MANAGE
+    )
+
+
+def test_grant_user_permissions_in_session_rolls_back_partial_batch_on_duplicate(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing-skill", READ.name)
+
+    with pytest.raises(MlflowException, match="already exists"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [
+                    (RESOURCE_TYPE_SKILL, "new-before-duplicate", MANAGE.name),
+                    (RESOURCE_TYPE_SKILL, "existing-skill", MANAGE.name),
+                    (RESOURCE_TYPE_AGENT_PLUGIN, "new-after-duplicate", MANAGE.name),
+                ],
+            )
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "existing-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == READ
+    )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "new-before-duplicate", DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_AGENT_PLUGIN, "new-after-duplicate", DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
+
+
+def test_grant_user_resource_permission_in_session_savepoint_keeps_session_usable(
+    store, user
+):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing-skill", READ.name)
+
+    class _HiddenRolePermissionQuery:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        original_query = session.query
+
+        def query(*entities, **kwargs):
+            if len(entities) == 1 and entities[0] is SqlRolePermission:
+                return _HiddenRolePermissionQuery()
+            return original_query(*entities, **kwargs)
+
+        session.query = query
+        with pytest.raises(MlflowException, match="already exists"):
+            store.grant_user_resource_permission_in_session(
+                session,
+                user.username,
+                RESOURCE_TYPE_SKILL,
+                "existing-skill",
+                MANAGE.name,
+            )
+
+        session.query = original_query
+        store.grant_user_resource_permission_in_session(
+            session,
+            user.username,
+            RESOURCE_TYPE_AGENT_PLUGIN,
+            "new-after-integrity-error",
+            MANAGE.name,
+        )
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "existing-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == READ
+    )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id,
+            RESOURCE_TYPE_AGENT_PLUGIN,
+            "new-after-integrity-error",
+            DEFAULT_WORKSPACE_NAME,
+        )
+        == MANAGE
+    )
+
+
+def test_grant_user_permission_in_session_recovers_from_upsert_insert_race(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing-skill", READ.name)
+
+    class _HiddenRolePermissionQuery:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    hidden_queries = 0
+    with store.ManagedSessionMaker(read_only=False) as session:
+        original_query = session.query
+
+        def query(*entities, **kwargs):
+            nonlocal hidden_queries
+            if (
+                len(entities) == 1
+                and entities[0] is SqlRolePermission
+                and hidden_queries == 0
+            ):
+                hidden_queries += 1
+                return _HiddenRolePermissionQuery()
+            return original_query(*entities, **kwargs)
+
+        session.query = query
+        store.grant_user_permission_in_session(
+            session,
+            user.username,
+            RESOURCE_TYPE_SKILL,
+            "existing-skill",
+            MANAGE.name,
+        )
+
+    assert hidden_queries == 1
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "existing-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == MANAGE
+    )
+
+
+def test_grant_user_permission_in_session_rejects_workspace_resource_type(store, user):
+    with pytest.raises(MlflowException, match="resource_type 'workspace' is not supported"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_WORKSPACE, "*", MANAGE.name)],
+                upsert=True,
+            )
+
+
+def test_grant_user_permission_rejects_workspace_resource_type(store, user):
+    with pytest.raises(MlflowException, match="resource_type 'workspace' is not supported"):
+        store.grant_user_permission(user.username, RESOURCE_TYPE_WORKSPACE, "*", MANAGE.name)
+
+
+def test_grant_user_resource_permission_in_session_does_not_overwrite_existing_grant(
+    store, user
+):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "demo-skill", READ.name)
+
+    with pytest.raises(MlflowException, match="already exists"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_resource_permission_in_session(
+                session,
+                user.username,
+                RESOURCE_TYPE_SKILL,
+                "demo-skill",
+                EDIT.name,
+            )
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "demo-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == READ
+    )
+
+
+def test_grant_user_permission_in_session_preserves_upsert_behavior(store, user):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store.grant_user_permission_in_session(
+            session,
+            user.username,
+            RESOURCE_TYPE_SKILL,
+            "demo-skill",
+            READ.name,
+        )
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store.grant_user_permission_in_session(
+            session,
+            user.username,
+            RESOURCE_TYPE_SKILL,
+            "demo-skill",
+            EDIT.name,
+        )
+
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "demo-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == EDIT
+    )
 
 
 # ---- UserRoleAssignment CRUD ----
@@ -709,15 +1252,9 @@ def test_resolver_resource_type_filter(store, user):
 # ---- Resolver coverage: permission hierarchy matrix ----
 
 
-@pytest.mark.parametrize("resource_type", _CONCRETE_RESOURCE_TYPES)
 @pytest.mark.parametrize(
-    ("granted", "expected"),
-    [
-        ("READ", READ),
-        ("USE", USE),
-        ("EDIT", EDIT),
-        ("MANAGE", MANAGE),
-    ],
+    ("resource_type", "granted", "expected"),
+    _RESOURCE_GRANT_CASES,
 )
 def test_resolver_returns_granted_permission_for_each_resource_type(
     store, user, resource_type, granted, expected
