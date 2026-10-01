@@ -270,6 +270,9 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+    cache-mode: read
+    env:
+      AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -308,6 +311,17 @@ jobs:
               host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
               client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
               client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+      - id: build-cache-key
+        run: |
+          node_version=$(node --version)
+          yarn_version=$(cd mlflow/server/js && yarn --version)
+          fingerprint=$(git ls-files -z -- mlflow/server/js .github/actions/setup-node |
+            xargs -0 sha256sum | sha256sum | cut -d ' ' -f1)
+          echo "key=mlflow-js-build-${RUNNER_OS}-${node_version}-${yarn_version}-${fingerprint}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mlflow/server/js/build
+          key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
         timeout-minutes: 10
