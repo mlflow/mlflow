@@ -27,7 +27,7 @@ jobs:
   uv:
     # Skip scheduled runs on forks
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -58,6 +58,8 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_TITLE: "Update `uv.lock`"
+          # Log API requests to diagnose labels occasionally being applied twice
+          GH_DEBUG: api
         run: |
           if git diff --quiet uv.lock; then
             echo "No changes to uv.lock, exiting early"
@@ -96,9 +98,6 @@ jobs:
           else
             BRANCH="uv-lock-update-$(date -u +%Y-%m-%dT%H-%M-%S)"
             git push origin "HEAD:$BRANCH"
-            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md)
-            # Delay labeling to reduce the race between Protect runs.
-            sleep 5
-            gh pr edit "$PR_URL" --add-label team-review --add-label auto-rerun
+            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review --label auto-rerun)
             gh pr merge "$PR_URL" --auto --squash
           fi

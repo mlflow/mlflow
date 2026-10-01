@@ -24,7 +24,7 @@ jobs:
   protect:
     # Skip this job in a merge queue
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       checks: read # to read check statuses
@@ -40,4 +40,4 @@ jobs:
           retries: 3
           script: |
             const script = require('./.github/workflows/protect.js');
-            await script({ github, context });
+            await script({ github, context, core });

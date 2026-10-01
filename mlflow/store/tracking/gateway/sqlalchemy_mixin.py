@@ -63,7 +63,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
-    SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
 )
@@ -87,7 +86,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -100,6 +99,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.validation import _parse_experiment_id
 
 
 def _validate_one_of(
@@ -709,7 +709,9 @@ class SqlAlchemyGatewayStoreMixin:
                     last_updated_by=created_by,
                     routing_strategy=routing_strategy.value if routing_strategy else None,
                     fallback_config_json=fallback_config_json,
-                    experiment_id=int(experiment_id) if experiment_id else None,
+                    experiment_id=_parse_experiment_id(experiment_id)
+                    if experiment_id is not None
+                    else None,
                     usage_tracking=usage_tracking,
                 )
             )
@@ -821,7 +823,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             if experiment_id is not None:
-                sql_endpoint.experiment_id = int(experiment_id)
+                sql_endpoint.experiment_id = _parse_experiment_id(experiment_id)
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
@@ -1414,14 +1416,12 @@ class SqlAlchemyGatewayStoreMixin:
         with self.ManagedSessionMaker() as session:
             query = (
                 session
-                .query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
-                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
+                .query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0))
                 .join(
                     SqlTraceMetadata,
                     SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
                 )
                 .filter(
-                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
                     SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
                     SqlTraceInfo.timestamp_ms >= start_time_ms,
                     SqlTraceInfo.timestamp_ms < end_time_ms,

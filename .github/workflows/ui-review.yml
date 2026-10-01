@@ -83,7 +83,7 @@ jobs:
 
   review:
     needs: gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.

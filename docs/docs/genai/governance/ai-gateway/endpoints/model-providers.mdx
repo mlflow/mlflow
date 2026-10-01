@@ -40,6 +40,14 @@ The AI Gateway supports providers across these categories:
 
 For a complete list of supported providers, view the provider dropdown when creating an endpoint or see the [LiteLLM documentation](https://docs.litellm.ai/docs/providers).
 
+### Evaluation Providers
+
+| Provider     | Model family | Passthrough API                  |
+| ------------ | ------------ | -------------------------------- |
+| **TypeSafe** | Jev          | `/gateway/typesafe/v1/systemone` |
+
+TypeSafe endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs.
+
 ## Provider-Specific Passthrough APIs
 
 ### OpenAI
@@ -267,6 +275,36 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Hello!"}],
 )
 ```
+
+### TypeSafe
+
+The TypeSafe passthrough exposes TypeSafe's System One API through the MLflow Gateway. The gateway endpoint name goes in the request body's `model` field; the gateway forwards the request to the configured TypeSafe model with its server-side TypeSafe API key.
+
+**Base URL:** `http://localhost:5000/gateway/typesafe/v1`
+
+**Supported Endpoints:**
+
+- `POST /systemone` - System One structured evaluation
+
+```bash
+curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "jev-evaluator",
+    "state": {
+      "inputs": {"question": "How do I reset my password?"},
+      "outputs": "Select Forgot password on the sign-in page."
+    },
+    "questions": {
+      "evaluation": {
+        "type": "noul",
+        "instructions": "Does state.outputs answer the question in state.inputs?"
+      }
+    }
+  }'
+```
+
+TypeSafe gateway endpoints are raw System One endpoints, not chat endpoints. Use them for direct System One requests through Gateway-managed credentials. They are separate from MLflow judges that use `make_judge(model="typesafe:/...")`; do not pass a TypeSafe gateway endpoint as `model="gateway:/..."` to `make_judge()`.
 
 ### Portkey
 
