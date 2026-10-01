@@ -187,7 +187,7 @@ jobs:
           # surface (response_format); the Anthropic surface rejects output_config.format.
           # https://docs.databricks.com/aws/en/machine-learning/model-serving/structured-outputs
           payload=$(jq -c --arg prompt "$PROMPT" '{
-            model: "databricks-claude-sonnet-5-5",
+            model: "databricks-claude-sonnet-5",
             max_tokens: 4096,
             messages: [
               {role: "system", content: $prompt},
