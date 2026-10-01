@@ -85,13 +85,37 @@ jobs:
     outputs:
       type: ${{ steps.label.outputs.type }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/ISSUE_TEMPLATE
       - id: label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_URL: ${{ needs.issue.outputs.url }}
           TITLE: ${{ needs.issue.outputs.title }}
+          BODY: ${{ needs.issue.outputs.body }}
         run: |
           title="${TITLE#"${TITLE%%[![:space:]]*}"}"
+          case "${title^^}" in
+            "[BUG]"* | "[SETUP-BUG]"* | "[FR]"* | "[DOC-FIX]"*) ;;
+            *)
+              title=$(
+                yq -o=json -I=0 '{"title": .title, "labels": [.body[] | select(.type != "markdown") | .attributes.label]}' \
+                  .github/ISSUE_TEMPLATE/*_template.yaml \
+                | jq -rs '
+                  def norm: ascii_downcase | gsub("^[\\s#*_]+|[\\s#*_:]+$"; "");
+                  (env.BODY | [splits("\r?\n") | norm] | unique) as $lines
+                  | map(. + {matched: ([.labels[] | norm | select(IN($lines[]))] | length)})
+                  | map(. + {score: (.matched / (.labels | length))})
+                  | map(select(.score >= 0.5))
+                  | max_by([.score, .matched]) | .title // empty
+                '
+              )
+              echo "Inferred title prefix from body: ${title:-none}"
+              ;;
+          esac
           case "${title^^}" in
             "[BUG]"* | "[SETUP-BUG]"*) type="bug" labels="bug" ;;
             "[FR]"*) type="enhancement" labels="enhancement" ;;
@@ -100,7 +124,7 @@ jobs:
           esac
           echo "type=$type" >> "$GITHUB_OUTPUT"
           if [ "$type" = unknown ]; then
-            echo "No matching title prefix"
+            echo "No matching title prefix or template"
             exit 0
           fi
           # Templates apply these labels already; adding them again is a no-op.
