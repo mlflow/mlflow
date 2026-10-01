@@ -112,6 +112,7 @@ class SkillResponse(BaseModel):
     icons: list[SkillIconPayload] | None = None
     status: str | None = None
     latest_version: int | None = None
+    source_type: str | None = None
     aliases: list[SkillAliasResponse] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
     created_by: str | None = None
@@ -132,6 +133,7 @@ class SkillResponse(BaseModel):
             ),
             status=str(entity.status) if entity.status else None,
             latest_version=entity.latest_version,
+            source_type=str(entity.source_type) if entity.source_type else None,
             aliases=[
                 SkillAliasResponse(alias=alias, version=version)
                 for alias, version in entity.aliases.items()

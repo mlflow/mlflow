@@ -10,7 +10,13 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from mlflow.entities.skill import Skill, SkillStatus
-from mlflow.entities.skill_source import GitSource, MlflowSource, OCISource, ZipSource
+from mlflow.entities.skill_source import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    SkillSourceType,
+    ZipSource,
+)
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.server import skill_registry_api
@@ -283,10 +289,22 @@ def test_create_and_get_skill_without_organization(tmp_path: Path, db_uri: str):
                 "futureField": "preserved",
             }
         ]
+        assert response.json()["source_type"] is None
 
         response = client.get(f"{PREFIX}/code-review")
         assert response.status_code == 200, response.text
         assert response.json()["name"] == "code-review"
+        assert response.json()["source_type"] is None
+
+        store.create_skill_version(
+            "code-review",
+            source_type=SkillSourceType.GIT,
+            source="https://example.com/skills.git",
+        )
+        response = client.get(f"{PREFIX}/code-review")
+        assert response.status_code == 200, response.text
+        assert response.json()["latest_version"] == 1
+        assert response.json()["source_type"] == "git"
 
 
 def test_create_skill_rejects_invalid_icon(tmp_path: Path, db_uri: str):
@@ -351,7 +369,10 @@ def test_update_skill_distinguishes_omitted_and_explicit_null_fields(tmp_path: P
 
 def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
     client, store = _create_client(tmp_path, db_uri)
-    results = PagedList([Skill(name="code-review", organization="acme")], token="next-token")
+    results = PagedList(
+        [Skill(name="code-review", organization="acme", source_type=SkillSourceType.GIT)],
+        token="next-token",
+    )
 
     with (
         mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
@@ -371,6 +392,7 @@ def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
     assert response.status_code == 200, response.text
     assert response.json()["skills"][0]["name"] == "code-review"
     assert response.json()["skills"][0]["organization"] == "acme"
+    assert response.json()["skills"][0]["source_type"] == "git"
     assert response.json()["next_page_token"] == "next-token"
     search_skills.assert_called_once_with(
         filter_string="source_type = 'git'",

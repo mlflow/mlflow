@@ -113,6 +113,39 @@ def test_update_skill_preserves_resolved_fields(store):
     assert updated.status == SkillStatus.ACTIVE
 
 
+def test_skill_source_type_is_resolved_from_latest_live_version(store):
+    store.create_skill_version(
+        "reviewer",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.create_skill_version(
+        "reviewer",
+        source_type=SkillSourceType.ZIP,
+        source="https://example.com/reviewer.zip",
+        status=SkillStatus.DRAFT.value,
+    )
+
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version == 1
+    assert skill.source_type == SkillSourceType.GIT
+
+    store.update_skill_version("reviewer", 1, status=SkillStatus.DEPRECATED.value)
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version == 2
+    assert skill.source_type == SkillSourceType.ZIP
+
+    store.delete_skill_version("reviewer", 2)
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version == 1
+    assert skill.source_type == SkillSourceType.GIT
+
+    store.delete_skill_version("reviewer", 1)
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version is None
+    assert skill.source_type is None
+
+
 def test_skill_icons_round_trip_and_can_be_cleared(store):
     icons = [{"src": "https://example.com/reviewer.svg", "sizes": ["any"]}]
     created = store.create_skill("reviewer", icons=icons)
