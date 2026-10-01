@@ -1579,13 +1579,17 @@ def test_span_get_raises_helpful_attribute_error():
 
 
 def test_span_deepcopy_and_pickle():
+    from mlflow.tracing.attachments import Attachment
+
+    att = Attachment(content_type="image/png", content_bytes=b"fake-image-bytes")
     with mlflow.start_span("test_span", span_type=SpanType.LLM) as live_span:
-        live_span.set_inputs({"prompt": "hello"})
+        live_span.set_inputs({"prompt": "hello", "image": att})
         live_span.set_outputs({"response": "world"})
         live_span.set_attributes({"model": "gpt-4", "custom_attr": 42})
         live_span.add_event(SpanEvent("test_event", 123456789, {"event_key": "val"}))
 
     span = live_span.to_immutable_span()
+    assert att.id in span._attachments
 
     # Test copy.deepcopy
     copied_span = copy.deepcopy(span)
@@ -1603,6 +1607,12 @@ def test_span_deepcopy_and_pickle():
     copied_span.attributes["model"] = "gpt-3.5"
     assert span.attributes["model"] == "gpt-4"
 
+    # Verify attachment is preserved and decoupled
+    assert att.id in copied_span._attachments
+    assert copied_span._attachments[att.id] is not span._attachments[att.id]
+    assert copied_span._attachments[att.id].content_bytes == b"fake-image-bytes"
+    assert copied_span._attachments[att.id].content_type == "image/png"
+
     # Test pickle
     pickled = pickle.dumps(span)
     unpickled_span = pickle.loads(pickled)
@@ -1613,6 +1623,11 @@ def test_span_deepcopy_and_pickle():
     assert unpickled_span.outputs == span.outputs
     assert unpickled_span.trace_id == span.trace_id
     assert unpickled_span.span_id == span.span_id
+
+    # Verify attachment is preserved in unpickled span
+    assert att.id in unpickled_span._attachments
+    assert unpickled_span._attachments[att.id].content_bytes == b"fake-image-bytes"
+    assert unpickled_span._attachments[att.id].content_type == "image/png"
 
 
 def test_lazy_span_deepcopy_and_pickle_unmaterialized():
@@ -1651,13 +1666,16 @@ def test_lazy_span_deepcopy_and_pickle_unmaterialized():
 
 def test_lazy_span_deepcopy_and_pickle_materialized():
     from mlflow.entities.span import LazySpan
+    from mlflow.tracing.attachments import Attachment
 
+    att = Attachment(content_type="text/plain", content_bytes=b"sample-log")
     with mlflow.start_span("lazy_mat_test") as live_span:
-        live_span.set_inputs({"data": [1, 2, 3]})
+        live_span.set_inputs({"data": [1, 2, 3], "log": att})
         live_span.set_outputs({"result": 6})
     span = live_span.to_immutable_span()
 
     lazy_span = LazySpan(span.to_dict())
+    lazy_span._attachments = dict(span._attachments)
     # Force materialization before copy/pickle
     _ = lazy_span.inputs
     assert lazy_span.__dict__.get("_materialized") is True
@@ -1667,12 +1685,17 @@ def test_lazy_span_deepcopy_and_pickle_materialized():
     assert copied_lazy.__dict__.get("_materialized") is True
     assert copied_lazy.to_dict() == span.to_dict()
     assert copied_lazy.inputs == span.inputs
+    assert att.id in copied_lazy._attachments
+    assert copied_lazy._attachments[att.id] is not lazy_span._attachments[att.id]
+    assert copied_lazy._attachments[att.id].content_bytes == b"sample-log"
 
     unpickled_lazy = pickle.loads(pickle.dumps(lazy_span))
     assert isinstance(unpickled_lazy, LazySpan)
     assert unpickled_lazy.__dict__.get("_materialized") is True
     assert unpickled_lazy.to_dict() == span.to_dict()
     assert unpickled_lazy.inputs == span.inputs
+    assert att.id in unpickled_lazy._attachments
+    assert unpickled_lazy._attachments[att.id].content_bytes == b"sample-log"
 
 
 def test_noop_span_deepcopy_and_pickle():

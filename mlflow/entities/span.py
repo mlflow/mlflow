@@ -1412,7 +1412,8 @@ class LazySpan(Span):
         span = Span.from_dict(span_dict)
         self.__dict__["_span"] = span._span
         self.__dict__["_attributes"] = span._attributes
-        self.__dict__["_attachments"] = span._attachments
+        if "_attachments" not in self.__dict__:
+            self.__dict__["_attachments"] = span._attachments
         self.__dict__["_links"] = span._links
         self.__dict__["_materialized"] = True
 
