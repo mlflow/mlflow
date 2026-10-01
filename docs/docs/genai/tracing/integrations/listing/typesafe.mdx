@@ -1,0 +1,89 @@
+---
+title: Tracing TypeSafe AI
+description: Trace TypeSafe AI System One evaluations with MLflow for observability into structured questions, answers, model usage, and errors.
+sidebar_position: 11.5
+sidebar_label: TypeSafe AI
+keywords: [typesafe ai, system one, tracing, mlflow, evaluation, llm]
+---
+
+import { APILink } from "@site/src/components/APILink";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+
+# Tracing TypeSafe AI
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for
+[TypeSafe AI System One](https://docs.typesafe.ai/concepts/system-one). Calling
+
+<APILink fn="mlflow.typesafe.autolog" /> instruments `system_one` on both the synchronous and
+asynchronous TypeSafe AI clients.
+
+Each System One trace captures:
+
+- The effective state, questions, model, and additional request-body fields
+- The serialized response, including structured answers and the model when available
+- Input, output, and total token usage when reported by the SDK response
+- Latency and exceptions
+- The TypeSafe request ID when available
+
+MLflow excludes the SDK's dedicated API-key, header, retry, and timeout options. Because `state`,
+`questions`, and `extra_body` are traced, do not place secrets in those request-body fields.
+
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+```bash
+pip install mlflow typesafe-sdk
+```
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+Set `TYPESAFE_API_KEY`, enable autologging, and use the TypeSafe AI SDK as usual:
+
+```python
+from typesafe_sdk import Noul, TypeSafeClient
+
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("TypeSafe AI")
+mlflow.typesafe.autolog()
+
+with TypeSafeClient() as client:
+    result = client.system_one(
+        state={
+            "question": "What is MLflow?",
+            "answer": "A platform for managing the machine learning lifecycle.",
+        },
+        questions={
+            "relevance": Noul(instructions="Is the answer relevant to the question?"),
+        },
+    )
+
+print(result.nouls["relevance"].noul)
+```
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Open the MLflow UI at `http://localhost:5000` (or your MLflow server URL) and select the
+experiment's **Traces** tab.
+
+## Supported APIs
+
+| API          | Sync | Async | Streaming |
+| :----------- | :--: | :---: | :-------: |
+| `system_one` |  ✅  |  ✅   |     -     |
+
+Synchronous calls use `TypeSafeClient.system_one`; asynchronous calls use
+`AsyncTypeSafeClient.system_one`. The SDK does not provide a streaming System One API.
+Other SDK operations, such as `models.list()`, are not traced.
+
+## Disable Auto-Tracing
+
+Disable TypeSafe AI tracing with `mlflow.typesafe.autolog(disable=True)` or disable all MLflow
+autologging integrations with `mlflow.autolog(disable=True)`.
