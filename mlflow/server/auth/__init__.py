@@ -5728,6 +5728,7 @@ def filter_search_logged_models(resp: Response) -> None:
         username,
         RESOURCE_TYPE_RUN,
     )
+    _withhold_denied_model_source_runs(response_proto.models, username)
     resp.data = message_to_json(response_proto)
 
 
@@ -6367,21 +6368,46 @@ def redact_metric_history_model_ids(resp: Response) -> None:
         resp.data = message_to_json(response_message)
 
 
+def _withhold_denied_model_source_runs(models, username: str) -> bool:
+    """A logged model names the run that created it, so it leaks a denied run id with no selector.
+
+    The sibling metric redaction clears ``metric.run_id`` on the same responses, which would be
+    pointless if the id were readable one field over.
+    """
+    named = [model for model in models if model.info.source_run_id]
+    if not named:
+        return False
+    if RESOURCE_TYPE_RUN not in _denied_sibling_tiers(username, (RESOURCE_TYPE_RUN,)):
+        return False
+    for model in named:
+        model.info.ClearField("source_run_id")
+    return True
+
+
 def _redact_logged_model_response(resp: Response, response_message, models_of) -> None:
     if sender_is_admin():
         return
     if not isinstance(resp.json, dict):
         return
     parse_dict(resp.json, response_message)
-    metrics = [metric for model in models_of(response_message) for metric in model.data.metrics]
-    if _withhold_denied_metric_references(
-        metrics, authenticate_request().username, RESOURCE_TYPE_RUN
-    ):
+    username = authenticate_request().username
+    models = list(models_of(response_message))
+    metrics = [metric for model in models for metric in model.data.metrics]
+    # Both run, so a response carrying only one of the two references is still cleaned.
+    cleared_metrics = _withhold_denied_metric_references(metrics, username, RESOURCE_TYPE_RUN)
+    cleared_sources = _withhold_denied_model_source_runs(models, username)
+    if cleared_metrics or cleared_sources:
         resp.data = message_to_json(response_message)
 
 
 def redact_get_logged_model_run_ids(resp: Response) -> None:
     _redact_logged_model_response(resp, GetLoggedModel.Response(), lambda m: [m.model])
+
+
+def redact_created_logged_model_run_ids(resp: Response) -> None:
+    # The caller supplied this source run, and validate_can_create_logged_model already requires
+    # read on it, so this closes no leak; registered so every logged-model response path is covered.
+    _redact_logged_model_response(resp, CreateLoggedModel.Response(), lambda m: [m.model])
 
 
 def redact_finalize_logged_model_run_ids(resp: Response) -> None:
@@ -6623,6 +6649,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateModelVersion: redact_created_model_version_siblings,
     UpdateModelVersion: redact_updated_model_version_siblings,
     TransitionModelVersionStage: redact_transitioned_model_version_siblings,
+    CreateLoggedModel: redact_created_logged_model_run_ids,
     FinalizeLoggedModel: redact_finalize_logged_model_run_ids,
     GetLoggedModel: redact_get_logged_model_run_ids,
     GetMetricHistory: redact_metric_history_model_ids,
