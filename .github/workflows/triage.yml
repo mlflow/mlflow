@@ -183,9 +183,6 @@ jobs:
             In the rationale, say in one sentence what would take the agent beyond normal
             work on the issue, or why nothing does, without quoting the issue.
         run: |
-          # Databricks supports structured outputs for Claude only on its OpenAI-compatible
-          # surface (response_format); the Anthropic surface rejects output_config.format.
-          # https://docs.databricks.com/aws/en/machine-learning/model-serving/structured-outputs
           payload=$(jq -c --arg prompt "$PROMPT" '{
             model: "databricks-gpt-6-luna",
             max_tokens: 4096,
