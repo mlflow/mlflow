@@ -4884,7 +4884,7 @@ def test_delete_assessment_requires_delete_on_an_explicit_grant(
 def test_delete_assessment_without_a_grant_stays_at_the_master_level(workspace_permission_setup):
     """Master mapped DeleteAssessment to validate_can_update_trace_by_trace_id, so an experiment
     EDIT holder could delete an assessment. Carrying `delete` down the fallback chain would refuse
-    them, which is why the action is chosen from whether a grant exists on the tier at all.
+    them, which is why the experiment rung names `update` as its own action.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -4901,6 +4901,50 @@ def test_delete_assessment_needs_more_than_experiment_read(workspace_permission_
     _grant(store, username, "team-a", [("experiment", "exp-1", READ.name)])
 
     assert _delete_assessment() is False
+
+
+def _update_assessment():
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
+        method="PATCH",
+        json={"trace_id": "trace-1"},
+    ):
+        return auth_module.validate_can_update_assessment()
+
+
+@pytest.mark.parametrize(
+    "run_route", [_update_assessment, _delete_assessment], ids=["update", "delete"]
+)
+@pytest.mark.parametrize(
+    ("trace_level", "experiment_level", "allowed"),
+    [
+        (MANAGE.name, READ.name, False),
+        (READ.name, EDIT.name, True),
+    ],
+    ids=["trace_manage_lends_nothing", "trace_read_withholds_nothing"],
+)
+def test_a_trace_grant_does_not_govern_an_assessment(
+    workspace_permission_setup, run_route, trace_level, experiment_level, allowed
+):
+    """The experiment is the assessment's parent; the trace is only how the route addresses it.
+
+    A trace grant therefore neither confers access to an assessment nor withholds it -- the
+    experiment decides, and the trace tier speaks only through ``DENY`` (see
+    ``test_trace_deny_is_not_bypassed_by_an_assessment_grant``). Both rows flipped before the
+    trace was taken out of the chain: trace MANAGE used to carry an experiment-READ holder, and
+    trace READ used to block an experiment-EDIT one.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", experiment_level), ("trace", "*", trace_level)],
+    )
+
+    assert run_route() is allowed
 
 
 # =============================================================================
