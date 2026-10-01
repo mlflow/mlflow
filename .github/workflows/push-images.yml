@@ -149,7 +149,7 @@ jobs:
 
   check-latest:
     needs: push-images
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read # to identify GitHub's latest release
@@ -183,7 +183,7 @@ jobs:
   promote-latest:
     needs: check-latest
     if: needs.check-latest.outputs.promote == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
       group: push-images-promote-latest
