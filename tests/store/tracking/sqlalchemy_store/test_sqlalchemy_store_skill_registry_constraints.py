@@ -53,7 +53,7 @@ def _membership(store, **overrides):
         "member_name": "reviewer",
         "member_version": 1,
     }
-    return SqlAgentPluginVersionMember(**{**fields, **overrides})
+    return SqlAgentPluginVersionMember(**(fields | overrides))
 
 
 def test_database_cascades_skill_deletion_to_all_children(store):
