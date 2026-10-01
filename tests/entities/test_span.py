@@ -1664,6 +1664,65 @@ def test_lazy_span_deepcopy_and_pickle_unmaterialized():
     assert unpickled_lazy.to_dict() == span.to_dict()
 
 
+def test_lazy_span_deepcopy_and_pickle_unmaterialized_with_attachments():
+    from mlflow.entities.span import LazySpan
+    from mlflow.tracing.attachments import Attachment
+
+    att = Attachment(content_type="text/plain", content_bytes=b"sample-log")
+    with mlflow.start_span("lazy_test_att", span_type=SpanType.TOOL) as live_span:
+        live_span.set_inputs({"query": "SELECT 1"})
+        live_span.set_outputs({"rows": 1})
+    span = live_span.to_immutable_span()
+
+    lazy_span = LazySpan(span.to_dict())
+    lazy_span._attachments = {att.id: att}
+    assert lazy_span.__dict__.get("_materialized") is False
+
+    # Deepcopy should remain unmaterialized and copy attachments
+    copied_lazy = copy.deepcopy(lazy_span)
+    assert isinstance(copied_lazy, LazySpan)
+    assert copied_lazy is not lazy_span
+    assert copied_lazy.__dict__.get("_materialized") is False
+    assert lazy_span.__dict__.get("_materialized") is False
+    assert att.id in copied_lazy._attachments
+    assert copied_lazy._attachments[att.id] is not lazy_span._attachments[att.id]
+    assert copied_lazy._attachments[att.id].content_bytes == b"sample-log"
+    assert copied_lazy.__dict__.get("_materialized") is False
+
+    # Pickle should preserve unmaterialized state and attachments
+    pickled = pickle.dumps(lazy_span)
+    assert lazy_span.__dict__.get("_materialized") is False
+    unpickled_lazy = pickle.loads(pickled)
+    assert isinstance(unpickled_lazy, LazySpan)
+    assert unpickled_lazy.__dict__.get("_materialized") is False
+    assert att.id in unpickled_lazy._attachments
+    assert unpickled_lazy._attachments[att.id].content_bytes == b"sample-log"
+    assert unpickled_lazy.__dict__.get("_materialized") is False
+
+    # Materialization retains attachments without overwriting
+    assert copied_lazy.inputs == span.inputs
+    assert copied_lazy.__dict__.get("_materialized") is True
+    assert att.id in copied_lazy._attachments
+    assert unpickled_lazy.inputs == span.inputs
+    assert unpickled_lazy.__dict__.get("_materialized") is True
+    assert att.id in unpickled_lazy._attachments
+
+
+def test_live_span_deepcopy_and_pickle_raises():
+    with mlflow.start_span("live_test") as live_span:
+        err_deepcopy = r"cannot be deepcopied while active\. Call `span\.to_immutable_span\(\)`"
+        with pytest.raises(TypeError, match=rf"'LiveSpan' {err_deepcopy}"):
+            copy.deepcopy(live_span)
+
+        err_copy = r"cannot be copied while active\. Call `span\.to_immutable_span\(\)`"
+        with pytest.raises(TypeError, match=rf"'LiveSpan' {err_copy}"):
+            copy.copy(live_span)
+
+        err_pickle = r"cannot be pickled while active\. Call `span\.to_immutable_span\(\)`"
+        with pytest.raises(TypeError, match=rf"'LiveSpan' {err_pickle}"):
+            pickle.dumps(live_span)
+
+
 def test_lazy_span_deepcopy_and_pickle_materialized():
     from mlflow.entities.span import LazySpan
     from mlflow.tracing.attachments import Attachment

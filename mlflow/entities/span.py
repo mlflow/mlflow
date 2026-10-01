@@ -738,6 +738,24 @@ class LiveSpan(Span):
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
 
+    def __reduce__(self):
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be pickled while active. "
+            "Call `span.to_immutable_span()` to serialize finished span data."
+        )
+
+    def __copy__(self):
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be copied while active. "
+            "Call `span.to_immutable_span()` to copy finished span data."
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]):
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be deepcopied while active. "
+            "Call `span.to_immutable_span()` to copy finished span data."
+        )
+
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
@@ -1443,6 +1461,8 @@ class LazySpan(Span):
                 raw_json=self.__dict__["_raw_json"],
             )
             memo[id(self)] = new_lazy
+            if "_attachments" in self.__dict__:
+                new_lazy._attachments = copy.deepcopy(self.__dict__["_attachments"], memo)
             return new_lazy
 
         new_lazy = cls(
@@ -1487,9 +1507,10 @@ def _reconstruct_lazy_span(
     attachments: dict[str, Any],
 ) -> LazySpan:
     lazy = LazySpan(span_dict, raw_json=raw_json)
+    if attachments:
+        lazy._attachments = attachments
     if materialized:
         lazy._ensure_materialized()
-        lazy._attachments = attachments
     return lazy
 
 
