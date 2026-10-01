@@ -206,7 +206,6 @@ jobs:
 
             In the rationale, say in one sentence what would take the agent beyond normal
             work on the issue, or why nothing does, without quoting the issue.
-
         run: |
           payload=$(jq -c --arg prompt "$PROMPT" '{
             model: "databricks-gpt-6-luna",
@@ -373,6 +372,8 @@ jobs:
           exit 1
       - name: Write sandbox settings
         run: |
+          # Linux SRT cannot allowlist Unix sockets by path; agent-browser needs one.
+          # Keep host service sockets hidden through denyRead below.
           cat > "$RUNNER_TEMP/srt.json" <<'EOF'
           {
             "network": {
