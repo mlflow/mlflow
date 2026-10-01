@@ -273,6 +273,9 @@ jobs:
     cache-mode: read
     env:
       AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
+      XDG_DATA_HOME: /tmp/triage-xdg-data
+      XDG_CONFIG_HOME: /tmp/triage-xdg-config
+      XDG_CACHE_HOME: /tmp/triage-xdg-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
