@@ -85,8 +85,6 @@ jobs:
       contents: read
     outputs:
       decision: ${{ steps.assess.outputs.decision }}
-    env:
-      ISSUE_PATH: ${{ runner.temp }}/sanitized_issue.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -106,7 +104,7 @@ jobs:
             {title: env.TITLE, body: env.BODY}
             | map_values(gsub("<!--[\\s\\S]*?-->"; "") | gsub("[\\x{0}-\\x{8}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{ad}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2060}-\\x{2064}\\x{2066}-\\x{2069}\\x{feff}\\x{e0000}-\\x{e007f}]"; ""))
             | . + {$repository, issue_number: $number}
-          ' > "$ISSUE_PATH"
+          ' > "$RUNNER_TEMP/sanitized_issue.json"
       - id: gateway
         uses: ./.github/actions/setup-gateway
         with:
@@ -165,7 +163,7 @@ jobs:
                 rationale: {type: "string"}
               }
             }}}
-          }' "$ISSUE_PATH")
+          }' "$RUNNER_TEMP/sanitized_issue.json")
           response=$(curl -sS --fail-with-body --max-time 30 --retry 3 \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
