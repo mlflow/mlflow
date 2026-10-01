@@ -1038,6 +1038,80 @@ def test_experiment_artifact_proxy_resolves_experiment_id_under_workspace_prefix
         assert not auth_module.validate_can_delete_experiment_artifact_proxy()
 
 
+def _skill_artifact_read_decisions(username: str) -> list[bool]:
+    token = "0123456789abcdef0123456789abcdef"
+    download_path = f"skills/skill-1/{token}/SKILL.md"
+    ancestor_path = "skills/skill-1"
+    scoped_ancestor_path = f"workspaces/team-a/{ancestor_path}"
+
+    decisions = []
+    with auth_module.app.test_request_context(
+        f"/ajax-api/2.0/mlflow-artifacts/artifacts/{download_path}",
+        method="GET",
+    ):
+        request.view_args = {"artifact_path": download_path}
+        decisions.append(auth_module.validate_can_read_experiment_artifact_proxy())
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow-artifacts/artifacts",
+        method="GET",
+        query_string={"path": ancestor_path},
+    ):
+        decisions.append(auth_module.validate_can_read_experiment_artifact_proxy())
+
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/artifacts/{download_path}",
+            username,
+        ).can_read
+    )
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            "/api/2.0/mlflow-artifacts/artifacts",
+            username,
+            query_path=ancestor_path,
+        ).can_read
+    )
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/presigned/{download_path}",
+            username,
+        ).can_read
+    )
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/artifacts/{scoped_ancestor_path}",
+            username,
+        ).can_read
+    )
+    return decisions
+
+
+def test_skill_artifact_proxy_requires_skill_read_permission(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    # A workspace member can still read non-resource artifact paths through the
+    # workspace fallback, but that fallback must not authorize Skill Registry content.
+    assert auth_module._get_proxy_artifact_permission(
+        "/api/2.0/mlflow-artifacts/artifacts/uploads/path",
+        username,
+    ).can_read
+    assert _skill_artifact_read_decisions(username) == [False] * 6
+
+    role = store.create_role(name=random_str(), workspace="team-a")
+    store.add_role_permission(
+        role.id,
+        RESOURCE_TYPE_SKILL,
+        auth_module._skill_registry_resource_key("", "skill-1"),
+        READ.name,
+    )
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    assert _skill_artifact_read_decisions(username) == [True] * 6
+
+
 def test_filter_experiment_ids_respects_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):

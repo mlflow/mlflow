@@ -479,6 +479,10 @@ from mlflow.server.workspace_helpers import (
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
+from mlflow.store.tracking.skill_registry.artifact_paths import (
+    SkillArtifactIdentity,
+    parse_skill_upload_path,
+)
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -1295,11 +1299,34 @@ def _get_experiment_id_from_view_args():
     return None
 
 
+def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdentity | None:
+    if identity := parse_skill_upload_path(artifact_path):
+        return identity
+
+    # The artifact handler accepts an explicit repository path scoped as
+    # workspaces/<workspace>/..., but Skill Registry sources record the workspace-relative
+    # path. Recognize both forms before falling back to workspace-level artifact auth.
+    segments = artifact_path.strip("/").split("/", 2)
+    if len(segments) == 3 and segments[0] == "workspaces" and segments[1]:
+        return parse_skill_upload_path(segments[2])
+    return None
+
+
+def _get_skill_identity_from_view_args() -> SkillArtifactIdentity | None:
+    view_args = request.view_args or {}
+    if artifact_path := (view_args.get("artifact_path") or request.args.get("path")):
+        return _parse_skill_upload_path_for_auth(artifact_path)
+    return None
+
+
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     # Flask artifact proxy routes have already authenticated in `_before_request`.
     # Reuse that username so custom auth functions are not invoked twice on
     # Flask-served list/delete/presigned/MPU requests.
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+
+    if skill_identity := _get_skill_identity_from_view_args():
+        return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
 
     if experiment_id := _get_experiment_id_from_view_args():
         return _get_role_permission_or_default(
@@ -8681,9 +8708,38 @@ def _extract_experiment_id_from_artifact_proxy_path(
     return None
 
 
+def _extract_skill_identity_from_artifact_proxy_path(
+    path: str, query_path: str | None = None
+) -> SkillArtifactIdentity | None:
+    prefixes = (
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+    )
+    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
+    if prefix is not None:
+        artifact_path = path.removeprefix(prefix)
+        if identity := _parse_skill_upload_path_for_auth(artifact_path):
+            return identity
+
+    if query_path:
+        return _parse_skill_upload_path_for_auth(query_path)
+    return None
+
+
 def _get_proxy_artifact_permission(
     path: str, username: str, query_path: str | None = None
 ) -> Permission:
+    if skill_identity := _extract_skill_identity_from_artifact_proxy_path(path, query_path):
+        return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
+
     if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
         return _get_role_permission_or_default(
             _role_permission_for(
