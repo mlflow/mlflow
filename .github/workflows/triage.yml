@@ -256,6 +256,7 @@ jobs:
           name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sanitized-issue
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
       - name: Install sandbox and Claude Code
         timeout-minutes: 10
         run: |
