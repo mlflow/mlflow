@@ -283,6 +283,7 @@ class GeminiAdapter(ProviderAdapter):
         finish_reason: str,
         choice_idx: int,
         stream: bool,
+        tool_call_offset: int = 0,
     ):
         # convert gemini model responded "function call" struct to Openai choice / choice chunk
         # struct.
@@ -324,7 +325,7 @@ class GeminiAdapter(ProviderAdapter):
             if stream:
                 tool_calls.append(
                     chat_schema.ToolCallDelta(
-                        index=0,
+                        index=tool_call_offset + len(tool_calls),
                         id=call_id,
                         function=Function(
                             name=func_name,
@@ -454,7 +455,7 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(
-        cls, resp: dict[str, Any], config
+        cls, resp: dict[str, Any], config, tool_call_offsets: dict[int, int] | None = None
     ) -> chat_schema.StreamResponsePayload:
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         #
@@ -478,7 +479,9 @@ class GeminiAdapter(ProviderAdapter):
         #   "model": "gemini-2.0-flash"
         # }
         choices = []
-        for idx, cand in enumerate(resp.get("candidates", [])):
+        for pos, cand in enumerate(resp.get("candidates", [])):
+            # A chunk may carry only some candidates, so use the API index, not the position.
+            idx = cand.get("index", pos)
             parts = cand.get("content", {}).get("parts", [])
             finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
@@ -489,7 +492,7 @@ class GeminiAdapter(ProviderAdapter):
                     # it still contains the full function call arguments data.
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, True
+                            parts, finish_reason, idx, True, (tool_call_offsets or {}).get(idx, 0)
                         )
                     )
                     continue
@@ -910,6 +913,9 @@ class GeminiProvider(BaseProvider):
             payload=body,
         )
 
+        # Gemini sends each functionCall whole, but calls can arrive across chunks, so
+        # number them per stream, separately for each candidate.
+        tool_call_counts: dict[int, int] = {}
         async for raw in handle_incomplete_chunks(sse):
             text = raw.decode("utf-8", errors="ignore").strip()
             if not text.startswith("data:"):
@@ -918,7 +924,13 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
-            yield self.adapter_class.model_to_chat_streaming(resp, self.config)
+            yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
+            for pos, cand in enumerate(resp.get("candidates", [])):
+                idx = cand.get("index", pos)
+                parts = cand.get("content", {}).get("parts", [])
+                tool_call_counts[idx] = tool_call_counts.get(idx, 0) + sum(
+                    1 for part in parts if part.get("functionCall")
+                )
 
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]
