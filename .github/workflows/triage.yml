@@ -133,8 +133,8 @@ jobs:
             Picture a careful MLflow maintainer about to hand this issue to an agent that
             runs unattended in a disposable sandbox. Return safe if the maintainer would
             let the agent proceed: the agent only needs to do what a maintainer normally
-            does for this kind of issue, using MLflow, well-known public packages, and
-            ordinary amounts of compute.
+            does for this kind of issue, using MLflow, well-known public packages and
+            tools, and ordinary amounts of compute.
 
             Return unsafe if acting on the issue would take the agent beyond that, for
             example:
