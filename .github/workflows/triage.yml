@@ -341,7 +341,8 @@ jobs:
           EOF
           # srt skips write rules for paths that don't exist yet.
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
-          touch ~/.claude.json
+          # Claude Code rejects an empty config file.
+          echo '{}' > ~/.claude.json
       - name: Check sandbox restrictions
         run: |
           # Otherwise a sandbox that fails to start would pass every check below.
