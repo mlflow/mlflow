@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import os
+import sys
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
@@ -316,9 +317,17 @@ def _in_job_executor() -> bool:
 def _is_tracking_server_process() -> bool:
     """True in the tracking server process or a subprocess it spawned.
 
-    The server sets ``_MLFLOW_SERVER_BOOT_ID`` at startup, and child processes inherit it.
+    ``mlflow server`` sets ``_MLFLOW_SERVER_BOOT_ID`` at startup, and worker and job subprocesses
+    inherit it. A server started by importing the app directly (for example
+    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id, so
+    also honor ``mlflow.server``'s own ``is_running_as_server`` detection when that module is
+    already loaded. Otherwise such a server would be misclassified as a client and reconstruct
+    custom scorer code in the server process, defeating the confinement.
     """
-    return _MLFLOW_SERVER_BOOT_ID.get() is not None
+    if _MLFLOW_SERVER_BOOT_ID.get() is not None:
+        return True
+    server_module = sys.modules.get("mlflow.server")
+    return bool(server_module is not None and getattr(server_module, "is_running_as_server", False))
 
 
 def _should_reconstruct_scorer_code() -> bool:

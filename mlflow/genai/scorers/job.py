@@ -1,5 +1,6 @@
 """Huey job functions for async scorer invocation."""
 
+import json
 import logging
 import os
 import random
@@ -37,6 +38,7 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
+from mlflow.genai.scorers.scorer_utils import custom_scorer_execution_blocked
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -494,6 +496,16 @@ def run_online_scoring_scheduler() -> None:
                 for scorer in scorers:
                     try:
                         scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
+                        # A custom @scorer whose execution is disabled (flag off) is rejected at
+                        # submit time; submitting it would raise and abort the whole scheduling
+                        # pass, so skip it here (the server deserializes it as non-executing
+                        # metadata, so the rejection no longer surfaces during this classification).
+                        if custom_scorer_execution_blocked(json.loads(scorer.serialized_scorer)):
+                            _logger.warning(
+                                f"Skipping custom scorer '{scorer.name}'; custom scorer execution "
+                                "is disabled (set MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS to enable)."
+                            )
+                            continue
                         if scorer_obj.is_session_level_scorer:
                             session_level_scorers.append(scorer)
                         else:

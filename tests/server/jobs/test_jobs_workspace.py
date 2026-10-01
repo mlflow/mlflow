@@ -96,6 +96,55 @@ def test_scheduler_runs_per_workspace(monkeypatch):
     assert mock_submit_job.call_count == 2
 
 
+def test_scheduler_skips_disabled_custom_scorer_without_aborting(monkeypatch):
+    # In a server process a disabled custom scorer deserializes as non-executing metadata (no raise
+    # at classification), so it must be filtered before submit_job. Otherwise submit_job's
+    # custom-scorer rejection would raise and abort the whole scheduling pass, skipping the
+    # built-in scorers too.
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "test-boot")
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    def _online_scorer(name, serialized):
+        return OnlineScorer(
+            name=name,
+            serialized_scorer=serialized,
+            online_config=OnlineScoringConfig(
+                online_scoring_config_id=uuid.uuid4().hex,
+                scorer_id=uuid.uuid4().hex,
+                sample_rate=1.0,
+                experiment_id="exp1",
+                filter_string=None,
+            ),
+        )
+
+    custom = _online_scorer(
+        "custom",
+        json.dumps({
+            "name": "custom",
+            "call_source": "return len(str(outputs))",
+            "call_signature": "(outputs)",
+            "original_func_name": "custom",
+        }),
+    )
+    builtin = _online_scorer("completeness", json.dumps(Completeness().model_dump()))
+
+    mock_tracking_store = MagicMock()
+    mock_tracking_store.get_active_online_scorers.return_value = [custom, builtin]
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
+    ):
+        run_online_scoring_scheduler()
+
+    submitted = {
+        s["name"] for call in mock_submit_job.call_args_list for s in call.args[1]["online_scorers"]
+    }
+    assert "completeness" in submitted
+    assert "custom" not in submitted
+
+
 def test_update_status_details_workspace_isolation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
     backend_store_uri = f"sqlite:///{tmp_path / 'workspace-metadata.db'}"

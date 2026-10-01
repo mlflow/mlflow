@@ -1,7 +1,9 @@
 import json
 import os
+import sys
 import threading
 import time
+import types
 from collections import defaultdict
 from dataclasses import asdict
 from unittest.mock import call, patch
@@ -20,6 +22,7 @@ from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from mlflow.genai.scorers.base import (
     SerializedScorer,
+    _is_tracking_server_process,
     _job_executor_scorer_context,
     _serialized_scorer_is_custom_code,
     _UnexecutedDecoratorScorer,
@@ -492,6 +495,23 @@ def test_client_process_reconstructs_scorer(monkeypatch):
 
     assert not isinstance(loaded, _UnexecutedDecoratorScorer)
     assert loaded(outputs="abc") is True
+
+
+def test_server_process_detected_for_direct_app_launch(monkeypatch):
+    # A server started by importing the app directly (e.g. `gunicorn mlflow.server:app`) has no
+    # boot id, but mlflow.server.is_running_as_server is True. Such a process must be treated as a
+    # server (and so must not reconstruct custom scorer code).
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    fake_server = types.ModuleType("mlflow.server")
+    fake_server.is_running_as_server = True
+    monkeypatch.setitem(sys.modules, "mlflow.server", fake_server)
+
+    assert _is_tracking_server_process() is True
+    loaded = Scorer.model_validate(_decorator_serialized())
+    assert isinstance(loaded, _UnexecutedDecoratorScorer)
 
 
 def test_reconstruct_decorator_scorer_blocked_in_server_process(monkeypatch):
