@@ -930,6 +930,21 @@ anthropic:
     test_every_n_versions: 10
     test_tracing_sdk: true
 
+typesafe:
+  package_info:
+    genai: true
+    repo: https://github.com/typesafe-ai/typesafe-sdk-python/tree/HEAD
+    pip_release: "typesafe-sdk"
+    module_name: "typesafe_sdk"
+    install_dev: |
+      uv pip install --system git+https://github.com/typesafe-ai/typesafe-sdk-python
+  autologging:
+    minimum: "0.7.0"
+    maximum: "0.7.1"
+    requirements:
+    run: pytest tests/typesafe
+    test_tracing_sdk: true
+
 crewai:
   package_info:
     genai: true
