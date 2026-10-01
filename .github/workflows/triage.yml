@@ -266,8 +266,9 @@ jobs:
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
-          export npm_config_allow_scripts="@anthropic-ai/claude-code"
-          npm install -g @anthropic-ai/claude-code@2.1.281 @anthropic-ai/sandbox-runtime@0.0.77
+          npm install -g @anthropic-ai/sandbox-runtime@0.0.77
+          .claude/scripts/install-claude.sh
+          claude --version
       - id: gateway
         uses: ./.github/actions/setup-gateway
         with:
