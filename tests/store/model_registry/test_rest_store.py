@@ -34,6 +34,7 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.server_info import SERVER_FEATURES_ENDPOINT, SERVER_INFO_ENDPOINT
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -69,6 +70,22 @@ def creds():
 @pytest.fixture
 def store(creds):
     return RestStore(lambda: creds)
+
+
+def test_workspace_support_error_uses_store_neutral_uri_guidance(store):
+    not_found_response = mock.MagicMock(status_code=404, text="not found")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=[not_found_response, not_found_response],
+    ) as mock_http:
+        with pytest.raises(MlflowException, match="Verify that the configured MLflow URI"):
+            store._probe_workspace_support()
+
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == [
+        SERVER_INFO_ENDPOINT,
+        SERVER_FEATURES_ENDPOINT,
+    ]
 
 
 def _args(host_creds, endpoint, method, json_body):

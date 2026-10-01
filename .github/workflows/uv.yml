@@ -58,6 +58,8 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_TITLE: "Update `uv.lock`"
+          # Log API requests to diagnose labels occasionally being applied twice
+          GH_DEBUG: api
         run: |
           if git diff --quiet uv.lock; then
             echo "No changes to uv.lock, exiting early"
