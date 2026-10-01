@@ -446,8 +446,13 @@ jobs:
                directory under /tmp. Otherwise run `HOST=localhost CI=false uv run
                dev/run_dev_server.py` (which installs the frontend dependencies).
                Wait until the local UI responds using `curl --noproxy '*'`; use
-               the Frontend URL printed by the dev server when applicable. Keep
-               browser navigation on local MLflow URLs. Run `agent-browser open
+               the Frontend URL printed by the dev server when applicable. For
+               local MLflow client or API commands, set `NO_PROXY=localhost,127.0.0.1`
+               and `no_proxy=localhost,127.0.0.1` on those commands only; otherwise
+               localhost requests can go through the sandbox proxy and be blocked.
+               Do not export these variables globally because Claude uses the
+               gateway at localhost:8080. Keep browser navigation on local MLflow
+               URLs. Run `agent-browser open
                <UI URL>`, inspect `agent-browser snapshot -i`, and take a full-page
                screenshot with `agent-browser screenshot --full` without a filename.
                Save screenshots under /tmp/triage-out/media and include their
