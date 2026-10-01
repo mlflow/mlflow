@@ -65,3 +65,55 @@ jobs:
             *) echo "No matching title prefix"; exit 0 ;;
           esac
           gh issue edit "$ISSUE_URL" --add-label "$labels"
+  safety:
+    needs: security_gate
+    if: needs.security_gate.outputs.security_match == 'false'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      context_ready: ${{ steps.assess.outputs.context_ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: dev/issue_safety.py
+          sparse-checkout-cone-mode: false
+      - id: assess
+        name: Assess issue safety
+        env:
+          DATABRICKS_GATEWAY_HOST: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
+          DATABRICKS_GATEWAY_CLIENT_ID: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
+          DATABRICKS_GATEWAY_CLIENT_SECRET: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+          CONTEXT_PATH: ${{ runner.temp }}/issue-context.json
+        run: python dev/issue_safety.py
+      - if: steps.assess.outputs.context_ready == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: issue-context-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.issue.number }}
+          path: ${{ runner.temp }}/issue-context.json
+          if-no-files-found: error
+          retention-days: 1
+  triage_smoke:
+    needs: safety
+    if: needs.safety.outputs.context_ready == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: issue-context-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.issue.number }}
+          path: ${{ runner.temp }}/issue-context
+      - name: Verify and print sanitized context
+        env:
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CONTEXT_PATH: ${{ runner.temp }}/issue-context/issue-context.json
+        run: |
+          jq -e --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" \
+            '.repository == $repository and .issue_number == $number and
+             (.title | type == "string") and (.body | type == "string")' \
+            "$CONTEXT_PATH" > /dev/null
+          jq -c '{title, body}' "$CONTEXT_PATH"
