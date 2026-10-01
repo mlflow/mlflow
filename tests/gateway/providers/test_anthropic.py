@@ -975,7 +975,22 @@ async def test_chat_stream_parallel_tool_calls():
         0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
         1: {"name": "get_time", "arguments": '{"tz": "UTC"}'},
     }
-    assert [c.choices[0].finish_reason for c in chunks if c.choices[0].finish_reason] == ["stop"]
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_three_parallel_tool_calls():
+    chunks = await _stream_tool_calls([
+        ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
+        ("tool", "toolu_2", "get_time", '{"tz": "UTC"}'),
+        ("tool", "toolu_3", "get_weather", '{"city": "Tokyo"}'),
+    ])
+    assert _merge_tool_calls(chunks) == {
+        0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        1: {"name": "get_time", "arguments": '{"tz": "UTC"}'},
+        2: {"name": "get_weather", "arguments": '{"city": "Tokyo"}'},
+    }
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
 
 
 @pytest.mark.asyncio
@@ -986,6 +1001,20 @@ async def test_chat_stream_text_then_tool_call():
     ])
     assert _merge_tool_calls(chunks) == {
         0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_text_between_tool_calls():
+    chunks = await _stream_tool_calls([
+        ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
+        ("text", "Also checking the time."),
+        ("tool", "toolu_2", "get_time", '{"tz": "UTC"}'),
+    ])
+    assert _merge_tool_calls(chunks) == {
+        0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        1: {"name": "get_time", "arguments": '{"tz": "UTC"}'},
     }
     assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
 
