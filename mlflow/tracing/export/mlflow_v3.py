@@ -99,6 +99,7 @@ class MlflowV3SpanExporter(SpanExporter):
         # span's own thread, so concurrent calls from multiple threads are possible.
         self._deferred_root_spans: dict[int, ReadableSpan] = {}
         self._deferred_lock = threading.Lock()
+        self._trace_export_lock = threading.Lock()
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -197,6 +198,17 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         manager = InMemoryTraceManager.get_instance()
 
+        # Serialize deferral decisions so a child's export cannot miss a root being deferred.
+        # Perform logging outside the lock to keep concurrent backend requests independent.
+        with self._trace_export_lock:
+            roots = self._get_roots_to_export(manager, spans)
+        for span in roots:
+            self._do_export_trace(manager, span)
+
+    def _get_roots_to_export(
+        self, manager: InMemoryTraceManager, spans: Sequence[ReadableSpan]
+    ) -> list[ReadableSpan]:
+        roots = []
         # Flush any previously deferred root spans whose background spans have now ended.
         # Copy the keys under the lock, then check has_open_spans() outside the lock to
         # avoid holding _deferred_lock while acquiring InMemoryTraceManager._lock (deadlock risk).
@@ -207,7 +219,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 with self._deferred_lock:
                     deferred_span = self._deferred_root_spans.pop(otel_trace_id, None)
                 if deferred_span is not None:
-                    self._do_export_trace(manager, deferred_span)
+                    roots.append(deferred_span)
 
         for span in spans:
             if span._parent is not None:
@@ -220,16 +232,10 @@ class MlflowV3SpanExporter(SpanExporter):
             if manager.has_open_spans(span.context.trace_id):
                 with self._deferred_lock:
                     self._deferred_root_spans[span.context.trace_id] = span
-                # The last child may have ended before the root was registered for deferral.
-                if manager.has_open_spans(span.context.trace_id):
-                    continue
-                with self._deferred_lock:
-                    span = self._deferred_root_spans.pop(span.context.trace_id, None)
-                if span is None:
-                    # Another export already claimed this deferred root.
-                    continue
+                continue
 
-            self._do_export_trace(manager, span)
+            roots.append(span)
+        return roots
 
     def _do_export_trace(self, manager: InMemoryTraceManager, span: ReadableSpan) -> None:
         manager_trace = manager.pop_trace(span.context.trace_id)
