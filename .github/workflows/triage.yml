@@ -303,7 +303,6 @@ jobs:
               .claude/scripts/install-claude.sh
               claude --version
           - name: Install agent-browser
-            timeout-minutes: 10
             run: |
               .claude/scripts/install-agent-browser.sh
               agent-browser --version
