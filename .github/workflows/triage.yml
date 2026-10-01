@@ -296,6 +296,11 @@ jobs:
             run: |
               .claude/scripts/install-claude.sh
               claude --version
+          - name: Install agent-browser
+            timeout-minutes: 10
+            run: |
+              .claude/scripts/install-agent-browser.sh
+              agent-browser --version
           - id: gateway
             uses: ./.github/actions/setup-gateway
             with:
@@ -355,11 +360,14 @@ jobs:
             "network": {
               "allowedDomains": [
                 "localhost:8080",
+                "localhost:5000",
+                "localhost:3000",
                 "pypi.org",
                 "files.pythonhosted.org",
                 "registry.npmjs.org"
               ],
-              "deniedDomains": []
+              "deniedDomains": [],
+              "allowAllUnixSockets": true
             },
             "filesystem": {
               "denyRead": [
@@ -367,6 +375,9 @@ jobs:
                 "~/.docker",
                 "~/.config/gh",
                 "/etc/gw-proxy",
+                "/var/run/docker.sock",
+                "/run/docker.sock",
+                "/run/containerd",
                 "/home/runner/work/_temp/_runner_file_commands"
               ],
               "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
@@ -379,6 +390,8 @@ jobs:
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
       - name: Check sandbox restrictions
+        env:
+          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
         run: |
           # Otherwise a sandbox that fails to start would pass every check below.
           srt --settings "$RUNNER_TEMP/srt.json" -- true
@@ -386,6 +399,7 @@ jobs:
           for command in \
             'curl -sf https://example.com' \
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
+            'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
             'cat /etc/gw-proxy/nginx.conf' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
             if srt --settings "$RUNNER_TEMP/srt.json" -- bash -c "$command"; then
@@ -393,6 +407,18 @@ jobs:
               exit 1
             fi
           done
+          page_dir=$(mktemp -d)
+          echo '<h1>mlflow-browser-smoke</h1>' > "$page_dir/index.html"
+          python -m http.server 5000 --bind 127.0.0.1 --directory "$page_dir" > "$RUNNER_TEMP/triage-browser-smoke.log" 2>&1 &
+          page_server_pid=$!
+          trap 'kill "$page_server_pid" 2>/dev/null || true; rm -rf "$page_dir"' EXIT
+          curl --retry 10 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:5000/ > /dev/null
+          srt --settings "$RUNNER_TEMP/srt.json" -- bash -e -o pipefail -c '
+            agent-browser open http://localhost:5000/
+            snapshot=$(agent-browser snapshot)
+            [[ "$snapshot" == *mlflow-browser-smoke* ]]
+            agent-browser close
+          '
       - name: Triage issue
         env:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
@@ -401,6 +427,8 @@ jobs:
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
+          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
             Read the GitHub issue in ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
@@ -409,13 +437,26 @@ jobs:
 
             1. Run `uv run python -c "import mlflow; print(mlflow.__version__)"` in the
                current directory and note the version.
-            2. Write /tmp/triage-out/report.json as
+            2. Take a screenshot of the local MLflow UI. If
+               mlflow/server/js/build/index.html exists, start the backend on
+               127.0.0.1:5000 in the background with a temporary SQLite store and
+               artifact directory, then use the UI it serves. Otherwise,
+               run `CI=false uv run dev/run_dev_server.py` in the background, send
+               its output to a log, and use the frontend URL printed there. Wait until the
+               UI responds. Keep browser navigation on local MLflow URLs. Run
+               `agent-browser open <UI URL>`, inspect `agent-browser snapshot -i`,
+               then run `agent-browser screenshot --full` without a filename. The
+               screenshot must be saved under /tmp/triage-out/media; include its
+               printed absolute path in the report. If startup or browser launch
+               fails, state the specific blocker instead of claiming a screenshot.
+            3. Write /tmp/triage-out/report.json as
                {"issue_number": <issue number>, "body": "<Markdown>"}, where the body
                summarizes the issue in a few sentences for an MLflow maintainer and
                states the MLflow version from step 1. Open it with a one-line note that
                an automated agent wrote it, don't @-mention anyone, and stay under
                10,000 characters. Create the output directory first.
         run: |
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
