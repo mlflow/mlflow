@@ -379,8 +379,6 @@ jobs:
                 "localhost:8080",
                 "localhost:5000",
                 "localhost:3000",
-                "127.0.0.1:5000",
-                "127.0.0.1:3000",
                 "pypi.org",
                 "files.pythonhosted.org",
                 "registry.npmjs.org"
@@ -410,7 +408,7 @@ jobs:
           echo '{}' > ~/.claude.json
       - name: Check sandbox restrictions
         env:
-          AGENT_BROWSER_ARGS: --no-sandbox
+          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
         run: |
           # Otherwise a sandbox that fails to start would pass every check below.
           srt --settings "$RUNNER_TEMP/srt.json" -- true
@@ -433,7 +431,7 @@ jobs:
           trap 'kill "$page_server_pid" 2>/dev/null || true; rm -rf "$page_dir"' EXIT
           curl --retry 10 --retry-delay 1 --retry-connrefused -fsS http://127.0.0.1:5000/ > /dev/null
           srt --settings "$RUNNER_TEMP/srt.json" -- bash -e -o pipefail -c '
-            agent-browser open http://127.0.0.1:5000/
+            agent-browser open http://localhost:5000/
             snapshot=$(agent-browser snapshot)
             [[ "$snapshot" == *mlflow-browser-smoke* ]]
             agent-browser close
@@ -446,7 +444,7 @@ jobs:
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
-          AGENT_BROWSER_ARGS: --no-sandbox
+          AGENT_BROWSER_ARGS: --no-sandbox,--proxy-bypass-list=<-loopback>
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
