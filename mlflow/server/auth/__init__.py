@@ -3825,21 +3825,45 @@ def validate_can_query_trace_metrics():
 
 
 def validate_can_create_assessment():
+    """CreateAssessment: the experiment confers the write, or a trace-tier grant does.
+
+    Two paths, which is why this is not a plain requirement list: experiment ``update`` with
+    neither tier denied, OR experiment ``read`` plus trace ``update``. ``authorize`` is a
+    conjunction, so the disjunction is evaluated here -- over ONE grants load, since the duplicated
+    keys deduplicate.
+
+    Stated as a conjunction it is ``exp read`` and ``trace readable`` and ``assessment not denied``
+    and (``exp update`` or ``trace update``), which is the same thing: ``exp update`` implies
+    ``exp read``, and ``trace update`` implies the trace is not denied.
+
+    The point of the disjunction is that a positive-but-insufficient trace grant must not DOWNGRADE
+    an experiment EDIT holder. Carrying one requirement with the trace first would let
+    ``(trace, *, READ)`` govern and refuse a caller the experiment already authorizes, because the
+    first key holding any grant decides. The tier may confer the write or veto it, never weaken it.
+    """
     resolved = _assessment_trace_context(_get_request_param("trace_id"))
     if resolved is None:
         return False
     experiment, experiment_id = resolved
-    # Experiment READ baseline: the container here is a TRACE -- itself a sub-resource -- so the
-    # container requirement is a chain and needs the same bound as any other shape-A route.
-    return authorize(
-        authenticate_request().username,
-        experiment,
-        [
-            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
-            Requirement(RESOURCE_TYPE_TRACE, "*", "update", fallback_if_no_grant=(experiment,)),
-            Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),
-        ],
-    )
+    requirements = [
+        # Addressing: the route resolves the experiment FROM the trace id, so the caller has to be
+        # able to read both. ``read`` and ``not_denied`` admit the same grants (every grantable
+        # positive carries ``can_read``); ``read`` states the requirement the route actually has.
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)),
+        # A create is never authorized by a grant on the type being created; the tier only vetoes.
+        Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),
+        # Either of these confers the write. No fallback on the trace rung: an absent trace grant
+        # must leave the experiment rung to speak, not inherit and answer twice.
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", "update"),
+    ]
+    permissions = resolve_requirements(authenticate_request().username, experiment, requirements)
+    if permissions is None:
+        return False
+    met = [requirement_met(r, p) for r, p in zip(requirements, permissions)]
+    *addressing, experiment_write, trace_write = met
+    return all(addressing) and (experiment_write or trace_write)
 
 
 def validate_can_update_assessment():
