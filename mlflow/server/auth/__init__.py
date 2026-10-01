@@ -4892,16 +4892,22 @@ def validate_can_create_issue():
 
 
 def validate_can_search_issues():
-    body = _get_normalized_request_json()
-    experiment_id = body.get("experiment_id")
-    if not experiment_id:
+    """Read the parsed proto rather than the raw JSON.
+
+    The field is ``filter_string``, not ``filter``, and the handler parses with ``ParseDict``, which
+    also accepts the ``filterString`` alias. Reading ``filter`` off the body therefore saw nothing
+    for either real spelling, so a normal ``source_run_id`` selector ran without the veto. Reading
+    the same message the handler reads makes the two agree on every accepted spelling.
+    """
+    message = _get_request_message(SearchIssues())
+    if not message.experiment_id:
         return False
     username = authenticate_request().username
-    if not _get_experiment_permission(experiment_id, username).can_read:
+    if not _get_experiment_permission(message.experiment_id, username).can_read:
         return False
     # `source_run_id` names a run, so filtering on it is a run-membership oracle regardless of
     # whether `issue` is itself a grantable type.
-    if not _issue_filter_selects_run(body.get("filter") or ""):
+    if not _issue_filter_selects_run(message.filter_string):
         return True
     return _run_tier_not_denied_in_workspace(username)
 
@@ -6302,6 +6308,52 @@ def _redact_run_response(resp: Response, response_message, runs_of) -> None:
         resp.data = message_to_json(response_message)
 
 
+def _withhold_denied_issue_source_runs(issues, username: str) -> bool:
+    named = [issue for issue in issues if issue.source_run_id]
+    if not named:
+        return False
+    if RESOURCE_TYPE_RUN not in _denied_sibling_tiers(username, (RESOURCE_TYPE_RUN,)):
+        return False
+    for issue in named:
+        issue.ClearField("source_run_id")
+    return True
+
+
+def _redact_issue_response(resp: Response, response_message, issues_of) -> None:
+    """An issue names the run it came from, so it leaks a denied run id even with no selector.
+
+    ``issue`` is not itself a grantable type, but ``source_run_id`` is a run reference like a model
+    version's ``run_id``, so it follows the run tier.
+    """
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_issue_source_runs(
+        issues_of(response_message), authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_issue_source_run(resp: Response) -> None:
+    _redact_issue_response(resp, GetIssue.Response(), lambda m: [m.issue])
+
+
+def redact_created_issue_source_run(resp: Response) -> None:
+    # The caller supplied this id, so it is not news to them; registered for uniformity across the
+    # Issue-bearing responses rather than to close a leak.
+    _redact_issue_response(resp, CreateIssue.Response(), lambda m: [m.issue])
+
+
+def redact_updated_issue_source_run(resp: Response) -> None:
+    _redact_issue_response(resp, UpdateIssue.Response(), lambda m: [m.issue])
+
+
+def redact_search_issues_source_runs(resp: Response) -> None:
+    _redact_issue_response(resp, SearchIssues.Response(), lambda m: m.issues)
+
+
 def redact_metric_history_model_ids(resp: Response) -> None:
     if sender_is_admin():
         return
@@ -6577,6 +6629,11 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SetLoggedModelTags: redact_set_logged_model_tags_run_ids,
     GetRun: redact_get_run_model_links,
     SearchRuns: redact_search_runs_model_links,
+    # An Issue names the run it came from, so every Issue-bearing response withholds it.
+    GetIssue: redact_get_issue_source_run,
+    CreateIssue: redact_created_issue_source_run,
+    UpdateIssue: redact_updated_issue_source_run,
+    SearchIssues: redact_search_issues_source_runs,
     StartTrace: redact_start_trace_metadata,
     StartTraceV3: redact_start_trace_v3_metadata,
     EndTrace: redact_end_trace_metadata,

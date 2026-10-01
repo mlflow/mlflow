@@ -2362,19 +2362,24 @@ def test_search_model_versions_gates_a_filter_that_selects_a_run(
 
 
 @pytest.mark.parametrize(
-    ("route", "validator", "body", "filter_string", "run_denied_blocks"),
+    ("route", "validator", "body", "filter_key", "filter_string", "run_denied_blocks"),
     [
-        (r, v, b, f, blocks)
-        for r, v, b in (
+        (r, v, b, k, f, blocks)
+        # Each route is driven through the filter field its own proto declares: SearchLoggedModels
+        # has `filter`, SearchIssues has `filter_string`. Sending `filter` to both is what let the
+        # SearchIssues gate read a key no client sends and still look correct here.
+        for r, v, b, k in (
             (
                 "/api/2.0/mlflow/logged-models/search",
                 "validate_can_search_logged_models",
                 {"experiment_ids": ["exp-2"]},
+                "filter",
             ),
             (
                 "/api/3.0/mlflow/issues/search",
                 "validate_can_search_issues",
                 {"experiment_id": "exp-2"},
+                "filter_string",
             ),
         )
         for f, blocks in (
@@ -2392,6 +2397,7 @@ def test_source_run_id_selectors_consult_the_run_tier(
     route,
     validator,
     body,
+    filter_key,
     filter_string,
     run_denied_blocks,
 ):
@@ -2415,7 +2421,7 @@ def test_source_run_id_selectors_consult_the_run_tier(
         [("experiment", "*", MANAGE.name), ("run", "*", DENY.name)],
     )
     with auth_module.app.test_request_context(
-        route, method="POST", json={**body, "filter": filter_string}
+        route, method="POST", json={**body, filter_key: filter_string}
     ):
         assert getattr(auth_module, validator)() is not run_denied_blocks
 
@@ -7637,6 +7643,103 @@ def test_get_run_withholds_model_links_on_a_logged_model_deny(
     assert "model_outputs" not in run.get("outputs", {})
     # The run itself is the subject and survives.
     assert run["info"]["run_id"] == "r-1"
+
+
+def _search_issues(body):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/issues/search", method="POST", json=body
+    ):
+        return auth_module.validate_can_search_issues()
+
+
+@pytest.mark.parametrize("filter_key", ["filter_string", "filterString"])
+def test_search_issues_gates_the_field_the_handler_reads(workspace_permission_setup, filter_key):
+    """The gate read `filter`, but the proto field is `filter_string` and the handler parses with
+    ParseDict, which also accepts `filterString`. Neither real spelling was ever seen, so a normal
+    source_run_id selector ran with no run-tier veto at all.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), ("run", "*", DENY.name)],
+    )
+
+    assert _search_issues({"experiment_id": "exp-1", filter_key: "source_run_id = 'r-1'"}) is False
+    # A filter naming no run is unaffected, and so is no filter at all.
+    assert _search_issues({"experiment_id": "exp-1", filter_key: "status = 'OPEN'"}) is True
+    assert _search_issues({"experiment_id": "exp-1"}) is True
+
+
+def test_search_issues_selector_allowed_without_a_run_deny(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert (
+        _search_issues({"experiment_id": "exp-1", "filter_string": "source_run_id = 'r-1'"}) is True
+    )
+
+
+def _redact_issues(redactor, payload, route, method="GET"):
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    with auth_module.app.test_request_context(route, method=method):
+        getattr(auth_module, redactor)(flask_resp)
+    return json.loads(flask_resp.get_data(as_text=True))
+
+
+def test_issue_responses_withhold_a_denied_source_run(workspace_permission_setup):
+    """An Issue names the run it came from, and no issue route had any response redaction, so
+    (run, *, DENY) handed back exact run ids even with no selector involved.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), ("run", "*", DENY.name)],
+    )
+
+    point = _redact_issues(
+        "redact_get_issue_source_run",
+        {"issue": {"issue_id": "i-1", "source_run_id": "run-1"}},
+        "/api/3.0/mlflow/issues/i-1",
+    )
+    assert "source_run_id" not in point["issue"]
+    # The issue itself is the subject and survives.
+    assert point["issue"]["issue_id"] == "i-1"
+
+    listing = _redact_issues(
+        "redact_search_issues_source_runs",
+        {"issues": [{"issue_id": "i-1", "source_run_id": "run-1"}, {"issue_id": "i-2"}]},
+        "/api/3.0/mlflow/issues/search",
+        method="POST",
+    )
+    assert [i["issue_id"] for i in listing["issues"]] == ["i-1", "i-2"]
+    assert all("source_run_id" not in i for i in listing["issues"])
+
+
+def test_issue_responses_keep_the_source_run_without_a_deny(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    point = _redact_issues(
+        "redact_get_issue_source_run",
+        {"issue": {"issue_id": "i-1", "source_run_id": "run-1"}},
+        "/api/3.0/mlflow/issues/i-1",
+    )
+    assert point["issue"]["source_run_id"] == "run-1"
 
 
 def test_get_run_keeps_model_links_without_a_deny(workspace_permission_setup, monkeypatch):
