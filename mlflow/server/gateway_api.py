@@ -18,7 +18,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from mlflow.entities.gateway_capabilities import endpoint_system_one_state
+from mlflow.entities.gateway_capabilities import (
+    SYSTEM_ONE_ACTION,
+    endpoint_supported_actions,
+    endpoint_system_one_state,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -1036,9 +1040,11 @@ async def list_models(request: Request) -> models.ResponsePayload:
             endpoint
             for endpoint in store.list_gateway_endpoints()
             if endpoint.name
-            and not any(
-                mapping.model_definition and mapping.model_definition.provider == Provider.TYPESAFE
+            and SYSTEM_ONE_ACTION
+            not in endpoint_supported_actions(
+                mapping.model_definition
                 for mapping in endpoint.model_mappings
+                if mapping.model_definition is not None
             )
         ),
         key=lambda endpoint: endpoint.name,

@@ -1676,8 +1676,8 @@ def test_list_models_endpoint(store: SqlAlchemyStore, endpoint_names, expected_i
     }
 
 
-def test_list_models_excludes_typesafe_endpoints(store: SqlAlchemyStore):
-    def endpoint(name: str, provider: str) -> GatewayEndpoint:
+def test_list_models_excludes_system_one_endpoints(store: SqlAlchemyStore):
+    def endpoint(name: str, provider: str, model_name: str) -> GatewayEndpoint:
         endpoint_id = f"endpoint-{name}"
         model_definition_id = f"model-definition-{name}"
         return GatewayEndpoint(
@@ -1696,7 +1696,7 @@ def test_list_models_excludes_typesafe_endpoints(store: SqlAlchemyStore):
                         secret_id="secret-id",
                         secret_name="secret-name",
                         provider=provider,
-                        model_name=f"{provider}-model",
+                        model_name=model_name,
                         created_at=1234567890123,
                         last_updated_at=1234567890123,
                     ),
@@ -1708,7 +1708,12 @@ def test_list_models_excludes_typesafe_endpoints(store: SqlAlchemyStore):
             ],
         )
 
-    endpoints = [endpoint("chat", "openai"), endpoint("typesafe", "typesafe")]
+    endpoints = [
+        endpoint("chat", "openai", "gpt-4o"),
+        endpoint("openrouter-jev", "openrouter", "typesafe/jev-1.13"),
+        endpoint("openrouter-router", "openrouter", "typesafe/jev-router"),
+        endpoint("typesafe", "typesafe", "jev-latest"),
+    ]
     app = FastAPI()
     app.include_router(gateway_router)
 
@@ -1719,7 +1724,10 @@ def test_list_models_excludes_typesafe_endpoints(store: SqlAlchemyStore):
         response = TestClient(app).get("/gateway/mlflow/v1/models")
 
     assert response.status_code == 200
-    assert [model["id"] for model in response.json()["data"]] == ["chat"]
+    assert [model["id"] for model in response.json()["data"]] == [
+        "chat",
+        "openrouter-router",
+    ]
 
 
 @pytest.mark.asyncio
