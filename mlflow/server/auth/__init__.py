@@ -3556,7 +3556,16 @@ def validate_can_read_trace_by_trace_id():
     return _authorize_trace(_get_request_param("trace_id"), "read")
 
 
-def _filter_selects_on_tiers(*filter_strings: str) -> "frozenset[str]":
+def _trace_search_selects_on_tiers(
+    filter_strings: "Sequence[str]" = (), order_by: "Sequence[str]" = ()
+) -> "frozenset[str]":
+    """Which sub-resource tiers a trace search reaches, through its filter or through its sort.
+
+    A sort key is the same oracle as a filter, one comparison at a time, and ``order_by`` normalizes
+    exactly as a filter does -- ``run_id DESC`` parses to ``request_metadata.`mlflow.sourceRun``` --
+    so the row order tells the caller how the denied metadata ranks across rows even when the field
+    itself is withheld from every row.
+    """
     from mlflow.tracing.constant import TraceMetadataKey
     from mlflow.utils.search_utils import SearchTraceUtils
 
@@ -3580,15 +3589,26 @@ def _filter_selects_on_tiers(*filter_strings: str) -> "frozenset[str]":
                 tiers.add(RESOURCE_TYPE_ASSESSMENT)
             elif key_type == "request_metadata" and key_name in metadata_tiers:
                 tiers.add(metadata_tiers[key_name])
+    for clause in order_by:
+        if not clause:
+            continue
+        try:
+            key_type, key_name, _ = SearchTraceUtils.parse_order_by_for_search_traces(clause)
+        except Exception:
+            return every_tier
+        if key_type == "request_metadata" and key_name in metadata_tiers:
+            tiers.add(metadata_tiers[key_name])
     return frozenset(tiers)
 
 
-def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
+def _authorize_trace_search(
+    experiment_ids, *filter_strings: str, order_by: "Sequence[str]" = ()
+) -> bool:
     resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
     if resolved is None:
         return False
     anchor, requirements = resolved
-    tiers = _filter_selects_on_tiers(*filter_strings)
+    tiers = _trace_search_selects_on_tiers(filter_strings, order_by)
     return authorize(
         authenticate_request().username,
         anchor,
@@ -3609,8 +3629,11 @@ def _authorize_trace_search(experiment_ids, *filter_strings: str) -> bool:
 
 
 def validate_can_search_traces():
-    experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
-    return _authorize_trace_search(experiment_ids, request.args.get("filter", ""))
+    args = request.args.to_dict(flat=False)
+    experiment_ids = args.get("experiment_ids", [])
+    return _authorize_trace_search(
+        experiment_ids, request.args.get("filter", ""), order_by=args.get("order_by", [])
+    )
 
 
 def validate_can_search_traces_v3():
@@ -3632,7 +3655,7 @@ def validate_can_search_traces_v3():
         if location.HasField("mlflow_experiment")
         if location.mlflow_experiment.experiment_id
     ]
-    return _authorize_trace_search(experiment_ids, message.filter)
+    return _authorize_trace_search(experiment_ids, message.filter, order_by=message.order_by)
 
 
 def validate_can_batch_get_traces():

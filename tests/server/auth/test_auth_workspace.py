@@ -6888,11 +6888,11 @@ def test_model_version_artifact_unchanged_without_a_version_grant(workspace_perm
     assert _run_model_version_artifact() is True
 
 
-def _run_search_traces(filter_string):
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/traces",
-        query_string={"experiment_ids": "exp-1", "filter": filter_string},
-    ):
+def _run_search_traces(filter_string, order_by=None):
+    query = {"experiment_ids": "exp-1", "filter": filter_string}
+    if order_by is not None:
+        query["order_by"] = order_by
+    with auth_module.app.test_request_context("/api/2.0/mlflow/traces", query_string=query):
         return auth_module.validate_can_search_traces()
 
 
@@ -6993,13 +6993,53 @@ def test_filter_correlation_gates_camel_case_filters(workspace_permission_setup,
     assert _run_filter_correlation("status = 'OK'", camel_case=True) is True
 
 
-def _run_search_traces_v3(locations, filter_string=""):
+def _run_search_traces_v3(locations, filter_string="", order_by=None):
+    body = {"locations": locations, "filter": filter_string}
+    if order_by is not None:
+        body["order_by"] = order_by
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/traces/search",
-        method="POST",
-        json={"locations": locations, "filter": filter_string},
+        "/api/3.0/mlflow/traces/search", method="POST", json=body
     ):
         return auth_module.validate_can_search_traces_v3()
+
+
+@pytest.mark.parametrize(
+    ("denied_tier", "selecting_sort"),
+    [("run", "run_id DESC"), ("logged_model", "request_metadata.`mlflow.modelId` ASC")],
+)
+def test_trace_search_gates_the_order_by(workspace_permission_setup, denied_tier, selecting_sort):
+    """Both validators gated `filter` and ignored `order_by`, but a sort key is the same oracle one
+    comparison at a time -- and it normalizes identically, `run_id DESC` parsing to
+    request_metadata.`mlflow.sourceRun`. The row order tells the caller how the denied metadata
+    ranks even when the field is withheld from every row.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), (denied_tier, "*", DENY.name)],
+    )
+
+    assert _run_search_traces("", order_by=[selecting_sort]) is False
+    assert _run_search_traces_v3([_snake_location("exp-1")], order_by=[selecting_sort]) is False
+    # A sort that names no denied tier is unaffected, on both routes.
+    assert _run_search_traces("", order_by=["timestamp DESC"]) is True
+    assert _run_search_traces_v3([_snake_location("exp-1")], order_by=["timestamp DESC"]) is True
+    # And no order_by at all stays allowed.
+    assert _run_search_traces("") is True
+
+
+def test_trace_search_order_by_allowed_without_a_deny(workspace_permission_setup):
+    # No grant on the tier: the sort is not an oracle, exactly as for the filter path.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "*", READ.name)])
+
+    assert _run_search_traces("", order_by=["run_id DESC"]) is True
 
 
 def _snake_location(experiment_id):
