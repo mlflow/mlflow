@@ -976,7 +976,6 @@ async def bulk_register_skills(
     request: Request,
 ) -> BulkRegisterSkillsResponse:
     username = getattr(request.state, "username", None)
-    _validate_organization_name(body.organization)
     registrations = []
     for skill in body.skills:
         _validate_skill_path_identity(body.organization, skill.name)
