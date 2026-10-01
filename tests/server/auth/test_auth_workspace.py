@@ -4842,6 +4842,59 @@ def test_assessment_grant_still_works_without_a_trace_deny(workspace_permission_
         assert auth_module.validate_can_update_assessment()
 
 
+def _create_assessment():
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/traces/trace-1/assessments",
+        method="POST",
+        json={"trace_id": "trace-1"},
+    ):
+        return auth_module.validate_can_create_assessment()
+
+
+@pytest.mark.parametrize(
+    ("experiment_level", "trace_level", "assessment_level", "allowed"),
+    [
+        # Path A: the experiment confers the write, neither tier denied.
+        (EDIT.name, None, None, True),
+        (EDIT.name, READ.name, None, True),
+        (EDIT.name, MANAGE.name, None, True),
+        # Path B: experiment read plus a trace-tier write.
+        (READ.name, EDIT.name, None, True),
+        (READ.name, MANAGE.name, None, True),
+        # Neither path: read everywhere confers no write.
+        (READ.name, None, None, False),
+        (READ.name, READ.name, None, False),
+        # Either tier vetoes, whichever path would otherwise apply.
+        (EDIT.name, DENY.name, None, False),
+        (EDIT.name, None, DENY.name, False),
+        (READ.name, EDIT.name, DENY.name, False),
+        # The assessment tier cannot confer a create, only veto it.
+        (READ.name, None, MANAGE.name, False),
+    ],
+)
+def test_create_assessment_takes_either_the_experiment_or_the_trace_write(
+    workspace_permission_setup, experiment_level, trace_level, assessment_level, allowed
+):
+    """``(experiment update, no deny)`` OR ``(experiment read + trace update, no deny)``.
+
+    The disjunction matters for ``(experiment EDIT, trace READ)``: carried as one requirement with
+    the trace first, the trace grant would govern -- the first key holding any grant decides -- and
+    refuse a caller the experiment already authorizes. A tier may confer the write or veto it,
+    never weaken it.
+    """
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("experiment", "exp-1", experiment_level)]
+    if trace_level is not None:
+        rows.append(("trace", "*", trace_level))
+    if assessment_level is not None:
+        rows.append(("assessment", "*", assessment_level))
+    _grant(store, username, "team-a", rows)
+
+    assert _create_assessment() is allowed
+
+
 def _delete_assessment():
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/traces/trace-1/assessments/a-1",
