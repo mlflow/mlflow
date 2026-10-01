@@ -466,7 +466,7 @@ jobs:
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout 40m srt --settings "$RUNNER_TEMP/srt.json" -- \
+          timeout 30m srt --settings "$RUNNER_TEMP/srt.json" -- \
             env -u NO_PROXY -u no_proxy claude \
             --model databricks-claude-sonnet-5-5 \
             --effort high \
