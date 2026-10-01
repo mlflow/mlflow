@@ -894,6 +894,60 @@ def test_deferred_root_span_export(monkeypatch):
         mock_upload_trace_data.assert_called_once()
 
 
+def test_deferred_root_span_export_when_child_ends_during_deferral(async_logging_enabled):
+    now_ns = time.time_ns()
+    root = create_mock_otel_span(
+        trace_id=77777, span_id=1, start_time=now_ns - 2_000_000, end_time=now_ns
+    )
+    child = create_mock_otel_span(
+        trace_id=77777, span_id=2, parent_id=1, start_time=now_ns - 1_000_000
+    )
+    trace_id = generate_trace_id_v3(root)
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    manager = InMemoryTraceManager.get_instance()
+    manager.register_trace(root.context.trace_id, trace_info)
+    manager.register_span(LiveSpan(root, trace_id))
+    manager.register_span(LiveSpan(child, trace_id))
+    exporter = MlflowV3SpanExporter()
+    root_checked = threading.Event()
+    child_exported = threading.Event()
+    has_open_spans = manager.has_open_spans
+
+    def check_open_spans(otel_trace_id):
+        result = has_open_spans(otel_trace_id)
+        if result:
+            # Finish the child after the root checks for open spans, before it is deferred.
+            root_checked.set()
+            assert child_exported.wait(5)
+        return result
+
+    with (
+        mock.patch.object(manager, "has_open_spans", side_effect=check_open_spans),
+        mock.patch.object(exporter._client, "start_trace", return_value=trace_info) as start_trace,
+        mock.patch.object(exporter._client, "log_spans"),
+        mock.patch.object(exporter._client, "_upload_trace_data") as upload_trace_data,
+        ThreadPoolExecutor(max_workers=1, thread_name_prefix="deferred-root-export") as pool,
+    ):
+        root_export = pool.submit(exporter.export, [root])
+        try:
+            assert root_checked.wait(5)
+            child._end_time = time.time_ns()
+            exporter.export([child])
+        finally:
+            child_exported.set()
+        root_export.result(timeout=5)
+        if async_logging_enabled:
+            exporter._async_queue.flush(terminate=True)
+
+        start_trace.assert_called_once()
+        upload_trace_data.assert_called_once()
+        assert {span.span_id for span in upload_trace_data.call_args.args[1].spans} == {
+            LiveSpan(root, trace_id).span_id,
+            LiveSpan(child, trace_id).span_id,
+        }
+        assert not exporter._deferred_root_spans
+
+
 def test_async_export_preserves_workspace_context(monkeypatch):
     """
     Regression test for #24093: async trace export must carry the workspace

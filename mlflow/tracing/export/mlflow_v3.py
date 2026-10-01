@@ -220,7 +220,14 @@ class MlflowV3SpanExporter(SpanExporter):
             if manager.has_open_spans(span.context.trace_id):
                 with self._deferred_lock:
                     self._deferred_root_spans[span.context.trace_id] = span
-                continue
+                # The last child may have ended before the root was registered for deferral.
+                if manager.has_open_spans(span.context.trace_id):
+                    continue
+                with self._deferred_lock:
+                    span = self._deferred_root_spans.pop(span.context.trace_id, None)
+                if span is None:
+                    # Another export already claimed this deferred root.
+                    continue
 
             self._do_export_trace(manager, span)
 
