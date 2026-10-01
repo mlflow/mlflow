@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 import sqlalchemy
 
-from mlflow.entities import SkillStatus
+from mlflow.entities import SkillSourceType, SkillStatus
 from mlflow.entities.workspace import Workspace
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillAlias, SqlSkillVersion
@@ -31,7 +31,9 @@ def test_skill_registry_interface_declares_lifecycle_methods(method_name):
     assert callable(getattr(SkillRegistryMixin, method_name, None))
 
 
-def _seed_skill(store, versions, *, name="reviewer", organization=""):
+def _seed_skill(
+    store, versions, *, name="reviewer", organization="", source_type=None, source=None
+):
     with store.ManagedSessionMaker(read_only=False) as session:
         skill = store._with_workspace_field(
             SqlSkill(
@@ -48,6 +50,8 @@ def _seed_skill(store, versions, *, name="reviewer", organization=""):
                     name=name,
                     version=version,
                     status=status.value,
+                    source_type=source_type,
+                    source=source,
                 )
             )
 
@@ -137,6 +141,37 @@ def test_update_skill_version_records_last_updated_by(store):
     store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE, last_updated_by="alice")
 
     assert _get_version_audit(store, 1)[0] == "alice"
+
+
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [
+        (None, "status cannot be null"),
+        ("invalid", "Invalid SkillVersion status"),
+        (SkillStatus.DEPRECATED, "Invalid status transition"),
+    ],
+)
+def test_rejected_skill_version_update_preserves_metadata_and_aliases(store, status, message):
+    store.create_skill_version(
+        "reviewer",
+        status=SkillStatus.DRAFT,
+        created_by="alice",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.set_skill_alias("reviewer", "preview", 1)
+    store.set_skill_version_tag("reviewer", 1, "team", "platform")
+    parent = store.get_skill("reviewer")
+    version = store.get_skill_version("reviewer", 1)
+    assert parent.source_type == SkillSourceType.GIT
+
+    with pytest.raises(MlflowException, match=message) as exc:
+        store.update_skill_version("reviewer", 1, status=status, last_updated_by="bob")
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert store.get_skill("reviewer") == parent
+    assert store.get_skill_version("reviewer", 1) == version
+    assert store.get_skill_version_by_alias("reviewer", "preview") == version
 
 
 @pytest.mark.parametrize(
@@ -335,15 +370,27 @@ def test_delete_skill_version_soft_deletes_and_removes_aliases(store):
 
 
 def test_delete_skill_version_rejects_active_versions(store):
-    _seed_skill(store, [(1, SkillStatus.ACTIVE)])
+    _seed_skill(
+        store,
+        [(1, SkillStatus.ACTIVE)],
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.set_skill_alias("reviewer", "production", 1)
+    parent = store.get_skill("reviewer")
+    version = store.get_skill_version("reviewer", 1)
+    assert parent.source_type == SkillSourceType.GIT
 
     with pytest.raises(
         MlflowException, match="Invalid status transition from 'active' to 'deleted'"
     ) as exc:
-        store.delete_skill_version("reviewer", 1)
+        store.delete_skill_version("reviewer", 1, last_updated_by="bob")
 
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
     assert _get_version_row(store, 1) == SkillStatus.ACTIVE.value
+    assert store.get_skill("reviewer") == parent
+    assert store.get_skill_version("reviewer", 1) == version
+    assert store.get_skill_version_by_alias("reviewer", "production") == version
 
 
 def test_delete_skill_version_of_deleted_version_is_not_found(store):
@@ -378,6 +425,75 @@ def test_latest_skill_version_prefers_active_then_highest_non_deleted(store):
     store.delete_skill_version("reviewer", 2)
 
     assert store.get_latest_skill_version("reviewer").version == 3
+
+
+@pytest.mark.parametrize(
+    ("versions", "expected_version", "expected_status"),
+    [
+        pytest.param([], None, None, id="empty-parent"),
+        pytest.param([(1, SkillStatus.DELETED)], None, None, id="all-deleted"),
+        pytest.param(
+            [(9, SkillStatus.ACTIVE), (10, SkillStatus.ACTIVE)],
+            10,
+            SkillStatus.ACTIVE,
+            id="numeric-active-order",
+        ),
+        pytest.param(
+            [
+                (1, SkillStatus.ACTIVE),
+                (2, SkillStatus.ACTIVE),
+                (3, SkillStatus.DRAFT),
+                (4, SkillStatus.DEPRECATED),
+            ],
+            2,
+            SkillStatus.ACTIVE,
+            id="active-before-higher-non-active",
+        ),
+        pytest.param(
+            [(9, SkillStatus.DEPRECATED), (10, SkillStatus.DRAFT), (11, SkillStatus.DELETED)],
+            10,
+            SkillStatus.DRAFT,
+            id="draft-fallback",
+        ),
+        pytest.param(
+            [(9, SkillStatus.DRAFT), (10, SkillStatus.DEPRECATED), (11, SkillStatus.DELETED)],
+            10,
+            SkillStatus.DEPRECATED,
+            id="deprecated-fallback",
+        ),
+    ],
+)
+def test_latest_skill_resolution_agrees_with_parent_and_alias(
+    store, versions, expected_version, expected_status
+):
+    _seed_skill(
+        store,
+        versions,
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    parent = store.get_skill("reviewer", organization="acme")
+    assert parent.latest_version == expected_version
+    assert parent.status == expected_status
+
+    if expected_version is None:
+        assert parent.source_type is None
+        with pytest.raises(MlflowException, match="No resolved latest version") as exc:
+            store.get_latest_skill_version("reviewer", organization="acme")
+        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+        with pytest.raises(MlflowException, match="No resolved latest version") as exc:
+            store.get_skill_version_by_alias("reviewer", "latest", organization="acme")
+        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    else:
+        assert parent.source_type == SkillSourceType.GIT
+        expected = store.get_skill_version("reviewer", expected_version, organization="acme")
+        assert parent.source_type == expected.source_type
+        assert store.get_latest_skill_version("reviewer", organization="acme") == expected
+        assert (
+            store.get_skill_version_by_alias("reviewer", "latest", organization="acme") == expected
+        )
+        assert expected.status == expected_status
 
 
 def test_latest_skill_version_does_not_return_concurrently_deleted_version(store):
@@ -504,6 +620,33 @@ def test_deleting_a_missing_alias_raises(store):
         store.delete_skill_alias("reviewer", "missing")
 
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_delete_skill_alias_preserves_version_and_other_aliases(store):
+    store.create_skill_version(
+        "reviewer",
+        organization="acme",
+        status=SkillStatus.DRAFT,
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.set_skill_alias("reviewer", "preview", 1, organization="acme")
+    store.set_skill_alias("reviewer", "stable", 1, organization="acme")
+    store.set_skill_version_tag("reviewer", 1, "team", "platform", organization="acme")
+    parent = store.get_skill("reviewer", organization="acme")
+    version = store.get_skill_version("reviewer", 1, organization="acme")
+    assert parent.source_type == SkillSourceType.GIT
+
+    assert store.delete_skill_alias("reviewer", "preview", organization="acme") is None
+
+    with pytest.raises(MlflowException, match="Alias 'preview' not found") as exc:
+        store.get_skill_version_by_alias("reviewer", "preview", organization="acme")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    parent.aliases = {"stable": 1}
+    version.aliases = ["stable"]
+    assert store.get_skill("reviewer", organization="acme") == parent
+    assert store.get_skill_version("reviewer", 1, organization="acme") == version
+    assert store.get_skill_version_by_alias("reviewer", "stable", organization="acme") == version
 
 
 def test_deleting_latest_alias_is_invalid(store):

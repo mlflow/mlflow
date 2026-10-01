@@ -109,6 +109,57 @@ def test_update_skill_distinguishes_omitted_and_null_values(store):
     assert cleared.last_updated_by == "bob"
 
 
+def test_update_missing_skill_does_not_create_parent_or_modify_other_organization(store):
+    original = store.create_skill("reviewer", organization="acme", description="Original")
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.update_skill(
+            "reviewer", organization="other", description="Changed", last_updated_by="bob"
+        )
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert store.get_skill("reviewer", organization="acme") == original
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 1
+
+
+@pytest.mark.parametrize("parent_exists", [False, True])
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("get_skill_version", {}),
+        ("update_skill_version", {"status": SkillStatus.ACTIVE, "last_updated_by": "bob"}),
+        ("delete_skill_version", {"last_updated_by": "bob"}),
+    ],
+)
+def test_missing_skill_version_operations_leave_existing_records_unchanged(
+    store, parent_exists, method, kwargs
+):
+    store.create_skill_version(
+        "reviewer",
+        organization="acme",
+        status=SkillStatus.DRAFT,
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.set_skill_alias("reviewer", "preview", 1, organization="acme")
+    store.set_skill_version_tag("reviewer", 1, "team", "platform", organization="acme")
+    parent = store.get_skill("reviewer", organization="acme")
+    version = store.get_skill_version("reviewer", 1, organization="acme")
+    assert parent.source_type == SkillSourceType.GIT
+    organization, missing_version = ("acme", 2) if parent_exists else ("other", 1)
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        getattr(store, method)("reviewer", missing_version, organization=organization, **kwargs)
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert store.get_skill("reviewer", organization="acme") == parent
+    assert store.get_skill_version("reviewer", 1, organization="acme") == version
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 1
+        assert store._get_query(session, SqlSkillVersion).count() == 1
+
+
 def test_update_skill_preserves_resolved_fields(store, mock_icon_hostname_resolution):
     store.create_skill_version("reviewer")
     store.create_skill_version("reviewer", status=SkillStatus.DRAFT.value)
