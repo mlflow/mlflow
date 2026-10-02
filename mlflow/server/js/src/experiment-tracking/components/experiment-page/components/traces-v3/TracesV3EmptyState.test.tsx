@@ -61,13 +61,13 @@ const lastRefetchInterval = () => {
 // Keep providers stable across rerenders so the TracesV3EmptyState instance —
 // and therefore `hasSeenTrace` state and the initial-fetch ref — persists.
 // We build fresh JSX each render so React doesn't bail on identical elements.
-const renderEmptyState = () => {
+const renderEmptyState = (extraProps: Partial<React.ComponentProps<typeof TracesV3EmptyState>> = {}) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const buildUi = () => (
     <IntlProvider locale="en">
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TracesV3EmptyState experimentIds={['exp-1']} traceSearchLocations={[]} />
+          <TracesV3EmptyState experimentIds={['exp-1']} traceSearchLocations={[]} {...extraProps} />
         </DesignSystemProvider>
       </QueryClientProvider>
     </IntlProvider>
@@ -158,5 +158,25 @@ describe('TracesV3EmptyState', () => {
     rerender();
     rerender();
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports the first seen trace to the parent', () => {
+    const onHasSeenTrace = jest.fn();
+    mockProbe({ data: [{ trace_id: 'fresh' }], isFetching: false });
+
+    renderEmptyState({ onHasSeenTrace });
+
+    expect(onHasSeenTrace).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh again when remounted after the parent already saw a trace', () => {
+    mockProbe({ data: [{ trace_id: 'fresh' }], isFetching: false });
+
+    renderEmptyState({ initialHasSeenTrace: true });
+
+    expect(refresh).not.toHaveBeenCalled();
+    expect(lastRefetchInterval()).toBe(false);
+    expect(screen.getByText('No traces found')).toBeInTheDocument();
   });
 });

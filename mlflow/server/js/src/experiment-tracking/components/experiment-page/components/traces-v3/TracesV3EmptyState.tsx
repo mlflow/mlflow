@@ -29,14 +29,20 @@ export const TracesV3EmptyState = (props: {
   experimentIds: string[];
   loggedModelId?: string;
   isCallDisabled?: boolean;
+  // Lets the parent remember that a trace was already seen across unmount/remount of this component.
+  // Without it, every remount re-fires `refresh()`, which changes the time window and refetches
+  // the table, which unmounts this component again, in an endless loop.
+  initialHasSeenTrace?: boolean;
+  onHasSeenTrace?: () => void;
 }) => {
-  const { experimentIds, traceSearchLocations, loggedModelId, isCallDisabled } = props;
+  const { experimentIds, traceSearchLocations, loggedModelId, isCallDisabled, initialHasSeenTrace, onHasSeenTrace } =
+    props;
 
   const intl = useIntl();
   const { refresh: refreshMonitoringConfig } = useMonitoringConfig();
 
   // Latch once a trace appears so polling stops even if a filter still hides it.
-  const [hasSeenTrace, setHasSeenTrace] = useState(false);
+  const [hasSeenTrace, setHasSeenTrace] = useState(Boolean(initialHasSeenTrace));
 
   const {
     data: traces,
@@ -65,9 +71,10 @@ export const TracesV3EmptyState = (props: {
   useEffect(() => {
     if (hasAnyTraces && !hasSeenTrace) {
       setHasSeenTrace(true);
+      onHasSeenTrace?.();
       refreshMonitoringConfig();
     }
-  }, [hasAnyTraces, hasSeenTrace, refreshMonitoringConfig]);
+  }, [hasAnyTraces, hasSeenTrace, onHasSeenTrace, refreshMonitoringConfig]);
 
   // check experiment tags to see if it's genai or custom
   const { data: experimentEntity, loading: isExperimentLoading } = useGetExperimentQuery({

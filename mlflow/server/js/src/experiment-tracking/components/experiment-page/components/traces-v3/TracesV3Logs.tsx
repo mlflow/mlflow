@@ -216,6 +216,10 @@ const TracesV3LogsImpl = React.memo(
       () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : (experimentIds[0] ?? '')),
       [experimentIds],
     );
+    // The empty state unmounts whenever the table refetches, so remember here that it already
+    // saw a trace; otherwise each remount refreshes the time window and triggers another refetch.
+    const [emptyStateSeenTraceKey, setEmptyStateSeenTraceKey] = useState<string | null>(null);
+    const onEmptyStateSeenTrace = useCallback(() => setEmptyStateSeenTraceKey(persistenceKey), [persistenceKey]);
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = false;
@@ -608,6 +612,8 @@ const TracesV3LogsImpl = React.memo(
               loggedModelId={loggedModelId}
               traceSearchLocations={traceSearchLocations}
               isCallDisabled={isQueryDisabled}
+              initialHasSeenTrace={emptyStateSeenTraceKey === persistenceKey}
+              onHasSeenTrace={onEmptyStateSeenTrace}
             />
             {/* still render the table body container so the trace drawer can open even when
              table is empty (e.g., when navigating directly to a trace via URL parameter) */}
