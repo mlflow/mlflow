@@ -255,7 +255,7 @@ class LiteLLMProvider(BaseProvider):
                             "tool_calls": (
                                 [
                                     {
-                                        "index": tc_idx,
+                                        "index": tc.index if tc.index is not None else tc_idx,
                                         "id": getattr(tc, "id", None),
                                         "type": getattr(tc, "type", None),
                                         "function": {

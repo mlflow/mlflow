@@ -66,6 +66,7 @@ class Provider(str, Enum):
     VERTEX_AI = "vertex_ai"
     PORTKEY = "portkey"
     SAP_AI_CORE = "sap-ai-core"
+    TYPESAFE = "typesafe"
 
     @classmethod
     def values(cls):
@@ -77,6 +78,14 @@ class TogetherAIConfig(ConfigModel):
 
     @field_validator("togetherai_api_key", mode="before")
     def validate_togetherai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class TypeSafeConfig(ConfigModel):
+    typesafe_api_key: str
+
+    @field_validator("typesafe_api_key", mode="before")
+    def validate_typesafe_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -98,6 +107,7 @@ class GatewayRequestType(str, Enum):
     PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
     PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
     PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    PASSTHROUGH_MODEL_TYPESAFE_SYSTEM_ONE = "passthrough/model/typesafe-systemone"
     RAW_PROXY = "proxy/raw"
 
 

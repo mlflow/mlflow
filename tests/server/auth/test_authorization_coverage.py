@@ -104,6 +104,7 @@ def _fastapi_native_routes():
         job_api_router,
         mcp_server_router,
         otel_router,
+        server_info_router,
     )
 
     def _methods(route):
@@ -113,7 +114,14 @@ def _fastapi_native_routes():
             if m not in ("HEAD", "OPTIONS")
         ]
 
-    for router in (artifact_router, assistant_router, gateway_router, job_api_router, otel_router):
+    for router in (
+        artifact_router,
+        assistant_router,
+        gateway_router,
+        job_api_router,
+        otel_router,
+        server_info_router,
+    ):
         for route in router.routes:
             for method in _methods(route):
                 yield route.path, method
@@ -132,6 +140,7 @@ def test_no_ungated_fastapi_native_routes():
         for path, method in _fastapi_native_routes()
         if a._find_fastapi_validator(path, method) is None
         and not a.is_unprotected_route(path)
+        and not a._matches_route_suffix(a._strip_static_prefix(path), a._PUBLIC_ROUTE_SUFFIXES)
         and not any(m in path for m in a._KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
     )
     assert not uncovered, (
@@ -212,10 +221,21 @@ def test_gateway_guardrail_gating():
     assert vname(f"{base}/list", "GET") == "sender_is_admin"
     assert vname(f"{base}/delete", "DELETE") == "sender_is_admin"
     # Endpoint-attached routes gate on the owning gateway endpoint.
-    assert vname(f"{base}/add-to-endpoint", "POST") == "validate_can_update_gateway_endpoint"
-    assert vname(f"{base}/remove-from-endpoint", "DELETE") == "validate_can_update_gateway_endpoint"
-    assert vname(f"{base}/update-config", "PATCH") == "validate_can_update_gateway_endpoint"
-    assert vname(f"{base}/list-for-endpoint", "GET") == "validate_can_read_gateway_endpoint"
+    assert (
+        vname(f"{base}/add-to-endpoint", "POST") == "validate_can_add_guardrail_to_gateway_endpoint"
+    )
+    assert (
+        vname(f"{base}/remove-from-endpoint", "DELETE")
+        == "validate_can_remove_guardrail_from_gateway_endpoint"
+    )
+    assert (
+        vname(f"{base}/update-config", "PATCH")
+        == "validate_can_update_gateway_endpoint_guardrail_config"
+    )
+    assert (
+        vname(f"{base}/list-for-endpoint", "GET")
+        == "validate_can_read_gateway_endpoint_guardrail_configs"
+    )
 
 
 def test_filter_list_gateway_endpoints_drops_unreadable(monkeypatch):

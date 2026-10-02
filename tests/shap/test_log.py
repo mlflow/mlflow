@@ -70,6 +70,14 @@ def test_sklearn_log_explainer():
         underlying_model_flavor = flavor_conf["underlying_model_flavor"]
 
         assert underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME
+        sklearn_conf = _get_flavor_configuration(
+            model_path=Path(explainer_path, "underlying_model"),
+            flavor_name=mlflow.sklearn.FLAVOR_NAME,
+        )
+        assert sklearn_conf["serialization_format"] == (
+            mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+        )
+        assert sklearn_conf["skops_trusted_types"] is None
         np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
         np.testing.assert_allclose(
             shap_values_original.values, shap_values_new.values, rtol=100, atol=100
@@ -296,7 +304,7 @@ def test_merge_environment_with_duplicates():
 
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
@@ -335,7 +343,7 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
 def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
@@ -377,11 +385,9 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
         )
 
 
-def test_log_model_serializes_underlying_model_with_skops(shap_model):
-    # Guard that the underlying sklearn model is serialized with skops (not cloudpickle) by
-    # default. The serialization artifact is the only discriminating signal: both skops and
-    # cloudpickle appear in the auto-inferred pip requirements regardless of format, so the
-    # requirements can't guard this default.
+def test_log_model_serializes_underlying_model_with_cloudpickle(shap_model):
+    # A SHAP explainer is already pickle-serialized, so its nested sklearn model stays on the same
+    # trust boundary instead of auto-trusting model types that skops deliberately rejects.
     with mlflow.start_run():
         model_info = mlflow.shap.log_explainer(shap_model, "model")
 
@@ -391,8 +397,9 @@ def test_log_model_serializes_underlying_model_with_skops(shap_model):
     sklearn_conf = _get_flavor_configuration(
         model_path=underlying_model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
-    assert (underlying_model_path / "model.skops").exists()
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["skops_trusted_types"] is None
+    assert (underlying_model_path / "model.pkl").exists()
 
 
 def create_identity_function():

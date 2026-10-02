@@ -198,19 +198,26 @@ class GeminiAdapter(ProviderAdapter):
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
                 call_id = message["tool_call_id"]
-                contents.append({
-                    "role": "user",
-                    "parts": [
-                        {
-                            "functionResponse": {
-                                "id": call_id,
-                                # the function name field is required by Gemini request format
-                                "name": call_id_to_function_name_map[call_id],
-                                "response": _tool_result_to_response(message["content"]),
-                            }
-                        }
-                    ],
-                })
+                function_response = {
+                    "functionResponse": {
+                        "id": call_id,
+                        # the function name field is required by Gemini request format
+                        "name": call_id_to_function_name_map[call_id],
+                        "response": _tool_result_to_response(message["content"]),
+                    }
+                }
+                # OpenAI sends one tool message per parallel call, but Gemini requires the
+                # responses to all of a model turn's calls in a single user turn.
+                previous = contents[-1] if contents else None
+                if (
+                    previous is not None
+                    and previous["role"] == "user"
+                    and previous["parts"]
+                    and all("functionResponse" in part for part in previous["parts"])
+                ):
+                    previous["parts"].append(function_response)
+                else:
+                    contents.append({"role": "user", "parts": [function_response]})
 
         gemini_payload = {"contents": contents}
 
@@ -255,6 +262,16 @@ class GeminiAdapter(ProviderAdapter):
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
+            match payload.pop("tool_choice", None):
+                case "none":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
+                case "required":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "ANY"}}
+                case {"type": "function", "function": {"name": name}}:
+                    gemini_payload["toolConfig"] = {
+                        "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}
+                    }
+
         return gemini_payload
 
     @classmethod
@@ -264,14 +281,22 @@ class GeminiAdapter(ProviderAdapter):
         finish_reason: str,
         choice_idx: int,
         stream: bool,
+        tool_call_offset: int = 0,
     ):
         # convert gemini model responded "function call" struct to Openai choice / choice chunk
         # struct.
         # Gemini doc: https://ai.google.dev/api/caching#FunctionCall
 
+        # A candidate can mix text and functionCall parts in any order, e.g. a short
+        # "Let me look that up." followed by the call. Keep both.
         tool_calls = []
+        text_parts = []
         for part in content_parts:
-            function_call = part["functionCall"]
+            if "text" in part:
+                text_parts.append(part["text"])
+            function_call = part.get("functionCall")
+            if not function_call:
+                continue
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
@@ -298,7 +323,7 @@ class GeminiAdapter(ProviderAdapter):
             if stream:
                 tool_calls.append(
                     chat_schema.ToolCallDelta(
-                        index=0,
+                        index=tool_call_offset + len(tool_calls),
                         id=call_id,
                         function=Function(
                             name=func_name,
@@ -320,11 +345,13 @@ class GeminiAdapter(ProviderAdapter):
                         thought_signature=thought_sig,
                     )
                 )
+        content = "".join(text_parts) or None
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
                 delta=chat_schema.StreamDelta(
                     role="assistant",
+                    content=content,
                     tool_calls=tool_calls,
                 ),
                 finish_reason=finish_reason,
@@ -333,6 +360,7 @@ class GeminiAdapter(ProviderAdapter):
             index=choice_idx,
             message=chat_schema.ResponseMessage(
                 role="assistant",
+                content=content,
                 tool_calls=tool_calls,
             ),
             finish_reason=finish_reason,
@@ -393,7 +421,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
             if parts := candidate.get("content", {}).get("parts", None):
-                if parts[0].get("functionCall", None):
+                if any(part.get("functionCall") for part in parts):
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
                             parts, finish_reason, idx, False
@@ -425,7 +453,7 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(
-        cls, resp: dict[str, Any], config
+        cls, resp: dict[str, Any], config, tool_call_offsets: dict[int, int] | None = None
     ) -> chat_schema.StreamResponsePayload:
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         #
@@ -449,18 +477,20 @@ class GeminiAdapter(ProviderAdapter):
         #   "model": "gemini-2.0-flash"
         # }
         choices = []
-        for idx, cand in enumerate(resp.get("candidates", [])):
+        for pos, cand in enumerate(resp.get("candidates", [])):
+            # A chunk may carry only some candidates, so use the API index, not the position.
+            idx = cand.get("index", pos)
             parts = cand.get("content", {}).get("parts", [])
             finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
             if parts:
-                if parts[0].get("functionCall"):
+                if any(part.get("functionCall") for part in parts):
                     # for gemini model streaming response,
                     # the function call message is not split into chunks
                     # it still contains the full function call arguments data.
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, True
+                            parts, finish_reason, idx, True, (tool_call_offsets or {}).get(idx, 0)
                         )
                     )
                     continue
@@ -881,6 +911,9 @@ class GeminiProvider(BaseProvider):
             payload=body,
         )
 
+        # Gemini sends each functionCall whole, but calls can arrive across chunks, so
+        # number them per stream, separately for each candidate.
+        tool_call_counts: dict[int, int] = {}
         async for raw in handle_incomplete_chunks(sse):
             text = raw.decode("utf-8", errors="ignore").strip()
             if not text.startswith("data:"):
@@ -889,7 +922,13 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
-            yield self.adapter_class.model_to_chat_streaming(resp, self.config)
+            yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
+            for pos, cand in enumerate(resp.get("candidates", [])):
+                idx = cand.get("index", pos)
+                parts = cand.get("content", {}).get("parts", [])
+                tool_call_counts[idx] = tool_call_counts.get(idx, 0) + sum(
+                    1 for part in parts if part.get("functionCall")
+                )
 
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]

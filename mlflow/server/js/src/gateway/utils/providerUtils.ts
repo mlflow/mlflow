@@ -14,6 +14,7 @@ export const COMMON_PROVIDERS = [
   'openrouter',
   'ollama',
   'together_ai',
+  'typesafe',
 ] as const;
 
 const PROVIDER_DISPLAY_NAMES = {
@@ -41,6 +42,7 @@ const PROVIDER_DISPLAY_NAMES = {
   deepseek: 'DeepSeek',
   openrouter: 'OpenRouter',
   ollama: 'Ollama',
+  typesafe: 'TypeSafe',
 } satisfies Record<string, string>;
 
 export function formatProviderName(provider: string): string {

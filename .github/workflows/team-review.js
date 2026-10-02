@@ -182,9 +182,26 @@ module.exports = async ({ github, context }) => {
   });
 
   const approved = reviews.data.filter((r) => r.state === "APPROVED").map((r) => r.user.login);
-  const requested = context.payload.pull_request.requested_reviewers.map((r) => r.login);
+  // Fetch live requested reviewers rather than the event payload snapshot, so a queued
+  // duplicate run (e.g. the label added twice) sees reviewers assigned by an earlier run.
+  const requestedReviewers = await github.rest.pulls.listRequestedReviewers({
+    owner,
+    repo,
+    pull_number,
+  });
+  const requested = requestedReviewers.data.users.map((u) => u.login);
 
   const stats = await loadStats(github, owner, repo);
+  const requestedTeamMembers = requested.filter(
+    (r) => r in stats.reviewCounts && r !== copilotInitiator
+  );
+  if (requestedTeamMembers.length > 0) {
+    console.log(
+      `Team reviewers already requested (${requestedTeamMembers.join(", ")}); skipping team review`
+    );
+    return;
+  }
+
   const eligibleReviewers = Object.keys(stats.reviewCounts).filter(
     (m) => !approved.includes(m) && !requested.includes(m) && m !== author && m !== copilotInitiator
   );

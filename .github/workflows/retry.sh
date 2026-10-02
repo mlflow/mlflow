@@ -84,7 +84,7 @@ runs=$(jq '
       attempt: .workflowRun.runAttempt,
       rerun: (.workflowRun.workflow.resourcePath |
               endswith("/rerun.yml") or endswith("/retry.yml") | not),
-      protect: (.workflowRun.workflow.resourcePath | endswith("/protect.yml"))}]
+      workflow: (.workflowRun.workflow.resourcePath | split("/")[-1])}]
 ' <<< "$suites")
 
 if jq -e --argjson limit "$max_retries" \
@@ -93,7 +93,7 @@ if jq -e --argjson limit "$max_retries" \
   exit 0
 fi
 
-rows=$(jq -r '.[] | select(.rerun) | [.id, .protect] | @tsv' <<< "$runs")
+rows=$(jq -r '.[] | select(.rerun) | [.id, .workflow, .attempt] | @tsv' <<< "$runs")
 if [[ -z "$rows" ]]; then
   echo "No eligible failed workflows for $sha."
   exit 0
@@ -101,24 +101,28 @@ fi
 
 rerun() {
   if [[ "$dry_run" == true ]]; then
-    echo "Would rerun failed jobs: https://github.com/$repository/actions/runs/$1"
+    echo "Would rerun failed jobs for $2: https://github.com/$repository/actions/runs/$1/attempts/$3"
     return 0
   fi
-  echo "Rerunning failed jobs: https://github.com/$repository/actions/runs/$1"
   gh run rerun "$1" --repo "$repository" --failed
+  echo "::notice title=Rerun failed jobs::$2: https://github.com/$repository/actions/runs/$1/attempts/$3"
 }
 
 protect_id=""
-while IFS=$'\t' read -r run_id protect; do
-  if [[ "$protect" == true ]]; then
+protect_workflow=""
+protect_attempt=""
+while IFS=$'\t' read -r run_id workflow attempt; do
+  if [[ "$workflow" == protect.yml ]]; then
     protect_id=$run_id
+    protect_workflow=$workflow
+    protect_attempt=$attempt
   else
-    rerun "$run_id" &
+    rerun "$run_id" "$workflow" "$attempt" &
   fi
 done <<< "$rows"
 
 # Wait for every rerun request, not for the workflows themselves to finish.
 wait
 if [[ -n "$protect_id" ]]; then
-  rerun "$protect_id"
+  rerun "$protect_id" "$protect_workflow" "$protect_attempt"
 fi

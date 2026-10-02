@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -211,6 +212,8 @@ def test_run_in_sandbox_fallback_build_does_not_forward_index_credentials(monkey
     # so the fallback build must not forward PIP_INDEX_URL at all — neither as a build arg nor in
     # the Dockerfile. Operators behind a private mirror provide their own image instead.
     monkeypatch.setenv("PIP_INDEX_URL", "https://user:pass@mirror.internal/simple")
+    # Isolate from a developer's MLFLOW_HOME so the fallback does not copy a source tree here.
+    monkeypatch.delenv("MLFLOW_HOME", raising=False)
     client, _ = _mock_client()
     client.images.get.side_effect = docker.errors.ImageNotFound("missing")
     captured = {}
@@ -227,6 +230,36 @@ def test_run_in_sandbox_fallback_build_does_not_forward_index_credentials(monkey
     assert not captured["buildargs"]
     assert "PIP_INDEX_URL" not in captured["dockerfile"]
     assert "user:pass" not in captured["dockerfile"]
+
+
+def test_minimal_sandbox_dockerfile_uses_the_server_python_minor_version(tmp_path):
+    dockerfile = container_mod._minimal_sandbox_dockerfile(str(tmp_path))
+    expected_tag = f"{sys.version_info.major}.{sys.version_info.minor}"
+    assert dockerfile.startswith(f"FROM python:{expected_tag}-slim\n")
+
+
+def test_minimal_sandbox_dockerfile_installs_mlflow_from_source_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_HOME", "/src/mlflow")
+    with mock.patch(
+        "mlflow.models.docker_utils._pip_mlflow_install_step",
+        return_value="RUN pip install /opt/mlflow",
+    ) as step:
+        dockerfile = container_mod._minimal_sandbox_dockerfile(str(tmp_path))
+
+    step.assert_called_once_with(str(tmp_path), "/src/mlflow")
+    assert dockerfile.endswith("RUN pip install /opt/mlflow\n")
+
+
+def test_minimal_sandbox_dockerfile_without_mlflow_home_passes_none(tmp_path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_HOME", raising=False)
+    with mock.patch(
+        "mlflow.models.docker_utils._pip_mlflow_install_step",
+        return_value="RUN pip install mlflow==9.9.9",
+    ) as step:
+        dockerfile = container_mod._minimal_sandbox_dockerfile(str(tmp_path))
+
+    step.assert_called_once_with(str(tmp_path), None)
+    assert dockerfile.endswith("RUN pip install mlflow==9.9.9\n")
 
 
 def test_run_in_sandbox_image_build_failure_raises_unavailable():
