@@ -170,17 +170,28 @@ jobs:
             jq -a '"title", (.title | splits("\r?\n")), "body", (.body | splits("\r?\n"))' \
               "$RUNNER_TEMP/${variant}_issue.json" > "$RUNNER_TEMP/${variant}_issue.txt"
           done
-          if diff -U0 "$RUNNER_TEMP/original_issue.txt" "$RUNNER_TEMP/sanitized_issue.txt" \
-            > "$RUNNER_TEMP/sanitization.diff"; then
-            echo "No issue content was sanitized"
+          diff_file="$RUNNER_TEMP/sanitization.diff"
+          if diff -U0 --label original --label sanitized \
+            "$RUNNER_TEMP/original_issue.txt" "$RUNNER_TEMP/sanitized_issue.txt" > "$diff_file"; then
+            echo "No issue content was sanitized" | tee -a "$GITHUB_STEP_SUMMARY"
           else
             status=$?
             [ "$status" -eq 1 ] || exit "$status"
             max_bytes=16000
-            head -c "$max_bytes" "$RUNNER_TEMP/sanitization.diff"
-            if [ "$(wc -c < "$RUNNER_TEMP/sanitization.diff")" -gt "$max_bytes" ]; then
-              printf '\n... (diff truncated to %d bytes)\n' "$max_bytes"
-            fi
+            {
+              head -c "$max_bytes" "$diff_file"
+              if [ "$(wc -c < "$diff_file")" -gt "$max_bytes" ]; then
+                printf '\n... (diff truncated to %d bytes)\n' "$max_bytes"
+              fi
+            } > "$RUNNER_TEMP/sanitization.log"
+            cat "$RUNNER_TEMP/sanitization.log"
+            # Every diff line starts with "-", "+", or "@@", so issue content can't close the fence.
+            {
+              echo "### Issue content removed by sanitizer"
+              echo '```diff'
+              cat "$RUNNER_TEMP/sanitization.log"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
       - id: gateway
         uses: ./.github/actions/setup-gateway
