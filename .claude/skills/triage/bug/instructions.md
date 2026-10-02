@@ -15,13 +15,7 @@ Extract from the issue:
 If the issue lacks what you need, still try a best-effort reproduction from what is there,
 and list the missing details in the comment.
 
-## 2. Find the entry point
-
-Search for the symbols and error messages from the issue (`rg "<message>" mlflow/`) to learn
-which API, CLI command, or page the user hit and what inputs reach the failure. Read only
-enough to write the reproduction.
-
-## 3. Reproduce
+## 2. Reproduce
 
 Trigger the bug in whatever form fits it: a CLI command, a short Python snippet, a request to a
 local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite or
@@ -42,7 +36,7 @@ Shrink the reproduction once it works: drop every step the bug does not need, th
 confirm it still fails the same way. Stop after a few honest attempts. A clear "could not
 reproduce, and here is what I tried" is a useful result.
 
-## 4. Suggest a fix
+## 3. Suggest a fix
 
 Only when the bug reproduces at the current checkout. Find the line that is wrong and why, not
 just where the error surfaces, then verify: patch the code, rerun the reproduction, and confirm the
@@ -53,7 +47,7 @@ Keep the fix minimal and in the style of the surrounding code. When the right fi
 decision (a public API, a default, or a storage schema), describe the options instead of
 picking one.
 
-## 5. Decide the verdict
+## 4. Decide the verdict
 
 Pick exactly one, and use its label as the payload's `label`:
 
@@ -65,7 +59,7 @@ Pick exactly one, and use its label as the payload's `label`:
 | Needs info     | `triage: needs-info`     | The issue is too incomplete to attempt a reproduction.                |
 | Skipped        | `triage: skipped`        | It needs resources the sandbox lacks.                                 |
 
-## 6. Comment
+## 5. Comment
 
 Fill in this template: replace each `<...>` placeholder, and drop a line or section that has
 nothing to say, except the verdict.
