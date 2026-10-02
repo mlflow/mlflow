@@ -9,6 +9,14 @@ on:
         description: "Issue to triage"
         required: true
         type: number
+      model:
+        description: "AI Gateway Claude model for the triage agent"
+        required: false
+        type: choice
+        default: databricks-claude-sonnet-5-5
+        options:
+          - databricks-claude-sonnet-5-5
+          - databricks-claude-opus-5-5
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
@@ -431,6 +439,7 @@ jobs:
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
+          MODEL: ${{ inputs.model || 'databricks-claude-sonnet-5-5' }}
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
             Read the GitHub issue in ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
@@ -473,7 +482,7 @@ jobs:
           echo "::stop-commands::$token"
           timeout 30m srt --settings .claude/sandbox/srt.json -- \
             env -u NO_PROXY -u no_proxy claude \
-            --model databricks-claude-sonnet-5-5 \
+            --model "$MODEL" \
             --effort high \
             --max-budget-usd 5 \
             --permission-mode auto \
