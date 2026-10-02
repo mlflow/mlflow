@@ -346,6 +346,9 @@ class GeminiAdapter(ProviderAdapter):
                     )
                 )
         content = "".join(text_parts) or None
+        # Gemini reports STOP for a turn that ends in a function call.
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_calls"
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,

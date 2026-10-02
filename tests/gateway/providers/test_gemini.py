@@ -640,7 +640,7 @@ async def test_gemini_chat_function_calling():
                     ],
                     "refusal": None,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "tool_calls",
             }
         ],
         "usage": {
@@ -769,7 +769,7 @@ async def test_gemini_chat_multi_function_calling():
                     ],
                     "refusal": None,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "tool_calls",
             }
         ],
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
@@ -1510,7 +1510,7 @@ async def test_gemini_chat_function_calling_stream():
             "choices": [
                 {
                     "index": 0,
-                    "finish_reason": "stop",
+                    "finish_reason": "tool_calls",
                     "delta": {
                         "role": "assistant",
                         "content": None,
@@ -2139,3 +2139,43 @@ def test_chat_to_model_unknown_content_part_passed_through():
     result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_gemini_finish_reason_is_tool_calls_for_function_call(stream):
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "role": "model",
+                    "parts": [{"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}],
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4},
+        "modelVersion": "gemini-2.0-flash",
+    }
+    config = EndpointConfig(**chat_config())
+    convert = GeminiAdapter.model_to_chat_streaming if stream else GeminiAdapter.model_to_chat
+
+    assert convert(resp, config).choices[0].finish_reason == "tool_calls"
+
+
+def test_gemini_finish_reason_stays_stop_for_text():
+    resp = {
+        "candidates": [
+            {
+                "content": {"role": "model", "parts": [{"text": "hi"}]},
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4},
+        "modelVersion": "gemini-2.0-flash",
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == "stop"

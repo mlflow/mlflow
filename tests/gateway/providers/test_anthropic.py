@@ -493,7 +493,7 @@ async def test_chat_function_calling():
                         ],
                         "refusal": None,
                     },
-                    "finish_reason": "stop",
+                    "finish_reason": "tool_calls",
                 }
             ],
             "usage": {"prompt_tokens": 10, "completion_tokens": 25, "total_tokens": 35},
@@ -867,7 +867,7 @@ async def test_chat_function_calling_stream():
                 "choices": [
                     {
                         "index": 0,
-                        "finish_reason": "stop",
+                        "finish_reason": "tool_calls",
                         "delta": {"role": None, "content": None, "tool_calls": None},
                     }
                 ],
@@ -1831,3 +1831,40 @@ def test_chat_to_model_string_content_unchanged():
     result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["messages"] == [{"role": "user", "content": "just text"}]
+
+
+def test_chat_finish_reason_tool_use_is_tool_calls():
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": [
+            {"type": "tool_use", "id": "toolu_A", "name": "get_weather", "input": {"city": "Paris"}}
+        ],
+        "stop_reason": "tool_use",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 30, "output_tokens": 40},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == "tool_calls"
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [("tool_use", "tool_calls"), ("max_tokens", "length"), ("end_turn", "stop")],
+)
+def test_chat_stream_finish_reason(stop_reason, expected):
+    resp = {
+        "type": "message_delta",
+        "id": "msg_1",
+        "model": "claude-sonnet-5",
+        "index": 0,
+        "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+    }
+
+    result = AnthropicAdapter.model_to_chat_streaming(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == expected
