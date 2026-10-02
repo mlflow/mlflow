@@ -5,8 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities import Metric
+from mlflow.entities import LifecycleStage, Metric, ScorerVersion
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 
 
@@ -41,6 +43,86 @@ def test_supports_workspaces_defaults_to_false(store):
 
 def test_supports_trace_archival_defaults_to_false(store):
     assert store.supports_trace_archival is False
+
+
+def test_list_scorers_across_experiments_sorts_non_numeric_ids(store):
+    def list_scorers(experiment_id):
+        return [ScorerVersion(experiment_id, "score", 1, "{}", 1)]
+
+    with (
+        mock.patch.object(
+            store, "get_experiment", return_value=mock.Mock(lifecycle_stage=LifecycleStage.ACTIVE)
+        ) as get_experiment,
+        mock.patch.object(store, "list_scorers", side_effect=list_scorers) as list_mock,
+    ):
+        scorers = store.list_scorers_across_experiments(["10", "2"], ["exp-a/score"])
+
+    assert [scorer.experiment_id for scorer in scorers] == ["2", "10", "exp-a"]
+    get_experiment.assert_called_once_with("exp-a")
+    assert list_mock.call_args_list == [mock.call("2"), mock.call("10"), mock.call("exp-a")]
+
+
+def test_list_scorers_across_experiments_skips_inactive_experiments(store):
+    def get_experiment(experiment_id):
+        lifecycle_stage = (
+            LifecycleStage.DELETED if experiment_id == "exp-deleted" else LifecycleStage.ACTIVE
+        )
+        return mock.Mock(lifecycle_stage=lifecycle_stage)
+
+    with (
+        mock.patch.object(store, "get_experiment", side_effect=get_experiment) as get_mock,
+        mock.patch.object(
+            store,
+            "list_scorers",
+            return_value=[ScorerVersion("exp-active", "score", 1, "{}", 1)],
+        ) as list_mock,
+    ):
+        scorers = store.list_scorers_across_experiments(
+            [], ["exp-active/score", "exp-deleted/score"]
+        )
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in scorers] == [
+        ("exp-active", "score")
+    ]
+    assert get_mock.call_args_list == [mock.call("exp-active"), mock.call("exp-deleted")]
+    list_mock.assert_called_once_with("exp-active")
+
+
+@pytest.mark.parametrize("experiment_ids", [[], ["7", "7"]])
+def test_list_scorers_across_experiments_selects_individual_scorers(store, experiment_ids):
+    def list_scorers(exp_id):
+        return [ScorerVersion(exp_id, name, 2, "{}", 1) for name in ("toxicity", "helpfulness")]
+
+    with (
+        mock.patch.object(store, "filter_active_experiment_ids", return_value=["42"]) as active,
+        mock.patch.object(store, "list_scorers", side_effect=list_scorers) as listing,
+    ):
+        rows = store.list_scorers_across_experiments(experiment_ids, ["42/toxicity", "42/toxicity"])
+    expected = [("42", "toxicity")]
+    if experiment_ids:
+        expected = [("7", "helpfulness"), ("7", "toxicity"), *expected]
+    assert [(s.experiment_id, s.scorer_name) for s in rows] == expected
+    assert all(s.scorer_version == 2 for s in rows)
+    active.assert_called_once_with(["42"])
+    assert listing.call_args_list == [
+        mock.call(eid) for eid in (["7", "42"] if experiment_ids else ["42"])
+    ]
+
+
+@pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE])
+def test_list_scorers_across_experiments_handles_candidate_errors(store, error_code):
+    with (
+        mock.patch.object(
+            store, "get_experiment", side_effect=MlflowException("missing", error_code)
+        ),
+        mock.patch.object(store, "list_scorers") as listing,
+    ):
+        if error_code == RESOURCE_DOES_NOT_EXIST:
+            assert store.list_scorers_across_experiments([], ["42/toxicity"]) == []
+        else:
+            with pytest.raises(MlflowException, match="missing"):
+                store.list_scorers_across_experiments([], ["42/toxicity"])
+    listing.assert_not_called()
 
 
 class _SyncOnlySpanStore(AbstractStore, ABC):

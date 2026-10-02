@@ -1377,11 +1377,16 @@ List all scorers, optionally scoped to one or more experiments.
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 |   Field Name   |          Type          |                                                                        Description                                                                         |
 +================+========================+============================================================================================================================================================+
-| experiment_id  | ``STRING``             | A single experiment ID. Kept for backward compatibility; prefer ``experiment_ids`` for multi-experiment queries. Mutually exclusive with                   |
-|                |                        | ``experiment_ids`` -- specifying both is an error.                                                                                                         |
+| experiment_id  | ``STRING``             | A single experiment ID. Kept for backward compatibility; prefer ``experiment_ids`` for multi-experiment queries. A nonempty ``experiment_id`` is mutually  |
+|                |                        | exclusive with ``experiment_ids`` or ``scorer_keys``, including present-empty repeated selectors.                                                          |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only scorers from these experiments are returned. Mutually exclusive with               |
-|                |                        | ``experiment_id`` -- specifying both is an error. Not supported against a Databricks-hosted backend.                                                       |
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query to whole experiments. Specific ``scorer_keys`` add their matching individual scorers to this scope.     |
+|                |                        | Mutually exclusive with a nonempty ``experiment_id``. Not supported against a Databricks-hosted backend.                                                   |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| scorer_keys    | An array of ``STRING`` | Optional list of exact scorer keys in the form ``<experiment_id>/<URL-encoded-scorer-name>``. Scorers matching these experiment/name pairs are returned in |
+|                |                        | addition to every scorer in the experiments selected by ``experiment_ids``. Without ``experiment_ids``, only the listed scorers are returned. Mutually     |
+|                |                        | exclusive with a nonempty ``experiment_id``. For example, ``42/toxicity`` selects only that scorer, without including other scorers in experiment 42. Not  |
+|                |                        | supported by the Databricks-hosted API. The Python tracking store can emulate specific selection using single-experiment APIs.                             |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
