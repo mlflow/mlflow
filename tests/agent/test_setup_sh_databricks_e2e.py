@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -113,6 +114,8 @@ def databricks_config(tmp_path: Path) -> DatabricksTestConfig:
     calls_path = tmp_path / "databricks-calls.jsonl"
     calls_path.touch()
     routes_path = tmp_path / "databricks-routes.json"
+    config_path = tmp_path / "databrickscfg"
+    config_path.write_text("[DEFAULT]\nhost = https://workspace.example.com\n")
     env = os.environ.copy()
     for name in (
         "DATABRICKS_CONFIG_PROFILE",
@@ -121,6 +124,7 @@ def databricks_config(tmp_path: Path) -> DatabricksTestConfig:
     ):
         env.pop(name, None)
     env.update({
+        "DATABRICKS_CONFIG_FILE": str(config_path),
         "DATABRICKS_TEST_CALLS": str(calls_path),
         "DATABRICKS_TEST_ROUTES": str(routes_path),
         "DATABRICKS_TEST_STATE": str(tmp_path / "databricks-state.json"),
@@ -171,7 +175,6 @@ def _base_routes(
 
 def _new_experiment_routes(
     *,
-    warehouse_json: str,
     catalog_json: str,
     schema_json: str,
     catalog: str,
@@ -180,7 +183,6 @@ def _new_experiment_routes(
     """Return responses used to create an experiment and its UC trace destination.
 
     Args:
-        warehouse_json: Response from listing SQL warehouses.
         catalog_json: Response from listing Unity Catalog catalogs.
         schema_json: Response from listing schemas in the selected catalog.
         catalog: Catalog returned after creating the trace destination.
@@ -193,7 +195,6 @@ def _new_experiment_routes(
         {"args": ["experiments", "get-by-name"], "returncode": 1},
         {"args": ["experiments", "create-experiment"], "stdout": '{"experiment_id":"new-id"}'},
         {"args": ["experiments", "set-experiment-tag"], "stdout": "{}"},
-        {"args": ["warehouses", "list"], "stdout": warehouse_json},
         {"args": ["catalogs", "list"], "stdout": catalog_json},
         {"args": ["schemas", "list"], "stdout": schema_json},
         {
@@ -306,83 +307,97 @@ def _json_body(call: list[str]) -> dict[str, object]:
     return json.loads(call[call.index("--json") + 1])
 
 
-@pytest.mark.parametrize(
-    ("entered_path", "expected_path"),
-    [
-        pytest.param(b"\r", "/Users/test@example.com/project", id="default-path"),
-        pytest.param(b"  /Users/test/new  \r", "/Users/test/new", id="custom-path"),
-    ],
-)
+@pytest.mark.parametrize("warehouse_id", [None, "warehouse-1"])
 @pytest.mark.timeout(30)
 def test_interactive_databricks_setup_creates_uc_experiment(
     databricks_config: DatabricksTestConfig,
-    entered_path: bytes,
-    expected_path: str,
+    warehouse_id: str | None,
 ):
     _set_routes(
         databricks_config,
         _base_routes(current_user="test@example.com")
         + _new_experiment_routes(
-            warehouse_json=json.dumps({
-                "warehouses": [{"id": "warehouse-1", "name": "Test Warehouse", "state": "RUNNING"}]
-            }),
             catalog_json='{"catalogs":[{"name":"test_catalog"}]}',
             schema_json='{"schemas":[{"name":"test_schema"}]}',
             catalog="test_catalog",
             schema="test_schema",
         ),
     )
+    command = [str(SETUP_SCRIPT)]
+    if warehouse_id:
+        command.extend(["--warehouse-id", warehouse_id])
 
     exit_code, output = run_interactive(
-        [str(SETUP_SCRIPT)],
+        command,
         databricks_config.project,
         databricks_config.env,
         [
-            ("Where should MLflow store traces?", b"\r"),
             ("DEFAULT    workspace.example.com", b"\r"),
-            ("Create a new experiment", b"\r"),
-            ("New experiment path", entered_path),
-            ("Test Warehouse", b"\r"),
             ("test_catalog", b"\x1b[B\r"),
             ("test_schema", b"\x1b[B\r"),
-            ("Choose a coding agent", b"\r"),
         ],
     )
 
     assert exit_code == 0, output
-    assert "Type an experiment path, or press Enter to use the default." in output
-    assert "Default: /Users/test@example.com/project" in output
+    assert "Where should MLflow store traces?" not in output
+    assert "Choose a coding agent" not in output
+    assert "Choose an MLflow experiment" not in output
+    assert "New experiment path" not in output
+    assert "Choose a SQL warehouse" not in output
+    assert "Enter a warehouse ID" not in output
     calls = _read_calls(databricks_config)
     create_experiment_call = next(
         call for call in calls if call[:2] == ["experiments", "create-experiment"]
     )
-    assert create_experiment_call[2] == expected_path
-    assert any(call[:2] == ["warehouses", "list"] for call in calls)
+    assert re.fullmatch(
+        r"/Users/test@example\.com/project-\d{8}-\d{6}-\d+", create_experiment_call[2]
+    )
+    assert not any(call[:2] == ["experiments", "get-by-name"] for call in calls)
+    assert not any(call[:2] == ["current-user", "me"] for call in calls)
+    assert not any(call[:2] == ["warehouses", "list"] for call in calls)
     assert any(call[:2] == ["catalogs", "list"] for call in calls)
     assert any(call[:3] == ["schemas", "list", "test_catalog"] for call in calls)
-    create_call = next(
-        call for call in calls if call[:3] == ["api", "post", "/api/5.0/mlflow/tracing/locations"]
-    )
-    assert _json_body(create_call) == {
-        "uc_table_prefix": {
-            "catalog_name": "test_catalog",
-            "schema_name": "test_schema",
-            "table_prefix": "new-id",
-        },
-        "sql_warehouse_id": "warehouse-1",
-    }
     prompt = databricks_config.prompt_path.read_text()
     assert "- Experiment ID: new-id" in prompt
-    assert "- Unity Catalog trace destination: test_catalog.test_schema.new-id" in prompt
+    assert 'experiment_id="new-id"' in prompt
+    assert 'catalog_name="test_catalog"' in prompt
+    assert 'schema_name="test_schema"' in prompt
+    assert 'table_prefix="new-id"' in prompt
+    if warehouse_id:
+        create_call = next(
+            call
+            for call in calls
+            if call[:3] == ["api", "post", "/api/5.0/mlflow/tracing/locations"]
+        )
+        assert _json_body(create_call) == {
+            "uc_table_prefix": {
+                "catalog_name": "test_catalog",
+                "schema_name": "test_schema",
+                "table_prefix": "new-id",
+            },
+            "sql_warehouse_id": warehouse_id,
+        }
+        assert any(
+            call[:3] == ["api", "post", "/api/5.0/mlflow/experiments/new-id/trace-location:link"]
+            for call in calls
+        )
+        assert "- Unity Catalog trace destination: test_catalog.test_schema.new-id" in prompt
+        assert f"MLFLOW_TRACING_SQL_WAREHOUSE_ID={warehouse_id}" in prompt
+    else:
+        assert not any(call[:2] == ["api", "post"] for call in calls)
+        assert "- Unity Catalog destination to configure: test_catalog.test_schema.new-id" in prompt
+        assert "Discover available SQL warehouses" in prompt
+        assert "MLFLOW_TRACING_SQL_WAREHOUSE_ID" in prompt
+        assert "trace_location=UnityCatalog(" in prompt
 
 
 @pytest.mark.timeout(30)
-def test_interactive_databricks_setup_trims_existing_experiment_path(
+def test_experiment_name_flag_reuses_existing_experiment(
     databricks_config: DatabricksTestConfig,
 ):
     _set_routes(
         databricks_config,
-        _base_routes(current_user="test@example.com")
+        _base_routes()
         + [
             {
                 "args": ["experiments", "get-by-name"],
@@ -391,28 +406,30 @@ def test_interactive_databricks_setup_trims_existing_experiment_path(
         ],
     )
 
-    exit_code, output = run_interactive(
-        [str(SETUP_SCRIPT), "--profile", "DEFAULT", "--agent", "codex"],
-        databricks_config.project,
-        databricks_config.env,
-        [
-            ("Create a new experiment", b"\x1b[B\r"),
-            ("Existing experiment path or ID", b"  /Users/test/existing  \r"),
-        ],
+    result = _run_setup(
+        databricks_config,
+        "--profile",
+        "DEFAULT",
+        "--experiment-name",
+        "/Users/test/existing",
+        "--agent",
+        "codex",
     )
 
-    assert exit_code == 0, output
-    get_by_name_call = next(
-        call
-        for call in _read_calls(databricks_config)
-        if call[:2] == ["experiments", "get-by-name"]
-    )
+    assert result.returncode == 0, result.stderr
+    calls = _read_calls(databricks_config)
+    get_by_name_call = next(call for call in calls if call[:2] == ["experiments", "get-by-name"])
     assert get_by_name_call[2] == "/Users/test/existing"
+    assert not any(call[:2] == ["experiments", "create-experiment"] for call in calls)
+    assert not any(call[:2] == ["current-user", "me"] for call in calls)
+    assert "- Experiment ID: existing-id" in databricks_config.prompt_path.read_text()
 
 
+@pytest.mark.parametrize("warehouse_id", [None, "warehouse-1"])
 @pytest.mark.timeout(30)
-def test_existing_uc_experiment_selects_warehouse_without_relinking(
+def test_existing_uc_experiment_preserves_destination_without_relinking(
     databricks_config: DatabricksTestConfig,
+    warehouse_id: str | None,
 ):
     _set_routes(
         databricks_config,
@@ -422,39 +439,104 @@ def test_existing_uc_experiment_selects_warehouse_without_relinking(
                 "args": ["experiments", "get-experiment"],
                 "stdout": _experiment_json(trace_destination="catalog.schema.custom-prefix"),
             },
-            {
-                "args": ["warehouses", "list"],
-                "stdout": json.dumps({
-                    "warehouses": [
-                        {"id": "warehouse-1", "name": "Test Warehouse", "state": "RUNNING"}
-                    ]
-                }),
-            },
         ],
     )
+    args = ["--profile", "DEFAULT", "--experiment-id", "existing-id", "--agent", "codex"]
+    if warehouse_id:
+        args.extend(["--warehouse-id", warehouse_id])
 
-    exit_code, output = run_interactive(
-        [
-            str(SETUP_SCRIPT),
-            "--profile",
-            "DEFAULT",
-            "--experiment-id",
-            "existing-id",
-            "--agent",
-            "codex",
-        ],
-        databricks_config.project,
-        databricks_config.env,
-        [("Test Warehouse", b"\r")],
-    )
+    result = _run_setup(databricks_config, *args)
 
-    assert exit_code == 0, output
+    assert result.returncode == 0, result.stderr
     calls = _read_calls(databricks_config)
     assert not any(call[:2] == ["api", "post"] for call in calls)
+    assert not any(call[:2] == ["warehouses", "list"] for call in calls)
+    assert not any(call[:2] == ["experiments", "create-experiment"] for call in calls)
+    assert not any(call[:2] == ["catalogs", "list"] for call in calls)
+    get_experiment_call = next(
+        call for call in calls if call[:2] == ["experiments", "get-experiment"]
+    )
+    assert get_experiment_call[2] == "existing-id"
     prompt = databricks_config.prompt_path.read_text()
     assert "- Unity Catalog trace destination: catalog.schema.custom-prefix" in prompt
-    assert "MLFLOW_TRACING_SQL_WAREHOUSE_ID=warehouse-1" in prompt
     assert 'table_prefix="custom-prefix"' in prompt
+    if warehouse_id:
+        assert f"MLFLOW_TRACING_SQL_WAREHOUSE_ID={warehouse_id}" in prompt
+    else:
+        assert "Discover available SQL warehouses" in prompt
+        assert "MLFLOW_TRACING_SQL_WAREHOUSE_ID" in prompt
+
+
+@pytest.mark.timeout(30)
+def test_default_experiment_name_uses_current_user_api_when_token_has_no_identity(
+    databricks_config: DatabricksTestConfig,
+):
+    _set_routes(
+        databricks_config,
+        _base_routes()
+        + [{"args": ["current-user", "me"], "stdout": '{"userName":"test@example.com"}'}]
+        + _new_experiment_routes(
+            catalog_json='{"catalogs":[]}',
+            schema_json='{"schemas":[]}',
+            catalog="test_catalog",
+            schema="test_schema",
+        ),
+    )
+
+    result = _run_setup(
+        databricks_config,
+        "--profile",
+        "DEFAULT",
+        "--uc-schema",
+        "test_catalog.test_schema",
+        "--agent",
+        "codex",
+    )
+
+    assert result.returncode == 0, result.stderr
+    calls = _read_calls(databricks_config)
+    assert any(call[:2] == ["current-user", "me"] for call in calls)
+    assert not any(call[:2] == ["experiments", "get-by-name"] for call in calls)
+    create_experiment_call = next(
+        call for call in calls if call[:2] == ["experiments", "create-experiment"]
+    )
+    assert re.fullmatch(
+        r"/Users/test@example\.com/project-\d{8}-\d{6}-\d+", create_experiment_call[2]
+    )
+    assert not any(call[:2] == ["warehouses", "list"] for call in calls)
+    assert not any(call[:2] == ["api", "post"] for call in calls)
+    prompt = databricks_config.prompt_path.read_text()
+    assert "- Unity Catalog destination to configure: test_catalog.test_schema.new-id" in prompt
+
+
+@pytest.mark.parametrize("current_user_response", [{"stdout": "{}"}, {"returncode": 1}])
+@pytest.mark.timeout(30)
+def test_default_experiment_requires_name_flag_when_current_user_is_unavailable(
+    databricks_config: DatabricksTestConfig,
+    current_user_response: dict[str, object],
+):
+    _set_routes(
+        databricks_config,
+        _base_routes() + [{"args": ["current-user", "me"], **current_user_response}],
+    )
+
+    result = _run_setup(
+        databricks_config,
+        "--profile",
+        "DEFAULT",
+        "--uc-schema",
+        "test_catalog.test_schema",
+        "--agent",
+        "codex",
+    )
+
+    assert result.returncode != 0
+    assert "--experiment-name" in result.stderr
+    assert "--experiment-id" in result.stderr
+    calls = _read_calls(databricks_config)
+    assert any(call[:2] == ["current-user", "me"] for call in calls)
+    assert not any(call[0] == "experiments" for call in calls)
+    assert not databricks_config.prompt_path.exists()
 
 
 @pytest.mark.timeout(30)
@@ -585,13 +667,16 @@ def test_host_only_workspace_propagates_environment(databricks_config: Databrick
     assert experiment_call["profile"] == ""
 
 
+@pytest.mark.parametrize("warehouse_id", [None, "manual-warehouse"])
 @pytest.mark.timeout(30)
-def test_manual_warehouse_and_uc_schema_entry(databricks_config: DatabricksTestConfig):
+def test_manual_uc_schema_entry(
+    databricks_config: DatabricksTestConfig,
+    warehouse_id: str | None,
+):
     _set_routes(
         databricks_config,
         _base_routes()
         + _new_experiment_routes(
-            warehouse_json='{"warehouses":[]}',
             catalog_json='{"catalogs":[]}',
             schema_json='{"schemas":[]}',
             catalog="manual_catalog",
@@ -599,34 +684,54 @@ def test_manual_warehouse_and_uc_schema_entry(databricks_config: DatabricksTestC
         ),
     )
 
+    command = [
+        str(SETUP_SCRIPT),
+        "--profile",
+        "DEFAULT",
+        "--experiment-name",
+        "/Users/test/manual",
+        "--agent",
+        "codex",
+    ]
+    if warehouse_id:
+        command.extend(["--warehouse-id", warehouse_id])
+
     exit_code, output = run_interactive(
-        [
-            str(SETUP_SCRIPT),
-            "--profile",
-            "DEFAULT",
-            "--experiment-name",
-            "/Users/test/manual",
-            "--agent",
-            "codex",
-        ],
+        command,
         databricks_config.project,
         databricks_config.env,
         [
-            ("Enter a warehouse ID", b"manual-warehouse\r"),
             ("Enter catalog.schema", b"manual_catalog.manual_schema\r"),
         ],
     )
 
     assert exit_code == 0, output
     calls = _read_calls(databricks_config)
-    create_call = next(
-        call for call in calls if call[:3] == ["api", "post", "/api/5.0/mlflow/tracing/locations"]
+    get_by_name_call = next(call for call in calls if call[:2] == ["experiments", "get-by-name"])
+    assert get_by_name_call[2] == "/Users/test/manual"
+    create_experiment_call = next(
+        call for call in calls if call[:2] == ["experiments", "create-experiment"]
     )
-    assert _json_body(create_call) == {
-        "uc_table_prefix": {
-            "catalog_name": "manual_catalog",
-            "schema_name": "manual_schema",
-            "table_prefix": "new-id",
-        },
-        "sql_warehouse_id": "manual-warehouse",
-    }
+    assert create_experiment_call[2] == "/Users/test/manual"
+    assert not any(call[:2] == ["warehouses", "list"] for call in calls)
+    if warehouse_id:
+        create_call = next(
+            call
+            for call in calls
+            if call[:3] == ["api", "post", "/api/5.0/mlflow/tracing/locations"]
+        )
+        assert _json_body(create_call) == {
+            "uc_table_prefix": {
+                "catalog_name": "manual_catalog",
+                "schema_name": "manual_schema",
+                "table_prefix": "new-id",
+            },
+            "sql_warehouse_id": warehouse_id,
+        }
+    else:
+        assert not any(call[:2] == ["api", "post"] for call in calls)
+        prompt = databricks_config.prompt_path.read_text()
+        assert (
+            "Unity Catalog destination to configure: manual_catalog.manual_schema.new-id" in prompt
+        )
+        assert "Discover available SQL warehouses" in prompt
