@@ -6,8 +6,9 @@ from typing import Any, AsyncGenerator
 from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
-from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
+from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER, MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 # data:<mime>;base64,<payload> — the only image_url form the judge image tool emits.
 _DATA_URL_RE = re.compile(r"^data:(?P<mime>[^;]+);base64,(?P<data>.*)$", re.DOTALL)
@@ -28,6 +29,8 @@ _STRIPPED_HEADERS = frozenset({
     "accept-encoding",
     "content-encoding",
     MLFLOW_GATEWAY_AUTH_HEADER.lower(),
+    MLFLOW_GATEWAY_CALLER_HEADER.lower(),
+    WORKSPACE_HEADER_NAME.lower(),
 })
 
 # Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
@@ -62,8 +65,9 @@ async def _aiohttp_post(
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
     # Also drop Content-Encoding, which describes the body the client sent, not the JSON
     # re-serialized below (e.g. a zstd-encoded request body is decompressed before it gets
-    # here). And drop X-MLflow-Authorization (MLflow's own RBAC credential on gateway routes)
-    # so it is never forwarded to the upstream provider. This is the single egress choke
+    # here). And drop MLflow's own internal headers (X-MLflow-Authorization, the RBAC
+    # credential on gateway routes, plus X-MLflow-Gateway-Caller and X-MLFLOW-WORKSPACE)
+    # so they are never forwarded to the upstream provider. This is the single egress choke
     # point all proxy/passthrough paths funnel through, so SSRF protection lives here too:
     # the upstream host may come from a user-supplied secret `api_base`, so the connection
     # target is checked at connect time (see mlflow.gateway.ssrf) and redirects are never
