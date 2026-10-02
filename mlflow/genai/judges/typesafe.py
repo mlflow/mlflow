@@ -21,6 +21,7 @@ from mlflow.gateway.constants import (
     TYPESAFE_API_BASE_URL,
     TYPESAFE_SYSTEM_ONE_PATH,
 )
+from mlflow.genai.judges.adapters.utils import ChatCompletionError
 from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -107,17 +108,23 @@ def _cache_gateway_system_one(cache_key: tuple[str, str]) -> None:
 
 
 def _is_gateway_system_one_rejection(exc: BaseException) -> bool:
-    """True when a chat invocation failed because the endpoint only serves System One models."""
-    match getattr(exc, "__cause__", None):
-        case requests.exceptions.HTTPError(
-            response=requests.Response(status_code=400) as response,
-        ):
-            try:
-                detail = response.json().get("detail")
-            except (AttributeError, ValueError):
-                return False
-            return detail == SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
-    return False
+    """True when a chat invocation failed because the endpoint only serves System One models.
+
+    The gateway chat adapter raises ``ChatCompletionError`` for a non-2xx chat response and
+    wraps it in an ``MlflowException`` (``raise ... from e``), so the signal lives on the
+    cause chain: a 400 whose body ``{"detail": ...}`` equals the shared rejection constant.
+    """
+    cause = getattr(exc, "__cause__", None)
+    if not isinstance(cause, ChatCompletionError) or cause.status_code != 400:
+        return False
+    message = cause.message
+    if message == SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL:
+        return True
+    try:
+        detail = json.loads(message).get("detail")
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return detail == SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
 
 
 def _invoke_gateway_judge(model_uri: str, *, chat_invoker, **kwargs) -> Feedback:
@@ -141,6 +148,48 @@ def _invoke_gateway_judge(model_uri: str, *, chat_invoker, **kwargs) -> Feedback
             raise
     _cache_gateway_system_one(cache_key)
     return _invoke_typesafe_judge(model_uri, **kwargs)
+
+
+def _invoke_structured_builtin_judge(
+    model_uri: str,
+    *,
+    chat_invoker,
+    instructions: str,
+    state: dict[str, Any],
+    assessment_name: str,
+    feedback_value_type: Any = Literal["yes", "no"],
+    inference_params: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+) -> Feedback:
+    """Route a built-in judge across TypeSafe-compatible and ordinary chat models.
+
+    Direct ``typesafe:/`` goes to System One. ``gateway:/`` prefers chat and falls back to
+    System One only on the specific rejection (chat-first, so chat endpoints are unchanged).
+    Every other model uses ``chat_invoker`` unchanged. The System One format mirrors the
+    direct ``typesafe:/`` branch each judge already defines (``instructions``/``state``).
+    """
+    if _is_typesafe_model(model_uri):
+        return _invoke_typesafe_judge(
+            model_uri,
+            instructions=instructions,
+            state=state,
+            feedback_value_type=feedback_value_type,
+            assessment_name=assessment_name,
+            inference_params=inference_params,
+            extra_headers=extra_headers,
+        )
+    if _is_gateway_model(model_uri):
+        return _invoke_gateway_judge(
+            model_uri,
+            chat_invoker=chat_invoker,
+            instructions=instructions,
+            state=state,
+            feedback_value_type=feedback_value_type,
+            assessment_name=assessment_name,
+            inference_params=inference_params,
+            extra_headers=extra_headers,
+        )
+    return chat_invoker()
 
 
 @record_usage_event(InvokeCustomJudgeModelEvent)
@@ -496,6 +545,7 @@ def _invalid_response(answer_type: str) -> MlflowException:
 
 __all__ = [
     "_invoke_gateway_judge",
+    "_invoke_structured_builtin_judge",
     "_invoke_typesafe_judge",
     "_is_gateway_model",
     "_is_typesafe_model",
