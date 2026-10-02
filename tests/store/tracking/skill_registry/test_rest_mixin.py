@@ -1,0 +1,755 @@
+import json
+from copy import deepcopy
+from unittest import mock
+
+import pytest
+from fastapi import FastAPI
+from requests import Response
+from starlette.testclient import TestClient
+
+from mlflow.entities.skill import Skill, SkillStatus
+from mlflow.entities.skill_source import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    SkillSourceType,
+    ZipSource,
+)
+from mlflow.entities.skill_version import SkillVersion
+from mlflow.exceptions import MlflowException
+from mlflow.server.fastapi_app import add_registry_exception_handlers
+from mlflow.server.skill_registry_api import skill_registry_router
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMixin, _skill_path
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+
+@pytest.fixture
+def store():
+    return RestStore(lambda: MlflowHostCreds("https://registry.example.com", token="test-token"))
+
+
+def test_rest_store_resolves_skill_methods_to_rest_mixin():
+    for name, method in vars(RestSkillRegistryMixin).items():
+        if callable(method) and not name.startswith("_"):
+            assert getattr(RestStore, name) is method, name
+
+
+@pytest.mark.parametrize(
+    ("name", "organization", "expected"),
+    [
+        ("my-skill", "", "/my-skill"),
+        ("my-skill", "team", "/@team/my-skill"),
+        ("a/b c?#%", "", "/a%2Fb%20c%3F%23%25"),
+        ("a/b c?#%", "org/team @", "/@org%2Fteam%20%40/a%2Fb%20c%3F%23%25"),
+        ("skill-\u2603", "team-\u2603", "/@team-%E2%98%83/skill-%E2%98%83"),
+        ("@team", "", "/%40team"),
+        ("review.v1", "team..name", "/@team..name/review.v1"),
+    ],
+)
+def test_skill_path(name, organization, expected):
+    assert _skill_path(name, organization) == expected
+
+
+def test_skill_path_defaults_to_unscoped():
+    assert _skill_path("my-skill") == "/my-skill"
+
+
+@pytest.mark.parametrize("workspace", [None, "team-a"])
+def test_skill_request_preserves_transport_context(store, workspace):
+    response = Response()
+    response.status_code = 200
+    response._content = b'{"skills": [], "next_page_token": "next"}'
+    payload = {"description": "Updated"}
+    params = {"page_token": "previous"}
+    with (
+        WorkspaceContext(workspace),
+        mock.patch.object(store, "_probe_workspace_support", return_value=True),
+        mock.patch(
+            "mlflow.utils.rest_utils._get_http_response_with_retries", return_value=response
+        ) as request,
+    ):
+        result = store._skill_request(
+            "PATCH", _skill_path("my-skill", "team"), json=payload, params=params
+        )
+
+    assert result == {"skills": [], "next_page_token": "next"}
+    assert request.call_args.args[:2] == (
+        "PATCH",
+        "https://registry.example.com/api/3.0/mlflow/skills/@team/my-skill",
+    )
+    kwargs = request.call_args.kwargs
+    assert kwargs["json"] == payload
+    assert kwargs["params"] == params
+    assert kwargs["headers"]["Authorization"] == "Bearer test-token"
+    assert kwargs["headers"].get(WORKSPACE_HEADER_NAME) == workspace
+
+
+def test_skill_request_rejects_unsupported_workspace_before_request(store):
+    with (
+        WorkspaceContext("team-a"),
+        mock.patch.object(store, "_probe_workspace_support", return_value=False),
+        mock.patch("mlflow.store.tracking.skill_registry.rest_mixin.http_request") as request,
+        pytest.raises(MlflowException, match="does not support workspaces") as exc_info,
+    ):
+        store._skill_request("GET", _skill_path("my-skill"))
+
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+    request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_code"),
+    [(404, "RESOURCE_DOES_NOT_EXIST"), (403, "PERMISSION_DENIED")],
+)
+def test_skill_request_preserves_server_errors(store, status_code, error_code):
+    response = Response()
+    response.status_code = status_code
+    response._content = json.dumps({"error_code": error_code, "message": "Skill error"}).encode()
+    with (
+        mock.patch(
+            "mlflow.store.tracking.skill_registry.rest_mixin.http_request", return_value=response
+        ),
+        pytest.raises(MlflowException, match="Skill error") as exc_info,
+    ):
+        store._skill_request("GET", _skill_path("my-skill"))
+
+    assert exc_info.value.error_code == error_code
+
+
+@pytest.fixture
+def registry_client(store, tmp_path, db_uri):
+    db_store = SqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
+    app = FastAPI()
+    add_registry_exception_handlers(app)
+    app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")
+    with (
+        TestClient(app) as http_client,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=db_store),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store),
+        mock.patch(
+            "mlflow.store.tracking.skill_registry.rest_mixin.http_request",
+            side_effect=lambda host_creds, endpoint, method, **kwargs: http_client.request(
+                method, endpoint, **kwargs
+            ),
+        ),
+        mock.patch(
+            "mlflow.utils.validation._resolve_hostname_with_timeout",
+            return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+        ),
+    ):
+        yield MlflowClient(), db_store
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_parent_crud(registry_client, organization):
+    client, db_store = registry_client
+    icons = [{"src": "https://example.com/icon.png", "mimeType": "image/png", "sizes": ["48x48"]}]
+    identity = {"name": "code-review", "organization": organization}
+    created = client.create_skill(**identity, description="Reviews code", icons=icons)
+    assert created == db_store.get_skill(**identity)
+    assert created.description == "Reviews code"
+    assert created.icons == icons
+    assert client.get_skill(**identity) == created
+
+    db_store.create_skill_version(
+        **identity, source_type="git", source="https://example.com/repo.git"
+    )
+    db_store.set_skill_tag(**identity, key="team", value="platform")
+    db_store.set_skill_alias(**identity, alias="production", version=1)
+    fetched = client.get_skill(**identity)
+    assert fetched == db_store.get_skill(**identity)
+    assert fetched.status == SkillStatus.ACTIVE
+    assert fetched.source_type == SkillSourceType.GIT
+    assert fetched.latest_version == 1
+    assert fetched.tags == {"team": "platform"}
+    assert fetched.aliases == {"production": 1}
+
+    updated = client.update_skill(**identity, description="Updated")
+    assert updated.description == "Updated"
+    assert updated.icons == icons
+    unchanged = client.update_skill(**identity)
+    assert unchanged.description == updated.description
+    assert unchanged.icons == icons
+    assert unchanged == db_store.get_skill(**identity)
+    without_icons = client.update_skill(**identity, icons=[])
+    assert without_icons.icons == []
+    assert without_icons.description == "Updated"
+    cleared = client.update_skill(**identity, description=None, icons=None)
+    assert cleared.description is None
+    assert cleared.icons is None
+    assert cleared == client.get_skill(**identity)
+
+    assert client.delete_skill(**identity) is None
+    with pytest.raises(MlflowException, match="not found") as exc_info:
+        client.get_skill(**identity)
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    with pytest.raises(MlflowException, match="not found"):
+        db_store.get_skill_version(**identity, version=1)
+
+
+def test_parent_organizations_are_independent(registry_client):
+    client, _ = registry_client
+    client.create_skill(name="review", description="unscoped")
+    client.create_skill(name="review", organization="acme", description="scoped")
+    client.update_skill(name="review", organization="acme", description="updated")
+    client.delete_skill(name="review", organization="acme")
+    assert client.get_skill(name="review").description == "unscoped"
+
+
+def test_search_skills_filters_ordering_and_pagination(registry_client):
+    client, _ = registry_client
+    assert client.search_skills() == []
+    for name in ["alpha", "bravo", "charlie"]:
+        client.create_skill(name=name, organization="acme")
+    client.create_skill(name="other")
+    query = {"filter_string": "organization = 'acme'", "order_by": ["name DESC"], "max_results": 2}
+    first = client.search_skills(**query)
+    assert isinstance(first, PagedList)
+    assert [skill.name for skill in first] == ["charlie", "bravo"]
+    assert first.token is not None
+    assert first[0] == client.get_skill(name="charlie", organization="acme")
+    second = client.search_skills(**query, page_token=first.token)
+    assert [skill.name for skill in second] == ["alpha"]
+    assert second.token is None
+
+
+def test_parent_crud_propagates_server_errors(registry_client):
+    client, _ = registry_client
+    client.create_skill(name="review")
+    with pytest.raises(MlflowException, match="already exists") as exc_info:
+        client.create_skill(name="review")
+    assert exc_info.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    for method in (client.get_skill, client.update_skill, client.delete_skill):
+        with pytest.raises(MlflowException, match="not found") as exc_info:
+            method(name="missing")
+        assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    with pytest.raises(MlflowException, match="[Pp]age.token") as exc_info:
+        client.search_skills(page_token="invalid-token")
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("method", ["create_skill", "get_skill", "update_skill", "search_skills"])
+def test_parent_methods_preserve_complete_response(store, method):
+    data = {
+        "name": "review",
+        "organization": "acme",
+        "description": "Review",
+        "icons": [{"src": "https://example.com/icon.png", "theme": "dark"}],
+        "status": "deprecated",
+        "latest_version": 7,
+        "source_type": "git",
+        "aliases": [{"alias": "production", "version": 7}],
+        "tags": {"team": "platform"},
+        "created_by": "creator",
+        "last_updated_by": "editor",
+        "creation_timestamp": 1000,
+        "last_updated_timestamp": 2000,
+    }
+    expected = Skill(
+        name="review",
+        organization="acme",
+        description="Review",
+        icons=[{"src": "https://example.com/icon.png", "theme": "dark"}],
+        status=SkillStatus.DEPRECATED,
+        latest_version=7,
+        source_type=SkillSourceType.GIT,
+        aliases={"production": 7},
+        tags={"team": "platform"},
+        created_by="creator",
+        last_updated_by="editor",
+        creation_timestamp=1000,
+        last_updated_timestamp=2000,
+    )
+    response = (
+        {"skills": [data], "next_page_token": "opaque-token"} if method == "search_skills" else data
+    )
+    with mock.patch.object(store, "_skill_request", return_value=response):
+        if method == "search_skills":
+            page = store.search_skills()
+            assert page == [expected]
+            assert page.token == "opaque-token"
+        else:
+            assert getattr(store, method)(name="review", organization="acme") == expected
+
+
+def test_parent_requests_omit_audit_arguments(store):
+    with mock.patch.object(store, "_skill_request", return_value={"name": "review"}) as request:
+        store.create_skill(name="review", created_by="client-user")
+        request.assert_called_once_with("POST", "", json={"name": "review", "organization": ""})
+        request.reset_mock()
+        store.update_skill(name="review", last_updated_by="client-user")
+        request.assert_called_once_with("PATCH", "/review", json={})
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            GitSource("https://example.com/repo", ref="v2", subpath="skills/review"),
+            GitSource("https://example.com/repo", ref="v2", subpath="skills/review"),
+        ),
+        (
+            OCISource("oci://ghcr.io/acme/skills:v1", subpath="review"),
+            OCISource("ghcr.io/acme/skills:v1", subpath="review"),
+        ),
+        (
+            ZipSource("https://example.com/download", subpath="review"),
+            ZipSource("https://example.com/download", subpath="review"),
+        ),
+        ("https://example.com/repo.git", GitSource("https://example.com/repo.git")),
+        ("oci://ghcr.io/acme/skills:v1", OCISource("ghcr.io/acme/skills:v1")),
+        ("https://example.com/skills.zip", ZipSource("https://example.com/skills.zip")),
+    ],
+)
+def test_create_and_get_skill_version(registry_client, organization, source, expected):
+    client, db_store = registry_client
+    identity = {"name": "review", "organization": organization}
+    created = client.create_skill_version(
+        **identity, source=source, digest="a" * 64, status="draft"
+    )
+    assert created.version == 1
+    assert created.source == expected
+    assert created.digest == "a" * 64
+    assert created.status == SkillStatus.DRAFT
+    assert created == db_store.get_skill_version(**identity, version=1)
+    assert client.get_skill_version(**identity, version=1) == created
+    assert client.get_skill(**identity).latest_version == 1
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        ("https://example.com/repo", "Cannot infer"),
+        ("ssh://git@example.com/repo", "Cannot infer"),
+        (
+            MlflowSource("mlflow-artifacts:/skills/review/token"),
+            "typed source or a non-empty string",
+        ),
+        ("./skills/review", "requires an external"),
+        ("mlflow-artifacts:/skills/review/token", "requires an external"),
+    ],
+)
+def test_create_skill_version_rejects_invalid_source_before_request(
+    registry_client, store, source, message
+):
+    client, _ = registry_client
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match=message) as exc_info,
+    ):
+        client.create_skill_version(name="review", source=source)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_version_lifecycle_and_aliases(registry_client, organization):
+    client, db_store = registry_client
+    identity = {"name": "review", "organization": organization}
+    client.create_skill(**identity)
+    first = client.create_skill_version(**identity, source="https://example.com/repo.git")
+    second = client.create_skill_version(
+        **identity, source="https://example.com/repo.git", status="draft"
+    )
+    db_store.set_skill_version_tag(**identity, version=1, key="scan", value="clean")
+    db_store.set_skill_alias(**identity, alias="production", version=1)
+    fetched = client.get_skill_version(**identity, version=1)
+    assert fetched.tags == {"scan": "clean"}
+    assert fetched.aliases == ["production"]
+    assert client.get_skill_version_by_alias(**identity, alias="production") == fetched
+    assert client.get_latest_skill_version(**identity) == fetched
+    assert client.update_skill_version(**identity, version=1) == fetched
+    with pytest.raises(MlflowException, match="status cannot be null"):
+        client.update_skill_version(**identity, version=1, status=None)
+    with pytest.raises(MlflowException, match="Invalid status transition"):
+        client.delete_skill_version(**identity, version=first.version)
+
+    active = client.update_skill_version(**identity, version=second.version, status="active")
+    assert active.status == SkillStatus.ACTIVE
+    assert client.get_latest_skill_version(**identity) == active
+    deprecated = client.update_skill_version(**identity, version=first.version, status="deprecated")
+    assert deprecated.status == SkillStatus.DEPRECATED
+    assert client.delete_skill_version(**identity, version=first.version) is None
+    with pytest.raises(MlflowException, match="not found"):
+        client.get_skill_version(**identity, version=first.version)
+    with pytest.raises(MlflowException, match="not found"):
+        client.get_skill_version_by_alias(**identity, alias="production")
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_search_skill_versions(registry_client, organization):
+    client, _ = registry_client
+    identity = {"name": "review", "organization": organization}
+    client.create_skill(**identity)
+    assert client.search_skill_versions(**identity) == []
+    for status in ["active", "draft", "active", "active"]:
+        client.create_skill_version(
+            **identity, source="https://example.com/repo.git", status=status
+        )
+    query = {
+        **identity,
+        "filter_string": "status = 'active'",
+        "order_by": ["version DESC"],
+        "max_results": 2,
+    }
+    first = client.search_skill_versions(**query)
+    assert isinstance(first, PagedList)
+    assert [version.version for version in first] == [4, 3]
+    assert first[0] == client.get_skill_version(**identity, version=4)
+    assert first.token is not None
+    second = client.search_skill_versions(**query, page_token=first.token)
+    assert [version.version for version in second] == [1]
+    assert second.token is None
+    with pytest.raises(MlflowException, match="[Pp]age.token"):
+        client.search_skill_versions(**identity, page_token="invalid-token")
+
+
+def test_skill_version_errors(registry_client):
+    client, _ = registry_client
+    with pytest.raises(MlflowException, match="can be registered as"):
+        client.create_skill_version(
+            name="review", source="https://example.com/repo.git", status="deleted"
+        )
+    client.create_skill(name="review")
+    with pytest.raises(MlflowException, match="requires a .*multipart"):
+        client.create_skill_version(name="review")
+    with pytest.raises(MlflowException, match="No resolved latest"):
+        client.get_latest_skill_version(name="review")
+    for method in (
+        client.get_skill_version,
+        client.update_skill_version,
+        client.delete_skill_version,
+    ):
+        with pytest.raises(MlflowException, match="not found") as exc_info:
+            method(name="review", version=999)
+        assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+@pytest.mark.parametrize(
+    ("source_type", "source", "ref", "expected"),
+    [
+        (
+            "git",
+            "https://example.com/repo",
+            "v2",
+            GitSource("https://example.com/repo", ref="v2", subpath="review"),
+        ),
+        (
+            "oci",
+            "ghcr.io/acme/skills:v1",
+            None,
+            OCISource("ghcr.io/acme/skills:v1", subpath="review"),
+        ),
+        (
+            "zip",
+            "https://example.com/archive",
+            None,
+            ZipSource("https://example.com/archive", subpath="review"),
+        ),
+        (
+            "mlflow",
+            "mlflow-artifacts:/plugins/package/token",
+            None,
+            MlflowSource("mlflow-artifacts:/plugins/package/token", subpath="review"),
+        ),
+    ],
+)
+def test_get_skill_version_preserves_complete_response(store, source_type, source, ref, expected):
+    data = {
+        "name": "review",
+        "organization": "acme",
+        "version": 7,
+        "source_type": source_type,
+        "source": source,
+        "ref": ref,
+        "subpath": "review",
+        "digest": "a" * 64,
+        "status": "deprecated",
+        "tags": {"scan": "clean"},
+        "aliases": ["production"],
+        "created_by": "creator",
+        "last_updated_by": "editor",
+        "creation_timestamp": 1000,
+        "last_updated_timestamp": 2000,
+    }
+    with mock.patch.object(store, "_skill_request", return_value=data):
+        assert store.get_skill_version(
+            name="review", version=7, organization="acme"
+        ) == SkillVersion(
+            name="review",
+            organization="acme",
+            version=7,
+            source_type=SkillSourceType(source_type),
+            source=expected,
+            digest="a" * 64,
+            status=SkillStatus.DEPRECATED,
+            tags={"scan": "clean"},
+            aliases=["production"],
+            created_by="creator",
+            last_updated_by="editor",
+            creation_timestamp=1000,
+            last_updated_timestamp=2000,
+        )
+
+
+def test_skill_version_request_paths_and_audit_arguments(store):
+    identity = {"name": "review", "organization": "acme"}
+    with mock.patch.object(
+        store, "_skill_request", return_value={"name": "review", "version": 1}
+    ) as request:
+        store.create_skill_version(
+            **identity,
+            source_type="git",
+            source="https://example.com/repo",
+            created_by="client-user",
+        )
+        assert "created_by" not in request.call_args.kwargs["json"]
+        request.reset_mock()
+        store.get_skill_version_by_alias(**identity, alias="a/b ?")
+        request.assert_called_once_with("GET", "/@acme/review/aliases/a%2Fb%20%3F")
+        request.reset_mock()
+        store.update_skill_version(
+            **identity, version=1, status=None, last_updated_by="client-user"
+        )
+        request.assert_called_once_with("PATCH", "/@acme/review/versions/1", json={"status": None})
+        request.reset_mock()
+        store.delete_skill_version(**identity, version=1, last_updated_by="client-user")
+        request.assert_called_once_with("DELETE", "/@acme/review/versions/1")
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_tags_and_version_tags(registry_client, organization):
+    client, _ = registry_client
+    identity = {"name": "review", "organization": organization}
+    for _ in range(2):
+        client.create_skill_version(**identity, source="https://example.com/repo.git")
+    key = "team/review notes"
+    assert client.set_skill_tag(**identity, key=key, value="parent") is None
+    assert client.set_skill_version_tag(**identity, version=1, key=key, value="version") is None
+    assert client.get_skill(**identity).tags == {key: "parent"}
+    assert client.get_skill_version(**identity, version=1).tags == {key: "version"}
+    assert client.get_skill_version(**identity, version=2).tags == {}
+
+    client.set_skill_tag(**identity, key=key, value="")
+    client.set_skill_version_tag(**identity, version=1, key=key, value="updated")
+    assert client.get_skill(**identity).tags == {key: ""}
+    assert client.get_skill_version(**identity, version=1).tags == {key: "updated"}
+    assert client.delete_skill_tag(**identity, key=key) is None
+    assert client.get_skill(**identity).tags == {}
+    assert client.get_skill_version(**identity, version=1).tags == {key: "updated"}
+    assert client.delete_skill_version_tag(**identity, version=1, key=key) is None
+    assert client.get_skill_version(**identity, version=1).tags == {}
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_alias_set_reassign_and_delete(registry_client, organization):
+    client, _ = registry_client
+    identity = {"name": "review", "organization": organization}
+    for _ in range(2):
+        client.create_skill_version(**identity, source="https://example.com/repo.git")
+    assert client.set_skill_alias(**identity, alias="production", version=1) is None
+    assert client.get_skill_version_by_alias(**identity, alias="production").version == 1
+    assert client.get_skill(**identity).aliases == {"production": 1}
+    client.set_skill_alias(**identity, alias="production", version=2)
+    assert client.get_skill_version_by_alias(**identity, alias="production").version == 2
+    assert client.get_skill_version(**identity, version=1).aliases == []
+    assert client.get_skill_version(**identity, version=2).aliases == ["production"]
+    assert client.delete_skill_alias(**identity, alias="production") is None
+    assert client.get_skill(**identity).aliases == {}
+    assert client.get_skill_version(**identity, version=2).aliases == []
+    with pytest.raises(MlflowException, match="not found"):
+        client.get_skill_version_by_alias(**identity, alias="production")
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("set_skill_tag", {"key": "team", "value": "platform"}),
+        ("delete_skill_tag", {"key": "team"}),
+        ("set_skill_version_tag", {"version": 1, "key": "team", "value": "platform"}),
+        ("delete_skill_version_tag", {"version": 1, "key": "team"}),
+        ("set_skill_alias", {"alias": "production", "version": 1}),
+        ("delete_skill_alias", {"alias": "production"}),
+    ],
+)
+def test_tag_and_alias_methods_propagate_missing_resource(registry_client, method, kwargs):
+    client, _ = registry_client
+    with pytest.raises(MlflowException, match="not found") as exc_info:
+        getattr(client, method)(name="missing", organization="acme", **kwargs)
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_tag_and_alias_errors_leave_existing_metadata_intact(registry_client):
+    client, _ = registry_client
+    client.create_skill_version(name="review", source="https://example.com/repo.git")
+    client.set_skill_alias(name="review", alias="production", version=1)
+    with pytest.raises(MlflowException, match="not found") as exc_info:
+        client.set_skill_alias(name="review", alias="production", version=999)
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    with pytest.raises(MlflowException, match="reserved") as exc_info:
+        client.set_skill_alias(name="review", alias="latest", version=1)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="cannot be deleted"):
+        client.delete_skill_alias(name="review", alias="latest")
+    with pytest.raises(MlflowException, match="not found"):
+        client.delete_skill_tag(name="review", key="missing")
+    with pytest.raises(MlflowException, match="not found"):
+        client.delete_skill_version_tag(name="review", version=1, key="missing")
+    assert client.get_skill(name="review").aliases == {"production": 1}
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs", "suffix"),
+    [
+        ("delete_skill_tag", {"key": "a/b ?#%"}, "tags/a%2Fb%20%3F%23%25"),
+        (
+            "delete_skill_version_tag",
+            {"version": 1, "key": "a/b ?#%"},
+            "versions/1/tags/a%2Fb%20%3F%23%25",
+        ),
+        ("delete_skill_alias", {"alias": "a/b ?#%"}, "aliases/a%2Fb%20%3F%23%25"),
+        ("delete_skill_tag", {"key": "."}, None),
+        ("delete_skill_tag", {"key": ".."}, None),
+        ("delete_skill_version_tag", {"version": 1, "key": "."}, None),
+        ("delete_skill_version_tag", {"version": 1, "key": ".."}, None),
+        ("delete_skill_alias", {"alias": "."}, None),
+        ("delete_skill_alias", {"alias": ".."}, None),
+    ],
+)
+def test_tag_and_alias_delete_paths_are_encoded(store, method, kwargs, suffix):
+    with mock.patch.object(store, "_skill_request") as request:
+        if suffix is None:
+            with pytest.raises(MlflowException, match="Path parameters must not be") as exc_info:
+                getattr(store, method)(name="my skill", organization="my org", **kwargs)
+            assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+            request.assert_not_called()
+            return
+        getattr(store, method)(name="my skill", organization="my org", **kwargs)
+    request.assert_called_once_with("DELETE", f"/@my%20org/my%20skill/{suffix}")
+
+
+@pytest.fixture
+def skill_definitions():
+    return [
+        {
+            "name": name,
+            "source_type": "git",
+            "source": "https://example.com/skills.git",
+            "ref": "main",
+            "subpath": f"skills/{name}",
+            "digest": digest * 64,
+        }
+        for name, digest in [("review", "a"), ("docs", "b")]
+    ]
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+@pytest.mark.parametrize("status", [None, "active", "draft"])
+def test_bulk_register_skills(registry_client, store, skill_definitions, organization, status):
+    client, db_store = registry_client
+    if status is not None:
+        for definition in skill_definitions:
+            definition["status"] = status
+    original = deepcopy(skill_definitions)
+    with mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request:
+        result = client.bulk_register_skills(
+            skill_definitions=skill_definitions, organization=organization
+        )
+    request.assert_called_once_with(
+        "POST", "/bulk-register", json={"organization": organization, "skills": original}
+    )
+    assert [version.name for version in result] == ["review", "docs"]
+    assert [version.version for version in result] == [1, 1]
+    assert all(version.status == (status or "active") for version in result)
+    assert result == [
+        db_store.get_skill_version(name=definition["name"], version=1, organization=organization)
+        for definition in skill_definitions
+    ]
+    assert result[0].source == GitSource(
+        "https://example.com/skills.git", ref="main", subpath="skills/review"
+    )
+    assert skill_definitions == original
+    assert (
+        client.bulk_register_skills(skill_definitions=skill_definitions, organization=organization)
+        == result
+    )
+
+
+@pytest.mark.parametrize("requested_status", ["active", "draft"])
+@pytest.mark.parametrize("existing_status", ["active", "draft", "deprecated"])
+def test_bulk_register_preserves_reused_version(
+    registry_client, store, skill_definitions, requested_status, existing_status
+):
+    client, db_store = registry_client
+    for _ in range(2):
+        db_store.create_skill_version(
+            **skill_definitions[0],
+            organization="acme",
+            created_by="author",
+            status="draft" if existing_status == "active" else "active",
+        )
+    db_store.update_skill_version(
+        name="review",
+        version=2,
+        organization="acme",
+        status=existing_status,
+        last_updated_by="editor",
+    )
+    db_store.set_skill_version_tag(
+        name="review", version=2, organization="acme", key="scan", value="clean"
+    )
+    db_store.set_skill_alias(name="review", version=2, organization="acme", alias="production")
+    expected = db_store.get_skill_version(name="review", version=2, organization="acme")
+    for definition in skill_definitions:
+        definition["status"] = requested_status
+    with mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request:
+        result = client.bulk_register_skills(
+            skill_definitions=skill_definitions, organization="acme"
+        )
+    assert request.call_count == 1
+    assert result[0] == expected
+    assert result[1].name == "docs"
+    assert result[1].version == 1
+    assert result[1].status == requested_status
+    assert db_store.get_skill_version(name="review", version=2, organization="acme") == expected
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"status": "draft"}, "same status"),
+        ({"digest": "invalid"}, "SHA-256 digest"),
+        ({"name": "review"}, "Duplicate Skill name"),
+    ],
+)
+def test_bulk_register_propagates_validation_errors_without_writes(
+    registry_client, skill_definitions, changes, message
+):
+    client, db_store = registry_client
+    skill_definitions[1].update(changes)
+    with pytest.raises(MlflowException, match=message) as exc_info:
+        client.bulk_register_skills(skill_definitions=skill_definitions)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert db_store.search_skills() == []
+
+
+def test_bulk_register_rejects_empty_batch(registry_client):
+    client, _ = registry_client
+    with pytest.raises(MlflowException, match="skills") as exc_info:
+        client.bulk_register_skills(skill_definitions=[])
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_bulk_register_omits_audit_argument(store, skill_definitions):
+    with mock.patch.object(store, "_skill_request", return_value={"skill_versions": []}) as request:
+        assert store.bulk_register_skills(skill_definitions, created_by="client-user") == []
+    request.assert_called_once_with(
+        "POST", "/bulk-register", json={"organization": "", "skills": skill_definitions}
+    )
