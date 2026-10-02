@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790887009503,
+  "lastUpdate": 1790901951522,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84737625+kriscon-db@users.noreply.github.com",
-            "name": "Kris Concepcion",
-            "username": "kriscon-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e4bafa6d9b6352739c65416320d0fe1add952af1",
-          "message": "Harden review-queue add/create against concurrent races (#23925)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>",
-          "timestamp": "2026-06-12T04:11:55Z",
-          "tree_id": "0b71acc67a9793938f77625d7a258bc78a2d6a5d",
-          "url": "https://github.com/mlflow/mlflow/commit/e4bafa6d9b6352739c65416320d0fe1add952af1"
-        },
-        "date": 1781237744109,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 46.49120859999982,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.798382257137163,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.256916507698268,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 21.41960125423905,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.21108025862322,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 36.303506200010816,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.187305666671212,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "2193436736@qq.com",
+            "name": "CoralGarden52",
+            "username": "CoralGarden52"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd25204f911300a0bac5c4b582ad18f0102a60d1",
+          "message": "Fix `MlflowStorage.set_trial_state_values` WAITING trial transitions (#25945)\n\nSigned-off-by: CoralGarden52 <2193436736@qq.com>",
+          "timestamp": "2026-10-02T00:42:25Z",
+          "tree_id": "1deb5f5a116b9d2641d6159da25748795194b862",
+          "url": "https://github.com/mlflow/mlflow/commit/cd25204f911300a0bac5c4b582ad18f0102a60d1"
+        },
+        "date": 1790901948817,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 47.653383899999824,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.2115746296305,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.424264663998656,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.4459105599989925,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.845837946429155,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.967562600003929,
             "unit": "ms"
           }
         ]
