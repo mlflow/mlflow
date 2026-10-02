@@ -149,7 +149,13 @@ def _hash_array_like_obj_as_bytes(data):
             hashable = np.array(data.tolist())
             return _hash_ndarray_as_bytes(hashable)
         except ValueError:
-            return _hash_array_of_dict_as_bytes(data)
+            # Ragged nested arrays can't be stacked; hash each row along with its length
+            # so that different row boundaries produce different hashes.
+            return b"".join(
+                _hash_data_as_bytes(row)
+                + _hash_uint64_ndarray_as_bytes(np.array([len(row)], dtype="uint64"))
+                for row in data
+            )
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
