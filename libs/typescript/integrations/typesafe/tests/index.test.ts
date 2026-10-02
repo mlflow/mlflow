@@ -169,6 +169,7 @@ describe('tracedTypeSafe', () => {
     expect(span.outputs).toEqual(SYSTEM_ONE_RESULT);
     expect(span.attributes['mlflow.llm.model']).toBe('jev-resolved');
     expect(span.attributes['mlflow.llm.provider']).toBe('typesafe');
+    expect(span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT]).toBe('typesafe');
     expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toEqual({
       input_tokens: 12,
       output_tokens: 3,

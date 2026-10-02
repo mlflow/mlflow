@@ -58,6 +58,7 @@ function traceSystemOne(client: TypeSafeClient, args: SystemOneParameters): Syst
   });
 
   span.setInputs(inputs);
+  span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'typesafe');
   span.setAttribute(MODEL_PROVIDER_ATTRIBUTE, 'typesafe');
   if (effectiveModel) {
     span.setAttribute(MODEL_ATTRIBUTE, effectiveModel);
