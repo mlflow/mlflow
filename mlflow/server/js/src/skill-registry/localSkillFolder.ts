@@ -1,3 +1,5 @@
+import yaml from 'js-yaml';
+
 const BLOCK = 512;
 const encoder = new TextEncoder();
 
@@ -6,16 +8,23 @@ export interface SkillManifestFields {
   description?: string;
 }
 
-const frontmatterValue = (frontmatter: string, key: string) => {
-  const match = frontmatter.match(new RegExp(`^${key}:\\s*(.+)\\s*$`, 'm'));
-  return match?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+const stringField = (frontmatter: unknown, key: string) => {
+  if (!frontmatter || typeof frontmatter !== 'object') return undefined;
+  const value = (frontmatter as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 };
 
 export const readSkillManifest = (content: string): SkillManifestFields => {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match?.[1]) return {};
-  const name = frontmatterValue(match[1], 'name');
-  const description = frontmatterValue(match[1], 'description');
+  let frontmatter: unknown;
+  try {
+    frontmatter = yaml.safeLoad(match[1]);
+  } catch {
+    return {};
+  }
+  const name = stringField(frontmatter, 'name');
+  const description = stringField(frontmatter, 'description');
   return {
     ...(name ? { name } : {}),
     ...(description ? { description } : {}),
@@ -24,17 +33,27 @@ export const readSkillManifest = (content: string): SkillManifestFields => {
 
 const relativePath = (file: File) => file.webkitRelativePath || file.name;
 
-export const findSkillManifest = (files: File[]) =>
-  files
-    .filter((file) => relativePath(file).split('/').pop() === 'SKILL.md')
-    .sort((left, right) => relativePath(left).split('/').length - relativePath(right).split('/').length)[0];
-
-const archivePath = (file: File, files: File[]) => {
+// A directory picker prefixes every path with the selected folder's name, which is not part of the skill.
+const sharesSingleRoot = (files: File[]) => {
   const paths = files.map(relativePath).filter(Boolean);
   const roots = new Set(paths.map((path) => path.split('/')[0]));
-  const stripRoot = roots.size === 1 && paths.every((path) => path.includes('/'));
+  return roots.size === 1 && paths.every((path) => path.includes('/'));
+};
+
+const strippedPath = (file: File, stripRoot: boolean) => {
   const path = relativePath(file);
-  const stripped = stripRoot ? path.split('/').slice(1).join('/') : path;
+  return stripRoot ? path.split('/').slice(1).join('/') : path;
+};
+
+// The upload has no subpath, so only a SKILL.md at the archive root makes a usable skill.
+export const findSkillManifest = (files: File[]) => {
+  const stripRoot = sharesSingleRoot(files);
+  return files.find((file) => strippedPath(file, stripRoot) === 'SKILL.md');
+};
+
+const archivePath = (file: File, stripRoot: boolean) => {
+  const path = relativePath(file);
+  const stripped = strippedPath(file, stripRoot);
   if (!stripped || stripped.split('/').some((segment) => segment === '..' || segment === '.')) {
     throw new Error(`Cannot package '${path}'.`);
   }
@@ -48,9 +67,29 @@ const octal = (value: number, length: number) => {
   return bytes;
 };
 
+const splitUstarName = (path: string) => {
+  const bytes = encoder.encode(path);
+  if (bytes.length <= 100) {
+    return { name: bytes, prefix: new Uint8Array() };
+  }
+  for (let index = bytes.length - 1; index >= 0; index -= 1) {
+    if (bytes[index] !== 0x2f) continue;
+    const prefixLength = index;
+    const nameLength = bytes.length - index - 1;
+    if (prefixLength > 0 && prefixLength <= 155 && nameLength > 0 && nameLength <= 100) {
+      return { name: bytes.subarray(index + 1), prefix: bytes.subarray(0, index) };
+    }
+  }
+  return undefined;
+};
+
 const tarHeader = (name: string, size: number) => {
+  const split = splitUstarName(name);
+  if (!split) {
+    throw new Error(`Cannot package '${name}'. The path is too long for a tar archive.`);
+  }
   const header = new Uint8Array(BLOCK);
-  header.set(encoder.encode(name).slice(0, 100));
+  header.set(split.name);
   header.set(octal(0o644, 8), 100);
   header.set(octal(0, 8), 108);
   header.set(octal(0, 8), 116);
@@ -60,6 +99,7 @@ const tarHeader = (name: string, size: number) => {
   header[156] = '0'.charCodeAt(0);
   header.set(encoder.encode('ustar'), 257);
   header.set(encoder.encode('00'), 263);
+  header.set(split.prefix, 345);
   const sum = header.reduce((total, byte) => total + byte, 0);
   const checksum = sum.toString(8).padStart(6, '0');
   for (let index = 0; index < 6; index += 1) header[148 + index] = checksum.charCodeAt(index);
@@ -134,9 +174,10 @@ export const gzipStored = (bytes: Uint8Array) => {
 };
 
 export const packageSkillFolder = async (files: File[]) => {
+  const stripRoot = sharesSingleRoot(files);
   const entries = await Promise.all(
     files.map(async (file) => ({
-      name: archivePath(file, files),
+      name: archivePath(file, stripRoot),
       bytes: new Uint8Array(await file.arrayBuffer()),
     })),
   );

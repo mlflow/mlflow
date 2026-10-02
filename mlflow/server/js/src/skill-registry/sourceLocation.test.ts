@@ -5,6 +5,7 @@ import {
   buildUploadedSkillVersionRequest,
   formatSkillImportCommand,
   formatSkillRegisterCli,
+  formatSkillRegisterPython,
   parseSkillIdentityInput,
   parseSkillLocation,
   toRegisterSkillRequest,
@@ -67,6 +68,7 @@ describe('parseSkillLocation', () => {
       suggestedName: 'skills',
       wholeRepository: false,
     });
+    expect(parseSkillLocation('oci://localhost:5000/acme/reviewer:v1')?.suggestedName).toBe('reviewer');
     expect(parseSkillLocation('https://example.com/skills.zip')).toMatchObject({
       sourceType: 'zip',
       source: 'https://example.com/skills.zip',
@@ -193,7 +195,29 @@ describe('local skill registration', () => {
       name: 'prompt-style-guide',
     });
     expect(formatSkillRegisterCli({ location: '', local: false })).toBe(
-      'mlflow skills register git \\\n  --url <location>',
+      "mlflow skills register git \\\n  --url '<location>'",
     );
+    expect(
+      formatSkillRegisterCli({
+        location: 'https://example.com/skill.zip?token=a&next=b',
+        local: false,
+        sourceType: 'zip',
+        name: "o'brien",
+      }),
+    ).toBe(
+      "mlflow skills register zip \\\n  --url 'https://example.com/skill.zip?token=a&next=b' \\\n  --name 'o'\\''brien'",
+    );
+  });
+
+  it('escapes user values in the Python registration snippet', () => {
+    const snippet = formatSkillRegisterPython({
+      location: 'https://example.com/x")\nimport os  # \\',
+      local: false,
+      sourceType: 'zip',
+      name: 'code"review',
+    });
+    expect(snippet).toContain('ZipSource(url="https://example.com/x\\")\\nimport os  # \\\\")');
+    expect(snippet).toContain('name="code\\"review"');
+    expect(snippet.split('\n')).toHaveLength(4);
   });
 });

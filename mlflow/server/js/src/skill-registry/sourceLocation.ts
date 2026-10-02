@@ -86,8 +86,9 @@ const hasHttpCredentials = (value: string) => {
 
 const imageName = (image: string) => {
   const withoutDigest = image.split('@')[0] ?? image;
-  const withoutTag = withoutDigest.split(':')[0] ?? withoutDigest;
-  return withoutTag.split('/').filter(Boolean).pop() ?? '';
+  const segment = withoutDigest.split('/').filter(Boolean).pop() ?? '';
+  const tagSeparator = segment.lastIndexOf(':');
+  return tagSeparator === -1 ? segment : segment.slice(0, tagSeparator);
 };
 
 const parseGitHubLocation = (value: string): ParsedSkillLocation | undefined => {
@@ -362,6 +363,11 @@ export const buildUploadedSkillVersionRequest = (
   return { ok: true, request: { source: null, status }, identity };
 };
 
+const quoteShellArg = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+
+// JSON string escapes (\", \\, \n, \uXXXX) are all valid Python string-literal escapes.
+const quotePythonString = (value: string) => JSON.stringify(value);
+
 export const formatSkillRegisterCli = ({
   sourceType,
   location,
@@ -379,9 +385,9 @@ export const formatSkillRegisterCli = ({
   const url = location.trim() || '<location>';
   const lines = local
     ? ['mlflow skills register', '  <directory>']
-    : [`mlflow skills register ${command}`, `  --url ${url}`];
-  if (name) lines.push(`  --name ${name}`);
-  if (organization) lines.push(`  --organization ${organization}`);
+    : [`mlflow skills register ${command}`, `  --url ${quoteShellArg(url)}`];
+  if (name) lines.push(`  --name ${quoteShellArg(name)}`);
+  if (organization) lines.push(`  --organization ${quoteShellArg(organization)}`);
   return lines.map((line, index) => (index < lines.length - 1 ? `${line} \\` : line)).join('\n');
 };
 
@@ -398,17 +404,20 @@ export const formatSkillRegisterPython = ({
   name?: string;
   organization?: string;
 }) => {
-  const url = location.trim() || '<location>';
-  const identity = [name ? `name="${name}"` : '', organization ? `organization="${organization}"` : ''].filter(Boolean);
+  const url = quotePythonString(location.trim() || '<location>');
+  const identity = [
+    name ? `name=${quotePythonString(name)}` : '',
+    organization ? `organization=${quotePythonString(organization)}` : '',
+  ].filter(Boolean);
   const identityArgs = identity.length ? `, ${identity.join(', ')}` : '';
   if (local) {
     return `import mlflow\n\nmlflow.genai.register_skill(source="<directory>"${identityArgs})`;
   }
   if (sourceType === 'oci') {
-    return `import mlflow\nfrom mlflow.entities.skill_source import OCISource\n\nmlflow.genai.register_skill(source=OCISource(image="${url}")${identityArgs})`;
+    return `import mlflow\nfrom mlflow.entities.skill_source import OCISource\n\nmlflow.genai.register_skill(source=OCISource(image=${url})${identityArgs})`;
   }
   if (sourceType === 'zip') {
-    return `import mlflow\nfrom mlflow.entities.skill_source import ZipSource\n\nmlflow.genai.register_skill(source=ZipSource(url="${url}")${identityArgs})`;
+    return `import mlflow\nfrom mlflow.entities.skill_source import ZipSource\n\nmlflow.genai.register_skill(source=ZipSource(url=${url})${identityArgs})`;
   }
-  return `import mlflow\nfrom mlflow.entities.skill_source import GitSource\n\nmlflow.genai.register_skill(source=GitSource(url="${url}")${identityArgs})`;
+  return `import mlflow\nfrom mlflow.entities.skill_source import GitSource\n\nmlflow.genai.register_skill(source=GitSource(url=${url})${identityArgs})`;
 };

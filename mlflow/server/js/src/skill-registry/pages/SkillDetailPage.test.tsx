@@ -11,7 +11,7 @@ import { setupServer } from '../../common/utils/setup-msw';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import SkillDetailPage from './SkillDetailPage';
 import SkillRegistryRoutes from '../routes';
-import { SkillStatus } from '../types';
+import { SkillAction, SkillStatus } from '../types';
 import {
   createMockSkill,
   createMockSkillVersion,
@@ -155,7 +155,7 @@ describe('SkillDetailPage', () => {
     expect(screen.getByText('s3://private-bucket/skill.zip')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 's3://private-bucket/skill.zip' })).not.toBeInTheDocument();
     expect(screen.getByText('carol@example.com')).toBeInTheDocument();
-    expect(screen.getAllByText('draft').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Draft').length).toBeGreaterThanOrEqual(1);
   });
 
   it('restores the selected version from the URL', async () => {
@@ -167,7 +167,7 @@ describe('SkillDetailPage', () => {
     expect(screen.getByRole('row', { selected: true })).toHaveTextContent('Version 1');
   });
 
-  it('omits deleted versions from ordinary search results', async () => {
+  it('shows a deleted version as a disabled row and does not open it', async () => {
     server.use(
       getMockedSearchSkillVersionsResponse([
         mockVersion2,
@@ -179,7 +179,10 @@ describe('SkillDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Version 2')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
+    expect(screen.getByText('Version 1')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Version 1/ })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(screen.getByText('Version 1'));
+    expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
   });
 
   it('pins the selected version in the Use modal and updates the install destination', async () => {
@@ -203,6 +206,57 @@ describe('SkillDetailPage', () => {
     await changeSimpleSelect('mlflow.skill_registry.use_modal.install_target', 'Cursor');
     expect(document.body.textContent).toContain('--destination .cursor/skills');
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
+  });
+
+  it('changes a version status from the inline editor', async () => {
+    let requestBody: unknown;
+    server.use(
+      rest.patch(/\/versions\/2$/, async (req, res, ctx) => {
+        requestBody = await req.json();
+        return res(ctx.json({ skill_version: { ...mockVersion2, status: SkillStatus.DEPRECATED } }));
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit status' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Deprecated' }));
+
+    await waitFor(() => {
+      expect(requestBody).toEqual({ status: SkillStatus.DEPRECATED });
+    });
+  });
+
+  it('surfaces a failed status update', async () => {
+    server.use(
+      rest.patch(/\/versions\/2$/, (_req, res, ctx) =>
+        res(ctx.status(400), ctx.json({ error_code: 'INVALID_PARAMETER_VALUE', message: 'Invalid status transition' })),
+      ),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit status' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Draft' }));
+
+    expect(await screen.findByText('Invalid status transition')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit status' })).toBeEnabled();
+  });
+
+  it('hides delete actions from a user who can edit but not delete', async () => {
+    server.use(
+      ...getMockedSkillDetailHandlers({ ...mockSkill, allowed_actions: [SkillAction.USE, SkillAction.UPDATE] }, [
+        { ...mockVersion2, status: SkillStatus.DEPRECATED },
+        mockVersion1,
+      ]),
+    );
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Delete version' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
   it('renders a permission-denied empty state', async () => {
@@ -287,7 +341,7 @@ describe('SkillDetailPage', () => {
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Create skill version' }));
-    expect(screen.getByText('Create skill version 3')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Create skill version' })).toBeInTheDocument();
     expect(
       screen.getByText(/Adding a version to @acme\/code-review. Its content can come from anywhere/),
     ).toBeInTheDocument();

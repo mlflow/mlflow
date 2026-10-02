@@ -1,15 +1,41 @@
-import type { ReactNode } from 'react';
-import { CopyIcon, NewWindowIcon, Spacer, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useEffect, useState, type ReactNode } from 'react';
+import {
+  Alert,
+  Button,
+  CopyIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
+  DialogComboboxTrigger,
+  NewWindowIcon,
+  Spacer,
+  Tag,
+  Tooltip,
+  TrashIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { Skill, SkillVersion } from '../types';
-import { aliasesForVersion, describeSkillSource, formatSkillReferenceUris, STATUS_TAG_COLOR } from '../utils';
+import type { Skill, SkillStatus, SkillVersion } from '../types';
+import {
+  aliasesForVersion,
+  canSoftDeleteSkillVersion,
+  describeSkillSource,
+  formatSkillReferenceUris,
+  skillVersionStatusTransitions,
+  STATUS_TAG_COLOR,
+} from '../utils';
 import { SkillAliases } from './SkillAliases';
+import { SkillPencilButton } from './SkillPencilButton';
 import { SkillTags } from './SkillTags';
 import { UseSkillButton } from './UseSkillButton';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { flexRowStyles, inlineCodeStyles } from '../styles';
 import Utils from '../../common/utils/Utils';
+
+const statusLabel = (status: SkillStatus) => status.charAt(0).toUpperCase() + status.slice(1);
 
 const MetadataLabel = ({ children }: { children: ReactNode }) => <Typography.Text bold>{children}</Typography.Text>;
 
@@ -111,15 +137,35 @@ export const SkillVersionDetail = ({
   isLoading,
   isMissing,
   error,
+  canUpdate = false,
+  onEditAliases,
+  onEditMetadata,
+  onDelete,
+  onStatusChange,
+  isStatusUpdating = false,
+  statusUpdateError,
+  onDismissStatusUpdateError,
 }: {
   skill: Skill;
   version?: SkillVersion;
   isLoading?: boolean;
   isMissing?: boolean;
   error?: Error | null;
+  canUpdate?: boolean;
+  onEditAliases?: () => void;
+  onEditMetadata?: () => void;
+  onDelete?: () => void;
+  onStatusChange?: (status: SkillStatus) => void;
+  isStatusUpdating?: boolean;
+  statusUpdateError?: Error | null;
+  onDismissStatusUpdateError?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [editingStatus, setEditingStatus] = useState(false);
+  useEffect(() => {
+    setEditingStatus(false);
+  }, [version?.version, version?.status]);
 
   if (isLoading) {
     return (
@@ -190,6 +236,15 @@ export const SkillVersionDetail = ({
 
   const aliases = aliasesForVersion(skill, version);
   const referenceUris = formatSkillReferenceUris(skill.name, skill.organization, version.version, aliases);
+  const statusSelectLabel = intl.formatMessage({
+    defaultMessage: 'Version status',
+    description: 'Aria label for changing a skill version status',
+  });
+  const statusOptions = [version.status, ...skillVersionStatusTransitions(version.status)];
+  const handleStatusChange = (nextStatus: SkillStatus) => {
+    setEditingStatus(false);
+    if (nextStatus !== version.status) onStatusChange?.(nextStatus);
+  };
 
   return (
     <div
@@ -207,16 +262,62 @@ export const SkillVersionDetail = ({
             values={{ version: version.version }}
           />
         </Typography.Title>
-        <UseSkillButton
-          skill={skill}
-          version={version.version}
-          versionStatus={version.status}
-          showLabel
-          appearance="default"
-        />
+        <span css={{ display: 'inline-flex', gap: theme.spacing.sm }}>
+          {onDelete && (
+            <Tooltip
+              componentId="mlflow.skill_registry.detail.version.delete_tooltip"
+              content={
+                canSoftDeleteSkillVersion(version.status) ? (
+                  <FormattedMessage
+                    defaultMessage="Removes this version from resolution, discovery and pull. Its number is never reused."
+                    description="Tooltip for deleting a draft or deprecated skill version"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Unpublish or deprecate this version first. Deprecating keeps it resolving for anything that pins it."
+                    description="Tooltip when an active skill version cannot be deleted yet"
+                  />
+                )
+              }
+            >
+              <span>
+                <Button
+                  componentId="mlflow.skill_registry.detail.version.delete"
+                  icon={<TrashIcon />}
+                  danger={canSoftDeleteSkillVersion(version.status)}
+                  type="primary"
+                  disabled={!canSoftDeleteSkillVersion(version.status)}
+                  onClick={onDelete}
+                >
+                  <FormattedMessage
+                    defaultMessage="Delete version"
+                    description="Button that soft-deletes the selected skill version"
+                  />
+                </Button>
+              </span>
+            </Tooltip>
+          )}
+          <UseSkillButton
+            skill={skill}
+            version={version.version}
+            versionStatus={version.status}
+            showLabel
+            appearance="default"
+          />
+        </span>
       </div>
 
       <Spacer shrinks={false} />
+      {statusUpdateError && (
+        <Alert
+          componentId="mlflow.skill_registry.detail.version.status_update_error"
+          type="error"
+          closable
+          onClose={onDismissStatusUpdateError}
+          message={statusUpdateError.message}
+          css={{ marginBottom: theme.spacing.sm }}
+        />
+      )}
       <div
         css={{
           display: 'grid',
@@ -238,9 +339,58 @@ export const SkillVersionDetail = ({
           <FormattedMessage defaultMessage="Status:" description="Skill version stored status label" />
         </MetadataLabel>
         <span css={flexRowStyles(theme)}>
-          <Tag componentId="mlflow.skill_registry.detail.version.status" color={STATUS_TAG_COLOR[version.status]}>
-            {version.status}
-          </Tag>
+          {editingStatus && onStatusChange ? (
+            <DialogCombobox
+              id="mlflow.skill_registry.detail.version.status_select"
+              componentId="mlflow.skill_registry.detail.version.status_select"
+              label={statusSelectLabel}
+              value={[version.status]}
+              open
+            >
+              <DialogComboboxTrigger
+                aria-label={statusSelectLabel}
+                withInlineLabel={false}
+                renderDisplayedValue={(status) => statusLabel(status as SkillStatus)}
+                allowClear={false}
+                width={160}
+              />
+              <DialogComboboxContent
+                matchTriggerWidth
+                onEscapeKeyDown={() => setEditingStatus(false)}
+                onPointerDownOutside={() => setEditingStatus(false)}
+              >
+                <DialogComboboxOptionList>
+                  {statusOptions.map((status) => (
+                    <DialogComboboxOptionListSelectItem
+                      key={status}
+                      value={status}
+                      checked={status === version.status}
+                      onChange={(nextStatus) => handleStatusChange(nextStatus as SkillStatus)}
+                    >
+                      {statusLabel(status)}
+                    </DialogComboboxOptionListSelectItem>
+                  ))}
+                </DialogComboboxOptionList>
+              </DialogComboboxContent>
+            </DialogCombobox>
+          ) : (
+            <>
+              <Tag componentId="mlflow.skill_registry.detail.version.status" color={STATUS_TAG_COLOR[version.status]}>
+                {statusLabel(version.status)}
+              </Tag>
+              {canUpdate && onStatusChange && skillVersionStatusTransitions(version.status).length > 0 && (
+                <SkillPencilButton
+                  componentId="mlflow.skill_registry.detail.version.status_edit"
+                  label={intl.formatMessage({
+                    defaultMessage: 'Edit status',
+                    description: 'Aria label for the skill version status pencil',
+                  })}
+                  disabled={isStatusUpdating}
+                  onClick={() => setEditingStatus(true)}
+                />
+              )}
+            </>
+          )}
         </span>
 
         <MetadataLabel>
@@ -251,12 +401,24 @@ export const SkillVersionDetail = ({
         <MetadataLabel>
           <FormattedMessage defaultMessage="Aliases:" description="Skill version aliases label" />
         </MetadataLabel>
-        <SkillAliases aliases={aliases} />
+        <SkillAliases aliases={aliases} onEdit={canUpdate ? onEditAliases : undefined} />
 
         <MetadataLabel>
           <FormattedMessage defaultMessage="Metadata:" description="Skill version tags label" />
         </MetadataLabel>
-        <SkillTags tags={version.tags || {}} wrap />
+        <span css={flexRowStyles(theme)}>
+          <SkillTags tags={version.tags || {}} wrap />
+          {canUpdate && onEditMetadata && (
+            <SkillPencilButton
+              componentId="mlflow.skill_registry.detail.version.metadata.edit"
+              label={intl.formatMessage({
+                defaultMessage: 'Edit metadata',
+                description: 'Aria label for editing skill version tags',
+              })}
+              onClick={onEditMetadata}
+            />
+          )}
+        </span>
 
         <MetadataLabel>
           <FormattedMessage defaultMessage="Source:" description="Skill version source label" />

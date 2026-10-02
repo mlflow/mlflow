@@ -131,6 +131,12 @@ describe('Skill Registry API', () => {
         body: { status: SkillStatus.DEPRECATED },
       },
       {
+        name: 'hard-delete a skill',
+        invoke: () => SkillRegistryApi.deleteSkill('code-review', 'acme'),
+        url: 'ajax-api/3.0/mlflow/skills/@acme/code-review',
+        method: 'DELETE',
+      },
+      {
         name: 'soft-delete a version',
         invoke: () => SkillRegistryApi.deleteSkillVersion('code-review', 3, 'acme'),
         url: 'ajax-api/3.0/mlflow/skills/@acme/code-review/versions/3',

@@ -251,6 +251,57 @@ export const aliasesForVersion = (
 export const visibleSkillVersions = (versions: SkillVersion[] | undefined): SkillVersion[] =>
   (versions ?? []).filter((version) => version.status !== SkillStatus.DELETED);
 
+export const skillVersionStatusTransitions = (status: SkillStatus): SkillStatus[] => {
+  switch (status) {
+    case SkillStatus.DRAFT:
+      return [SkillStatus.ACTIVE];
+    case SkillStatus.ACTIVE:
+      return [SkillStatus.DRAFT, SkillStatus.DEPRECATED];
+    case SkillStatus.DEPRECATED:
+      return [SkillStatus.ACTIVE];
+    default:
+      return [];
+  }
+};
+
+export const canSoftDeleteSkillVersion = (status: SkillStatus) =>
+  status === SkillStatus.DRAFT || status === SkillStatus.DEPRECATED;
+
+/** Keep deleted rows the server returned, and fill holes the server omitted. */
+export const withDeletedVersionPlaceholders = (versions: SkillVersion[] | undefined): SkillVersion[] => {
+  const returned = versions ?? [];
+  if (returned.length === 0) return [];
+  const byVersion = new Map(returned.map((version) => [version.version, version]));
+  const numbers = [...byVersion.keys()];
+  const newest = Math.max(...numbers);
+  const oldest = Math.min(...numbers);
+  const sample = returned[0];
+  const rows: SkillVersion[] = [];
+  for (let version = newest; version >= oldest; version -= 1) {
+    const existing = byVersion.get(version);
+    rows.push(
+      existing ?? {
+        name: sample.name,
+        version,
+        organization: sample.organization,
+        source_type: null,
+        source: null,
+        ref: null,
+        subpath: null,
+        digest: null,
+        status: SkillStatus.DELETED,
+        aliases: [],
+        tags: {},
+        created_by: null,
+        last_updated_by: null,
+        creation_timestamp: null,
+        last_updated_timestamp: null,
+      },
+    );
+  }
+  return rows;
+};
+
 export const resolveDefaultSkillVersion = (
   skill?: Pick<Skill, 'latest_version'> | null,
   versions?: SkillVersion[],

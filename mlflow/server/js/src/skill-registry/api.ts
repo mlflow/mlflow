@@ -145,6 +145,12 @@ export const SkillRegistryApi = {
     }) as Promise<UpdateSkillResponse>;
   },
 
+  deleteSkill: (name: string, organization = ''): Promise<SkillMutationResponse> => {
+    return fetchAPI(getAjaxUrl(skillUrl(name, organization)), {
+      method: HTTPMethods.DELETE,
+    }) as Promise<SkillMutationResponse>;
+  },
+
   createSkillVersion,
 
   searchSkillVersions: (

@@ -38,9 +38,32 @@ describe('SkillVersionList', () => {
     });
     expect(screen.getByText('Version 2')).toBeInTheDocument();
     expect(screen.getByText('Version 1')).toBeInTheDocument();
-    expect(screen.getByText('active')).toBeInTheDocument();
-    expect(screen.getByText('draft')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Draft')).toBeInTheDocument();
     expect(screen.getByRole('row', { selected: true })).toHaveTextContent('Version 1');
+  });
+
+  it('shows a deleted version as a disabled row', async () => {
+    const onSelectVersion = jest.fn();
+    renderVersionList({
+      versions: [createMockSkillVersion({ version: 1, status: SkillStatus.DELETED })],
+      onSelectVersion,
+    });
+    const row = screen.getByRole('row', { name: /Version 1/ });
+    expect(row).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.hover(screen.getByText('Version 1'));
+    expect(
+      await screen.findAllByText(
+        'Deleted. The number is never reused, and the registry no longer returns this version.',
+      ),
+    ).not.toHaveLength(0);
+    await userEvent.click(screen.getByText('Version 1'));
+    expect(onSelectVersion).not.toHaveBeenCalled();
+  });
+
+  it('warns when more versions exist than the list shows', () => {
+    renderVersionList({ versions: [createMockSkillVersion()], hasMoreVersions: true });
+    expect(screen.getByText('Only the most recent 100 versions are shown.')).toBeInTheDocument();
   });
 
   it('selects a version with click and keyboard', async () => {
