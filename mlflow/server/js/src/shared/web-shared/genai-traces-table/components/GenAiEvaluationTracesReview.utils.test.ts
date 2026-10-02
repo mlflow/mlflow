@@ -286,7 +286,17 @@ describe('EvaluationsReview utils', () => {
 
 describe('getAssessmentValueLabel', () => {
   const intl = I18nUtils.createIntlWithLocale();
-  const mockTheme = {} as ThemeType;
+  const mockTheme = {
+    isDarkMode: false,
+    colors: {
+      green400: '#green400',
+      green600: '#green600',
+      red400: '#red400',
+      red600: '#red600',
+      red200: '#red200',
+      red800: '#red800',
+    },
+  } as unknown as ThemeType;
 
   const createMockAssessmentInfo = (dtype: AssessmentInfo['dtype']): AssessmentInfo => ({
     name: 'test_assessment',
@@ -339,5 +349,28 @@ describe('getAssessmentValueLabel', () => {
     const stringAssessment = createMockAssessmentInfo('string');
     const result = getAssessmentValueLabel(intl, mockTheme, stringAssessment, 'custom_value');
     expect(result.content).toBe('custom_value');
+  });
+  it('should return "Pass" label and an icon for pass-fail dtype with YES or PASS value', () => {
+    const passFailAssessment = createMockAssessmentInfo('pass-fail');
+
+    const yesResult = getAssessmentValueLabel(intl, mockTheme, passFailAssessment, 'yes');
+    expect(yesResult.content).toBe('Pass');
+    expect(yesResult.icon).toBeDefined();
+
+    const passResult = getAssessmentValueLabel(intl, mockTheme, passFailAssessment, 'PASS');
+    expect(passResult.content).toBe('Pass');
+    expect(passResult.icon).toBeDefined();
+  });
+
+  it('should return "Fail" label and an icon for pass-fail dtype with NO or FAIL value', () => {
+    const passFailAssessment = createMockAssessmentInfo('pass-fail');
+
+    const noResult = getAssessmentValueLabel(intl, mockTheme, passFailAssessment, 'no');
+    expect(noResult.content).toBe('Fail');
+    expect(noResult.icon).toBeDefined();
+
+    const failResult = getAssessmentValueLabel(intl, mockTheme, passFailAssessment, 'FAIL');
+    expect(failResult.content).toBe('Fail');
+    expect(failResult.icon).toBeDefined();
   });
 });
