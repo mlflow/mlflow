@@ -1450,7 +1450,8 @@ def test_exporter_retries_on_401_with_cacheless_token_source(monkeypatch):
 #
 # sticky  : the batch and all later batches go via the tracing-server REST path
 # replay  : this batch goes via REST, the next batch still tries the collector
-# drop    : the uncertain batch is dropped, later batches use REST
+# drop    : malformed or partially accepted 200 responses drop the batch, later use REST
+# ambiguous_sticky : replay the ambiguous batch, then keep using REST
 
 
 def _case_connect_timeout():
@@ -1527,14 +1528,14 @@ _CLASSIFICATION_CASES = [
     (_case_new_connection_error, "sticky"),
     (_case_name_resolution_error, "sticky"),
     (_case_max_retry_new_connection_error, "sticky"),
-    # Connection established then failed mid-request: drop this batch, use REST later.
-    (_case_connection_reset, "drop"),
-    (_case_read_timeout, "drop"),
-    # Server-side failures may have persisted the batch: drop, use REST later.
-    (_case_http_500, "drop"),
-    (_case_http_502, "drop"),
-    (_case_http_503, "drop"),
-    (_case_http_504, "drop"),
+    # Connection established then failed mid-request: replay this batch and use REST later.
+    (_case_connection_reset, "ambiguous_sticky"),
+    (_case_read_timeout, "ambiguous_sticky"),
+    # Server-side failures may have persisted the batch: replay it and use REST later.
+    (_case_http_500, "ambiguous_sticky"),
+    (_case_http_502, "ambiguous_sticky"),
+    (_case_http_503, "ambiguous_sticky"),
+    (_case_http_504, "ambiguous_sticky"),
     # Definitive client-side rejections: sticky REST fallback.
     (_case_http_400, "sticky"),
     (_case_http_403, "sticky"),
@@ -1551,34 +1552,54 @@ _CLASSIFICATION_CASES = [
 def test_exporter_failure_classification(monkeypatch, post_side_effect_factory, expected):
     post_side_effect = post_side_effect_factory()
     exporter, session, _ = _make_exporter(monkeypatch)
+    # Exercise the inherited REST path all the way through the client's
+    # ``log_spans`` call. This verifies that a replay is actually issued to the
+    # legacy sink instead of only calling an exporter helper.
+    mock_client = mock.MagicMock()
+    exporter._client = mock_client
     session.post.side_effect = post_side_effect
-    otel_span = create_mock_otel_span(trace_id=13, span_id=13)
+    first_span = create_mock_otel_span(trace_id=13, span_id=13)
+    second_span = create_mock_otel_span(trace_id=14, span_id=14)
 
     with (
-        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
-        exporter._export_spans_incrementally([otel_span])
+        exporter._export_spans_incrementally([first_span])
         # A second batch distinguishes permanent REST fallback from one-batch replay.
-        exporter._export_spans_incrementally([otel_span])
+        exporter._export_spans_incrementally([second_span])
 
     if expected == "sticky":
         # Only the first batch reached the collector; both batches went via REST.
         assert session.post.call_count == len(post_side_effect)
-        assert mock_log_spans.call_count == 2
+        assert mock_client.log_spans.call_count == 2
+        assert (
+            mock_client.log_spans.call_args_list[0].args[1][0].span_id == Span(first_span).span_id
+        )
+        assert (
+            mock_client.log_spans.call_args_list[1].args[1][0].span_id == Span(second_span).span_id
+        )
         assert mock_log.warning.call_count == 1
     elif expected == "replay":
         # The first batch was replayed via REST; the second went to the collector.
         assert session.post.call_count == len(post_side_effect)
-        assert mock_log_spans.call_count == 1
+        assert mock_client.log_spans.call_count == 1
+        assert mock_client.log_spans.call_args.args[1][0].span_id == Span(first_span).span_id
         mock_log.warning.assert_not_called()
         mock_log.debug.assert_called_once()
-    else:  # drop
-        # The first batch was uncertain and left alone; only the next uses REST.
+    else:  # ambiguous_sticky
+        # The ambiguous first batch is replayed and the collector is never retried.
         session.post.assert_called_once()
-        mock_log_spans.assert_called_once()
+        assert mock_client.log_spans.call_count == 2
+        assert (
+            mock_client.log_spans.call_args_list[0].args[1][0].span_id == Span(first_span).span_id
+        )
+        assert (
+            mock_client.log_spans.call_args_list[1].args[1][0].span_id == Span(second_span).span_id
+        )
         assert exporter._collector_rejected
         assert mock_log.warning.call_count == 1
+        warning = " ".join(str(arg) for arg in mock_log.warning.call_args.args)
+        assert "duplicate" in warning.lower()
 
 
 def test_exporter_401_after_refresh_falls_back_to_rest(monkeypatch):
@@ -1787,49 +1808,51 @@ def test_fallback_replays_to_init_time_table_when_active_table_unset_async(monke
     mock_active_table.assert_not_called()
 
 
-def test_exporter_500_drops_current_batch_and_uses_rest_later(monkeypatch):
+def test_exporter_500_replays_current_batch_and_uses_rest_later(monkeypatch):
     exporter, session, _ = _make_exporter(monkeypatch)
+    mock_client = mock.MagicMock()
+    exporter._client = mock_client
     session.post.return_value = _make_response(500, content=b"server error")
-    otel_span = create_mock_otel_span(trace_id=10, span_id=10)
+    first_span = create_mock_otel_span(trace_id=10, span_id=10)
+    second_span = create_mock_otel_span(trace_id=11, span_id=11)
 
-    with (
-        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
-        mock.patch(f"{_MODULE}._logger") as mock_log,
-    ):
-        exporter._export_spans_incrementally([otel_span])
-        # Delivery is ambiguous for this batch, but the next one is safe to
-        # route to REST.
-        exporter._export_spans_incrementally([otel_span])
+    with mock.patch(f"{_MODULE}._logger") as mock_log:
+        exporter._export_spans_incrementally([first_span])
+        exporter._export_spans_incrementally([second_span])
 
     session.post.assert_called_once()
-    mock_log_spans.assert_called_once()
+    # The failed batch is replayed through the actual legacy REST client, and
+    # sticky routing sends the next batch through the same path.
+    assert mock_client.log_spans.call_count == 2
     assert exporter._collector_rejected
     assert mock_log.warning.call_count == 1
-    assert 500 in mock_log.warning.call_args.args
-    assert b"server error" in mock_log.warning.call_args.args
+    warning = " ".join(str(arg) for arg in mock_log.warning.call_args.args)
+    assert "duplicate" in warning.lower()
 
 
-def test_exporter_timeout_drops_current_batch_and_uses_rest_later(monkeypatch):
+def test_exporter_read_timeout_replays_current_batch_and_uses_rest_later(monkeypatch):
     exporter, session, _ = _make_exporter(monkeypatch)
-    session.post.side_effect = requests.Timeout("timed out")
-    otel_span = create_mock_otel_span(trace_id=11, span_id=11)
+    mock_client = mock.MagicMock()
+    exporter._client = mock_client
+    session.post.side_effect = requests.ReadTimeout("read timed out")
+    first_span = create_mock_otel_span(trace_id=12, span_id=12)
+    second_span = create_mock_otel_span(trace_id=13, span_id=13)
 
-    with (
-        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
-        mock.patch(f"{_MODULE}._logger") as mock_log,
-    ):
-        exporter._export_spans_incrementally([otel_span])
-        exporter._export_spans_incrementally([otel_span])
+    with mock.patch(f"{_MODULE}._logger") as mock_log:
+        exporter._export_spans_incrementally([first_span])
+        exporter._export_spans_incrementally([second_span])
 
-    # A read timeout leaves delivery ambiguous (the batch may have been ingested),
-    # so only the later batch is sent to REST.
+    # A read timeout leaves delivery ambiguous, so the failed batch is replayed
+    # through REST and the collector is permanently abandoned afterward.
     session.post.assert_called_once()
-    mock_log_spans.assert_called_once()
+    assert mock_client.log_spans.call_count == 2
     assert exporter._collector_rejected
     mock_log.warning.assert_called_once()
+    warning = " ".join(str(arg) for arg in mock_log.warning.call_args.args)
+    assert "duplicate" in warning.lower()
 
 
-def test_exporter_async_500_uses_rest_for_later_batch(monkeypatch):
+def test_exporter_async_500_replays_current_batch_and_uses_rest_later(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "1")
     exporter, session, _ = _make_exporter(monkeypatch, sync_rest=False)
@@ -1837,37 +1860,119 @@ def test_exporter_async_500_uses_rest_for_later_batch(monkeypatch):
     exporter._client = mock.MagicMock()
 
     try:
-        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=51, span_id=1)])
-        exporter.flush()
-        session.post.assert_called_once()
-        exporter._client.log_spans.assert_not_called()
+        with mock.patch(f"{_MODULE}._logger") as mock_log:
+            exporter._export_spans_incrementally([create_mock_otel_span(trace_id=51, span_id=1)])
+            exporter.flush()
+            session.post.assert_called_once()
+            # The collector worker replays the failed batch through the inherited
+            # REST client before the next batch is submitted.
+            exporter._client.log_spans.assert_called_once()
 
-        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=52, span_id=2)])
-        exporter.flush(terminate=True)
-        session.post.assert_called_once()
-        exporter._client.log_spans.assert_called_once()
+            exporter._export_spans_incrementally([create_mock_otel_span(trace_id=52, span_id=2)])
+            exporter.flush(terminate=True)
+            session.post.assert_called_once()
+            assert exporter._client.log_spans.call_count == 2
+            mock_log.warning.assert_called_once()
+            warning = " ".join(str(arg) for arg in mock_log.warning.call_args.args)
+            assert "duplicate" in warning.lower()
     finally:
         exporter.shutdown()
 
 
-@pytest.mark.parametrize("status_code", [500, 502, 503, 504])
-def test_exporter_ambiguous_server_error_drops_batch_and_uses_rest_later(monkeypatch, status_code):
+def test_exporter_concurrent_ambiguous_batches_replay_to_rest_and_stick(monkeypatch):
     exporter, session, _ = _make_exporter(monkeypatch)
+    mock_client = mock.MagicMock()
+    exporter._client = mock_client
+    first_span = create_mock_otel_span(trace_id=53, span_id=1)
+    second_span = create_mock_otel_span(trace_id=54, span_id=2)
+    later_span = create_mock_otel_span(trace_id=55, span_id=3)
+
+    # The main thread is the third barrier party. It proceeds only after both
+    # collector calls are in flight, then releases both requests together.
+    collector_barrier = threading.Barrier(3)
+    release_collector = threading.Event()
+
+    def collector_post(*args, **kwargs):
+        collector_barrier.wait(timeout=10)
+        release_collector.wait(timeout=10)
+        return _make_response(500, content=b"server error")
+
+    session.post.side_effect = collector_post
+    export_errors = []
+
+    def export_batch(span):
+        try:
+            exporter._export_spans_incrementally([span])
+        except BaseException as exc:
+            export_errors.append(exc)
+
+    first_thread = threading.Thread(
+        target=export_batch, args=(first_span,), name="collector-export-first"
+    )
+    second_thread = threading.Thread(
+        target=export_batch, args=(second_span,), name="collector-export-second"
+    )
+
+    with mock.patch(f"{_MODULE}._logger") as mock_log:
+        first_thread.start()
+        second_thread.start()
+        try:
+            collector_barrier.wait(timeout=10)
+            release_collector.set()
+        finally:
+            release_collector.set()
+            first_thread.join(timeout=10)
+            second_thread.join(timeout=10)
+
+        assert not first_thread.is_alive()
+        assert not second_thread.is_alive()
+        assert export_errors == []
+        assert session.post.call_count == 2
+
+        # Both collector requests were already in progress before either 5xx
+        # response triggered fallback, so both uncertain batches are replayed.
+        assert mock_client.log_spans.call_count == 2
+        replayed_span_ids = {
+            call.args[1][0].span_id for call in mock_client.log_spans.call_args_list
+        }
+        assert replayed_span_ids == {Span(first_span).span_id, Span(second_span).span_id}
+        assert mock_log.warning.call_count == 1
+        warning = " ".join(str(arg) for arg in mock_log.warning.call_args.args)
+        assert "duplicate" in warning.lower()
+
+        # Once both in-flight failures have completed, a newly started batch
+        # bypasses the collector and uses the legacy REST client directly.
+        exporter._export_spans_incrementally([later_span])
+
+    assert session.post.call_count == 2
+    assert mock_client.log_spans.call_count == 3
+    assert mock_client.log_spans.call_args_list[2].args[1][0].span_id == Span(later_span).span_id
+
+
+@pytest.mark.parametrize("status_code", [500, 502, 503, 504])
+def test_exporter_ambiguous_server_error_replays_batch_and_uses_rest_later(
+    monkeypatch, status_code
+):
+    exporter, session, _ = _make_exporter(monkeypatch)
+    mock_client = mock.MagicMock()
+    exporter._client = mock_client
     session.post.return_value = _make_response(status_code, content=b"server error")
-    otel_span = create_mock_otel_span(trace_id=43, span_id=43)
+    first_span = create_mock_otel_span(trace_id=43, span_id=43)
+    second_span = create_mock_otel_span(trace_id=44, span_id=44)
 
-    with (
-        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
-        mock.patch(f"{_MODULE}._logger") as mock_log,
-    ):
-        exporter._export_spans_incrementally([otel_span])
-        exporter._export_spans_incrementally([otel_span])
+    with mock.patch(f"{_MODULE}._logger") as mock_log:
+        exporter._export_spans_incrementally([first_span])
+        exporter._export_spans_incrementally([second_span])
 
-    # The uncertain batch is not replayed; only the later batch goes through REST.
+    # Each ambiguous status replays the failed batch through the actual REST
+    # client and permanently routes later batches there without retrying the
+    # collector request.
     session.post.assert_called_once()
-    mock_log_spans.assert_called_once()
+    assert mock_client.log_spans.call_count == 2
     mock_log.warning.assert_called_once()
-    assert status_code in mock_log.warning.call_args.args
+    warning = " ".join(str(arg) for arg in mock_log.warning.call_args.args)
+    assert str(status_code) in warning
+    assert "duplicate" in warning.lower()
 
 
 def test_exporter_no_op_on_empty_spans(monkeypatch):

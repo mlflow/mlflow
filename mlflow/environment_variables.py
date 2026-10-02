@@ -1056,7 +1056,12 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: service-principal credentials, MLflow exports trace spans directly to the Databricks
 #: OTel collector instead of the MLflow tracing server. Trace-level metadata (TraceInfo)
 #: still flows through the MLflow backend. Set to ``False`` to always use the MLflow
-#: tracing server span export path.
+#: tracing server span export path. If a collector request fails after it may have
+#: reached the collector, MLflow resends that batch through the tracing server and
+#: uses the tracing server for batches started after the fallback. Concurrent
+#: exports already in progress may still reach the collector. This favors
+#: delivery but may write duplicate spans if the collector already ingested the
+#: failed request.
 #: (default: ``True``)
 MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT", True

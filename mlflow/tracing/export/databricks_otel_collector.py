@@ -590,8 +590,13 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
       before any POST was sent): the batch is replayed over the REST path, but
       the next batch still goes to the collector.
     - Ambiguous delivery (5xx; read timeouts; a connection failure after the
-      request may have been sent): the batch is dropped with a warning, because
-      replaying it could duplicate spans. Later batches use the REST path.
+      request may have been sent): the batch is replayed over the inherited REST
+      path and the exporter is pinned to that path. The warning explains that
+      the replay may create duplicate spans. Batches that start after fallback use
+      REST; concurrent exports already in progress may still contact the collector.
+    - Malformed or partially successful HTTP 200 responses keep their existing
+      handling: the uncertain batch is left untouched while future batches use
+      REST, except that an all-rejected partial response is replayed.
 
     No span-export failure ever propagates out of ``_export_spans_incrementally``,
     so the metadata export still runs.
@@ -640,9 +645,13 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # uncertain. Later batches go straight to the inherited tracing-server
         # REST path without contacting the collector again.
         self._collector_rejected = False
-        # Set after the first ambiguous-delivery warning so later ones log at
+        # Set after the first ambiguous-delivery drop warning so later ones log at
         # DEBUG (mirrors ``_has_raised_span_export_error`` in ``uc_table``).
         self._has_warned_ambiguous_drop = False
+        # Ambiguous transport/server failures replay the current batch through REST.
+        # Warn once per exporter because the replay may create duplicate spans.
+        self._has_warned_ambiguous_fallback = False
+        self._ambiguous_fallback_warning_lock = threading.Lock()
         # A single session for connection pooling. Auth headers are computed per request
         # (in `_post_spans`) rather than stored on the session, so a token refresh on one
         # thread can never race another thread's in-flight export.
@@ -891,6 +900,37 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             _logger.warning(message, *args)
             self._has_warned_ambiguous_drop = True
 
+    def _fall_back_to_rest_after_ambiguous_delivery(
+        self,
+        spans: Sequence[ReadableSpan | Span],
+        reason: str,
+        *args,
+        from_collector_batch: bool = False,
+    ) -> None:
+        """Replay an uncertain batch through REST and pin future batches to REST.
+
+        A 5xx response or a transport failure after the request may have been sent
+        does not establish whether the collector ingested the batch. Replaying it
+        preserves the span as far as possible, with an explicit warning that the
+        replay may create a duplicate. Batches started after the fallback use REST;
+        concurrent exports already in progress may still contact the collector.
+        """
+        self._collector_rejected = True
+        message = reason + (
+            " The collector may have already ingested this batch, so replaying it through "
+            "the MLflow tracing server path may create duplicate spans. New span "
+            "batches will use the tracing server path; concurrent exports already "
+            "in progress may still contact the collector."
+        )
+        with self._ambiguous_fallback_warning_lock:
+            already_warned = self._has_warned_ambiguous_fallback
+            self._has_warned_ambiguous_fallback = True
+        if already_warned:
+            _logger.debug(message, *args)
+        else:
+            _logger.warning(message, *args)
+        self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
+
     def _handle_post_exception(
         self,
         exc: BaseException,
@@ -905,8 +945,11 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         else:
             # Read timeouts and mid-request connection failures (e.g. a reset after
             # the request was sent) leave delivery ambiguous.
-            self._log_ambiguous_drop(
-                "The Databricks OTel collector span export request failed: %s.", exc
+            self._fall_back_to_rest_after_ambiguous_delivery(
+                spans,
+                "The Databricks OTel collector span export request failed: %s.",
+                exc,
+                from_collector_batch=from_collector_batch,
             )
 
     def _handle_collector_response(
@@ -1038,10 +1081,9 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 self._handle_post_exception(exc, spans, from_collector_batch=from_collector_batch)
                 return
 
-        # NB: unlike the stock OTLP HTTP exporter, which retries 429/5xx with backoff, we
-        # intentionally do not retry rate limits or server errors: this runs on
-        # span-processing hot paths, and re-sending a batch to an overloaded ingest only
-        # adds load.
+        # Unlike the stock OTLP HTTP exporter, which retries 429/5xx with backoff, do not
+        # retry a collector request here. 4xx transient responses are replayed through REST,
+        # and ambiguous 5xx responses use REST for this and all later batches.
         if response.ok:
             if response.status_code == 200:
                 self._handle_collector_response(
@@ -1067,10 +1109,22 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 self._fall_back_to_rest(spans, from_collector_batch=from_collector_batch)
             return
 
-        # Even retryable OTLP 5xx statuses (502/503/504) do not prove that the
-        # collector failed to ingest the batch. Replaying through a different
-        # sink could duplicate spans; later batches can safely use REST.
-        # See https://opentelemetry.io/docs/specs/otlp/#duplicate-data.
+        if 500 <= response.status_code < 600:
+            # A 5xx does not prove that the collector failed to ingest the batch.
+            # Replay it through REST to preserve the span when possible, then pin
+            # future batches to REST. The replay can create duplicates if the
+            # collector already ingested the batch.
+            self._fall_back_to_rest_after_ambiguous_delivery(
+                spans,
+                "The Databricks OTel collector span export failed with HTTP %d: %r.",
+                response.status_code,
+                response.content[:_BODY_SNIPPET_BYTES],
+                from_collector_batch=from_collector_batch,
+            )
+            return
+
+        # Unexpected non-2xx/non-4xx statuses leave delivery uncertain. Keep the
+        # existing drop behavior used for malformed or partial HTTP 200 responses.
         self._log_ambiguous_drop(
             "The Databricks OTel collector span export failed with HTTP %d: %r.",
             response.status_code,
