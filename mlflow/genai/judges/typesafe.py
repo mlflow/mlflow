@@ -548,5 +548,6 @@ __all__ = [
     "_invoke_structured_builtin_judge",
     "_invoke_typesafe_judge",
     "_is_gateway_model",
+    "_is_gateway_system_one_rejection",
     "_is_typesafe_model",
 ]

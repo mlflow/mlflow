@@ -26,6 +26,7 @@ from mlflow.genai.judges.typesafe import (
     _invoke_gateway_judge,
     _invoke_typesafe_judge,
     _is_gateway_model,
+    _is_gateway_system_one_rejection,
     _is_typesafe_model,
 )
 from mlflow.genai.judges.utils import (
@@ -693,6 +694,18 @@ class InstructionsJudge(Judge):
                 base_url=self._base_url,
                 extra_headers=self._extra_headers,
             )
+        elif _is_gateway_model(self._model) and is_trace_based:
+            # jev endpoints can't evaluate traces. Chat endpoints handle trace-based judges
+            # fine, so attempt chat; if the endpoint rejects it as System One, surface the
+            # same clear message as the direct typesafe:/ path rather than the raw rejection.
+            try:
+                feedback = _invoke_chat()
+            except MlflowException as e:
+                if _is_gateway_system_one_rejection(e):
+                    raise MlflowException.invalid_parameter_value(
+                        "TypeSafe judge models do not support trace-based evaluation."
+                    ) from e
+                raise
         else:
             feedback = _invoke_chat()
 
