@@ -2232,7 +2232,7 @@
     "lyria-3.5": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1048576,
+        "max_input": 131072,
         "max_output": 65536,
         "max_tokens": 65536
       },
@@ -2247,7 +2247,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-10-02"
     },
     "lyria-3.5-clip-preview": {
       "mode": "chat",
@@ -2398,7 +2398,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-01"
     },
     "veo-3.1-generate-001": {
       "mode": "video_generation",
@@ -2428,7 +2429,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-01"
     },
     "veo-3.1-lite-generate-preview": {
       "mode": "video_generation",
@@ -2443,7 +2445,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-01"
     }
   }
 }

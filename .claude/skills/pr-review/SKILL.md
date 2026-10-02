@@ -178,7 +178,8 @@ Authoring rules not captured by the schema:
 Validate before finishing, then fix any errors and re-emit until both of these pass:
 
 ```bash
-uv run --directory $base_dir --package skills skills validate-review $payload_path
+uv run --directory $base_dir --only-group lint check-jsonschema \
+  --schemafile .claude/skills/pr-review/review-payload.schema.json "$payload_path"
 # only when you wrote a file into $media_dir
 uv run --directory $base_dir --package skills skills embed-media --check --dir $media_dir --target $payload_path
 ```

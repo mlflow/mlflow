@@ -485,6 +485,74 @@ def chat_function_calling_payload(stream: bool = False):
     return payload
 
 
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    ("tool_choice", "expected_config"),
+    [
+        (None, None),
+        ("auto", None),
+        ("none", {"mode": "NONE"}),
+        ("required", {"mode": "ANY"}),
+        (
+            {"type": "function", "function": {"name": "get_weather"}},
+            {"mode": "ANY", "allowedFunctionNames": ["get_weather"]},
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_gemini_chat_tool_choice(tool_choice, expected_config, stream):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=stream)
+    payload["tool_choice"] = tool_choice
+    payload["tools"].append({
+        "type": "function",
+        "function": {
+            "name": "get_forecast",
+            "description": "Get a weather forecast.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    })
+    response = (
+        MockAsyncStreamingResponse(chat_stream_response())
+        if stream
+        else MockAsyncResponse(fake_chat_response())
+    )
+    mock_client = mock_http_client(response)
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        request = chat.RequestPayload(**payload)
+        if stream:
+            chunks = [chunk async for chunk in provider.chat_stream(request)]
+            assert chunks
+        else:
+            await provider.chat(request)
+
+    mock_client.post.assert_called_once()
+    sent_payload = mock_client.post.call_args.kwargs["json"]
+    assert len(sent_payload["tools"][0]["functionDeclarations"]) == 2
+    assert "tool_choice" not in sent_payload
+    if expected_config is None:
+        assert "toolConfig" not in sent_payload
+    else:
+        assert sent_payload["toolConfig"] == {"functionCallingConfig": expected_config}
+
+
+@pytest.mark.parametrize("tools", [None, []])
+@pytest.mark.parametrize(
+    "tool_choice",
+    ["auto", "none", "required", {"type": "function", "function": {"name": "get_weather"}}],
+)
+def test_gemini_tool_choice_without_tools(tools, tool_choice):
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "tools": tools,
+        "tool_choice": tool_choice,
+    }
+    config = EndpointConfig(**chat_config())
+    result = GeminiAdapter.chat_to_model(payload, config)
+    assert "tools" not in result
+    assert "toolConfig" not in result
+
+
 @pytest.mark.asyncio
 async def test_gemini_chat_function_calling():
     config = chat_config()
@@ -1310,6 +1378,101 @@ async def test_gemini_chat_stream(resp):
         timeout=mock.ANY,
         allow_redirects=False,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("split_across_chunks", [False, True])
+async def test_gemini_chat_stream_parallel_tool_calls_get_distinct_indices(split_across_chunks):
+    call_a = {"functionCall": {"name": "get_weather", "args": {"city": "Baku"}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {"tz": "UTC"}}}
+    part_groups = [[call_a], [call_b]] if split_across_chunks else [[call_a, call_b]]
+    resp = [
+        line
+        for parts in part_groups
+        for line in (
+            b"data: "
+            + json.dumps({"candidates": [{"content": {"parts": parts}}]}).encode()
+            + b"\n",
+            b"\n",
+        )
+    ] + [b"data: [DONE]\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    calls = [tc for c in chunks for tc in c.choices[0].delta.tool_calls]
+    assert [(tc.index, tc.function.name) for tc in calls] == [(0, "get_weather"), (1, "get_time")]
+    assert [json.loads(tc.function.arguments) for tc in calls] == [
+        {"city": "Baku"},
+        {"tz": "UTC"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_tool_call_indices_are_per_candidate():
+    call_a = {"functionCall": {"name": "get_weather", "args": {}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {}}}
+    call_c = {"functionCall": {"name": "get_date", "args": {}}}
+    chunks_in = [
+        {
+            "candidates": [
+                {"content": {"parts": [call_a]}},
+                {"content": {"parts": [call_a, call_b]}},
+            ]
+        },
+        {"candidates": [{"content": {"parts": [call_c]}}, {"content": {"parts": [call_c]}}]},
+    ]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    by_candidate = {0: [], 1: []}
+    for c in chunks:
+        for choice in c.choices:
+            by_candidate[choice.index] += [tc.index for tc in choice.delta.tool_calls]
+    assert by_candidate == {0: [0, 1], 1: [0, 1, 2]}
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_tool_call_indices_use_candidate_api_index():
+    call_a = {"functionCall": {"name": "get_weather", "args": {}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {}}}
+    # Each chunk carries a single candidate, so list position differs from the API index.
+    chunks_in = [
+        {"candidates": [{"index": 1, "content": {"parts": [call_a]}}]},
+        {"candidates": [{"index": 0, "content": {"parts": [call_a]}}]},
+        {"candidates": [{"index": 1, "content": {"parts": [call_b]}}]},
+    ]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    by_candidate = {0: [], 1: []}
+    for c in chunks:
+        for choice in c.choices:
+            by_candidate[choice.index] += [
+                (tc.index, tc.function.name) for tc in choice.delta.tool_calls
+            ]
+    assert by_candidate == {0: [(0, "get_weather")], 1: [(0, "get_weather"), (1, "get_time")]}
 
 
 def chat_function_calling_stream_response():
