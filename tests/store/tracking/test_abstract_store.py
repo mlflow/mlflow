@@ -7,6 +7,8 @@ import pytest
 
 from mlflow.entities import Metric
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.scorer_filter import ScorerFilter
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.abstract_store import AbstractStore
 
 
@@ -412,3 +414,24 @@ def test_get_metric_history_bulk_interval_from_steps_different_metric_key(store)
 
     assert len(result) == 1
     assert result[0].key == "accuracy"
+
+
+@pytest.mark.parametrize("selection", [ScorerFilter(), ScorerFilter(experiment_ids={"42"})])
+@pytest.mark.parametrize("scope", [[], ["42"]])
+def test_list_scorers_default_batch_rejects_private_selection(store, selection, scope):
+    with mock.patch.object(store, "list_scorers") as listing:
+        with pytest.raises(MlflowException, match="Scorer filtering is not supported"):
+            store.list_scorers_across_experiments(scope, scorer_filter=selection)
+    listing.assert_not_called()
+
+
+def test_list_scorers_default_batch_supports_legacy_signature(store, monkeypatch):
+    calls = []
+
+    def list_scorers(experiment_id):
+        calls.append(experiment_id)
+        return [experiment_id]
+
+    monkeypatch.setattr(store, "list_scorers", list_scorers)
+    assert store.list_scorers_across_experiments(["42", "7"]) == ["42", "7"]
+    assert calls == ["42", "7"]

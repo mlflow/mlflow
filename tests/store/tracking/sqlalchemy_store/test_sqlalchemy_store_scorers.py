@@ -8,6 +8,7 @@ import pytest
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from sqlalchemy import event
 
 from mlflow.entities import (
     AssessmentSource,
@@ -17,11 +18,12 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
+from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig, SqlScorerVersion
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -1578,3 +1580,79 @@ def test_get_decrypted_secret_integration_multiple_secrets(store):
 
     assert decrypted1 == {"api_key": "key-1"}
     assert decrypted2 == {"api_key": "key-2"}
+
+
+@pytest.mark.parametrize("chunk_size", [1, 500])
+def test_list_scorers_filters_before_resolving_payloads(store, monkeypatch, chunk_size):
+    exp_a = store.create_experiment("filtered-a")
+    exp_b = store.create_experiment("filtered-b")
+    exp_c = store.create_experiment("filtered-c")
+    for eid in [exp_a, exp_b, exp_c]:
+        for name in ["toxicity", "other"]:
+            store.register_scorer(eid, name, json.dumps({"key": f"{eid}/{name}", "v": 1}))
+    store.register_scorer(exp_b, "toxicity", json.dumps({"key": f"{exp_b}/toxicity", "v": 2}))
+    monkeypatch.setattr(store, "_ID_CHUNK_SIZE", chunk_size)
+    selection = ScorerFilter(experiment_ids={exp_a}, scorers={(exp_b, "toxicity")})
+    expected = [(exp_a, "other", 1), (exp_a, "toxicity", 1), (exp_b, "toxicity", 2)]
+    loaded = []
+
+    def record_load(version, context):
+        loaded.append((version.scorer_id, version.scorer_version))
+
+    event.listen(SqlScorerVersion, "load", record_load)
+    try:
+        with mock.patch.object(
+            store,
+            "_batch_resolve_endpoint_in_serialized_scorers",
+            wraps=store._batch_resolve_endpoint_in_serialized_scorers,
+        ) as resolve:
+            scorers = store.list_scorers_across_experiments(
+                [exp_c, exp_b, exp_a, exp_a], scorer_filter=selection
+            )
+        resolve.assert_called_once()
+    finally:
+        event.remove(SqlScorerVersion, "load", record_load)
+    assert sorted(loaded) == sorted((s.scorer_id, s.scorer_version) for s in scorers)
+    assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in scorers] == expected
+    assert [json.loads(payload)["key"] for payload in resolve.call_args.args[0]] == [
+        f"{eid}/{name}" for eid, name, _ in expected
+    ]
+    assert store.list_scorers(exp_c, scorer_filter=selection) == []
+    assert store.list_scorers_across_experiments([], scorer_filter=selection) == []
+    assert store.list_scorers(exp_b, scorer_filter=ScorerFilter()) == []
+
+
+def test_list_scorers_exact_pairs_do_not_form_cartesian_product(store):
+    exp_a = store.create_experiment("pairs-a")
+    exp_b = store.create_experiment("pairs-b")
+    for eid in [exp_a, exp_b]:
+        for name in ["*/%2F/'毒性", "other"]:
+            store.register_scorer(eid, name, '{"v": 1}')
+    selected = {(exp_a, "*/%2F/'毒性"), (exp_b, "other")}
+    scorers = store.list_scorers_across_experiments(
+        [exp_a, exp_b], scorer_filter=ScorerFilter(scorers=selected)
+    )
+    assert {(s.experiment_id, s.scorer_name) for s in scorers} == selected
+
+
+def test_list_scorers_large_exact_selection(store):
+    eid = store.create_experiment("large-selection")
+    store.register_scorer(eid, "selected", '{"v": 1}')
+    store.register_scorer(eid, "private", '{"v": 1}')
+    selected = {(eid, f"absent-{i}") for i in range(1200)} | {(eid, "selected")}
+    scorers = store.list_scorers(eid, scorer_filter=ScorerFilter(scorers=selected))
+    assert [s.scorer_name for s in scorers] == ["selected"]
+
+
+def test_list_scorers_omits_deleted_experiments(store):
+    eid = store.create_experiment("deleted-selection")
+    store.register_scorer(eid, "selected", '{"v": 1}')
+    store.delete_experiment(eid)
+    assert (
+        store.list_scorers_across_experiments(
+            [eid], scorer_filter=ScorerFilter(experiment_ids={eid})
+        )
+        == []
+    )
+    with pytest.raises(MlflowException, match="active"):
+        store.list_scorers(eid, scorer_filter=ScorerFilter())

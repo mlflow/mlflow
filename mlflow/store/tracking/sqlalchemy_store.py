@@ -69,6 +69,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.span import LazySpan
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
@@ -2985,12 +2986,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
 
-    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
+    def list_scorers(
+        self, experiment_id, *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
         Args:
             experiment_id: The experiment ID.
+            scorer_filter: Optional selection. None is unrestricted; an empty
+                filter returns no scorers.
 
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects
@@ -3001,7 +3006,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # ``scorer_name`` because every row shares the same ``experiment_id``.
         experiment = self.get_experiment(experiment_id)
         self._check_experiment_is_active(experiment)
-        return self.list_scorers_across_experiments([experiment.experiment_id])
+        return self.list_scorers_across_experiments(
+            [experiment.experiment_id], scorer_filter=scorer_filter
+        )
 
     # SQLite caps bound parameters at 999 by default; pick a chunk size well
     # below that so callers passing large ID lists (e.g. the admin scorer
@@ -3016,35 +3023,60 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     # bound-parameter cap so their combined bindings remain safe.
     _TRACE_BATCH_QUERY_ID_CHUNK_SIZE = 400
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
-        """
-        Batched ``list_scorers``: returns the latest-version scorer for every
-        ``(experiment_id, scorer_name)`` pair across the given experiments in
-        a single query plan per chunk. Used by the RBAC admin scorer picker
-        to avoid N+1 round trips. ``experiment_id`` validation and
-        active-status checks are skipped — the caller is expected to have
-        already filtered.
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
+        """Return selected latest scorers from active experiments in the current workspace.
+
+        Selection happens before loading versions or resolving gateway endpoints.
+        The optional filter narrows experiment_ids; an empty filter selects nothing.
         """
         if not experiment_ids:
             return []
-        # ``experiment_id`` is an INTEGER column but REST callers pass string
-        # IDs. psycopg2 sent them as untyped literals PostgreSQL would
-        # coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
-        # rejects the comparison ("operator does not exist:
-        # integer = character varying"). Coerce with the same error contract
-        # as ``_get_experiment``.
-        experiment_ids = _parse_experiment_ids(experiment_ids)
+        requested_ids = set(_parse_experiment_ids(experiment_ids))
+        if scorer_filter is None:
+            whole_experiment_ids = requested_ids
+            pairs = []
+        else:
+            whole_experiment_ids = requested_ids & set(
+                _parse_experiment_ids(scorer_filter.experiment_ids)
+            )
+            pairs = sorted({
+                (eid, name)
+                for raw_eid, name in scorer_filter.scorers
+                for eid in _parse_experiment_ids([raw_eid])
+                if eid in requested_ids and eid not in whole_experiment_ids
+            })
         with self.ManagedSessionMaker() as session:
-            scorer_ids: list[str] = []
-            for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
-                chunk = experiment_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
-                scorer_ids.extend(
-                    row.scorer_id
-                    for row in session
-                    .query(SqlScorer.scorer_id)
-                    .filter(SqlScorer.experiment_id.in_(chunk))
-                    .all()
+            scorer_query = (
+                session
+                .query(SqlScorer.scorer_id)
+                .join(SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id)
+                .filter(
+                    SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE,
+                    *self._experiment_where_clauses(),
                 )
+            )
+            scorer_ids: set[str] = set()
+            whole_experiment_ids = sorted(whole_experiment_ids)
+            for start in range(0, len(whole_experiment_ids), self._ID_CHUNK_SIZE):
+                chunk = whole_experiment_ids[start : start + self._ID_CHUNK_SIZE]
+                scorer_ids.update(
+                    row.scorer_id
+                    for row in scorer_query.filter(SqlScorer.experiment_id.in_(chunk)).all()
+                )
+            # Each exact pair uses two binds. Keep both the parameter count and
+            # OR-expression depth bounded, including workspace/lifecycle predicates.
+            pair_chunk_size = max(1, self._ID_CHUNK_SIZE // 2)
+            for start in range(0, len(pairs), pair_chunk_size):
+                predicates = [
+                    and_(SqlScorer.experiment_id == eid, SqlScorer.scorer_name == name)
+                    for eid, name in pairs[start : start + pair_chunk_size]
+                ]
+                scorer_ids.update(
+                    row.scorer_id for row in scorer_query.filter(or_(*predicates)).all()
+                )
+            scorer_ids = sorted(scorer_ids)
             if not scorer_ids:
                 return []
             # ``scorer_ids`` is also chunked for the same reason; build the
