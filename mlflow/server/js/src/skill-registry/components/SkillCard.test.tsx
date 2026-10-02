@@ -61,20 +61,24 @@ describe('SkillCard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Use' }));
 
-    expect(await screen.findByText('Use cluster-inventory')).toBeInTheDocument();
-    expect(screen.getByText('mlflow skills pull @ocp-admin/cluster-inventory')).toBeInTheDocument();
+    expect(await screen.findByText('Use @ocp-admin/cluster-inventory')).toBeInTheDocument();
+    expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
+    expect(screen.getByText('active')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('skills:/@ocp-admin/cluster-inventory/2');
+    expect(document.body.textContent).toContain('mlflow skills pull skills:/@ocp-admin/cluster-inventory/2');
+    expect(document.body.textContent).toContain('--destination .claude/skills');
   });
 
   it('closes the use modal without navigating to the skill details page', async () => {
     renderCard(createMockSkill({ name: 'cluster-inventory', organization: 'ocp-admin' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Use' }));
-    expect(await screen.findByText('Use cluster-inventory')).toBeInTheDocument();
+    expect(await screen.findByText('Use @ocp-admin/cluster-inventory')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use' }).parentElement?.parentElement?.children).toHaveLength(2);
 
     await userEvent.click(await screen.findByRole('button', { name: /close/i }));
 
-    expect(screen.queryByText('Use cluster-inventory')).not.toBeInTheDocument();
+    expect(screen.queryByText('Use @ocp-admin/cluster-inventory')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
   });
 });
