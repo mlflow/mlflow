@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
+import type { ColumnDef, ColumnSizingState, Row, SortDirection, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import type { EvaluationDataset } from '../types';
@@ -92,10 +92,12 @@ const columns: ColumnDef<EvaluationDataset, any>[] = [
     enableSorting: true,
   },
   {
-    id: 'actions',
+    id: COLUMN_IDS.ACTIONS,
     header: '',
     enableSorting: false,
+    enableResizing: false,
     size: 36,
+    minSize: 36,
     maxSize: 36,
     cell: ActionsCell,
   },
@@ -104,6 +106,7 @@ const columns: ColumnDef<EvaluationDataset, any>[] = [
 interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
   columnVisibility: { [key: string]: boolean };
+  columnSizing: ColumnSizingState;
   isActive: boolean;
   onSelectDataset: (dataset: EvaluationDataset) => void;
 }
@@ -117,26 +120,40 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
 
     return (
       <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
-        {row.getVisibleCells().map((cell) => (
-          <TableCell
-            key={cell.id}
-            css={{
-              backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent',
-              width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : 'auto',
-              maxWidth: cell.column.columnDef.maxSize ? `${cell.column.columnDef.maxSize}px` : 'auto',
-              minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : 'auto',
-              ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
-            }}
-          >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        ))}
+        {row.getVisibleCells().map((cell) => {
+          const isFixedWidthColumn = typeof cell.column.columnDef.size === 'number';
+
+          return (
+            <TableCell
+              key={cell.id}
+              style={{
+                flexGrow: cell.column.getCanResize() || isFixedWidthColumn ? 0 : 1,
+                flexBasis: cell.column.getCanResize() || isFixedWidthColumn ? cell.column.getSize() : undefined,
+                flexShrink: !cell.column.getCanResize() && isFixedWidthColumn ? 0 : undefined,
+              }}
+              css={{
+                backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent',
+                maxWidth: cell.column.columnDef.maxSize ? `${cell.column.columnDef.maxSize}px` : 'auto',
+                minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : 'auto',
+                ...(cell.column.id === COLUMN_IDS.ACTIONS && { paddingLeft: 0, paddingRight: 0 }),
+              }}
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          );
+        })}
       </TableRow>
     );
   },
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (prev, next) => {
-    return prev.isActive === next.isActive && isEqual(prev.columnVisibility, next.columnVisibility);
+    return (
+      prev.row.id === next.row.id &&
+      prev.row.original === next.row.original &&
+      prev.isActive === next.isActive &&
+      prev.columnSizing === next.columnSizing &&
+      isEqual(prev.columnVisibility, next.columnVisibility)
+    );
   },
 );
 
@@ -185,6 +202,22 @@ export const ExperimentEvaluationDatasetsListTable = ({
       {} as { [key: string]: boolean },
     ),
   );
+  const selectableColumnIds = columns
+    .map((column) => column.id ?? '')
+    .filter((columnId) => columnId && !UNSELECTABLE_COLUMN_IDS.includes(columnId));
+
+  const setAllSelectableColumnsVisibility = (isVisible: boolean) => {
+    setColumnVisibility((previousVisibility) => {
+      const nextVisibility = { ...previousVisibility };
+
+      selectableColumnIds.forEach((columnId) => {
+        nextVisibility[columnId] = isVisible;
+      });
+
+      return nextVisibility;
+    });
+  };
+
   // Control field that gets updated immediately
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
 
@@ -198,7 +231,8 @@ export const ExperimentEvaluationDatasetsListTable = ({
       enableSorting: true,
       onSortingChange: setSorting,
       getSortedRowModel: getSortedRowModel(),
-      enableColumnResizing: false,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
       state: {
         sorting,
         columnVisibility,
@@ -250,6 +284,19 @@ export const ExperimentEvaluationDatasetsListTable = ({
               <Button icon={<ColumnsIcon />} componentId="mlflow.eval-datasets.table-column-selector-button" />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
+              <DropdownMenu.Item
+                componentId="mlflow.eval-datasets.table-column-selector-select-all"
+                onClick={() => setAllSelectableColumnsVisibility(true)}
+              >
+                Select all columns
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                componentId="mlflow.eval-datasets.table-column-selector-deselect-all"
+                onClick={() => setAllSelectableColumnsVisibility(false)}
+              >
+                Deselect all columns
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator />
               {columns.map(
                 (column) =>
                   !UNSELECTABLE_COLUMN_IDS.includes(column.id ?? '') && (
@@ -257,12 +304,13 @@ export const ExperimentEvaluationDatasetsListTable = ({
                       componentId="mlflow.eval-datasets.table-column-selector-checkbox"
                       key={column.id ?? ''}
                       checked={columnVisibility[column.id ?? ''] ?? false}
-                      onCheckedChange={(checked) =>
-                        setColumnVisibility({
-                          ...columnVisibility,
-                          [column.id ?? '']: checked,
-                        })
-                      }
+                      onCheckedChange={(checked) => {
+                        const columnId = column.id ?? '';
+                        setColumnVisibility((previousVisibility) => ({
+                          ...previousVisibility,
+                          [columnId]: Boolean(checked),
+                        }));
+                      }}
                     >
                       <DropdownMenu.ItemIndicator />
                       <Typography.Text>{column.header}</Typography.Text>
@@ -291,25 +339,36 @@ export const ExperimentEvaluationDatasetsListTable = ({
           scrollable
         >
           <TableRow isHeader>
-            {table.getLeafHeaders().map((header) => (
-              <TableHeader
-                key={header.id}
-                sortable={header.column.getCanSort()}
-                sortDirection={header.column.getIsSorted() as SortDirection}
-                onToggleSort={header.column.getToggleSortingHandler()}
-                componentId="mlflow.eval-datasets.column-header"
-                header={header}
-                column={header.column}
-                css={{
-                  width: header.column.columnDef.size ? `${header.column.columnDef.size}px` : 'auto',
-                  maxWidth: header.column.columnDef.maxSize ? `${header.column.columnDef.maxSize}px` : 'auto',
-                  minWidth: header.column.columnDef.minSize ? `${header.column.columnDef.minSize}px` : 'auto',
-                  cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                }}
-              >
-                {flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHeader>
-            ))}
+            {table.getLeafHeaders().map((header) => {
+              const isFixedWidthColumn = typeof header.column.columnDef.size === 'number';
+
+              return (
+                <TableHeader
+                  key={header.id}
+                  sortable={header.column.getCanSort()}
+                  sortDirection={header.column.getIsSorted() as SortDirection}
+                  onToggleSort={header.column.getToggleSortingHandler()}
+                  componentId="mlflow.eval-datasets.column-header"
+                  header={header}
+                  column={header.column}
+                  setColumnSizing={table.setColumnSizing}
+                  isResizing={header.column.getIsResizing()}
+                  css={{
+                    flexGrow: header.column.getCanResize() || isFixedWidthColumn ? 0 : 1,
+                    maxWidth: header.column.columnDef.maxSize ? `${header.column.columnDef.maxSize}px` : 'auto',
+                    minWidth: header.column.columnDef.minSize ? `${header.column.columnDef.minSize}px` : 'auto',
+                    cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                  }}
+                  style={{
+                    flexBasis:
+                      header.column.getCanResize() || isFixedWidthColumn ? header.column.getSize() : undefined,
+                    flexShrink: !header.column.getCanResize() && isFixedWidthColumn ? 0 : undefined,
+                  }}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHeader>
+              );
+            })}
           </TableRow>
 
           {!isLoading &&
@@ -320,6 +379,7 @@ export const ExperimentEvaluationDatasetsListTable = ({
                   key={row.id}
                   row={row}
                   columnVisibility={columnVisibility}
+                  columnSizing={table.getState().columnSizing}
                   isActive={row.original.dataset_id === selectedDatasetId}
                   onSelectDataset={(dataset) => setSelectedDatasetId(dataset.dataset_id)}
                 />
