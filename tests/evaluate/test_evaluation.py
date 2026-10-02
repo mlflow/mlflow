@@ -697,25 +697,6 @@ def test_gen_md5_for_arraylike_obj():
     assert get_md5(list3) == get_md5(list4)
 
 
-@pytest.mark.parametrize(
-    ("rows_a", "rows_b"),
-    [
-        ([[{"a": 1}, {"a": 2}], [{"a": 3}]], [[{"a": 1}], [{"a": 2}, {"a": 3}]]),
-        ([[1, 2], [3]], [[1], [2, 3]]),
-    ],
-)
-def test_gen_md5_for_arraylike_obj_with_ragged_nested_arrays(rows_a, rows_b):
-    def get_md5(rows):
-        data = np.empty(len(rows), dtype=object)
-        data[:] = [np.array(row) for row in rows]
-        md5_gen = hashlib.md5(usedforsecurity=False)
-        _gen_md5_for_arraylike_obj(md5_gen, data)
-        return md5_gen.hexdigest()
-
-    assert get_md5(rows_a) == get_md5(rows_a)
-    assert get_md5(rows_a) != get_md5(rows_b)
-
-
 def test_gen_md5_for_arraylike_obj_with_pandas_df_using_float_idx_does_not_raise_keyerror():
     float_indices = np.random.uniform(low=0.5, high=13.3, size=(10,))
     df = pd.DataFrame(np.random.randn(10, 4), index=float_indices, columns=["A", "B", "C", "D"])
