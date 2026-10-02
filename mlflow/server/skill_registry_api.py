@@ -26,7 +26,7 @@ from mlflow.server.skill_registry.registration import (
     get_max_upload_size,
     register_skill_version,
 )
-from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
+from mlflow.store.tracking import NOT_SET
 from mlflow.utils.validation import (
     _MAX_REGISTRY_ICONS_PER_LIST,
     _validate_icon_mime_type,

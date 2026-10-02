@@ -29,7 +29,7 @@ from mlflow.server.skill_registry_api import (
     skill_registry_router,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
+from mlflow.store.tracking import NOT_SET
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.validation import _MAX_REGISTRY_ICONS_PER_LIST
 

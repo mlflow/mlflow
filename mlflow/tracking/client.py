@@ -54,6 +54,9 @@ from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerV
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
+from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.entities.skill_source import GitSource, OCISource, ZipSource
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -109,11 +112,12 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import (
+    NOT_SET,
     SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
@@ -7037,3 +7041,100 @@ class MlflowClient:
 
     def delete_mcp_server_alias(self, name: str, alias: str) -> None:
         self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)
+
+    # ---------------------------------------------------------------------------
+    # Skill Registry
+    # ---------------------------------------------------------------------------
+
+    def create_skill(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        description: str | None = None,
+        icons: list[RegistryIcon] | None = None,
+    ) -> Skill: ...
+
+    def get_skill(self, *, name: str, organization: str = "") -> Skill: ...
+
+    def search_skills(
+        self,
+        *,
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Skill]: ...
+
+    def update_skill(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        description: str | None = NOT_SET,
+        icons: list[RegistryIcon] | None = NOT_SET,
+    ) -> Skill: ...
+
+    def delete_skill(self, *, name: str, organization: str = "") -> None: ...
+
+    def create_skill_version(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        source: GitSource | OCISource | ZipSource | str | None = None,
+        digest: str | None = None,
+        status: str = "active",
+    ) -> SkillVersion: ...
+
+    def bulk_register_skills(
+        self,
+        *,
+        skill_definitions: list[dict[str, Any]],
+        organization: str = "",
+    ) -> list[SkillVersion]: ...
+
+    def get_skill_version(
+        self, *, name: str, version: int, organization: str = ""
+    ) -> SkillVersion: ...
+
+    def get_skill_version_by_alias(
+        self, *, name: str, alias: str, organization: str = ""
+    ) -> SkillVersion: ...
+
+    def get_latest_skill_version(self, *, name: str, organization: str = "") -> SkillVersion: ...
+
+    def search_skill_versions(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[SkillVersion]: ...
+
+    def update_skill_version(
+        self, *, name: str, version: int, organization: str = "", status: str | None = NOT_SET
+    ) -> SkillVersion: ...
+
+    def delete_skill_version(self, *, name: str, version: int, organization: str = "") -> None: ...
+
+    def set_skill_tag(self, *, name: str, key: str, value: str, organization: str = "") -> None: ...
+
+    def delete_skill_tag(self, *, name: str, key: str, organization: str = "") -> None: ...
+
+    def set_skill_version_tag(
+        self, *, name: str, version: int, key: str, value: str, organization: str = ""
+    ) -> None: ...
+
+    def delete_skill_version_tag(
+        self, *, name: str, version: int, key: str, organization: str = ""
+    ) -> None: ...
+
+    def set_skill_alias(
+        self, *, name: str, alias: str, version: int, organization: str = ""
+    ) -> None: ...
+
+    def delete_skill_alias(self, *, name: str, alias: str, organization: str = "") -> None: ...

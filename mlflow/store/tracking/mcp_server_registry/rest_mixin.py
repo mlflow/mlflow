@@ -11,8 +11,8 @@ from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPSta
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 from mlflow.utils.rest_utils import http_request, verify_rest_response
 
 _MCP_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
