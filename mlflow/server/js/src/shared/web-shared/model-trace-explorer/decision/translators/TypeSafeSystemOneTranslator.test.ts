@@ -3,31 +3,23 @@ import { describe, expect, test } from '@jest/globals';
 import { typeSafeSystemOneTranslator } from './TypeSafeSystemOneTranslator';
 
 const translate = ({ inputs, outputs }: { inputs: unknown; outputs: unknown }) =>
-  typeSafeSystemOneTranslator.translate({ title: 'typesafe.system_one', inputs, outputs });
+  typeSafeSystemOneTranslator.translate({ chatMessageFormat: 'typesafe', inputs, outputs });
 
 describe('TypeSafe System One source matching', () => {
-  test.each([
-    { title: 'typesafe.system_one' },
-    { title: 'custom-name', modelProvider: 'typesafe' },
-    { title: 'custom-name', modelProvider: 'TypeSafe' },
-  ])('accepts a positive TypeSafe source signal: %p', (span) => {
-    expect(typeSafeSystemOneTranslator.matches(span)).toBe(true);
+  test('accepts the TypeSafe message format', () => {
+    expect(typeSafeSystemOneTranslator.matches({ chatMessageFormat: 'typesafe' })).toBe(true);
   });
 
-  test.each([{ title: 'typesafe.systemOne' }, { title: 'other', modelProvider: 'other' }, { title: 'jev-1.13.0' }])(
-    'rejects spans without a TypeSafe source signal: %p',
-    (span) => {
-      expect(typeSafeSystemOneTranslator.matches(span)).toBe(false);
-    },
-  );
-
   test.each([
-    { title: 'other', modelProvider: null },
-    { title: 'other', modelProvider: 42 },
-    { title: 'other', modelProvider: false },
-    { title: 'other', modelProvider: ['typesafe'] },
-    { title: 'other', modelProvider: { provider: 'typesafe' } },
-  ])('rejects a non-string model provider without throwing: %p', (span) => {
+    { title: 'typesafe.system_one' },
+    { modelProvider: 'typesafe' },
+    { title: 'typesafe.system_one', modelProvider: 'typesafe' },
+    { chatMessageFormat: 'TypeSafe' },
+    { chatMessageFormat: 'openai' },
+    { chatMessageFormat: null },
+    { chatMessageFormat: 42 },
+    { chatMessageFormat: ['typesafe'] },
+  ])('rejects a span without the exact TypeSafe message format: %p', (span) => {
     expect(typeSafeSystemOneTranslator.matches(span)).toBe(false);
   });
 });

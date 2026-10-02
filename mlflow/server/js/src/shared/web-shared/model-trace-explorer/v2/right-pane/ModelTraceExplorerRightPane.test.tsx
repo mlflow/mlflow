@@ -64,6 +64,7 @@ describe('ModelTraceExplorerRightPane', () => {
           'mlflow.spanType': JSON.stringify('LLM'),
           'mlflow.spanInputs': JSON.stringify(inputs),
           'mlflow.spanOutputs': JSON.stringify(outputs),
+          'mlflow.message.format': JSON.stringify('typesafe'),
           'mlflow.llm.model': JSON.stringify('jev-1.13.0'),
           'mlflow.llm.provider': JSON.stringify('typesafe'),
           'mlflow.chat.tokenUsage': JSON.stringify(tokenUsage),
@@ -79,6 +80,7 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(span.type).toBe(ModelSpanType.LLM);
     expect(span.inputs).toEqual(inputs);
     expect(span.outputs).toEqual(outputs);
+    expect(span.chatMessageFormat).toBe('typesafe');
     expect(span.modelName).toBe('jev-1.13.0');
     expect(span.modelProvider).toBe('typesafe');
     expect(span.tokenUsage).toEqual(tokenUsage);
@@ -168,6 +170,7 @@ describe('ModelTraceExplorerRightPane', () => {
           'mlflow.spanType': JSON.stringify('LLM'),
           'mlflow.spanInputs': JSON.stringify(inputs),
           'mlflow.spanOutputs': JSON.stringify(outputs),
+          'mlflow.message.format': JSON.stringify('typesafe'),
           'mlflow.llm.model': JSON.stringify('jev-custom-alias'),
           'mlflow.llm.provider': JSON.stringify('typesafe'),
         },

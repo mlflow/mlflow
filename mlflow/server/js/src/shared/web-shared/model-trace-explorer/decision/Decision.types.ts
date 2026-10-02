@@ -76,8 +76,7 @@ export interface DecisionViewModel {
 }
 
 export interface DecisionSpanLike {
-  title?: unknown;
-  modelProvider?: unknown;
+  chatMessageFormat?: unknown;
   inputs?: unknown;
   outputs?: unknown;
 }

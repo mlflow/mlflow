@@ -39,6 +39,7 @@ describe('ModelTraceExplorerRightPane', () => {
       key: DEFAULT_SPAN.context.span_id,
       assessments: [],
       traceId: DEFAULT_SPAN.context.trace_id,
+      chatMessageFormat: 'typesafe',
       modelProvider: 'typesafe',
       inputs: {
         state: 'I was charged twice',
@@ -112,6 +113,32 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(contentTab).toHaveTextContent('input_tokens');
   });
 
+  it('does not select the decision renderer from the TypeSafe span title and provider alone', () => {
+    const span: ModelTraceSpanNode = {
+      ...DEFAULT_SPAN,
+      title: 'typesafe.system_one',
+      start: DEFAULT_SPAN.start_time,
+      end: DEFAULT_SPAN.end_time,
+      key: DEFAULT_SPAN.context.span_id,
+      assessments: [],
+      traceId: DEFAULT_SPAN.context.trace_id,
+      modelProvider: 'typesafe',
+      inputs: {
+        state: 'I was charged twice',
+        questions: { duplicate_charge: { type: 'noul', instructions: 'Is this a duplicate charge?' } },
+      },
+      outputs: { answers: { duplicate_charge: { type: 'noul', noul: 0.99 } } },
+    };
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.queryByTestId('decision-questions')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('decision-answers')).not.toBeInTheDocument();
+    expect(screen.getByTestId('model-trace-explorer-content-tab')).toHaveTextContent('answers');
+  });
+
   it('falls back to generic fields for a TypeSafe custom response without standard answers', () => {
     const span: ModelTraceSpanNode = {
       ...DEFAULT_SPAN,
@@ -121,6 +148,7 @@ describe('ModelTraceExplorerRightPane', () => {
       key: DEFAULT_SPAN.context.span_id,
       assessments: [],
       traceId: DEFAULT_SPAN.context.trace_id,
+      chatMessageFormat: 'typesafe',
       modelProvider: 'typesafe',
       inputs: {
         state: 'custom response input',

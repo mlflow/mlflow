@@ -11,8 +11,7 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 
-const matches = ({ title, modelProvider }: DecisionSpanLike): boolean =>
-  (typeof modelProvider === 'string' && modelProvider.toLowerCase() === 'typesafe') || title === 'typesafe.system_one';
+const matches = ({ chatMessageFormat }: DecisionSpanLike): boolean => chatMessageFormat === 'typesafe';
 
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
