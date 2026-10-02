@@ -885,7 +885,7 @@ Required Permissions for accessing scorers:
       <td>List Scorers</td>
       <td>`3.0/mlflow/scorers/list`</td>
       <td>`GET`</td>
-      <td>can_read (on experiment)</td>
+      <td>can_read (on experiment and scorer)</td>
     </tr>
     <tr>
       <td>Get Scorer</td>
@@ -907,6 +907,8 @@ Required Permissions for accessing scorers:
     </tr>
   </tbody>
 </table>
+
+A listed scorer must be readable at both tiers: its experiment and the scorer itself. A wildcard scorer grant (`*`) makes every scorer in the caller's readable experiments listable; a grant on a single scorer lists only that scorer. The scorer resource key is the experiment ID and URL-encoded scorer name, for example `42/toxicity` or `42/name%2Fwith%2Fslash`. A tier the caller holds no grant of falls back to the workspace grant. The list endpoint also accepts repeated `scorer_keys` parameters to select exact scorers; under basic authentication the request is narrowed to the caller's grants before the store query, and the response is filtered again so a `DENY` on a single experiment or scorer is honored.
 
 MLflow Authentication provides API endpoints to manage users and permissions.
 

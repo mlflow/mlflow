@@ -3794,6 +3794,39 @@ def test_list_scorers_cross_experiment(mock_get_request_message, mock_tracking_s
     assert call_args.args[0] == ["1", "2", "3"]
 
 
+def test_list_scorers_with_exact_scorer_keys(mock_get_request_message, mock_tracking_store):
+    scorer_key = "123/with%2Fslash"
+    mock_get_request_message.return_value = ListScorers(scorer_keys=[scorer_key])
+    mock_tracking_store.filter_active_experiment_ids.return_value = []
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name in {"experiment_ids", "scorer_keys"},
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 200
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with([], [scorer_key])
+    mock_tracking_store.list_scorers.assert_not_called()
+
+
+def test_list_scorers_rejects_noncanonical_scorer_key(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = ListScorers(scorer_keys=["123/with/slash"])
+
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "scorer_keys",
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 400
+    assert "Invalid scorer key" in json.loads(resp.get_data())["message"]
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+
+
 def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
     mock_get_request_message, mock_tracking_store
 ):
@@ -3801,7 +3834,10 @@ def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
         experiment_id="123", experiment_ids=["123", "456"]
     )
 
-    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "experiment_ids",
+    ):
         resp = _list_scorers()
 
     assert resp.status_code == 400
@@ -3824,7 +3860,10 @@ def test_list_scorers_with_experiment_ids_against_databricks_backend_not_support
 
     with (
         mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
-        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
+        mock.patch(
+            "mlflow.server.handlers._raw_request_has_field",
+            side_effect=lambda field: field.name == "experiment_ids",
+        ),
     ):
         resp = _list_scorers()
 
@@ -3834,12 +3873,113 @@ def test_list_scorers_with_experiment_ids_against_databricks_backend_not_support
     assert "experiment_ids" in body["message"]
 
 
+def test_list_scorers_with_experiment_ids_and_scorer_keys_against_databricks_backend_not_supported(
+    mock_get_request_message,
+):
+    # The plural ``experiment_ids`` selector must stay rejected on backends
+    # that don't support it even when ``scorer_keys`` is also present --
+    # ``scorer_keys`` must not be usable to smuggle the unsupported plural-id
+    # filter through.
+    mock_get_request_message.return_value = ListScorers(
+        experiment_ids=["123"], scorer_keys=["456/accuracy"]
+    )
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch(
+            "mlflow.server.handlers._raw_request_has_field",
+            side_effect=lambda field: field.name in {"experiment_ids", "scorer_keys"},
+        ),
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "experiment_ids" in body["message"]
+
+
+def test_list_scorers_with_auth_synthesized_experiment_ids_against_databricks_backend(
+    mock_get_request_message,
+):
+    # When auth scoping (not the client) populates ``experiment_ids`` --
+    # e.g. narrowing an unrestricted request down to the caller's readable
+    # experiments -- the Databricks "plural experiment_ids not supported"
+    # rejection must not apply, since this isn't a client-driven ad hoc
+    # plural filter.
+    mock_get_request_message.return_value = ListScorers(experiment_ids=["123"])
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+    scorer = ScorerVersion("123", "accuracy", 1, "{}", 1)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch(
+            "mlflow.server.handlers._raw_request_has_field",
+            side_effect=lambda field: field.name == "experiment_ids",
+        ),
+        mock.patch("mlflow.server.handlers._auth_synthesized_experiment_ids", return_value=True),
+        mock.patch.object(
+            databricks_store, "list_scorers_across_experiments", return_value=[scorer]
+        ) as list_mock,
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 200
+    list_mock.assert_called_once_with(["123"])
+
+
+def test_list_scorers_with_single_experiment_id_and_scorer_keys_against_databricks_backend(
+    mock_get_request_message,
+):
+    # Singular ``experiment_id`` + ``scorer_keys`` must not go through
+    # ``filter_active_experiment_ids`` (which Databricks always rejects for
+    # any input). It queries the store's own ``list_scorers`` (which performs
+    # the usual active-experiment check) and merges in the exact-key lookup,
+    # rather than passing the singular id straight into the batched
+    # ``list_scorers_across_experiments`` path (which trusts its input to
+    # already be prefiltered and would skip that check).
+    mock_get_request_message.return_value = ListScorers(
+        experiment_id="123", scorer_keys=["456/accuracy"]
+    )
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+    own_scorer = ScorerVersion("123", "precision", 1, "{}", 1)
+    exact_scorer = ScorerVersion("456", "accuracy", 1, "{}", 1)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch(
+            "mlflow.server.handlers._raw_request_has_field",
+            side_effect=lambda field: field.name == "scorer_keys",
+        ),
+        mock.patch.object(
+            databricks_store, "list_scorers", return_value=[own_scorer]
+        ) as list_scorers_mock,
+        mock.patch.object(
+            databricks_store, "list_scorers_across_experiments", return_value=[exact_scorer]
+        ) as list_across_mock,
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 200
+    list_scorers_mock.assert_called_once_with("123")
+    list_across_mock.assert_called_once_with([], ["456/accuracy"])
+    body = json.loads(resp.get_data())
+    assert {s["scorer_name"] for s in body["scorers"]} == {"precision", "accuracy"}
+
+
 def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_tracking_store):
     mock_get_request_message.return_value = ListScorers(experiment_ids=[])
     mock_tracking_store.filter_active_experiment_ids.return_value = []
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
-    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "experiment_ids",
+    ):
         resp = _list_scorers()
 
     mock_tracking_store.get_experiment.assert_not_called()
@@ -3861,7 +4001,10 @@ def test_list_scorers_with_experiment_ids_batches_validation(
     mock_tracking_store.filter_active_experiment_ids.return_value = ["123"]
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
-    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "experiment_ids",
+    ):
         resp = _list_scorers()
 
     mock_tracking_store.get_experiment.assert_not_called()
@@ -3874,7 +4017,10 @@ def test_list_scorers_with_experiment_ids_batches_validation(
 def test_list_scorers_with_invalid_experiment_id(mock_get_request_message, mock_tracking_store):
     mock_get_request_message.return_value = ListScorers(experiment_ids=["123", "invalid id"])
 
-    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "experiment_ids",
+    ):
         resp = _list_scorers()
 
     assert resp.status_code == 400
@@ -3895,7 +4041,10 @@ def test_list_scorers_with_experiment_ids_drops_inactive_or_missing(
     mock_tracking_store.filter_active_experiment_ids.return_value = ["123"]
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
-    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "experiment_ids",
+    ):
         _list_scorers()
 
     mock_tracking_store.get_experiment.assert_not_called()
@@ -4511,7 +4660,10 @@ def test_batch_get_traces_handler_with_experiment_ids(
     )
     mock_tracking_store.batch_get_traces.return_value = []
 
-    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+    with mock.patch(
+        "mlflow.server.handlers._raw_request_has_field",
+        side_effect=lambda field: field.name == "experiment_ids",
+    ):
         response = _batch_get_traces()
 
     mock_tracking_store.batch_get_traces.assert_called_once_with(

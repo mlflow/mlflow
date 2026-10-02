@@ -25,6 +25,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
 from mlflow.utils.crypto import KEKManager, _decrypt_secret
+from mlflow.utils.scorer_keys import parse_scorer_key
 
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
@@ -3016,16 +3017,18 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     # bound-parameter cap so their combined bindings remain safe.
     _TRACE_BATCH_QUERY_ID_CHUNK_SIZE = 400
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], scorer_keys: list[str] | None = None
+    ) -> list[ScorerVersion]:
         """
         Batched ``list_scorers``: returns the latest-version scorer for every
         ``(experiment_id, scorer_name)`` pair across the given experiments in
-        a single query plan per chunk. Used by the RBAC admin scorer picker
-        to avoid N+1 round trips. ``experiment_id`` validation and
-        active-status checks are skipped — the caller is expected to have
-        already filtered.
+        a single query plan per chunk. ``experiment_id`` validation and
+        active-status checks are skipped for experiment IDs because callers
+        must filter those before calling. Exact scorer keys are restricted to
+        active experiments and use the workspace-aware query path.
         """
-        if not experiment_ids:
+        if not experiment_ids and not scorer_keys:
             return []
         # ``experiment_id`` is an INTEGER column but REST callers pass string
         # IDs. psycopg2 sent them as untyped literals PostgreSQL would
@@ -3034,17 +3037,50 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # integer = character varying"). Coerce with the same error contract
         # as ``_get_experiment``.
         experiment_ids = _parse_experiment_ids(experiment_ids)
+        scorer_pairs = [
+            (_parse_experiment_id(experiment_id), scorer_name)
+            for experiment_id, scorer_name in map(parse_scorer_key, scorer_keys or [])
+        ]
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
             for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
                 chunk = experiment_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
                 scorer_ids.extend(
                     row.scorer_id
-                    for row in session
-                    .query(SqlScorer.scorer_id)
+                    for row in self
+                    ._get_query(session, SqlScorer)
+                    .with_entities(SqlScorer.scorer_id)
                     .filter(SqlScorer.experiment_id.in_(chunk))
                     .all()
                 )
+            pair_chunk_size = max(1, self._ID_CHUNK_SIZE // 2)
+            active_experiment_ids = (
+                self
+                ._get_query(session, SqlExperiment)
+                .filter(SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE)
+                .with_entities(SqlExperiment.experiment_id)
+                .subquery()
+            )
+            for chunk_start in range(0, len(scorer_pairs), pair_chunk_size):
+                chunk = scorer_pairs[chunk_start : chunk_start + pair_chunk_size]
+                scorer_ids.extend(
+                    row.scorer_id
+                    for row in self
+                    ._get_query(session, SqlScorer)
+                    .filter(
+                        SqlScorer.experiment_id.in_(select(active_experiment_ids.c.experiment_id)),
+                        or_(*[
+                            and_(
+                                SqlScorer.experiment_id == experiment_id,
+                                SqlScorer.scorer_name == scorer_name,
+                            )
+                            for experiment_id, scorer_name in chunk
+                        ]),
+                    )
+                    .with_entities(SqlScorer.scorer_id)
+                    .all()
+                )
+            scorer_ids = list(dict.fromkeys(scorer_ids))
             if not scorer_ids:
                 return []
             # ``scorer_ids`` is also chunked for the same reason; build the

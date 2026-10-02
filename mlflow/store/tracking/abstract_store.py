@@ -57,6 +57,7 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
+from mlflow.utils.scorer_keys import experiment_id_sort_key, parse_scorer_key
 
 
 @developer_stable
@@ -1692,17 +1693,52 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], scorer_keys: list[str] | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers across multiple experiments in one batch. The default
         impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
-        overrides with a single JOIN for admin pickers that need to enumerate
-        scorers across hundreds of experiments without N+1 round trips.
+        overrides with batched queries. ``scorer_keys`` adds exact
+        ``<experiment_id>/<URL-encoded-scorer-name>`` pairs to the selected
+        experiments.
         """
-        result: list[ScorerVersion] = []
-        for exp_id in experiment_ids:
-            result.extend(self.list_scorers(exp_id))
-        return result
+        requested_keys = {parse_scorer_key(key): key for key in (scorer_keys or [])}
+        requested_experiment_ids = set(experiment_ids)
+        exact_only_experiment_ids = {
+            exp_id for exp_id, _ in requested_keys if exp_id not in requested_experiment_ids
+        }
+        # Deliberately call the base-class implementation instead of
+        # ``self.filter_active_experiment_ids``: subclasses such as
+        # ``DatabricksRestStore`` override that method to unconditionally
+        # reject the *plural* ``experiment_ids`` selector, but resolving a
+        # handful of individual ``scorer_keys`` experiment ids here is a
+        # narrow, bounded lookup that every store supports via
+        # ``get_experiment`` (which this default impl calls per id). Routing
+        # through ``self.filter_active_experiment_ids`` would make exact
+        # scorer-key lookups fail entirely on those backends.
+        active_exact_experiment_ids = AbstractStore.filter_active_experiment_ids(
+            self, sorted(exact_only_experiment_ids, key=experiment_id_sort_key)
+        )
+        selected_experiments = requested_experiment_ids | set(active_exact_experiment_ids)
+        selected_experiments = sorted(selected_experiments, key=experiment_id_sort_key)
+        scorers = {}
+        for exp_id in selected_experiments:
+            try:
+                for scorer in self.list_scorers(exp_id):
+                    key = (str(scorer.experiment_id), scorer.scorer_name)
+                    if exp_id in requested_experiment_ids or key in requested_keys:
+                        scorers[key] = scorer
+            except MlflowException as exc:
+                if exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+        return [
+            scorers[key]
+            for key in sorted(
+                scorers,
+                key=lambda item: (*experiment_id_sort_key(item[0]), item[1]),
+            )
+        ]
 
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
         """

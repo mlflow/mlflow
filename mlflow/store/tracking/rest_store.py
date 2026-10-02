@@ -185,6 +185,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.scorer_keys import parse_scorer_key
 from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 
 _logger = logging.getLogger(__name__)
@@ -1817,6 +1818,39 @@ class RestStore(
             endpoint="/api/3.0/mlflow/scorers/list",
         )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], scorer_keys: list[str] | None = None
+    ) -> list[ScorerVersion]:
+        if not experiment_ids and not scorer_keys:
+            return []
+        scorer_keys = scorer_keys or []
+        requested_keys = {parse_scorer_key(key): key for key in scorer_keys}
+        requested_experiment_ids = set(experiment_ids)
+        # Older MLflow servers ignore unknown protobuf fields. Include exact-key
+        # experiments in the supported experiment_ids field so those servers
+        # still return the requested scorers; filter their broader response below.
+        request_experiment_ids = list(
+            dict.fromkeys([
+                *experiment_ids,
+                *(experiment_id for experiment_id, _ in requested_keys),
+            ])
+        )
+        request_message = ListScorers(
+            experiment_ids=request_experiment_ids,
+            scorer_keys=scorer_keys,
+        )
+        response_proto = self._call_endpoint(
+            ListScorers,
+            message_to_json(request_message),
+            endpoint="/api/3.0/mlflow/scorers/list",
+        )
+        return [
+            scorer
+            for scorer in map(ScorerVersion.from_proto, response_proto.scorers)
+            if str(scorer.experiment_id) in requested_experiment_ids
+            or (str(scorer.experiment_id), scorer.scorer_name) in requested_keys
+        ]
 
     def list_scorer_versions(self, experiment_id: str, name: str) -> list[ScorerVersion]:
         """

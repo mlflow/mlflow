@@ -406,6 +406,7 @@ from mlflow.utils.providers import (
     get_models,
     get_provider_config_response,
 )
+from mlflow.utils.scorer_keys import experiment_id_sort_key, parse_scorer_key
 from mlflow.utils.server_info import (
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
@@ -1147,15 +1148,44 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     """
     try:
         if request.method == "GET":
-            return field.name in request.args
+            # Fields the auth layer injected while narrowing the request count
+            # as present even though they never appeared in the query string.
+            scoped_overrides = g.get("mlflow_scoped_request_overrides") or {}
+            return field.name in scoped_overrides or field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
     except RuntimeError:
         return False
 
 
+def _get_scoped_request_overrides() -> dict[str, Any]:
+    """
+    Return GET fields the auth layer rewrote for this request (see
+    ``mlflow.server.auth._scope_list_scorers``); empty outside a request context.
+    """
+    try:
+        return g.get("mlflow_scoped_request_overrides") or {}
+    except RuntimeError:
+        return {}
+
+
+def _auth_synthesized_experiment_ids() -> bool:
+    """
+    Whether the current request's ``experiment_ids`` came from auth scoping
+    (``mlflow.server.auth._scope_list_scorers``) narrowing a singular
+    ``experiment_id``, ``scorer_keys``-only, or unrestricted request down to
+    the caller's readable experiments, rather than the client supplying the
+    plural ``experiment_ids`` selector itself.
+    """
+    try:
+        return g.get("mlflow_auth_synthesized_experiment_ids", False)
+    except RuntimeError:
+        return False
+
+
 def _get_request_message(request_message, flask_request=request, schema=None):
-    if flask_request.method == "GET" and flask_request.args:
+    scoped_overrides = _get_scoped_request_overrides() if flask_request.method == "GET" else {}
+    if flask_request.method == "GET" and (flask_request.args or scoped_overrides):
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
         # protobuf does not know how to read the query parameters directly. The query parser above
@@ -1184,6 +1214,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                         )
                     value = value.lower() == "true"
                 request_json[field.name] = value
+        request_json.update(scoped_overrides)
     else:
         request_json = _get_normalized_request_json(flask_request)
 
@@ -6202,6 +6233,30 @@ def _search_active_experiment_ids(store):
     return experiment_ids
 
 
+def _list_scorers_for_experiment_ids(
+    store, experiment_ids, scorer_keys=None, allow_unsupported_filter=False
+):
+    """
+    ``allow_unsupported_filter`` must be True only when ``experiment_ids`` was
+    synthesized by auth scoping (see ``mlflow.server.auth._scope_list_scorers``)
+    rather than supplied by the client as the plural ``experiment_ids``
+    selector. In that case the ids are already a caller-bounded set, so a
+    backend raising "plural experiment_ids not supported" (e.g. Databricks)
+    shouldn't reject the request -- that rejection exists to stop a client
+    from driving an arbitrary ad hoc plural filter, which doesn't apply to an
+    auth-derived list.
+    """
+    try:
+        valid_experiment_ids = store.filter_active_experiment_ids(experiment_ids)
+    except MlflowNotImplementedException as exc:
+        if not allow_unsupported_filter:
+            raise MlflowException(exc.message, error_code=INVALID_PARAMETER_VALUE) from exc
+        valid_experiment_ids = experiment_ids
+    if scorer_keys is None:
+        return store.list_scorers_across_experiments(valid_experiment_ids)
+    return store.list_scorers_across_experiments(valid_experiment_ids, scorer_keys)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_scorers():
@@ -6210,12 +6265,19 @@ def _list_scorers():
         schema={
             "experiment_id": [_assert_string],
             "experiment_ids": [_assert_array, _assert_item_type_string],
+            "scorer_keys": [_assert_array, _assert_item_type_string],
         },
     )
     response_message = ListScorers.Response()
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    scorer_keys_field = request_message.DESCRIPTOR.fields_by_name["scorer_keys"]
+    has_scorer_keys = _raw_request_has_field(scorer_keys_field)
+    scorer_keys = list(request_message.scorer_keys)
+    for scorer_key in scorer_keys:
+        experiment_id, _ = parse_scorer_key(scorer_key)
+        _validate_experiment_id(experiment_id)
     if request_message.experiment_id and has_experiment_ids:
         raise MlflowException(
             "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "
@@ -6223,21 +6285,54 @@ def _list_scorers():
             "'experiment_id' to scope it to a single experiment.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if has_experiment_ids:
+    if (
+        has_scorer_keys
+        and not scorer_keys
+        and not has_experiment_ids
+        and not request_message.experiment_id
+    ):
+        scorers = []
+    elif has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        if requested_experiment_ids:
-            for eid in requested_experiment_ids:
-                _validate_experiment_id(eid)
-        valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
-        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
+        scorers = _list_scorers_for_experiment_ids(
+            store,
+            requested_experiment_ids,
+            scorer_keys if has_scorer_keys else None,
+            allow_unsupported_filter=_auth_synthesized_experiment_ids(),
+        )
     elif request_message.experiment_id:
-        scorers = store.list_scorers(request_message.experiment_id)
+        if has_scorer_keys:
+            _validate_experiment_id(request_message.experiment_id)
+            # ``list_scorers`` (not ``list_scorers_across_experiments``)
+            # performs the usual active-experiment check; the batched path
+            # deliberately trusts its ``experiment_ids`` argument to already
+            # be prefiltered (see ``SqlAlchemyStore.list_scorers_across_
+            # experiments``), so merge its own scorers with the exact-key
+            # lookup instead of passing the singular id straight through.
+            own_scorers = store.list_scorers(request_message.experiment_id)
+            exact_scorers = store.list_scorers_across_experiments([], scorer_keys)
+            merged = {(s.experiment_id, s.scorer_name): s for s in [*own_scorers, *exact_scorers]}
+            scorers = [
+                merged[key]
+                for key in sorted(
+                    merged, key=lambda item: (*experiment_id_sort_key(item[0]), item[1])
+                )
+            ]
+        else:
+            scorers = store.list_scorers(request_message.experiment_id)
+    elif has_scorer_keys:
+        scorers = store.list_scorers_across_experiments([], scorer_keys)
     else:
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
+        # With basic auth, only callers whose grants are unbounded (admins,
+        # wildcard or default READ) reach this branch; everyone else arrives
+        # with ``experiment_ids``/``scorer_keys`` already narrowed by
+        # ``validate_can_read_scorer_list``, and ``filter_list_scorers``
+        # re-checks the response as a second layer.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
