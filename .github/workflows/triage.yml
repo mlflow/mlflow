@@ -408,6 +408,7 @@ jobs:
                 "localhost:8080",
                 "pypi.org",
                 "files.pythonhosted.org",
+                "releases.astral.sh",
                 "registry.npmjs.org"
               ],
               "deniedDomains": [],
