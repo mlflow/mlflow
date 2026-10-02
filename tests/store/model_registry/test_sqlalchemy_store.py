@@ -1958,6 +1958,17 @@ def test_get_model_version_by_alias_latest_picks_highest_version(store):
     assert int(mv.version) == 4
 
 
+def test_get_model_version_by_alias_latest_after_promoting_older_version(store):
+    model_name = "GetModelVersionByAliasLatestPromoteOlder_TestMod"
+    store.create_registered_model(model_name)
+    for _ in range(3):
+        store.create_model_version(model_name, "path/to/source", uuid.uuid4().hex)
+    store.transition_model_version_stage(model_name, "1", "Production", False)
+
+    mv = store.get_model_version_by_alias(model_name, "latest")
+    assert int(mv.version) == 3
+
+
 @pytest.mark.parametrize("version", [2, "2"])
 def test_delete_model_version_deletes_alias(store, version):
     model_name = "DeleteModelVersionDeletesAlias_TestMod"
