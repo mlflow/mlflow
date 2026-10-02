@@ -91,6 +91,7 @@ export const useRunScorerInTracesViewConfiguration = (
       subscribeToScorerFinished as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
     reset,
     scope,
+    formatErrorMessage: (errorMessage: string) => formatJudgeModelError({ message: errorMessage }),
   };
 };
 
