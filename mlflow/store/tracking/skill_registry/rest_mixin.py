@@ -1,6 +1,7 @@
 """REST implementation of SkillRegistryMixin."""
 
-from typing import Any
+import json
+from typing import Any, BinaryIO
 from urllib.parse import quote
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
@@ -34,7 +35,7 @@ class RestSkillRegistryMixin:
     registry endpoints use Pydantic/JSON.
     """
 
-    def _skill_request(self, method: str, path: str, json=None, params=None):
+    def _skill_request(self, method: str, path: str, json=None, params=None, **kwargs):
         self._validate_workspace_support_if_specified()
         endpoint = f"{_SKILL_API_PREFIX}{path}"
         response = http_request(
@@ -43,11 +44,39 @@ class RestSkillRegistryMixin:
             method=method,
             json=json,
             params=params,
+            **kwargs,
         )
         verify_rest_response(response, endpoint)
         if not response.text:
             return None
         return response.json()
+
+    def _register_skill(
+        self,
+        *,
+        name: str,
+        content: BinaryIO,
+        digest: str | None = None,
+        organization: str = "",
+        status: str = "active",
+    ) -> SkillVersion:
+        """Upload a prepared gzip-compressed tar archive through atomic registration."""
+        metadata = {
+            "name": name,
+            "organization": organization,
+            "digest": digest,
+            "status": status,
+        }
+
+        data = self._skill_request(
+            "POST",
+            "/register",
+            files={
+                "metadata": (None, json.dumps(metadata), "application/json"),
+                "content": ("content.tar.gz", content, "application/gzip"),
+            },
+        )
+        return SkillVersion.from_dict(data)
 
     def create_skill(
         self,
