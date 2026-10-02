@@ -45,12 +45,20 @@ import {
   convertOtelAttributesToMap,
   decodeLinkTraceId,
   getTraceHref,
+  getIconTypeForSpan,
+  getDisplayNameForSpanType,
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
   tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+import { ModelIconType } from './ModelTrace.types';
+
+it('displays evaluator spans with the judge icon', () => {
+  expect(getIconTypeForSpan(ModelSpanType.EVALUATOR)).toBe(ModelIconType.JUDGE);
+  expect(getDisplayNameForSpanType(ModelSpanType.EVALUATOR)).toBe('Evaluator');
+});
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -815,6 +823,21 @@ describe('normalizeNewSpanData', () => {
 
     const normalized = normalizeNewSpanData(spanWithCost, 0, 0, [], {}, '');
     expect(normalized.cost).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should display evaluator cost without a standard cost attribute', () => {
+    const span: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        'mlflow.evaluation.cost': JSON.stringify({ input_cost: 0.001, output_cost: 0.002, total_cost: 0.003 }),
+      },
+    };
+
+    expect(normalizeNewSpanData(span, 0, 0, [], {}, '').cost).toEqual({
       input_cost: 0.001,
       output_cost: 0.002,
       total_cost: 0.003,

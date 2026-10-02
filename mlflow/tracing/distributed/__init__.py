@@ -86,7 +86,7 @@ def _get_tracing_headers_from_span(span: LiveSpan) -> dict[str, str]:
 
 @record_usage_event(TracingContextPropagation)
 @contextmanager
-def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
+def set_tracing_context_from_http_request_headers(headers: dict[str, str], *, _trace_info=None):
     """
     Context manager to extract the trace context from the http request headers
     and set the extracted trace context as the current trace context within the
@@ -164,7 +164,11 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
         span_context = extracted_span.get_span_context()
         otel_trace_id = span_context.trace_id
 
-        trace_id = generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id)
+        trace_id = (
+            _trace_info.trace_id
+            if _trace_info is not None
+            else generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id)
+        )
 
         # Skip dummy registration if the trace already exists locally (e.g. same-process
         # distributed tracing with a pending async export). Overwriting it would prevent
@@ -173,7 +177,7 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
             has_local_trace = existing_trace is not None and not existing_trace.is_remote_trace
 
         if not has_local_trace:
-            dummy_trace_info = TraceInfo(
+            dummy_trace_info = _trace_info or TraceInfo(
                 trace_id=trace_id,
                 trace_location=None,
                 request_time=None,

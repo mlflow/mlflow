@@ -12,7 +12,8 @@ from mlflow.environment_variables import (
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.tracing.utils import encode_span_id, generate_trace_id_v3
+from mlflow.tracing.utils.processor import preserve_evaluation_span_metrics
 
 _logger = logging.getLogger(__name__)
 
@@ -44,8 +45,7 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
         # Only register traces with trace manager when NOT in dual export mode
         # In dual export mode, MLflow span processors handle trace registration
         self._should_register_traces = not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()
-        if self._should_register_traces:
-            self._trace_manager = InMemoryTraceManager.get_instance()
+        self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelReadableSpan, parent_context=None):
         if self._should_register_traces:
@@ -57,11 +57,24 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
                 trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
                     span.context.trace_id
                 )
-            self._trace_manager.register_span(create_mlflow_span(span, trace_id))
+            mlflow_span = create_mlflow_span(span, trace_id)
+            if span.parent is not None:
+                parent = self._trace_manager.get_span_from_id(
+                    trace_id, encode_span_id(span.parent.span_id)
+                )
+                if parent and parent.get_attribute(SpanAttributeKey.EVALUATION_SCORER) is True:
+                    mlflow_span.set_attribute(SpanAttributeKey.EVALUATION_SCORER, True)
+            self._trace_manager.register_span(mlflow_span)
 
         super().on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan):
+        trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
+        if live_span := self._trace_manager.get_span_from_id(
+            trace_id, encode_span_id(span.context.span_id)
+        ):
+            preserve_evaluation_span_metrics(span, live_span)
+
         if self._export_metrics:
             self.record_metrics_for_span(span)
 

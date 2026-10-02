@@ -6024,15 +6024,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Traces where start_trace() has already written the authoritative values.
             # log_spans() must not accumulate on top of those to avoid double-counting.
             finalized_trace_ids: set[str] = set()
-            if trace_ids_with_token_usage or trace_ids_with_cost or trace_ids_with_session:
-                all_finalized_ids = sorted(
-                    trace_ids_with_token_usage | trace_ids_with_cost | trace_ids_with_session
-                )
+            if preexisting_trace_ids:
                 rows = (
                     session
                     .query(SqlTraceMetadata)
                     .filter(
-                        SqlTraceMetadata.request_id.in_(all_finalized_ids),
+                        SqlTraceMetadata.request_id.in_(preexisting_trace_ids),
                         SqlTraceMetadata.key == TraceMetadataKey.TRACE_INFO_FINALIZED,
                     )
                     .all()

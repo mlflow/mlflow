@@ -988,10 +988,9 @@ MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", False
 )
 
-#: Enable tracing for evaluation scorers. By default (False), MLflow will not trace the scorer
-#: function calls. To trace the scorer functions for debugging purpose, set this to True.
+#: Trace evaluation scorers as child spans of the evaluated trace by default.
 MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
-    "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
+    "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", True
 )
 
 #: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async

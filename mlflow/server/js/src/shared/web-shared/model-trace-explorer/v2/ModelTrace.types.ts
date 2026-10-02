@@ -24,6 +24,7 @@ export enum ModelSpanType {
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
   MEMORY = 'MEMORY',
+  EVALUATOR = 'EVALUATOR',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -43,6 +44,7 @@ export enum ModelIconType {
   USER = 'user',
   SYSTEM = 'system',
   SAVE = 'save',
+  JUDGE = 'judge',
 }
 
 /**
@@ -346,8 +348,8 @@ export type ModelTraceStatus =
  * Cost information for a span in USD.
  */
 export interface SpanCostInfo {
-  input_cost: number;
-  output_cost: number;
+  input_cost?: number;
+  output_cost?: number;
   total_cost: number;
 }
 
