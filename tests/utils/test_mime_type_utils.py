@@ -18,6 +18,7 @@ from mlflow.utils.os import is_windows
         ("/a/b/notebook.ipynb", "text/plain"),
         ("/a/b/data.jsonl", "text/plain"),
         ("/a/b/.env", "text/plain"),
+        ("/a/b/sample.env", "text/plain"),
     ],
 )
 def test_guess_mime_type(file_path, expected_mime_type):

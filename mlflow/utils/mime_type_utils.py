@@ -34,6 +34,7 @@ def get_text_extensions():
         "rst",
         "ipynb",
         "jsonl",
+        "env",
         ".env",
     ]
 
