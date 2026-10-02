@@ -20,6 +20,7 @@ from mlflow.entities import (
     TraceLocation,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace_location import (
     UCSchemaLocation as UCSchemaLocationEntity,
 )
@@ -305,6 +306,22 @@ class DatabricksTracingRestStore(RestStore):
             response_proto=ProtoTraceInfo(),
         )
         return TraceInfo.from_proto(response_proto)
+
+    def list_scorers(self, experiment_id, *, scorer_filter: ScorerFilter | None = None):
+        if scorer_filter is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`scorer_filter` is not supported against the Databricks-hosted backend."
+            )
+        return super().list_scorers(experiment_id)
+
+    def list_scorers_across_experiments(
+        self, experiment_ids, *, scorer_filter: ScorerFilter | None = None
+    ):
+        if scorer_filter is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`scorer_filter` is not supported against the Databricks-hosted backend."
+            )
+        return super().list_scorers_across_experiments(experiment_ids)
 
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
         raise MlflowException.invalid_parameter_value(

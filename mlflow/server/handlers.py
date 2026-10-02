@@ -19,9 +19,18 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
-from google.protobuf.json_format import ParseError
+from google.protobuf.json_format import ParseDict, ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 from werkzeug.http import quote_header_value
 from werkzeug.wsgi import wrap_file
@@ -70,6 +79,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
@@ -1147,14 +1157,27 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     """
     try:
         if request.method == "GET":
-            return field.name in request.args
+            return field.name in request.args or field.json_name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
     except RuntimeError:
         return False
 
 
-def _get_request_message(request_message, flask_request=request, schema=None):
+def _reject_null_request_values(value, path="request"):
+    if value is None:
+        raise MlflowException.invalid_parameter_value(f"Parameter '{path}' must not be null.")
+    if isinstance(value, dict):
+        for key, child in value.items():
+            _reject_null_request_values(child, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _reject_null_request_values(child, f"{path}[{index}]")
+
+
+def _get_request_message(
+    request_message, flask_request=request, schema=None, *, strict=False, json_fields=()
+):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1164,8 +1187,19 @@ def _get_request_message(request_message, flask_request=request, schema=None):
         # deserialization will fail unless we do the fix below.
         request_json = {}
         for field in request_message.DESCRIPTOR.fields:
-            if field.name not in flask_request.args:
+            key = field.name
+            if strict and key not in flask_request.args:
+                key = field.json_name
+            if key not in flask_request.args:
                 continue
+            if (
+                strict
+                and field.name != field.json_name
+                and all(name in flask_request.args for name in (field.name, field.json_name))
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Request specifies both '{field.name}' and '{field.json_name}'."
+                )
 
             # Use is_repeated property (preferred) with fallback to deprecated label
             try:
@@ -1174,9 +1208,20 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                 is_repeated = field.label == descriptor.FieldDescriptor.LABEL_REPEATED
 
             if is_repeated:
-                request_json[field.name] = flask_request.args.getlist(field.name)
+                request_json[field.name] = flask_request.args.getlist(key)
             else:
-                value = flask_request.args.get(field.name)
+                if strict and len(flask_request.args.getlist(key)) != 1:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Parameter '{key}' must be specified only once."
+                    )
+                value = flask_request.args.get(key)
+                if field.name in json_fields:
+                    try:
+                        value = json.loads(value)
+                    except (ValueError, TypeError) as e:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Parameter '{key}' must be a JSON object."
+                        ) from e
                 if field.type == descriptor.FieldDescriptor.TYPE_BOOL and isinstance(value, str):
                     if value.lower() not in ["true", "false"]:
                         raise MlflowException.invalid_parameter_value(
@@ -1185,13 +1230,38 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                     value = value.lower() == "true"
                 request_json[field.name] = value
     else:
-        request_json = _get_normalized_request_json(flask_request)
+        if strict and flask_request.get_data() and flask_request.get_json(silent=True) is None:
+            raise MlflowException.invalid_parameter_value("Request must contain valid JSON.")
+        try:
+            request_json = _get_normalized_request_json(flask_request)
+        except (TypeError, ValueError) as e:
+            if not strict:
+                raise
+            raise MlflowException.invalid_parameter_value("Request must contain valid JSON.") from e
 
+    if strict:
+        if not isinstance(request_json, dict):
+            raise MlflowException.invalid_parameter_value("Request must be a JSON object.")
+        _reject_null_request_values(request_json)
     _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
+    for name in json_fields:
+        field = request_message.DESCRIPTOR.fields_by_name[name]
+        for key in {field.name, field.json_name}:
+            if key in request_json and not isinstance(request_json[key], dict):
+                raise MlflowException.invalid_parameter_value(
+                    f"Parameter '{key}' must be a JSON object."
+                )
     proto_parsing_succeeded = True
     try:
-        parse_dict(request_json, request_message)
-    except ParseError:
+        if strict:
+            ParseDict(request_json, request_message)
+        else:
+            parse_dict(request_json, request_message)
+    except (ParseError, TypeError, ValueError) as e:
+        if strict:
+            raise MlflowException.invalid_parameter_value(f"Invalid request: {e}") from e
+        if not isinstance(e, ParseError):
+            raise
         proto_parsing_succeeded = False
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
@@ -6211,7 +6281,24 @@ def _list_scorers():
             "experiment_id": [_assert_string],
             "experiment_ids": [_assert_array, _assert_item_type_string],
         },
+        strict=True,
+        json_fields=("scorer_filter",),
     )
+    scorer_filter = (
+        ScorerFilter.from_proto(request_message.scorer_filter)
+        if request_message.HasField("scorer_filter")
+        else None
+    )
+    # Only the auth hook writes this request-local value. Caller-supplied fields
+    # can narrow it, but cannot replace it or turn an empty grant set into None.
+    authorized_filter = getattr(g, "mlflow_scorer_filter", None) if has_request_context() else None
+    if authorized_filter is not None:
+        scorer_filter = (
+            authorized_filter
+            if scorer_filter is None
+            else scorer_filter.intersect(authorized_filter)
+        )
+    filter_kwargs = {"scorer_filter": scorer_filter} if scorer_filter is not None else {}
     response_message = ListScorers.Response()
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
@@ -6229,15 +6316,15 @@ def _list_scorers():
             for eid in requested_experiment_ids:
                 _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
-        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids, **filter_kwargs)
     elif request_message.experiment_id:
-        scorers = store.list_scorers(request_message.experiment_id)
+        scorers = store.list_scorers(request_message.experiment_id, **filter_kwargs)
+    elif scorer_filter is not None:
+        valid_experiment_ids = store.filter_active_experiment_ids(
+            sorted(scorer_filter.candidate_experiment_ids)
+        )
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids, **filter_kwargs)
     else:
-        # Cross-experiment listing: walk the active workspace's experiments
-        # via the workspace-aware ``search_experiments`` pagination, then
-        # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")

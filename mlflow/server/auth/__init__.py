@@ -25,6 +25,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
+from urllib.parse import unquote
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -51,6 +52,7 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -1194,23 +1196,38 @@ def validate_can_read_experiment():
 
 
 def validate_can_read_scorer_list():
-    # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
-    # on the experiment read permission as usual; when empty, the request is
-    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
-    # per-row RBAC filtering, so the route itself is open to any authenticated
-    # caller.
-    #
-    # NB: this validator does not look at the newer, plural ``experiment_ids``
-    # field (added for pre-request auth scoping, see #24964). A caller that
-    # sets only ``experiment_ids`` still falls through to the ``not
-    # args.get("experiment_id")`` branch below and relies on the
-    # post-response filtering in ``filter_list_scorers`` -- basic auth does
-    # not yet use ``experiment_ids`` to scope the query before it reaches
-    # the store.
-    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
-    if not args.get("experiment_id"):
+    """Attach the trusted experiment-or-scorer read selection before listing."""
+    username = authenticate_request().username
+    experiments = _readable_resource_patterns(username, "experiment")
+    scorers = _readable_resource_patterns(username, "scorer")
+    if experiments is None or scorers is None:
+        g.mlflow_scorer_filter = None
         return True
-    return _get_permission_from_experiment_id().can_read
+
+    pairs = set()
+    for pattern in scorers:
+        experiment_id, separator, encoded_name = pattern.partition("/")
+        if not separator:
+            continue
+        name = unquote(encoded_name)
+        # Only canonical, exact keys match real resources. Do not interpret
+        # partial wildcards or double-decode URL-encoded scorer names.
+        if store._scorer_pattern(experiment_id, name) != pattern:
+            continue
+        try:
+            selection = ScorerFilter(scorers={(experiment_id, name)})
+        except MlflowException:
+            continue
+        pairs.update(selection.scorers)
+    valid_experiments = set()
+    for experiment_id in experiments:
+        try:
+            selection = ScorerFilter(experiment_ids={experiment_id})
+        except MlflowException:
+            continue
+        valid_experiments.update(selection.experiment_ids)
+    g.mlflow_scorer_filter = ScorerFilter(valid_experiments, pairs)
+    return True
 
 
 def validate_can_read_experiment_by_name():
@@ -1897,11 +1914,11 @@ def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
     return can_read
 
 
-def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
+def _readable_resource_patterns(username: str, resource_type: str) -> set[str] | None:
     """
-    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
-    grants in the active workspace. Max-style: any positive grant (specific or
-    wildcard) wins; ``NO_PERMISSIONS`` rows are ignored. Falls back to
+    Return readable exact keys in the active workspace, or None for all keys.
+    Any positive grant (specific or wildcard) wins; ``NO_PERMISSIONS`` rows are
+    ignored. Falls back to
     ``default_permission.can_read`` when workspaces are disabled, otherwise to
     deny.
     """
@@ -1911,7 +1928,7 @@ def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[s
         else DEFAULT_WORKSPACE_NAME
     )
     if workspace_name is None:
-        return lambda _resource_id: False
+        return set()
 
     user = store.get_user(username)
     readable: set[str] = set()
@@ -1936,10 +1953,12 @@ def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[s
         else False
     )
 
-    def predicate(resource_id: str) -> bool:
-        return resource_id in readable or wildcard_can_read or fallback
+    return None if wildcard_can_read or fallback else readable
 
-    return predicate
+
+def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
+    readable = _readable_resource_patterns(username, resource_type)
+    return lambda resource_id: readable is None or resource_id in readable
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -4374,34 +4393,6 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
-def filter_list_scorers(resp: Response) -> None:
-    """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
-
-    Single-experiment requests are already gated by ``validate_can_read_scorer_list``
-    (which delegates to ``validate_can_read_experiment``); cross-experiment requests
-    (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. This filter applies the experiment + scorer read
-    predicates per row so the picker doesn't leak names the caller has no grant on.
-    """
-    if sender_is_admin():
-        return
-
-    response_message = ListScorers.Response()
-    parse_dict(resp.json, response_message)
-
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
-    for scorer in list(response_message.scorers):
-        exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
-            continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
-            response_message.scorers.remove(scorer)
-    resp.data = message_to_json(response_message)
-
-
 # The list endpoints reach the handler behind the gateway-proxy validator (authenticated);
 # these after-request filters are the row-level access control, dropping rows the caller
 # cannot read. Keep them registered in AFTER_REQUEST_PATH_HANDLERS.
@@ -4470,7 +4461,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
-    ListScorers: filter_list_scorers,
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
@@ -4496,7 +4486,6 @@ _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
     filter_search_logged_models,
     filter_search_model_versions,
     filter_search_registered_models,
-    filter_list_scorers,
     filter_list_review_queues,
     filter_list_gateway_endpoints,
     filter_list_gateway_model_definitions,

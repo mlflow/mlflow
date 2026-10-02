@@ -1829,12 +1829,20 @@ service MlflowService {
     };
   }
 
-  // List all scorers for an experiment.
+  // List scorers, optionally scoped to experiments and exact scorer names.
   rpc listScorers(ListScorers) returns (ListScorers.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
+          path: "/mlflow/scorers/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        },
+        {
+          method: "POST"
           path: "/mlflow/scorers/list"
           since: {
             major: 3
@@ -5214,6 +5222,14 @@ message ListScorers {
   // Not supported against a Databricks-hosted backend.
   repeated string experiment_ids = 2;
 
+  // Restrict the result to this selection, intersected with the experiment
+  // scope above and the caller's permissions. Omitted means no additional
+  // restriction; an explicitly empty object selects nothing. For GET, encode
+  // this object as JSON in the scorer_filter query parameter. POST accepts
+  // it as an object in the JSON body and is preferred for large selections.
+  // Not supported against a Databricks-hosted backend.
+  optional ScorerFilter scorer_filter = 3;
+
   message Response {
     // List of scorer entities (latest version for each scorer name).
     repeated Scorer scorers = 1;
@@ -6252,4 +6268,20 @@ message DeleteWorkspace {
   optional string workspace_name = 1 [(validate_required) = true];
 
   message Response {}
+}
+
+// Select the union of whole experiments and exact scorer identities.
+// Names are literal strings, not wildcard patterns.
+message ScorerFilter {
+  message Scorer {
+    // Required experiment ID.
+    optional string experiment_id = 1;
+    // Required, nonempty scorer name.
+    optional string scorer_name = 2;
+  }
+
+  // Include every scorer in these experiments.
+  repeated string experiment_ids = 1;
+  // Include these exact scorers.
+  repeated Scorer scorers = 2;
 }

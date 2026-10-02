@@ -29,6 +29,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.issue import IssueSeverity, IssueStatus
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
@@ -254,6 +255,7 @@ class RestStore(
         endpoint=None,
         retry_timeout_seconds=None,
         response_proto=None,
+        method=None,
     ):
         # Route v3 APIs to v3 endpoints, all others to v2 endpoints
         method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
@@ -262,14 +264,14 @@ class RestStore(
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = method_to_info[api]
+            _, default_method = method_to_info[api]
         else:
-            endpoint, method = method_to_info[api]
+            endpoint, default_method = method_to_info[api]
         response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
             endpoint,
-            method,
+            method or default_method,
             json_body,
             response_proto,
             retry_timeout_seconds=retry_timeout_seconds,
@@ -1799,24 +1801,51 @@ class RestStore(
             scorer_id=response_proto.scorer_id,
         )
 
-    def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
+    def list_scorers(
+        self, experiment_id: str, *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment (latest version for each scorer name).
 
         Args:
             experiment_id: String ID of the experiment.
+            scorer_filter: Optional selection. None is unrestricted; an empty
+                filter returns no scorers.
 
         Returns:
             List of Scorer entities.
         """
-        req_body = message_to_json(ListScorers(experiment_id=experiment_id))
+        req = ListScorers(experiment_id=experiment_id)
+        kwargs = {}
+        if scorer_filter is not None:
+            req.scorer_filter.CopyFrom(scorer_filter.to_proto())
+            kwargs["method"] = "POST"
+        req_body = message_to_json(req)
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             ListScorers,
             req_body,
             endpoint="/api/3.0/mlflow/scorers/list",
+            **kwargs,
         )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
+        if scorer_filter is None:
+            return super().list_scorers_across_experiments(experiment_ids)
+        req = ListScorers(scorer_filter=scorer_filter.to_proto())
+        body = json.loads(message_to_json(req))
+        # Protobuf JSON omits empty repeated fields; preserve an explicit empty scope.
+        body["experiment_ids"] = experiment_ids
+        response = self._call_endpoint(
+            ListScorers,
+            json.dumps(body),
+            endpoint="/api/3.0/mlflow/scorers/list",
+            method="POST",
+        )
+        return [ScorerVersion.from_proto(scorer) for scorer in response.scorers]
 
     def list_scorer_versions(self, experiment_id: str, name: str) -> list[ScorerVersion]:
         """

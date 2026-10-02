@@ -5828,6 +5828,7 @@ class ListScorers(_message.Message):
 
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
     EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
+    SCORER_FILTER_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """A single experiment ID. Kept for backward compatibility; prefer
     ``experiment_ids`` for multi-experiment queries. Mutually exclusive
@@ -5842,15 +5843,26 @@ class ListScorers(_message.Message):
         Not supported against a Databricks-hosted backend.
         """
 
+    @_builtins.property
+    def scorer_filter(self) -> Global___ScorerFilter:
+        """Restrict the result to this selection, intersected with the experiment
+        scope above and the caller's permissions. Omitted means no additional
+        restriction; an explicitly empty object selects nothing. For GET, encode
+        this object as JSON in the scorer_filter query parameter. POST accepts
+        it as an object in the JSON body and is preferred for large selections.
+        Not supported against a Databricks-hosted backend.
+        """
+
     def __init__(
         self,
         *,
         experiment_id: _builtins.str | None = ...,
         experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
+        scorer_filter: Global___ScorerFilter | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "scorer_filter", b"scorer_filter"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids", "scorer_filter", b"scorer_filter"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -8951,6 +8963,60 @@ class DeleteWorkspace(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___DeleteWorkspace: _TypeAlias = DeleteWorkspace  # noqa: Y015
+
+@_typing.final
+class ScorerFilter(_message.Message):
+    """Select the union of whole experiments and exact scorer identities.
+    Names are literal strings, not wildcard patterns.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class Scorer(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
+        SCORER_NAME_FIELD_NUMBER: _builtins.int
+        experiment_id: _builtins.str
+        """Required experiment ID."""
+        scorer_name: _builtins.str
+        """Required, nonempty scorer name."""
+        def __init__(
+            self,
+            *,
+            experiment_id: _builtins.str | None = ...,
+            scorer_name: _builtins.str | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "scorer_name", b"scorer_name"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "scorer_name", b"scorer_name"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
+    SCORERS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def experiment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Include every scorer in these experiments."""
+
+    @_builtins.property
+    def scorers(self) -> _containers.RepeatedCompositeFieldContainer[Global___ScorerFilter.Scorer]:
+        """Include these exact scorers."""
+
+    def __init__(
+        self,
+        *,
+        experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
+        scorers: _abc.Iterable[Global___ScorerFilter.Scorer] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_ids", b"experiment_ids", "scorers", b"scorers"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___ScorerFilter: _TypeAlias = ScorerFilter  # noqa: Y015
 
 # Appended by dev/generate_protos.py:
 from google.protobuf import service as _service

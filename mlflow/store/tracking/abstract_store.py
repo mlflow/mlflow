@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         OnlineScoringConfig,
     )
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.workspace import TraceArchivalConfig
@@ -1679,12 +1680,16 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
+    def list_scorers(
+        self, experiment_id, *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
         Args:
             experiment_id: The experiment ID.
+            scorer_filter: Optional selection, intersected with the experiment scope.
+                None is unrestricted; an empty filter returns no scorers.
 
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects
@@ -1692,13 +1697,19 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers across multiple experiments in one batch. The default
         impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
         overrides with a single JOIN for admin pickers that need to enumerate
         scorers across hundreds of experiments without N+1 round trips.
         """
+        if scorer_filter is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer filtering is not supported by {self.__class__.__name__}."
+            )
         result: list[ScorerVersion] = []
         for exp_id in experiment_ids:
             result.extend(self.list_scorers(exp_id))

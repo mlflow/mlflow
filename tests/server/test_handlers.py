@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from flask import Response, request
+from flask import Response, g, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
@@ -48,6 +48,7 @@ from mlflow.entities.model_registry import (
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.entities.trace_metrics import (
     AggregationType,
@@ -11226,3 +11227,104 @@ def test_update_gateway_secret_rejects_model_list_in_auth_config(
     assert response.status_code == 400
     assert "auth_config must not contain 'model_list'" in json.loads(response.get_data())["message"]
     mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("alias", [False, True])
+def test_list_scorers_structured_filter_transport(mock_tracking_store, method, alias):
+    filter_key = "scorerFilter" if alias else "scorer_filter"
+    id_key = "experimentId" if alias else "experiment_id"
+    name_key = "scorerName" if alias else "scorer_name"
+    selector = {"scorers": [{id_key: "42", name_key: "*/%2F/'毒性"}]}
+    payload = {filter_key: json.dumps(selector) if method == "GET" else selector}
+    kwargs = {"query_string" if method == "GET" else "json": payload}
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["42"]
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+    with app.test_request_context(method=method, **kwargs):
+        resp = _list_scorers()
+    assert resp.status_code == 200, resp.get_json()
+    mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["42"])
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(
+        ["42"], scorer_filter=ScorerFilter(scorers={("42", "*/%2F/'毒性")})
+    )
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize(
+    "selector",
+    [
+        None,
+        [],
+        "bad",
+        {"scorers": [{}]},
+        {"scorers": "bad"},
+        {"experiment_ids": None},
+        {"scorers": None},
+        {"experiment_ids": [1]},
+        {"scorers": [{"experiment_id": "42", "scorer_name": " "}]},
+        {"experiment_ids": ["42"], "experimentIds": ["7"]},
+        {"unknown": ["42"]},
+    ],
+)
+def test_list_scorers_rejects_malformed_filters(mock_tracking_store, method, selector):
+    payload = {"scorer_filter": json.dumps(selector) if method == "GET" else selector}
+    kwargs = {"query_string" if method == "GET" else "json": payload}
+    with app.test_request_context(method=method, **kwargs):
+        resp = _list_scorers()
+    assert resp.status_code == 400
+    mock_tracking_store.list_scorers.assert_not_called()
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+
+
+@pytest.mark.parametrize("selector", [{}, {"experiment_ids": [], "scorers": []}])
+def test_list_scorers_empty_filter_is_not_unrestricted(mock_tracking_store, selector):
+    mock_tracking_store.filter_active_experiment_ids.return_value = []
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+    with app.test_request_context(method="POST", json={"scorer_filter": selector}):
+        resp = _list_scorers()
+    assert resp.status_code == 200
+    mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(
+        [], scorer_filter=ScorerFilter()
+    )
+
+
+def test_list_scorers_intersects_trusted_filter(mock_tracking_store):
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["42"]
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+    with app.test_request_context(
+        method="POST", json={"scorer_filter": {"experiment_ids": ["42", "7"]}}
+    ):
+        g.mlflow_scorer_filter = ScorerFilter(scorers={("42", "toxicity")})
+        assert _list_scorers().status_code == 200
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(
+        ["42"], scorer_filter=ScorerFilter(scorers={("42", "toxicity")})
+    )
+
+
+@pytest.mark.parametrize("body", ['{"scorer_filter":', "null", '"invalid JSON string"'])
+def test_list_scorers_rejects_invalid_request_json(mock_tracking_store, body):
+    with app.test_request_context(method="POST", data=body, content_type="application/json"):
+        resp = _list_scorers()
+    assert resp.status_code == 400
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+
+
+def test_list_scorers_rejects_invalid_query_json(mock_tracking_store):
+    with app.test_request_context(query_string={"scorer_filter": "{"}):
+        assert _list_scorers().status_code == 400
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+
+
+@pytest.mark.parametrize("scope", [{"experiment_id": "42"}, {}, {"experiment_ids": []}])
+def test_list_scorers_filtered_databricks_backend_rejected(scope):
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://hello"))
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch.object(store, "_call_endpoint") as call,
+        app.test_request_context(method="POST", json={**scope, "scorer_filter": {}}),
+    ):
+        resp = _list_scorers()
+    assert resp.status_code == 400
+    call.assert_not_called()

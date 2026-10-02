@@ -42,6 +42,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -160,7 +161,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
@@ -4136,3 +4137,25 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+@pytest.mark.parametrize("selection", [ScorerFilter(), ScorerFilter(scorers={("42", "a/b")})])
+@pytest.mark.parametrize("scope", [None, [], ["42"]])
+def test_list_scorers_transmits_filter_by_post(selection, scope):
+    store = RestStore(lambda: None)
+    with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as call:
+        call.return_value = ListScorers.Response()
+        if scope is None:
+            assert store.list_scorers("42", scorer_filter=selection) == []
+        else:
+            assert store.list_scorers_across_experiments(scope, scorer_filter=selection) == []
+    args = call.call_args.args
+    assert args[1:3] == ("/api/3.0/mlflow/scorers/list", "POST")
+    body = json.loads(args[3])
+    assert "scorer_filter" in body
+    if scope is not None:
+        assert body["experiment_ids"] == scope
+    parsed = ListScorers()
+    parse_dict(body, parsed)
+    assert parsed.HasField("scorer_filter")
+    assert ScorerFilter.from_proto(parsed.scorer_filter) == selection
