@@ -1,7 +1,7 @@
 # Bug Triage
 
-Reproduce the reported bug at the current checkout, tell a maintainer exactly how to reproduce
-it, and suggest a fix.
+Reproduce the reported bug at the current checkout, show exactly how to reproduce it, and
+suggest a fix.
 
 ## 1. Understand the issue
 
@@ -71,14 +71,16 @@ nothing to say, except the verdict.
 
 - Expected: <what should happen>
 - Actual: <what happens, in one line, e.g. the exception and its message>
-- Fails at: <permalink to the line that raises or returns the wrong value>
+- Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
 - Missing information: <what the reporter should add>
 
 ### How to reproduce
 
-<whatever a maintainer needs to see the bug themselves: the versions you tested on, then the
-commands, scripts, or UI steps to run and the output or screenshot that shows the bug. Shape
-it to fit the bug, putting anything to run in code blocks.>
+Tested on MLflow <version and commit>, Python <version from `python --version`>, <OS>.
+
+<whatever a reader needs to see the bug themselves: the commands, scripts, or UI steps to
+run and the output or screenshot that shows the bug. Shape it to fit the bug, putting anything
+to run in code blocks.>
 
 ### Suggested fix
 
@@ -92,5 +94,5 @@ change, what changes in each file and why, with permalinks>
 <for any verdict other than Reproduced: the attempts and why each did not reproduce it>
 ```
 
-Prefer code to prose: give commands and code the maintainer can paste and run, not steps
+Prefer code to prose: give commands and code a reader can paste and run, not steps
 to follow by hand. Keep the body tight.

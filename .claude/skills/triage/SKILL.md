@@ -104,8 +104,8 @@ Create `$out_dir` first, then write `$out_dir/payload.json`:
 `$type/payload.schema.json` defines the fields. `label` is the outcome label from the type's
 instructions, such as `triage: reproduced`. `body` is a Markdown comment for the issue that:
 
-- Follows the type's template, written for an MLflow maintainer who has read the
-  issue: lead with conclusions, not the investigation trail.
+- Follows the type's template, written for a reader who has read the issue: lead with
+  conclusions, not the investigation trail.
 - Prefers permalinks to file paths:
   `https://github.com/<repository>/blob/<sha>/<path>#L<start>-L<end>`, with `<sha>` from
   `git rev-parse HEAD`, so the link keeps pointing at the lines you saw after master moves.
