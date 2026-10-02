@@ -75,14 +75,6 @@ _BODY_SNIPPET_BYTES = 512
 # is replayed over the REST path without pinning the exporter to it.
 _REPLAYABLE_STATUS_CODES = (408, 413, 429)
 
-# 5xx statuses that mean the collector did not durably ingest this batch (bad
-# gateway / service unavailable), so replaying it over the REST path cannot write
-# duplicate span rows. Handled like the 4xx transient statuses: replay this batch
-# without pinning the exporter, so the next batch still tries the collector. 500
-# and 504 (and read timeouts) are NOT in this set: the backend may have persisted
-# the batch before the error, so replaying them could duplicate span rows.
-_REPLAYABLE_SERVER_STATUS_CODES = (502, 503)
-
 # Timeout for each collector metadata request. SDK client construction can
 # trigger OIDC discovery with the SDK's much longer default retry budget.
 _SDK_HTTP_TIMEOUT_SECONDS = 10.0
@@ -276,10 +268,9 @@ def _warn_collector_config_failure(reason: str, *args) -> None:
 
     Reaching endpoint resolution means the user qualifies for the collector: the
     feature flag is on, the destination is a ``UnityCatalog`` location, and
-    service-principal credentials were found. A failure here is therefore a real
-    misconfiguration worth surfacing at WARNING - but only once per process,
-    since every later span batch would otherwise repeat it. The exporter still
-    falls back to the MLflow tracing server span export path either way.
+    service-principal credentials were found. A failure here prevents direct
+    export and is worth surfacing at WARNING, even when the cause is transient.
+    Warn only once per process; the exporter still falls back to REST.
 
     This is distinct from the ``_log_collector_unavailable`` path, which handles
     the high-volume "not applicable" case (no service-principal credentials:
@@ -312,7 +303,7 @@ def resolve_databricks_otel_collector_endpoint(
        environment segment, and the cloud domain.
 
     Returns the host string (no ``https://`` prefix, no trailing slash) on success,
-    or ``None`` on any failure (logged at DEBUG).
+    or ``None`` on failure (logged at WARNING once per process).
     """
     # Explicit override takes highest precedence.
     if override := MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
@@ -1076,27 +1067,10 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 self._fall_back_to_rest(spans, from_collector_batch=from_collector_batch)
             return
 
-        if response.status_code in _REPLAYABLE_SERVER_STATUS_CODES:
-            # 502/503 mean the request was not durably processed by the collector
-            # (bad gateway / service unavailable), so the batch was not ingested
-            # and replaying it over REST cannot write duplicate span rows. Replay
-            # this batch without pinning the exporter, so the next batch still
-            # tries the collector.
-            self._replay_batch_via_rest(
-                spans,
-                "The Databricks OTel collector returned HTTP %d for a span export "
-                "(transient server rejection, not durably ingested). Replaying this "
-                "batch via the MLflow tracing server path.",
-                response.status_code,
-                from_collector_batch=from_collector_batch,
-            )
-            return
-
-        # Any other 5xx (500, 504, ...) leaves delivery ambiguous: unlike 502/503,
-        # the backend may have persisted the batch before the error, so replaying it
-        # could write duplicate span rows (the same reason read timeouts, handled
-        # above, are ambiguous). Drop this batch rather than replay it; later batches
-        # can safely use REST.
+        # Even retryable OTLP 5xx statuses (502/503/504) do not prove that the
+        # collector failed to ingest the batch. Replaying through a different
+        # sink could duplicate spans; later batches can safely use REST.
+        # See https://opentelemetry.io/docs/specs/otlp/#duplicate-data.
         self._log_ambiguous_drop(
             "The Databricks OTel collector span export failed with HTTP %d: %r.",
             response.status_code,

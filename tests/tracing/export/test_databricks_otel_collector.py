@@ -1046,9 +1046,8 @@ def test_exporter_qualified_resolution_failure_warns_once_and_falls_back_to_rest
     monkeypatch, clear_resolved_endpoints
 ):
     # A user who reaches endpoint resolution qualifies for the collector (flag on,
-    # UnityCatalog destination, SP creds present), so a resolution failure is a real
-    # misconfiguration surfaced at WARNING once per process - even though the env var
-    # was not explicitly set - while still falling back to the tracing server path.
+    # UnityCatalog destination, SP creds present), so a resolution failure is
+    # surfaced at WARNING once per process while REST fallback still succeeds.
     monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
     exporter, session, _ = _make_exporter(monkeypatch, endpoint=None)
@@ -1531,8 +1530,10 @@ _CLASSIFICATION_CASES = [
     # Connection established then failed mid-request: drop this batch, use REST later.
     (_case_connection_reset, "drop"),
     (_case_read_timeout, "drop"),
-    # Server-side failures that may have persisted the batch: drop, use REST later.
+    # Server-side failures may have persisted the batch: drop, use REST later.
     (_case_http_500, "drop"),
+    (_case_http_502, "drop"),
+    (_case_http_503, "drop"),
     (_case_http_504, "drop"),
     # Definitive client-side rejections: sticky REST fallback.
     (_case_http_400, "sticky"),
@@ -1543,9 +1544,6 @@ _CLASSIFICATION_CASES = [
     (_case_http_408, "replay"),
     (_case_http_413, "replay"),
     (_case_http_429, "replay"),
-    # 502/503 mean the batch was not durably ingested: replay, non-sticky.
-    (_case_http_502, "replay"),
-    (_case_http_503, "replay"),
 ]
 
 
@@ -1852,30 +1850,8 @@ def test_exporter_async_500_uses_rest_for_later_batch(monkeypatch):
         exporter.shutdown()
 
 
-@pytest.mark.parametrize("status_code", [502, 503])
-def test_exporter_replayable_server_error_replays_batch_and_is_not_sticky(monkeypatch, status_code):
-    exporter, session, _ = _make_exporter(monkeypatch)
-    session.post.side_effect = [_make_response(status_code), _make_response(200)]
-    otel_span = create_mock_otel_span(trace_id=42, span_id=42)
-
-    with (
-        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
-        mock.patch(f"{_MODULE}._logger") as mock_log,
-    ):
-        exporter._export_spans_incrementally([otel_span])
-        # 502/503 mean the batch was not durably ingested, so it is replayed via
-        # REST and the next batch still tries the collector (non-sticky).
-        exporter._export_spans_incrementally([otel_span])
-
-    assert session.post.call_count == 2
-    mock_log_spans.assert_called_once()
-    assert not exporter._collector_rejected
-    mock_log.warning.assert_not_called()
-    mock_log.debug.assert_called_once()
-
-
-@pytest.mark.parametrize("status_code", [500, 504])
-def test_exporter_ambiguous_server_error_drops_batch_and_warns_once(monkeypatch, status_code):
+@pytest.mark.parametrize("status_code", [500, 502, 503, 504])
+def test_exporter_ambiguous_server_error_drops_batch_and_uses_rest_later(monkeypatch, status_code):
     exporter, session, _ = _make_exporter(monkeypatch)
     session.post.return_value = _make_response(status_code, content=b"server error")
     otel_span = create_mock_otel_span(trace_id=43, span_id=43)
@@ -1884,17 +1860,13 @@ def test_exporter_ambiguous_server_error_drops_batch_and_warns_once(monkeypatch,
         mock.patch.object(exporter, "_log_spans") as mock_log_spans,
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
-        # Call the collector path directly twice: the first ambiguous drop pins the
-        # REST path, so a second _export_spans_incrementally would skip the collector.
-        exporter._export_spans_to_collector([otel_span])
-        exporter._export_spans_to_collector([otel_span])
+        exporter._export_spans_incrementally([otel_span])
+        exporter._export_spans_incrementally([otel_span])
 
-    assert session.post.call_count == 2
-    # 500/504 are ambiguous: the batch is dropped, never replayed over REST.
-    mock_log_spans.assert_not_called()
-    # Warn once, then DEBUG.
-    assert mock_log.warning.call_count == 1
-    assert mock_log.debug.call_count == 1
+    # The uncertain batch is not replayed; only the later batch goes through REST.
+    session.post.assert_called_once()
+    mock_log_spans.assert_called_once()
+    mock_log.warning.assert_called_once()
     assert status_code in mock_log.warning.call_args.args
 
 
