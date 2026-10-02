@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790932034438,
+  "lastUpdate": 1790933701424,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "31463517+B-Step62@users.noreply.github.com",
-            "name": "Yuki Watanabe",
-            "username": "B-Step62"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "acd432559e0c7cd62b880aad1c4243fbe0f0d24c",
-          "message": "[1/3] Add @mlflow.test pytest marker and assertion framework (#23864)\n\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-13T03:12:12Z",
-          "tree_id": "759b8edc9b77cfaca35dd121bcf92d546d4513d2",
-          "url": "https://github.com/mlflow/mlflow/commit/acd432559e0c7cd62b880aad1c4243fbe0f0d24c"
-        },
-        "date": 1781320543546,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.54825339999837,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 21.63394677777654,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.343047399998426,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 20.886620457632215,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 20.91285928813473,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 13.664679000004298,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.86814760000425,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gohilgaurav89@gmail.com",
+            "name": "Gaurav Gohil",
+            "username": "gohil-gaurav"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d383877adbcef1812ca986fb4bcbac64236ab36",
+          "message": "Fix hashing of nested variable-length arrays (#26311)\n\nSigned-off-by: Gaurav Gohil <gohilgaurav89@gmail.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-02T09:31:11Z",
+          "tree_id": "c7aa686a63ba40e400ff09519e36edc6179227ba",
+          "url": "https://github.com/mlflow/mlflow/commit/8d383877adbcef1812ca986fb4bcbac64236ab36"
+        },
+        "date": 1790933698395,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 55.42207725000026,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 11.032288380006321,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.9526078600028995,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.830976411768025,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.137197700001252,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.37076600000455,
             "unit": "ms"
           }
         ]
