@@ -39,4 +39,33 @@ describe('UseSkillButton permission gating', () => {
 
     expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
   });
+
+  it('pins the selected version and changes the install destination', async () => {
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <UseSkillButton skill={createMockSkill({ organization: 'acme', name: 'code-review' })} version={2} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Use' }));
+    expect(await screen.findByText('Use @acme/code-review')).toBeInTheDocument();
+    expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
+    expect(document.body.textContent).toContain('--destination .claude/skills');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Python' }));
+    expect(document.body.textContent).toContain('version=2');
+    await userEvent.click(screen.getByRole('radio', { name: 'CLI' }));
+
+    const trigger = document.querySelector<HTMLElement>(
+      '[data-component-id="mlflow.skill_registry.use_modal.install_target"]',
+    );
+    if (!trigger) throw new Error('Install target select not found');
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('option', { name: 'GitHub Copilot' }));
+    expect(document.body.textContent).toContain('--destination .github/skills');
+    expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
+  });
 });

@@ -13,9 +13,11 @@ import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import {
   createMockSkill,
+  createMockSkillVersion,
   getMockedSearchSkillsErrorResponse,
   getMockedSearchSkillsPermissionDeniedResponse,
   getMockedSearchSkillsResponse,
+  getMockedSkillDetailHandlers,
 } from '../test-utils';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/skills';
@@ -44,7 +46,7 @@ describe('SkillRegistryPage', () => {
               routes={[
                 testRoute(<SkillRegistryPage />, '/skills'),
                 testRoute(<SkillDetailPage />, '/skills/:organization/:skillName'),
-                testRoute(<SkillDetailPage />, '/skills/:skillName'),
+                testRoute(<SkillDetailPage />, '/skills/:skillKey'),
               ]}
               initialEntries={initialEntries}
             />
@@ -266,6 +268,10 @@ describe('SkillRegistryPage', () => {
       expect(screen.getByRole('link', { name: 'cluster-inventory' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('link', { name: '@ocp-admin/cluster-inventory' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'cluster-inventory' })).toHaveAttribute(
+      'href',
+      '/skills/%40ocp-admin%2Fcluster-inventory',
+    );
     expect(screen.getByText('@ocp-admin')).toBeInTheDocument();
     expect(screen.getByText('v4')).toBeInTheDocument();
     expect(screen.getByText('MLflow artifacts')).toBeInTheDocument();
@@ -377,7 +383,14 @@ describe('SkillRegistryPage', () => {
   });
 
   it('navigates from a catalog card to the Skill detail route', async () => {
-    server.use(getMockedSearchSkillsResponse([createMockSkill({ name: 'code-review', organization: 'acme' })]));
+    const skill = createMockSkill({ name: 'code-review', organization: 'acme' });
+    server.use(
+      getMockedSearchSkillsResponse([skill]),
+      ...getMockedSkillDetailHandlers(skill, [
+        createMockSkillVersion({ version: 2 }),
+        createMockSkillVersion({ version: 1 }),
+      ]),
+    );
     renderPage();
 
     await waitFor(() => {
@@ -387,8 +400,8 @@ describe('SkillRegistryPage', () => {
     await userEvent.click(document.querySelector('[data-component-id="mlflow.skill_registry.card"]') as HTMLElement);
 
     await waitFor(() => {
-      expect(screen.getByText('Skill details will appear here.')).toBeInTheDocument();
-      expect(screen.getByText('@acme/code-review')).toBeInTheDocument();
+      expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+      expect(screen.getByText('@acme')).toBeInTheDocument();
     });
   });
 });
