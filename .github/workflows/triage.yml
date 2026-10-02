@@ -270,6 +270,12 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+    cache-mode: read
+    env:
+      AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
+      XDG_DATA_HOME: /tmp/triage-xdg-data
+      XDG_CONFIG_HOME: /tmp/triage-xdg-config
+      XDG_CACHE_HOME: /tmp/triage-xdg-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -296,6 +302,10 @@ jobs:
             run: |
               .claude/scripts/install-claude.sh
               claude --version
+          - name: Install agent-browser
+            run: |
+              .claude/scripts/install-agent-browser.sh
+              agent-browser --version
           - id: gateway
             uses: ./.github/actions/setup-gateway
             with:
@@ -303,6 +313,17 @@ jobs:
               host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
               client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
               client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+      - id: build-cache-key
+        run: |
+          node_version=$(node --version)
+          yarn_version=$(cd mlflow/server/js && yarn --version)
+          fingerprint=$(git ls-files -z -- mlflow/server/js .github/actions/setup-node |
+            xargs -0 sha256sum | sha256sum | cut -d ' ' -f1)
+          echo "key=mlflow-js-build-${RUNNER_OS}-${node_version}-${yarn_version}-${fingerprint}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mlflow/server/js/build
+          key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
         timeout-minutes: 10
@@ -350,6 +371,8 @@ jobs:
           exit 1
       - name: Write sandbox settings
         run: |
+          # Linux SRT cannot allowlist Unix sockets by path; agent-browser needs one.
+          # Keep host service sockets hidden through denyRead below.
           cat > "$RUNNER_TEMP/srt.json" <<'EOF'
           {
             "network": {
@@ -359,7 +382,8 @@ jobs:
                 "files.pythonhosted.org",
                 "registry.npmjs.org"
               ],
-              "deniedDomains": []
+              "deniedDomains": [],
+              "allowAllUnixSockets": true
             },
             "filesystem": {
               "denyRead": [
@@ -367,6 +391,9 @@ jobs:
                 "~/.docker",
                 "~/.config/gh",
                 "/etc/gw-proxy",
+                "/var/run/docker.sock",
+                "/run/docker.sock",
+                "/run/containerd",
                 "/home/runner/work/_temp/_runner_file_commands"
               ],
               "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
@@ -386,6 +413,7 @@ jobs:
           for command in \
             'curl -sf https://example.com' \
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
+            'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
             'cat /etc/gw-proxy/nginx.conf' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
             if srt --settings "$RUNNER_TEMP/srt.json" -- bash -c "$command"; then
@@ -401,6 +429,8 @@ jobs:
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
+          AGENT_BROWSER_ARGS: --no-sandbox
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
             Read the GitHub issue in ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
@@ -409,13 +439,35 @@ jobs:
 
             1. Run `uv run python -c "import mlflow; print(mlflow.__version__)"` in the
                current directory and note the version.
-            2. Write /tmp/triage-out/report.json as
+            2. Start the MLflow UI only if it would help investigate this issue.
+               When needed, start it in the background from your Bash tool. If
+               mlflow/server/js/build/index.html exists, run `uv run mlflow server
+               --host 127.0.0.1 --port 5000` with a SQLite backend and artifact
+               directory under /tmp. Otherwise run `HOST=localhost CI=false uv run
+               dev/run_dev_server.py` (which installs the frontend dependencies).
+               Wait until the local UI responds using `curl --noproxy '*'`; use
+               the Frontend URL printed by the dev server when applicable. For
+               local MLflow client or API commands, set `NO_PROXY=localhost,127.0.0.1`
+               and `no_proxy=localhost,127.0.0.1` on those commands only; otherwise
+               localhost requests can go through the sandbox proxy and be blocked.
+               Do not export these variables globally because Claude uses the
+               gateway at localhost:8080. Keep browser navigation on local MLflow
+               URLs. Run `agent-browser open
+               <UI URL>`, inspect `agent-browser snapshot -i`, and take a full-page
+               screenshot with `agent-browser screenshot --full` without a filename.
+               Save screenshots under /tmp/triage-out/media and include their
+               printed absolute paths in the report. If startup or browser launch
+               fails, state the specific blocker. If UI access would not help,
+               skip the server and browser and say why.
+            3. Write /tmp/triage-out/report.json as
                {"issue_number": <issue number>, "body": "<Markdown>"}, where the body
                summarizes the issue in a few sentences for an MLflow maintainer and
                states the MLflow version from step 1. Open it with a one-line note that
                an automated agent wrote it, don't @-mention anyone, and stay under
                10,000 characters. Create the output directory first.
         run: |
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
+          mkdir -p "${TMPDIR:-/tmp}"
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
