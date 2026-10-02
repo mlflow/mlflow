@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Triage Payload",
+  "description": "Payload written by the triage skill to <out_dir>/payload.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["label", "body"],
+  "properties": {
+    "label": {
+      "description": "Outcome label from the issue type's instructions.",
+      "type": "string",
+      "enum": [
+        "triage: reproduced",
+        "triage: fixed",
+        "triage: not-reproduced",
+        "triage: needs-info",
+        "triage: skipped"
+      ]
+    },
+    "body": {
+      "description": "Markdown comment for the issue, following the template in the instructions.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 9999
+    }
+  }
+}
