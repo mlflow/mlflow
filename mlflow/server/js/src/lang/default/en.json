@@ -11859,6 +11859,10 @@
     "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
     "description": "Error toast shown when saving a traces view once the experiment is at the saved-view cap"
   },
+  "ityxuF": {
+    "defaultMessage": "Image unavailable",
+    "description": "Fallback shown when a custom trace view image binding is missing or invalid"
+  },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
     "description": "Text for provide feedback button on experiment view page header"
