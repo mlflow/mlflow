@@ -842,14 +842,7 @@ def test_otel_resource_attributes(monkeypatch):
         attributes.pop("service.instance.id", None)
         return attributes
 
-    def resource_attributes_without_default_service_name(tracer):
-        attributes = resource_attributes(tracer)
-        assert attributes.pop("service.name") in {
-            "unknown_service",
-            f"unknown_service:{Path(sys.executable).name}",
-        }
-        return attributes
-
+    default_service_name = f"unknown_service:{Path(sys.executable).name}"
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
     assert resource_attributes(tracer) == {
@@ -863,12 +856,13 @@ def test_otel_resource_attributes(monkeypatch):
     # alongside MLflow's SDK attributes.
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "favorite.fruit=apple,color=red")
     tracer = _get_tracer("test")
-    assert resource_attributes_without_default_service_name(tracer) == {
+    assert resource_attributes(tracer) == {
         "favorite.fruit": "apple",
         "color": "red",
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
+        "service.name": default_service_name,
     }
 
     # Service name should be propagated from the env var
@@ -888,7 +882,8 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "invalid")
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
-    assert resource_attributes_without_default_service_name(tracer) == {
+    assert resource_attributes(tracer) == {
+        "service.name": default_service_name,
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
