@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Breadcrumb,
+  Button,
   GenericSkeleton,
   Header,
   LockIcon,
@@ -35,6 +36,7 @@ import { SkillIcon } from '../components/SkillIcon';
 import { SkillTags } from '../components/SkillTags';
 import { SkillVersionList } from '../components/SkillVersionList';
 import { SkillVersionDetail } from '../components/SkillVersionDetail';
+import { RegisterSkillModal } from '../components/RegisterSkillModal';
 import { SkillRegistryEmptyState } from '../components/SkillRegistryEmptyState';
 import type { Skill } from '../types';
 import { SkillStatus } from '../types';
@@ -49,7 +51,7 @@ const breadcrumbs = (
   </Breadcrumb>
 );
 
-const SkillDetailHeader = ({ skill }: { skill: Skill }) => {
+const SkillDetailHeader = ({ skill, onCreateVersion }: { skill: Skill; onCreateVersion: () => void }) => {
   const { theme } = useDesignSystemTheme();
   const isDimmed = isSkillDimmed(skill);
   const organizationLabel = formatSkillOrganization(skill.organization);
@@ -87,6 +89,14 @@ const SkillDetailHeader = ({ skill }: { skill: Skill }) => {
             )}
           </span>
         }
+        buttons={
+          <Button componentId="mlflow.skill_registry.create_version" type="primary" onClick={onCreateVersion}>
+            <FormattedMessage
+              defaultMessage="Create skill version"
+              description="Button that adds an external-source version to this skill"
+            />
+          </Button>
+        }
       />
       {organizationLabel && (
         <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs }}>
@@ -112,6 +122,7 @@ const SkillDetailPage = () => {
   const params = useParams<{ skillKey?: string; organization?: string; skillName?: string }>();
   const { name, organization } = parseSkillRouteParams(params);
   const [selectedVersion, setSelectedVersion] = useSelectedSkillVersion();
+  const [createVersionOpen, setCreateVersionOpen] = useState(false);
   const { data: skill, isLoading: skillLoading, error: skillError, refetch } = useSkillQuery(name, organization);
   const {
     data: versions,
@@ -253,7 +264,7 @@ const SkillDetailPage = () => {
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
-      <SkillDetailHeader skill={skill} />
+      <SkillDetailHeader skill={skill} onCreateVersion={() => setCreateVersionOpen(true)} />
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: '0 0 320px', display: 'flex', flexDirection: 'column' }}>
@@ -292,6 +303,14 @@ const SkillDetailPage = () => {
           />
         </div>
       </div>
+      <RegisterSkillModal
+        visible={createVersionOpen}
+        skill={{ name: skill.name, organization: skill.organization }}
+        sourceVersion={currentVersion}
+        nextVersion={(skill.latest_version ?? currentVersion?.version ?? 0) + 1}
+        onClose={() => setCreateVersionOpen(false)}
+        onRegistered={(version) => setSelectedVersion(version.version)}
+      />
     </ScrollablePageWrapper>
   );
 };

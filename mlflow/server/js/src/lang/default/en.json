@@ -303,6 +303,10 @@
     "defaultMessage": "Error",
     "description": "Error assessment label for filter dropdown"
   },
+  "/F/mYf": {
+    "defaultMessage": "Skill folder",
+    "description": "Aria label for the skill directory picker"
+  },
   "/FWWkj": {
     "defaultMessage": "Issue detection run",
     "description": "Tooltip for the AI icon indicating this is an issue detection run"
@@ -626,6 +630,10 @@
   "0T1I+b": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
+  },
+  "0U1OTy": {
+    "defaultMessage": "A draft is passed over whenever any active version exists. A draft can always be reached by an explicit version pin or an alias.",
+    "description": "Hint for the initial skill version status"
   },
   "0UjEHT": {
     "defaultMessage": "Free-text search matches name and description through {searchText}. Structured filters are sent as {filterString} clauses.",
@@ -967,6 +975,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "21rwGc": {
+    "defaultMessage": "Status",
+    "description": "Label for the initial skill version status"
+  },
   "24pi72": {
     "defaultMessage": "Settings",
     "description": "Title for the MLflow Assistant settings page"
@@ -1111,6 +1123,10 @@
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
   },
+  "2Yt+lw": {
+    "defaultMessage": "Python",
+    "description": "Python example for skill registration"
+  },
   "2ZB29e": {
     "defaultMessage": "A new prompt will be created in the registry.",
     "description": "Note shown in the playground save modal when no prompt is loaded, so a new prompt is created"
@@ -1174,6 +1190,10 @@
   "2kNo2y": {
     "defaultMessage": "Tool Error Rates",
     "description": "Title for the tool error rates section"
+  },
+  "2kbhHk": {
+    "defaultMessage": "A ZIP source must be an http(s) URL.",
+    "description": "Validation error for a non-HTTP skill ZIP source"
   },
   "2mRfvl": {
     "defaultMessage": "Request error",
@@ -1711,6 +1731,10 @@
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
   },
+  "5/g+b+": {
+    "defaultMessage": "Could not register the skill.",
+    "description": "Fallback error when skill registration fails"
+  },
   "502XWr": {
     "defaultMessage": "Search inputs, expectations…",
     "description": "Placeholder for the search input on the V2 dataset records page"
@@ -1806,6 +1830,10 @@
   "5PlfiT": {
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
     "description": "Too many requests (HTTP STATUS 429) generic error message"
+  },
+  "5PnvCO": {
+    "defaultMessage": "Specify a source and name below to register a skill to MLflow, or {apiLink}",
+    "description": "Intro for the skill registration dialog"
   },
   "5RWIet": {
     "defaultMessage": "Schema {sectionName}",
@@ -1914,6 +1942,10 @@
   "5tLj84": {
     "defaultMessage": "Good",
     "description": "Label for an assessment with a 'good' value"
+  },
+  "5tdnqz": {
+    "defaultMessage": "Remove credentials from the URL. They would be stored with the skill.",
+    "description": "Validation error when a skill source URL contains credentials"
   },
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
@@ -2227,6 +2259,10 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
   },
+  "75hhZl": {
+    "defaultMessage": "Dark",
+    "description": "Dark mode skill icon option"
+  },
   "78/HiZ": {
     "defaultMessage": "Expand tag columns",
     "description": "Column header action for expanding tag columns"
@@ -2238,6 +2274,10 @@
   "7AbOaV": {
     "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
     "description": "Hint text explaining API key name field"
+  },
+  "7DVhDU": {
+    "defaultMessage": "The version was created, but its description, icon, or tags could not be saved.",
+    "description": "Error when skill presentation metadata fails after registration"
   },
   "7Dhfxy": {
     "defaultMessage": "Fail",
@@ -2378,6 +2418,10 @@
   "7cd+cQ": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for displaying the experiment trace archival retention"
+  },
+  "7e1NL+": {
+    "defaultMessage": "Enter a source location.",
+    "description": "Validation error when skill registration has no source URL"
   },
   "7h+cXW": {
     "defaultMessage": "Assessment name",
@@ -2535,6 +2579,10 @@
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
   },
+  "8B5Toz": {
+    "defaultMessage": "Icon URL",
+    "description": "Aria label for a skill icon URL"
+  },
   "8CgyA/": {
     "defaultMessage": "Tags",
     "description": "Section label for tag columns in the traces table column selector"
@@ -2570,6 +2618,10 @@
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
+  },
+  "8Jnxjy": {
+    "defaultMessage": "Advanced settings (optional)",
+    "description": "Toggle for optional skill registration fields"
   },
   "8Mwwrq": {
     "defaultMessage": "No matching users",
@@ -2726,6 +2778,10 @@
   "90mZic": {
     "defaultMessage": "Budget",
     "description": "Budget amount column header"
+  },
+  "915mRE": {
+    "defaultMessage": "Group skills with an organization by adding it to the name, e.g. @my-org/my-skill-name.",
+    "description": "Hint for the skill registration name field"
   },
   "917MAH": {
     "defaultMessage": "Trace archival retention must be at most {maxLength} characters.",
@@ -3067,6 +3123,10 @@
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
   },
+  "AAxEMU": {
+    "defaultMessage": "Create skill",
+    "description": "Button that opens skill registration"
+  },
   "AB6/gE": {
     "defaultMessage": "Endpoints",
     "description": "Gateway side nav > Endpoints tab"
@@ -3219,6 +3279,10 @@
     "defaultMessage": "Apply filters",
     "description": "Usage overview > apply filters button"
   },
+  "AmPyg3": {
+    "defaultMessage": "Icon",
+    "description": "Label for the skill icon editor"
+  },
   "AqmDon": {
     "defaultMessage": "No custom LLM-as-a-judge scorers found",
     "description": "Empty-state label when the experiment has no custom LLM-as-a-judge scorers"
@@ -3346,6 +3410,10 @@
   "BEXAt0": {
     "defaultMessage": "(empty)",
     "description": "Placeholder for an empty JSON cell"
+  },
+  "BEYEg8": {
+    "defaultMessage": "Theme",
+    "description": "Aria label for a skill icon theme"
   },
   "BF9qQD": {
     "defaultMessage": "Use \"Create API key\" button to create a new API key",
@@ -3915,6 +3983,10 @@
     "defaultMessage": "Expand assertion text",
     "description": "Aria label for the chevron that expands a long assertion text"
   },
+  "DXmrwz": {
+    "defaultMessage": "Theme",
+    "description": "Column header for a skill icon theme"
+  },
   "DXxTNn": {
     "defaultMessage": "Used for HMAC signature verification of incoming webhook requests.",
     "description": "Webhook secret field description"
@@ -3922,6 +3994,10 @@
   "DaF+KK": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
+  },
+  "Db6FRy": {
+    "defaultMessage": "The CLI reads the skill locally, so it can infer the name and record a digest.",
+    "description": "Explanation of the skill registration CLI example"
   },
   "DcGPfO": {
     "defaultMessage": "Row height",
@@ -4147,6 +4223,10 @@
     "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
     "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
   },
+  "ET2qrH": {
+    "defaultMessage": "The Python SDK reads the skill locally, so it can infer the name and record a digest.",
+    "description": "Explanation of the skill registration Python example"
+  },
   "EWf8NH": {
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
@@ -4210,6 +4290,10 @@
   "EskEv7": {
     "defaultMessage": "Question preview",
     "description": "Create review queue: question preview section label"
+  },
+  "Et1NzU": {
+    "defaultMessage": "Source type",
+    "description": "Aria label for the skill source type override"
   },
   "EtPSl6": {
     "defaultMessage": "Discard unsaved changes?",
@@ -4499,6 +4583,10 @@
     "defaultMessage": "Persona",
     "description": "Column label for simulation persona"
   },
+  "G4tB4L": {
+    "defaultMessage": "Key",
+    "description": "Aria label for a skill tag key"
+  },
   "G4x6G7": {
     "defaultMessage": "Finetuning",
     "description": "Label for experiments focused on model finetuning"
@@ -4590,6 +4678,10 @@
   "GYxv/z": {
     "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
     "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
+  },
+  "GZg91B": {
+    "defaultMessage": "Name",
+    "description": "Label for the skill registration name"
   },
   "Ga2Oyg": {
     "defaultMessage": "Share queue link",
@@ -4762,6 +4854,10 @@
   "HHRU4d": {
     "defaultMessage": "Detection progress",
     "description": "Issue detection progress > Title"
+  },
+  "HHruY/": {
+    "defaultMessage": "Enter a remote Git, OCI, or ZIP location.",
+    "description": "Validation error for an invalid skill source location"
   },
   "HLbyGb": {
     "defaultMessage": "Show more",
@@ -4978,6 +5074,10 @@
   "I2UqCo": {
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
+  },
+  "I4g8cH": {
+    "defaultMessage": "Select the directory containing SKILL.md.",
+    "description": "Hint for the skill directory picker"
   },
   "I9bJ/T": {
     "defaultMessage": "Select All",
@@ -5251,6 +5351,10 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
+  "JB99GZ": {
+    "defaultMessage": "light theme",
+    "description": "Light skill icon preview label"
+  },
   "JBZ+Q+": {
     "defaultMessage": "Delete saved view",
     "description": "Title of the confirmation dialog for deleting a saved experiment view"
@@ -5358,6 +5462,10 @@
   "JaanQY": {
     "defaultMessage": "Tools",
     "description": "Filter option for tool support"
+  },
+  "Jb73S0": {
+    "defaultMessage": "Description",
+    "description": "Aria label for the skill description"
   },
   "JcRo6a": {
     "defaultMessage": "User",
@@ -5559,6 +5667,10 @@
     "defaultMessage": "Type {itemName} to confirm deletion:",
     "description": "Type to confirm instruction"
   },
+  "KSLU3H": {
+    "defaultMessage": "Names must be lowercase letters, digits, and single hyphens, as in @my-org/my-skill.",
+    "description": "Validation error for a skill registration name"
+  },
   "KSgUAW": {
     "defaultMessage": "Name",
     "description": "Endpoint name column header"
@@ -5626,6 +5738,10 @@
   "KmZ5PI": {
     "defaultMessage": "Turn {turnNumber}",
     "description": "Sequential turn number for a trace within an expanded session"
+  },
+  "KnSQrl": {
+    "defaultMessage": "Branch, tag or commit",
+    "description": "Aria label for an optional skill git ref"
   },
   "KoMa6+": {
     "defaultMessage": "Select visible columns",
@@ -5698,6 +5814,10 @@
   "L/U++H": {
     "defaultMessage": "Runs",
     "description": "Label for the runs tab in the MLflow experiment navbar"
+  },
+  "L0a+li": {
+    "defaultMessage": "Path within the source",
+    "description": "Label for an optional skill source subpath"
   },
   "L12vyN": {
     "defaultMessage": "The following {count, plural, one {endpoint} other {endpoints}} will be deleted:",
@@ -5799,6 +5919,10 @@
     "defaultMessage": "Select the type of guardrail you want to create.",
     "description": "Step 1 subtitle"
   },
+  "LR6+ar": {
+    "defaultMessage": "Select a source type",
+    "description": "Placeholder for the skill source type override"
+  },
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
@@ -5858,6 +5982,10 @@
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
+  },
+  "LtU5Qc": {
+    "defaultMessage": "Add icon",
+    "description": "Tooltip for adding a skill icon"
   },
   "LuOEnE": {
     "defaultMessage": "Add",
@@ -6043,6 +6171,10 @@
     "defaultMessage": "The provider's CLI is not installed on the MLflow server. Install it, or switch to another provider.",
     "description": "Callout shown when the assistant provider CLI is missing"
   },
+  "MVXvKf": {
+    "defaultMessage": "Create skill",
+    "description": "Title for registering a skill"
+  },
   "MX4ypf": {
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
@@ -6179,6 +6311,10 @@
     "defaultMessage": "Guidelines",
     "description": "LLM template option"
   },
+  "N/ZudE": {
+    "defaultMessage": "Source",
+    "description": "Label for the skill registration source choice"
+  },
   "N/tNrE": {
     "defaultMessage": "Actions",
     "description": "Experiment evaluation runs table actions button"
@@ -6290,6 +6426,10 @@
   "NMZBYc": {
     "defaultMessage": "From server.json: {url}",
     "description": "Tooltip for server.json icon"
+  },
+  "NN/30s": {
+    "defaultMessage": "Create",
+    "description": "Submit button for skill registration"
   },
   "NN0ScV": {
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
@@ -6915,6 +7055,10 @@
     "defaultMessage": "Copy",
     "description": "Copy button tooltip"
   },
+  "PesjF7": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel skill registration"
+  },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
@@ -6938,6 +7082,10 @@
   "Pne4Lp": {
     "defaultMessage": "Maximum of {max} sessions can be selected",
     "description": "Tooltip shown when too many sessions are selected"
+  },
+  "PoRTL+": {
+    "defaultMessage": "That source type does not match this location.",
+    "description": "Validation error when a skill source type override contradicts the URL"
   },
   "Potju2": {
     "defaultMessage": "Restore",
@@ -7338,6 +7486,10 @@
   "RJhypK": {
     "defaultMessage": "Metadata:",
     "description": "Label for metadata field in create MCP server version modal"
+  },
+  "ROlEsm": {
+    "defaultMessage": "Path within the source",
+    "description": "Aria label for an optional skill source subpath"
   },
   "RP7EUg": {
     "defaultMessage": "Source",
@@ -7943,6 +8095,10 @@
     "defaultMessage": "Name",
     "description": "Create review queue: name field label"
   },
+  "TnTYBs": {
+    "defaultMessage": "Enter a skill name.",
+    "description": "Validation error when skill registration has no name"
+  },
   "Tpj2su": {
     "defaultMessage": "Attributes",
     "description": "Label for the attributes column group in the logged model column selector"
@@ -8415,6 +8571,10 @@
     "defaultMessage": "All sources",
     "description": "Skill catalog source filter option for any source"
   },
+  "VYEm21": {
+    "defaultMessage": "Any",
+    "description": "Theme-agnostic skill icon option"
+  },
   "VYfxMp": {
     "defaultMessage": "{hours}h ago",
     "description": "Review queue table: date-added cell, hours ago"
@@ -8682,6 +8842,10 @@
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
+  },
+  "WWKK2J": {
+    "defaultMessage": "Icon URL",
+    "description": "Column header for a skill icon URL"
   },
   "WWv3EQ": {
     "defaultMessage": "Options",
@@ -8971,6 +9135,10 @@
     "defaultMessage": "Sort",
     "description": "Display menu item opening the traces table sort submenu"
   },
+  "XV5r53": {
+    "defaultMessage": "dark theme",
+    "description": "Dark skill icon preview label"
+  },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
@@ -9198,6 +9366,10 @@
   "YQ+Eon": {
     "defaultMessage": "Register model",
     "description": "Button text to register the model for deployment"
+  },
+  "YQrlk4": {
+    "defaultMessage": "Your browser reads the folder and uploads it. MLflow stores the content.",
+    "description": "Explanation of the local skill folder upload flow"
   },
   "YRBURU": {
     "defaultMessage": "Sort: {sortBy}",
@@ -9579,6 +9751,10 @@
     "defaultMessage": "Users",
     "description": "Admin users tab"
   },
+  "ZyA/VH": {
+    "defaultMessage": "Draft",
+    "description": "Initial skill version status draft"
+  },
   "Zzuohs": {
     "defaultMessage": "Pinned version: v{version}",
     "description": "Pinned Skill version shown in the use-skill modal"
@@ -9867,6 +10043,10 @@
     "defaultMessage": "Select an MCP server",
     "description": "MCP registry endpoint modal server placeholder"
   },
+  "b3OdDc": {
+    "defaultMessage": "Organization names must be lowercase letters, digits, hyphens, and periods.",
+    "description": "Validation error for a skill registration organization"
+  },
   "b5Aw4a": {
     "defaultMessage": "Delete{count, select, 0 {} other { ({count})}}",
     "description": "Delete guardrails button with optional count"
@@ -10083,6 +10263,10 @@
     "defaultMessage": "Fail",
     "description": "Failing evaluation status in the evaluations table."
   },
+  "bzZjbk": {
+    "defaultMessage": "Key/value metadata you can filter the registry by. Editable later from the skill page.",
+    "description": "Hint for skill registration tags"
+  },
   "c+3yBY": {
     "defaultMessage": "View traces for this period",
     "description": "Link text to navigate to traces tab filtered by the selected time period"
@@ -10106,6 +10290,10 @@
   "c1jD8u": {
     "defaultMessage": "Create an evaluation dataset",
     "description": "Evaluation datasets empty state title"
+  },
+  "c2Gj7n": {
+    "defaultMessage": "Value",
+    "description": "Aria label for a skill tag value"
   },
   "c4METn": {
     "defaultMessage": "Create",
@@ -10395,6 +10583,10 @@
     "defaultMessage": "Current password is required",
     "description": "Validation error when the current-password field is empty"
   },
+  "d6Yz2I": {
+    "defaultMessage": "Location",
+    "description": "Label for the skill registration source URL"
+  },
   "d72zLS": {
     "defaultMessage": "Toggle session grouping",
     "description": "Tooltip for the group by session button in the traces table toolbar"
@@ -10635,6 +10827,10 @@
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "V4 traces > SQL warehouse timeout error description with CTA to select a larger warehouse"
   },
+  "e67EDw": {
+    "defaultMessage": "Content stays where it is. Clients fetch it with their own credentials.",
+    "description": "Explanation of pointer-only skill registration"
+  },
   "e6reUn": {
     "defaultMessage": "Failed",
     "description": "Label for upload failed state of a experiment logged model"
@@ -10823,6 +11019,10 @@
     "defaultMessage": "You can change this model in advanced settings",
     "description": "Tooltip suggesting users can change the default model in advanced settings"
   },
+  "ekcUog": {
+    "defaultMessage": "Light",
+    "description": "Light mode skill icon option"
+  },
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
@@ -10887,6 +11087,10 @@
     "defaultMessage": "No images found",
     "description": "Title for the empty state when no images are found in the currently visible runs"
   },
+  "f+SL+E": {
+    "defaultMessage": "Add tag",
+    "description": "Aria label for adding a skill tag"
+  },
   "f+fpq2": {
     "defaultMessage": "Tag",
     "description": "Trace filter field: arbitrary tag key"
@@ -10942,6 +11146,10 @@
   "fCT8Fj": {
     "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
     "description": "Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
+  },
+  "fDi2Nb": {
+    "defaultMessage": "Active",
+    "description": "Initial skill version status active"
   },
   "fGQf7k": {
     "defaultMessage": "Find in trace",
@@ -11235,6 +11443,10 @@
     "defaultMessage": "Add message",
     "description": "Label for the button that appends a new chat message on the playground page"
   },
+  "gFJWo4": {
+    "defaultMessage": "Add icon",
+    "description": "Aria label for adding a skill icon"
+  },
   "gFYM0j": {
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
@@ -11487,6 +11699,10 @@
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
   },
+  "h1OKWL": {
+    "defaultMessage": "Import from existing source, e.g. Git, OCI",
+    "description": "Skill registration option for a remote source pointer"
+  },
   "h1VO0z": {
     "defaultMessage": "Failed to remove one or more guardrails. Please try again.",
     "description": "Error when bulk guardrail removal fails"
@@ -11502,6 +11718,10 @@
   "h2SXjO": {
     "defaultMessage": "Key",
     "description": "Tag assignment modal > Key label"
+  },
+  "h2aMKK": {
+    "defaultMessage": "Adding a version to {identity}. Its content can come from anywhere, not just where the previous version lives. Or {apiLink}",
+    "description": "Intro for adding an external skill version"
   },
   "h3GmoO": {
     "defaultMessage": "Metrics",
@@ -12191,6 +12411,10 @@
     "defaultMessage": "Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
   },
+  "jQRGII": {
+    "defaultMessage": "Tags",
+    "description": "Label for skill tags saved after registration"
+  },
   "jR08Zd": {
     "defaultMessage": "This judge template is not yet supported for sample judge output",
     "description": "Tooltip message when selected template is not supported for running on sample traces"
@@ -12279,9 +12503,17 @@
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
   },
+  "jl47SF": {
+    "defaultMessage": "New versions can be Active or Draft.",
+    "description": "Validation error when a new skill version status is not active or draft"
+  },
   "jlGW/p": {
     "defaultMessage": "Linked span",
     "description": "Label for the span referenced by a same-trace span link"
+  },
+  "jmQK7U": {
+    "defaultMessage": "Ref is only used for Git sources.",
+    "description": "Validation error when a skill ref is set for a non-Git source"
   },
   "jnbWGa": {
     "defaultMessage": "Path: {path}",
@@ -12487,6 +12719,10 @@
     "defaultMessage": "Test succeeded (HTTP {status})",
     "description": "Message informing the user that the webhook test succeeded"
   },
+  "kRwhg1": {
+    "defaultMessage": "Choose a source type in Advanced settings. The location is not a Git, OCI, or ZIP URL.",
+    "description": "Validation error when a skill source type cannot be inferred"
+  },
   "kSrJQC": {
     "defaultMessage": "Agent responds within acceptable time bounds",
     "description": "Issue category description for latency"
@@ -12606,6 +12842,10 @@
   "l119W9": {
     "defaultMessage": "No matching questions",
     "description": "Review queue: no questions match the search"
+  },
+  "l50WQ7": {
+    "defaultMessage": "Select the directory containing SKILL.md.",
+    "description": "Validation error when a skill folder upload has no SKILL.md"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
@@ -12730,6 +12970,10 @@
   "lbKQH6": {
     "defaultMessage": "Trace name",
     "description": "Header for the traces table trace-name column"
+  },
+  "lbKTmC": {
+    "defaultMessage": "← Back to form",
+    "description": "Return from the skill API example to the form"
   },
   "ld2Xn9": {
     "defaultMessage": "Compare",
@@ -13083,6 +13327,10 @@
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
   },
+  "mwDkLB": {
+    "defaultMessage": "Create skill version {version}",
+    "description": "Title for adding a skill version"
+  },
   "mwR/4I": {
     "defaultMessage": "Active",
     "description": "Active status option in create MCP server modal"
@@ -13166,6 +13414,10 @@
   "nF10K1": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
+  },
+  "nGK/JU": {
+    "defaultMessage": "create through API →",
+    "description": "Link from skill registration to the API example"
   },
   "nH5645": {
     "defaultMessage": "Package arguments",
@@ -13354,6 +13606,10 @@
   "o0NwZU": {
     "defaultMessage": "Quality metrics computed by scorers.",
     "description": "Description for the scorer insights section"
+  },
+  "o0tc2r": {
+    "defaultMessage": "Defaults to the repository's default branch.",
+    "description": "Hint for the skill git ref field"
   },
   "o1dN9r": {
     "defaultMessage": "Theme preference",
@@ -14947,6 +15203,10 @@
     "defaultMessage": "Breadcrumb",
     "description": "Aria label for the V2 evaluation datasets breadcrumb navigation landmark"
   },
+  "uVhhMt": {
+    "defaultMessage": "Create skill version",
+    "description": "Button that adds an external-source version to this skill"
+  },
   "uW5+ph": {
     "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
     "description": "Step 2 description for running the judge"
@@ -15087,6 +15347,10 @@
     "defaultMessage": "Deleted {count, plural, one {# record} other {# records}}",
     "description": "Success toast after bulk-deleting V2 dataset records"
   },
+  "v5YEGx": {
+    "defaultMessage": "Branch, tag or commit",
+    "description": "Label for an optional skill git ref"
+  },
   "v5gzhw": {
     "defaultMessage": "Runtime arguments",
     "description": "Package runtime arguments label"
@@ -15106,6 +15370,10 @@
   "vCUglz": {
     "defaultMessage": "Suggested actions",
     "description": "Evaluation review > assessments > suggested actions > title"
+  },
+  "vCZkhL": {
+    "defaultMessage": "The directory holding SKILL.md. Leave blank if it is at the root.",
+    "description": "Hint for the skill source subpath field"
   },
   "vDAb7C": {
     "defaultMessage": "Auto-create experiment",
@@ -15182,6 +15450,10 @@
   "vWf6fP": {
     "defaultMessage": "Processing",
     "description": "Processing indicator while Assistant is streaming a response"
+  },
+  "vWypK7": {
+    "defaultMessage": "Source type",
+    "description": "Label for the skill source type override"
   },
   "vZmzdA": {
     "defaultMessage": "Skills",
@@ -15271,6 +15543,10 @@
     "defaultMessage": "The run containing the dataset could not be found.",
     "description": "Error message displayed when the run for the dataset is not found"
   },
+  "vwJ0ik": {
+    "defaultMessage": "Preview",
+    "description": "Label for the skill icon preview"
+  },
   "vwXBHk": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an issue assessment"
@@ -15330,6 +15606,10 @@
   "wBFfWW": {
     "defaultMessage": "Register",
     "description": "Register button text to register the model"
+  },
+  "wBH0qi": {
+    "defaultMessage": "CLI",
+    "description": "CLI example for skill registration"
   },
   "wCaDws": {
     "defaultMessage": "Default",
@@ -15395,6 +15675,10 @@
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search models from the model registry table"
   },
+  "wMsymM": {
+    "defaultMessage": "Description",
+    "description": "Label for the skill description saved after registration"
+  },
   "wNHR0W": {
     "defaultMessage": "Aliases",
     "description": "Column title text for model version aliases in model version table"
@@ -15406,6 +15690,10 @@
   "wOupuD": {
     "defaultMessage": "Expected facts for evaluation",
     "description": "Tooltip description for the Expected facts column in the traces table"
+  },
+  "wR9jbK": {
+    "defaultMessage": "Upload a folder",
+    "description": "Skill registration option that uploads a local skill folder"
   },
   "wSIkSJ": {
     "defaultMessage": "Select trace {traceId}",
@@ -15855,6 +16143,10 @@
     "defaultMessage": "No trace data recorded",
     "description": "Empty state in the v2 dataset record side-panel trace modal when the trace has no spans"
   },
+  "y3UnNi": {
+    "defaultMessage": "Digest must be 64 lowercase hex characters. You can omit it.",
+    "description": "Validation error for a skill content digest"
+  },
   "y4I2zP": {
     "defaultMessage": "Select all traces on this page",
     "description": "Aria label for the select-all checkbox in the traces table header"
@@ -16082,6 +16374,10 @@
   "z4aclU": {
     "defaultMessage": "Discard",
     "description": "Confirm-button text for the discard-unsaved-changes prompt"
+  },
+  "z55yPh": {
+    "defaultMessage": "Status",
+    "description": "Aria label for the initial skill version status"
   },
   "z6K3IC": {
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
