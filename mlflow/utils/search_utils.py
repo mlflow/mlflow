@@ -2435,6 +2435,7 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name"})
 
     @classmethod
     def _invalid_statement_token(cls, token):
