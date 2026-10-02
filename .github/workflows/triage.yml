@@ -159,11 +159,23 @@ jobs:
         run: |
           # Strip HTML comments, control characters, and invisible Unicode (zero-width,
           # bidi overrides, tag characters) that can hide text from human reviewers.
-          jq -n --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" '
-            {title: env.TITLE, body: env.BODY}
-            | map_values(gsub("<!--[\\s\\S]*?-->"; "") | gsub("[\\x{0}-\\x{8}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{ad}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2060}-\\x{2064}\\x{2066}-\\x{2069}\\x{feff}\\x{e0000}-\\x{e007f}]"; ""))
+          jq -n '{title: env.TITLE, body: env.BODY}' > "$RUNNER_TEMP/original_issue.json"
+          jq --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" '
+            map_values(gsub("<!--[\\s\\S]*?-->"; "") | gsub("[\\x{0}-\\x{8}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{ad}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2060}-\\x{2064}\\x{2066}-\\x{2069}\\x{feff}\\x{e0000}-\\x{e007f}]"; ""))
             | . + {$repository, issue_number: $number}
-          ' > "$RUNNER_TEMP/sanitized_issue.json"
+          ' "$RUNNER_TEMP/original_issue.json" > "$RUNNER_TEMP/sanitized_issue.json"
+          for variant in original sanitized; do
+            jq -a '"title", (.title | split("\n")[]), "body", (.body | split("\n")[])' \
+              "$RUNNER_TEMP/${variant}_issue.json" > "$RUNNER_TEMP/${variant}_issue.txt"
+          done
+          if diff -U0 "$RUNNER_TEMP/original_issue.txt" "$RUNNER_TEMP/sanitized_issue.txt" \
+            > "$RUNNER_TEMP/sanitization.diff"; then
+            echo "No issue content was sanitized"
+          else
+            status=$?
+            [ "$status" -eq 1 ] || exit "$status"
+            head -c 16000 "$RUNNER_TEMP/sanitization.diff"
+          fi
       - id: gateway
         uses: ./.github/actions/setup-gateway
         with:
