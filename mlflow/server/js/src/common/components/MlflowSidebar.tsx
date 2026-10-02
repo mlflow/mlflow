@@ -8,15 +8,13 @@ import {
   GearIcon,
   HomeIcon,
   ModelsIcon,
-  TextBoxIcon,
+  SparkleDoubleIcon,
   Typography,
   useDesignSystemTheme,
   SidebarCollapseIcon,
   SidebarExpandIcon,
   InfoBookIcon,
   NewWindowIcon,
-  McpIcon,
-  PuzzleIcon,
 } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { Location } from '../utils/RoutingUtils';
@@ -24,10 +22,7 @@ import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams }
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import MCPRegistryRoutes from '../../mcp-registry/routes';
-import { MCPRegistryBetaTag } from '../../mcp-registry/components/MCPRegistryBetaTag';
-import SkillRegistryRoutes from '../../skill-registry/routes';
-import { SkillRegistryBetaTag } from '../../skill-registry/components/SkillRegistryBetaTag';
+import { MlflowSidebarAiRegistryItems } from './MlflowSidebarAiRegistryItems';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
@@ -62,6 +57,8 @@ const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', 
 const isMCPRegistryActive = (location: Location) => Boolean(matchPath('/mcp-registry/*', location.pathname));
 const isSkillRegistryActive = (location: Location) =>
   Boolean(matchPath({ path: '/skills', end: true }, location.pathname) || matchPath('/skills/*', location.pathname));
+const isAiRegistryActive = (location: Location) =>
+  isPromptsActive(location) || isMCPRegistryActive(location) || isSkillRegistryActive(location);
 const isSettingsActive = (location: Location) =>
   Boolean(
     matchPath({ path: '/settings', end: true }, location.pathname) ||
@@ -208,56 +205,24 @@ export function MlflowSidebar({
       ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
         ? [
             {
-              key: 'prompts',
-              icon: <TextBoxIcon />,
+              key: 'ai-registry',
+              icon: <SparkleDoubleIcon />,
               linkProps: {
                 to: ExperimentTrackingRoutes.promptsPageRoute,
-                isActive: isPromptsActive,
-                children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
-              },
-              componentId: 'mlflow.sidebar.prompts_tab_link',
-            },
-          ]
-        : []),
-      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
-        ? [
-            {
-              key: 'mcp-registry',
-              icon: <McpIcon />,
-              linkProps: {
-                to: MCPRegistryRoutes.mcpRegistryPageRoute,
-                isActive: isMCPRegistryActive,
+                isActive: (currentLocation: Location) =>
+                  !enableWorkflowBasedNavigation && isAiRegistryActive(currentLocation),
                 children: (
-                  <>
-                    <FormattedMessage defaultMessage="MCP registry" description="Sidebar link for MCP registry page" />
-                    <span css={{ marginLeft: 'auto' }}>
-                      <MCPRegistryBetaTag />
-                    </span>
-                  </>
+                  <FormattedMessage
+                    defaultMessage="AI Registry"
+                    description="Sidebar link for the AI Registry section"
+                  />
                 ),
               },
-              componentId: 'mlflow.sidebar.mcp_registry_tab_link',
-            },
-          ]
-        : []),
-      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
-        ? [
-            {
-              key: 'skill-registry',
-              icon: <PuzzleIcon />,
-              linkProps: {
-                to: SkillRegistryRoutes.skillRegistryPageRoute,
-                isActive: isSkillRegistryActive,
-                children: (
-                  <>
-                    <FormattedMessage defaultMessage="Skills" description="Sidebar link for Skill Registry page" />
-                    <span css={{ marginLeft: 'auto' }}>
-                      <SkillRegistryBetaTag />
-                    </span>
-                  </>
-                ),
-              },
-              componentId: 'mlflow.sidebar.skill_registry_tab_link',
+              componentId: 'mlflow.sidebar.ai_registry_tab_link',
+              nestedItems:
+                shouldEnableWorkflowBasedNavigation() && isAiRegistryActive(location) ? (
+                  <MlflowSidebarAiRegistryItems collapsed={!showSidebar} />
+                ) : undefined,
             },
           ]
         : []),

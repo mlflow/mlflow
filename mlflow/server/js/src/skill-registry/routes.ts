@@ -1,4 +1,5 @@
-import { createMLflowRoutePath } from '../common/utils/RoutingUtils';
+import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
+import { formatSkillIdentity } from './utils';
 
 export enum SkillRegistryPageId {
   skillRegistryPage = 'mlflow.skill-registry',
@@ -12,12 +13,13 @@ export class SkillRegistryRoutePaths {
   }
 
   static get skillDetailPage() {
-    return createMLflowRoutePath('/skills/:skillName');
+    // One encoded identity segment so `@` and `/` cannot split the path
+    // (`%40acme%2Fcode-review`). Matches the Skill Registry prototype.
+    return createMLflowRoutePath('/skills/:skillKey');
   }
 
   static get skillDetailPageWithOrganization() {
-    // `@` is a literal prefix on the organization segment (`@acme`). React Router
-    // does not treat `/skills/@:organization` as a named parameter.
+    // Compatibility for unencoded two-segment URLs (`/skills/@acme/code-review`).
     return createMLflowRoutePath('/skills/:organization/:skillName');
   }
 }
@@ -28,12 +30,14 @@ class SkillRegistryRoutes {
     return SkillRegistryRoutePaths.skillRegistryPage;
   }
 
-  static getSkillDetailRoute(name: string, organization = '') {
-    const encodedName = encodeURIComponent(name);
-    if (organization) {
-      return `/skills/@${encodeURIComponent(organization)}/${encodedName}`;
+  static getSkillDetailRoute(name: string, organization = '', version?: number) {
+    const path = generatePath(SkillRegistryRoutePaths.skillDetailPage, {
+      skillKey: encodeURIComponent(formatSkillIdentity(name, organization)),
+    });
+    if (version != null) {
+      return `${path}?version=${encodeURIComponent(String(version))}`;
     }
-    return `/skills/${encodedName}`;
+    return path;
   }
 }
 
