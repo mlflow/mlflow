@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -19,6 +19,7 @@ import {
   getMockedSearchSkillsResponse,
   getMockedSkillDetailHandlers,
 } from '../test-utils';
+import { SKILL_QUERY_KEYS } from '../utils';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/skills';
 
@@ -54,6 +55,7 @@ describe('SkillRegistryPage', () => {
         </DesignSystemProvider>
       </IntlProvider>,
     );
+    return queryClient;
   };
 
   it('renders the catalog title and empty-registry state', async () => {
@@ -403,5 +405,104 @@ describe('SkillRegistryPage', () => {
       expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
       expect(screen.getByText('@acme')).toBeInTheDocument();
     });
+  });
+
+  it('registers an external source from the catalog and opens the returned version', async () => {
+    const skill = createMockSkill({
+      name: 'network-policy-architect',
+      organization: 'acme',
+      latest_version: 1,
+    });
+    const version = createMockSkillVersion({
+      name: 'network-policy-architect',
+      organization: 'acme',
+      version: 1,
+      ref: 'main',
+      subpath: 'network-policy-architect',
+    });
+    let requestBody: unknown;
+    server.use(
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
+        requestBody = await req.json();
+        return res(ctx.json(version));
+      }),
+      ...getMockedSkillDetailHandlers(skill, [version]),
+    );
+    const queryClient = renderPage();
+    const invalidateQueries = jest.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    expect(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ })).toBeChecked();
+    expect(
+      screen.getByLabelText('Location').compareDocumentPosition(screen.getByLabelText('Name')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    expect(screen.getByText('Select the directory containing SKILL.md.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Advanced settings (optional)' })).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ }));
+    await userEvent.type(
+      screen.getByLabelText('Location'),
+      'https://github.com/acme/skills/tree/main/network-policy-architect',
+    );
+    expect(screen.getByLabelText('Name')).toHaveValue('@acme/network-policy-architect');
+    await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
+    expect(screen.getByText(/mlflow skills register git/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/--url https:\/\/github.com\/acme\/skills\/tree\/main\/network-policy-architect/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /Back to form/ }));
+    expect(screen.getByLabelText('Location')).toHaveValue(
+      'https://github.com/acme/skills/tree/main/network-policy-architect',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+    });
+    expect(requestBody).toMatchObject({
+      name: 'network-policy-architect',
+      organization: 'acme',
+      source: 'https://github.com/acme/skills',
+      source_type: 'git',
+      ref: 'main',
+      subpath: 'network-policy-architect',
+      status: 'active',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILLS_LIST]);
+    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL]);
+    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSIONS]);
+    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSION]);
+  });
+
+  it('keeps the form and shows the server error when registration is denied', async () => {
+    server.use(
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) =>
+        res(ctx.status(403), ctx.json({ error_code: 'PERMISSION_DENIED', message: 'Not allowed to create skills' })),
+      ),
+    );
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(screen.getByText('Enter a source location.')).toBeInTheDocument();
+
+    const location = 'https://github.com/redhat-ai/skills-developer.git';
+    await userEvent.type(screen.getByLabelText('Location'), location);
+    expect(screen.getByLabelText('Name')).toHaveValue('@redhat-ai/skills-developer');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      expect(screen.getByText(/Not allowed to create skills/)).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Location')).toHaveValue(location);
+    expect(screen.getByLabelText('Name')).toHaveValue('@redhat-ai/skills-developer');
+    expect(screen.queryByText(/Viewing version/)).not.toBeInTheDocument();
   });
 });

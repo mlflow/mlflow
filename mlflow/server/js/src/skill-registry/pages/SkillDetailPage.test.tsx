@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
@@ -15,6 +17,7 @@ import {
   createMockSkillVersion,
   getMockedGetSkillErrorResponse,
   getMockedGetSkillPermissionDeniedResponse,
+  getMockedGetSkillVersionResponse,
   getMockedSearchSkillVersionsErrorResponse,
   getMockedSearchSkillVersionsResponse,
   getMockedSkillDetailHandlers,
@@ -258,5 +261,54 @@ describe('SkillDetailPage', () => {
       expect(screen.getByText('This version is no longer available.')).toBeInTheDocument();
     });
     expect(screen.getByText('code-review')).toBeInTheDocument();
+  });
+
+  it('adds an external version without changing the skill identity', async () => {
+    const created = createMockSkillVersion({
+      version: 3,
+      source: 'https://github.com/acme/skills.git',
+      ref: null,
+      subpath: null,
+    });
+    let requestUrl = '';
+    let requestBody: unknown;
+    server.use(
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/skills/@acme/code-review/versions'), async (req, res, ctx) => {
+        requestUrl = req.url.toString();
+        requestBody = await req.json();
+        return res(ctx.json(created));
+      }),
+      getMockedSearchSkillVersionsResponse([created, mockVersion2, mockVersion1]),
+      getMockedGetSkillVersionResponse([created, mockVersion2, mockVersion1]),
+    );
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill version' }));
+    expect(screen.getByText('Create skill version 3')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Adding a version to @acme\/code-review. Its content can come from anywhere/),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Location')).toHaveValue('https://github.com/acme/skills');
+    expect(screen.getByLabelText('Branch, tag or commit')).toHaveValue('main');
+    expect(screen.getByLabelText('Path within the source')).toHaveValue('code-review');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 3')).toBeInTheDocument();
+    });
+    expect(requestUrl).toContain('/skills/@acme/code-review/versions');
+    expect(requestBody).toMatchObject({
+      source: 'https://github.com/acme/skills',
+      source_type: 'git',
+      ref: 'main',
+      subpath: 'code-review',
+      status: 'active',
+    });
+    expect(requestBody).not.toHaveProperty('name');
+    expect(requestBody).not.toHaveProperty('organization');
   });
 });
