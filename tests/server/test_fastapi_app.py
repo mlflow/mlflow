@@ -1,5 +1,5 @@
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
@@ -45,6 +45,21 @@ def test_mcp_exception_handler_delegates_for_non_mcp_routes():
 
     client = TestClient(app)
     response = client.get("/non-mcp")
+
+    assert response.status_code == 418
+    assert response.json() == {"detail": "delegated"}
+
+
+def test_registry_http_exception_handler_delegates_for_non_registry_routes():
+    app = FastAPI()
+    add_registry_exception_handlers(app)
+
+    @app.get("/non-registry")
+    async def non_registry():
+        raise HTTPException(status_code=418, detail="delegated")
+
+    client = TestClient(app)
+    response = client.get("/non-registry")
 
     assert response.status_code == 418
     assert response.json() == {"detail": "delegated"}

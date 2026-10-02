@@ -22,6 +22,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server import skill_registry_api
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import (
+    _MAX_BULK_REGISTER_SKILLS,
     _SKILL_NAME_PATH_PATTERN,
     get_skill_registry_api_route_prefixes,
     is_skill_registry_api_path,
@@ -30,6 +31,7 @@ from mlflow.server.skill_registry_api import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.validation import _MAX_REGISTRY_ICONS_PER_LIST
 
 PREFIX = "/ajax-api/3.0/mlflow/skills"
 
@@ -200,11 +202,14 @@ def test_skill_routes_are_available_under_each_prefix(prefix: str, tmp_path: Pat
 
 def test_invalid_skill_name_is_rejected_before_store_call(tmp_path: Path, db_uri: str):
     client, store = _create_client(tmp_path, db_uri)
-    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=store
+    ) as get_tracking_store:
         response = client.post(PREFIX, json={"name": "invalid_name"})
 
     assert response.status_code == 400, response.text
     assert "Invalid skill name" in response.json()["message"]
+    get_tracking_store.assert_not_called()
 
 
 def test_leading_at_sign_is_rejected_for_organization_skill_name(tmp_path: Path, db_uri: str):
@@ -229,11 +234,14 @@ def test_malformed_organization_version_route_is_rejected_without_store_call(
 
 def test_invalid_skill_version_is_rejected_before_store_call(tmp_path: Path, db_uri: str):
     client, store = _create_client(tmp_path, db_uri)
-    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=store
+    ) as get_tracking_store:
         response = client.get(f"{PREFIX}/code-review/versions/0")
 
     assert response.status_code == 400, response.text
     assert "Skill version must be a positive integer" in response.json()["message"]
+    get_tracking_store.assert_not_called()
 
 
 def test_register_requires_an_explicit_skill_name(tmp_path: Path, db_uri: str):
@@ -284,6 +292,7 @@ def test_create_and_get_skill_without_organization(
                 "icons": [
                     {
                         "src": "https://example.com/icon.svg",
+                        "mimeType": " IMAGE/SVG+XML ",
                         "theme": "light",
                         "futureField": "preserved",
                     }
@@ -297,6 +306,7 @@ def test_create_and_get_skill_without_organization(
         assert response.json()["icons"] == [
             {
                 "src": "https://example.com/icon.svg",
+                "mimeType": "image/svg+xml",
                 "theme": "light",
                 "futureField": "preserved",
             }
@@ -334,6 +344,60 @@ def test_create_skill_rejects_invalid_icon(tmp_path: Path, db_uri: str):
     assert "Invalid Icon URL scheme" in response.json()["message"]
     with pytest.raises(MlflowException, match="not found"):
         store.get_skill("code-review")
+
+
+def test_create_skill_rejects_invalid_icon_mime_type(
+    tmp_path: Path, db_uri: str, mock_icon_hostname_resolution
+):
+    client, store = _create_client(tmp_path, db_uri)
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        response = client.post(
+            PREFIX,
+            json={
+                "name": "code-review",
+                "icons": [{"src": "https://example.com/icon.svg", "mimeType": "text/plain"}],
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert "Invalid icon mimeType" in response.json()["message"]
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("code-review")
+
+
+def test_create_skill_rejects_too_many_icons(
+    tmp_path: Path, db_uri: str, mock_icon_hostname_resolution
+):
+    client, store = _create_client(tmp_path, db_uri)
+    icons = [
+        {"src": f"https://example.com/icon-{index}.svg"}
+        for index in range(_MAX_REGISTRY_ICONS_PER_LIST + 1)
+    ]
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        response = client.post(PREFIX, json={"name": "code-review", "icons": icons})
+
+    assert response.status_code == 400, response.text
+    assert f"at most {_MAX_REGISTRY_ICONS_PER_LIST} items" in response.json()["message"]
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("code-review")
+
+
+def test_skill_response_icon_serialization_does_not_validate_url():
+    skill = Skill(
+        name="code-review",
+        icons=[{"src": "https://example.com/icon.svg", "mimeType": "image/svg+xml"}],
+    )
+
+    with mock.patch(
+        "mlflow.utils.validation._resolve_hostname_with_timeout",
+        side_effect=AssertionError("response serialization must not resolve icon hosts"),
+    ):
+        response = skill_registry_api.SkillResponse.from_entity(skill)
+
+    assert response.model_dump()["icons"] == [
+        {"src": "https://example.com/icon.svg", "mimeType": "image/svg+xml"}
+    ]
 
 
 def test_create_and_get_organization_skill(tmp_path: Path, db_uri: str):
@@ -824,7 +888,7 @@ def test_multipart_registration_rejects_oversized_content_length_before_parsing(
         )
 
     assert response.status_code == 413, response.text
-    assert "maximum allowed size" in response.json()["detail"]
+    assert "maximum allowed size" in response.json()["message"]
     form.assert_not_called()
     register.assert_not_called()
 
@@ -884,7 +948,7 @@ def test_multipart_registration_rejects_oversized_metadata(
         )
 
     assert response.status_code == 413, response.text
-    assert "registration metadata" in response.json()["detail"]
+    assert "registration metadata" in response.json()["message"]
     register.assert_not_called()
 
 
@@ -902,7 +966,7 @@ def test_multipart_registration_rejects_extra_file_parts(tmp_path: Path, db_uri:
         )
 
     assert response.status_code == 400, response.text
-    assert "maximum number of files" in response.json()["detail"].lower()
+    assert "maximum number of files" in response.json()["message"].lower()
     register.assert_not_called()
 
 
@@ -917,7 +981,27 @@ def test_multipart_registration_rejects_extra_form_fields(tmp_path: Path, db_uri
         )
 
     assert response.status_code == 400, response.text
-    assert "maximum number of fields" in response.json()["detail"].lower()
+    assert "maximum number of fields" in response.json()["message"].lower()
+    register.assert_not_called()
+
+
+def test_multipart_registration_rejects_unknown_part_with_expected_files(
+    tmp_path: Path, db_uri: str
+):
+    client, _ = _create_client(tmp_path, db_uri)
+
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/register",
+            data={"extra": "unexpected"},
+            files={
+                "metadata": ("metadata.json", '{"name": "code-review"}', "application/json"),
+                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
+            },
+        )
+
+    assert response.status_code == 400, response.text
+    assert "exactly one 'metadata' part" in response.json()["message"]
     register.assert_not_called()
 
 
@@ -1113,6 +1197,29 @@ def test_bulk_register_skill_versions_forwards_client_prepared_batch(
     ]
     assert all(registration.created_by is None for registration in registrations)
     assert all(registration.organization == "acme" for registration in registrations)
+
+
+def test_bulk_register_skill_versions_rejects_oversized_batch(tmp_path: Path, db_uri: str):
+    client, _ = _create_client(tmp_path, db_uri)
+    skills = [
+        {
+            "name": f"skill-{index}",
+            "source": "https://github.com/acme/skills.git",
+            "ref": "main",
+            "subpath": f"skills/skill-{index}",
+            "digest": "a" * 64,
+        }
+        for index in range(_MAX_BULK_REGISTER_SKILLS + 1)
+    ]
+
+    with mock.patch(
+        "mlflow.server.skill_registry_api.bulk_register_skill_versions"
+    ) as bulk_register:
+        response = client.post(f"{PREFIX}/bulk-register", json={"skills": skills})
+
+    assert response.status_code == 400, response.text
+    assert f"at most {_MAX_BULK_REGISTER_SKILLS} items" in response.json()["message"]
+    bulk_register.assert_not_called()
 
 
 def test_bulk_register_skill_versions_uses_transactional_store_and_is_idempotent(

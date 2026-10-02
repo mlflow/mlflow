@@ -20,6 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from flask import Flask
+from starlette.exceptions import HTTPException
 from starlette.middleware.wsgi import WSGIResponder, build_environ
 from starlette.types import Receive, Scope, Send
 
@@ -185,6 +186,7 @@ def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
         return
 
     original_mlflow_exception_handler = fastapi_app.exception_handlers.get(MlflowException)
+    original_http_exception_handler = fastapi_app.exception_handlers.get(HTTPException)
 
     # These handlers are registered on the shared FastAPI app, so keep them
     # scoped to MCP and Skill Registry routes to avoid changing response
@@ -209,6 +211,26 @@ def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
         if is_mcp_server_api_path(path) or is_skill_registry_api_path(path):
             return _request_validation_error_response(exc)
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+    @fastapi_app.exception_handler(HTTPException)
+    async def registry_http_exception_handler(request: Request, exc: HTTPException):
+        path = get_routed_asgi_path(request)
+        if is_skill_registry_api_path(path):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"message": exc.detail},
+                headers=exc.headers,
+            )
+        if original_http_exception_handler is not None:
+            response = original_http_exception_handler(request, exc)
+            if inspect.isawaitable(response):
+                return await response
+            return response
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers,
+        )
 
     fastapi_app.state.registry_exception_handlers_added = True
 

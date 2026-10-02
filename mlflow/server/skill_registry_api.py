@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path, Query, Request
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 from starlette.datastructures import UploadFile
 from starlette.types import Message, Receive
 
@@ -28,6 +28,9 @@ from mlflow.server.skill_registry.registration import (
 )
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
 from mlflow.utils.validation import (
+    _MAX_REGISTRY_ICONS_PER_LIST,
+    _validate_icon_mime_type,
+    _validate_icon_url,
     _validate_organization_name,
     _validate_skill_name,
     _validate_skill_version,
@@ -48,6 +51,7 @@ _MULTIPART_REQUEST_OVERHEAD = 2 * 1024 * 1024
 _MAX_REGISTRATION_METADATA_SIZE = 1 * 1024 * 1024
 _MAX_MULTIPART_FILES = 2
 _MAX_MULTIPART_FIELDS = 1
+_MAX_BULK_REGISTER_SKILLS = 500
 
 
 def get_skill_registry_api_route_prefixes() -> tuple[str, ...]:
@@ -66,7 +70,7 @@ def is_skill_registry_api_path(path: str) -> bool:
     )
 
 
-class SkillIconPayload(BaseModel):
+class _BaseSkillIconPayload(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     src: str
@@ -77,11 +81,32 @@ class SkillIconPayload(BaseModel):
     @model_serializer(mode="plain")
     def serialize(self) -> dict[str, Any]:
         icon = dict(self.model_extra or {})
-        for field_name in ("src", "sizes", "mimeType", "theme"):
-            value = getattr(self, field_name)
-            if value is not None:
-                icon[field_name] = value
+        icon["src"] = self.src
+        if self.sizes is not None:
+            icon["sizes"] = self.sizes
+        if self.mimeType is not None:
+            icon["mimeType"] = self.mimeType
+        if self.theme is not None:
+            icon["theme"] = self.theme
         return icon
+
+
+class SkillIconRequestPayload(_BaseSkillIconPayload):
+    @field_validator("src")
+    @classmethod
+    def _validate_src(cls, value: str) -> str:
+        _validate_icon_url(value)
+        return value
+
+    @field_validator("mimeType")
+    @classmethod
+    def _validate_mime_type(cls, value: str | None) -> str | None:
+        _validate_icon_mime_type(value)
+        return None if value is None else value.strip().lower()
+
+
+class SkillIconResponsePayload(_BaseSkillIconPayload):
+    """Icon payload used when returning a stored Skill."""
 
 
 class CreateSkillRequest(BaseModel):
@@ -90,14 +115,18 @@ class CreateSkillRequest(BaseModel):
     name: str
     organization: str = ""
     description: str | None = None
-    icons: list[SkillIconPayload] | None = Field(default=None)
+    icons: list[SkillIconRequestPayload] | None = Field(
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
+    )
 
 
 class UpdateSkillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     description: str | None = None
-    icons: list[SkillIconPayload] | None = None
+    icons: list[SkillIconRequestPayload] | None = Field(
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
+    )
 
 
 class SkillAliasResponse(BaseModel):
@@ -109,7 +138,7 @@ class SkillResponse(BaseModel):
     name: str
     organization: str = ""
     description: str | None = None
-    icons: list[SkillIconPayload] | None = None
+    icons: list[SkillIconResponsePayload] | None = None
     status: str | None = None
     latest_version: int | None = None
     source_type: str | None = None
@@ -129,7 +158,7 @@ class SkillResponse(BaseModel):
             icons=(
                 None
                 if entity.icons is None
-                else [SkillIconPayload.model_validate(icon) for icon in entity.icons]
+                else [SkillIconResponsePayload.model_validate(icon) for icon in entity.icons]
             ),
             status=str(entity.status) if entity.status else None,
             latest_version=entity.latest_version,
@@ -198,7 +227,9 @@ class BulkRegisterSkillsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     organization: str = ""
-    skills: list[BulkRegisterSkillRequest] = Field(min_length=1)
+    skills: list[BulkRegisterSkillRequest] = Field(
+        min_length=1, max_length=_MAX_BULK_REGISTER_SKILLS
+    )
 
 
 class UpdateSkillVersionRequest(BaseModel):
@@ -305,7 +336,7 @@ _SKILL_VERSION_CREATE_OPENAPI_EXTRA = _skill_version_create_openapi_extra()
 _REGISTER_SKILL_OPENAPI_EXTRA = _skill_version_create_openapi_extra(require_name=True)
 
 
-def _icons_to_entities(icons: list[SkillIconPayload] | None) -> list[RegistryIcon] | None:
+def _icons_to_entities(icons: list[SkillIconRequestPayload] | None) -> list[RegistryIcon] | None:
     if icons is None:
         return None
     return [icon.model_dump(exclude_none=True) for icon in icons]
@@ -670,6 +701,14 @@ async def _parse_registration_request(
         max_files=_MAX_MULTIPART_FILES,
         max_fields=_MAX_MULTIPART_FIELDS,
     ) as form:
+        parts = list(form.multi_items())
+        part_names = [name for name, _ in parts]
+        if len(parts) != 2 or set(part_names) != {"metadata", "content"}:
+            raise MlflowException.invalid_parameter_value(
+                "Multipart registration requires exactly one 'metadata' part "
+                "and one 'content' part."
+            )
+
         metadata = form.get("metadata")
         content = form.get("content")
         if isinstance(metadata, UploadFile):
