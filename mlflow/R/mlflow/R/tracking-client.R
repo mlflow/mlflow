@@ -4,18 +4,25 @@ new_mlflow_client <- function(tracking_uri) {
 }
 
 new_mlflow_uri <- function(raw_uri) {
-  # Special case 'databricks'
-  if (identical(raw_uri, "databricks")) {
-    raw_uri <- paste0("databricks", "://")
+  parse_uri <- raw_uri
+  raw_uri_value <- raw_uri
+
+  if (
+    is.character(parse_uri) && length(parse_uri) == 1 &&
+      parse_uri %in% c("databricks", "databricks-uc")
+  ) {
+    parse_uri <- paste0(parse_uri, "://")
+  } else if (!grepl("://", parse_uri)) {
+    parse_uri <- paste0("file://", parse_uri)
+    raw_uri_value <- parse_uri
   }
 
-  if (!grepl("://", raw_uri)) {
-    raw_uri <- paste0("file://", raw_uri)
-  }
-  parts <- strsplit(raw_uri, "://")[[1]]
+  parts <- strsplit(parse_uri, "://")[[1]]
+  scheme <- parts[1]
+  dispatch_scheme <- if (scheme %in% c("databricks", "databricks-uc")) "databricks" else scheme
   structure(
-    list(scheme = parts[1], path = parts[2]),
-    class = c(paste("mlflow_", parts[1], sep = ""), "mlflow_uri")
+    list(raw_uri = raw_uri_value, scheme = scheme, path = parts[2]),
+    class = c(paste("mlflow_", dispatch_scheme, sep = ""), "mlflow_uri")
   )
 }
 
@@ -146,10 +153,27 @@ new_mlflow_client.mlflow_https <- function(tracking_uri) {
 #'
 #' @param tracking_uri The tracking URI. If not provided, defaults to the service
 #'  set by `mlflow_set_tracking_uri()`.
+#' @param registry_uri The registry URI. If not provided, defaults to
+#'  `mlflow_get_registry_uri()`. For Databricks model registry, use `databricks-uc`
+#'  or `databricks-uc://<profile>`.
 #' @export
-mlflow_client <- function(tracking_uri = NULL) {
-  tracking_uri <- new_mlflow_uri(tracking_uri %||% mlflow_get_tracking_uri())
+mlflow_client <- function(tracking_uri = NULL, registry_uri = NULL) {
+  tracking_uri_raw <- tracking_uri %||% mlflow_get_tracking_uri()
+  registry_uri_raw <- mlflow_resolve_registry_uri(
+    tracking_uri = tracking_uri_raw,
+    registry_uri = registry_uri
+  )
+
+  tracking_uri <- new_mlflow_uri(tracking_uri_raw)
+  registry_uri <- new_mlflow_uri(registry_uri_raw)
+
   client <- new_mlflow_client(tracking_uri)
+  registry_client <- new_mlflow_client(registry_uri)
+
+  client$tracking_uri <- tracking_uri
+  client$registry_uri <- registry_uri
+  client$registry_client <- registry_client
+
   if (inherits(client, "mlflow_file_client")) mlflow_validate_server(client)
   client
 }
