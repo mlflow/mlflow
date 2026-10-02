@@ -429,10 +429,10 @@ def _is_connection_not_established(exc: BaseException) -> bool:
     if not isinstance(exc, requests.ConnectionError):
         return False
 
-    # requests wraps the underlying urllib3 exception as the first positional
-    # argument (``raise ConnectionError(e)``), and lower layers may instead nest
-    # it in the cause/context chain; walk both until a NewConnectionError turns
-    # up. The ``seen`` set guards against cycles in the cause/context chain.
+    # requests usually wraps urllib3's MaxRetryError, whose underlying failure
+    # is stored in ``reason`` rather than ``args`` or the exception chain.
+    # Other wrappers may retain the failure in their args or cause/context.
+    # The ``seen`` set guards against cycles in those chains.
     stack = [exc]
     seen: set[int] = set()
     while stack:
@@ -442,6 +442,10 @@ def _is_connection_not_established(exc: BaseException) -> bool:
         seen.add(id(current))
         if isinstance(current, urllib3.exceptions.NewConnectionError):
             return True
+        if isinstance(current, urllib3.exceptions.MaxRetryError) and isinstance(
+            current.reason, BaseException
+        ):
+            stack.append(current.reason)
         stack.extend(arg for arg in current.args if isinstance(arg, BaseException))
         stack.extend(
             chained for chained in (current.__cause__, current.__context__) if chained is not None
@@ -549,8 +553,8 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
       before any POST was sent): the batch is replayed over the REST path, but
       the next batch still goes to the collector.
     - Ambiguous delivery (5xx; read timeouts; a connection failure after the
-      request may have been sent): the batch is dropped with a warning (once
-      per exporter, then debug), because replaying it could duplicate spans.
+      request may have been sent): the batch is dropped with a warning, because
+      replaying it could duplicate spans. Later batches use the REST path.
 
     No span-export failure ever propagates out of ``_export_spans_incrementally``,
     so the metadata export still runs.
@@ -589,10 +593,9 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # exporter even with concurrent exporting threads.
         self._resolution_lock = threading.Lock()
         self._collector_config_failed = False
-        # Set when the collector path is definitively unusable (definitive
-        # rejection or failed endpoint resolution); all later batches go straight
-        # to the inherited tracing-server REST path without contacting the
-        # collector again.
+        # Set when the collector path is unusable or a batch's delivery is
+        # uncertain. Later batches go straight to the inherited tracing-server
+        # REST path without contacting the collector again.
         self._collector_rejected = False
         # Set after the first ambiguous-delivery warning so later ones log at
         # DEBUG (mirrors ``_has_raised_span_export_error`` in ``uc_table``).
@@ -817,17 +820,20 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
 
     def _log_ambiguous_drop(self, reason: str, *args) -> None:
-        """Log an ambiguous-delivery drop once per exporter at WARNING, then DEBUG.
+        """Drop an uncertain batch and route later batches through REST.
 
         Whether the collector ingested the batch before failing is unknown, so
         the batch is dropped rather than replayed over the REST path, which
-        could duplicate the spans. Warn loudly the first time so the loss is
-        discoverable, then stay quiet (mirrors ``_has_raised_span_export_error``
-        in ``DatabricksUCTableSpanExporter``).
+        could duplicate the spans. Future batches have not been sent yet and
+        can safely use REST. Warn loudly the first time so the loss is
+        discoverable (mirrors ``_has_raised_span_export_error`` in
+        ``DatabricksUCTableSpanExporter``).
         """
+        self._collector_rejected = True
         message = reason + (
             " Delivery is ambiguous, so the spans were dropped instead of replayed over "
-            "the MLflow tracing server path, which could duplicate them."
+            "the MLflow tracing server path, which could duplicate them. Future span "
+            "batches will use the tracing server path."
         )
         if self._has_warned_ambiguous_drop:
             _logger.debug(message, *args)
@@ -870,7 +876,6 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         except Exception as exc:
             # The collector may return an empty body for success, but a malformed
             # non-empty body leaves delivery status unknown. Do not replay it.
-            self._collector_rejected = True
             self._log_ambiguous_drop(
                 "The Databricks OTel collector returned an invalid HTTP 200 response: %s.",
                 exc,
@@ -882,7 +887,6 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             return
 
         if rejected_spans < 0 or rejected_spans > len(spans):
-            self._collector_rejected = True
             self._log_ambiguous_drop(
                 "The Databricks OTel collector reported %d rejected spans for a batch of %d spans.",
                 rejected_spans,
@@ -1008,8 +1012,8 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             return
 
         # A 5xx leaves delivery ambiguous (the batch may have been ingested before
-        # the server error), so the batch is dropped rather than replayed over the
-        # REST path, which could duplicate the spans.
+        # the server error), so this batch is dropped rather than replayed over
+        # REST. Later batches can safely use REST.
         self._log_ambiguous_drop(
             "The Databricks OTel collector span export failed with HTTP %d: %r.",
             response.status_code,
@@ -1039,9 +1043,8 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # to a warning; the inherited metadata path is unaffected.
         try:
             if self._collector_rejected:
-                # The collector definitively rejected an earlier batch (or endpoint
-                # resolution failed); skip it entirely and use the tracing-server
-                # REST path directly.
+                # A prior collector batch failed or endpoint resolution failed;
+                # use the tracing-server REST path directly.
                 self._send_spans_via_rest(spans)
             elif self._collector_span_batcher and self._should_log_async():
                 # ``SpanBatcher`` owns the collector worker and performs the

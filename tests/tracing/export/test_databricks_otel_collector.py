@@ -151,6 +151,25 @@ def _name_resolution_connection_error():
     )
 
 
+def _max_retry_new_connection_error():
+    # requests wraps the urllib3 retry failure with the cause in .reason.
+    return requests.ConnectionError(
+        urllib3.exceptions.MaxRetryError(
+            None,
+            "/v1/traces",
+            urllib3.exceptions.NewConnectionError(None, "Failed to establish a new connection"),
+        )
+    )
+
+
+def _max_retry_connection_reset_error():
+    return requests.ConnectionError(
+        urllib3.exceptions.MaxRetryError(
+            None, "/v1/traces", urllib3.exceptions.ProtocolError("Connection reset by peer")
+        )
+    )
+
+
 def _context_chained_new_connection_error():
     # Some wrappers drop the urllib3 error from the args but keep it in the
     # exception context chain.
@@ -185,6 +204,8 @@ def _generic_timeout_error():
         (_connect_timeout_error, True),
         (_new_connection_error, True),
         (_name_resolution_connection_error, True),
+        (_max_retry_new_connection_error, True),
+        (_max_retry_connection_reset_error, False),
         (_context_chained_new_connection_error, True),
         (_connection_reset_error, False),
         (_plain_connection_error, False),
@@ -1290,7 +1311,7 @@ def test_exporter_retries_on_401_with_cacheless_token_source(monkeypatch):
 #
 # sticky  : the batch and all later batches go via the tracing-server REST path
 # replay  : this batch goes via REST, the next batch still tries the collector
-# drop    : the batch is dropped (delivery ambiguous), the collector is retried
+# drop    : the uncertain batch is dropped, later batches use REST
 
 
 def _case_connect_timeout():
@@ -1303,6 +1324,10 @@ def _case_new_connection_error():
 
 def _case_name_resolution_error():
     return [_name_resolution_connection_error()]
+
+
+def _case_max_retry_new_connection_error():
+    return [_max_retry_new_connection_error()]
 
 
 def _case_connection_reset():
@@ -1350,10 +1375,11 @@ _CLASSIFICATION_CASES = [
     (_case_connect_timeout, "sticky"),
     (_case_new_connection_error, "sticky"),
     (_case_name_resolution_error, "sticky"),
-    # Connection established then failed mid-request: delivery ambiguous, drop.
+    (_case_max_retry_new_connection_error, "sticky"),
+    # Connection established then failed mid-request: drop this batch, use REST later.
     (_case_connection_reset, "drop"),
     (_case_read_timeout, "drop"),
-    # Server-side failure after possible ingestion: drop.
+    # Server-side failure after possible ingestion: drop this batch, use REST later.
     (_case_http_500, "drop"),
     # Definitive client-side rejections: sticky REST fallback.
     (_case_http_400, "sticky"),
@@ -1379,8 +1405,7 @@ def test_exporter_failure_classification(monkeypatch, post_side_effect_factory, 
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
         exporter._export_spans_incrementally([otel_span])
-        # A second batch separates a sticky fallback (no further collector POSTs)
-        # from a one-batch replay (the collector is retried).
+        # A second batch distinguishes permanent REST fallback from one-batch replay.
         exporter._export_spans_incrementally([otel_span])
 
     if expected == "sticky":
@@ -1395,9 +1420,10 @@ def test_exporter_failure_classification(monkeypatch, post_side_effect_factory, 
         mock_log.warning.assert_not_called()
         mock_log.debug.assert_called_once()
     else:  # drop
-        # The first batch was dropped (ambiguous delivery); the collector is retried.
-        assert session.post.call_count == len(post_side_effect)
-        mock_log_spans.assert_not_called()
+        # The first batch was uncertain and left alone; only the next uses REST.
+        session.post.assert_called_once()
+        mock_log_spans.assert_called_once()
+        assert exporter._collector_rejected
         assert mock_log.warning.call_count == 1
 
 
@@ -1607,7 +1633,7 @@ def test_fallback_replays_to_init_time_table_when_active_table_unset_async(monke
     mock_active_table.assert_not_called()
 
 
-def test_exporter_500_warns_and_does_not_fall_back(monkeypatch):
+def test_exporter_500_drops_current_batch_and_uses_rest_later(monkeypatch):
     exporter, session, _ = _make_exporter(monkeypatch)
     session.post.return_value = _make_response(500, content=b"server error")
     otel_span = create_mock_otel_span(trace_id=10, span_id=10)
@@ -1617,20 +1643,19 @@ def test_exporter_500_warns_and_does_not_fall_back(monkeypatch):
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
         exporter._export_spans_incrementally([otel_span])
-        # Delivery is ambiguous, so the exporter must not pin the REST path: the
-        # next batch still goes to the collector.
+        # Delivery is ambiguous for this batch, but the next one is safe to
+        # route to REST.
         exporter._export_spans_incrementally([otel_span])
 
-    assert session.post.call_count == 2
-    mock_log_spans.assert_not_called()
-    # The ambiguous-delivery warning fires once per exporter; repeats log at DEBUG.
+    session.post.assert_called_once()
+    mock_log_spans.assert_called_once()
+    assert exporter._collector_rejected
     assert mock_log.warning.call_count == 1
-    assert mock_log.debug.call_count == 1
     assert 500 in mock_log.warning.call_args.args
     assert b"server error" in mock_log.warning.call_args.args
 
 
-def test_exporter_timeout_warns_and_does_not_fall_back(monkeypatch):
+def test_exporter_timeout_drops_current_batch_and_uses_rest_later(monkeypatch):
     exporter, session, _ = _make_exporter(monkeypatch)
     session.post.side_effect = requests.Timeout("timed out")
     otel_span = create_mock_otel_span(trace_id=11, span_id=11)
@@ -1640,12 +1665,35 @@ def test_exporter_timeout_warns_and_does_not_fall_back(monkeypatch):
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
         exporter._export_spans_incrementally([otel_span])
+        exporter._export_spans_incrementally([otel_span])
 
     # A read timeout leaves delivery ambiguous (the batch may have been ingested),
-    # so the batch is dropped with a warning instead of replayed over REST.
+    # so only the later batch is sent to REST.
     session.post.assert_called_once()
-    mock_log_spans.assert_not_called()
+    mock_log_spans.assert_called_once()
+    assert exporter._collector_rejected
     mock_log.warning.assert_called_once()
+
+
+def test_exporter_async_500_uses_rest_for_later_batch(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "1")
+    exporter, session, _ = _make_exporter(monkeypatch, sync_rest=False)
+    session.post.return_value = _make_response(500, content=b"server error")
+    exporter._client = mock.MagicMock()
+
+    try:
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=51, span_id=1)])
+        exporter.flush()
+        session.post.assert_called_once()
+        exporter._client.log_spans.assert_not_called()
+
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=52, span_id=2)])
+        exporter.flush(terminate=True)
+        session.post.assert_called_once()
+        exporter._client.log_spans.assert_called_once()
+    finally:
+        exporter.shutdown()
 
 
 def test_exporter_no_op_on_empty_spans(monkeypatch):
