@@ -1,7 +1,7 @@
 # Bug Triage
 
 Reproduce the reported bug at the current checkout, tell a maintainer exactly how to reproduce
-it, and suggest a fix, so they can confirm and fix it in minutes.
+it, and suggest a fix.
 
 ## 1. Understand the issue
 
@@ -99,5 +99,4 @@ change, what changes in each file and why, with permalinks>
 ```
 
 Prefer code to prose: give commands and code the maintainer can paste and run, not steps
-to follow by hand. Keep the body tight. A maintainer should be able to read it and rerun the
-steps in a few minutes.
+to follow by hand. Keep the body tight.

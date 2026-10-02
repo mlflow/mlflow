@@ -120,7 +120,7 @@ jobs:
             "[UI-BUG]"*) type="bug" labels="bug,area/uiux" ;;
             "[BUG]"* | "[SETUP-BUG]"*) type="bug" labels="bug" ;;
             "[FR]"*) type="enhancement" labels="enhancement" ;;
-            "[DOC-FIX]"*) type="bug" labels="bug,area/docs" ;;
+            "[DOC-FIX]"*) type="docs" labels="bug,area/docs" ;;
             *) type="unknown" ;;
           esac
           echo "type=$type" >> "$GITHUB_OUTPUT"

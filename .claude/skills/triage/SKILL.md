@@ -60,8 +60,9 @@ on (the current working directory).
 ### Running MLflow
 
 - Current checkout: `uv run python ...` or `uv run mlflow ...`.
-- A released version: `uv run --isolated --no-project --with mlflow==<version> python ...`. Add
-  the other packages the issue uses with more `--with` flags.
+- A released version: `uv run --isolated --no-project --with mlflow==<version> python -I ...`.
+  `-I` keeps the checkout off `sys.path`, so `import mlflow` loads the release, not the checkout.
+  Add the other packages the issue uses with more `--with` flags.
 - Local servers: set `NO_PROXY=localhost,127.0.0.1` and `no_proxy=localhost,127.0.0.1` on each
   command that talks to a local MLflow server, and use `curl --noproxy '*'`. Do not export them
   globally, because you reach the model gateway through `localhost:8080`.
@@ -70,12 +71,20 @@ on (the current working directory).
 
 Only start the UI when the issue involves it.
 
-1. Start a server in the background from your Bash tool, with its SQLite database and artifacts
-   under `$out_dir/work`:
-   - If `mlflow/server/js/build/index.html` exists, run
-     `uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///<db>`.
+1. Start a server in the background from your Bash tool:
+
+   - If `mlflow/server/js/build/index.html` exists, run the following, which keeps the server's
+     data out of the checkout:
+
+     ```bash
+     uv run mlflow server --host 127.0.0.1 --port 5000 \
+       --backend-store-uri sqlite:///$out_dir/work/mlflow.db \
+       --artifacts-destination $out_dir/work/artifacts
+     ```
+
    - Otherwise run `HOST=localhost CI=false uv run dev/run_dev_server.py` (it installs the
-     frontend dependencies) and use the frontend URL it prints.
+     frontend dependencies and uses a temporary store) and use the frontend URL it prints.
+
 2. Wait until the UI responds to `curl --noproxy '*'`.
 3. Drive it with `agent-browser`: `open <url>`, `snapshot -i` for structure, and
    `screenshot --full` with no filename. Screenshots land in `$out_dir/media`; embed one in the
