@@ -39,7 +39,7 @@ describe('formatJudgeModelError', () => {
   it('translates unsupported output type into a Boolean/categorical action', () => {
     expect(
       formatJudgeModelError(
-        new Error('TypeSafe judge models support bool or finite Literal feedback value types. ' + "Got <class 'str'>."),
+        new Error("TypeSafe judge models support bool or finite Literal feedback value types. Got <class 'str'>."),
       ),
     ).toContain('only supports Boolean or a fixed list of categorical outcomes');
   });
