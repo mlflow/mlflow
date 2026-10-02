@@ -18,12 +18,16 @@ are memoized module-wide so provider re-initializations do not re-resolve them.
 
 import json
 import logging
+import os
 import threading
 from contextlib import nullcontext
+from datetime import datetime, timedelta
+from types import MethodType
 from typing import Sequence
 
 import requests
 import urllib3.exceptions
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.entities.span import Span
@@ -31,10 +35,12 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT,
     MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT,
+    MLFLOW_ENABLE_DB_SDK,
 )
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, build_otlp_export_request
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import _get_databricks_creds_config
+from mlflow.utils.uri import get_db_info_from_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -53,6 +59,11 @@ _CONTENT_TYPE_PROTOBUF = "application/x-protobuf"
 # Timeout (seconds) for a single collector OTLP POST.
 _REQUEST_TIMEOUT_SECONDS = 30
 
+# Timeout (seconds) for an OAuth token mint or refresh. The SDK's
+# ``ClientCredentials`` implementation currently calls ``requests.post`` without a
+# timeout, so collector export must provide its own bounded refresh function.
+_TOKEN_REQUEST_TIMEOUT_SECONDS = 30
+
 # Max body bytes included in a span-export failure warning log.
 _BODY_SNIPPET_BYTES = 512
 
@@ -61,12 +72,9 @@ _BODY_SNIPPET_BYTES = 512
 # is replayed over the REST path without pinning the exporter to it.
 _REPLAYABLE_STATUS_CODES = (408, 413, 429)
 
-# Timeouts for the lazy endpoint-resolution client. The databricks-sdk defaults
-# (60s per request, 300s retry budget) would stall the first span export for
-# minutes when the workspace host is unreachable, so resolution runs with an
-# explicitly bounded budget instead.
+# Timeout for each collector metadata request. SDK client construction can
+# trigger OIDC discovery with the SDK's much longer default retry budget.
 _SDK_HTTP_TIMEOUT_SECONDS = 10.0
-_SDK_RETRY_TIMEOUT_SECONDS = 15
 
 # Collector endpoints resolved so far, keyed by (host, workspace_id). Resolution
 # is deferred out of tracer initialization, so it is memoized module-wide to
@@ -95,6 +103,82 @@ _CLOUD_DOMAIN = {
     "azure": "azuredatabricks.net",
     "gcp": "gcp.databricks.com",
 }
+
+
+def _normalize_collector_endpoint(endpoint: str) -> str:
+    """Return a collector host in the form used by the URL builder."""
+    return endpoint.removeprefix("https://")
+
+
+def _retrieve_token_with_timeout(
+    client_id: str,
+    client_secret: str,
+    token_url: str,
+    params: dict[str, str],
+    *,
+    use_params: bool = False,
+    use_header: bool = False,
+):
+    """Retrieve an OAuth token with a bounded HTTP request timeout."""
+    from databricks.sdk.oauth import IgnoreNetrcAuth, Token
+
+    request_params = dict(params)
+    if use_params:
+        if client_id:
+            request_params["client_id"] = client_id
+        if client_secret:
+            request_params["client_secret"] = client_secret
+
+    auth = (
+        requests.auth.HTTPBasicAuth(client_id, client_secret) if use_header else IgnoreNetrcAuth()
+    )
+    response = requests.post(
+        token_url,
+        data=request_params,
+        auth=auth,
+        timeout=_TOKEN_REQUEST_TIMEOUT_SECONDS,
+    )
+    if not response.ok:
+        content_type = response.headers.get("Content-Type", "")
+        if content_type.startswith("application/json"):
+            error = response.json()
+            code = error.get("errorCode", error.get("error", "unknown"))
+            summary = error.get("errorSummary", error.get("error_description", "unknown"))
+            summary = summary.replace("\r\n", " ")
+            raise ValueError(f"{code}: {summary}")
+        raise ValueError(response.content)
+
+    try:
+        body = response.json()
+        expires_in = int(body["expires_in"])
+        expiry = datetime.now() + timedelta(seconds=expires_in)
+        return Token(
+            access_token=body["access_token"],
+            refresh_token=body.get("refresh_token"),
+            token_type=body["token_type"],
+            expiry=expiry,
+        )
+    except Exception as exc:
+        raise NotImplementedError(f"Not supported yet: {exc}") from exc
+
+
+def _bounded_client_credentials_refresh(token_source):
+    """Refresh a databricks-sdk ``ClientCredentials`` source with a timeout."""
+    params = {
+        "grant_type": "client_credentials",
+        "scope": "all-apis",
+        "authorization_details": token_source._mlflow_authorization_details,
+    }
+    if token_source.endpoint_params:
+        params.update(token_source.endpoint_params)
+    return _retrieve_token_with_timeout(
+        token_source.client_id,
+        token_source.client_secret,
+        token_source.token_url,
+        params,
+        use_params=token_source.use_params,
+        use_header=token_source.use_header,
+    )
 
 
 def is_databricks_otel_collector_host(endpoint: str, workspace_id: str) -> bool:
@@ -137,35 +221,37 @@ def is_databricks_otel_collector_host(endpoint: str, workspace_id: str) -> bool:
     return bool(region_part) and not region_part.endswith(".")
 
 
-def _build_workspace_client(
+def _get_metastore_summary(
     host: str,
     workspace_id: str,
     client_id: str | None,
     client_secret: str | None,
-):
-    """Build a short-timeout ``WorkspaceClient`` for the metastore summary lookup.
+) -> dict[str, object]:
+    """Read the workspace metastore summary using bounded HTTP requests."""
+    if not (client_id and client_secret):
+        raise ValueError("Service-principal credentials are required for collector discovery")
 
-    The client is built from an explicit ``Config`` so the lookup runs with a
-    bounded budget instead of the SDK defaults (60s per request, 300s retry
-    budget). Passing ``workspace_id`` pins the workspace on the config so its
-    resolution does not depend on the SDK's host-metadata probe, and the SP
-    credentials are passed explicitly so the lookup uses the same identity the
-    exporter mints its collector token with, rather than the SDK's ambient chain
-    (env vars / ~/.databrickscfg) which may not carry the creds supplied only via
-    the MLflow tracking URI.
-    """
-    from databricks.sdk import WorkspaceClient
-    from databricks.sdk.core import Config
-
-    config = Config(
-        host=host,
-        client_id=client_id,
-        client_secret=client_secret,
-        workspace_id=workspace_id,
-        http_timeout_seconds=_SDK_HTTP_TIMEOUT_SECONDS,
-        retry_timeout_seconds=_SDK_RETRY_TIMEOUT_SECONDS,
+    token = _retrieve_token_with_timeout(
+        client_id,
+        client_secret,
+        f"{host.rstrip('/')}{_OIDC_TOKEN_PATH}",
+        {"grant_type": "client_credentials", "scope": "all-apis"},
+        use_header=True,
     )
-    return WorkspaceClient(config=config)
+    response = requests.get(
+        f"{host.rstrip('/')}/api/2.1/unity-catalog/metastore_summary",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"{token.token_type} {token.access_token}",
+            "X-Databricks-Workspace-Id": workspace_id,
+        },
+        timeout=_SDK_HTTP_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    summary = response.json()
+    if not isinstance(summary, dict):
+        raise ValueError("Metastore summary is not a JSON object")
+    return summary
 
 
 def resolve_databricks_otel_collector_endpoint(
@@ -178,7 +264,7 @@ def resolve_databricks_otel_collector_endpoint(
 
     Precedence:
     1. ``MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT`` env-var override (validated,
-       returned as-is).
+       normalized to a host without ``https://``).
     2. Auto-assembled from workspace metastore metadata: the workspace ID, the
        collector host segment, the metastore region, an optional ``staging.``
        environment segment, and the cloud domain.
@@ -189,7 +275,7 @@ def resolve_databricks_otel_collector_endpoint(
     # Explicit override takes highest precedence.
     if override := MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
         if is_databricks_otel_collector_host(override, workspace_id):
-            return override
+            return _normalize_collector_endpoint(override)
         _logger.debug(
             "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host validation "
             "for workspace_id=%r; ignoring override.",
@@ -198,22 +284,16 @@ def resolve_databricks_otel_collector_endpoint(
         )
         return None
 
-    ws = None
     try:
-        ws = _build_workspace_client(host, workspace_id, client_id, client_secret)
-        summary = ws.metastores.summary()
+        summary = _get_metastore_summary(host, workspace_id, client_id, client_secret)
     except Exception as exc:
         _logger.debug(
             "Failed to fetch metastore summary for collector endpoint resolution: %s", exc
         )
         return None
-    finally:
-        # The client is only needed for this one lookup; release its resources.
-        if ws is not None and (close := getattr(ws, "close", None)) is not None:
-            close()
 
-    region = summary.region
-    cloud_raw = summary.cloud  # e.g. "aws", "azure", "gcp"
+    region = summary.get("region")
+    cloud_raw = summary.get("cloud")  # e.g. "aws", "azure", "gcp"
 
     if not region:
         _logger.debug("Metastore summary returned empty region; cannot resolve endpoint.")
@@ -221,11 +301,11 @@ def resolve_databricks_otel_collector_endpoint(
 
     if not cloud_raw:
         # Attempt to parse cloud from global_metastore_id: "cloud:region:id"
-        gid = summary.global_metastore_id or ""
+        gid = str(summary.get("global_metastore_id") or "")
         parts = gid.split(":")
         cloud_raw = parts[0] if parts else ""
 
-    cloud_raw = (cloud_raw or "").lower()
+    cloud_raw = str(cloud_raw or "").lower()
     domain = _CLOUD_DOMAIN.get(cloud_raw)
     if not domain:
         _logger.debug(
@@ -241,7 +321,7 @@ def resolve_databricks_otel_collector_endpoint(
         _logger.debug("Assembled collector endpoint %r failed host validation.", endpoint)
         return None
 
-    return endpoint
+    return _normalize_collector_endpoint(endpoint)
 
 
 def build_table_authorization_details(tables: list[str]) -> str:
@@ -311,15 +391,24 @@ def build_databricks_otel_collector_token_source(
     from databricks.sdk.oauth import ClientCredentials  # lazy: databricks top-level import rule
 
     token_url = f"{host.rstrip('/')}{_OIDC_TOKEN_PATH}"
-    return ClientCredentials(
+    token_source = ClientCredentials(
         client_id=client_id,
         client_secret=client_secret,
         token_url=token_url,
-        scopes="all-apis",
         endpoint_params={"resource": _COLLECTOR_TOKEN_RESOURCE.format(workspace_id=workspace_id)},
-        authorization_details=build_table_authorization_details(tables),
         use_header=True,
     )
+    # ``scopes`` changed from a list to a string across supported SDK versions,
+    # and older versions do not accept ``authorization_details``. The bounded
+    # refresh supplies both in the form body regardless of SDK version.
+    token_source._mlflow_authorization_details = build_table_authorization_details(tables)
+    # ``ClientCredentials.token()`` retains the SDK's cache and locking
+    # behavior, while its inherited ``refresh()`` uses an unbounded
+    # ``requests.post`` in supported SDK versions. Replace only the refresh
+    # implementation on this instance so the collector path has a bounded
+    # token request without changing SDK behavior process-wide.
+    token_source.refresh = MethodType(_bounded_client_credentials_refresh, token_source)
+    return token_source
 
 
 def _is_connection_not_established(exc: BaseException) -> bool:
@@ -360,6 +449,75 @@ def _is_connection_not_established(exc: BaseException) -> bool:
     return False
 
 
+def _resolve_collector_credentials(tracking_uri: str | None):
+    """Resolve local service-principal settings and a workspace ID on first export."""
+    if not MLFLOW_ENABLE_DB_SDK.get():
+        _logger.debug(
+            "MLFLOW_ENABLE_DB_SDK is false; skipping Databricks OTel collector credential "
+            "discovery."
+        )
+        return None
+
+    try:
+        # MLflow's existing credential provider reads the tracking URI's profile
+        # or environment locally. SDK Config can initiate an OIDC discovery call
+        # with its own default retry budget while constructing SP auth, even when
+        # its configured host-metadata timeout is short.
+        config = _get_databricks_creds_config(tracking_uri)
+        profile, _ = get_db_info_from_uri(tracking_uri or "")
+    except Exception as exc:
+        _logger.debug(
+            "Failed to resolve local Databricks credentials for collector export: %s", exc
+        )
+        return None
+
+    host = getattr(config, "host", None)
+    client_id = getattr(config, "client_id", None)
+    client_secret = getattr(config, "client_secret", None)
+    auth_type = getattr(config, "auth_type", None)
+    if auth_type and auth_type != "oauth-m2m":
+        _logger.debug("Databricks profile selects %s authentication; using REST export.", auth_type)
+        return None
+    if auth_type != "oauth-m2m" and (
+        getattr(config, "token", None)
+        or (getattr(config, "username", None) and getattr(config, "password", None))
+    ):
+        _logger.debug("Databricks credentials include another auth method; using REST export.")
+        return None
+    if not (host and client_id and client_secret):
+        _logger.debug(
+            "Local Databricks credentials do not contain a host and service-principal pair."
+        )
+        return None
+
+    # The ambient workspace ID is applicable only when its host matches the
+    # tracking URI's selected profile. A different profile can point at another
+    # workspace, including one behind a shared workspace host.
+    workspace_id = (
+        os.environ.get("DATABRICKS_WORKSPACE_ID")
+        if not (profile or os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        and os.environ.get("DATABRICKS_HOST", "").rstrip("/") == host.rstrip("/")
+        else None
+    )
+    if not workspace_id:
+        try:
+            response = requests.get(
+                f"{host.rstrip('/')}/.well-known/databricks-config",
+                timeout=_SDK_HTTP_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            workspace_id = response.json().get("workspace_id")
+        except Exception as exc:
+            _logger.debug("Failed to resolve workspace ID for collector export: %s", exc)
+            return None
+
+    if not workspace_id:
+        _logger.debug("Workspace ID is unavailable for collector export.")
+        return None
+
+    return host, str(workspace_id), client_id, client_secret
+
+
 class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
     """Span exporter that sends spans to the Databricks OTel collector via OTLP/HTTP protobuf.
 
@@ -368,8 +526,8 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
     ``client.start_trace``). Only the span data is redirected to the collector.
 
     Unless an explicit endpoint was provided at construction, the collector
-    endpoint is resolved lazily on the first export (a bounded metastores.summary
-    lookup) and cached module-wide, so tracer initialization performs no network
+    endpoint is resolved lazily on the first export (a bounded metastore summary
+    request) and cached module-wide, so tracer initialization performs no network
     I/O on this path.
 
     Each batch is wrapped into MLflow ``Span`` objects and serialized with the
@@ -410,13 +568,19 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         endpoint: str | None = None,
     ) -> None:
         super().__init__(tracking_uri=tracking_uri)
-        # When *endpoint* is None it is resolved lazily on the first export from
-        # (*host*, *workspace_id*) using the SP credentials, and never during
-        # tracer initialization.
-        self._collector_endpoint = endpoint
-        self._collector_url = f"https://{endpoint}{OTLP_TRACES_PATH}" if endpoint else None
+        # When *token_source*, *host*, or *workspace_id* are omitted, all
+        # credential and workspace discovery is deferred to the first collector
+        # batch. This keeps tracer initialization free of SDK metadata probes.
+        self._tracking_uri = tracking_uri
+        self._endpoint_override = _normalize_collector_endpoint(endpoint) if endpoint else None
+        self._collector_endpoint = self._endpoint_override if token_source is not None else None
+        self._collector_url = (
+            f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
+            if self._collector_endpoint
+            else None
+        )
         self._host = host
-        self._workspace_id = workspace_id
+        self._workspace_id = str(workspace_id or "")
         self._client_id = client_id
         self._client_secret = client_secret
         self._token_source = token_source
@@ -424,6 +588,7 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # Guards the lazy endpoint resolution so it runs at most once per
         # exporter even with concurrent exporting threads.
         self._resolution_lock = threading.Lock()
+        self._collector_config_failed = False
         # Set when the collector path is definitively unusable (definitive
         # rejection or failed endpoint resolution); all later batches go straight
         # to the inherited tracing-server REST path without contacting the
@@ -437,6 +602,15 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # thread can never race another thread's in-flight export.
         self._session = requests.Session()
 
+        # Reuse the inherited batcher so the shared ``flush_exporter`` utility
+        # drains collector batches during provider flush and retirement. Its
+        # callback dispatches to the collector while that path is active and to
+        # the parent REST logger after a permanent fallback. Keep this alias for
+        # callers that inspect the collector batcher explicitly.
+        self._collector_span_batcher = getattr(self, "_span_batcher", None)
+        if self._collector_span_batcher is not None:
+            self._collector_span_batcher._log_spans_func = self._export_batch
+
     def _ensure_collector_endpoint(self) -> str | None:
         """Return the collector endpoint, resolving it lazily on first use.
 
@@ -444,16 +618,59 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         cache keyed by ``(host, workspace_id)``, so resolution runs at most once
         per exporter and once per workspace per process.
         """
-        if self._collector_endpoint is not None:
+        if self._collector_endpoint is not None and self._token_source is not None:
             return self._collector_endpoint
+        if self._collector_config_failed:
+            return None
         with self._resolution_lock:
             # Another export thread may have resolved the endpoint while this
             # one waited on the lock.
-            if self._collector_endpoint is not None:
+            if self._collector_endpoint is not None and self._token_source is not None:
                 return self._collector_endpoint
+
+            if not (self._host and self._workspace_id) or (
+                self._token_source is None and not (self._client_id and self._client_secret)
+            ):
+                credentials = _resolve_collector_credentials(self._tracking_uri)
+                if credentials is None:
+                    self._collector_config_failed = True
+                    return None
+                self._host, self._workspace_id, self._client_id, self._client_secret = credentials
+
+            if self._token_source is None:
+                try:
+                    self._token_source = build_databricks_otel_collector_token_source(
+                        host=self._host,
+                        client_id=self._client_id,
+                        client_secret=self._client_secret,
+                        workspace_id=self._workspace_id,
+                        tables=[self._table_name],
+                    )
+                except Exception as exc:
+                    _logger.debug(
+                        "Failed to build the Databricks OTel collector token source: %s", exc
+                    )
+                    self._collector_config_failed = True
+                    return None
+
+            override = self._endpoint_override or MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get()
+            if override:
+                if not is_databricks_otel_collector_host(override, self._workspace_id):
+                    _logger.debug(
+                        "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host "
+                        "validation for workspace_id=%r; ignoring override.",
+                        override,
+                        self._workspace_id,
+                    )
+                    self._collector_config_failed = True
+                    return None
+                self._collector_endpoint = _normalize_collector_endpoint(override)
+                self._collector_url = f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
+                return self._collector_endpoint
+
             cache_key = (self._host, self._workspace_id)
             if (cached := _resolved_endpoints.get(cache_key)) is not None:
-                self._collector_endpoint = cached
+                self._collector_endpoint = _normalize_collector_endpoint(cached)
             else:
                 resolved = resolve_databricks_otel_collector_endpoint(
                     host=self._host,
@@ -462,9 +679,11 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                     client_secret=self._client_secret,
                 )
                 if resolved is None:
+                    self._collector_config_failed = True
                     return None
-                _resolved_endpoints[cache_key] = resolved
-                self._collector_endpoint = resolved
+                normalized = _normalize_collector_endpoint(resolved)
+                _resolved_endpoints[cache_key] = normalized
+                self._collector_endpoint = normalized
             self._collector_url = f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
         return self._collector_endpoint
 
@@ -531,7 +750,16 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             timeout=_REQUEST_TIMEOUT_SECONDS,
         )
 
-    def _send_spans_via_rest(self, spans: Sequence[ReadableSpan]) -> None:
+    @staticmethod
+    def _as_mlflow_spans(spans: Sequence[ReadableSpan | Span]) -> list[Span]:
+        return [span if isinstance(span, Span) else Span(span) for span in spans]
+
+    def _send_spans_via_rest(
+        self,
+        spans: Sequence[ReadableSpan | Span],
+        *,
+        from_collector_batch: bool = False,
+    ) -> None:
         """Send *spans* to the UC table via the inherited tracing-server REST path.
 
         Replicates ``DatabricksUCTableSpanExporter._export_spans_incrementally``
@@ -539,16 +767,25 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         the active spans table: a REST replay must target the same destination
         the collector batch was destined for, even if the thread-local active
         table has since changed or is unset. Async batching follows the parent
-        behavior (``SpanBatcher`` when async logging is enabled).
+        behavior (``SpanBatcher`` when async logging is enabled). A collector
+        batch worker calls the parent logger directly so the batch cannot be
+        routed back into the collector callback.
         """
-        spans = [Span(span) for span in spans]
-        if self._should_log_async():
+        spans = self._as_mlflow_spans(spans)
+        if self._should_log_async() and not from_collector_batch:
             for span in spans:
                 self._span_batcher.add_span(location=self._table_name, span=span)
+        elif from_collector_batch:
+            super()._log_spans(self._table_name, spans)
         else:
             self._log_spans(self._table_name, spans)
 
-    def _fall_back_to_rest(self, spans: Sequence[ReadableSpan]) -> None:
+    def _fall_back_to_rest(
+        self,
+        spans: Sequence[ReadableSpan | Span],
+        *,
+        from_collector_batch: bool = False,
+    ) -> None:
         """Replay a definitively rejected batch over the REST path, permanently.
 
         Logs one warning per exporter, then pins the exporter to the REST path so
@@ -560,9 +797,15 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 "The Databricks OTel collector rejected a span export. MLflow is falling "
                 "back to the tracing server path for this and all subsequent span batches."
             )
-        self._send_spans_via_rest(spans)
+        self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
 
-    def _replay_batch_via_rest(self, spans: Sequence[ReadableSpan], reason: str, *args) -> None:
+    def _replay_batch_via_rest(
+        self,
+        spans: Sequence[ReadableSpan | Span],
+        reason: str,
+        *args,
+        from_collector_batch: bool = False,
+    ) -> None:
         """Replay this batch over the REST path without abandoning the collector.
 
         For transient or batch-specific rejections (408/413/429, a token mint
@@ -571,7 +814,7 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         the collector.
         """
         _logger.debug(reason, *args)
-        self._send_spans_via_rest(spans)
+        self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
 
     def _log_ambiguous_drop(self, reason: str, *args) -> None:
         """Log an ambiguous-delivery drop once per exporter at WARNING, then DEBUG.
@@ -592,11 +835,17 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             _logger.warning(message, *args)
             self._has_warned_ambiguous_drop = True
 
-    def _handle_post_exception(self, exc: BaseException, spans: Sequence[ReadableSpan]) -> None:
+    def _handle_post_exception(
+        self,
+        exc: BaseException,
+        spans: Sequence[ReadableSpan | Span],
+        *,
+        from_collector_batch: bool = False,
+    ) -> None:
         if _is_connection_not_established(exc):
             # The request was never delivered, so the batch was definitely not
             # ingested and replaying it over the REST path cannot duplicate spans.
-            self._fall_back_to_rest(spans)
+            self._fall_back_to_rest(spans, from_collector_batch=from_collector_batch)
         else:
             # Read timeouts and mid-request connection failures (e.g. a reset after
             # the request was sent) leave delivery ambiguous.
@@ -604,7 +853,73 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 "The Databricks OTel collector span export request failed: %s.", exc
             )
 
-    def _export_spans_to_collector(self, spans: Sequence[ReadableSpan]) -> None:
+    def _handle_collector_response(
+        self,
+        response: requests.Response,
+        spans: Sequence[ReadableSpan | Span],
+        *,
+        from_collector_batch: bool,
+    ) -> None:
+        """Handle an HTTP 200 OTLP response, including partial success."""
+        if not response.content:
+            return
+
+        response_message = ExportTraceServiceResponse()
+        try:
+            response_message.ParseFromString(response.content)
+        except Exception as exc:
+            # The collector may return an empty body for success, but a malformed
+            # non-empty body leaves delivery status unknown. Do not replay it.
+            self._collector_rejected = True
+            self._log_ambiguous_drop(
+                "The Databricks OTel collector returned an invalid HTTP 200 response: %s.",
+                exc,
+            )
+            return
+
+        rejected_spans = response_message.partial_success.rejected_spans
+        if rejected_spans == 0:
+            return
+
+        if rejected_spans < 0 or rejected_spans > len(spans):
+            self._collector_rejected = True
+            self._log_ambiguous_drop(
+                "The Databricks OTel collector reported %d rejected spans for a batch of %d spans.",
+                rejected_spans,
+                len(spans),
+            )
+            return
+
+        if rejected_spans == len(spans):
+            self._collector_rejected = True
+            _logger.warning(
+                "The Databricks OTel collector rejected all %d spans in a successful HTTP 200 "
+                "partial response (%s). Replaying this batch via the MLflow tracing server "
+                "path and using that path for future batches.",
+                len(spans),
+                response_message.partial_success.error_message,
+            )
+            self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
+            return
+
+        # The response does not identify which spans were rejected. Replaying
+        # would duplicate spans that were accepted, so pin only future batches
+        # to REST and leave this partially accepted batch untouched.
+        self._collector_rejected = True
+        _logger.warning(
+            "The Databricks OTel collector partially accepted a span batch: %d of %d spans "
+            "were rejected (%s). Future batches will use the MLflow tracing server path.",
+            rejected_spans,
+            len(spans),
+            response_message.partial_success.error_message,
+        )
+
+    def _export_spans_to_collector(
+        self,
+        spans: Sequence[ReadableSpan | Span],
+        *,
+        from_collector_batch: bool = False,
+    ) -> None:
         """Send *spans* to the collector, retrying once on a 401 after forcing token refresh."""
         endpoint = self._ensure_collector_endpoint()
         if endpoint is None:
@@ -617,13 +932,14 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 self._workspace_id,
                 self._host,
             )
-            self._send_spans_via_rest(spans)
+            self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
             return
 
         # Wrap the raw OTel spans in the MLflow Span interface: `Span.to_otel_proto` decodes
         # the JSON-encoded attribute values (e.g. mlflow.spanType), which the raw ReadableSpan
         # serialization of the stock OTLP exporter would send double-encoded.
-        payload = build_otlp_export_request([Span(span) for span in spans]).SerializeToString()
+        mlflow_spans = self._as_mlflow_spans(spans)
+        payload = build_otlp_export_request(mlflow_spans).SerializeToString()
 
         # Mint the token before the POST: a mint failure means nothing reached the
         # collector, so replaying this batch cannot duplicate spans.
@@ -635,13 +951,14 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 "Minting the Databricks OTel collector token failed: %s. Replaying this "
                 "batch via the MLflow tracing server path.",
                 exc,
+                from_collector_batch=from_collector_batch,
             )
             return
 
         try:
             response = self._post_spans(payload, token)
         except Exception as exc:
-            self._handle_post_exception(exc, spans)
+            self._handle_post_exception(exc, spans, from_collector_batch=from_collector_batch)
             return
 
         if response.status_code == 401:
@@ -653,12 +970,12 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             except Exception:
                 # The 401 definitively rejected the batch, and the token cannot be
                 # refreshed, so the collector path is unusable.
-                self._fall_back_to_rest(spans)
+                self._fall_back_to_rest(spans, from_collector_batch=from_collector_batch)
                 return
             try:
                 response = self._post_spans(payload, refreshed)
             except Exception as exc:
-                self._handle_post_exception(exc, spans)
+                self._handle_post_exception(exc, spans, from_collector_batch=from_collector_batch)
                 return
 
         # NB: unlike the stock OTLP HTTP exporter, which retries 429/5xx with backoff, we
@@ -666,6 +983,12 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # span-processing hot paths, and re-sending a batch to an overloaded ingest only
         # adds load.
         if response.ok:
+            if response.status_code == 200:
+                self._handle_collector_response(
+                    response,
+                    spans,
+                    from_collector_batch=from_collector_batch,
+                )
             return
 
         if 400 <= response.status_code < 500:
@@ -678,9 +1001,10 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                     "(transient or batch-specific rejection). Replaying this batch via the "
                     "MLflow tracing server path.",
                     response.status_code,
+                    from_collector_batch=from_collector_batch,
                 )
             else:
-                self._fall_back_to_rest(spans)
+                self._fall_back_to_rest(spans, from_collector_batch=from_collector_batch)
             return
 
         # A 5xx leaves delivery ambiguous (the batch may have been ingested before
@@ -691,6 +1015,15 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             response.status_code,
             response.content[:_BODY_SNIPPET_BYTES],
         )
+
+    def _export_batch(self, location: str, spans: list[Span]) -> None:
+        if self._collector_rejected:
+            # This callback runs in the inherited batch worker. Calling the
+            # parent logger directly avoids re-enqueuing the batch into this
+            # same dispatcher and recursively trying the collector.
+            super()._log_spans(location, spans)
+        else:
+            self._export_spans_to_collector(spans, from_collector_batch=True)
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
         """Override: send spans to the collector instead of the UC table REST path.
@@ -710,6 +1043,14 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 # resolution failed); skip it entirely and use the tracing-server
                 # REST path directly.
                 self._send_spans_via_rest(spans)
+            elif self._collector_span_batcher and self._should_log_async():
+                # ``SpanBatcher`` owns the collector worker and performs the
+                # actual network call away from the traced application thread.
+                for span in self._as_mlflow_spans(spans):
+                    self._collector_span_batcher.add_span(
+                        location=self._table_name,
+                        span=span,
+                    )
             else:
                 self._export_spans_to_collector(spans)
         except Exception as exc:
@@ -723,9 +1064,12 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         try:
             super().shutdown()
         finally:
-            # Close the HTTP session even if the parent shutdown fails, so the
-            # underlying connections are not leaked.
-            self._session.close()
+            try:
+                # The provider may call shutdown() directly. Drain any partial
+                # span batch and queued metadata before closing the session.
+                self.flush(terminate=True)
+            finally:
+                self._session.close()
 
 
 def _log_collector_unavailable(reason: str, *args) -> None:
@@ -750,16 +1094,13 @@ def get_databricks_otel_collector_span_exporter(
     """Return a ``DatabricksOtelCollectorSpanExporter`` when all prerequisites are met.
 
     This runs inside tracer initialization, so it performs only local checks and
-    defers all network I/O: the collector endpoint (when not explicitly
-    overridden via ``MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT``, which is
-    validated here without network access) is resolved lazily by the exporter
-    on its first batch.
+    defers all credential, workspace, and endpoint lookups. Network lookups run
+    with bounded HTTP timeouts on the first collector batch; failures fall back
+    to the inherited REST span path.
 
     Returns ``None`` (so the caller falls back to the standard UC table path) when:
     - ``MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT`` is ``False``.
     - The destination is not a ``UnityCatalog`` location.
-    - Service-principal credentials are not available on *tracking_uri*.
-    - The explicit endpoint override fails host validation.
     - The UC table name cannot be derived from the destination.
 
     Args:
@@ -778,59 +1119,6 @@ def get_databricks_otel_collector_span_exporter(
     if not isinstance(destination, UnityCatalog):
         return None
 
-    # Resolve service-principal credentials.
-    try:
-        host_creds = get_databricks_host_creds(tracking_uri)
-    except Exception as exc:
-        _log_collector_unavailable(
-            "Databricks credentials could not be retrieved for tracking URI %r: %s.",
-            tracking_uri,
-            exc,
-        )
-        return None
-
-    client_id = getattr(host_creds, "client_id", None)
-    client_secret = getattr(host_creds, "client_secret", None)
-    host = getattr(host_creds, "host", None)
-    workspace_id = str(getattr(host_creds, "workspace_id", "") or "")
-
-    if not (client_id and client_secret):
-        _log_collector_unavailable(
-            "Service-principal credentials (client_id + client_secret) are not available "
-            "for tracking URI %r.",
-            tracking_uri,
-        )
-        return None
-
-    if not host:
-        _log_collector_unavailable(
-            "The workspace host could not be resolved from tracking URI %r.",
-            tracking_uri,
-        )
-        return None
-
-    if not workspace_id:
-        _log_collector_unavailable(
-            "The workspace ID could not be resolved from tracking URI %r.",
-            tracking_uri,
-        )
-        return None
-
-    # An explicit endpoint override is validated locally (pure string checks, no
-    # network); without one the endpoint is resolved lazily on the first export.
-    endpoint = None
-    if override := MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
-        if is_databricks_otel_collector_host(override, workspace_id):
-            endpoint = override
-        else:
-            _log_collector_unavailable(
-                "The MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host "
-                "validation for workspace_id=%r.",
-                override,
-                workspace_id,
-            )
-            return None
-
     # Derive the fully-qualified table name from the destination.
     table_name = _get_table_name_from_destination(destination)
     if not table_name:
@@ -840,36 +1128,25 @@ def get_databricks_otel_collector_span_exporter(
         )
         return None
 
-    try:
-        token_source = build_databricks_otel_collector_token_source(
-            host=host,
-            client_id=client_id,
-            client_secret=client_secret,
-            workspace_id=workspace_id,
-            tables=[table_name],
-        )
-    except Exception as exc:
-        _log_collector_unavailable(
-            "Failed to build the Databricks OTel collector token source: %s.",
-            exc,
-        )
-        return None
+    # Keep the override as a local constructor value so accepted
+    # ``https://`` forms are normalized before URL construction. Workspace
+    # scoped validation still happens after deferred credential discovery.
+    endpoint = (
+        _normalize_collector_endpoint(MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get())
+        if MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get()
+        else None
+    )
 
     _logger.debug(
-        "Databricks OTel collector span exporter configured: endpoint=%r (resolved lazily "
-        "when unset), table=%r",
-        endpoint,
+        "Databricks OTel collector span exporter configured with deferred credential and "
+        "endpoint resolution: table=%r",
         table_name,
     )
     try:
         return DatabricksOtelCollectorSpanExporter(
             tracking_uri=tracking_uri,
-            token_source=token_source,
+            token_source=None,
             table_name=table_name,
-            host=host,
-            workspace_id=workspace_id,
-            client_id=client_id,
-            client_secret=client_secret,
             endpoint=endpoint,
         )
     except Exception as exc:

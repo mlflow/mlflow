@@ -849,9 +849,9 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 uc_tracking_uri and is_databricks_uri(uc_tracking_uri)
             ):
                 uc_tracking_uri = "databricks"
-            # Try the Databricks OTel collector exporter first (default on for UnityCatalog
-            # destinations with service-principal credentials). Falls back to the standard
-            # UC table exporter when disabled or when prerequisites are missing.
+            # The collector exporter checks credentials on its first span batch and uses
+            # the tracing-server path if they are unavailable. Disabled and legacy UC
+            # destinations use the standard UC table exporter directly.
             exporter = get_databricks_otel_collector_span_exporter(
                 trace_destination, uc_tracking_uri
             ) or DatabricksUCTableSpanExporter(tracking_uri=uc_tracking_uri)
