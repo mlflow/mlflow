@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Any, Literal, get_args, get_origin
 
@@ -16,6 +17,7 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import (
+    SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL,
     TYPESAFE_API_BASE_URL,
     TYPESAFE_SYSTEM_ONE_PATH,
 )
@@ -48,6 +50,11 @@ _NON_TYPESAFE_GATEWAY_DETAILS = {
     _LEGACY_NON_TYPESAFE_GATEWAY_DETAIL,
     _NON_TYPESAFE_GATEWAY_DETAIL,
 }
+# Remember which gateway endpoints serve System One models so jev judges skip the chat
+# attempt on every row after the first detection. The TTL lets endpoint reconfiguration
+# self-heal quickly.
+_GATEWAY_SYSTEM_ONE_CACHE_TTL_SECONDS = 300
+_gateway_system_one_cache: dict[tuple[str, str], float] = {}
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
@@ -81,14 +88,59 @@ class _GatewayEndpointNotSystemOne(Exception):
     pass
 
 
-def _try_invoke_gateway_typesafe_judge(model_uri: str, **kwargs):
-    provider, separator, _ = model_uri.partition(":/")
-    if not separator or provider != _GATEWAY_PROVIDER:
-        return None
+def _gateway_system_one_cache_key(model_uri: str) -> tuple[str, str]:
+    return (_resolve_gateway_uri(), model_uri)
+
+
+def _is_gateway_system_one_cached(cache_key: tuple[str, str]) -> bool:
+    expires_at = _gateway_system_one_cache.get(cache_key)
+    if expires_at is None:
+        return False
+    if expires_at <= time.monotonic():
+        _gateway_system_one_cache.pop(cache_key, None)
+        return False
+    return True
+
+
+def _cache_gateway_system_one(cache_key: tuple[str, str]) -> None:
+    _gateway_system_one_cache[cache_key] = time.monotonic() + _GATEWAY_SYSTEM_ONE_CACHE_TTL_SECONDS
+
+
+def _is_gateway_system_one_rejection(exc: BaseException) -> bool:
+    """True when a chat invocation failed because the endpoint only serves System One models."""
+    match getattr(exc, "__cause__", None):
+        case requests.exceptions.HTTPError(
+            response=requests.Response(status_code=400) as response,
+        ):
+            try:
+                detail = response.json().get("detail")
+            except (AttributeError, ValueError):
+                return False
+            return detail == SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
+    return False
+
+
+def _invoke_gateway_judge(model_uri: str, *, chat_invoker, **kwargs) -> Feedback:
+    """Evaluate a ``gateway:/`` judge, preferring chat and falling back to System One.
+
+    Non-jev endpoints (the pre-existing majority) keep going straight to chat, so they see no
+    regression. A System One endpoint rejects chat with a known 400; the judge then switches to
+    the System One route and remembers the endpoint so later rows skip the chat attempt.
+    """
+    cache_key = _gateway_system_one_cache_key(model_uri)
+    if _is_gateway_system_one_cached(cache_key):
+        try:
+            return _invoke_typesafe_judge(model_uri, **kwargs)
+        except _GatewayEndpointNotSystemOne:
+            # Endpoint was reconfigured away from System One within the TTL; drop and use chat.
+            _gateway_system_one_cache.pop(cache_key, None)
     try:
-        return _invoke_typesafe_judge(model_uri, **kwargs)
-    except _GatewayEndpointNotSystemOne:
-        return None
+        return chat_invoker()
+    except MlflowException as e:
+        if not _is_gateway_system_one_rejection(e):
+            raise
+    _cache_gateway_system_one(cache_key)
+    return _invoke_typesafe_judge(model_uri, **kwargs)
 
 
 @record_usage_event(InvokeCustomJudgeModelEvent)
@@ -443,8 +495,8 @@ def _invalid_response(answer_type: str) -> MlflowException:
 
 
 __all__ = [
+    "_invoke_gateway_judge",
     "_invoke_typesafe_judge",
     "_is_gateway_model",
     "_is_typesafe_model",
-    "_try_invoke_gateway_typesafe_judge",
 ]

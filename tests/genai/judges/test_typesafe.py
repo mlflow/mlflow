@@ -6,21 +6,57 @@ import pydantic
 import pytest
 import requests
 
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.typesafe import (
     _build_question,
+    _gateway_system_one_cache,
+    _invoke_gateway_judge,
     _invoke_typesafe_judge,
     _is_gateway_model,
     _is_typesafe_model,
-    _try_invoke_gateway_typesafe_judge,
 )
 from mlflow.genai.scorers import Safety
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _REQUEST_TARGET = "mlflow.genai.judges.typesafe._get_http_response_with_retries"
 _DEFAULT_STATE = object()
+
+_GATEWAY_JUDGE_KWARGS = {
+    "instructions": "Does {{ outputs }} answer {{ inputs }}?",
+    "state": {"inputs": "Question", "outputs": "Answer"},
+    "feedback_value_type": bool,
+    "assessment_name": "quality",
+}
+
+
+@pytest.fixture(autouse=True)
+def clear_gateway_system_one_cache():
+    _gateway_system_one_cache.clear()
+    yield
+    _gateway_system_one_cache.clear()
+
+
+def _system_one_chat_rejection() -> MlflowException:
+    """Build the error a chat invocation raises when the endpoint only serves System One."""
+    response = requests.Response()
+    response.status_code = 400
+    response._content = json.dumps({"detail": SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL}).encode()
+    exc = MlflowException("Failed to score the provided input.")
+    exc.__cause__ = requests.exceptions.HTTPError(response=response)
+    return exc
+
+
+def _system_one_response():
+    response = mock.Mock(status_code=200)
+    response.json.return_value = {
+        "model": "jev-evaluator",
+        "answers": {"evaluation": {"type": "noul", "noul": 0.8}},
+    }
+    return response
 
 
 def _response(answer, usage=None):
@@ -71,64 +107,112 @@ def test_gateway_model_is_not_classified_as_direct_typesafe():
     assert _is_gateway_model("typesafe:/jev-evaluator") is False
 
 
-def test_gateway_system_one_endpoint_invokes_gateway_route():
-    response = mock.Mock(status_code=200)
-    response.json.return_value = {
-        "model": "jev-evaluator",
-        "answers": {"evaluation": {"type": "noul", "noul": 0.8}},
-    }
+def test_gateway_chat_endpoint_uses_chat_without_system_one_attempt():
+    chat_feedback = Feedback(name="quality", value=True)
+    chat_invoker = mock.Mock(return_value=chat_feedback)
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.http_request") as request,
+    ):
+        feedback = _invoke_gateway_judge(
+            "gateway:/chat-endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
+        )
+
+    assert feedback is chat_feedback
+    chat_invoker.assert_called_once()
+    request.assert_not_called()
+    assert _gateway_system_one_cache == {}
+
+
+def test_gateway_system_one_endpoint_falls_back_from_chat_rejection():
+    chat_invoker = mock.Mock(side_effect=_system_one_chat_rejection())
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request", return_value=_system_one_response()
+        ) as request,
     ):
-        feedback = _try_invoke_gateway_typesafe_judge(
-            "gateway:/jev-evaluator",
-            instructions="Does {{ outputs }} answer {{ inputs }}?",
-            state={"inputs": "Question", "outputs": "Answer"},
-            feedback_value_type=bool,
-            assessment_name="quality",
+        feedback = _invoke_gateway_judge(
+            "gateway:/jev-endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
         )
 
-    assert feedback is not None
     assert feedback.value is True
+    chat_invoker.assert_called_once()
     assert request.call_args.kwargs["endpoint"] == "/gateway/typesafe/v1/systemone"
 
 
-@pytest.mark.parametrize(
-    "detail",
-    [
-        "Gateway endpoint does not use the TypeSafe provider.",
-        (
-            "Gateway endpoint does not use a System One model. Use a TypeSafe or OpenRouter "
-            "Jev decision model."
+def test_gateway_non_system_one_chat_error_propagates():
+    chat_invoker = mock.Mock(side_effect=MlflowException("gateway exploded"))
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
-    ],
-)
-def test_gateway_chat_endpoint_falls_back_to_chat(detail):
-    response = mock.Mock(status_code=422)
-    response.json.return_value = {"detail": detail}
+        mock.patch("mlflow.genai.judges.typesafe.http_request") as request,
+    ):
+        with pytest.raises(MlflowException, match="gateway exploded"):
+            _invoke_gateway_judge(
+                "gateway:/chat-endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
+            )
+
+    request.assert_not_called()
+    assert _gateway_system_one_cache == {}
+
+
+def test_gateway_system_one_endpoint_is_cached_after_detection():
+    chat_invoker = mock.Mock(side_effect=_system_one_chat_rejection())
     with (
         mock.patch(
             "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
         ),
         mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
-        mock.patch("mlflow.genai.judges.typesafe.http_request", return_value=response) as request,
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request", return_value=_system_one_response()
+        ),
     ):
-        assert (
-            _try_invoke_gateway_typesafe_judge(
-                "gateway:/chat-endpoint",
-                instructions="Does {{ outputs }} answer {{ inputs }}?",
-                state={"inputs": "Question", "outputs": "Answer"},
-                feedback_value_type=bool,
-                assessment_name="quality",
-            )
-            is None
+        _invoke_gateway_judge(
+            "gateway:/jev-endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
+        )
+        _invoke_gateway_judge(
+            "gateway:/jev-endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
         )
 
-    assert request.call_count == 1
+    # Chat is attempted only on the first row; later rows go straight to System One.
+    chat_invoker.assert_called_once()
+
+
+def test_gateway_cached_system_one_recovers_when_reconfigured_to_chat():
+    reconfigured = mock.Mock(status_code=422)
+    reconfigured.json.return_value = {
+        "detail": "Gateway endpoint does not use the TypeSafe provider."
+    }
+    chat_feedback = Feedback(name="quality", value=False)
+    chat_invoker = mock.Mock(side_effect=[_system_one_chat_rejection(), chat_feedback])
+    with (
+        mock.patch(
+            "mlflow.genai.judges.typesafe._resolve_gateway_uri", return_value="https://mlflow"
+        ),
+        mock.patch("mlflow.genai.judges.typesafe.get_default_host_creds"),
+        mock.patch(
+            "mlflow.genai.judges.typesafe.http_request",
+            side_effect=[_system_one_response(), reconfigured],
+        ),
+    ):
+        first = _invoke_gateway_judge(
+            "gateway:/endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
+        )
+        second = _invoke_gateway_judge(
+            "gateway:/endpoint", chat_invoker=chat_invoker, **_GATEWAY_JUDGE_KWARGS
+        )
+
+    assert first.value is True  # System One
+    assert second.value is False  # recovered to chat after reconfiguration
+    assert chat_invoker.call_count == 2
+    assert _gateway_system_one_cache == {}
 
 
 def test_direct_bool_invocation_uses_native_evaluation(monkeypatch):

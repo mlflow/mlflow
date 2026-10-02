@@ -23,10 +23,10 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
 from mlflow.genai.judges.typesafe import (
+    _invoke_gateway_judge,
     _invoke_typesafe_judge,
     _is_gateway_model,
     _is_typesafe_model,
-    _try_invoke_gateway_typesafe_judge,
 )
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
@@ -630,66 +630,28 @@ class InstructionsJudge(Judge):
         else:
             _logger.debug("Using standard (non-agentic) judge mode.")
 
-        feedback = None
-        if _is_typesafe_model(self._model):
-            if is_trace_based:
-                raise MlflowException.invalid_parameter_value(
-                    "TypeSafe judge models do not support trace-based evaluation."
-                )
-
-            state = {
-                variable: value
-                for variable, value in (
-                    (self._TEMPLATE_VARIABLE_INPUTS, inputs),
-                    (self._TEMPLATE_VARIABLE_OUTPUTS, outputs),
-                    (self._TEMPLATE_VARIABLE_EXPECTATIONS, expectations),
-                    (self._TEMPLATE_VARIABLE_CONVERSATION, conversation),
-                )
-                if variable in self.template_variables
-            }
-            feedback = _invoke_typesafe_judge(
-                self._model,
-                instructions=self._instructions,
-                state=state,
-                feedback_value_type=self._feedback_value_type,
-                assessment_name=self.name,
-                inference_params=self._inference_params,
-                base_url=self._base_url,
-                extra_headers=self._extra_headers,
+        state = {
+            variable: value
+            for variable, value in (
+                (self._TEMPLATE_VARIABLE_INPUTS, inputs),
+                (self._TEMPLATE_VARIABLE_OUTPUTS, outputs),
+                (self._TEMPLATE_VARIABLE_EXPECTATIONS, expectations),
+                (self._TEMPLATE_VARIABLE_CONVERSATION, conversation),
             )
-        elif _is_gateway_model(self._model):
-            feedback = _try_invoke_gateway_typesafe_judge(
-                self._model,
-                instructions=self._instructions,
-                state={
-                    variable: value
-                    for variable, value in (
-                        (self._TEMPLATE_VARIABLE_INPUTS, inputs),
-                        (self._TEMPLATE_VARIABLE_OUTPUTS, outputs),
-                        (self._TEMPLATE_VARIABLE_EXPECTATIONS, expectations),
-                        (self._TEMPLATE_VARIABLE_CONVERSATION, conversation),
-                    )
-                    if variable in self.template_variables
-                },
-                feedback_value_type=self._feedback_value_type,
-                assessment_name=self.name,
-                inference_params=self._inference_params,
-                base_url=self._base_url,
-                extra_headers=self._extra_headers,
-            )
+            if variable in self.template_variables
+        }
 
-        if feedback is None:
-            system_content = self._build_system_message(is_trace_based)
-            user_content = self._build_user_message(inputs, outputs, expectations, conversation)
-
+        def _invoke_chat():
             from mlflow.types.llm import ChatMessage
 
             messages = [
-                ChatMessage(role="system", content=system_content),
-                ChatMessage(role="user", content=user_content),
+                ChatMessage(role="system", content=self._build_system_message(is_trace_based)),
+                ChatMessage(
+                    role="user",
+                    content=self._build_user_message(inputs, outputs, expectations, conversation),
+                ),
             ]
-
-            feedback = invoke_judge_model(
+            return invoke_judge_model(
                 model_uri=self._model,
                 prompt=messages,
                 assessment_name=self.name,
@@ -700,6 +662,40 @@ class InstructionsJudge(Judge):
                 base_url=self._base_url,
                 extra_headers=self._extra_headers,
             )
+
+        if _is_typesafe_model(self._model):
+            if is_trace_based:
+                raise MlflowException.invalid_parameter_value(
+                    "TypeSafe judge models do not support trace-based evaluation."
+                )
+            feedback = _invoke_typesafe_judge(
+                self._model,
+                instructions=self._instructions,
+                state=state,
+                feedback_value_type=self._feedback_value_type,
+                assessment_name=self.name,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
+        elif _is_gateway_model(self._model) and not is_trace_based:
+            # gateway:/ endpoints may serve System One (jev) models. Prefer chat so non-jev
+            # endpoints see no regression, and fall back to System One when chat is rejected.
+            # jev has no trace support, so trace-based judges stay on chat only.
+            feedback = _invoke_gateway_judge(
+                self._model,
+                chat_invoker=_invoke_chat,
+                instructions=self._instructions,
+                state=state,
+                feedback_value_type=self._feedback_value_type,
+                assessment_name=self.name,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
+        else:
+            feedback = _invoke_chat()
+
         # Surface the judge instructions in assessment metadata so the UI can
         # show the criterion that was evaluated alongside each result.
         feedback.metadata = {**(feedback.metadata or {}), "guideline": self._instructions}

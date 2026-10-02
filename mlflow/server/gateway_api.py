@@ -46,6 +46,7 @@ from mlflow.gateway.config import (
 from mlflow.gateway.constants import (
     GATEWAY_DISABLED_MESSAGE,
     MLFLOW_GATEWAY_CALLER_HEADER,
+    SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL,
     GatewayCaller,
 )
 from mlflow.gateway.guardrail_utils import (
@@ -764,10 +765,7 @@ def _validate_system_one_endpoint(
     elif any(supported):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "System One models only support structured evaluation through "
-                "/gateway/typesafe/v1/systemone. Use a chat model for chat completions."
-            ),
+            detail=SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL,
         )
 
 
