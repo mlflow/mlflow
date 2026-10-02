@@ -47,10 +47,10 @@ from flask import (
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse
 from starlette.routing import BaseRoute, Match, Mount
-from werkzeug.datastructures import Authorization
+from werkzeug.datastructures import Authorization, ImmutableMultiDict
 
 from mlflow import MlflowException
-from mlflow.entities import Experiment
+from mlflow.entities import Experiment, LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
@@ -66,6 +66,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.exceptions import MlflowNotImplementedException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -423,11 +424,13 @@ from mlflow.server.handlers import (
     _assert_array,
     _assert_item_type_string,
     _get_ajax_path,
+    _get_list_scorers_request,
     _get_model_registry_store,
     _get_normalized_request_json,
     _get_request_message,
     _get_tracking_store,
     _get_validated_flask_request_json,
+    _raw_request_has_field,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -478,9 +481,10 @@ from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
+from mlflow.utils.scorer_keys import experiment_id_sort_key, parse_scorer_key
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import is_models_uri, validate_path_is_safe
-from mlflow.utils.validation import _validate_password
+from mlflow.utils.validation import _validate_experiment_id, _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
@@ -970,6 +974,24 @@ class RetentionGate:
             )
             self._decided[cache_key] = decided
         return decided
+
+    def named_ids(self, resource_type: str) -> set[str]:
+        """The IDs that a loaded grant names individually on ``resource_type`` (``"*"`` excluded).
+
+        ``retains(type)`` decides every ID that no grant names individually, so these are the
+        only IDs whose decision can differ from it -- which lets a caller enumerate a finite
+        scope instead of filtering rows after the fact.
+        """
+        if resource_type not in self._templates:
+            raise KeyError(
+                f"No requirement template for {resource_type!r}. Pass one to retention_gate. "
+                f"Declared: {sorted(self._templates)}"
+            )
+        return {
+            grant.resource_pattern
+            for grant in self._grants
+            if grant.resource_type == resource_type and grant.resource_pattern != "*"
+        }
 
     def _fold(self, key: GrantLoadKey) -> "Permission | None":
         if key not in self._folded:
@@ -1831,23 +1853,230 @@ def validate_can_read_experiment():
 
 
 def validate_can_read_scorer_list():
-    # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
-    # on the experiment read permission as usual; when empty, the request is
-    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
-    # per-row RBAC filtering, so the route itself is open to any authenticated
-    # caller.
-    #
-    # NB: this validator does not look at the newer, plural ``experiment_ids``
-    # field (added for pre-request auth scoping, see #24964). A caller that
-    # sets only ``experiment_ids`` still falls through to the ``not
-    # args.get("experiment_id")`` branch below and relies on the
-    # post-response filtering in ``filter_list_scorers`` -- basic auth does
-    # not yet use ``experiment_ids`` to scope the query before it reaches
-    # the store.
-    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
-    if not args.get("experiment_id"):
-        return True
-    return _get_permission_from_experiment_id().can_read
+    # A singular ``experiment_id`` keeps the point-route gate it always had; everything else
+    # is narrowed to the caller's grants before the store query (see ``_scope_list_scorers``).
+    request_json = _get_scoped_list_scorers_request()
+    username = authenticate_request().username
+    if (experiment_id := request_json.get("experiment_id")) and not _get_experiment_permission(
+        experiment_id, username
+    ).can_read:
+        return False
+    _scope_list_scorers(request_json, username)
+    return True
+
+
+def _get_scoped_list_scorers_request() -> dict[str, Any]:
+    # Use the handler's validation and source precedence, including GET JSON bodies.
+    message = _get_list_scorers_request()
+    request_json = {}
+    for field in message.DESCRIPTOR.fields:
+        if _raw_request_has_field(field):
+            value = getattr(message, field.name)
+            request_json[field.name] = value if field.name == "experiment_id" else list(value)
+    return request_json
+
+
+def _scorer_listing_gate(username: str) -> RetentionGate:
+    """The gate every listed scorer row must clear, from ONE grants load.
+
+    Shared by the request scoper and the response filters so a row cannot be fetched by one
+    rule and dropped by another: version veto, then the experiment and scorer tiers, each
+    falling back to the workspace grant when the caller holds no grant of that type.
+    """
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    return retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
+        ],
+    )
+
+
+def _request_scorer_listing_gate(username: str) -> RetentionGate:
+    """Share list scoping and response decisions for this request only.
+
+    Attach state to the request because an application context (and its g) can span requests.
+    Guardrail filtering continues to construct its own gate through _scorer_listing_gate.
+    """
+    key = (username, workspace_context.get_request_workspace())
+    cached = getattr(request, "_mlflow_scorer_listing_gate", None)
+    if cached is None or cached[0] != key:
+        cached = (key, _scorer_listing_gate(username))
+        request._mlflow_scorer_listing_gate = cached
+    return cached[1]
+
+
+def _scorer_row_retained(gate: RetentionGate, experiment_id: str, scorer_pattern: str) -> bool:
+    return (
+        gate.retains(RESOURCE_TYPE_SCORER_VERSION)
+        and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+        and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
+    )
+
+
+def _list_scorers_scope(
+    username: str, *, validate_backend_ids: bool = True
+) -> "tuple[set[str], set[str]] | None":
+    """What a ``ListScorers`` query may fetch for ``username``.
+
+    ``None`` when unbounded. Otherwise ``(experiment_ids, scorer_keys)``: experiments whose
+    scorers are all readable, plus individually granted scorers whose experiment is readable.
+    Derived from the same gate ``filter_list_scorers`` applies per row, so the scope never
+    hides a row the filter would keep. It is a superset, not the final answer: a per-id DENY
+    inside an otherwise readable set cannot be expressed as a selector, so the filter stays.
+    """
+    gate = _request_scorer_listing_gate(username)
+    if not gate.retains(RESOURCE_TYPE_SCORER_VERSION):
+        return set(), set()
+    # ``retains(type)`` with no id resolves the template's own ``*`` key, which is the decision
+    # for any id no grant names: wildcard grant, then workspace grant, then the default.
+    unnamed_experiment_readable = gate.retains(RESOURCE_TYPE_EXPERIMENT)
+    unnamed_scorer_readable = gate.retains(RESOURCE_TYPE_SCORER)
+    if unnamed_experiment_readable and unnamed_scorer_readable:
+        return None
+
+    experiment_ids: set[str] = set()
+    scorer_keys: set[str] = set()
+    if unnamed_scorer_readable:
+        for experiment_id in gate.named_ids(RESOURCE_TYPE_EXPERIMENT):
+            try:
+                _validate_experiment_id(experiment_id)
+            except MlflowException:
+                # Generic validation rules out malformed stored resource patterns.
+                continue
+            if gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id):
+                experiment_ids.add(experiment_id)
+    else:
+        for scorer_key in gate.named_ids(RESOURCE_TYPE_SCORER):
+            try:
+                experiment_id, _ = parse_scorer_key(scorer_key)
+            except MlflowException:
+                # A stored grant that is not a canonical key cannot match any scorer.
+                continue
+            if not _scorer_row_retained(gate, experiment_id, scorer_key):
+                continue
+            scorer_keys.add(scorer_key)
+    if validate_backend_ids:
+        candidate_ids = experiment_ids | {
+            parse_scorer_key(scorer_key)[0] for scorer_key in scorer_keys
+        }
+        valid_ids = set(
+            _get_tracking_store()._filter_valid_scorer_experiment_ids(
+                sorted(candidate_ids, key=experiment_id_sort_key)
+            )
+        )
+        experiment_ids &= valid_ids
+        scorer_keys = {
+            scorer_key for scorer_key in scorer_keys if parse_scorer_key(scorer_key)[0] in valid_ids
+        }
+    return experiment_ids, scorer_keys
+
+
+def _scope_list_scorers(request_json: dict[str, Any], username: str) -> None:
+    """Narrow a ``ListScorers`` request to what the caller may read, before the store query.
+
+    Intersects ``_list_scorers_scope`` with the caller's selectors and rewrites the GET args.
+    Empty repeated fields remain present so the handler cannot treat an empty scope as unbounded.
+    """
+    requested_experiment_id = request_json.get("experiment_id") or None
+    has_plural_field = "experiment_ids" in request_json
+    has_scorer_field = "scorer_keys" in request_json
+    if requested_experiment_id is not None:
+        for field in ("experiment_ids", "scorer_keys"):
+            if field in request_json:
+                raise MlflowException.invalid_parameter_value(
+                    f"Cannot specify both 'experiment_id' and '{field}'."
+                )
+    # Explicit caller selectors are backend-validated below. Their intersection means no
+    # unrelated stored grant ID can reach the scorer query, so only open-ended requests need
+    # validation of every stored candidate here.
+    scope = _list_scorers_scope(
+        username,
+        validate_backend_ids=not (
+            requested_experiment_id is not None
+            or "experiment_ids" in request_json
+            or "scorer_keys" in request_json
+        ),
+    )
+    if scope is None:
+        return
+    readable_experiment_ids, readable_scorer_keys = scope
+
+    if requested_experiment_id is not None:
+        # Rewriting a singular request bypasses list_scorers' experiment validation.
+        # Preserve it even when the grant intersection is empty, using metadata only
+        # so unauthorized scorer payloads are never loaded for validation.
+        _validate_experiment_id(requested_experiment_id)
+        experiment = _get_tracking_store().get_experiment(requested_experiment_id)
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException.invalid_parameter_value(
+                f"The experiment {experiment.experiment_id} must be in the 'active' state. "
+                f"Current state is {experiment.lifecycle_stage}."
+            )
+        requested_experiment_ids = {experiment.experiment_id}
+    elif has_plural_field:
+        # Preserve the plural store's validation, canonical IDs, and active/workspace
+        # filtering before intersection can discard any caller-supplied values.
+        for experiment_id in request_json["experiment_ids"]:
+            _validate_experiment_id(experiment_id)
+        try:
+            requested_experiment_ids = set(
+                _get_tracking_store().filter_active_experiment_ids(request_json["experiment_ids"])
+            )
+        except MlflowNotImplementedException as exc:
+            raise MlflowException(exc.message, error_code=INVALID_PARAMETER_VALUE) from exc
+    else:
+        requested_experiment_ids = None
+
+    if requested_experiment_ids is not None:
+        selected_experiment_ids = readable_experiment_ids & requested_experiment_ids
+    elif has_scorer_field:
+        selected_experiment_ids = set()
+    else:
+        selected_experiment_ids = readable_experiment_ids
+
+    selected_scorer_keys: set[str] = set()
+    # Auto-expand to every individually readable scorer key covered by the
+    # requested experiment selector, unless this is a pure ``scorer_keys``-only
+    # request (no experiment selector at all): ``scorer_keys`` is additive to
+    # an experiment selector, not a replacement for one, so e.g.
+    # ``experiment_ids=[E]&scorer_keys=[]`` must still surface scorers in ``E``
+    # that are readable only through an individual grant.
+    if not (requested_experiment_ids is None and has_scorer_field):
+        for scorer_key in readable_scorer_keys:
+            experiment_id, _ = parse_scorer_key(scorer_key)
+            if (
+                requested_experiment_ids is None or experiment_id in requested_experiment_ids
+            ) and experiment_id not in selected_experiment_ids:
+                selected_scorer_keys.add(scorer_key)
+    if has_scorer_field:
+        requested_keys = {
+            scorer_key: parse_scorer_key(scorer_key)[0]
+            for scorer_key in request_json["scorer_keys"]
+        }
+        # Validate every original exact selector before authorization can remove it.
+        # The batch metadata API preserves backend-specific ID validation without
+        # reading scorer payloads; missing/inactive resources remain empty results.
+        try:
+            _get_tracking_store().filter_active_experiment_ids(list(set(requested_keys.values())))
+        except MlflowNotImplementedException as exc:
+            raise MlflowException(exc.message, error_code=INVALID_PARAMETER_VALUE) from exc
+        for scorer_key, experiment_id in requested_keys.items():
+            if (
+                scorer_key in readable_scorer_keys or experiment_id in readable_experiment_ids
+            ) and experiment_id not in selected_experiment_ids:
+                selected_scorer_keys.add(scorer_key)
+
+    args = request.args.copy()
+    args.pop("experiment_id", None)
+    args.setlist("experiment_ids", sorted(selected_experiment_ids, key=experiment_id_sort_key))
+    args.setlist("scorer_keys", sorted(selected_scorer_keys))
+    request.args = ImmutableMultiDict(args)
 
 
 def validate_can_read_experiment_by_name():
@@ -6137,28 +6366,12 @@ def _scorer_row_keys(scorer) -> "tuple[str, str]":
 
 
 def _withhold_denied_guardrail_scorers(configs) -> bool:
-    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    gate = retention_gate(
-        authenticate_request().username,
-        (RESOURCE_TYPE_WORKSPACE, "*"),
-        [
-            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
-            Requirement(
-                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
-            ),
-            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
-        ],
-    )
+    gate = _scorer_listing_gate(authenticate_request().username)
     withheld = False
     for config in configs:
         if not config.guardrail.HasField("scorer"):
             continue
-        experiment_id, scorer_pattern = _scorer_row_keys(config.guardrail.scorer)
-        if (
-            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
-            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
-            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
-        ):
+        if _scorer_row_retained(gate, *_scorer_row_keys(config.guardrail.scorer)):
             continue
         config.guardrail.ClearField("scorer")
         withheld = True
@@ -6184,13 +6397,11 @@ def redact_guardrail_config_scorer(resp: Response) -> None:
 
 
 def filter_list_scorers(resp: Response) -> None:
-    """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
+    """Filter ``ListScorers`` responses to rows the caller can read.
 
-    Single-experiment requests are already gated by ``validate_can_read_scorer_list``
-    (which delegates to ``validate_can_read_experiment``); cross-experiment requests
-    (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. This filter applies the experiment + scorer read
-    predicates per row so the picker doesn't leak names the caller has no grant on.
+    ``validate_can_read_scorer_list`` already narrows the request to the caller's grants
+    before the store query, from this same gate. This second layer drops what a selector
+    cannot express: a DENY naming one experiment or scorer inside an otherwise readable set.
     """
     if sender_is_admin():
         return
@@ -6201,27 +6412,12 @@ def filter_list_scorers(resp: Response) -> None:
     if not response_message.scorers:
         return
 
-    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    gate = retention_gate(
-        authenticate_request().username,
-        (RESOURCE_TYPE_WORKSPACE, "*"),
-        [
-            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
-            Requirement(
-                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
-            ),
-            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
-        ],
-    )
-    kept = []
-    for scorer in response_message.scorers:
-        experiment_id, scorer_pattern = _scorer_row_keys(scorer)
-        if (
-            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
-            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
-            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
-        ):
-            kept.append(scorer)
+    gate = _request_scorer_listing_gate(authenticate_request().username)
+    kept = [
+        scorer
+        for scorer in response_message.scorers
+        if _scorer_row_retained(gate, *_scorer_row_keys(scorer))
+    ]
     response_message.ClearField("scorers")
     response_message.scorers.extend(kept)
     resp.data = message_to_json(response_message)

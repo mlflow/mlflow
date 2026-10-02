@@ -8,7 +8,7 @@ from google.protobuf.json_format import MessageToDict
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
 import mlflow
-from mlflow.entities import Span
+from mlflow.entities import LifecycleStage, ScorerVersion, Span
 from mlflow.entities.assessment import (
     AssessmentSource,
     AssessmentSourceType,
@@ -2234,6 +2234,56 @@ def mock_ensure_running():
 
 def _store():
     return DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+
+def test_list_scorers_across_experiments_uses_single_experiment_api():
+    store = _store()
+    scorer = ScorerVersion("123", "accuracy", 1, "{}", 1)
+
+    with mock.patch.object(store, "list_scorers", return_value=[scorer]) as list_scorers:
+        assert store.list_scorers_across_experiments(["123"]) == [scorer]
+
+    list_scorers.assert_called_once_with("123")
+
+
+@pytest.mark.parametrize("experiment_ids", [[], ["7"]])
+def test_list_scorers_across_experiments_emulates_specific_selection(experiment_ids):
+    store = _store()
+
+    def get_experiment(exp_id):
+        if exp_id == "99":
+            raise MlflowException("missing", databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        return mock.Mock(
+            lifecycle_stage=LifecycleStage.DELETED if exp_id == "43" else LifecycleStage.ACTIVE
+        )
+
+    def list_scorers(exp_id):
+        return [ScorerVersion(exp_id, name, 2, "{}", 1) for name in ("toxicity", "helpfulness")]
+
+    with (
+        mock.patch.object(store, "get_experiment", side_effect=get_experiment) as metadata,
+        mock.patch.object(store, "list_scorers", side_effect=list_scorers) as listing,
+        mock.patch.object(store, "_call_endpoint") as batch,
+    ):
+        rows = store.list_scorers_across_experiments(
+            experiment_ids, ["42/toxicity", "42/toxicity", "43/toxicity", "99/toxicity"]
+        )
+    expected = [("42", "toxicity")]
+    if experiment_ids:
+        expected = [("7", "helpfulness"), ("7", "toxicity"), *expected]
+    assert [(s.experiment_id, s.scorer_name) for s in rows] == expected
+    assert metadata.call_args_list == [mock.call("42"), mock.call("43"), mock.call("99")]
+    assert listing.call_args_list == [
+        mock.call(eid) for eid in (["7", "42"] if experiment_ids else ["42"])
+    ]
+    batch.assert_not_called()
+
+
+@pytest.mark.parametrize("experiment_ids", [[], ["42"]])
+def test_list_scorers_public_plural_validation_stays_unsupported(experiment_ids):
+    store = _store()
+    with pytest.raises(MlflowNotImplementedException, match="experiment_ids.*not supported"):
+        store.filter_active_experiment_ids(experiment_ids)
 
 
 def test_resolve_sql_warehouse_id_calls_ensure_running(sql_warehouse_id, mock_ensure_running):

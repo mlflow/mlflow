@@ -42,7 +42,11 @@ from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -57,6 +61,7 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
+from mlflow.utils.scorer_keys import experiment_id_sort_key, parse_scorer_key
 
 
 @developer_stable
@@ -1692,17 +1697,47 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], scorer_keys: list[str] | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers across multiple experiments in one batch. The default
         impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
-        overrides with a single JOIN for admin pickers that need to enumerate
-        scorers across hundreds of experiments without N+1 round trips.
+        overrides with batched queries. ``scorer_keys`` adds exact
+        ``<experiment_id>/<URL-encoded-scorer-name>`` pairs to the selected
+        experiments.
         """
-        result: list[ScorerVersion] = []
-        for exp_id in experiment_ids:
-            result.extend(self.list_scorers(exp_id))
-        return result
+        requested_keys = {parse_scorer_key(key) for key in (scorer_keys or [])}
+        requested_experiment_ids = set(experiment_ids)
+        exact_only_experiment_ids = {
+            exp_id for exp_id, _ in requested_keys if exp_id not in requested_experiment_ids
+        }
+        active_exact_experiment_ids = self._filter_active_scorer_experiment_ids(
+            sorted(exact_only_experiment_ids, key=experiment_id_sort_key)
+        )
+        selected_experiments = requested_experiment_ids | set(active_exact_experiment_ids)
+        selected_experiments = sorted(selected_experiments, key=experiment_id_sort_key)
+        scorers = {}
+        for exp_id in selected_experiments:
+            try:
+                for scorer in self.list_scorers(exp_id):
+                    key = (str(scorer.experiment_id), scorer.scorer_name)
+                    if exp_id in requested_experiment_ids or key in requested_keys:
+                        scorers[key] = scorer
+            except MlflowException as exc:
+                if exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+        return [
+            scorers[key]
+            for key in sorted(
+                scorers,
+                key=lambda item: (*experiment_id_sort_key(item[0]), item[1]),
+            )
+        ]
+
+    def _filter_active_scorer_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        """Validate experiments named by specific scorer candidates."""
+        return self.filter_active_experiment_ids(experiment_ids)
 
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
         """
@@ -1726,6 +1761,25 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
                 continue
             if experiment.lifecycle_stage == LifecycleStage.ACTIVE:
                 result.append(exp_id)
+        return result
+
+    def _filter_valid_scorer_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        """Drop stored scorer-grant IDs that this backend cannot represent.
+
+        Missing experiments remain valid selectors and are omitted by the scorer query. Backends
+        with a bounded ID type can override this to validate a batch without loading each
+        experiment's metadata.
+        """
+        result = []
+        for experiment_id in experiment_ids:
+            try:
+                self.get_experiment(experiment_id)
+            except MlflowException as exc:
+                if exc.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
+                    continue
+                if exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+            result.append(experiment_id)
         return result
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:

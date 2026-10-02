@@ -548,6 +548,62 @@ def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
     assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in chunked] == expected
 
 
+def test_list_scorers_across_experiments_includes_exact_scorer_keys(
+    store: SqlAlchemyStore, monkeypatch
+):
+    exp_a = store.create_experiment("exact_scorer_exp_a")
+    exp_b = store.create_experiment("exact_scorer_exp_b")
+    store.register_scorer(exp_a, "alpha", '{"name": "alpha"}')
+    store.register_scorer(exp_a, "beta", '{"name": "beta"}')
+    store.register_scorer(exp_b, "with/slash", '{"name": "with/slash"}')
+    store.register_scorer(exp_b, "other", '{"name": "other"}')
+
+    key = f"{exp_b}/with%2Fslash"
+    other_key = f"{exp_b}/other"
+    with mock.patch.object(
+        store,
+        "_batch_resolve_endpoint_in_serialized_scorers",
+        wraps=store._batch_resolve_endpoint_in_serialized_scorers,
+    ) as resolve:
+        mixed = store.list_scorers_across_experiments([exp_a], [key])
+        exact_only = store.list_scorers_across_experiments([], [key])
+        monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 2)
+        chunked = store.list_scorers_across_experiments([], [key, other_key])
+
+    assert resolve.call_args_list == [
+        mock.call(['{"name": "alpha"}', '{"name": "beta"}', '{"name": "with/slash"}']),
+        mock.call(['{"name": "with/slash"}']),
+        mock.call(['{"name": "other"}', '{"name": "with/slash"}']),
+    ]
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in mixed] == [
+        (exp_a, "alpha"),
+        (exp_a, "beta"),
+        (exp_b, "with/slash"),
+    ]
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in exact_only] == [
+        (exp_b, "with/slash")
+    ]
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in chunked] == [
+        (exp_b, "other"),
+        (exp_b, "with/slash"),
+    ]
+
+    with pytest.raises(MlflowException, match="Invalid scorer key"):
+        store.list_scorers_across_experiments([], [f"{exp_b}/with/slash"])
+
+
+def test_list_scorers_across_experiments_exact_keys_skip_deleted_experiments(
+    store: SqlAlchemyStore,
+):
+    experiment_id = store.create_experiment("deleted_exact_scorer_exp")
+    store.register_scorer(experiment_id, "deleted-scorer", '{"v": 1}')
+    store.delete_experiment(experiment_id)
+
+    assert store.list_scorers_across_experiments([], [f"{experiment_id}/deleted-scorer"]) == []
+
+
 def test_scorer_experiment_ids_are_coerced_to_int(store: SqlAlchemyStore):
     """String experiment IDs must be bound as INTEGER, not VARCHAR.
 
@@ -580,6 +636,9 @@ def test_scorer_experiment_ids_are_coerced_to_int(store: SqlAlchemyStore):
     for bad_experiment_id in ["not-a-number", ""]:
         with pytest.raises(MlflowException, match="Experiment ID must be a valid integer"):
             store.list_scorers_across_experiments([bad_experiment_id])
+
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer"):
+        store.list_scorers_across_experiments([], ["not-a-number/coerced"])
 
 
 @pytest.mark.parametrize(
