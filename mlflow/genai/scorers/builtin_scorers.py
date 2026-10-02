@@ -79,7 +79,8 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
-from mlflow.genai.judges.typesafe import _invoke_structured_builtin_judge, _is_typesafe_model
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
+from mlflow.genai.judges.typesafe import _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,

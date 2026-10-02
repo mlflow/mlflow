@@ -5,7 +5,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
-from mlflow.genai.judges.typesafe import _invoke_structured_builtin_judge
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.docstring_utils import format_docstring
 

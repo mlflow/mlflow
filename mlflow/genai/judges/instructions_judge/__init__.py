@@ -22,11 +22,13 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
-from mlflow.genai.judges.typesafe import (
+from mlflow.genai.judges.structured_judge import (
     _invoke_gateway_judge,
-    _invoke_typesafe_judge,
     _is_gateway_model,
     _is_gateway_system_one_rejection,
+)
+from mlflow.genai.judges.typesafe import (
+    _invoke_typesafe_judge,
     _is_typesafe_model,
 )
 from mlflow.genai.judges.utils import (
