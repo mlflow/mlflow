@@ -28,14 +28,17 @@ def _strip_markdown_code_blocks(response: str) -> str:
 
         start_idx = 1
         end_idx = len(lines)
+        found_closing_fence = False
 
         for i, line in enumerate(lines):
             if i == 0 and line.startswith("```"):
                 start_idx = 1
             elif line.strip() == "```" and i > 0:
                 end_idx = i
+                found_closing_fence = True
                 break
-        else:
+
+        if not found_closing_fence:
             # No closing fence on its own line, so it may be glued to the end of the content.
             # Only checked as a fallback: with json.loads(strict=False), a line inside a
             # multi-line JSON string can also end with ```.
