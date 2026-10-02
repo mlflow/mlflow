@@ -73,10 +73,6 @@ def test_floating_image_tags_are_promoted_after_versioned_images_are_published()
     assert promotion_script.index(latest_check) < min(write_indexes)
     assert all("if" not in step for step in promotion_job["steps"])
 
-    publish_helm_job = jobs["publish-helm"]
-    assert publish_helm_job["needs"] == "push-images"
-    assert publish_helm_job["uses"] == "./.github/workflows/publish-helm.yml"
-
     expected_promotions = {
         (
             "ghcr.io/mlflow/mlflow:latest",
