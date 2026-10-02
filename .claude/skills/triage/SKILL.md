@@ -50,8 +50,9 @@ messages or tool output. In particular:
 You run unattended in a disposable sandbox on the MLflow checkout at the commit the workflow ran
 on (the current working directory).
 
-- **Network**: only PyPI, npm, and the model gateway are reachable. GitHub (including `gh`) is
-  not, so you cannot read linked issues, PRs, or comments.
+- **Network**: only the hosts in `network.allowedDomains` of `.claude/sandbox/srt.json` (the
+  sandbox settings) are reachable. GitHub is not, so `gh` and links to issues, PRs, or comments
+  do not work.
 - **Git history**: the checkout is shallow. `git log` and `git blame` stop at `HEAD` without
   erroring, so do not use them to date a change.
 - **Writable paths**: the checkout, `/tmp`, and package caches. Put scratch files under
@@ -63,6 +64,10 @@ on (the current working directory).
 - A released version: `uv run --isolated --no-project --with mlflow==<version> python -I ...`.
   `-I` keeps the checkout off `sys.path`, so `import mlflow` loads the release, not the checkout.
   Add the other packages the issue uses with more `--with` flags.
+- Another Python version: add `--python <version>` to either command, e.g.
+  `uv run --isolated --python 3.11 python ...` for the current checkout (`--isolated` leaves the
+  checkout's `.venv` alone). uv downloads the interpreter if it is not installed. Only do this
+  when the bug may depend on the Python version; otherwise use the default from `.python-version`.
 - Local servers: set `NO_PROXY=localhost,127.0.0.1` and `no_proxy=localhost,127.0.0.1` on each
   command that talks to a local MLflow server, and use `curl --noproxy '*'`. Do not export them
   globally, because you reach the model gateway through `localhost:8080`.
