@@ -165,7 +165,9 @@ jobs:
             | . + {$repository, issue_number: $number}
           ' "$RUNNER_TEMP/original_issue.json" > "$RUNNER_TEMP/sanitized_issue.json"
           for variant in original sanitized; do
-            jq -a '"title", (.title | split("\n")[]), "body", (.body | split("\n")[])' \
+            # Split on CRLF too: the sanitizer strips "\r", so splitting on "\n" alone would
+            # flag every line of a CRLF body as changed.
+            jq -a '"title", (.title | splits("\r?\n")), "body", (.body | splits("\r?\n"))' \
               "$RUNNER_TEMP/${variant}_issue.json" > "$RUNNER_TEMP/${variant}_issue.txt"
           done
           if diff -U0 "$RUNNER_TEMP/original_issue.txt" "$RUNNER_TEMP/sanitized_issue.txt" \
@@ -174,7 +176,11 @@ jobs:
           else
             status=$?
             [ "$status" -eq 1 ] || exit "$status"
-            head -c 16000 "$RUNNER_TEMP/sanitization.diff"
+            max_bytes=16000
+            head -c "$max_bytes" "$RUNNER_TEMP/sanitization.diff"
+            if [ "$(wc -c < "$RUNNER_TEMP/sanitization.diff")" -gt "$max_bytes" ]; then
+              printf '\n... (diff truncated to %d bytes)\n' "$max_bytes"
+            fi
           fi
       - id: gateway
         uses: ./.github/actions/setup-gateway
