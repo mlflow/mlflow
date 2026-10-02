@@ -167,7 +167,7 @@ describe('SkillDetailPage', () => {
     expect(screen.getByRole('row', { selected: true })).toHaveTextContent('Version 1');
   });
 
-  it('omits deleted versions from ordinary search results', async () => {
+  it('shows a deleted version as a disabled row and does not open it', async () => {
     server.use(
       getMockedSearchSkillVersionsResponse([
         mockVersion2,
@@ -179,7 +179,10 @@ describe('SkillDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Version 2')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
+    expect(screen.getByText('Version 1')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Version 1/ })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(screen.getByText('Version 1'));
+    expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
   });
 
   it('pins the selected version in the Use modal and updates the install destination', async () => {
@@ -287,7 +290,7 @@ describe('SkillDetailPage', () => {
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Create skill version' }));
-    expect(screen.getByText('Create skill version 3')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Create skill version' })).toBeInTheDocument();
     expect(
       screen.getByText(/Adding a version to @acme\/code-review. Its content can come from anywhere/),
     ).toBeInTheDocument();

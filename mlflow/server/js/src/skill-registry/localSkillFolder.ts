@@ -48,9 +48,29 @@ const octal = (value: number, length: number) => {
   return bytes;
 };
 
+const splitUstarName = (path: string) => {
+  const bytes = encoder.encode(path);
+  if (bytes.length <= 100) {
+    return { name: bytes, prefix: new Uint8Array() };
+  }
+  for (let index = bytes.length - 1; index >= 0; index -= 1) {
+    if (bytes[index] !== 0x2f) continue;
+    const prefixLength = index;
+    const nameLength = bytes.length - index - 1;
+    if (prefixLength > 0 && prefixLength <= 155 && nameLength > 0 && nameLength <= 100) {
+      return { name: bytes.subarray(index + 1), prefix: bytes.subarray(0, index) };
+    }
+  }
+  return undefined;
+};
+
 const tarHeader = (name: string, size: number) => {
+  const split = splitUstarName(name);
+  if (!split) {
+    throw new Error(`Cannot package '${name}'. The path is too long for a tar archive.`);
+  }
   const header = new Uint8Array(BLOCK);
-  header.set(encoder.encode(name).slice(0, 100));
+  header.set(split.name);
   header.set(octal(0o644, 8), 100);
   header.set(octal(0, 8), 108);
   header.set(octal(0, 8), 116);
@@ -60,6 +80,7 @@ const tarHeader = (name: string, size: number) => {
   header[156] = '0'.charCodeAt(0);
   header.set(encoder.encode('ustar'), 257);
   header.set(encoder.encode('00'), 263);
+  header.set(split.prefix, 345);
   const sum = header.reduce((total, byte) => total + byte, 0);
   const checksum = sum.toString(8).padStart(6, '0');
   for (let index = 0; index < 6; index += 1) header[148 + index] = checksum.charCodeAt(index);

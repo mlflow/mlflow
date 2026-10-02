@@ -1,17 +1,35 @@
-import { Tag, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
 import { AliasTag } from '../../common/components/AliasTag';
 import { tagListStyles } from '../styles';
+import { SkillPencilButton } from './SkillPencilButton';
 
-export const SkillAliases = ({ aliases }: { aliases: string[] }) => {
+export const SkillAliases = ({ aliases, onEdit }: { aliases: string[]; onEdit?: () => void }) => {
   const { theme } = useDesignSystemTheme();
-  if (aliases.length === 0) {
-    return <span aria-label="No aliases">—</span>;
-  }
+  const intl = useIntl();
+  const content =
+    aliases.length === 0 ? (
+      <span aria-label="No aliases">—</span>
+    ) : (
+      <>
+        {aliases.map((alias) => (
+          <AliasTag value={alias} key={alias} />
+        ))}
+      </>
+    );
   return (
     <div css={tagListStyles(theme)}>
-      {aliases.map((alias) => (
-        <AliasTag value={alias} key={alias} />
-      ))}
+      {content}
+      {onEdit && (
+        <SkillPencilButton
+          componentId="mlflow.skill_registry.detail.version.aliases.edit"
+          label={intl.formatMessage({
+            defaultMessage: 'Edit aliases',
+            description: 'Aria label for editing skill version aliases',
+          })}
+          onClick={onEdit}
+        />
+      )}
     </div>
   );
 };

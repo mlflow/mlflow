@@ -454,7 +454,7 @@ describe('SkillRegistryPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
     expect(screen.getByText(/mlflow skills register git/)).toBeInTheDocument();
     expect(
-      screen.getByText(/--url https:\/\/github.com\/acme\/skills\/tree\/main\/network-policy-architect/),
+      screen.getByText(/--url 'https:\/\/github.com\/acme\/skills\/tree\/main\/network-policy-architect'/),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: /Back to form/ }));

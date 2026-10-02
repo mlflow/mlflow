@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Button,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -9,9 +10,7 @@ import {
   Input,
   Modal,
   PlusIcon,
-  PuzzleIcon,
   Radio,
-  Tooltip,
   SegmentedControlButton,
   SegmentedControlGroup,
   SimpleSelect,
@@ -24,7 +23,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
-import { resolveIcon, sanitizeHref } from '../../common/utils/registryIcons';
+import Utils from '../../common/utils/Utils';
+import { SkillIconEditor } from './SkillIconEditor';
 import { SkillRegistryApi } from '../api';
 import { useRegisterSkillMutation } from '../hooks/useRegisterSkillMutation';
 import { findSkillManifest, packageSkillFolder, readSkillManifest } from '../localSkillFolder';
@@ -46,7 +46,6 @@ import { formatSkillIdentity } from '../utils';
 type RegistrationMode = 'pointer' | 'upload';
 type DialogView = 'form' | 'api';
 type SnippetFormat = 'cli' | 'python';
-type IconTheme = 'Any' | 'Light' | 'Dark';
 
 const EMPTY_FORM: SkillRegistrationFields = {
   location: '',
@@ -57,8 +56,6 @@ const EMPTY_FORM: SkillRegistrationFields = {
   digest: '',
   status: SkillStatus.ACTIVE,
 };
-
-const themeToIcon = (theme: IconTheme): string | undefined => (theme === 'Any' ? undefined : theme.toLowerCase());
 
 const errorMessage = (error: SkillRegistrationErrorCode) => {
   switch (error) {
@@ -164,7 +161,6 @@ export const RegisterSkillModal = ({
   onClose,
   skill,
   sourceVersion,
-  nextVersion,
   onRegistered,
 }: {
   visible: boolean;
@@ -173,7 +169,6 @@ export const RegisterSkillModal = ({
   skill?: { name: string; organization: string };
   /** Version whose source is copied into the form. Status stays Active. */
   sourceVersion?: SkillVersion;
-  nextVersion?: number;
   onRegistered: (version: SkillVersion) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -187,8 +182,6 @@ export const RegisterSkillModal = ({
   const [form, setForm] = useState(EMPTY_FORM);
   const [description, setDescription] = useState('');
   const [icons, setIcons] = useState<RegistryIcon[]>([]);
-  const [iconUrl, setIconUrl] = useState('');
-  const [iconTheme, setIconTheme] = useState<IconTheme>('Any');
   const [tags, setTags] = useState<Record<string, string>>({});
   const [tagKey, setTagKey] = useState('');
   const [tagValue, setTagValue] = useState('');
@@ -199,14 +192,24 @@ export const RegisterSkillModal = ({
   const [subpathTouched, setSubpathTouched] = useState(false);
   const [validationError, setValidationError] = useState<SkillRegistrationErrorCode | undefined>();
   const [presentationError, setPresentationError] = useState<string | undefined>();
+  const submitErrorRef = useRef<HTMLDivElement>(null);
+  const submissionRef = useRef(0);
+  const [submitting, setSubmitting] = useState(false);
   const { mutate, isLoading, error, reset } = useRegisterSkillMutation();
   const seeded = useRef(false);
+
+  useEffect(() => {
+    if (!validationError && !presentationError && !error) return;
+    submitErrorRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [validationError, presentationError, error]);
 
   const parsed = parseSkillLocation(form.location);
   const effectiveSourceType = form.sourceTypeOverride || parsed?.sourceType;
   const hasSkillManifest = Boolean(findSkillManifest(folderFiles));
 
   const close = () => {
+    submissionRef.current += 1;
+    setSubmitting(false);
     setView('form');
     setSnippetFormat('cli');
     setMode('pointer');
@@ -214,8 +217,6 @@ export const RegisterSkillModal = ({
     setForm(EMPTY_FORM);
     setDescription('');
     setIcons([]);
-    setIconUrl('');
-    setIconTheme('Any');
     setTags({});
     setTagKey('');
     setTagValue('');
@@ -280,17 +281,6 @@ export const RegisterSkillModal = ({
     }
   };
 
-  const addIcon = () => {
-    const src = iconUrl.trim();
-    if (!src) return;
-    const next: RegistryIcon = { src };
-    const iconThemeValue = themeToIcon(iconTheme);
-    if (iconThemeValue) next.theme = iconThemeValue;
-    setIcons((current) => [...current, next]);
-    setIconUrl('');
-    setIconTheme('Any');
-  };
-
   const addTag = () => {
     const key = tagKey.trim();
     if (!key) return;
@@ -317,8 +307,25 @@ export const RegisterSkillModal = ({
     }
   };
 
+  const finishRegistration = (version: SkillVersion) => {
+    const presentationFailureMessage = intl.formatMessage({
+      defaultMessage: 'The version was created, but its description, icon, or tags could not be saved.',
+      description: 'Error when skill presentation metadata fails after registration',
+    });
+    void savePresentation(version)
+      .catch((presentationFailure: unknown) => {
+        Utils.displayGlobalErrorNotification(
+          presentationFailure instanceof Error ? presentationFailure.message : presentationFailureMessage,
+        );
+      })
+      .finally(() => {
+        close();
+        onRegistered(version);
+      });
+  };
+
   const submit = () => {
-    if (view !== 'form' || isLoading) return;
+    if (view !== 'form' || isLoading || submitting) return;
     const fields: SkillRegistrationFields = { ...form, identity: isVersion ? fixedIdentity : form.identity };
     if (mode === 'upload') {
       if (!hasSkillManifest) {
@@ -331,8 +338,11 @@ export const RegisterSkillModal = ({
         return;
       }
       setValidationError(undefined);
+      const submission = submissionRef.current;
+      setSubmitting(true);
       void packageSkillFolder(folderFiles)
         .then((content) => {
+          if (submission !== submissionRef.current) return;
           mutate(
             isVersion && skill
               ? {
@@ -345,27 +355,18 @@ export const RegisterSkillModal = ({
               : { kind: 'register-upload', request: toRegisterSkillRequest(built.request, built.identity), content },
             {
               onSuccess: (version) => {
-                void savePresentation(version)
-                  .then(() => {
-                    close();
-                    onRegistered(version);
-                  })
-                  .catch((presentationFailure: unknown) => {
-                    setPresentationError(
-                      presentationFailure instanceof Error
-                        ? presentationFailure.message
-                        : intl.formatMessage({
-                            defaultMessage:
-                              'The version was created, but its description, icon, or tags could not be saved.',
-                            description: 'Error when skill presentation metadata fails after registration',
-                          }),
-                    );
-                  });
+                if (submission !== submissionRef.current) return;
+                finishRegistration(version);
+              },
+              onError: () => {
+                if (submission === submissionRef.current) setSubmitting(false);
               },
             },
           );
         })
         .catch((packageError: unknown) => {
+          if (submission !== submissionRef.current) return;
+          setSubmitting(false);
           setPresentationError(packageError instanceof Error ? packageError.message : 'Could not package the folder.');
         });
       return;
@@ -377,27 +378,19 @@ export const RegisterSkillModal = ({
       return;
     }
     setValidationError(undefined);
+    const submission = submissionRef.current;
+    setSubmitting(true);
     mutate(
       isVersion && skill
         ? { kind: 'version', name: skill.name, organization: skill.organization, request: built.request }
         : { kind: 'register', request: toRegisterSkillRequest(built.request, built.identity) },
       {
         onSuccess: (version) => {
-          void savePresentation(version)
-            .then(() => {
-              close();
-              onRegistered(version);
-            })
-            .catch((presentationFailure: unknown) => {
-              setPresentationError(
-                presentationFailure instanceof Error
-                  ? presentationFailure.message
-                  : intl.formatMessage({
-                      defaultMessage: 'The version was created, but its description, icon, or tags could not be saved.',
-                      description: 'Error when skill presentation metadata fails after registration',
-                    }),
-              );
-            });
+          if (submission !== submissionRef.current) return;
+          finishRegistration(version);
+        },
+        onError: () => {
+          if (submission === submissionRef.current) setSubmitting(false);
         },
       },
     );
@@ -434,11 +427,7 @@ export const RegisterSkillModal = ({
       componentId="mlflow.skill_registry.register_modal"
       title={
         isVersion ? (
-          <FormattedMessage
-            defaultMessage="Create skill version {version}"
-            description="Title for adding a skill version"
-            values={{ version: nextVersion ?? '' }}
-          />
+          <FormattedMessage defaultMessage="Create skill version" description="Title for adding a skill version" />
         ) : (
           <FormattedMessage defaultMessage="Create skill" description="Title for registering a skill" />
         )
@@ -454,8 +443,8 @@ export const RegisterSkillModal = ({
           <Button
             componentId="mlflow.skill_registry.register_modal.submit"
             type="primary"
-            loading={isLoading}
-            disabled={view === 'api' || (mode === 'upload' && !hasSkillManifest)}
+            loading={isLoading || submitting}
+            disabled={view === 'api' || submitting || (mode === 'upload' && !hasSkillManifest)}
             onClick={submit}
           >
             <FormattedMessage defaultMessage="Create" description="Submit button for skill registration" />
@@ -518,6 +507,27 @@ export const RegisterSkillModal = ({
         </div>
       ) : (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          {(validationError || presentationError || error) && (
+            <div ref={submitErrorRef}>
+              <Alert
+                componentId="mlflow.skill_registry.register_modal.error"
+                closable={false}
+                type="error"
+                message={
+                  validationError
+                    ? errorMessage(validationError)
+                    : presentationError
+                      ? presentationError
+                      : error?.message || (
+                          <FormattedMessage
+                            defaultMessage="Could not register the skill."
+                            description="Fallback error when skill registration fails"
+                          />
+                        )
+                }
+              />
+            </div>
+          )}
           <Typography.Text color="secondary">
             {isVersion ? (
               <FormattedMessage
@@ -779,138 +789,7 @@ export const RegisterSkillModal = ({
                         rows={3}
                       />
                     </div>
-                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                      <Typography.Text bold>
-                        <FormattedMessage defaultMessage="Icon" description="Label for the skill icon editor" />
-                      </Typography.Text>
-                      <div
-                        css={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: theme.spacing.sm,
-                          padding: theme.spacing.md,
-                          border: `1px solid ${theme.colors.border}`,
-                          borderRadius: theme.general.borderRadiusBase,
-                        }}
-                      >
-                        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                          <Typography.Text color="secondary" size="sm" css={{ flex: 1 }}>
-                            <FormattedMessage
-                              defaultMessage="Icon URL"
-                              description="Column header for a skill icon URL"
-                            />
-                          </Typography.Text>
-                          <Typography.Text color="secondary" size="sm" css={{ width: theme.spacing.xl * 4 }}>
-                            <FormattedMessage
-                              defaultMessage="Theme"
-                              description="Column header for a skill icon theme"
-                            />
-                          </Typography.Text>
-                          <div css={{ width: theme.spacing.xl + theme.spacing.sm }} />
-                        </div>
-                        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                          <div css={{ flex: 1 }}>
-                            <Input
-                              id="mlflow.skill_registry.register_modal.icon_url"
-                              componentId="mlflow.skill_registry.register_modal.icon_url"
-                              aria-label={intl.formatMessage({
-                                defaultMessage: 'Icon URL',
-                                description: 'Aria label for a skill icon URL',
-                              })}
-                              placeholder="https://example.com/icon.svg"
-                              value={iconUrl}
-                              onChange={(event) => setIconUrl(event.target.value)}
-                            />
-                          </div>
-                          <SimpleSelect
-                            id="mlflow.skill_registry.register_modal.icon_theme"
-                            componentId="mlflow.skill_registry.register_modal.icon_theme"
-                            aria-label={intl.formatMessage({
-                              defaultMessage: 'Theme',
-                              description: 'Aria label for a skill icon theme',
-                            })}
-                            value={iconTheme}
-                            onChange={({ target }) => setIconTheme(target.value as IconTheme)}
-                            css={{ width: theme.spacing.xl * 4 }}
-                          >
-                            <SimpleSelectOption value="Any">
-                              <FormattedMessage defaultMessage="Any" description="Theme-agnostic skill icon option" />
-                            </SimpleSelectOption>
-                            <SimpleSelectOption value="Light">
-                              <FormattedMessage defaultMessage="Light" description="Light mode skill icon option" />
-                            </SimpleSelectOption>
-                            <SimpleSelectOption value="Dark">
-                              <FormattedMessage defaultMessage="Dark" description="Dark mode skill icon option" />
-                            </SimpleSelectOption>
-                          </SimpleSelect>
-                          <Tooltip
-                            componentId="mlflow.skill_registry.register_modal.icon_add.tooltip"
-                            content={intl.formatMessage({
-                              defaultMessage: 'Add icon',
-                              description: 'Tooltip for adding a skill icon',
-                            })}
-                          >
-                            <Button
-                              componentId="mlflow.skill_registry.register_modal.icon_add"
-                              aria-label={intl.formatMessage({
-                                defaultMessage: 'Add icon',
-                                description: 'Aria label for adding a skill icon',
-                              })}
-                              disabled={!iconUrl.trim()}
-                              onClick={addIcon}
-                            >
-                              <PlusIcon />
-                            </Button>
-                          </Tooltip>
-                        </div>
-                        <Typography.Text color="secondary">
-                          <FormattedMessage defaultMessage="Preview" description="Label for the skill icon preview" />
-                        </Typography.Text>
-                        <div css={{ display: 'flex', gap: theme.spacing.md }}>
-                          {[false, true].map((isDark) => {
-                            const src = sanitizeHref(resolveIcon(icons, isDark)?.src);
-                            return (
-                              <div
-                                key={isDark ? 'dark' : 'light'}
-                                css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
-                              >
-                                <div
-                                  css={{
-                                    width: 44,
-                                    height: 44,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: theme.borders.borderRadiusSm,
-                                    border: `1px solid ${theme.colors.border}`,
-                                    backgroundColor: isDark ? '#1e1e1e' : '#ffffff',
-                                  }}
-                                >
-                                  {src ? (
-                                    <img src={src} alt="" css={{ width: 28, height: 28, objectFit: 'contain' }} />
-                                  ) : (
-                                    <PuzzleIcon css={{ fontSize: 28, color: theme.colors.textSecondary }} />
-                                  )}
-                                </div>
-                                <Typography.Text color="secondary">
-                                  {isDark ? (
-                                    <FormattedMessage
-                                      defaultMessage="dark theme"
-                                      description="Dark skill icon preview label"
-                                    />
-                                  ) : (
-                                    <FormattedMessage
-                                      defaultMessage="light theme"
-                                      description="Light skill icon preview label"
-                                    />
-                                  )}
-                                </Typography.Text>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
+                    <SkillIconEditor icons={icons} onChange={setIcons} />
                   </>
                 )}
                 <div>
@@ -993,7 +872,7 @@ export const RegisterSkillModal = ({
                     </div>
                     <Typography.Hint>
                       <FormattedMessage
-                        defaultMessage="Key/value metadata you can filter the registry by. Editable later from the skill page."
+                        defaultMessage="Key/value metadata stored with the skill. You can edit it later from the skill page."
                         description="Hint for skill registration tags"
                       />
                     </Typography.Hint>
@@ -1020,22 +899,6 @@ export const RegisterSkillModal = ({
               </div>
             )}
           </div>
-
-          {validationError && <FormUI.Message type="error" message={errorMessage(validationError)} />}
-          {presentationError && <FormUI.Message type="error" message={presentationError} />}
-          {error && (
-            <FormUI.Message
-              type="error"
-              message={
-                error.message || (
-                  <FormattedMessage
-                    defaultMessage="Could not register the skill."
-                    description="Fallback error when skill registration fails"
-                  />
-                )
-              }
-            />
-          )}
         </div>
       )}
     </Modal>

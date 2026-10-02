@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   Empty,
   Table,
+  Tooltip,
   TableCell,
   TableHeader,
   TableRow,
@@ -16,7 +17,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { SkillVersion } from '../types';
+import { SkillStatus, type SkillVersion } from '../types';
 import { STATUS_TAG_COLOR } from '../utils';
 import { flexColumnGapStyles, flexRowWrapStyles, selectedRowIndicatorStyles, spaceBetweenRowStyles } from '../styles';
 import Utils from '../../common/utils/Utils';
@@ -53,11 +54,13 @@ export const SkillVersionList = ({
   selectedVersion,
   onSelectVersion,
   isLoading,
+  hasMoreVersions,
 }: {
   versions?: SkillVersion[];
   selectedVersion?: number;
   onSelectVersion: (version: number) => void;
   isLoading?: boolean;
+  hasMoreVersions?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -112,41 +115,73 @@ export const SkillVersionList = ({
         ) : (
           table.getRowModel().rows.map((row) => {
             const version = row.original.version;
-            const isSelected = selectedVersion === version;
+            const isDeleted = row.original.status === SkillStatus.DELETED;
+            const isSelected = !isDeleted && selectedVersion === version;
+            const content = (
+              <div css={spaceBetweenRowStyles}>
+                {row.getAllCells().map((cell) => (
+                  <span key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
+                ))}
+                {isSelected && (
+                  <div css={selectedRowIndicatorStyles(theme)}>
+                    <ChevronRightIcon />
+                  </div>
+                )}
+              </div>
+            );
             return (
               <TableRow
                 key={row.id}
-                tabIndex={0}
+                tabIndex={isDeleted ? -1 : 0}
                 aria-selected={isSelected}
+                aria-disabled={isDeleted}
                 css={{
                   backgroundColor: isSelected ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-                  cursor: 'pointer',
+                  cursor: isDeleted ? 'not-allowed' : 'pointer',
+                  opacity: isDeleted ? 0.55 : 1,
                 }}
-                onClick={() => onSelectVersion(version)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelectVersion(version);
-                  }
-                }}
+                onClick={isDeleted ? undefined : () => onSelectVersion(version)}
+                onKeyDown={
+                  isDeleted
+                    ? undefined
+                    : (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onSelectVersion(version);
+                        }
+                      }
+                }
               >
-                {row.getAllCells().map((cell) => (
-                  <TableCell key={cell.id} css={{ alignItems: 'center' }}>
-                    <div css={spaceBetweenRowStyles}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      {isSelected && (
-                        <div css={selectedRowIndicatorStyles(theme)}>
-                          <ChevronRightIcon />
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                ))}
+                <TableCell css={{ alignItems: 'center' }}>
+                  {isDeleted ? (
+                    <Tooltip
+                      componentId="mlflow.skill_registry.detail.version_deleted_tooltip"
+                      content={
+                        <FormattedMessage
+                          defaultMessage="Deleted. The number is never reused, and the registry no longer returns this version."
+                          description="Tooltip for a deleted skill version row"
+                        />
+                      }
+                    >
+                      <span css={{ display: 'block' }}>{content}</span>
+                    </Tooltip>
+                  ) : (
+                    content
+                  )}
+                </TableCell>
               </TableRow>
             );
           })
         )}
       </Table>
+      {hasMoreVersions && (
+        <Typography.Hint css={{ padding: theme.spacing.sm, textAlign: 'center' }}>
+          <FormattedMessage
+            defaultMessage="Only the most recent 100 versions are shown."
+            description="Warning shown when a skill has more versions than the detail page displays"
+          />
+        </Typography.Hint>
+      )}
     </div>
   );
 };

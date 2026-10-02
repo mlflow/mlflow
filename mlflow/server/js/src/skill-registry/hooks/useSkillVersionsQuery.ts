@@ -1,32 +1,32 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { SkillRegistryApi } from '../api';
 import type { SearchSkillVersionsResponse, SkillVersion } from '../types';
-import { SKILL_QUERY_KEYS, visibleSkillVersions } from '../utils';
-import { useCursorPaginatedQuery } from '../../common/hooks/useCursorPaginatedQuery';
+import { SKILL_QUERY_KEYS, withDeletedVersionPlaceholders } from '../utils';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+
+export const SKILL_VERSION_LIST_LIMIT = 100;
 
 export const useSkillVersionsQuery = (name: string, organization = '') => {
   const activeWorkspace = useActiveWorkspace();
-
-  return useCursorPaginatedQuery<SearchSkillVersionsResponse, SkillVersion[]>({
-    queryKeyPrefix: SKILL_QUERY_KEYS.SKILL_VERSIONS,
-    extraQueryKeys: { name, organization, activeWorkspace },
-    storageKey: 'skill_registry.versions.page_size',
-    queryFn: ({ pageToken, pageSize }) => {
-      return SkillRegistryApi.searchSkillVersions(
-        name,
-        {
-          order_by: ['version DESC'],
-          page_token: pageToken,
-          max_results: pageSize,
-        },
-        organization,
-      );
+  const queryResult = useQuery<SearchSkillVersionsResponse, Error>(
+    [SKILL_QUERY_KEYS.SKILL_VERSIONS, name, organization, activeWorkspace],
+    {
+      queryFn: () =>
+        SkillRegistryApi.searchSkillVersions(
+          name,
+          { order_by: ['version DESC'], max_results: SKILL_VERSION_LIST_LIMIT },
+          organization,
+        ),
+      retry: false,
+      enabled: Boolean(name),
     },
-    extractData: (response) => visibleSkillVersions(response.skill_versions),
-    enabled: Boolean(name),
-    keepPreviousData: false,
-  });
+  );
+
+  return {
+    ...queryResult,
+    data: withDeletedVersionPlaceholders(queryResult.data?.skill_versions),
+    hasMoreVersions: Boolean(queryResult.data?.next_page_token),
+  };
 };
 
 export const useSkillVersionQuery = (name: string, organization = '', version?: number, enabled = true) => {

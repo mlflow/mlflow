@@ -1,4 +1,4 @@
-import { Card, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Card, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import type { Skill } from '../types';
 import SkillRegistryRoutes from '../routes';
@@ -38,11 +38,13 @@ export const SkillCard = ({ skill }: { skill: Skill }) => {
       }}
     >
       <div css={{ ...cardBodyStyles(theme), opacity: isDimmed ? 0.5 : 1 }}>
-        <div css={cardHeaderRowStyles(theme)}>
+        <div css={{ ...cardHeaderRowStyles(theme), minWidth: 0 }}>
           <SkillIcon icons={skill.icons} name={skill.name} />
-          <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
-            {skill.name}
-          </Typography.Text>
+          <Tooltip content={skill.name} componentId="mlflow.skill_registry.card.name_tooltip">
+            <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1, minWidth: 0 }}>
+              {skill.name}
+            </Typography.Text>
+          </Tooltip>
           {skill.latest_version != null && (
             <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
               v{skill.latest_version}

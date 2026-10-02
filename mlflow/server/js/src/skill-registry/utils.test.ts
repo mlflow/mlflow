@@ -16,12 +16,15 @@ import {
   formatTagFilterIdentifier,
   getSkillPermissions,
   hasSkillCatalogFilters,
+  canSoftDeleteSkillVersion,
   isSkillDimmed,
   parseSkillRouteParams,
   parseSkillVersionParam,
   resolveDefaultSkillVersion,
+  skillVersionStatusTransitions,
   SKILL_CATALOG_SOURCE_TYPE_OPTIONS,
   visibleSkillVersions,
+  withDeletedVersionPlaceholders,
 } from './utils';
 import { createMockSkill, createMockSkillVersion } from './test-utils';
 
@@ -142,6 +145,19 @@ describe('isSkillDimmed', () => {
     expect(isSkillDimmed(createMockSkill({ status: SkillStatus.ACTIVE }))).toBe(false);
     expect(isSkillDimmed(createMockSkill({ status: SkillStatus.DRAFT }))).toBe(true);
     expect(isSkillDimmed(createMockSkill({ status: null }))).toBe(true);
+  });
+});
+
+describe('skill version lifecycle', () => {
+  it('offers only the stored transitions and never a direct active deletion', () => {
+    expect(skillVersionStatusTransitions(SkillStatus.DRAFT)).toEqual([SkillStatus.ACTIVE]);
+    expect(skillVersionStatusTransitions(SkillStatus.ACTIVE)).toEqual([SkillStatus.DRAFT, SkillStatus.DEPRECATED]);
+    expect(skillVersionStatusTransitions(SkillStatus.DEPRECATED)).toEqual([SkillStatus.ACTIVE]);
+    expect(skillVersionStatusTransitions(SkillStatus.DELETED)).toEqual([]);
+    expect(canSoftDeleteSkillVersion(SkillStatus.DRAFT)).toBe(true);
+    expect(canSoftDeleteSkillVersion(SkillStatus.DEPRECATED)).toBe(true);
+    expect(canSoftDeleteSkillVersion(SkillStatus.ACTIVE)).toBe(false);
+    expect(canSoftDeleteSkillVersion(SkillStatus.DELETED)).toBe(false);
   });
 });
 
@@ -295,6 +311,19 @@ describe('skill URI and pull snippets', () => {
 });
 
 describe('version helpers', () => {
+  it('fills missing version numbers with deleted placeholders', () => {
+    expect(
+      withDeletedVersionPlaceholders([
+        createMockSkillVersion({ version: 3, status: SkillStatus.ACTIVE }),
+        createMockSkillVersion({ version: 1, status: SkillStatus.DEPRECATED }),
+      ]).map((version) => [version.version, version.status]),
+    ).toEqual([
+      [3, SkillStatus.ACTIVE],
+      [2, SkillStatus.DELETED],
+      [1, SkillStatus.DEPRECATED],
+    ]);
+  });
+
   it('omits deleted versions from ordinary results', () => {
     expect(
       visibleSkillVersions([

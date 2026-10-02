@@ -3,9 +3,11 @@ import {
   Alert,
   Breadcrumb,
   Button,
+  DropdownMenu,
   GenericSkeleton,
   Header,
   LockIcon,
+  OverflowIcon,
   Spacer,
   TableSkeleton,
   Tag,
@@ -13,33 +15,43 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
-import { Link, useParams } from '../../common/utils/RoutingUtils';
+import { Link, useNavigate, useParams } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import SkillRegistryRoutes from '../routes';
 import {
   formatSkillOrganization,
+  getSkillPermissions,
   isNotFoundError,
   isPermissionDeniedError,
   isSkillDimmed,
   parseSkillRouteParams,
   resolveDefaultSkillVersion,
+  visibleSkillVersions,
 } from '../utils';
-import { headerIconStyles, textClampStyles } from '../styles';
+import { headerIconStyles } from '../styles';
 import { useSkillQuery } from '../hooks/useSkillQuery';
 import { useSkillVersionQuery, useSkillVersionsQuery } from '../hooks/useSkillVersionsQuery';
 import { useSelectedSkillVersion } from '../hooks/useSelectedSkillVersion';
 import { SkillIcon } from '../components/SkillIcon';
 import { SkillTags } from '../components/SkillTags';
+import { SkillExpandableDescription } from '../components/SkillExpandableDescription';
+import { SkillPencilButton } from '../components/SkillPencilButton';
 import { SkillVersionList } from '../components/SkillVersionList';
 import { SkillVersionDetail } from '../components/SkillVersionDetail';
 import { RegisterSkillModal } from '../components/RegisterSkillModal';
+import { SkillRegistryApi } from '../api';
+import { useEditSkillModal } from '../hooks/useEditSkillModal';
+import { useDeleteSkillModal } from '../hooks/useDeleteSkillModal';
+import { useDeleteSkillVersionModal } from '../hooks/useDeleteSkillVersionModal';
+import { useInvalidateSkillQueries } from '../hooks/useInvalidateSkillQueries';
+import { useSkillGovernanceModals } from '../hooks/useSkillGovernanceModals';
 import { SkillRegistryEmptyState } from '../components/SkillRegistryEmptyState';
-import type { Skill } from '../types';
-import { SkillStatus } from '../types';
+import { SkillStatus, type Skill } from '../types';
 
 const breadcrumbs = (
   <Breadcrumb>
@@ -51,8 +63,23 @@ const breadcrumbs = (
   </Breadcrumb>
 );
 
-const SkillDetailHeader = ({ skill, onCreateVersion }: { skill: Skill; onCreateVersion: () => void }) => {
+const SkillDetailHeader = ({
+  skill,
+  canUpdate,
+  onCreateVersion,
+  onEdit,
+  onEditTags,
+  onDelete,
+}: {
+  skill: Skill;
+  canUpdate: boolean;
+  onCreateVersion: () => void;
+  onEdit: () => void;
+  onEditTags: () => void;
+  onDelete?: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const isDimmed = isSkillDimmed(skill);
   const organizationLabel = formatSkillOrganization(skill.organization);
   const hasTags = Object.keys(skill.tags || {}).length > 0;
@@ -90,12 +117,48 @@ const SkillDetailHeader = ({ skill, onCreateVersion }: { skill: Skill; onCreateV
           </span>
         }
         buttons={
-          <Button componentId="mlflow.skill_registry.create_version" type="primary" onClick={onCreateVersion}>
-            <FormattedMessage
-              defaultMessage="Create skill version"
-              description="Button that adds an external-source version to this skill"
-            />
-          </Button>
+          <>
+            {(canUpdate || onDelete) && (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    componentId="mlflow.skill_registry.detail.actions"
+                    icon={<OverflowIcon />}
+                    aria-label={intl.formatMessage({
+                      defaultMessage: 'More actions',
+                      description: 'Aria label for skill detail actions menu',
+                    })}
+                  />
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  {canUpdate && (
+                    <DropdownMenu.Item componentId="mlflow.skill_registry.detail.actions.edit" onClick={onEdit}>
+                      <FormattedMessage
+                        defaultMessage="Edit"
+                        description="Skill detail action that edits description and icons"
+                      />
+                    </DropdownMenu.Item>
+                  )}
+                  {onDelete && (
+                    <DropdownMenu.Item componentId="mlflow.skill_registry.detail.actions.delete" onClick={onDelete}>
+                      <FormattedMessage
+                        defaultMessage="Delete"
+                        description="Skill detail action that deletes the skill"
+                      />
+                    </DropdownMenu.Item>
+                  )}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            )}
+            {canUpdate && (
+              <Button componentId="mlflow.skill_registry.create_version" type="primary" onClick={onCreateVersion}>
+                <FormattedMessage
+                  defaultMessage="Create skill version"
+                  description="Button that adds an external-source version to this skill"
+                />
+              </Button>
+            )}
+          </>
         }
       />
       {organizationLabel && (
@@ -103,14 +166,28 @@ const SkillDetailHeader = ({ skill, onCreateVersion }: { skill: Skill; onCreateV
           {organizationLabel}
         </Typography.Text>
       )}
-      {skill.description && (
-        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs, ...textClampStyles(3) }}>
-          {skill.description}
-        </Typography.Text>
-      )}
-      {hasTags && (
-        <div css={{ marginTop: theme.spacing.xs }}>
-          <SkillTags tags={skill.tags} wrap />
+      {skill.description && <SkillExpandableDescription text={skill.description} />}
+      {(hasTags || canUpdate) && (
+        <div
+          css={{
+            marginTop: theme.spacing.xs,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+          }}
+        >
+          {hasTags && <SkillTags tags={skill.tags} wrap />}
+          {canUpdate && (
+            <SkillPencilButton
+              componentId="mlflow.skill_registry.detail.tags.edit"
+              label={intl.formatMessage({
+                defaultMessage: 'Edit tags',
+                description: 'Aria label for editing skill parent tags',
+              })}
+              onClick={onEditTags}
+            />
+          )}
         </div>
       )}
     </>
@@ -119,6 +196,7 @@ const SkillDetailHeader = ({ skill, onCreateVersion }: { skill: Skill; onCreateV
 
 const SkillDetailPage = () => {
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
   const params = useParams<{ skillKey?: string; organization?: string; skillName?: string }>();
   const { name, organization } = parseSkillRouteParams(params);
   const [selectedVersion, setSelectedVersion] = useSelectedSkillVersion();
@@ -126,22 +204,25 @@ const SkillDetailPage = () => {
   const { data: skill, isLoading: skillLoading, error: skillError, refetch } = useSkillQuery(name, organization);
   const {
     data: versions,
+    hasMoreVersions,
     isLoading: versionsLoading,
     error: versionsError,
   } = useSkillVersionsQuery(name, organization);
 
   const selectedFromList = versions?.find((version) => version.version === selectedVersion);
+  const selectedVersionDeleted = selectedFromList?.status === SkillStatus.DELETED;
   const shouldFetchSelectedVersion = selectedVersion != null && !selectedFromList && !versionsLoading;
   const {
     data: fetchedVersion,
     isLoading: fetchedVersionLoading,
     error: fetchedVersionError,
   } = useSkillVersionQuery(name, organization, selectedVersion, shouldFetchSelectedVersion);
-  const currentVersion = selectedFromList ?? fetchedVersion;
+  const currentVersion = selectedVersionDeleted ? undefined : (selectedFromList ?? fetchedVersion);
   const selectedVersionMissing =
-    shouldFetchSelectedVersion &&
-    !fetchedVersionLoading &&
-    (isNotFoundError(fetchedVersionError) || currentVersion?.status === SkillStatus.DELETED);
+    selectedVersionDeleted ||
+    (shouldFetchSelectedVersion &&
+      !fetchedVersionLoading &&
+      (isNotFoundError(fetchedVersionError) || currentVersion?.status === SkillStatus.DELETED));
   const selectedVersionError =
     shouldFetchSelectedVersion && !fetchedVersionLoading && fetchedVersionError && !selectedVersionMissing
       ? fetchedVersionError
@@ -169,6 +250,33 @@ const SkillDetailPage = () => {
       setSelectedVersion(next);
     }
   }, [selectedVersion, skill, skillLoading, versions, versionsLoading, setSelectedVersion]);
+
+  const permissions = getSkillPermissions(skill);
+  const invalidate = useInvalidateSkillQueries();
+  const aliases = (skill?.aliases ?? [])
+    .filter((alias) => alias.alias !== 'latest')
+    .map((alias) => ({ alias: alias.alias, version: String(alias.version) }));
+  const { EditSkillModal, openEditSkill } = useEditSkillModal({ name, organization });
+  const canRemove = permissions.canUpdate || permissions.canManage || permissions.canDelete;
+  const { DeleteSkillModal, openDeleteSkill } = useDeleteSkillModal({
+    name,
+    organization,
+    onDeleted: () => navigate(SkillRegistryRoutes.skillRegistryPageRoute),
+  });
+  const { DeleteSkillVersionModal, openDeleteSkillVersion } = useDeleteSkillVersionModal({
+    name,
+    organization,
+    onDeleted: (version) => {
+      const next = visibleSkillVersions(versions).find((candidate) => candidate.version !== version);
+      setSelectedVersion(next?.version);
+    },
+  });
+  const governance = useSkillGovernanceModals({ name, organization, aliases });
+  const statusMutation = useMutation<unknown, Error, { version: number; status: SkillStatus }>({
+    mutationFn: ({ version, status }) =>
+      SkillRegistryApi.updateSkillVersionStatus(name, version, { status }, organization),
+    onSuccess: () => invalidate(name, organization),
+  });
 
   if (skillLoading) {
     return (
@@ -264,7 +372,14 @@ const SkillDetailPage = () => {
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
-      <SkillDetailHeader skill={skill} onCreateVersion={() => setCreateVersionOpen(true)} />
+      <SkillDetailHeader
+        skill={skill}
+        canUpdate={permissions.canUpdate}
+        onCreateVersion={() => setCreateVersionOpen(true)}
+        onEdit={() => openEditSkill(skill)}
+        onEditTags={() => governance.showEditParentTags(skill)}
+        onDelete={canRemove ? openDeleteSkill : undefined}
+      />
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: '0 0 320px', display: 'flex', flexDirection: 'column' }}>
@@ -281,6 +396,7 @@ const SkillDetailPage = () => {
               selectedVersion={selectedVersion}
               onSelectVersion={setSelectedVersion}
               isLoading={versionsLoading}
+              hasMoreVersions={hasMoreVersions}
             />
           )}
         </div>
@@ -300,6 +416,17 @@ const SkillDetailPage = () => {
             isLoading={isVersionDetailLoading}
             isMissing={selectedVersionMissing}
             error={selectedVersionError}
+            canUpdate={permissions.canUpdate}
+            onEditAliases={
+              currentVersion ? () => governance.showEditAliasesModal(String(currentVersion.version)) : undefined
+            }
+            onEditMetadata={currentVersion ? () => governance.showEditVersionMetadata(currentVersion) : undefined}
+            onDelete={canRemove && currentVersion ? () => openDeleteSkillVersion(currentVersion.version) : undefined}
+            onStatusChange={
+              currentVersion
+                ? (status) => statusMutation.mutate({ version: currentVersion.version, status })
+                : undefined
+            }
           />
         </div>
       </div>
@@ -307,10 +434,15 @@ const SkillDetailPage = () => {
         visible={createVersionOpen}
         skill={{ name: skill.name, organization: skill.organization }}
         sourceVersion={currentVersion}
-        nextVersion={(skill.latest_version ?? currentVersion?.version ?? 0) + 1}
         onClose={() => setCreateVersionOpen(false)}
         onRegistered={(version) => setSelectedVersion(version.version)}
       />
+      {EditSkillModal}
+      {DeleteSkillModal}
+      {DeleteSkillVersionModal}
+      {governance.EditSkillTagsModal}
+      {governance.EditVersionMetadataModal}
+      {governance.EditAliasesModal}
     </ScrollablePageWrapper>
   );
 };

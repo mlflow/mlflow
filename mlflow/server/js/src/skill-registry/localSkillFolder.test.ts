@@ -15,4 +15,17 @@ describe('localSkillFolder', () => {
     const unpacked = gunzipSync(gzipStored(archive));
     expect(unpacked.toString('utf8')).toContain('SKILL.md');
   });
+
+  it('stores a path longer than 100 bytes in the ustar prefix', () => {
+    const path = `${'docs'.repeat(30)}/SKILL.md`;
+    const archive = createSkillTar([{ name: path, bytes: new TextEncoder().encode('# Skill\n') }]);
+    const unpacked = gunzipSync(gzipStored(archive));
+    const field = (start: number, length: number) =>
+      new TextDecoder().decode(unpacked.subarray(start, start + length)).replace(/\0+$/, '');
+    expect(`${field(345, 155)}/${field(0, 100)}`).toBe(path);
+  });
+
+  it('rejects a path that cannot fit in a ustar header', () => {
+    expect(() => createSkillTar([{ name: 'a'.repeat(101), bytes: new Uint8Array() }])).toThrow(/too long/);
+  });
 });

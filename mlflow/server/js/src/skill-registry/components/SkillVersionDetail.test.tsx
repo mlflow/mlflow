@@ -30,7 +30,7 @@ describe('SkillVersionDetail', () => {
     });
 
     expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
-    expect(screen.getByText('active')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Git')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'https://github.com/acme/skills' })).toHaveAttribute(
       'href',
