@@ -240,3 +240,25 @@ def test_structured_builtin_judge_gateway_falls_back_to_system_one():
     assert feedback.value == "yes"
     # The endpoint is now cached as System One so later rows skip the chat attempt.
     assert len(_gateway_system_one_cache) == 1
+
+
+def test_structured_builtin_judge_threads_inference_params_through_gateway_fallback():
+    # Scorers (builtin_scorers.py) forward inference_params; confirm it survives the
+    # dispatcher -> _invoke_gateway_judge (opaque **kwargs) -> _invoke_typesafe_judge hop.
+    chat_invoker = mock.Mock(side_effect=_system_one_chat_rejection())
+    inference_params = {"temperature": 0.0}
+    with (
+        mock.patch(_CACHE_URI_TARGET, return_value="https://mlflow"),
+        mock.patch(
+            "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+            return_value=Feedback(name="safety", value="yes"),
+        ) as mock_ts,
+    ):
+        _invoke_structured_builtin_judge(
+            "gateway:/jev-endpoint",
+            chat_invoker=chat_invoker,
+            inference_params=inference_params,
+            **_BUILTIN_JUDGE_KWARGS,
+        )
+
+    assert mock_ts.call_args.kwargs["inference_params"] == inference_params

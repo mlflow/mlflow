@@ -741,6 +741,8 @@ def _supports_system_one(provider: str, model_name: str) -> bool:
 def _validate_system_one_endpoint(
     endpoint_config: GatewayEndpointConfig, *, system_one_route: bool
 ) -> None:
+    # Covers every mapping on the endpoint -- primary and fallbacks alike -- so the checks
+    # below reason about all of them, not just the primary.
     supported = [
         _supports_system_one(model.provider, model.model_name) for model in endpoint_config.models
     ]

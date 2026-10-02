@@ -39,6 +39,11 @@ _RETRY_CODES = (408, 429, 500, 502, 503, 504, 529)
 _GATEWAY_PROVIDER = "gateway"
 _TYPESAFE_PROVIDER = "typesafe"
 _SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
+# Older gateway servers reject a non-System-One endpoint on the System One route with this
+# legacy wording; current servers return _NON_TYPESAFE_GATEWAY_DETAIL. Both are accepted so a
+# new client keeps detecting "not a System One endpoint" against a server that predates the
+# message change. Drop the legacy string once the minimum supported server version emits only
+# the new one.
 _LEGACY_NON_TYPESAFE_GATEWAY_DETAIL = "Gateway endpoint does not use the TypeSafe provider."
 _NON_TYPESAFE_GATEWAY_DETAIL = (
     "Gateway endpoint does not use a System One model. Use a TypeSafe or OpenRouter "

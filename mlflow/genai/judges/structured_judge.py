@@ -28,6 +28,11 @@ from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
 # Remember which gateway endpoints serve System One models so jev judges skip the chat
 # attempt on every row after the first detection. The TTL lets endpoint reconfiguration
 # self-heal quickly.
+#
+# No lock is used. Under a thread-pool evaluation, several threads can race between the TTL
+# check and the write, so a few of them may each make the chat-first probe before the cache
+# is populated. That is harmless: the probe is idempotent and the worst case is a handful of
+# extra rejected chat calls on the first batch of rows before the entry lands.
 _GATEWAY_SYSTEM_ONE_CACHE_TTL_SECONDS = 300
 _gateway_system_one_cache: dict[tuple[str, str], float] = {}
 
