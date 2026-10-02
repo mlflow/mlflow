@@ -63,6 +63,14 @@ def test_hash_array_like_obj_as_bytes_with_ragged_nested_arrays(rows_a, rows_b):
     assert hash_a != _hash_array_like_obj_as_bytes(_ragged_array(rows_b))
 
 
+@pytest.mark.parametrize("missing", [None, float("nan")])
+def test_hash_array_like_obj_as_bytes_with_ragged_nested_arrays_and_missing_rows(missing):
+    data = _ragged_array([[{"a": 1}, {"a": 2}], [{"a": 3}]])
+    data[1] = missing
+
+    assert _hash_array_like_obj_as_bytes(data) == _hash_array_like_obj_as_bytes(data.copy())
+
+
 def test_from_numpy_with_ragged_nested_targets():
     features = np.array([[1], [2]])
     targets_a = _ragged_array([[{"a": 1}, {"a": 2}], [{"a": 3}]])
