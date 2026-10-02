@@ -19,6 +19,7 @@ import urllib
 import uuid
 import warnings
 from dataclasses import replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
@@ -99,6 +100,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -118,6 +120,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
@@ -7100,15 +7103,36 @@ class MlflowClient:
         digest: str | None = None,
         status: str = "active",
     ) -> SkillVersion:
+        """Create a skill version from an external source or upload a prepared local archive.
+
+        Local uploads require an HTTP tracking server serving artifacts. The server chooses
+        the artifact location; caller-supplied MLflow artifact sources are rejected. A local
+        source must be a gzip-compressed tar archive, which is validated before uploading.
+        The optional digest describes the unpacked skill tree and is forwarded unchanged;
+        omitting it leaves the digest unset. Use ``mlflow.genai.register_skill`` to inspect,
+        digest, and package a directory, with optional name inference.
+        An omitted or ``None`` source is passed to the store; the backend determines
+        whether it is accepted.
+        """
         # mlflow.genai imports MlflowClient, so source resolution must be imported lazily.
         from mlflow.genai.skill_content.sources import resolve_source_type
 
         resolved = resolve_source_type(source) if source is not None else None
+        if resolved is not None and resolved.is_local:
+            return self._register_local_skill(
+                archive=Path(resolved.source),
+                name=name,
+                organization=organization,
+                digest=digest,
+                status=status,
+            )
+
         if resolved is not None and resolved.source_type == SkillSourceType.MLFLOW:
             raise MlflowException.invalid_parameter_value(
-                "create_skill_version requires an external Git, OCI, or ZIP source. "
-                "Use mlflow.genai.register_skill() to upload local content."
+                "MLflow artifact locations are chosen by the server. "
+                "Pass a local gzip-compressed tar archive to upload skill content."
             )
+
         return self._tracking_client.store.create_skill_version(
             name=name,
             organization=organization,
@@ -7119,6 +7143,38 @@ class MlflowClient:
             digest=digest,
             status=status,
         )
+
+    def _register_local_skill(
+        self,
+        *,
+        archive: Path,
+        name: str,
+        digest: str | None = None,
+        organization: str = "",
+        status: str = "active",
+    ) -> SkillVersion:
+        """Validate and upload a prepared gzip-compressed tar, preserving its optional digest."""
+        # mlflow.genai imports MlflowClient, so content helpers must be imported lazily.
+        from mlflow.genai.skill_content.archive import validate_skill_archive
+
+        store = self._tracking_client.store
+        if not isinstance(store, RestStore):
+            raise MlflowException(
+                "Local skill uploads require an HTTP tracking server with --serve-artifacts.",
+                error_code=NOT_IMPLEMENTED,
+            )
+
+        if not archive.is_file():
+            raise MlflowException.invalid_parameter_value(
+                "Local skill source must be a gzip-compressed tar archive file. "
+                "Use mlflow.genai.register_skill() to package a directory."
+            )
+
+        validate_skill_archive(archive, compressed=True)
+        with archive.open("rb") as content:
+            return store._register_skill(
+                name=name, organization=organization, digest=digest, status=status, content=content
+            )
 
     def bulk_register_skills(
         self,

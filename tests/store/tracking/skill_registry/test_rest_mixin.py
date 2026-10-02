@@ -1,5 +1,9 @@
+import io
 import json
+import shutil
+import tarfile
 from copy import deepcopy
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -16,7 +20,14 @@ from mlflow.entities.skill_source import (
     ZipSource,
 )
 from mlflow.entities.skill_version import SkillVersion
+from mlflow.environment_variables import MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE
 from mlflow.exceptions import MlflowException
+from mlflow.genai import register_skill
+from mlflow.genai.skill_content.archive import package_skill_tree
+from mlflow.genai.skill_content.digest import compute_tree_digest
+from mlflow.genai.skill_content.skill_md import inspect_skill_dir
+from mlflow.genai.skill_content.sources import resolve_source_type
+from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.entities.paged_list import PagedList
@@ -323,6 +334,32 @@ def test_create_and_get_skill_version(registry_client, organization, source, exp
     assert client.get_skill(**identity).latest_version == 1
 
 
+@pytest.mark.parametrize("supplied", [{}, {"source": None}], ids=["omitted", "explicit-none"])
+def test_create_skill_version_delegates_optional_source_to_backend(
+    registry_client, store, supplied
+):
+    client, db_store = registry_client
+    with (
+        mock.patch.object(
+            store, "create_skill_version", wraps=store.create_skill_version
+        ) as create,
+        pytest.raises(MlflowException, match="requires a multipart/form-data body") as exc,
+    ):
+        client.create_skill_version(name="review", **supplied)
+    create.assert_called_once_with(
+        name="review",
+        organization="",
+        source_type=None,
+        source=None,
+        ref=None,
+        subpath=None,
+        digest=None,
+        status="active",
+    )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert db_store.search_skills() == []
+
+
 @pytest.mark.parametrize(
     ("source", "message"),
     [
@@ -332,8 +369,7 @@ def test_create_and_get_skill_version(registry_client, organization, source, exp
             MlflowSource("mlflow-artifacts:/skills/review/token"),
             "typed source or a non-empty string",
         ),
-        ("./skills/review", "requires an external"),
-        ("mlflow-artifacts:/skills/review/token", "requires an external"),
+        ("mlflow-artifacts:/skills/review/token", "chosen by the server"),
     ],
 )
 def test_create_skill_version_rejects_invalid_source_before_request(
@@ -753,3 +789,431 @@ def test_bulk_register_omits_audit_argument(store, skill_definitions):
     request.assert_called_once_with(
         "POST", "/bulk-register", json={"organization": "", "skills": skill_definitions}
     )
+
+
+@pytest.fixture
+def skill_tree(tmp_path):
+    root = tmp_path / "skill"
+    root.mkdir()
+    (root / "SKILL.md").write_text("---\nname: review\ndescription: Reviews code\n---\n# Review\n")
+    (root / "scripts").mkdir()
+    (root / "scripts" / "run.py").write_text("print('review')\n")
+    return root
+
+
+@pytest.fixture
+def skill_archive_path(skill_tree, tmp_path):
+    return package_skill_tree(skill_tree, tmp_path / "content.tar.gz")
+
+
+@pytest.fixture
+def remote_content(skill_tree):
+    roots = []
+
+    def fetch(resolved, dest, scratch, limit):
+        roots.append(dest)
+        shutil.copytree(skill_tree, dest / (resolved.subpath or ""))
+        return dest
+
+    with mock.patch("mlflow.genai.skill_content.fetchers._fetch_remote", side_effect=fetch) as call:
+        yield call, roots
+
+
+@pytest.fixture
+def skill_artifacts(tmp_path, monkeypatch):
+    root = tmp_path / "skill-artifacts"
+    root.mkdir()
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(root))
+    monkeypatch.setattr(handlers, "_artifact_repo", None)
+    return root
+
+
+@pytest.mark.parametrize("name", [None, "custom-review"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        GitSource("https://example.com/repo", ref="v2", subpath="skills/review"),
+        OCISource("oci://ghcr.io/acme/skills:v1", subpath="skills/review"),
+        ZipSource("https://example.com/archive", subpath="skills/review"),
+        "https://example.com/repo.git",
+        "oci://ghcr.io/acme/skills:v1",
+        "https://example.com/skills.zip",
+    ],
+)
+def test_register_remote_skill(registry_client, store, skill_tree, remote_content, source, name):
+    client, db_store = registry_client
+    fetch, roots = remote_content
+    resolved = resolve_source_type(source)
+    with (
+        mock.patch("mlflow.genai.skills.MlflowClient", return_value=client) as client_factory,
+        mock.patch.object(
+            client, "create_skill_version", wraps=client.create_skill_version
+        ) as create,
+        mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
+    ):
+        version = register_skill(source=source, name=name, organization="acme", status="draft")
+    client_factory.assert_called_once_with()
+    create.assert_called_once_with(
+        name=name or "review",
+        organization="acme",
+        source=source,
+        digest=compute_tree_digest(skill_tree),
+        status="draft",
+    )
+    fetch.assert_called_once()
+    assert fetch.call_args.args[0] == resolved
+    request.assert_called_once_with(
+        "POST",
+        f"/@acme/{name or 'review'}/versions",
+        json={
+            "digest": compute_tree_digest(skill_tree),
+            "status": "draft",
+            "source_type": resolved.source_type.value,
+            "source": resolved.source,
+            "ref": resolved.ref,
+            "subpath": resolved.subpath,
+        },
+    )
+    assert version == db_store.get_skill_version(name or "review", 1, organization="acme")
+    assert version.status == SkillStatus.DRAFT
+    parent = client.get_skill(name=version.name, organization="acme")
+    assert parent.description is None
+    assert parent.icons is None
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("name", [None, "custom-review"])
+@pytest.mark.parametrize("organization", ["", "acme"])
+@pytest.mark.parametrize("high_level", [True, False])
+def test_register_local_skill(
+    registry_client,
+    store,
+    skill_tree,
+    skill_archive_path,
+    skill_artifacts,
+    name,
+    organization,
+    high_level,
+):
+    client, db_store = registry_client
+    with (
+        mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
+        mock.patch("mlflow.genai.skills.inspect_skill_dir", wraps=inspect_skill_dir) as inspect,
+        mock.patch(
+            "mlflow.genai.skills.compute_tree_digest", wraps=compute_tree_digest
+        ) as sdk_digest,
+        mock.patch(
+            "mlflow.genai.skill_content.digest.compute_tree_digest", wraps=compute_tree_digest
+        ) as digest,
+    ):
+        if high_level:
+            version = register_skill(source=str(skill_tree), name=name, organization=organization)
+        else:
+            version = client.create_skill_version(
+                source=str(skill_archive_path),
+                name=name or "review",
+                organization=organization,
+                digest=compute_tree_digest(skill_tree),
+            )
+    if high_level:
+        inspect.assert_called_once_with(skill_tree)
+        sdk_digest.assert_called_once_with(skill_tree)
+    else:
+        inspect.assert_not_called()
+        sdk_digest.assert_not_called()
+    digest.assert_not_called()
+    request.assert_called_once()
+    assert request.call_args.args == ("POST", "/register")
+    files = request.call_args.kwargs["files"]
+    assert json.loads(files["metadata"][1]) == {
+        "name": name or "review",
+        "organization": organization,
+        "digest": compute_tree_digest(skill_tree),
+        "status": "active",
+    }
+    content = files["content"][1]
+    assert content.closed
+    if high_level:
+        assert not Path(content.name).parent.exists()
+    else:
+        assert Path(content.name) == skill_archive_path
+        assert skill_archive_path.exists()
+    assert version == db_store.get_skill_version(name or "review", 1, organization=organization)
+    assert version.source_type == SkillSourceType.MLFLOW
+    assert version.status == SkillStatus.ACTIVE
+    stored = skill_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    assert compute_tree_digest(stored) == version.digest
+    assert (stored / "SKILL.md").read_bytes() == (skill_tree / "SKILL.md").read_bytes()
+    assert version.source.subpath is None
+    assert skill_tree.exists()
+    parent = client.get_skill(name=version.name, organization=organization)
+    assert parent.description is None
+    assert parent.icons is None
+
+
+def test_registration_preserves_parent_metadata(registry_client, skill_tree, skill_artifacts):
+    client, _ = registry_client
+    icons = [{"src": "https://example.com/icon.png"}]
+    client.create_skill(name="review", description="Curated description", icons=icons)
+    client.set_skill_tag(name="review", key="team", value="platform")
+    first = register_skill(source=str(skill_tree), status="draft")
+    second = register_skill(source=str(skill_tree))
+    assert (first.version, second.version) == (1, 2)
+    assert first.source != second.source
+    parent = client.get_skill(name="review")
+    assert parent.description == "Curated description"
+    assert parent.icons == icons
+    assert parent.tags == {"team": "platform"}
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        None,
+        "",
+        "https://example.com/ambiguous",
+        MlflowSource("mlflow-artifacts:/skills/review"),
+        "mlflow-artifacts:/skills/review",
+    ],
+)
+def test_register_rejects_invalid_source_before_fetch(source):
+    with (
+        mock.patch("mlflow.genai.skills.fetch_source") as fetch,
+        pytest.raises(MlflowException, match="source|Source|Cannot infer") as exc,
+    ):
+        register_skill(source=source)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    fetch.assert_not_called()
+
+
+def test_register_skill_source_is_required():
+    with pytest.raises(TypeError, match="source"):
+        register_skill()
+
+
+@pytest.mark.parametrize(
+    "metadata", [{"name": ""}, {"organization": "bad/org"}, {"status": "deleted"}]
+)
+def test_register_rejects_invalid_metadata_before_fetch(metadata):
+    with (
+        mock.patch("mlflow.genai.skills.fetch_source") as fetch,
+        pytest.raises(MlflowException, match="name|status|registered") as exc,
+    ):
+        register_skill(source="https://example.com/repo.git", **metadata)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    fetch.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "manifest", ["# No name", "---\nname: BAD NAME\n---\n", "---\nname: [review]\n---\n"]
+)
+def test_register_explicit_name_still_validates_content(
+    registry_client, store, skill_tree, remote_content, manifest
+):
+    fetch, roots = remote_content
+    (skill_tree / "SKILL.md").write_text(manifest)
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="name"),
+    ):
+        register_skill(source="https://example.com/repo.git", name="custom-review")
+    fetch.assert_called_once()
+    request.assert_not_called()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("local", [False, True])
+def test_register_cleans_up_after_request_failure(
+    registry_client, store, skill_tree, remote_content, local
+):
+    fetch, roots = remote_content
+    with (
+        mock.patch.object(
+            store, "_skill_request", side_effect=MlflowException("conflict")
+        ) as request,
+        pytest.raises(MlflowException, match="conflict"),
+    ):
+        register_skill(source=str(skill_tree) if local else "https://example.com/repo.git")
+    request.assert_called_once()
+    if local:
+        fetch.assert_not_called()
+        content = request.call_args.kwargs["files"]["content"][1]
+        assert content.closed
+        assert not Path(content.name).parent.exists()
+    else:
+        fetch.assert_called_once()
+        assert all(not root.exists() for root in roots)
+    assert skill_tree.exists()
+
+
+def test_register_local_propagates_artifact_capability_error(
+    registry_client, skill_tree, monkeypatch
+):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "false")
+    with pytest.raises(MlflowException, match="does not serve artifacts") as exc:
+        register_skill(source=str(skill_tree))
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    assert registry_client[1].search_skills() == []
+
+
+def test_register_with_direct_sql_store(registry_client, skill_tree, remote_content):
+    _, db_store = registry_client
+    fetch, roots = remote_content
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=db_store):
+        version = register_skill(source="https://example.com/repo.git")
+        assert version == db_store.get_skill_version("review", 1)
+        with pytest.raises(MlflowException, match="HTTP tracking server") as exc:
+            register_skill(source=str(skill_tree))
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("workspace", [None, "team-a"])
+def test_register_multipart_preserves_transport_context(store, workspace):
+    response = Response()
+    response.status_code = 200
+    response._content = b'{"name": "review", "version": 1, "status": "active"}'
+    with (
+        WorkspaceContext(workspace),
+        mock.patch.object(store, "_probe_workspace_support", return_value=True),
+        mock.patch(
+            "mlflow.utils.rest_utils._get_http_response_with_retries", return_value=response
+        ) as request,
+        io.BytesIO(b"archive") as content,
+    ):
+        store._register_skill(name="review", content=content)
+        request.assert_called_once()
+        assert request.call_args.args[:2] == (
+            "POST",
+            "https://registry.example.com/api/3.0/mlflow/skills/register",
+        )
+        kwargs = request.call_args.kwargs
+        assert kwargs["headers"]["Authorization"] == "Bearer test-token"
+        assert kwargs["headers"].get(WORKSPACE_HEADER_NAME) == workspace
+        assert kwargs["json"] is None
+        assert kwargs["files"]["metadata"][0] is None
+        assert kwargs["files"]["metadata"][2] == "application/json"
+        assert json.loads(kwargs["files"]["metadata"][1]) == {
+            "name": "review",
+            "organization": "",
+            "digest": None,
+            "status": "active",
+        }
+        assert kwargs["files"]["content"] == ("content.tar.gz", content, "application/gzip")
+
+
+def test_register_cleans_up_after_packaging_failure(registry_client, store, skill_tree):
+    with (
+        mock.patch(
+            "mlflow.genai.skills.package_skill_tree",
+            side_effect=OSError("disk full"),
+        ) as package,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(OSError, match="disk full"),
+    ):
+        register_skill(source=str(skill_tree))
+    package.assert_called_once()
+    assert not Path(package.call_args.args[1]).parent.exists()
+    request.assert_not_called()
+    assert skill_tree.exists()
+
+
+@pytest.mark.parametrize("supplied", [{}, {"digest": None}, {"digest": "a" * 64}])
+def test_create_local_skill_version_preserves_optional_digest(
+    registry_client, skill_archive_path, skill_artifacts, supplied
+):
+    client, db_store = registry_client
+    with mock.patch("mlflow.genai.skill_content.digest.compute_tree_digest") as digest:
+        version = client.create_skill_version(
+            name="custom-review", source=str(skill_archive_path), status="draft", **supplied
+        )
+    digest.assert_not_called()
+    assert version.digest == supplied.get("digest")
+    assert version.status == SkillStatus.DRAFT
+    assert db_store.get_skill_version("custom-review", version.version).digest == supplied.get(
+        "digest"
+    )
+
+
+@pytest.mark.parametrize("directory", [True, False])
+def test_create_local_skill_version_requires_archive_file(
+    registry_client, store, tmp_path, directory
+):
+    client, db_store = registry_client
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="gzip-compressed tar archive file") as exc,
+    ):
+        client.create_skill_version(
+            name="review", source=str(tmp_path if directory else tmp_path / "missing")
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+    assert db_store.search_skills() == []
+
+
+@pytest.mark.parametrize(
+    ("kind", "message"),
+    [
+        ("corrupt", "not a readable tar archive"),
+        ("uncompressed", "not a readable tar archive"),
+        ("traversal", "unsafe path"),
+        ("symlink", "not a regular file or directory"),
+    ],
+)
+def test_create_local_skill_version_rejects_invalid_archive(
+    registry_client, store, tmp_path, kind, message
+):
+    client, db_store = registry_client
+    archive = tmp_path / "content.tar.gz"
+    if kind == "corrupt":
+        archive.write_bytes(b"not an archive")
+    else:
+        with tarfile.open(archive, "w" if kind == "uncompressed" else "w:gz") as tar:
+            member = tarfile.TarInfo("../escape" if kind == "traversal" else "SKILL.md")
+            if kind == "symlink":
+                member.type = tarfile.SYMTYPE
+                member.linkname = "target"
+            tar.addfile(member)
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        client.create_skill_version(name="review", source=str(archive))
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+    assert db_store.search_skills() == []
+    assert archive.exists()
+
+
+def test_create_local_skill_version_enforces_archive_size_limit(
+    registry_client, store, skill_archive_path, monkeypatch
+):
+    client, db_store = registry_client
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, "1")
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="skill content size limit") as exc,
+    ):
+        client.create_skill_version(name="review", source=str(skill_archive_path))
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+    assert db_store.search_skills() == []
+    assert skill_archive_path.exists()
+
+
+@pytest.mark.parametrize("manifest", ["# No name", "---\nname: BAD NAME\n---\n"])
+def test_local_registration_validates_manifest_with_explicit_name(
+    registry_client, store, skill_tree, manifest
+):
+    _, db_store = registry_client
+    (skill_tree / "SKILL.md").write_text(manifest)
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="name"),
+    ):
+        register_skill(source=str(skill_tree), name="custom-review")
+    request.assert_not_called()
+    assert db_store.search_skills() == []
