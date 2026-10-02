@@ -118,4 +118,14 @@ Use `model="typesafe:/..."` directly, or `model="gateway:/<endpoint-name>"` when
 
 MLflow AI Gateway also provides the typed System One route at `POST /gateway/typesafe/v1/systemone`. Do not send Jev decision models to chat-completion APIs; the Gateway rejects those requests with a clear error.
 
+### Common errors and fixes
+
+| Message                                                                                                                               | Cause                                                            | Fix                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `System One models only support structured evaluation through /gateway/typesafe/v1/systemone. Use a chat model for chat completions.` | A decision-only model was sent to a chat-completion route.       | Use the System One route or `make_judge(model="gateway:/...")`, or choose a chat model such as `typesafe/jev-router`. |
+| `System One endpoints cannot mix System One and chat models. Every primary and fallback model must support System One.`               | The endpoint mixes decision-only and chat models.                | Use all TypeSafe/OpenRouter Jev models for a judge endpoint, or all chat models for a chat endpoint.                  |
+| `Gateway endpoint does not use a System One model. Use a TypeSafe or OpenRouter Jev decision model.`                                  | The endpoint selected for a System One judge is a chat endpoint. | Select a System One endpoint or use a direct `typesafe:/` model.                                                      |
+| `TypeSafe judge models do not support trace-based evaluation.`                                                                        | The instructions use the full `{{ trace }}` variable.            | Use structured `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, or `{{ conversation }}` variables.              |
+| `TypeSafe judge models support bool or finite Literal feedback value types.`                                                          | The judge output type is unsupported.                            | Set the output to Boolean or a finite categorical list, or choose a chat model.                                       |
+
 See `examples/typesafe_judges` in the MLflow repository for a runnable bool and Literal evaluation.
