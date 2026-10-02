@@ -136,6 +136,13 @@ def test_hint_is_emitted_once(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
 
 def test_hint_is_emitted_once_across_threads(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLAUDECODE", "1")
+    barrier = threading.Barrier(5, timeout=5)
+
+    def is_agent_driving_with_barrier() -> bool:
+        barrier.wait()
+        return True
+
+    monkeypatch.setattr(hint, "_is_agent_driving", is_agent_driving_with_barrier)
     with mock.patch.object(hint._logger, "info") as info:
         threads = [
             threading.Thread(
