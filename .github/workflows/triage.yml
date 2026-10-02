@@ -272,6 +272,7 @@ jobs:
       contents: read
     cache-mode: read
     env:
+      NGINX_IMAGE: nginx@sha256:6784fb0834aa7dbbe12e3d7471e69c290df3e6ba810dc38b34ae33d3c1c05f7d
       AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
       XDG_DATA_HOME: /tmp/triage-xdg-data
       XDG_CONFIG_HOME: /tmp/triage-xdg-config
@@ -302,6 +303,8 @@ jobs:
             run: |
               .claude/scripts/install-claude.sh
               claude --version
+          - name: Pull gateway proxy image
+            run: docker pull "$NGINX_IMAGE"
           - name: Install agent-browser
             run: |
               .claude/scripts/install-agent-browser.sh
@@ -353,9 +356,9 @@ jobs:
           }
           EOF
           sudo chown root:root /etc/gw-proxy/nginx.conf
-          docker run -d --rm --name gw-proxy -p 127.0.0.1:8080:80 \
+          docker run --pull=never -d --rm --name gw-proxy -p 127.0.0.1:8080:80 \
             -v /etc/gw-proxy/nginx.conf:/etc/nginx/nginx.conf:ro \
-            nginx@sha256:6784fb0834aa7dbbe12e3d7471e69c290df3e6ba810dc38b34ae33d3c1c05f7d
+            "$NGINX_IMAGE"
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/healthz > /dev/null; then
               exit 0
