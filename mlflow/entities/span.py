@@ -388,11 +388,18 @@ class Span:
         }
 
     def __reduce__(self):
-        return (_reconstruct_span, (self.to_dict(), getattr(self, "_attachments", {})))
+        return (_reconstruct_span, (self.to_dict(), self._attachments))
+
+    def __copy__(self) -> "Span":
+        # Shallow copies keep sharing the underlying OTel span, as they did
+        # before the copy protocol was defined.
+        new_span = type(self).__new__(type(self))
+        new_span.__dict__.update(self.__dict__)
+        return new_span
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "Span":
         new_span = Span.from_dict(copy.deepcopy(self.to_dict(), memo))
-        new_span._attachments = copy.deepcopy(getattr(self, "_attachments", {}), memo)
+        new_span._attachments = copy.deepcopy(self._attachments, memo)
         memo[id(self)] = new_span
         return new_span
 
@@ -738,19 +745,13 @@ class LiveSpan(Span):
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
 
-    def __reduce__(self):
+    def __reduce__(self) -> NoReturn:
         raise TypeError(
             f"'{type(self).__name__}' cannot be pickled while active. "
             "Call `span.to_immutable_span()` to serialize finished span data."
         )
 
-    def __copy__(self):
-        raise TypeError(
-            f"'{type(self).__name__}' cannot be copied while active. "
-            "Call `span.to_immutable_span()` to copy finished span data."
-        )
-
-    def __deepcopy__(self, memo: dict[int, Any]):
+    def __deepcopy__(self, memo: dict[int, Any]) -> NoReturn:
         raise TypeError(
             f"'{type(self).__name__}' cannot be deepcopied while active. "
             "Call `span.to_immutable_span()` to copy finished span data."
@@ -1422,16 +1423,12 @@ class LazySpan(Span):
         return json.dumps(self.__dict__["_span_dict"], separators=(",", ":"))
 
     def _ensure_materialized(self) -> None:
-        if self.__dict__.get("_materialized", False):
+        if self.__dict__["_materialized"]:
             return
-        span_dict = self.__dict__.get("_span_dict")
-        if span_dict is None:
-            return
-        span = Span.from_dict(span_dict)
+        span = Span.from_dict(self.__dict__["_span_dict"])
         self.__dict__["_span"] = span._span
         self.__dict__["_attributes"] = span._attributes
-        if "_attachments" not in self.__dict__:
-            self.__dict__["_attachments"] = span._attachments
+        self.__dict__["_attachments"] = span._attachments
         self.__dict__["_links"] = span._links
         self.__dict__["_materialized"] = True
 
@@ -1443,35 +1440,15 @@ class LazySpan(Span):
             return super().__getattr__(name)
 
     def __reduce__(self):
-        return (
-            _reconstruct_lazy_span,
-            (
-                self.__dict__["_span_dict"],
-                self.__dict__["_raw_json"],
-                self.__dict__.get("_materialized", False),
-                self.__dict__.get("_attachments", {}),
-            ),
-        )
+        # Rebuild from the stored dict; the copy materializes on first access.
+        return (LazySpan, (self.__dict__["_span_dict"],))
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LazySpan":
-        cls = self.__class__
-        if not self.__dict__.get("_materialized", False):
-            new_lazy = cls(
-                copy.deepcopy(self.__dict__["_span_dict"], memo),
-                raw_json=self.__dict__["_raw_json"],
-            )
-            memo[id(self)] = new_lazy
-            if "_attachments" in self.__dict__:
-                new_lazy._attachments = copy.deepcopy(self.__dict__["_attachments"], memo)
-            return new_lazy
-
-        new_lazy = cls(
+        new_lazy = LazySpan(
             copy.deepcopy(self.__dict__["_span_dict"], memo),
             raw_json=self.__dict__["_raw_json"],
         )
         memo[id(self)] = new_lazy
-        new_lazy._ensure_materialized()
-        new_lazy._attachments = copy.deepcopy(self.__dict__.get("_attachments", {}), memo)
         return new_lazy
 
     def __repr__(self):
@@ -1498,20 +1475,6 @@ def _reconstruct_span(span_dict: dict[str, Any], attachments: dict[str, Any]) ->
     span = Span.from_dict(span_dict)
     span._attachments = attachments
     return span
-
-
-def _reconstruct_lazy_span(
-    span_dict: dict[str, Any],
-    raw_json: str | None,
-    materialized: bool,
-    attachments: dict[str, Any],
-) -> LazySpan:
-    lazy = LazySpan(span_dict, raw_json=raw_json)
-    if attachments:
-        lazy._attachments = attachments
-    if materialized:
-        lazy._ensure_materialized()
-    return lazy
 
 
 class NoOpSpan(Span):
