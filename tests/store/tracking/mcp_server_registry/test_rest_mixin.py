@@ -131,6 +131,26 @@ def test_rest_client_url_encodes_slashed_name():
     )
 
 
+@pytest.mark.parametrize("value", [".", ".."])
+@pytest.mark.parametrize(
+    ("method", "kwargs", "parameter"),
+    [
+        ("delete_mcp_server_tag", {}, "key"),
+        ("delete_mcp_server_version_tag", {"version": "1.0.0"}, "key"),
+        ("delete_mcp_server_alias", {}, "alias"),
+    ],
+)
+def test_rest_client_rejects_dot_path_parameters(method, kwargs, parameter, value):
+    client = _TestRestClient(TestClient(FastAPI()))
+    with (
+        mock.patch("mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request") as request,
+        pytest.raises(MlflowException, match="Path parameters must not be") as exc_info,
+    ):
+        getattr(client, method)(name="io.github.user/my-server", **kwargs, **{parameter: value})
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+
+
 def test_rest_client_normalizes_null_tools_to_empty_list():
     client = _TestRestClient(TestClient(FastAPI()))
     response = mock.Mock(status_code=200, text="ok")

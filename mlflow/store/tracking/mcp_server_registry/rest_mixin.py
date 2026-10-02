@@ -19,7 +19,10 @@ _MCP_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
 
 
 def _encode_path_param(value: str) -> str:
-    return quote(str(value), safe="")
+    value = str(value)
+    if value in (".", ".."):
+        raise MlflowException.invalid_parameter_value("Path parameters must not be '.' or '..'.")
+    return quote(value, safe="")
 
 
 def _server_path(name: str) -> str:
