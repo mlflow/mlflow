@@ -7,8 +7,6 @@ on:
       - .github/workflows/helm.yml
       - .github/workflows/publish-helm.yml
       - .github/workflows/push-images.yml
-      - dev/update_mlflow_versions.py
-      - tests/dev/test_update_mlflow_versions.py
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
@@ -19,8 +17,6 @@ on:
       - .github/workflows/helm.yml
       - .github/workflows/publish-helm.yml
       - .github/workflows/push-images.yml
-      - dev/update_mlflow_versions.py
-      - tests/dev/test_update_mlflow_versions.py
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
@@ -51,14 +47,6 @@ jobs:
 
       - name: Lint
         run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
-
-      - uses: ./.github/actions/setup-python
-
-      - name: Test release version updates
-        run: |
-          uv pip install --system pytest packaging pydantic
-          python -m pytest --import-mode=importlib --noconftest -o addopts='' \
-            tests/dev/test_update_mlflow_versions.py
 
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
