@@ -99,7 +99,7 @@ jobs:
         run: |
           title="${TITLE#"${TITLE%%[![:space:]]*}"}"
           case "${title^^}" in
-            "[BUG]"* | "[SETUP-BUG]"* | "[FR]"* | "[DOC-FIX]"*) ;;
+            "[BUG]"* | "[UI-BUG]"* | "[SETUP-BUG]"* | "[FR]"* | "[DOC-FIX]"*) ;;
             *)
               title=$(
                 yq -o=json -I=0 '{"title": .title, "labels": [.body[] | select(.type != "markdown") | .attributes.label]}' \
@@ -117,6 +117,7 @@ jobs:
               ;;
           esac
           case "${title^^}" in
+            "[UI-BUG]"*) type="bug" labels="bug,area/uiux" ;;
             "[BUG]"* | "[SETUP-BUG]"*) type="bug" labels="bug" ;;
             "[FR]"*) type="enhancement" labels="enhancement" ;;
             "[DOC-FIX]"*) type="bug" labels="bug,area/docs" ;;
