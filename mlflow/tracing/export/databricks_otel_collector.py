@@ -9,6 +9,9 @@ ingest endpoint instead of the MLflow REST ``log_spans`` API. Trace-level metada
 This path is on by default; set ``MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT=false``
 to always use the MLflow tracing server path.
 
+For how the OTLP ingestion endpoint and authentication are configured on the
+Databricks side, see https://docs.databricks.com/aws/en/ingestion/opentelemetry/configure.
+
 The collector endpoint is resolved lazily on the first span export rather than
 during tracer initialization: ``_initialize_tracer_provider`` runs under the
 tracer-provider ``Once`` lock, so a workspace metadata lookup there would block
@@ -72,6 +75,14 @@ _BODY_SNIPPET_BYTES = 512
 # is replayed over the REST path without pinning the exporter to it.
 _REPLAYABLE_STATUS_CODES = (408, 413, 429)
 
+# 5xx statuses that mean the collector did not durably ingest this batch (bad
+# gateway / service unavailable), so replaying it over the REST path cannot write
+# duplicate span rows. Handled like the 4xx transient statuses: replay this batch
+# without pinning the exporter, so the next batch still tries the collector. 500
+# and 504 (and read timeouts) are NOT in this set: the backend may have persisted
+# the batch before the error, so replaying them could duplicate span rows.
+_REPLAYABLE_SERVER_STATUS_CODES = (502, 503)
+
 # Timeout for each collector metadata request. SDK client construction can
 # trigger OIDC discovery with the SDK's much longer default retry budget.
 _SDK_HTTP_TIMEOUT_SECONDS = 10.0
@@ -80,6 +91,12 @@ _SDK_HTTP_TIMEOUT_SECONDS = 10.0
 # is deferred out of tracer initialization, so it is memoized module-wide to
 # keep provider re-initialization (mlflow.tracing.reset) from re-resolving it.
 _resolved_endpoints: dict[tuple[str, str], str] = {}
+
+# Set once per process after warning about a collector config/resolution failure
+# for a user who qualifies for the collector, so later span batches do not repeat
+# the warning. Guarded by a lock because exports run on multiple threads.
+_collector_config_failure_warned = False
+_collector_config_failure_lock = threading.Lock()
 
 # Wire-protocol literals required by the Databricks OTel collector ingest service; the
 # exact strings below are mandated by the service and must not be changed unilaterally.
@@ -254,6 +271,31 @@ def _get_metastore_summary(
     return summary
 
 
+def _warn_collector_config_failure(reason: str, *args) -> None:
+    """Warn once per process about a collector config/resolution failure.
+
+    Reaching endpoint resolution means the user qualifies for the collector: the
+    feature flag is on, the destination is a ``UnityCatalog`` location, and
+    service-principal credentials were found. A failure here is therefore a real
+    misconfiguration worth surfacing at WARNING - but only once per process,
+    since every later span batch would otherwise repeat it. The exporter still
+    falls back to the MLflow tracing server span export path either way.
+
+    This is distinct from the ``_log_collector_unavailable`` path, which handles
+    the high-volume "not applicable" case (no service-principal credentials:
+    PAT/notebook users on the default-on path) and stays quiet by default.
+    """
+    global _collector_config_failure_warned
+    message = reason + " Falling back to the MLflow tracing server span export path."
+    with _collector_config_failure_lock:
+        already_warned = _collector_config_failure_warned
+        _collector_config_failure_warned = True
+    if already_warned:
+        _logger.debug(message, *args)
+    else:
+        _logger.warning(message, *args)
+
+
 def resolve_databricks_otel_collector_endpoint(
     host: str,
     workspace_id: str,
@@ -276,7 +318,7 @@ def resolve_databricks_otel_collector_endpoint(
     if override := MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
         if is_databricks_otel_collector_host(override, workspace_id):
             return _normalize_collector_endpoint(override)
-        _logger.debug(
+        _warn_collector_config_failure(
             "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host validation "
             "for workspace_id=%r; ignoring override.",
             override,
@@ -287,7 +329,7 @@ def resolve_databricks_otel_collector_endpoint(
     try:
         summary = _get_metastore_summary(host, workspace_id, client_id, client_secret)
     except Exception as exc:
-        _logger.debug(
+        _warn_collector_config_failure(
             "Failed to fetch metastore summary for collector endpoint resolution: %s", exc
         )
         return None
@@ -296,7 +338,9 @@ def resolve_databricks_otel_collector_endpoint(
     cloud_raw = summary.get("cloud")  # e.g. "aws", "azure", "gcp"
 
     if not region:
-        _logger.debug("Metastore summary returned empty region; cannot resolve endpoint.")
+        _warn_collector_config_failure(
+            "Metastore summary returned empty region; cannot resolve collector endpoint."
+        )
         return None
 
     if not cloud_raw:
@@ -308,8 +352,8 @@ def resolve_databricks_otel_collector_endpoint(
     cloud_raw = str(cloud_raw or "").lower()
     domain = _CLOUD_DOMAIN.get(cloud_raw)
     if not domain:
-        _logger.debug(
-            "Unrecognised cloud %r from metastore summary; cannot resolve endpoint.",
+        _warn_collector_config_failure(
+            "Unrecognised cloud %r from metastore summary; cannot resolve collector endpoint.",
             cloud_raw,
         )
         return None
@@ -318,7 +362,9 @@ def resolve_databricks_otel_collector_endpoint(
     endpoint = f"{workspace_id}{_COLLECTOR_HOST_SEGMENT}{region}.{env_segment}{domain}"
 
     if not is_databricks_otel_collector_host(endpoint, workspace_id):
-        _logger.debug("Assembled collector endpoint %r failed host validation.", endpoint)
+        _warn_collector_config_failure(
+            "Assembled collector endpoint %r failed host validation.", endpoint
+        )
         return None
 
     return _normalize_collector_endpoint(endpoint)
@@ -593,6 +639,12 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         # exporter even with concurrent exporting threads.
         self._resolution_lock = threading.Lock()
         self._collector_config_failed = False
+        # Set when a qualified-user config failure already emitted its single
+        # WARNING via ``_warn_collector_config_failure``, so the endpoint-unavailable
+        # path in ``_export_spans_to_collector`` does not also log for the same
+        # failure. Stays False for the not-applicable path (missing SP creds), which
+        # keeps the quiet ``_log_collector_unavailable`` behavior.
+        self._collector_config_warned = False
         # Set when the collector path is unusable or a batch's delivery is
         # uncertain. Later batches go straight to the inherited tracing-server
         # REST path without contacting the collector again.
@@ -650,22 +702,26 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                         tables=[self._table_name],
                     )
                 except Exception as exc:
-                    _logger.debug(
+                    # Credentials were found, so this user qualifies for the collector:
+                    # a token-source build failure is a real misconfiguration.
+                    _warn_collector_config_failure(
                         "Failed to build the Databricks OTel collector token source: %s", exc
                     )
                     self._collector_config_failed = True
+                    self._collector_config_warned = True
                     return None
 
             override = self._endpoint_override or MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get()
             if override:
                 if not is_databricks_otel_collector_host(override, self._workspace_id):
-                    _logger.debug(
+                    _warn_collector_config_failure(
                         "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host "
                         "validation for workspace_id=%r; ignoring override.",
                         override,
                         self._workspace_id,
                     )
                     self._collector_config_failed = True
+                    self._collector_config_warned = True
                     return None
                 self._collector_endpoint = _normalize_collector_endpoint(override)
                 self._collector_url = f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
@@ -683,6 +739,9 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 )
                 if resolved is None:
                     self._collector_config_failed = True
+                    # resolve_* already emitted the single WARNING for the specific
+                    # reason; do not also log for the endpoint-unavailable case.
+                    self._collector_config_warned = True
                     return None
                 normalized = _normalize_collector_endpoint(resolved)
                 _resolved_endpoints[cache_key] = normalized
@@ -930,12 +989,18 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
             # Resolution failed once; do not retry it for later batches either:
             # pin the REST path for this and all subsequent span batches.
             self._collector_rejected = True
-            _log_collector_unavailable(
-                "The Databricks OTel collector endpoint could not be resolved for "
-                "workspace_id=%r, host=%r.",
-                self._workspace_id,
-                self._host,
-            )
+            if not self._collector_config_warned:
+                # Not-applicable path (no service-principal credentials: PAT/notebook
+                # users on the default-on path). This is the high-volume majority, so
+                # it stays quiet by default (DEBUG unless the env var is explicitly
+                # set). Qualified-user config failures were already surfaced once at
+                # WARNING by the specific failure site, which set the flag above.
+                _log_collector_unavailable(
+                    "The Databricks OTel collector endpoint could not be resolved for "
+                    "workspace_id=%r, host=%r.",
+                    self._workspace_id,
+                    self._host,
+                )
             self._send_spans_via_rest(spans, from_collector_batch=from_collector_batch)
             return
 
@@ -1011,9 +1076,27 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 self._fall_back_to_rest(spans, from_collector_batch=from_collector_batch)
             return
 
-        # A 5xx leaves delivery ambiguous (the batch may have been ingested before
-        # the server error), so this batch is dropped rather than replayed over
-        # REST. Later batches can safely use REST.
+        if response.status_code in _REPLAYABLE_SERVER_STATUS_CODES:
+            # 502/503 mean the request was not durably processed by the collector
+            # (bad gateway / service unavailable), so the batch was not ingested
+            # and replaying it over REST cannot write duplicate span rows. Replay
+            # this batch without pinning the exporter, so the next batch still
+            # tries the collector.
+            self._replay_batch_via_rest(
+                spans,
+                "The Databricks OTel collector returned HTTP %d for a span export "
+                "(transient server rejection, not durably ingested). Replaying this "
+                "batch via the MLflow tracing server path.",
+                response.status_code,
+                from_collector_batch=from_collector_batch,
+            )
+            return
+
+        # Any other 5xx (500, 504, ...) leaves delivery ambiguous: unlike 502/503,
+        # the backend may have persisted the batch before the error, so replaying it
+        # could write duplicate span rows (the same reason read timeouts, handled
+        # above, are ambiguous). Drop this batch rather than replay it; later batches
+        # can safely use REST.
         self._log_ambiguous_drop(
             "The Databricks OTel collector span export failed with HTTP %d: %r.",
             response.status_code,

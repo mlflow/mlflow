@@ -39,9 +39,22 @@ from tests.tracing.helper import create_mock_otel_span
 
 _MODULE = "mlflow.tracing.export.databricks_otel_collector"
 
+
+@pytest.fixture(autouse=True)
+def _reset_collector_config_warning():
+    # ``_warn_collector_config_failure`` warns once per process via a module-level
+    # flag; reset it around every test so warning/debug assertions stay isolated.
+    import mlflow.tracing.export.databricks_otel_collector as _collector_mod
+
+    _collector_mod._collector_config_failure_warned = False
+    yield
+    _collector_mod._collector_config_failure_warned = False
+
+
 # ---------------------------------------------------------------------------
 # is_databricks_otel_collector_host
 # ---------------------------------------------------------------------------
+
 
 _WORKSPACE_ID = "12345678"
 
@@ -438,6 +451,72 @@ def test_resolve_endpoint_cloud_from_global_metastore_id(monkeypatch):
     assert result == "12345678.zerobus.us-west-2.cloud.databricks.com"
     mock_post.assert_called_once()
     mock_get.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "summary_setup",
+    [
+        pytest.param({"__raise__": True}, id="metastore-fetch-failure"),
+        pytest.param({"region": "", "cloud": "aws"}, id="empty-region"),
+        pytest.param({"region": "us-west-2", "cloud": "mars"}, id="unrecognised-cloud"),
+        pytest.param({"region": "bad/region", "cloud": "aws"}, id="assembled-host-invalid"),
+    ],
+)
+def test_resolve_endpoint_failure_warns_once(monkeypatch, summary_setup):
+    # A qualified-user resolution failure (SP creds present) is surfaced at WARNING.
+    monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    if summary_setup.get("__raise__"):
+        summary_patch = mock.patch(
+            f"{_MODULE}._get_metastore_summary", side_effect=RuntimeError("boom")
+        )
+    else:
+        summary_patch = mock.patch(f"{_MODULE}._get_metastore_summary", return_value=summary_setup)
+    with summary_patch, mock.patch(f"{_MODULE}._logger") as mock_log:
+        result = resolve_databricks_otel_collector_endpoint(
+            host="https://adb-12345678.cloud.databricks.com",
+            workspace_id="12345678",
+            client_id="sp-client-id",
+            client_secret="sp-secret",
+        )
+    assert result is None
+    mock_log.warning.assert_called_once()
+
+
+def test_resolve_endpoint_invalid_override_warns_once(monkeypatch):
+    monkeypatch.setenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", "badhost.example.com")
+    with mock.patch(f"{_MODULE}._logger") as mock_log:
+        result = resolve_databricks_otel_collector_endpoint(
+            host="https://adb-12345678.cloud.databricks.com",
+            workspace_id="12345678",
+        )
+    assert result is None
+    mock_log.warning.assert_called_once()
+
+
+def test_resolve_endpoint_failure_warns_once_per_process(monkeypatch):
+    # Repeated resolution failures must not spam WARNING: the first warns, later
+    # ones log at DEBUG.
+    monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    with (
+        mock.patch(f"{_MODULE}._get_metastore_summary", side_effect=RuntimeError("boom")),
+        mock.patch(f"{_MODULE}._logger") as mock_log,
+    ):
+        first = resolve_databricks_otel_collector_endpoint(
+            host="https://adb-12345678.cloud.databricks.com",
+            workspace_id="12345678",
+            client_id="sp-client-id",
+            client_secret="sp-secret",
+        )
+        second = resolve_databricks_otel_collector_endpoint(
+            host="https://adb-12345678.cloud.databricks.com",
+            workspace_id="12345678",
+            client_id="sp-client-id",
+            client_secret="sp-secret",
+        )
+    assert first is None
+    assert second is None
+    mock_log.warning.assert_called_once()
+    mock_log.debug.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -963,50 +1042,111 @@ def test_exporter_resolves_endpoint_lazily_once_per_workspace(
     assert exporter2._collector_url == f"https://{_ENDPOINT}/v1/traces"
 
 
-def test_exporter_resolution_failure_replays_via_rest_and_sticks_with_debug_by_default(
+def test_exporter_qualified_resolution_failure_warns_once_and_falls_back_to_rest(
     monkeypatch, clear_resolved_endpoints
 ):
+    # A user who reaches endpoint resolution qualifies for the collector (flag on,
+    # UnityCatalog destination, SP creds present), so a resolution failure is a real
+    # misconfiguration surfaced at WARNING once per process - even though the env var
+    # was not explicitly set - while still falling back to the tracing server path.
     monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
     exporter, session, _ = _make_exporter(monkeypatch, endpoint=None)
     otel_span = create_mock_otel_span(trace_id=21, span_id=21)
 
     with (
-        mock.patch(
-            f"{_MODULE}.resolve_databricks_otel_collector_endpoint", return_value=None
-        ) as mock_resolve,
+        mock.patch(f"{_MODULE}._get_metastore_summary", side_effect=RuntimeError("boom")),
         mock.patch.object(exporter, "_log_spans") as mock_log_spans,
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
         exporter._export_spans_incrementally([otel_span])
+        # The second batch is pinned to REST and must not re-resolve or re-warn.
         exporter._export_spans_incrementally([otel_span])
 
-    # Resolution is attempted once; both batches go through the REST path.
-    mock_resolve.assert_called_once()
     session.post.assert_not_called()
     assert mock_log_spans.call_count == 2
+    mock_log.warning.assert_called_once()
+
+
+def test_exporter_token_source_build_failure_warns_once_and_falls_back_to_rest(
+    monkeypatch, clear_resolved_endpoints
+):
+    monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
+    monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    exporter = DatabricksOtelCollectorSpanExporter(
+        tracking_uri="databricks",
+        token_source=None,
+        table_name=_TABLE_NAME,
+        host=_HOST,
+        workspace_id=_WORKSPACE_ID,
+        client_id="cid",
+        client_secret="csecret",
+    )
+    exporter._session = mock.MagicMock()
+    otel_span = create_mock_otel_span(trace_id=22, span_id=22)
+
+    with (
+        mock.patch(
+            f"{_MODULE}.build_databricks_otel_collector_token_source",
+            side_effect=RuntimeError("token build failed"),
+        ),
+        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
+        mock.patch(f"{_MODULE}._logger") as mock_log,
+    ):
+        exporter._export_spans_incrementally([otel_span])
+
+    # Credentials were present (qualified), so a token-source build failure warns.
+    exporter._session.post.assert_not_called()
+    mock_log_spans.assert_called_once()
+    mock_log.warning.assert_called_once()
+
+
+def test_exporter_missing_sp_creds_logs_debug_by_default(monkeypatch, clear_resolved_endpoints):
+    # The not-applicable path (no service-principal credentials: PAT/notebook users
+    # on the default-on path) is the high-volume majority and must stay quiet by
+    # default: DEBUG when the env var is unset.
+    monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    exporter = DatabricksOtelCollectorSpanExporter(
+        tracking_uri="databricks", token_source=None, table_name=_TABLE_NAME
+    )
+    exporter._session = mock.MagicMock()
+    otel_span = create_mock_otel_span(trace_id=23, span_id=23)
+
+    with (
+        mock.patch(f"{_MODULE}._resolve_collector_credentials", return_value=None),
+        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
+        mock.patch(f"{_MODULE}._logger") as mock_log,
+    ):
+        exporter._export_spans_incrementally([otel_span])
+
+    mock_log_spans.assert_called_once()
     mock_log.warning.assert_not_called()
     mock_log.debug.assert_called_once()
 
 
-def test_exporter_resolution_failure_logs_warning_when_export_explicitly_enabled(
+def test_exporter_missing_sp_creds_logs_warning_when_explicitly_enabled(
     monkeypatch, clear_resolved_endpoints
 ):
     monkeypatch.setenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, "true")
-    monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
-    exporter, session, _ = _make_exporter(monkeypatch, endpoint=None)
-    otel_span = create_mock_otel_span(trace_id=22, span_id=22)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    exporter = DatabricksOtelCollectorSpanExporter(
+        tracking_uri="databricks", token_source=None, table_name=_TABLE_NAME
+    )
+    exporter._session = mock.MagicMock()
+    otel_span = create_mock_otel_span(trace_id=24, span_id=24)
 
     with (
-        mock.patch(f"{_MODULE}.resolve_databricks_otel_collector_endpoint", return_value=None),
+        mock.patch(f"{_MODULE}._resolve_collector_credentials", return_value=None),
         mock.patch.object(exporter, "_log_spans") as mock_log_spans,
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
         exporter._export_spans_incrementally([otel_span])
 
-    session.post.assert_not_called()
     mock_log_spans.assert_called_once()
     mock_log.warning.assert_called_once()
+    mock_log.debug.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -1370,6 +1510,18 @@ def _case_http_429():
     return [_make_response(429), _make_response(200)]
 
 
+def _case_http_502():
+    return [_make_response(502), _make_response(200)]
+
+
+def _case_http_503():
+    return [_make_response(503), _make_response(200)]
+
+
+def _case_http_504():
+    return [_make_response(504, content=b"gateway timeout"), _make_response(200)]
+
+
 _CLASSIFICATION_CASES = [
     # Requests that provably never reached the collector: sticky REST fallback.
     (_case_connect_timeout, "sticky"),
@@ -1379,8 +1531,9 @@ _CLASSIFICATION_CASES = [
     # Connection established then failed mid-request: drop this batch, use REST later.
     (_case_connection_reset, "drop"),
     (_case_read_timeout, "drop"),
-    # Server-side failure after possible ingestion: drop this batch, use REST later.
+    # Server-side failures that may have persisted the batch: drop, use REST later.
     (_case_http_500, "drop"),
+    (_case_http_504, "drop"),
     # Definitive client-side rejections: sticky REST fallback.
     (_case_http_400, "sticky"),
     (_case_http_403, "sticky"),
@@ -1390,6 +1543,9 @@ _CLASSIFICATION_CASES = [
     (_case_http_408, "replay"),
     (_case_http_413, "replay"),
     (_case_http_429, "replay"),
+    # 502/503 mean the batch was not durably ingested: replay, non-sticky.
+    (_case_http_502, "replay"),
+    (_case_http_503, "replay"),
 ]
 
 
@@ -1694,6 +1850,52 @@ def test_exporter_async_500_uses_rest_for_later_batch(monkeypatch):
         exporter._client.log_spans.assert_called_once()
     finally:
         exporter.shutdown()
+
+
+@pytest.mark.parametrize("status_code", [502, 503])
+def test_exporter_replayable_server_error_replays_batch_and_is_not_sticky(monkeypatch, status_code):
+    exporter, session, _ = _make_exporter(monkeypatch)
+    session.post.side_effect = [_make_response(status_code), _make_response(200)]
+    otel_span = create_mock_otel_span(trace_id=42, span_id=42)
+
+    with (
+        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
+        mock.patch(f"{_MODULE}._logger") as mock_log,
+    ):
+        exporter._export_spans_incrementally([otel_span])
+        # 502/503 mean the batch was not durably ingested, so it is replayed via
+        # REST and the next batch still tries the collector (non-sticky).
+        exporter._export_spans_incrementally([otel_span])
+
+    assert session.post.call_count == 2
+    mock_log_spans.assert_called_once()
+    assert not exporter._collector_rejected
+    mock_log.warning.assert_not_called()
+    mock_log.debug.assert_called_once()
+
+
+@pytest.mark.parametrize("status_code", [500, 504])
+def test_exporter_ambiguous_server_error_drops_batch_and_warns_once(monkeypatch, status_code):
+    exporter, session, _ = _make_exporter(monkeypatch)
+    session.post.return_value = _make_response(status_code, content=b"server error")
+    otel_span = create_mock_otel_span(trace_id=43, span_id=43)
+
+    with (
+        mock.patch.object(exporter, "_log_spans") as mock_log_spans,
+        mock.patch(f"{_MODULE}._logger") as mock_log,
+    ):
+        # Call the collector path directly twice: the first ambiguous drop pins the
+        # REST path, so a second _export_spans_incrementally would skip the collector.
+        exporter._export_spans_to_collector([otel_span])
+        exporter._export_spans_to_collector([otel_span])
+
+    assert session.post.call_count == 2
+    # 500/504 are ambiguous: the batch is dropped, never replayed over REST.
+    mock_log_spans.assert_not_called()
+    # Warn once, then DEBUG.
+    assert mock_log.warning.call_count == 1
+    assert mock_log.debug.call_count == 1
+    assert status_code in mock_log.warning.call_args.args
 
 
 def test_exporter_no_op_on_empty_spans(monkeypatch):
