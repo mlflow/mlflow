@@ -397,47 +397,18 @@ jobs:
           done
           echo "::error::Gateway proxy did not become ready"
           exit 1
-      - name: Write sandbox settings
+      - name: Prepare sandbox paths
         run: |
-          # Linux SRT cannot allowlist Unix sockets by path; agent-browser needs one.
-          # Keep host service sockets hidden through denyRead below.
-          cat > "$RUNNER_TEMP/srt.json" <<'EOF'
-          {
-            "network": {
-              "allowedDomains": [
-                "localhost:8080",
-                "pypi.org",
-                "files.pythonhosted.org",
-                "releases.astral.sh",
-                "registry.npmjs.org"
-              ],
-              "deniedDomains": [],
-              "allowAllUnixSockets": true
-            },
-            "filesystem": {
-              "denyRead": [
-                "~/.ssh",
-                "~/.docker",
-                "~/.config/gh",
-                "/etc/gw-proxy",
-                "/var/run/docker.sock",
-                "/run/docker.sock",
-                "/run/containerd",
-                "/home/runner/work/_temp/_runner_file_commands"
-              ],
-              "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
-              "denyWrite": []
-            }
-          }
-          EOF
           # srt skips write rules for paths that don't exist yet.
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
       - name: Check sandbox restrictions
         run: |
+          # .claude/sandbox/srt.json allows all Unix sockets because Linux SRT cannot allowlist
+          # them by path and agent-browser needs one; denyRead hides the host service sockets.
           # Otherwise a sandbox that fails to start would pass every check below.
-          srt --settings "$RUNNER_TEMP/srt.json" -- true
+          srt --settings .claude/sandbox/srt.json -- true
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
             'curl -sf https://example.com' \
@@ -445,7 +416,7 @@ jobs:
             'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
             'cat /etc/gw-proxy/nginx.conf' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
-            if srt --settings "$RUNNER_TEMP/srt.json" -- bash -c "$command"; then
+            if srt --settings .claude/sandbox/srt.json -- bash -c "$command"; then
               echo "::error::Sandbox allowed a forbidden operation"
               exit 1
             fi
@@ -500,7 +471,7 @@ jobs:
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout 30m srt --settings "$RUNNER_TEMP/srt.json" -- \
+          timeout 30m srt --settings .claude/sandbox/srt.json -- \
             env -u NO_PROXY -u no_proxy claude \
             --model databricks-claude-sonnet-5-5 \
             --effort high \
