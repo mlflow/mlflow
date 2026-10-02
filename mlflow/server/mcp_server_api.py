@@ -710,7 +710,7 @@ def create_mcp_server_version(
         )
     username = getattr(request.state, "username", None)
     status = _parse_status(body.status)
-    from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
+    from mlflow.store.tracking import NOT_SET
 
     # Same value space as update: omitted → NOT_SET; present null → None; list → list.
     # On create, NOT_SET stores null tools unless a client-side caller already

@@ -26,7 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
     SqlMCPAccessEndpoint,
     SqlMCPServer,
@@ -35,7 +35,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMCPServerVersion,
     SqlMCPServerVersionTag,
 )
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 from mlflow.telemetry.events import (
     McpRegistryCreateAccessEndpointEvent,
     McpRegistryCreateServerVersionEvent,

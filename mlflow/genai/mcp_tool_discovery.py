@@ -10,7 +10,7 @@ from typing import Any, Mapping
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPTool
 from mlflow.environment_variables import MLFLOW_ENABLE_MCP_TOOL_DISCOVERY
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
+from mlflow.store.tracking import NOT_SET
 
 # Bound create-time discovery so a hung remote cannot stall registration.
 # On timeout, discovery is skipped and create continues with tools=None.
