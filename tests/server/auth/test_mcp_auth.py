@@ -290,6 +290,52 @@ async def test_create_run_needs_read_on_the_parent_run(mcp_server, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_create_run_checks_the_parent_given_as_a_tag(mcp_server, monkeypatch):
+    exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
+    admin_client = _admin_client(mcp_server, monkeypatch)
+    parent = admin_client.create_run(exp_a).info.run_id
+    other = admin_client.create_run(exp_a).info.run_id
+    editor = _reader(mcp_server, exp_b, permission="EDIT")
+
+    # The tag names the same parent the argument would, in either accepted shape; an empty id
+    # is still a parent to check.
+    denied_tags = [
+        {MLFLOW_PARENT_RUN_ID: parent},
+        [f"{MLFLOW_PARENT_RUN_ID}={parent}"],
+        {MLFLOW_PARENT_RUN_ID: ""},
+    ]
+    for tags in denied_tags:
+        with pytest.raises(ToolError, match="^Permission denied$"):
+            await _call(mcp_server, editor, "create_run", experiment_id=exp_b, tags=tags)
+
+    grant_role_permission(mcp_server, editor[0], "experiment", exp_a, "READ")
+    for tags in ({MLFLOW_PARENT_RUN_ID: parent}, [f"{MLFLOW_PARENT_RUN_ID}={parent}"]):
+        run = await _call(mcp_server, editor, "create_run", experiment_id=exp_b, tags=tags)
+        child = await _call(mcp_server, editor, "describe_run", run_id=run["run_id"])
+        assert child["tags"][MLFLOW_PARENT_RUN_ID] == parent
+
+    # The argument and the tag must name the same run, even when both are readable.
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(
+            mcp_server,
+            editor,
+            "create_run",
+            experiment_id=exp_b,
+            parent_run_id=parent,
+            tags={MLFLOW_PARENT_RUN_ID: other},
+        )
+    run = await _call(
+        mcp_server,
+        editor,
+        "create_run",
+        experiment_id=exp_b,
+        parent_run_id=parent,
+        tags={MLFLOW_PARENT_RUN_ID: parent},
+    )
+    assert run["experiment_id"] == exp_b
+
+
+@pytest.mark.asyncio
 async def test_trace_tools_resolve_the_trace_experiment(mcp_server, monkeypatch):
     exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
     trace_a = _log_trace(mcp_server, monkeypatch, exp_a)

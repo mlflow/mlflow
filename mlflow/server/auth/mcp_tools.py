@@ -15,7 +15,7 @@ from typing import Any, Literal
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.request_context import get_mcp_request_username
 from mlflow.mcp.server_app import McpToolPolicy
-from mlflow.mcp.tools._args import as_list, as_view_type, check_non_negative
+from mlflow.mcp.tools._args import as_list, as_tag_dict, as_view_type, check_non_negative
 from mlflow.mcp.tools._types import (
     ExperimentInfo,
     ExperimentPage,
@@ -30,6 +30,7 @@ from mlflow.server.auth.permissions import Permission
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 PermissionName = Literal["can_read", "can_update", "can_delete", "can_manage"]
 Resolver = Callable[[dict[str, Any], str], list[Permission]]
@@ -108,11 +109,19 @@ def _can_create_experiment(arguments: dict[str, Any], username: str) -> bool:
 def _can_create_run(arguments: dict[str, Any], username: str) -> bool:
     # CreateRun -> validate_can_update_experiment. Given only a name, the CLI creates a missing
     # experiment on the fly, which is gated like CreateExperiment -> validate_can_create_experiment.
-    # The tool also reads ``parent_run_id`` to nest the run under it, so that run must be readable
-    # (and exist): otherwise a caller could attach runs under, or probe for, runs it cannot see.
-    # REST CreateRun does not check the parent named by the ``mlflow.parentRunId`` tag.
-    if arguments.get("parent_run_id") is not None:
-        parent_permissions = _run({"run_id": arguments["parent_run_id"]}, username)
+    # The run is nested under the parent named by ``parent_run_id`` or by the ``mlflow.parentRunId``
+    # tag the tool passes through, so that run must be readable (and exist): otherwise a caller
+    # could attach runs under, or probe for, runs it cannot see. The tags are parsed as the tool
+    # parses them, so both ways of naming the parent are checked alike. REST CreateRun does not
+    # check the parent named by the tag.
+    parent_run_id = arguments.get("parent_run_id")
+    tag_parent_run_id = as_tag_dict(arguments.get("tags")).get(MLFLOW_PARENT_RUN_ID)
+    if parent_run_id is not None and tag_parent_run_id is not None:
+        if parent_run_id != tag_parent_run_id:
+            return False
+    parent = tag_parent_run_id if parent_run_id is None else parent_run_id
+    if parent is not None:
+        parent_permissions = _run({"run_id": parent}, username) if parent else []
         if not parent_permissions or not parent_permissions[0].can_read:
             return False
     if arguments.get("experiment_id") is not None:
