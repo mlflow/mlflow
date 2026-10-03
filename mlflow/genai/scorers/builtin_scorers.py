@@ -1036,6 +1036,7 @@ class ToolCallCorrectness(BuiltInScorer):
                         "Optional dictionary containing expected tool calls for ground-truth "
                         "comparison. Contains 'expected_tool_calls' key with list of calls."
                     ),
+                    required=False,
                 )
             )
         return fields
