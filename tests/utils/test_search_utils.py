@@ -168,6 +168,25 @@ def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_st
     assert isinstance(condition["value"], int)
 
 
+def test_evaluation_dataset_name_in_filter():
+    assert SearchEvaluationDatasetsUtils.parse_search_filter(
+        "name IN ('dataset-a', 'dataset-b')"
+    ) == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": ("dataset-a", "dataset-b"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
+def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
+    with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"{key} IN ('user-a', 'user-b')")
+
+
 @pytest.mark.parametrize(
     ("filter_string", "expected"),
     [
