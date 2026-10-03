@@ -1549,6 +1549,76 @@ def test_response_timing_headers_error(store: SqlAlchemyStore):
     assert 0 <= overhead <= duration
 
 
+@pytest.mark.parametrize("stream", [False, True], ids=["regular", "streaming"])
+@pytest.mark.parametrize("has_policy", [False, True], ids=["no-policy", "reject-policy"])
+def test_redis_outage_returns_503_before_provider_call(stream, has_policy):
+    redis = pytest.importorskip("redis")
+
+    from mlflow.entities.gateway_budget_policy import (
+        BudgetAction,
+        BudgetDuration,
+        BudgetDurationUnit,
+        BudgetTargetScope,
+        BudgetUnit,
+        GatewayBudgetPolicy,
+    )
+    from mlflow.gateway import budget_tracker
+    from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
+
+    policies = (
+        [
+            GatewayBudgetPolicy(
+                budget_policy_id="bp-test",
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.GLOBAL,
+                budget_action=BudgetAction.REJECT,
+                created_at=0,
+                last_updated_at=0,
+            )
+        ]
+        if has_policy
+        else []
+    )
+    store = MagicMock(spec=SqlAlchemyStore)
+    store.list_budget_policies.return_value = policies
+    tracker = RedisBudgetTracker(_client=MagicMock())
+    tracker._client.smembers.side_effect = redis.exceptions.ConnectionError("Redis unavailable")
+
+    app = FastAPI()
+    app.include_router(gateway_router)
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
+    )
+    provider = MagicMock()
+    provider.chat = AsyncMock()
+    provider.chat_stream = MagicMock()
+
+    with (
+        patch.object(budget_tracker, "_budget_tracker", tracker),
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
+            return_value=(provider, endpoint_config),
+        ),
+    ):
+        response = TestClient(app).post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={
+                "model": "my-endpoint",
+                "messages": [{"role": "user", "content": "Hi"}],
+                "stream": stream,
+            },
+        )
+
+    assert response.status_code == 503
+    assert "Budget backend unavailable" in response.json()["detail"]
+    provider.chat.assert_not_called()
+    provider.chat_stream.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
