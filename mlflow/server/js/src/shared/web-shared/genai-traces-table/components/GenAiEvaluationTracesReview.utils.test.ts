@@ -262,6 +262,15 @@ describe('EvaluationsReview utils', () => {
       expect(tryExtractUserMessageContent(openaiInput)).toEqual('Hello there');
     });
 
+    it('should extract user message from GenAI semantic convention parts', () => {
+      const genAIInput = [
+        { role: 'system', parts: [{ type: 'text', content: 'You are helpful' }] },
+        { role: 'user', parts: [{ type: 'text', content: 'What is MLflow?' }] },
+      ];
+
+      expect(tryExtractUserMessageContent(genAIInput)).toEqual('What is MLflow?');
+    });
+
     it('should return undefined for non-chat-like objects', () => {
       expect(tryExtractUserMessageContent({ foo: 'bar' })).toBeUndefined();
       expect(tryExtractUserMessageContent({ data: [1, 2, 3] })).toBeUndefined();
