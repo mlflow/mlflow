@@ -6,6 +6,7 @@ on:
     paths:
       - mlflow/server/js/**
       - .github/actions/check-component-ids/**
+      - .github/actions/js-build-cache-key/**
       - .github/actions/setup-node/**
       - .github/workflows/js.yml
     branches:
@@ -15,6 +16,7 @@ on:
     paths:
       - mlflow/server/js/**
       - .github/actions/check-component-ids/**
+      - .github/actions/js-build-cache-key/**
       - .github/actions/setup-node/**
       - .github/workflows/js.yml
 
@@ -114,13 +116,7 @@ jobs:
       - uses: ./.github/actions/setup-node
       - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         id: cache-key
-        working-directory: .
-        run: |
-          node_version=$(node --version)
-          yarn_version=$(cd mlflow/server/js && yarn --version)
-          fingerprint=$(git ls-files -z -- mlflow/server/js .github/actions/setup-node |
-            xargs -0 sha256sum | sha256sum | cut -d ' ' -f1)
-          echo "key=mlflow-js-build-${RUNNER_OS}-${node_version}-${yarn_version}-${fingerprint}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/js-build-cache-key
       - run: |
           yarn install --immutable
       - run: |

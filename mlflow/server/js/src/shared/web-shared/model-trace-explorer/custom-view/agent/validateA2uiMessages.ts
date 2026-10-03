@@ -19,6 +19,7 @@ import { KeyValueViewer } from '../catalog-primitives/KeyValueViewer';
 import { Markdown } from '../catalog-primitives/Markdown';
 import { RadioGroup } from '../catalog-primitives/RadioGroup';
 import { StatCard } from '../catalog-primitives/StatCard';
+import { TraceImage } from '../catalog-primitives/TraceImage';
 import {
   SPAN_FIELD_SOURCE_NAME,
   isKnownSource,
@@ -41,6 +42,7 @@ const COMPONENT_SCHEMAS: Record<string, ZodTypeAny> = Object.fromEntries(
     Icon,
     Card,
     Markdown,
+    TraceImage,
     AssessmentBoard,
     AssessmentCard,
     KeyValueViewer,
@@ -370,6 +372,21 @@ const validateTemplateComponent = (component: Record<string, unknown>): string |
         `Component "${id}" (${componentName}) must use a valid "$spanRef" marker for "spanId". ` +
         `Use { "$spanRef": "root" }, { "$spanRef": { "type": "<SPAN_TYPE>", "nth"?: n } }, or ` +
         `{ "$spanRef": { "name": "<span name>" } }; concrete span ids are not reusable across traces.`
+      );
+    }
+  }
+
+  // TraceImage.uri is a DynamicString at render time (the resolved
+  // `mlflow-attachment://` URI), but a TEMPLATE must bind it to a spanField so
+  // each opened trace fetches its own image. A literal URI copied from
+  // traceSample would freeze every subsequent trace to the authoring image.
+  if (componentName === 'TraceImage') {
+    const uri = component['uri'];
+    if (!isSourceMarker(uri) || uri.$source !== SPAN_FIELD_SOURCE_NAME || !isValidSpanFieldMarker(uri)) {
+      return (
+        `Component "${id}" (${componentName}) must bind "uri" to a valid spanField marker. ` +
+        `Use { "$source": "spanField", "spanRef": <selector>, "field": "inputs"|"outputs"|"attributes", ` +
+        `"path": [...] }; a literal mlflow-attachment:// URI is not reusable across traces.`
       );
     }
   }

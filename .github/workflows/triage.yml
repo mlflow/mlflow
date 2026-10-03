@@ -9,6 +9,14 @@ on:
         description: "Issue to triage"
         required: true
         type: number
+      model:
+        description: "AI Gateway Claude model for the triage agent"
+        required: false
+        type: choice
+        default: databricks-claude-sonnet-5-5
+        options:
+          - databricks-claude-sonnet-5-5
+          - databricks-claude-opus-5-5
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
@@ -99,7 +107,7 @@ jobs:
         run: |
           title="${TITLE#"${TITLE%%[![:space:]]*}"}"
           case "${title^^}" in
-            "[BUG]"* | "[SETUP-BUG]"* | "[FR]"* | "[DOC-FIX]"*) ;;
+            "[BUG]"* | "[UI-BUG]"* | "[SETUP-BUG]"* | "[FR]"* | "[DOC-FIX]"*) ;;
             *)
               title=$(
                 yq -o=json -I=0 '{"title": .title, "labels": [.body[] | select(.type != "markdown") | .attributes.label]}' \
@@ -117,6 +125,7 @@ jobs:
               ;;
           esac
           case "${title^^}" in
+            "[UI-BUG]"*) type="bug" labels="bug,area/uiux" ;;
             "[BUG]"* | "[SETUP-BUG]"*) type="bug" labels="bug" ;;
             "[FR]"*) type="enhancement" labels="enhancement" ;;
             "[DOC-FIX]"*) type="bug" labels="bug,area/docs" ;;
@@ -130,13 +139,7 @@ jobs:
           # Templates apply these labels already; adding them again is a no-op.
           gh issue edit "$ISSUE_URL" --add-label "$labels"
   safety:
-    needs: [issue, label]
-    # Scoped to bugs from maintainers for now. Manual runs skip the author check
-    # since only users with write access can dispatch.
-    if: >-
-      needs.label.outputs.type == 'bug' &&
-      (github.event_name == 'workflow_dispatch' ||
-       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
+    needs: issue
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -158,11 +161,40 @@ jobs:
         run: |
           # Strip HTML comments, control characters, and invisible Unicode (zero-width,
           # bidi overrides, tag characters) that can hide text from human reviewers.
-          jq -n --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" '
-            {title: env.TITLE, body: env.BODY}
-            | map_values(gsub("<!--[\\s\\S]*?-->"; "") | gsub("[\\x{0}-\\x{8}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{ad}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2060}-\\x{2064}\\x{2066}-\\x{2069}\\x{feff}\\x{e0000}-\\x{e007f}]"; ""))
+          jq -n '{title: env.TITLE, body: env.BODY}' > "$RUNNER_TEMP/original_issue.json"
+          jq --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" '
+            map_values(gsub("<!--[\\s\\S]*?-->"; "") | gsub("[\\x{0}-\\x{8}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{ad}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2060}-\\x{2064}\\x{2066}-\\x{2069}\\x{feff}\\x{e0000}-\\x{e007f}]"; ""))
             | . + {$repository, issue_number: $number}
-          ' > "$RUNNER_TEMP/sanitized_issue.json"
+          ' "$RUNNER_TEMP/original_issue.json" > "$RUNNER_TEMP/sanitized_issue.json"
+          for variant in original sanitized; do
+            # Split on CRLF too: the sanitizer strips "\r", so splitting on "\n" alone would
+            # flag every line of a CRLF body as changed.
+            jq -a '"title", (.title | splits("\r?\n")), "body", (.body | splits("\r?\n"))' \
+              "$RUNNER_TEMP/${variant}_issue.json" > "$RUNNER_TEMP/${variant}_issue.txt"
+          done
+          diff_file="$RUNNER_TEMP/sanitization.diff"
+          if diff -U0 --label original --label sanitized \
+            "$RUNNER_TEMP/original_issue.txt" "$RUNNER_TEMP/sanitized_issue.txt" > "$diff_file"; then
+            echo "No issue content was sanitized" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            status=$?
+            [ "$status" -eq 1 ] || exit "$status"
+            max_bytes=16000
+            {
+              head -c "$max_bytes" "$diff_file"
+              if [ "$(wc -c < "$diff_file")" -gt "$max_bytes" ]; then
+                printf '\n... (diff truncated to %d bytes)\n' "$max_bytes"
+              fi
+            } > "$RUNNER_TEMP/sanitization.log"
+            cat "$RUNNER_TEMP/sanitization.log"
+            # Every diff line starts with "-", "+", or "@@", so issue content can't close the fence.
+            {
+              echo "### Issue content removed by sanitizer"
+              echo '```diff'
+              cat "$RUNNER_TEMP/sanitization.log"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - id: gateway
         uses: ./.github/actions/setup-gateway
         with:
@@ -264,12 +296,25 @@ jobs:
           if-no-files-found: error
           retention-days: 1
   triage:
-    needs: [issue, safety]
-    if: needs.safety.outputs.decision == 'safe'
+    needs: [issue, label, safety]
+    # Scoped to bugs from maintainers for now. Manual runs skip the author check
+    # since only users with write access can dispatch.
+    if: >-
+      needs.safety.outputs.decision == 'safe' &&
+      needs.label.outputs.type == 'bug' &&
+      (github.event_name == 'workflow_dispatch' ||
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
+    cache-mode: read
+    env:
+      NGINX_IMAGE: nginx@sha256:6784fb0834aa7dbbe12e3d7471e69c290df3e6ba810dc38b34ae33d3c1c05f7d
+      AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
+      XDG_DATA_HOME: /tmp/triage-xdg-data
+      XDG_CONFIG_HOME: /tmp/triage-xdg-config
+      XDG_CACHE_HOME: /tmp/triage-xdg-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -296,6 +341,12 @@ jobs:
             run: |
               .claude/scripts/install-claude.sh
               claude --version
+          - name: Pull gateway proxy image
+            run: docker pull "$NGINX_IMAGE"
+          - name: Install agent-browser
+            run: |
+              .claude/scripts/install-agent-browser.sh
+              agent-browser --version
           - id: gateway
             uses: ./.github/actions/setup-gateway
             with:
@@ -303,6 +354,12 @@ jobs:
               host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
               client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
               client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+      - id: build-cache-key
+        uses: ./.github/actions/js-build-cache-key
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mlflow/server/js/build
+          key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
         timeout-minutes: 10
@@ -337,9 +394,9 @@ jobs:
           }
           EOF
           sudo chown root:root /etc/gw-proxy/nginx.conf
-          docker run -d --rm --name gw-proxy -p 127.0.0.1:8080:80 \
+          docker run --pull=never -d --rm --name gw-proxy -p 127.0.0.1:8080:80 \
             -v /etc/gw-proxy/nginx.conf:/etc/nginx/nginx.conf:ro \
-            nginx@sha256:6784fb0834aa7dbbe12e3d7471e69c290df3e6ba810dc38b34ae33d3c1c05f7d
+            "$NGINX_IMAGE"
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/healthz > /dev/null; then
               exit 0
@@ -348,47 +405,26 @@ jobs:
           done
           echo "::error::Gateway proxy did not become ready"
           exit 1
-      - name: Write sandbox settings
+      - name: Prepare sandbox paths
         run: |
-          cat > "$RUNNER_TEMP/srt.json" <<'EOF'
-          {
-            "network": {
-              "allowedDomains": [
-                "localhost:8080",
-                "pypi.org",
-                "files.pythonhosted.org",
-                "registry.npmjs.org"
-              ],
-              "deniedDomains": []
-            },
-            "filesystem": {
-              "denyRead": [
-                "~/.ssh",
-                "~/.docker",
-                "~/.config/gh",
-                "/etc/gw-proxy",
-                "/home/runner/work/_temp/_runner_file_commands"
-              ],
-              "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
-              "denyWrite": []
-            }
-          }
-          EOF
           # srt skips write rules for paths that don't exist yet.
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
       - name: Check sandbox restrictions
         run: |
+          # .claude/sandbox/srt.json allows all Unix sockets because Linux SRT cannot allowlist
+          # them by path and agent-browser needs one; denyRead hides the host service sockets.
           # Otherwise a sandbox that fails to start would pass every check below.
-          srt --settings "$RUNNER_TEMP/srt.json" -- true
+          srt --settings .claude/sandbox/srt.json -- true
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
             'curl -sf https://example.com' \
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
+            'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
             'cat /etc/gw-proxy/nginx.conf' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
-            if srt --settings "$RUNNER_TEMP/srt.json" -- bash -c "$command"; then
+            if srt --settings .claude/sandbox/srt.json -- bash -c "$command"; then
               echo "::error::Sandbox allowed a forbidden operation"
               exit 1
             fi
@@ -401,6 +437,9 @@ jobs:
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
+          AGENT_BROWSER_ARGS: --no-sandbox
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
+          MODEL: ${{ inputs.model || 'databricks-claude-sonnet-5-5' }}
           # TODO: Placeholder that only verifies the gateway and sandbox. Replace with a real triage prompt.
           PROMPT: |
             Read the GitHub issue in ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
@@ -409,19 +448,41 @@ jobs:
 
             1. Run `uv run python -c "import mlflow; print(mlflow.__version__)"` in the
                current directory and note the version.
-            2. Write /tmp/triage-out/report.json as
+            2. Start the MLflow UI only if it would help investigate this issue.
+               When needed, start it in the background from your Bash tool. If
+               mlflow/server/js/build/index.html exists, run `uv run mlflow server
+               --host 127.0.0.1 --port 5000` with a SQLite backend and artifact
+               directory under /tmp. Otherwise run `HOST=localhost CI=false uv run
+               dev/run_dev_server.py` (which installs the frontend dependencies).
+               Wait until the local UI responds using `curl --noproxy '*'`; use
+               the Frontend URL printed by the dev server when applicable. For
+               local MLflow client or API commands, set `NO_PROXY=localhost,127.0.0.1`
+               and `no_proxy=localhost,127.0.0.1` on those commands only; otherwise
+               localhost requests can go through the sandbox proxy and be blocked.
+               Do not export these variables globally because Claude uses the
+               gateway at localhost:8080. Keep browser navigation on local MLflow
+               URLs. Run `agent-browser open
+               <UI URL>`, inspect `agent-browser snapshot -i`, and take a full-page
+               screenshot with `agent-browser screenshot --full` without a filename.
+               Save screenshots under /tmp/triage-out/media and include their
+               printed absolute paths in the report. If startup or browser launch
+               fails, state the specific blocker. If UI access would not help,
+               skip the server and browser and say why.
+            3. Write /tmp/triage-out/report.json as
                {"issue_number": <issue number>, "body": "<Markdown>"}, where the body
                summarizes the issue in a few sentences for an MLflow maintainer and
                states the MLflow version from step 1. Open it with a one-line note that
                an automated agent wrote it, don't @-mention anyone, and stay under
                10,000 characters. Create the output directory first.
         run: |
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
+          mkdir -p "${TMPDIR:-/tmp}"
           TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout 30m srt --settings "$RUNNER_TEMP/srt.json" -- \
+          timeout 30m srt --settings .claude/sandbox/srt.json -- \
             env -u NO_PROXY -u no_proxy claude \
-            --model databricks-claude-sonnet-5-5 \
+            --model "$MODEL" \
             --effort high \
             --max-budget-usd 5 \
             --permission-mode auto \

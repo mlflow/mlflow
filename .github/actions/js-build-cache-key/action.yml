@@ -1,0 +1,18 @@
+name: JavaScript build cache key
+description: Compute the shared key for the MLflow JavaScript build cache
+outputs:
+  key:
+    description: Cache key
+    value: ${{ steps.key.outputs.key }}
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        node_version=$(node --version)
+        yarn_version=$(cd mlflow/server/js && yarn --version)
+        fingerprint=$(git ls-files -z -- mlflow/server/js .github/actions/setup-node |
+          xargs -0 sha256sum | sha256sum | cut -d ' ' -f1)
+        echo "key=mlflow-js-build-${RUNNER_OS}-${node_version}-${yarn_version}-${fingerprint}" >> "$GITHUB_OUTPUT"
