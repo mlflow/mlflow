@@ -169,7 +169,7 @@ class AssessmentInfo(BaseModel):
     value: Any | None = None
     error: AssessmentErrorInfo | None = None
     rationale: str | None = None
-    metadata: dict[str, str] | None = None
+    metadata: dict[str, Any] | None = None
     span_id: str | None = None
     source: AssessmentSourceInfo | None = None
     create_time_ms: int | None = None
