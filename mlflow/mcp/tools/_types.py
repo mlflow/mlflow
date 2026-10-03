@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from mlflow.entities import Assessment, Expectation, Experiment, Feedback, Run
+from mlflow.entities import Assessment, Expectation, Experiment, Feedback, Run, RunInputs
 
 
 class ExperimentInfo(BaseModel):
@@ -77,6 +77,15 @@ class RunPage(BaseModel):
     next_page_token: str | None
 
 
+def _run_inputs_dict(inputs: RunInputs) -> dict[str, Any]:
+    # ``RunInputs.to_dictionary`` leaves the ``LoggedModelInput`` objects in place, which do not
+    # serialize; model inputs take the shape the REST API returns, ``{"model_id": ...}``.
+    return {
+        "model_inputs": [{"model_id": m.model_id} for m in inputs.model_inputs],
+        "dataset_inputs": [d.to_dictionary() for d in inputs.dataset_inputs],
+    }
+
+
 class RunDetails(BaseModel):
     run_id: str
     run_name: str | None
@@ -109,7 +118,7 @@ class RunDetails(BaseModel):
             metrics=dict(run.data.metrics),
             params=dict(run.data.params),
             tags=dict(run.data.tags),
-            inputs=run.inputs.to_dictionary() if run.inputs else None,
+            inputs=_run_inputs_dict(run.inputs) if run.inputs else None,
             outputs=run.outputs.to_dictionary() if run.outputs else None,
         )
 

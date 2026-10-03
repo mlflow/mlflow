@@ -1,7 +1,10 @@
+import json
+
 import pytest
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities import LoggedModelInput
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.request_context import MCP_HTTP_REQUEST, MCP_REQUEST_USERNAME
 from mlflow.mcp.tools.runs import (
@@ -181,6 +184,17 @@ def test_describe_run(experiment_id):
     assert details.run_name == "r"
     assert details.metrics == {"rmse": 0.5}
     assert details.params == {"alpha": "1"}
+
+
+def test_describe_run_serializes_logged_model_inputs(experiment_id):
+    client = MlflowClient()
+    run_id = client.create_run(experiment_id).info.run_id
+    model_id = client.create_logged_model(experiment_id).model_id
+    client.log_inputs(run_id, models=[LoggedModelInput(model_id)])
+
+    details = describe_run(run_id)
+    assert details.inputs == {"model_inputs": [{"model_id": model_id}], "dataset_inputs": []}
+    assert json.loads(details.model_dump_json())["inputs"] == details.inputs
 
 
 def test_link_traces_to_run(experiment_id):
