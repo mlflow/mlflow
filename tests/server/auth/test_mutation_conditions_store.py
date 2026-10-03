@@ -366,6 +366,97 @@ def test_loader_returns_rows_from_every_role(store, user):
     assert {r.value_condition for r in rows} == {"tag_key != 'a'", "tag_key != 'b'"}
 
 
+def test_loader_returns_only_unscoped_conditions_when_no_parent_is_in_play(store, user, role):
+    """A type with no parent in play matches only unscoped conditions.
+
+    Not a fail-open: a scoped condition governs children of a *named* parent, so a
+    request that names none is outside every scope. The refusal for a child whose
+    parent could not be resolved lives at context construction, where the caller
+    still knows it had a child to govern.
+    """
+    store.assign_role_to_user(user.id, role.id)
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'global'")
+    store.add_mutation_condition(
+        role.id,
+        "run",
+        parent_resource_type="experiment",
+        parent_resource_id="7",
+        value_condition="tag_key != 'exp7'",
+    )
+
+    rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
+    assert {r.value_condition for r in rows} == {"tag_key != 'global'"}
+
+
+def test_loader_adds_a_scoped_condition_only_for_its_own_parent(store, user, role):
+    """The whole point of the bound being a *storage* bound: a role may hold many
+    scoped conditions, and a request pays only for the ones that apply.
+    """
+    store.assign_role_to_user(user.id, role.id)
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'global'")
+    for parent in ("7", "9"):
+        store.add_mutation_condition(
+            role.id,
+            "run",
+            parent_resource_type="experiment",
+            parent_resource_id=parent,
+            value_condition=f"tag_key != 'exp{parent}'",
+        )
+
+    def load(parent):
+        rows = store.list_mutation_conditions_for_user(
+            user.id, _WORKSPACE, ["run"], {"run": [parent]}
+        )
+        return {r.value_condition for r in rows}
+
+    assert load("7") == {"tag_key != 'global'", "tag_key != 'exp7'"}
+    assert load("9") == {"tag_key != 'global'", "tag_key != 'exp9'"}
+    # An experiment no condition names is governed only by the unscoped one.
+    assert load("99") == {"tag_key != 'global'"}
+
+
+def test_loader_does_not_let_a_parent_id_satisfy_another_type_scope(store, user, role):
+    """Ids are only meaningful against their own type.
+
+    Pins the per-type predicate build: under one shared parent filter across all the
+    types queried, a request touching runs of experiment 7 would also pull in a
+    version condition scoped to registered model 7, because the bare id would satisfy
+    a scope belonging to another type. Mutation-tested against exactly that shape.
+    """
+    store.assign_role_to_user(user.id, role.id)
+    store.add_mutation_condition(
+        role.id,
+        "run",
+        parent_resource_type="experiment",
+        parent_resource_id="7",
+        value_condition="tag_key != 'runscope'",
+    )
+    store.add_mutation_condition(
+        role.id,
+        "registered_model_version",
+        parent_resource_type="registered_model",
+        parent_resource_id="7",
+        value_condition="tag_key != 'modelscope'",
+    )
+
+    # Only the run's parent is in play, though both types are queried.
+    rows = store.list_mutation_conditions_for_user(
+        user.id, _WORKSPACE, ["run", "registered_model_version"], {"run": ["7"]}
+    )
+    assert {r.value_condition for r in rows} == {"tag_key != 'runscope'"}
+
+    rows = store.list_mutation_conditions_for_user(
+        user.id,
+        _WORKSPACE,
+        ["run", "registered_model_version"],
+        {"run": ["7"], "registered_model_version": ["7"]},
+    )
+    assert {r.value_condition for r in rows} == {
+        "tag_key != 'runscope'",
+        "tag_key != 'modelscope'",
+    }
+
+
 def test_loader_excludes_roles_the_user_does_not_hold(store, user):
     mine = store.create_role("mine", _WORKSPACE, None)
     theirs = store.create_role("theirs", _WORKSPACE, None)

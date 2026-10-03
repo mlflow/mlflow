@@ -2265,10 +2265,17 @@ class SqlAlchemyStore:
     def _scope_predicates(types: "Collection[str]", parents: "Mapping[str, Collection[str]]"):
         """One predicate per type in play: unscoped, or scoped to a parent in play.
 
-        Built per type rather than as a single ``resource_type IN (...)`` plus a shared
-        parent filter, because the parents in play differ by type -- a request touching
-        runs of experiment 7 and versions of model M must not let M's ID satisfy a
-        run condition scoped to experiment M.
+        Built per type rather than as a single ``resource_type IN (...)`` plus one
+        shared parent filter, because the parents in play differ by type. Under a
+        shared filter a request touching runs of experiment 7 would also pull in a
+        version condition scoped to registered model 7 -- the id would satisfy a scope
+        belonging to another type. Each type therefore gets its own parent set.
+
+        The ``parent_resource_type`` equality is defence in depth rather than what
+        provides that isolation: the per-type ``resource_type ==`` already partitions
+        the rows, and ``validate_condition_parent_scope`` refuses to store a row whose
+        parent type is not its resource type's declared parent. It costs nothing and
+        keeps a corrupt row from matching.
         """
         predicates = []
         for resource_type in sorted(types):
