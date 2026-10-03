@@ -4141,7 +4141,7 @@ def validate_can_invoke_issue_detection():
     if not _authorize_create_in_experiment(
         _get_request_param("experiment_id"),
         RESOURCE_TYPE_RUN,
-        _issue_detection_run_tags(body),
+        tags=_issue_detection_run_tags(body),
     ):
         return False
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -4751,7 +4751,7 @@ def validate_can_create_logged_model():
     if not _authorize_create_in_experiment(
         msg.experiment_id,
         RESOURCE_TYPE_LOGGED_MODEL,
-        tuple((tag.key, tag.value) for tag in msg.tags),
+        tags=tuple((tag.key, tag.value) for tag in msg.tags),
     ):
         return False
     return not msg.source_run_id or _authorize_run_id(msg.source_run_id, "read")
@@ -4921,7 +4921,7 @@ def validate_can_start_trace():
     return _authorize_create_in_experiment(
         _get_request_param("experiment_id"),
         RESOURCE_TYPE_TRACE,
-        tuple((tag.key, tag.value) for tag in message.tags),
+        tags=tuple((tag.key, tag.value) for tag in message.tags),
     )
 
 
@@ -5066,7 +5066,7 @@ def validate_can_create_promptlab_run():
 
     # The caller's own tags, which the handler passes to `create_run` unchanged.
     return _authorize_create_in_experiment(
-        experiment_id, RESOURCE_TYPE_RUN, _promptlab_run_tags(data)
+        experiment_id, RESOURCE_TYPE_RUN, tags=_promptlab_run_tags(data)
     )
 
 
