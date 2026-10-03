@@ -1520,7 +1520,8 @@ def test_trace_tag_operations_are_workspace_scoped(workspace_tracking_store):
             workspace_tracking_store.delete_trace_tag(trace_id_a, "key")
 
 
-def test_search_traces_is_workspace_scoped(workspace_tracking_store):
+@pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
+def test_search_traces_is_workspace_scoped(workspace_tracking_store, order_by):
     with WorkspaceContext("team-search-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-search-a")
         trace_id_a = generate_request_id_v2()
@@ -1550,11 +1551,11 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store):
             )
 
         # Cross-workspace search returns nothing
-        results, _ = workspace_tracking_store.search_traces(locations=[exp_a])
+        results, _ = workspace_tracking_store.search_traces(locations=[exp_a], order_by=order_by)
         assert results == []
 
         # Same-workspace search works
-        results, _ = workspace_tracking_store.search_traces(locations=[exp_b])
+        results, _ = workspace_tracking_store.search_traces(locations=[exp_b], order_by=order_by)
         assert len(results) == 1
         assert results[0].trace_id == trace_id_b
 
