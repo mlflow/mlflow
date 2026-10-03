@@ -75,6 +75,15 @@ def recorder(monkeypatch):
     monkeypatch.setattr(auth_module, "_create_not_denied", fake_create_not_denied)
     monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda *a, **k: _WORKSPACE)
 
+    def fake_resolve_requirements(username, anchor, requirements):
+        # `validate_can_create_assessment` evaluates its experiment-OR-trace disjunction
+        # itself, so it resolves permissions directly instead of calling `authorize`.
+        # Granting every rung lets the guard reach the condition declaration.
+        return [SimpleNamespace(name="MANAGE") for _ in requirements]
+
+    monkeypatch.setattr(auth_module, "resolve_requirements", fake_resolve_requirements)
+    monkeypatch.setattr(auth_module, "requirement_met", lambda requirement, permission: True)
+
     # The fetches each wired helper performs before it declares its context. Stubbed so the
     # guard exercises the wiring rather than a store.
     def a_registered_model(name):
@@ -268,6 +277,35 @@ _WIRED_MUTATIONS = [
         "logged_model",
         ConditionScope.MUTATE,
     ),
+    # Assessments. The RFC states that assessment create, update and delete are
+    # authorized against the trace, so a TRACE target condition gates them -- its own
+    # worked example is refusing an assessment on a trace tagged `finalized=true`.
+    # `assessment` is deliberately not a conditionable type (it owns no tag or alias
+    # vocabulary), so the trace is the only thing a condition can name here.
+    (
+        "validate_can_create_assessment",
+        "/api/3.0/mlflow/traces/t1/assessments",
+        "POST",
+        {"trace_id": "t1"},
+        "trace",
+        ConditionScope.MUTATE,
+    ),
+    (
+        "validate_can_update_assessment",
+        "/api/3.0/mlflow/traces/t1/assessments/a1",
+        "PATCH",
+        {"trace_id": "t1", "assessment_id": "a1"},
+        "trace",
+        ConditionScope.MUTATE,
+    ),
+    (
+        "validate_can_delete_assessment",
+        "/api/3.0/mlflow/traces/t1/assessments/a1",
+        "DELETE",
+        {"trace_id": "t1", "assessment_id": "a1"},
+        "trace",
+        ConditionScope.MUTATE,
+    ),
     # Experiments -- the legacy surface, which calls the conditions half directly.
     (
         "validate_can_set_experiment_tag",
@@ -361,6 +399,12 @@ def test_every_wired_mutation_extracts_its_values(
         "validate_can_create_run",
         "validate_can_create_experiment",
         "validate_can_delete_traces",
+        # An assessment body sets assessment fields, not trace tags, so there is no
+        # tag for the request half to extract. The context exists for the TARGET
+        # condition, which is what the RFC says gates these routes.
+        "validate_can_create_assessment",
+        "validate_can_update_assessment",
+        "validate_can_delete_assessment",
     }
 
     with auth_module.app.test_request_context(path, method=method, json=body):

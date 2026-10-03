@@ -4800,6 +4800,44 @@ def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | N
     return (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id), trace.experiment_id
 
 
+def _assessment_trace_conditions(trace_id: str, experiment_id: str) -> bool:
+    """The conditions half for an assessment mutation, judged on its TRACE.
+
+    Assessment create, update and delete are authorized against the trace, so a trace
+    TARGET condition is what gates them -- the RFC's worked example is refusing an
+    assessment on a trace tagged ``finalized=true``. ``assessment`` is deliberately
+    not a conditionable type: it owns no tag or alias vocabulary of its own, so the
+    trace is the only thing a condition can name on these routes.
+
+    Request values are empty on purpose. An assessment body sets assessment fields,
+    not trace tags, so no ``tag_key``/``tag_value`` clause could read anything here --
+    only a target condition applies, which is exactly what the RFC describes.
+
+    Called beside the grant check rather than through ``authorize`` for ``create``,
+    whose two-path disjunction is evaluated by the caller and so has no single
+    ``authorize`` call to pass conditions to -- the same shape as the legacy
+    experiment surface.
+    """
+    return authorize_on_conditions(
+        authenticate_request().username,
+        get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        _assessment_trace_contexts(trace_id, experiment_id),
+    )
+
+
+def _assessment_trace_contexts(trace_id: str, experiment_id: str) -> "list[ConditionContext]":
+    """The trace context an assessment mutation is judged on. See above."""
+    return [
+        context_for(
+            RESOURCE_TYPE_TRACE,
+            trace_id,
+            ConditionScope.MUTATE,
+            TraceRequestValues(),
+            parent_resource_id=experiment_id,
+        )
+    ]
+
+
 def validate_can_get_assessment():
     """
     Reading one assessment directly. The assessment IS the subject, so a denied assessment
@@ -4885,7 +4923,9 @@ def validate_can_create_assessment():
         return False
     met = [requirement_met(r, p) for r, p in zip(requirements, permissions)]
     *addressing, experiment_write, trace_write = met
-    return all(addressing) and (experiment_write or trace_write)
+    if not (all(addressing) and (experiment_write or trace_write)):
+        return False
+    return _assessment_trace_conditions(_get_request_param("trace_id"), experiment_id)
 
 
 def validate_can_update_assessment():
@@ -4911,6 +4951,7 @@ def validate_can_update_assessment():
                 RESOURCE_TYPE_ASSESSMENT, "*", "update", fallback_if_no_grant=(experiment,)
             ),
         ],
+        conditions=_assessment_trace_contexts(_get_request_param("trace_id"), experiment_id),
     )
 
 
@@ -4947,6 +4988,7 @@ def validate_can_delete_assessment():
                 ),
             ),
         ],
+        conditions=_assessment_trace_contexts(_get_request_param("trace_id"), experiment_id),
     )
 
 
