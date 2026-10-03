@@ -148,3 +148,30 @@ def test_upload_artifacts_to_uri(tmp_path):
     )
     with open(downloaded_artifact_path) as f:
         assert f.read() == artifact_text
+
+
+def test_get_root_uri_and_artifact_path_with_windows_absolute_path_not_on_disk():
+    """
+    Regression test for https://github.com/mlflow/mlflow/issues/2783.
+    On Windows, absolute paths that don't exist on disk (e.g. "C:\\path\\to\\artifact")
+    bypass the os.path.exists() branch and reach urlparse directly. urlparse incorrectly
+    treats the drive letter as a URL scheme (e.g. scheme='c'), causing a
+    "Could not find a registered artifact repository" error.
+    """
+    from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
+
+    windows_path = "C:\\Users\\test\\artifacts\\model"
+    expected_file_uri = "file:///C:/Users/test/artifacts/model"
+
+    with (
+        mock.patch("mlflow.tracking.artifact_utils.is_windows", return_value=True),
+        mock.patch("os.path.exists", return_value=False),
+        mock.patch(
+            "mlflow.tracking.artifact_utils.path_to_local_file_uri",
+            return_value=expected_file_uri,
+        ),
+    ):
+        root_uri, artifact_path = _get_root_uri_and_artifact_path(windows_path)
+
+    assert root_uri == "file:///C:/Users/test/artifacts"
+    assert artifact_path == "model"
