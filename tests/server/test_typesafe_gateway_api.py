@@ -7,9 +7,13 @@ from fastapi.testclient import TestClient
 
 import mlflow
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
-from mlflow.gateway.config import GatewayRequestType
+from mlflow.gateway.config import EndpointType, GatewayRequestType
 from mlflow.gateway.guardrails import GuardrailViolation
-from mlflow.server.gateway_api import gateway_router, typesafe_passthrough_system_one
+from mlflow.server.gateway_api import (
+    _create_provider_from_endpoint_name,
+    gateway_router,
+    typesafe_passthrough_system_one,
+)
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
@@ -219,11 +223,12 @@ async def test_system_one_rejects_mixed_model_providers(linkage):
     with (
         patch("mlflow.server.gateway_api._validate_store"),
         patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
-            return_value=(provider, config),
+            "mlflow.server.gateway_api.get_endpoint_config",
+            return_value=config,
         ),
+        patch("mlflow.server.gateway_api._create_provider", return_value=provider),
     ):
-        with pytest.raises(HTTPException, match="requires all endpoint models") as exc:
+        with pytest.raises(HTTPException, match="cannot mix System One and chat") as exc:
             await typesafe_passthrough_system_one(request)
     assert exc.value.status_code == 400
     provider.passthrough.assert_not_called()
@@ -246,3 +251,17 @@ def test_system_one_disabled(monkeypatch):
     assert (
         TestClient(app).post("/gateway/typesafe/v1/systemone", json=_request()).status_code == 501
     )
+
+
+def test_chat_route_rejects_system_one_endpoint_before_provider_construction(endpoint):
+    with (
+        patch("mlflow.server.gateway_api._create_provider") as create_provider,
+        pytest.raises(HTTPException, match="only support structured evaluation"),
+    ):
+        _create_provider_from_endpoint_name(
+            endpoint.store,
+            endpoint.endpoint.name,
+            EndpointType.LLM_V1_CHAT,
+        )
+
+    create_provider.assert_not_called()
