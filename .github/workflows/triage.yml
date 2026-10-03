@@ -553,6 +553,21 @@ jobs:
           # them by path and agent-browser needs one; denyRead hides the host service sockets.
           # Otherwise a sandbox that fails to start would pass every check below.
           srt --settings .claude/sandbox/srt.json -- true
+          # Verify the sandbox's PID namespace hides Runner.Worker, which holds
+          # credentials referenced by this job.
+          host_processes=$(ps -e -o comm=)
+          if ! grep -Fxq 'Runner.Worker' <<< "$host_processes"; then
+            echo "::error::Runner.Worker was not found on the host"
+            exit 1
+          fi
+          srt --settings .claude/sandbox/srt.json -- bash -c '
+            set -euo pipefail
+            processes=$(ps -e -o comm=)
+            if grep -Fxq "Runner.Worker" <<< "$processes"; then
+              echo "Runner.Worker is visible inside the sandbox" >&2
+              exit 1
+            fi
+          '
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
             'curl -sf https://example.com' \
