@@ -5,7 +5,8 @@
       "pypi.org",
       "files.pythonhosted.org",
       "releases.astral.sh",
-      "registry.npmjs.org"
+      "registry.npmjs.org",
+      "registry.yarnpkg.com"
     ],
     "deniedDomains": [],
     "allowAllUnixSockets": true
