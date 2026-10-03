@@ -754,6 +754,7 @@ MAX_SKILL_NAME_LENGTH = 64
 MAX_AGENT_PLUGIN_NAME_LENGTH = 64
 MAX_ORGANIZATION_NAME_LENGTH = 64
 MAX_SKILL_VERSION = 2_147_483_647
+_MAX_BULK_REGISTER_SKILLS = 500
 
 # Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
 # and last characters; no consecutive hyphens.
