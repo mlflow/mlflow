@@ -138,10 +138,13 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.(
+        { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifactContent,
+      )
       .then((rawFeatures: any) => {
         const parsedFeatures = JSON.parse(rawFeatures);
         this.setState({ features: parsedFeatures, loading: false });

@@ -21,6 +21,7 @@ import type { KeyValueEntity } from '../common/types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
+import { uploadArtifactWithPresignedUrl } from './utils/PresignedArtifactUtils';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const GET_EXPERIMENT_API = 'GET_EXPERIMENT_API';
@@ -127,21 +128,27 @@ export interface UploadArtifactApiAction extends AsyncAction<
 }
 export const UPLOAD_ARTIFACT_API = 'UPLOAD_ARTIFACT_API';
 export const uploadArtifactApi = (runUuid: any, filePath: any, fileContent: any) => {
-  // We are not using MlflowService because this endpoint requires
-  // special query string preparation
-  const queryParams = queryStringStringify({
-    run_uuid: runUuid,
-    path: filePath,
-  });
-  const request = fetchEndpoint({
-    relativeUrl: `ajax-api/2.0/mlflow/upload-artifact?${queryParams}`,
-    method: 'POST',
-    body: JSON.stringify(fileContent),
-    success: defaultResponseParser,
-    // Retry the call every time an artifact upload fails
-    errorCondition: (res: Response) => !res || !res.ok,
-    // Retry for maximum 3 times
-    retries: 3,
+  const body = JSON.stringify(fileContent);
+  const request = uploadArtifactWithPresignedUrl(runUuid, filePath, body).then((uploaded) => {
+    if (uploaded) {
+      return undefined;
+    }
+
+    // Compatibility path for older servers and repositories without presigned support.
+    const queryParams = queryStringStringify({
+      run_uuid: runUuid,
+      path: filePath,
+    });
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/2.0/mlflow/upload-artifact?${queryParams}`,
+      method: 'POST',
+      body,
+      success: defaultResponseParser,
+      // Retry the call every time an artifact upload fails
+      errorCondition: (res: Response) => !res || !res.ok,
+      // Retry for maximum 3 times
+      retries: 3,
+    });
   });
 
   return (dispatch: ThunkDispatch) => {

@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import yaml from 'js-yaml';
 import '../../../common/styles/CodeSnippet.css';
 import { MLMODEL_FILE_NAME, SERVING_INPUT_FILE_NAME } from '../../constants';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import { SchemaTable } from '../../../model-registry/components/SchemaTable';
 import {
   RegisteringModelDocUrl,
@@ -435,12 +435,13 @@ mlflow.models.predict(
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
     const MLModelArtifactPath = `${this.props.path}/${MLMODEL_FILE_NAME}`;
-    const { getArtifact, path, runUuid, experimentId, entityTags } = this.props;
+    const { artifactRootUri, getArtifact, path, runUuid, experimentId, entityTags } = this.props;
 
     fetchArtifactUnified(
       {
         path: MLModelArtifactPath,
         runUuid,
+        artifactRootUri,
         experimentId,
         entityTags,
       },

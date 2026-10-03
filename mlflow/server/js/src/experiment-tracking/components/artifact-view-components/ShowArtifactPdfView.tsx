@@ -8,11 +8,7 @@
 import React, { Component } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
-import {
-  getArtifactBytesContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
@@ -47,11 +43,11 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
 
     this.props
       .getArtifact?.(
-        { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
         getArtifactBytesContent,
       )
       .then((artifactPdfData: any) => {
