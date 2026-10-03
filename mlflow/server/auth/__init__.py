@@ -2547,6 +2547,7 @@ def _validate_can_update_run_and_models(
     if resolved is None:
         return False
     anchor, requirements = resolved
+    model_contexts = []
     for model_id in sorted(model_ids):
         model = auth_resources.fetch_logged_model(model_id)
         if model is None:
@@ -2561,6 +2562,19 @@ def _validate_can_update_run_and_models(
                 fallback_if_no_grant=(model_experiment,),
             )
         )
+        # Writing a metric or an input to a model mutates that model, so a logged-model
+        # target condition has to govern it -- the grant rung above is not enough. The
+        # request half is vacuous (the body sets metrics and inputs, not model tags), so
+        # this exists for the target condition.
+        model_contexts.append(
+            context_for(
+                RESOURCE_TYPE_LOGGED_MODEL,
+                model_id,
+                ConditionScope.MUTATE,
+                LoggedModelRequestValues(),
+                parent_resource_id=model.experiment_id,
+            )
+        )
     return authorize(
         authenticate_request().username,
         anchor,
@@ -2572,7 +2586,8 @@ def _validate_can_update_run_and_models(
                 ConditionScope.MUTATE,
                 RunRequestValues(tags=tags),
                 parent_resource_id=anchor[1],
-            )
+            ),
+            *model_contexts,
         ],
     )
 

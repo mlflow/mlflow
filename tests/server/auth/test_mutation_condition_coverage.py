@@ -419,6 +419,64 @@ def test_every_wired_mutation_extracts_its_values(
     )
 
 
+@pytest.mark.parametrize(
+    ("validator", "path", "body"),
+    [
+        (
+            "validate_can_log_metric",
+            "/api/2.0/mlflow/runs/log-metric",
+            {"run_id": "r1", "key": "m", "value": 1.0, "timestep": 0, "model_id": "m1"},
+        ),
+        (
+            "validate_can_log_batch",
+            "/api/2.0/mlflow/runs/log-batch",
+            {"run_id": "r1", "metrics": [{"key": "m", "value": 1.0, "model_id": "m1"}]},
+        ),
+        (
+            "validate_can_log_inputs",
+            "/api/2.0/mlflow/runs/log-inputs",
+            {"run_id": "r1", "models": [{"model_id": "m1"}]},
+        ),
+        (
+            "validate_can_log_outputs",
+            "/api/2.0/mlflow/runs/log-outputs",
+            {"run_id": "r1", "models": [{"model_id": "m1"}]},
+        ),
+    ],
+)
+def test_writing_to_a_logged_model_declares_the_model(recorder, monkeypatch, validator, path, body):
+    """A metric or input written to a logged model mutates that model, so a logged-model
+    target condition has to govern it.
+
+    These routes already append a grant `Requirement` for every model_id they touch, so
+    the grant half covers them -- but a context was declared only for the run, leaving
+    the models grant-checked and condition-unchecked. A condition like
+    `tags.lifecycle != 'prod'` on logged models would not have stopped a metric being
+    written to a prod model.
+
+    Every model_id is already in hand here, and so is its experiment, so declaring the
+    context costs no fetch.
+    """
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        getattr(auth_module, validator)()
+
+    declared = recorder.types_at(ConditionScope.MUTATE)
+    assert "run" in declared, f"{validator} stopped declaring its run context"
+    assert "logged_model" in declared, (
+        f"{validator} writes to a logged model but declared no logged_model condition; "
+        f"got {[(c.resource_type, c.scope.name) for c in recorder.contexts]}"
+    )
+    model_contexts = [c for c in recorder.contexts if c.resource_type == "logged_model"]
+    assert all(c.resource_ids == ("m1",) for c in model_contexts), (
+        f"the logged_model context must name the model being written to; "
+        f"got {[c.resource_ids for c in model_contexts]}"
+    )
+    assert all(c.parent_resource_id == "1" for c in model_contexts), (
+        f"the logged_model context must declare its experiment; "
+        f"got {[c.parent_resource_id for c in model_contexts]}"
+    )
+
+
 def test_a_tag_bearing_body_reaches_the_condition(recorder, monkeypatch):
     """Declaring a context is necessary but not sufficient: it must carry the body's tag.
 
