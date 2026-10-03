@@ -16,6 +16,7 @@ matched" and lets the untagged resource through.
 """
 
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -261,3 +262,105 @@ class TestCascadePushdown:
                     individually = True
                     break
             assert self._answer(store, experiment_id) is individually, runs
+
+
+class TestTheGateConsultsPushdown:
+    """The gate must prefer pushdown, not merely tolerate it.
+
+    Without these, deleting the pushdown call from the gate would fail nothing:
+    the enumeration fallback would quietly answer every case and the whole suite
+    would stay green. So the enumerator here *raises* -- reaching it is the
+    failure. The answers themselves are covered above; what is pinned here is
+    that the gate asks the store before it enumerates, and trusts the reply.
+    """
+
+    @staticmethod
+    def _gate(monkeypatch, pushdown_answer):
+        from mlflow.server import auth as auth_module
+        from mlflow.server.auth.conditions import ConditionScope, context_for
+
+        condition = f"tags.{TAG_KEY} != 'prod'"
+
+        class Store:
+            def get_user(self, username):
+                return SimpleNamespace(id=1, username=username, is_admin=False)
+
+            def is_workspace_admin(self, user_id, workspace):
+                return False
+
+            def list_mutation_conditions_for_user(
+                self, user_id, workspace, resource_types, parents=None
+            ):
+                return [
+                    SimpleNamespace(
+                        resource_type="run",
+                        value_condition=None,
+                        target_condition=condition,
+                    )
+                ]
+
+        monkeypatch.setattr(auth_module, "store", Store())
+        monkeypatch.setattr(
+            auth_module,
+            "_get_tracking_store",
+            lambda: SimpleNamespace(any_child_failing_tag_clauses=lambda *a, **k: pushdown_answer),
+        )
+
+        def _must_not_enumerate(_experiment_id):
+            raise AssertionError(
+                "the gate enumerated children although the store answered the "
+                "predicate; pushdown exists precisely to avoid this"
+            )
+
+        monkeypatch.setattr(auth_resources, "runs_of_experiment", _must_not_enumerate)
+        context = context_for(
+            "run",
+            None,
+            ConditionScope.MUTATE,
+            resource_id_resolver=lambda: _must_not_enumerate("e-1"),
+            parent_resource_id="e-1",
+        )
+        return auth_module.authorize_on_conditions("alice", "w", [context])
+
+    def test_a_reported_failure_denies_without_enumerating(self, monkeypatch):
+        assert self._gate(monkeypatch, True) is False
+
+    def test_a_reported_pass_permits_without_enumerating(self, monkeypatch):
+        assert self._gate(monkeypatch, False) is True
+
+    def test_a_decline_falls_back_to_enumeration(self, monkeypatch):
+        """And the fallback is reached, proving the decline is honoured."""
+        with pytest.raises(AssertionError, match="the gate enumerated children"):
+            self._gate(monkeypatch, None)
+
+
+class TestOnlyTagClausesArePushed:
+    """A clause the store cannot express must take the whole row in memory.
+
+    The pushdown hooks speak only about tags, but the resource namespace also
+    has ``aliases.<name>``. Pushing a row's tag clauses and silently ignoring
+    its alias clause would judge a conjunction against a subset of itself --
+    the fail-open direction, and one that no end-to-end case detects, because
+    aliases live on version types while the cascade entities are runs, traces
+    and logged models. So the guard is asserted directly on the helper.
+    """
+
+    @staticmethod
+    def _triples(filter_text):
+        from mlflow.server.auth import _tag_clause_triples
+
+        return _tag_clause_triples(parse_condition(filter_text, NAMESPACE_RESOURCE))
+
+    def test_tag_clauses_convert(self):
+        assert self._triples(f"tags.{TAG_KEY} != 'prod'") == [(TAG_KEY, "!=", "prod")]
+
+    def test_several_tag_clauses_convert_in_order(self):
+        triples = self._triples(f"tags.{TAG_KEY} != 'prod' AND tags.team = 'ml'")
+        assert triples == [(TAG_KEY, "!=", "prod"), ("team", "=", "ml")]
+
+    def test_an_alias_clause_declines(self):
+        assert self._triples("aliases.production = 'yes'") is None
+
+    def test_a_row_mixing_tags_and_aliases_declines_whole(self):
+        """Not "push the tag half" -- the row is indivisible."""
+        assert self._triples(f"tags.{TAG_KEY} != 'prod' AND aliases.production = 'yes'") is None

@@ -862,6 +862,15 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
         ),
     )
     monkeypatch.setattr(auth_resources, "runs_of_experiment", lambda _e: children)
+    # These cases pin the ENUMERATE-and-judge path, which is what a store that cannot
+    # push a tag predicate down still uses, so pushdown is made to decline here. The
+    # pushed path is covered separately in test_condition_pushdown.py; declining is the
+    # documented contract rather than a stub convenience.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(any_child_failing_tag_clauses=lambda *a, **k: None),
+    )
     monkeypatch.setattr(auth_resources, "traces_of_experiment", lambda _e: ())
     monkeypatch.setattr(auth_resources, "logged_models_of_experiment", lambda _e: ())
     monkeypatch.setattr(

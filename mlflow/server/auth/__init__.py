@@ -280,6 +280,7 @@ from mlflow.server.auth.conditions import (
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     PARENT_RESOURCE_TYPES,
+    RESOURCE_PREFIX_TAGS,
     SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
@@ -1053,6 +1054,56 @@ def authorize_on_conditions(
     return allowed
 
 
+def _tag_clause_triples(clauses):
+    """Convert parsed clauses to store triples, or ``None`` if any is not a tag clause.
+
+    The pushdown hooks speak only about tags. The resource namespace also has
+    ``aliases.<name>``, and a row mixing the two must take the in-memory path
+    whole rather than have its tag half pushed down -- a partial answer would
+    silently drop the alias clause, and dropping a clause is the fail-open
+    direction for a conjunction.
+    """
+    triples = []
+    for clause in clauses:
+        if clause.identifier != RESOURCE_PREFIX_TAGS or clause.key is None:
+            return None
+        triples.append((clause.key, clause.comparator, clause.value))
+    return triples
+
+
+def _cascade_target_pushdown(context, target_rows):
+    """Whether any child of the context's parent fails a target condition.
+
+    Returns ``True`` if one does, ``False`` if none does, or ``None`` if the
+    question could not be pushed down -- because the parent is unknown, a row
+    names something other than tags, or the store declines the entity. The
+    caller then enumerates, so a decline costs only this attempt.
+
+    Each row is asked separately. Rows are conjunctive, so a child failing any
+    row's clauses fails overall, and the first row reporting a failure settles
+    it. A row that cannot be pushed makes the whole context fall back, since
+    skipping it would judge the cascade against a subset of its conditions.
+    """
+    parent_id = context.parent_resource_id
+    if parent_id is None:
+        return None
+    store_ = _get_tracking_store()
+    per_row = []
+    for row in target_rows:
+        clauses = _parsed_condition(row.target_condition, NAMESPACE_RESOURCE)
+        triples = _tag_clause_triples(clauses)
+        if triples is None:
+            return None
+        per_row.append(triples)
+    found_failure = False
+    for triples in per_row:
+        answer = store_.any_child_failing_tag_clauses(context.resource_type, parent_id, triples)
+        if answer is None:
+            return None
+        found_failure = found_failure or answer
+    return found_failure
+
+
 def _authorize_on_conditions(
     username: str,
     workspace: "str | None",
@@ -1144,6 +1195,20 @@ def _authorize_on_conditions(
             continue
         resource_ids = context.resource_ids
         if not resource_ids and context.resource_id_resolver is not None:
+            # Ask the store first: "does the parent hold a child that fails this?" is one
+            # query, where enumerating and judging each child is one search page per 500
+            # plus a fetch per child. Only the store can answer it, and only for a
+            # predicate it can express, so a decline falls through to enumeration below.
+            pushed = _cascade_target_pushdown(context, target_rows)
+            if pushed is not None:
+                if pushed:
+                    # Some child fails. Deny directly rather than appending to `results`:
+                    # the store reports that one exists, not which, and `combine` has no
+                    # per-child result to record.
+                    return False
+                # Every child satisfies every pushed clause, so this context is settled
+                # without ever learning the children's ids.
+                continue
             # A cascade: the request names the parent, and the children are enumerated HERE
             # rather than by the validator, so an unconditioned cascade never pays for it.
             # This is the only place that knows a target condition actually exists for the
