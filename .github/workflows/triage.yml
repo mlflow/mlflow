@@ -9,6 +9,11 @@ on:
         description: "Issue to triage"
         required: true
         type: number
+      dry_run:
+        description: "Prepare the triage report without posting an issue comment"
+        required: false
+        type: boolean
+        default: true
       model:
         description: "AI Gateway Claude model for the triage agent"
         required: false
@@ -531,17 +536,6 @@ jobs:
             "$PROMPT" \
             | .claude/scripts/stream.sh "$TRANSCRIPT" || { echo "::$token::"; exit 1; }
           echo "::$token::"
-      - name: Write triage summary
-        env:
-          ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
-        run: |
-          number=$(jq -er '.issue_number' "$ISSUE_PATH")
-          # The body is model text. Escape it and keep it in an HTML block so it can't render links or markup.
-          jq -er --argjson number "$number" '
-            select((keys == ["body", "issue_number"]) and .issue_number == $number and
-                   (.body | type == "string" and length > 0 and length < 10000))
-            | "### Issue triage\n\n<pre>\(.body | @html)</pre>"
-          ' /tmp/triage-out/report.json >> "$GITHUB_STEP_SUMMARY"
       - name: Upload triage output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -552,6 +546,14 @@ jobs:
             ${{ runner.temp }}/triage-transcript.jsonl
           if-no-files-found: ignore
           retention-days: 7
+      - name: Upload triage report for posting
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/triage-out/report.json
+          if-no-files-found: ignore
+          retention-days: 1
       # Paths and status codes only; nginx doesn't log request headers.
       - name: Gateway proxy log
         if: always()
@@ -560,3 +562,52 @@ jobs:
       - name: Stop gateway proxy
         if: always()
         run: docker rm -f gw-proxy 2>/dev/null || true
+  post_triage:
+    needs: [issue, triage]
+    if: needs.issue.result == 'success' && needs.triage.result == 'success'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/triage-report
+      - name: Validate and prepare triage comment
+        env:
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          REPORT_PATH: ${{ runner.temp }}/triage-report/report.json
+          BODY_FILE: ${{ runner.temp }}/triage-comment.md
+        run: |
+          jq -e -s --argjson expected "$ISSUE_NUMBER" '
+            length == 1 and
+            (.[0] | type == "object" and .issue_number == $expected and
+             (.body | type == "string" and length > 0 and length < 10000))
+          ' "$REPORT_PATH" > /dev/null
+          jq -j '.body' "$REPORT_PATH" > "$BODY_FILE"
+      - name: Write triage comment preview
+        env:
+          BODY_FILE: ${{ runner.temp }}/triage-comment.md
+          SHOULD_POST: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
+        run: |
+          if [ "$SHOULD_POST" = true ]; then
+            state="Posting this triage report as an issue comment."
+          else
+            state="Comment not posted (dry run or issues event)."
+          fi
+          {
+            echo "### Triage comment preview"
+            echo
+            echo "$state"
+            echo
+            jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Post triage comment
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          BODY_FILE: ${{ runner.temp }}/triage-comment.md
+        run: gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file "$BODY_FILE"
