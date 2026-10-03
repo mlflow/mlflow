@@ -10,6 +10,10 @@ import yaml
 from yaml.events import AliasEvent, ScalarEvent
 
 from mlflow.genai.skill_content.errors import content_unreadable, invalid_content
+from mlflow.genai.skill_content.paths import (
+    _fail_on_walk_error,
+    _is_link_like,
+)
 from mlflow.utils.validation import _validate_skill_name
 
 SKILL_MANIFEST_FILE = "SKILL.md"
@@ -80,9 +84,10 @@ def inspect_skill_dir(
     """
     Read the content-derived fields of the skill rooted at ``root``.
 
-    The directory must contain a ``SKILL.md`` regular file. The skill name is declared in the
-    frontmatter ``name`` field; the directory name is never used because fetched content lands
-    in an arbitrary temporary directory. Import adapters that synthesize names for legacy
+    The directory must contain a ``SKILL.md`` regular file at its root and no nested
+    ``SKILL.md`` files or directories named ``SKILL.md``. The skill name is declared in
+    the frontmatter ``name`` field; the directory name is never used because fetched content
+    lands in an arbitrary temporary directory. Import adapters that synthesize names for legacy
     layouts may pass ``fallback_name`` explicitly. The name is validated against the Agent
     Skills naming rules, and ``description`` is read when present. Any other frontmatter
     key is ignored, whatever its shape, so a ``SKILL.md`` written for other tooling still
@@ -114,6 +119,21 @@ def inspect_skill_dir(
     description = metadata.get("description")
     if description is not None and not isinstance(description, str):
         raise invalid_content(f"{SKILL_MANIFEST_FILE} description must be a string.")
+
+    for dirpath, dirnames, _ in os.walk(root_path, onerror=_fail_on_walk_error, followlinks=False):
+        current = Path(dirpath)
+        dirnames[:] = [name for name in dirnames if not _is_link_like(current / name)]
+        nested = current / SKILL_MANIFEST_FILE
+        if _is_link_like(nested):
+            continue
+        if nested.is_dir():
+            raise invalid_content(f"'{nested}' must be a file, not a directory.")
+        if current != root_path and nested.is_file():
+            raise invalid_content(
+                "Nested skill roots are not supported: "
+                f"'{nested.relative_to(root_path).as_posix()}' is beneath "
+                f"skill directory '{root_path}'."
+            )
 
     return SkillManifest(
         name=name,
