@@ -1655,7 +1655,7 @@ def test_delete_version_keeps_alias_retargeted_during_delete(store):
         except MlflowException as e:
             retarget_results.append(e.error_code)
 
-    retarget_thread = threading.Thread(target=retarget)
+    retarget_thread = threading.Thread(target=retarget, name="retarget-alias")
     delete_thread_id = threading.get_ident()
 
     def retarget_after_alias_read(conn, cursor, statement, parameters, context, executemany):
