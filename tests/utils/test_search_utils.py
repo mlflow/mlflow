@@ -204,6 +204,35 @@ def test_mcp_access_endpoint_server_name_rejects_or():
         )
 
 
+@pytest.mark.parametrize("comparator", ["=", "!=", "<", "<=", ">", ">="])
+def test_mcp_server_version_filter(comparator):
+    [condition] = SearchMCPServerVersionUtils.parse_search_filter(
+        f"version {comparator} '1.0.0-Alpha+Build'"
+    )
+
+    assert condition == {
+        "type": "attribute",
+        "key": "version",
+        "comparator": comparator,
+        "value": "1.0.0-Alpha+Build",
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        ("version = '1.0.0' OR status = 'draft'", "Invalid clause.*'OR'"),
+        ("version IN ('1.0.0', '2.0.0')", r"Only \['status'\] attributes support comparison"),
+        ("select = '1.0.0'", "Invalid clause.*'select'"),
+    ],
+)
+def test_mcp_server_version_rejects_invalid_filters(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_float_numeric_attribute_value_is_parsed_as_float():
     [condition] = SearchUtils.parse_search_filter("attributes.start_time > 1234.5")
 
