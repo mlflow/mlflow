@@ -132,7 +132,13 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   const filters = useMemo(() => getChatSessionsFilter({ sessionId }), [sessionId]);
 
-  const { data: traceInfos, isLoading: isLoadingTraceInfos } = useSearchMlflowTraces({
+  const {
+    data: traceInfos,
+    isLoading: isLoadingTraceInfos,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSearchMlflowTraces({
     locations: traceSearchLocations,
     filters,
     disabled: false,
@@ -153,17 +159,24 @@ const ExperimentSingleChatSessionPageImpl = () => {
   } = useGetTraces(getTrace, sortedTraceInfos);
 
   useEffect(() => {
-    if (selectedTraceIdFromUrl && traces && traces.length > 0 && !isLoadingTraceDatas) {
-      const traceIndex = traces.findIndex((trace) => getModelTraceId(trace) === selectedTraceIdFromUrl);
-      if (traceIndex !== -1) {
-        setSelectedTurnIndex(traceIndex);
-        const traceRef = chatRefs.current[selectedTraceIdFromUrl];
-        if (traceRef) {
-          traceRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
+    if (!selectedTraceIdFromUrl || !traces || traces.length === 0 || isLoadingTraceDatas) {
+      return;
     }
-  }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
+    const traceIndex = traces.findIndex((trace) => getModelTraceId(trace) === selectedTraceIdFromUrl);
+    if (traceIndex !== -1) {
+      setSelectedTurnIndex(traceIndex);
+      const traceRef = chatRefs.current[selectedTraceIdFromUrl];
+      if (traceRef) {
+        traceRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    // The linked turn isn't loaded yet (session has more pages than we've fetched so far) —
+    // keep paging until it shows up or the session runs out of traces.
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage?.();
+    }
+  }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <ContextProviders
@@ -201,6 +214,9 @@ const ExperimentSingleChatSessionPageImpl = () => {
               setSelectedTurnIndex={setSelectedTurnIndex}
               setSelectedTrace={setSelectedTrace}
               chatRefs={chatRefs}
+              fetchNextPage={fetchNextPage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
             />
             <ExperimentSingleChatConversation
               traces={traces ?? []}
@@ -208,6 +224,9 @@ const ExperimentSingleChatSessionPageImpl = () => {
               setSelectedTurnIndex={setSelectedTurnIndex}
               setSelectedTrace={setSelectedTrace}
               chatRefs={chatRefs}
+              fetchNextPage={fetchNextPage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
               getAssessmentTitle={getAssessmentTitle}
             />
             {shouldEnableAssessmentsInSessions() && (
@@ -240,10 +259,14 @@ const ExperimentSingleChatSessionPageImpl = () => {
                 const nextIndex = selectedTurnIndex + 1;
                 setSelectedTurnIndex(nextIndex);
                 setSelectedTrace(traces[nextIndex]);
+              } else if (hasNextPage && !isFetchingNextPage) {
+                // At the end of what's loaded so far, but the session has more turns —
+                // fetch them; the next click on "next" will land on the newly-loaded turn.
+                fetchNextPage?.();
               }
             }}
             isPreviousAvailable={selectedTurnIndex > 0}
-            isNextAvailable={traces !== undefined && selectedTurnIndex < traces.length - 1}
+            isNextAvailable={traces !== undefined && (selectedTurnIndex < traces.length - 1 || Boolean(hasNextPage))}
             renderModalTitle={() => getModelTraceId(selectedTrace)}
             experimentId={experimentId}
             traceInfo={
