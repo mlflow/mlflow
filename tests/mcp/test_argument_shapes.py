@@ -4,6 +4,7 @@
 import pytest
 import pytest_asyncio
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 import mlflow
 from mlflow import MlflowClient
@@ -215,6 +216,17 @@ async def test_search_experiments_without_max_results_still_returns_everything(c
     result = await _call(client, "search_experiments")
     assert len(result["experiments"]) == 4
     assert result["next_page_token"] is None
+
+
+@pytest.mark.asyncio
+async def test_link_traces_to_run_rejects_more_than_100_trace_ids(client, experiment_id):
+    tool = next(t for t in await client.list_tools() if t.name == "link_traces_to_run")
+    assert tool.inputSchema["properties"]["trace_ids"]["maxItems"] == 100
+
+    run_id = MlflowClient().create_run(experiment_id).info.run_id
+    trace_ids = [f"tr-{i:032x}" for i in range(101)]
+    with pytest.raises(ToolError, match="at most 100"):
+        await _call(client, "link_traces_to_run", run_id=run_id, trace_ids=trace_ids)
 
 
 @pytest.mark.parametrize("null", [None, "null"])

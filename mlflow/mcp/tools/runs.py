@@ -178,7 +178,7 @@ def link_traces_to_run(
     run_id: Annotated[str, Field(description="ID of the run to link the traces to.")],
     trace_ids: Annotated[
         list[str],
-        Field(description="IDs of the traces to link (at most 100).", min_length=1),
+        Field(description="IDs of the traces to link (at most 100).", min_length=1, max_length=100),
     ],
 ) -> LinkedTraces:
     """Link traces to an existing run."""

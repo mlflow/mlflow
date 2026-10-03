@@ -336,6 +336,26 @@ async def test_create_run_checks_the_parent_given_as_a_tag(mcp_server, monkeypat
 
 
 @pytest.mark.asyncio
+async def test_link_traces_to_run_is_bounded_before_authorization(mcp_server, monkeypatch):
+    (exp_a,) = _experiments(mcp_server, monkeypatch, ["exp-a"])
+    run_a = _admin_client(mcp_server, monkeypatch).create_run(exp_a).info.run_id
+    nobody = create_user(mcp_server)
+    # The schema rejects the oversized list, so no trace is looked up for the caller.
+    with pytest.raises(ToolError, match="at most 100"):
+        await _call(
+            mcp_server,
+            nobody,
+            "link_traces_to_run",
+            run_id=run_a,
+            trace_ids=[f"tr-{i:032x}" for i in range(101)],
+        )
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(
+            mcp_server, nobody, "link_traces_to_run", run_id=run_a, trace_ids=["tr-no-such"]
+        )
+
+
+@pytest.mark.asyncio
 async def test_trace_tools_resolve_the_trace_experiment(mcp_server, monkeypatch):
     exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
     trace_a = _log_trace(mcp_server, monkeypatch, exp_a)
