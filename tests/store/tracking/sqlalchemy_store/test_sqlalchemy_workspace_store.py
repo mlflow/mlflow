@@ -42,6 +42,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_state import TraceState
@@ -3286,3 +3287,22 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+def test_list_scorers_filter_cannot_cross_workspaces(workspace_tracking_store):
+    store = workspace_tracking_store
+    with WorkspaceContext("scorers-a"):
+        exp_a = store.create_experiment("scorers-a")
+        store.register_scorer(exp_a, "toxicity", '{"workspace": "a"}')
+    with WorkspaceContext("scorers-b"):
+        exp_b = store.create_experiment("scorers-b")
+        store.register_scorer(exp_b, "toxicity", '{"workspace": "b"}')
+        store.register_scorer(exp_b, "other", '{"workspace": "b"}')
+        for selection in [
+            ScorerFilter(experiment_ids={exp_a}, scorers={(exp_b, "toxicity")}),
+            ScorerFilter(scorers={(exp_a, "toxicity"), (exp_b, "toxicity")}),
+        ]:
+            scorers = store.list_scorers_across_experiments([exp_a, exp_b], scorer_filter=selection)
+            assert [(s.experiment_id, s.scorer_name) for s in scorers] == [(exp_b, "toxicity")]
+        with pytest.raises(MlflowException, match="No Experiment|not found|does not exist"):
+            store.list_scorers(exp_a, scorer_filter=ScorerFilter())

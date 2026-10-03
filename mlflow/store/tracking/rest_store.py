@@ -29,6 +29,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.issue import IssueSeverity, IssueStatus
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
@@ -1799,16 +1800,24 @@ class RestStore(
             scorer_id=response_proto.scorer_id,
         )
 
-    def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
+    def list_scorers(
+        self, experiment_id: str, *, scorer_filter: ScorerFilter | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment (latest version for each scorer name).
 
         Args:
             experiment_id: String ID of the experiment.
+            scorer_filter: Internal selection. Non-None values are unsupported because
+                the REST API cannot carry this private authorization constraint.
 
         Returns:
             List of Scorer entities.
         """
+        if scorer_filter is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer filtering is not supported by {self.__class__.__name__}."
+            )
         req_body = message_to_json(ListScorers(experiment_id=experiment_id))
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(

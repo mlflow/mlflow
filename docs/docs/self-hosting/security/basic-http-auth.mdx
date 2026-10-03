@@ -885,7 +885,7 @@ Required Permissions for accessing scorers:
       <td>List Scorers</td>
       <td>`3.0/mlflow/scorers/list`</td>
       <td>`GET`</td>
-      <td>can_read (on experiment)</td>
+      <td>can_read (on experiment or scorer)</td>
     </tr>
     <tr>
       <td>Get Scorer</td>
@@ -907,6 +907,13 @@ Required Permissions for accessing scorers:
     </tr>
   </tbody>
 </table>
+
+Scorer listings include all scorers in readable experiments and any individually readable scorers.
+Authorization is applied in the tracking store before scorer payloads are loaded. A GET request
+with a singular `experiment_id` returns 403 if the caller has neither experiment access nor an
+individual scorer grant in that experiment. Open-ended and plural `experiment_ids` requests return
+the authorized subset, which may be empty. Experiment scope can only narrow that subset, and
+workspace and active-experiment restrictions still apply.
 
 MLflow Authentication provides API endpoints to manage users and permissions.
 

@@ -19,7 +19,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -70,6 +79,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
@@ -1139,8 +1149,8 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     sent an empty list *or* omitted the field entirely.  For
     fields where the difference matters (e.g. ``experiment_ids``) :
 
-    * absent  → no auth restriction (``None``)
-    * ``[]``  → deny-all (empty authorised set)
+    * absent  → open-ended experiment scope
+    * ``[]``  → explicitly empty experiment scope
 
     This helper inspects the raw Flask request (query-string for GET,
     JSON body for POST) to distinguish the two cases.
@@ -6212,6 +6222,25 @@ def _list_scorers():
             "experiment_ids": [_assert_array, _assert_item_type_string],
         },
     )
+    scorer_filter: ScorerFilter | None = None
+    if has_request_context():
+        if (
+            current_app.config.get("MLFLOW_REQUIRE_SCORER_LIST_AUTHORIZATION", False)
+            and "mlflow_scorer_filter" not in g
+        ):
+            raise MlflowException(
+                "Scorer listing requires an authorization decision, but the auth integration "
+                "did not set g.mlflow_scorer_filter.",
+                error_code=INTERNAL_ERROR,
+            )
+        scorer_filter = getattr(g, "mlflow_scorer_filter", None)
+        if scorer_filter is not None and not isinstance(scorer_filter, ScorerFilter):
+            raise MlflowException(
+                "The auth integration supplied an invalid scorer-list authorization decision: "
+                "g.mlflow_scorer_filter must be None or a ScorerFilter.",
+                error_code=INTERNAL_ERROR,
+            )
+    filter_kwargs = {"scorer_filter": scorer_filter} if scorer_filter is not None else {}
     response_message = ListScorers.Response()
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
@@ -6229,15 +6258,15 @@ def _list_scorers():
             for eid in requested_experiment_ids:
                 _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
-        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids, **filter_kwargs)
     elif request_message.experiment_id:
-        scorers = store.list_scorers(request_message.experiment_id)
+        scorers = store.list_scorers(request_message.experiment_id, **filter_kwargs)
+    elif scorer_filter is not None:
+        valid_experiment_ids = store.filter_active_experiment_ids(
+            sorted(scorer_filter.candidate_experiment_ids)
+        )
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids, **filter_kwargs)
     else:
-        # Cross-experiment listing: walk the active workspace's experiments
-        # via the workspace-aware ``search_experiments`` pagination, then
-        # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")

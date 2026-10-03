@@ -42,6 +42,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -153,6 +154,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -4136,3 +4138,27 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+@pytest.mark.parametrize("selection", [ScorerFilter(), ScorerFilter(scorers={("42", "a/b")})])
+@pytest.mark.parametrize("scope", [None, [], ["42"]])
+@pytest.mark.parametrize("store_cls", [RestStore, DatabricksTracingRestStore])
+def test_list_scorers_rejects_private_filter_before_io(selection, scope, store_cls):
+    store = store_cls(lambda: None)
+    listing = store.list_scorers if scope is None else store.list_scorers_across_experiments
+    experiment_scope = "42" if scope is None else scope
+    with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as call:
+        with pytest.raises(MlflowException, match="Scorer filtering is not supported"):
+            listing(experiment_scope, scorer_filter=selection)
+    call.assert_not_called()
+
+
+def test_list_scorers_unfiltered_uses_get():
+    store = RestStore(lambda: None)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.call_endpoint", return_value=ListScorers.Response()
+    ) as call:
+        assert store.list_scorers("42") == []
+    call.assert_called_once()
+    assert call.call_args.args[1:3] == ("/api/3.0/mlflow/scorers/list", "GET")
+    assert json.loads(call.call_args.args[3]) == {"experiment_id": "42"}

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from flask import Response, request
+from flask import Flask, Response, g, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
@@ -48,6 +48,7 @@ from mlflow.entities.model_registry import (
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+from mlflow.entities.scorer_filter import ScorerFilter
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.entities.trace_metrics import (
     AggregationType,
@@ -167,6 +168,7 @@ from mlflow.server import (
     SERVE_ARTIFACTS_ENV_VAR,
     app,
 )
+from mlflow.server import handlers as server_handlers
 from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
     STATIC_PREFIX_ENV_VAR,
@@ -11226,3 +11228,138 @@ def test_update_gateway_secret_rejects_model_list_in_auth_config(
     assert response.status_code == 400
     assert "auth_config must not contain 'model_list'" in json.loads(response.get_data())["message"]
     mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+@pytest.mark.parametrize("decision", [False, {}, [], "invalid", 42, object()])
+@pytest.mark.parametrize("auth_required", [False, True])
+@pytest.mark.parametrize("scope", [{}, {"experiment_id": "42"}, {"experiment_ids": ["42"]}])
+def test_list_scorers_rejects_invalid_auth_decision_before_store_access(
+    monkeypatch, decision, auth_required, scope
+):
+    monkeypatch.setitem(app.config, "MLFLOW_REQUIRE_SCORER_LIST_AUTHORIZATION", auth_required)
+    with (
+        app.test_request_context(query_string=scope),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_store,
+    ):
+        g.mlflow_scorer_filter = decision
+        response = _list_scorers()
+    assert response.status_code == 500
+    assert response.json["error_code"] == "INTERNAL_ERROR"
+    assert "g.mlflow_scorer_filter must be None or a ScorerFilter" in response.json["message"]
+    get_store.assert_not_called()
+
+
+@pytest.mark.parametrize("selection", [ScorerFilter(), ScorerFilter(scorers={("42", "a/b")})])
+@pytest.mark.parametrize("scope", [{}, {"experiment_id": "42"}, {"experiment_ids": ["42", "7"]}])
+def test_list_scorers_passes_private_selection(mock_tracking_store, selection, scope):
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["42"]
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+    mock_tracking_store.list_scorers.return_value = []
+    with app.test_request_context(query_string=scope):
+        g.mlflow_scorer_filter = selection
+        assert _list_scorers().status_code == 200
+    mock_tracking_store.search_experiments.assert_not_called()
+    if "experiment_id" in scope:
+        mock_tracking_store.list_scorers.assert_called_once_with("42", scorer_filter=selection)
+        mock_tracking_store.filter_active_experiment_ids.assert_not_called()
+    else:
+        candidates = scope.get("experiment_ids", sorted(selection.candidate_experiment_ids))
+        mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(candidates)
+        mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(
+            ["42"], scorer_filter=selection
+        )
+
+
+@pytest.mark.parametrize("scope", [{"experiment_id": "42"}, {}, {"experiment_ids": []}])
+def test_list_scorers_filtered_databricks_backend_rejected(scope):
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://hello"))
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store) as get_store,
+        mock.patch.object(store, "_call_endpoint") as call,
+        app.test_request_context(method="GET", json=scope),
+    ):
+        g.mlflow_scorer_filter = ScorerFilter()
+        resp = _list_scorers()
+    assert resp.status_code == 400
+    get_store.assert_called_once_with()
+    call.assert_not_called()
+
+
+@pytest.mark.parametrize("scope", [{"experiment_ids": []}, {"experimentIds": []}])
+def test_list_scorers_empty_plural_scope_with_private_selection(mock_tracking_store, scope):
+    # Exercise raw empty-field presence in the parser; POST is not a registered route.
+    mock_tracking_store.filter_active_experiment_ids.return_value = []
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+    selection = ScorerFilter(experiment_ids={"42"})
+    with app.test_request_context(method="POST", json=scope):
+        g.mlflow_scorer_filter = selection
+        assert _list_scorers().status_code == 200
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with([])
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(
+        [], scorer_filter=selection
+    )
+    mock_tracking_store.search_experiments.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "scope",
+    [
+        {"experiment_ids": ["invalid id"]},
+        {"experiment_id": "42", "experiment_ids": ["42"]},
+    ],
+)
+def test_list_scorers_validates_scope_with_empty_selection(mock_tracking_store, scope):
+    with app.test_request_context(query_string=scope):
+        g.mlflow_scorer_filter = ScorerFilter()
+        assert _list_scorers().status_code == 400
+    mock_tracking_store.filter_active_experiment_ids.assert_not_called()
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+    mock_tracking_store.list_scorers.assert_not_called()
+
+
+@pytest.mark.parametrize("prefix", ["", "/custom-prefix"])
+@pytest.mark.parametrize("alias", ["api", "ajax-api"])
+@pytest.mark.parametrize("auth_required", [False, True])
+def test_list_scorers_get_routes_and_private_decisions(
+    mock_tracking_store, monkeypatch, prefix, alias, auth_required
+):
+    monkeypatch.setenv(server_handlers.STATIC_PREFIX_ENV_VAR, prefix)
+    listing_app = Flask(__name__)
+    listing_app.config["MLFLOW_REQUIRE_SCORER_LIST_AUTHORIZATION"] = auth_required
+    for path, handler, methods in server_handlers.get_endpoints():
+        if handler is server_handlers._list_scorers:
+            assert methods == ["GET"]
+            listing_app.add_url_rule(path, view_func=handler, methods=methods)
+
+    @listing_app.before_request
+    def authorize():
+        if auth_required and request.headers.get("X-Test-Decision") == "unrestricted":
+            g.mlflow_scorer_filter = None
+
+    mock_tracking_store.list_scorers.return_value = []
+    client = listing_app.test_client()
+    path = f"{prefix}/{alias}/3.0/mlflow/scorers/list"
+    response = client.get(
+        path,
+        query_string={"experiment_id": "42"},
+        headers={"X-Test-Decision": "unrestricted"},
+    )
+    assert response.status_code == 200
+    mock_tracking_store.list_scorers.assert_called_once_with("42")
+    mock_tracking_store.reset_mock()
+    if auth_required:
+        response = client.get(path, query_string={"experiment_id": "42", "scorer_filter": "{}"})
+        assert response.status_code == 500
+        mock_tracking_store.list_scorers.assert_not_called()
+    assert client.post(path, json={}).status_code == 405
+
+
+def test_list_scorers_ignores_public_filter_field(mock_tracking_store):
+    selection = ScorerFilter(scorers={("42", "allowed")})
+    mock_tracking_store.list_scorers.return_value = []
+    with app.test_request_context(
+        query_string={"experiment_id": "42", "scorer_filter": '{"experiment_ids": ["42"]}'}
+    ):
+        g.mlflow_scorer_filter = selection
+        assert _list_scorers().status_code == 200
+    mock_tracking_store.list_scorers.assert_called_once_with("42", scorer_filter=selection)
