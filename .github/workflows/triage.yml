@@ -297,8 +297,8 @@ jobs:
           retention-days: 1
   triage_gate:
     needs: [issue, label, safety]
-    # Triage any safety-approved issue from maintainers. Manual runs skip the
-    # author check since only users with write access can dispatch.
+    # Triage any safety-approved issue from maintainers, regardless of type.
+    # Manual runs skip the author check since only users with write access can dispatch.
     if: >-
       needs.safety.outputs.decision == 'safe' &&
       (github.event_name == 'workflow_dispatch' ||
@@ -330,8 +330,8 @@ jobs:
           # The first page is enough: runs are newest first, and five matches block triage.
           count=$(
             gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100" \
-              | jq --arg since "$since" --argjson current "$GITHUB_RUN_ID" \
-                '[.workflow_runs[] | select(.id != $current and .created_at >= $since)] | length'
+              | jq --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" \
+                '[.workflow_runs[] | select(.run_number < $current and .created_at >= $since)] | length'
           )
           if [ "$count" -ge 5 ]; then
             echo 'allowed=false' >> "$GITHUB_OUTPUT"
