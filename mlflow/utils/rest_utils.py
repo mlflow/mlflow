@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Any, Callable
 
 import requests
+from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_DATABRICKS_TRAFFIC_ID,
@@ -35,6 +36,7 @@ from mlflow.exceptions import (
 )
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
+from mlflow.utils import get_installed_version
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -82,6 +84,31 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+
+class _UcTraceSqlTimeout(Exception):
+    def __init__(self, response: requests.Response):
+        self.response = response
+        super().__init__("UC trace SQL query timed out")
+
+
+def _raise_on_uc_trace_sql_timeout(response: requests.Response, **kwargs):
+    if response.status_code != 429:
+        return response
+
+    try:
+        body = response.json()
+    except ValueError:
+        return response
+
+    match body:
+        case {"error_code": "RESOURCE_EXHAUSTED", "message": str(message)} if message.startswith(
+            "SQL query failed: Timeout while waiting for SQL query to complete."
+        ):
+            response.close()
+            raise _UcTraceSqlTimeout(response)
+
+    return response
 
 
 def _should_include_workspace_header(endpoint: str) -> bool:
@@ -184,6 +211,22 @@ def http_request(
             timeout=timeout,
         )
 
+        sdk_request_kwargs = {}
+        if (
+            endpoint.startswith(f"{_V4_TRACE_REST_API_PATH_PREFIX}/")
+            # ApiClient.do accepts a per-request auth callback starting in SDK 0.30.0.
+            and (sdk_version := get_installed_version("databricks-sdk")) is not None
+            and sdk_version >= Version("0.30.0")
+        ):
+            # The SDK retries every 429 before MLflow can inspect its error body. A response hook
+            # stops SQL timeouts before those retries, while leaving rate-limit responses alone.
+            def authenticate(request):
+                request.headers.update(ws_client.config.authenticate())
+                request.register_hook("response", _raise_on_uc_trace_sql_timeout)
+                return request
+
+            sdk_request_kwargs["auth"] = authenticate
+
         def make_sdk_call():
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -202,6 +245,7 @@ def http_request(
                     body=kwargs.get("json"),
                     files=kwargs.get("files"),
                     data=kwargs.get("data"),
+                    **sdk_request_kwargs,
                 )
                 response = raw_response["contents"]._response
                 if not kwargs.get("stream", False):
@@ -233,6 +277,8 @@ def http_request(
                 backoff_jitter=backoff_jitter,
                 max_retries=max_retries,
             )
+        except _UcTraceSqlTimeout as e:
+            return e.response
         except DatabricksError as e:
             response = requests.Response()
             response.url = url

@@ -1,11 +1,16 @@
+import io
+import json
 import re
 import time
 import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import numpy
 import pytest
 import requests
+from databricks.sdk.core import ApiClient
+from packaging.version import Version
 
 from mlflow.deployments.databricks import DatabricksDeploymentClient
 from mlflow.environment_variables import (
@@ -25,12 +30,14 @@ from mlflow.utils.rest_utils import (
     _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING,
     MlflowHostCreds,
     _can_parse_as_json_object,
+    _raise_on_uc_trace_sql_timeout,
     augmented_raise_for_status,
     call_endpoint,
     call_endpoints,
     get_workspace_client,
     http_request,
     http_request_safe,
+    verify_rest_response,
 )
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -713,6 +720,223 @@ def test_databricks_sdk_response_is_consumed_unless_streaming(kwargs, expected_r
         assert http_request(host_creds, "/endpoint", "GET", **kwargs) is response
 
     assert content.call_count == expected_reads
+
+
+@pytest.fixture
+def databricks_sdk_workspace_client():
+    config = SimpleNamespace(
+        host="https://example.com",
+        authenticate=mock.Mock(
+            return_value={
+                "Authorization": "Bearer sdk-token",
+                "X-Databricks-Azure-SP-Management-Token": "management-token",
+            }
+        ),
+        user_agent="mlflow-test",
+        debug_truncate_bytes=None,
+        retry_timeout_seconds=30,
+        max_connection_pools=None,
+        max_connections_per_pool=None,
+        http_timeout_seconds=5,
+        clock=SimpleNamespace(time=lambda: 0, sleep=mock.Mock()),
+        _custom_headers={},
+    )
+    with mock.patch("databricks.sdk.retries.RealClock", lambda: config.clock):
+        yield SimpleNamespace(config=config, api_client=ApiClient(config))
+
+
+def _create_sdk_response(status_code, body):
+    response = requests.Response()
+    response.status_code = status_code
+    response.raw = io.BytesIO(body.encode())
+    response.url = "https://example.com/api/4.0/mlflow/traces/catalog.schema.traces/trace-id"
+    response.request = requests.Request("GET", response.url).prepare()
+    return response
+
+
+def test_databricks_sdk_does_not_retry_trace_sql_timeout(databricks_sdk_workspace_client):
+    endpoint = "/api/4.0/mlflow/traces/catalog.schema.traces/batchGet"
+    message = (
+        "SQL query failed: Timeout while waiting for SQL query to complete. "
+        "Consider changing to using a non-shared warehouse or a larger warehouse."
+    )
+    body = {"error_code": "RESOURCE_EXHAUSTED", "message": message}
+    response = _create_sdk_response(429, json.dumps(body))
+    response.headers["x-databricks-request-id"] = "request-id"
+    host_creds = MlflowHostCreds("https://example.com", use_databricks_sdk=True)
+
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.get_workspace_client",
+            return_value=databricks_sdk_workspace_client,
+        ) as get_client,
+        mock.patch(
+            "requests.adapters.HTTPAdapter.send",
+            side_effect=[response, AssertionError("SQL timeout was retried")],
+        ) as send,
+        mock.patch("mlflow.utils.rest_utils._time_sleep") as outer_sleep,
+    ):
+        result = http_request(host_creds, endpoint, "POST", json={"trace_ids": ["trace-id"]})
+
+    assert result is response
+    assert result.json() == body
+    assert result.headers["x-databricks-request-id"] == "request-id"
+    with pytest.raises(RestException, match=re.escape(message)) as exc:
+        verify_rest_response(result, endpoint)
+    assert exc.value.error_code == "RESOURCE_EXHAUSTED"
+    send.assert_called_once()
+    get_client.assert_called_once()
+    outer_sleep.assert_not_called()
+    databricks_sdk_workspace_client.config.clock.sleep.assert_not_called()
+    databricks_sdk_workspace_client.config.authenticate.assert_called_once()
+    request = send.call_args.args[0]
+    assert request.method == "POST"
+    assert request.url == f"https://example.com{endpoint}"
+    assert json.loads(request.body) == {"trace_ids": ["trace-id"]}
+    assert request.headers["Authorization"] == "Bearer sdk-token"
+    assert request.headers["X-Databricks-Azure-SP-Management-Token"] == "management-token"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "status_code", "body"),
+    [
+        (
+            "/api/4.0/mlflow/traces/catalog.schema.traces/trace-id",
+            429,
+            '{"error_code": "RESOURCE_EXHAUSTED", "message": "Rate limit exceeded"}',
+        ),
+        (
+            "/api/4.0/mlflow/traces/catalog.schema.traces/trace-id",
+            429,
+            '{"error_code": "INTERNAL_ERROR", "message": '
+            '"SQL query failed: Timeout while waiting for SQL query to complete."}',
+        ),
+        (
+            "/api/4.0/mlflow/traces/catalog.schema.traces/trace-id",
+            503,
+            '{"error_code": "RESOURCE_EXHAUSTED", "message": '
+            '"SQL query failed: Timeout while waiting for SQL query to complete."}',
+        ),
+        (
+            "/api/2.0/mlflow/runs/search",
+            429,
+            '{"error_code": "RESOURCE_EXHAUSTED", "message": '
+            '"SQL query failed: Timeout while waiting for SQL query to complete."}',
+        ),
+    ],
+    ids=[
+        "rate-limit",
+        "other-error-code",
+        "other-status",
+        "other-endpoint",
+    ],
+)
+def test_databricks_sdk_trace_timeout_guard_preserves_retries(
+    databricks_sdk_workspace_client, endpoint, status_code, body
+):
+    error_response = _create_sdk_response(status_code, body)
+    success_response = _create_sdk_response(200, "{}")
+    host_creds = MlflowHostCreds("https://example.com", use_databricks_sdk=True)
+
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.get_workspace_client",
+            return_value=databricks_sdk_workspace_client,
+        ) as get_client,
+        mock.patch(
+            "requests.adapters.HTTPAdapter.send", side_effect=[error_response, success_response]
+        ) as send,
+        mock.patch("mlflow.utils.rest_utils._time_sleep") as outer_sleep,
+    ):
+        result = http_request(host_creds, endpoint, "GET")
+
+    assert result is success_response
+    assert send.call_count == 2
+    get_client.assert_called_once()
+    assert (
+        outer_sleep.call_count + databricks_sdk_workspace_client.config.clock.sleep.call_count == 1
+    )
+    assert databricks_sdk_workspace_client.config.authenticate.call_count == 2
+    for call in send.call_args_list:
+        request = call.args[0]
+        assert request.headers["Authorization"] == "Bearer sdk-token"
+        assert request.headers["X-Databricks-Azure-SP-Management-Token"] == "management-token"
+
+
+@pytest.mark.parametrize("stream", [True, False])
+def test_databricks_sdk_trace_timeout_guard_preserves_streaming(
+    databricks_sdk_workspace_client, stream
+):
+    response = _create_sdk_response(200, "{}")
+    host_creds = MlflowHostCreds("https://example.com", use_databricks_sdk=True)
+
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.get_workspace_client",
+            return_value=databricks_sdk_workspace_client,
+        ) as get_client,
+        mock.patch("requests.adapters.HTTPAdapter.send", return_value=response) as send,
+    ):
+        result = http_request(
+            host_creds,
+            "/api/4.0/mlflow/traces/catalog.schema.traces/trace-id",
+            "GET",
+            stream=stream,
+        )
+
+    assert result is response
+    assert response._content_consumed is not stream
+    send.assert_called_once()
+    get_client.assert_called_once()
+    databricks_sdk_workspace_client.config.authenticate.assert_called_once()
+    databricks_sdk_workspace_client.config.clock.sleep.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "invalid json",
+        "[]",
+        "null",
+        '{"error_code": "RESOURCE_EXHAUSTED", "message": null}',
+    ],
+)
+def test_uc_trace_sql_timeout_guard_ignores_unknown_error_shapes(body):
+    response = _create_sdk_response(429, body)
+
+    assert _raise_on_uc_trace_sql_timeout(response) is response
+    assert response.text == body
+    assert not response.raw.closed
+
+
+@pytest.mark.parametrize("sdk_version", [Version("0.20.0"), Version("0.29.0"), None])
+def test_databricks_sdk_trace_timeout_guard_supports_older_versions(sdk_version):
+    response = _create_sdk_response(200, "{}")
+    host_creds = MlflowHostCreds("https://example.com", use_databricks_sdk=True)
+
+    def legacy_sdk_do(method, path, headers, raw, query, body, files, data):
+        return {"contents": SimpleNamespace(_response=response)}
+
+    sdk_do = mock.Mock(side_effect=legacy_sdk_do)
+    workspace_client = SimpleNamespace(api_client=SimpleNamespace(do=sdk_do))
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.get_workspace_client", return_value=workspace_client
+        ) as get_client,
+        mock.patch(
+            "mlflow.utils.rest_utils.get_installed_version", return_value=sdk_version
+        ) as get_version,
+    ):
+        result = http_request(
+            host_creds, "/api/4.0/mlflow/traces/catalog.schema.traces/trace-id", "GET"
+        )
+
+    assert result is response
+    assert result.json() == {}
+    sdk_do.assert_called_once()
+    assert "auth" not in sdk_do.call_args.kwargs
+    get_client.assert_called_once()
+    get_version.assert_called_once_with("databricks-sdk")
 
 
 def test_databricks_sdk_retry_on_transient_errors():
