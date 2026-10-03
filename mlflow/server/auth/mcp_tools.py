@@ -108,6 +108,13 @@ def _can_create_experiment(arguments: dict[str, Any], username: str) -> bool:
 def _can_create_run(arguments: dict[str, Any], username: str) -> bool:
     # CreateRun -> validate_can_update_experiment. Given only a name, the CLI creates a missing
     # experiment on the fly, which is gated like CreateExperiment -> validate_can_create_experiment.
+    # The tool also reads ``parent_run_id`` to nest the run under it, so that run must be readable
+    # (and exist): otherwise a caller could attach runs under, or probe for, runs it cannot see.
+    # REST CreateRun does not check the parent named by the ``mlflow.parentRunId`` tag.
+    if arguments.get("parent_run_id") is not None:
+        parent_permissions = _run({"run_id": arguments["parent_run_id"]}, username)
+        if not parent_permissions or not parent_permissions[0].can_read:
+            return False
     if arguments.get("experiment_id") is not None:
         return all(p.can_update for p in _experiment(arguments, username))
     if not (name := arguments.get("experiment_name")):

@@ -41,6 +41,7 @@ from mlflow.server.auth.mcp_tools import (
 )
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -254,6 +255,37 @@ async def test_run_tools_resolve_the_run_experiment(mcp_server, monkeypatch):
     # A missing run denies rather than surfacing a not-found error.
     with pytest.raises(ToolError, match="^Permission denied$"):
         await _call(mcp_server, reader, "describe_run", run_id="no-such-run")
+
+
+@pytest.mark.asyncio
+async def test_create_run_needs_read_on_the_parent_run(mcp_server, monkeypatch):
+    exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
+    parent = _admin_client(mcp_server, monkeypatch).create_run(exp_a).info.run_id
+    editor = _reader(mcp_server, exp_b, permission="EDIT")
+
+    # EDIT on the destination does not allow nesting under a run the caller cannot read, and a
+    # missing parent denies the same way rather than disclosing that it does not exist.
+    for parent_run_id in (parent, "no-such-run"):
+        with pytest.raises(ToolError, match="^Permission denied$"):
+            await _call(
+                mcp_server,
+                editor,
+                "create_run",
+                experiment_id=exp_b,
+                parent_run_id=parent_run_id,
+            )
+
+    grant_role_permission(mcp_server, editor[0], "experiment", exp_a, "READ")
+    run = await _call(mcp_server, editor, "create_run", experiment_id=exp_b, parent_run_id=parent)
+    assert run["experiment_id"] == exp_b
+    assert run["status"] == "FINISHED"
+    child = await _call(mcp_server, editor, "describe_run", run_id=run["run_id"])
+    assert child["tags"][MLFLOW_PARENT_RUN_ID] == parent
+    assert child["status"] == "FINISHED"
+
+    # READ on the parent's experiment still does not allow creating runs in it.
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(mcp_server, editor, "create_run", experiment_id=exp_a, parent_run_id=parent)
 
 
 @pytest.mark.asyncio
