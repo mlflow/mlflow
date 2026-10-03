@@ -35,7 +35,13 @@ export interface NotifyPayload {
  */
 export interface RolloutLine {
   timestamp: string;
-  type: 'session_meta' | 'response_item' | 'event_msg' | 'turn_context' | 'compacted';
+  type:
+    | 'session_meta'
+    | 'response_item'
+    | 'event_msg'
+    | 'turn_context'
+    | 'compacted'
+    | 'world_state';
   payload: SessionMetaPayload | ResponseItemPayload | EventMsgPayload | Record<string, unknown>;
 }
 
@@ -50,13 +56,21 @@ export interface SessionMetaPayload {
 }
 
 export interface ResponseItemPayload {
-  type: 'message' | 'function_call' | 'function_call_output' | 'reasoning';
+  type:
+    | 'message'
+    | 'function_call'
+    | 'function_call_output'
+    | 'custom_tool_call'
+    | 'custom_tool_call_output'
+    | 'reasoning';
   role?: 'user' | 'assistant' | 'developer';
-  content?: ContentBlock[];
+  content?: ContentBlock[] | string;
   name?: string;
   call_id?: string;
   arguments?: string;
-  output?: string;
+  input?: string;
+  output?: ContentBlock[] | string;
+  status?: string;
 }
 
 export interface ContentBlock {
@@ -79,6 +93,7 @@ export interface TokenUsage {
   output_tokens: number;
   total_tokens: number;
   cached_input_tokens?: number;
+  cache_write_input_tokens?: number;
   reasoning_output_tokens?: number;
 }
 

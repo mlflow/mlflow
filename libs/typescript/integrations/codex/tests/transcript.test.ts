@@ -87,6 +87,32 @@ describe('readTranscript + parsing', () => {
     expect(usage!.total_tokens).toBe(110);
   });
 
+  it('aggregates per-inference token usage across a turn', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-custom-tool-call.jsonl'));
+    const usage = getTokenUsage(getLastTurnRecords(records));
+
+    expect(usage).toEqual({
+      input_tokens: 50205,
+      output_tokens: 124,
+      total_tokens: 50329,
+      cached_input_tokens: 36736,
+      cache_write_input_tokens: 0,
+      reasoning_output_tokens: 0,
+    });
+  });
+
+  it('includes tool-only model responses in aggregate token usage', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-only-calls.jsonl'));
+    const usage = getTokenUsage(getLastTurnRecords(records));
+
+    expect(usage).toEqual({
+      input_tokens: 360,
+      output_tokens: 45,
+      total_tokens: 405,
+      cached_input_tokens: 288,
+    });
+  });
+
   it('gets model from session meta', () => {
     // No model in our fixture, should return unknown
     expect(getModel(basicRecords)).toBe('unknown');
