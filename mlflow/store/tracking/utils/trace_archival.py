@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
@@ -132,6 +133,15 @@ def _parse_trace_archival_long_retention_allowlist(value: str | None) -> list[st
             seen.add(experiment_id)
 
     return allowlist
+
+
+def _encode_trace_archival_retention_tag(retention):
+    return json.dumps({"type": "duration", "value": retention})
+
+
+def _encode_trace_archive_now_tag(older_than=None):
+    payload = {} if older_than is None else {"older_than": older_than}
+    return json.dumps(payload)
 
 
 def _parse_experiment_trace_archival_retention(value: str | None) -> str | None:

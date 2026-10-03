@@ -1370,6 +1370,10 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'mcp/index',
         },
+        {
+          type: 'doc',
+          id: 'mcp/remote-server',
+        },
       ],
     },
     {

@@ -147,6 +147,14 @@ MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
 )
 
 #: **Experimental** — subject to change or removal in a future release.
+#: Serves the MLflow MCP server over Streamable HTTP at ``/mcp`` on the tracking server, so
+#: remote MCP clients can use the traces, scorers, experiments and runs tools without a local
+#: ``mlflow mcp run`` process. Set by ``mlflow server --enable-mcp``. Requires the default
+#: uvicorn server and the ``fastmcp`` package.
+#: (default: ``False``)
+MLFLOW_SERVER_ENABLE_MCP = _BooleanEnvironmentVariable("MLFLOW_SERVER_ENABLE_MCP", False)
+
+#: **Experimental** — subject to change or removal in a future release.
 #: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
 #: The image must have Python and MLflow installed. If the image is not present locally, a
 #: minimal one is built on first use.

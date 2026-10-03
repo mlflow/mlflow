@@ -1,6 +1,8 @@
 import contextlib
 import io
 import os
+import threading
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable
 
 import click
@@ -14,6 +16,7 @@ from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
 from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
 from mlflow.mcp.decorator import get_mcp_tool_name
+from mlflow.mcp.tools import SHARED_TOOLS, SharedTool
 
 # Environment variable to control which tool categories are enabled
 # Supported values:
@@ -31,6 +34,13 @@ _ALL_TOOLS = _GENAI_TOOLS | _ML_TOOLS
 if TYPE_CHECKING:
     from fastmcp import FastMCP
     from fastmcp.tools import FunctionTool
+
+_SHARED_TOOL_NAMES = frozenset(tool.name for tool in SHARED_TOOLS)
+
+# Only the stdio-only tools that still run a CLI command capture its printed output.
+# ``contextlib.redirect_stdout`` swaps the process-wide ``sys.stdout``, so concurrent calls of
+# those tools would capture each other's output.
+_OUTPUT_CAPTURE_LOCK = threading.Lock()
 
 
 def param_type_to_json_schema_type(pt: click.ParamType) -> str:
@@ -96,6 +106,7 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
         # Capture stdout and stderr
         string_io = io.StringIO()
         with (
+            _OUTPUT_CAPTURE_LOCK,
             contextlib.redirect_stdout(string_io),
             contextlib.redirect_stderr(string_io),
         ):
@@ -198,48 +209,94 @@ def _is_tool_enabled(category: str) -> bool:
     return category.lower() in enabled_tools
 
 
-def _collect_tools(commands: dict[str, click.Command]) -> list["FunctionTool"]:
-    """Collect MCP tools from commands, filtering out undecorated commands."""
+def shared_function_tool(tool: SharedTool, fn: Callable[..., Any] | None = None) -> "FunctionTool":
+    """
+    Register a typed tool with FastMCP.
+
+    Args:
+        tool: The shared tool.
+        fn: Replacement callable with the same signature as ``tool.fn`` (e.g. one that authorizes
+            the call first). The schemas, name and description are still taken from it, so it
+            must be built with ``functools.wraps(tool.fn)``.
+    """
+    from fastmcp.tools import FunctionTool
+    from mcp.types import ToolAnnotations
+
+    return FunctionTool.from_function(
+        fn or tool.fn,
+        name=tool.name,
+        annotations=ToolAnnotations(
+            readOnlyHint=tool.read_only,
+            destructiveHint=None if tool.read_only else tool.destructive,
+            openWorldHint=False,
+        ),
+    )
+
+
+def _collect_cli_tools(commands: dict[str, click.Command]) -> list["FunctionTool"]:
+    """
+    Collect the stdio-only tools that still run a CLI command. Commands decorated with
+    ``@mlflow_mcp`` whose tool has a typed implementation are skipped.
+    """
     tools = []
     for cmd in commands.values():
         tool = cmd_to_function_tool(cmd)
-        if tool is not None:
+        if tool is not None and tool.name not in _SHARED_TOOL_NAMES:
             tools.append(tool)
     return tools
 
 
-def create_mcp() -> "FastMCP":
+def collect_category_tools(categories: Iterable[str] | None = None) -> list["FunctionTool"]:
+    """
+    Collect the MCP tools of the given categories for the stdio server.
+
+    Args:
+        categories: Tool categories to include. When ``None``, the categories are read from the
+            ``MLFLOW_MCP_TOOLS`` environment variable (the stdio ``mlflow mcp run`` behavior).
+    """
+    if categories is None:
+        is_enabled = _is_tool_enabled
+    else:
+        enabled_categories = {category.lower() for category in categories}
+
+        def is_enabled(category: str) -> bool:
+            return category in enabled_categories
+
+    tools = [shared_function_tool(tool) for tool in SHARED_TOOLS if is_enabled(tool.category)]
+
+    # Tools that execute work locally (evaluate_traces, models, deployments) are served on stdio
+    # only and still run their CLI command.
+    if is_enabled("traces"):
+        tools.extend(_collect_cli_tools(traces_cli.commands))
+    if is_enabled("scorers"):
+        tools.extend(_collect_cli_tools(scorers_cli.commands))
+    if is_enabled("experiments"):
+        tools.extend(_collect_cli_tools(mlflow.experiments.commands.commands))
+    if is_enabled("runs"):
+        tools.extend(_collect_cli_tools(mlflow.runs.commands.commands))
+    if is_enabled("models"):
+        tools.extend(_collect_cli_tools(models_cli.commands.commands))
+    if is_enabled("deployments"):
+        tools.extend(_collect_cli_tools(deployments_cli.commands.commands))
+
+    return tools
+
+
+def create_mcp(
+    categories: Iterable[str] | None = None, tools: list["FunctionTool"] | None = None
+) -> "FastMCP":
+    """
+    Build the MLflow MCP server.
+
+    Args:
+        categories: Tool categories to expose; see :func:`collect_category_tools`.
+        tools: Pre-built tools to expose instead of collecting them from ``categories``.
+    """
     from fastmcp import FastMCP
-
-    tools: list["FunctionTool"] = []
-
-    # Traces CLI tools (genai)
-    if _is_tool_enabled("traces"):
-        tools.extend(_collect_tools(traces_cli.commands))
-
-    # Scorers CLI tools (genai)
-    if _is_tool_enabled("scorers"):
-        tools.extend(_collect_tools(scorers_cli.commands))
-
-    # Experiment tracking tools (genai)
-    if _is_tool_enabled("experiments"):
-        tools.extend(_collect_tools(mlflow.experiments.commands.commands))
-
-    # Run management tools (genai)
-    if _is_tool_enabled("runs"):
-        tools.extend(_collect_tools(mlflow.runs.commands.commands))
-
-    # Model serving tools (ml)
-    if _is_tool_enabled("models"):
-        tools.extend(_collect_tools(models_cli.commands.commands))
-
-    # Deployment tools (ml)
-    if _is_tool_enabled("deployments"):
-        tools.extend(_collect_tools(deployments_cli.commands.commands))
 
     mcp = FastMCP(
         name="Mlflow MCP",
-        tools=tools,
+        tools=collect_category_tools(categories) if tools is None else tools,
     )
 
     register_prompts(mcp)

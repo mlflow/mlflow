@@ -63,6 +63,7 @@ from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
+    MLFLOW_SERVER_ENABLE_MCP,
 )
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
@@ -377,7 +378,7 @@ from mlflow.server.auth.routes import (
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
-from mlflow.server.fastapi_app import create_fastapi_app
+from mlflow.server.fastapi_app import MCP_ENDPOINT_PATH, create_fastapi_app
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
@@ -949,12 +950,13 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_run_permission(run_id: str) -> Permission:
+def _get_run_permission(run_id: str, username: str | None = None) -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
-    username = authenticate_request().username
+    if username is None:
+        username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -1073,10 +1075,7 @@ def _get_permission_from_registered_model_or_prompt_name() -> Permission:
     )
 
 
-def _get_permission_from_scorer_name() -> Permission:
-    experiment_id = _get_request_param("experiment_id")
-    name = _get_request_param("name")
-    username = authenticate_request().username
+def _get_scorer_permission(experiment_id: str, name: str, username: str) -> Permission:
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -1086,6 +1085,14 @@ def _get_permission_from_scorer_name() -> Permission:
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
         ),
+    )
+
+
+def _get_permission_from_scorer_name() -> Permission:
+    return _get_scorer_permission(
+        _get_request_param("experiment_id"),
+        _get_request_param("name"),
+        authenticate_request().username,
     )
 
 
@@ -3756,12 +3763,16 @@ def _before_request():
         return make_forbidden_response()
 
 
+def grant_creator_experiment_permission(username: str, experiment_id: str) -> None:
+    store.grant_user_permission(username, "experiment", experiment_id, MANAGE.name)
+
+
 def set_can_manage_experiment_permission(resp: Response):
     response_message = CreateExperiment.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     username = authenticate_request().username
-    store.grant_user_permission(username, "experiment", experiment_id, MANAGE.name)
+    grant_creator_experiment_permission(username, experiment_id)
 
 
 def set_can_manage_registered_model_permission(resp: Response):
@@ -4309,16 +4320,20 @@ def rename_registered_model_permission(resp: Response):
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
 
 
+def grant_creator_scorer_permission(username: str, experiment_id: str, name: str) -> None:
+    # ``grant_user_permission`` is upsert, so re-registration is a no-op
+    # rather than an error — no try/except needed.
+    pattern = store._scorer_pattern(experiment_id, name)
+    store.grant_user_permission(username, "scorer", pattern, MANAGE.name)
+
+
 def set_can_manage_scorer_permission(resp: Response):
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    # ``grant_user_permission`` is upsert, so re-registration is a no-op
-    # rather than an error — no try/except needed.
-    pattern = store._scorer_pattern(experiment_id, name)
-    store.grant_user_permission(username, "scorer", pattern, MANAGE.name)
+    grant_creator_scorer_permission(username, experiment_id, name)
 
 
 def delete_scorer_permissions_cascade(resp: Response):
@@ -4374,6 +4389,21 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
+def scorer_read_predicate(username: str) -> Callable[[str, str], bool]:
+    """Build a ``p(experiment_id, scorer_name) -> bool`` predicate: read on both the
+    scorer's experiment and the scorer itself.
+    """
+    can_read_experiment = _role_based_read_predicate(username, "experiment")
+    can_read_scorer = _role_based_read_predicate(username, "scorer")
+
+    def can_read(experiment_id: str, scorer_name: str) -> bool:
+        return can_read_experiment(experiment_id) and can_read_scorer(
+            store._scorer_pattern(experiment_id, scorer_name)
+        )
+
+    return can_read
+
+
 def filter_list_scorers(resp: Response) -> None:
     """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
 
@@ -4389,15 +4419,9 @@ def filter_list_scorers(resp: Response) -> None:
     response_message = ListScorers.Response()
     parse_dict(resp.json, response_message)
 
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
+    can_read = scorer_read_predicate(authenticate_request().username)
     for scorer in list(response_message.scorers):
-        exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
-            continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
+        if not can_read(str(scorer.experiment_id), scorer.scorer_name):
             response_message.scorers.remove(scorer)
     resp.data = message_to_json(response_message)
 
@@ -5923,6 +5947,11 @@ def _find_fastapi_validator(
     if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+    # The MCP endpoint carries every tool on one path, so the route only authenticates; each
+    # tool call is authorized against its own resource in ``mlflow.server.auth.mcp_tools``.
+    if unprefixed == MCP_ENDPOINT_PATH:
+        return _get_require_authentication_validator()
+
     # `artifact_router` is not registered under `--static-prefix`, so this matches the
     # raw path; prefixed artifact requests fall through to Flask, which owns their auth.
     if _is_native_fastapi_proxy_artifact_path(path, method):
@@ -6375,7 +6404,13 @@ def create_app(app: Flask = app):
     app.after_request(_after_request)
 
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
-        fastapi_app = create_fastapi_app(app)
+        mcp_tool_policy = None
+        if MLFLOW_SERVER_ENABLE_MCP.get():
+            # Imported here: the module needs the optional fastmcp-backed MCP app to exist.
+            from mlflow.server.auth.mcp_tools import get_mcp_tool_policy
+
+            mcp_tool_policy = get_mcp_tool_policy()
+        fastapi_app = create_fastapi_app(app, mcp_tool_policy=mcp_tool_policy)
         add_fastapi_permission_middleware(fastapi_app)
         return fastapi_app
     else:
