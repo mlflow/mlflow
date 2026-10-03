@@ -25,14 +25,14 @@ def make_multi_class_calibration_plot(
     fig, ax = plt.subplots()
     # add calibration line for each class
     for _class in range(n_classes):
-        curves = calibration_curve(
-            y_true=[v == _class for v in y_true],
+        prob_true, prob_pred = calibration_curve(
+            y_true=[v == label_list[_class] for v in y_true],
             y_prob=y_probs[:, _class],
             n_bins=calibration_config.get("calibration_n_bins", 10),
         )
         plt.plot(
-            curves[0],
-            curves[1],
+            prob_pred,
+            prob_true,
             marker="o",
             markersize=3,
             label=f"Class {label_list[_class]}",
