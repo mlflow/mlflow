@@ -625,7 +625,7 @@ async def test_creator_manages_the_scorer_it_registers(mcp_server, monkeypatch):
         instructions="Is {{ outputs }} correct?",
         experiment_id=exp_id,
     )
-    assert registered == {"name": "judge", "experiment_id": exp_id}
+    assert registered == {"name": "judge", "experiment_id": exp_id, "version": 1}
 
     get = _scorer_request(
         mcp_server, "GET", creator, "scorers/get", experiment_id=exp_id, name="judge"
@@ -649,6 +649,66 @@ async def test_creator_manages_the_scorer_it_registers(mcp_server, monkeypatch):
         mcp_server, "DELETE", creator, "scorers/delete", experiment_id=exp_id, name="judge"
     )
     assert delete.status_code == 200
+
+
+async def _register_judge(url: str, credentials, exp_id: str, instructions: str = "Is {{ outputs }} correct?"):
+    return await _call(
+        url,
+        credentials,
+        "register_llm_judge_scorer",
+        name="judge",
+        instructions=instructions,
+        experiment_id=exp_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_re_registering_a_scorer_needs_update_on_the_scorer(mcp_server, monkeypatch):
+    (exp_id,) = _experiments(mcp_server, monkeypatch, ["exp-a"])
+    creator = _reader(mcp_server, exp_id, permission="EDIT")
+    assert (await _register_judge(mcp_server, creator, exp_id))["version"] == 1
+
+    # EDIT on the experiment registers new scorers only; an existing name is someone's scorer.
+    editor = _reader(mcp_server, exp_id, permission="EDIT")
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _register_judge(mcp_server, editor, exp_id, instructions="Was {{ outputs }} replaced?")
+    assert (
+        _scorer_request(
+            mcp_server, "GET", editor, "scorers/get", experiment_id=exp_id, name="judge"
+        ).status_code
+        == 403
+    )
+    # Without any grant, an existing and a new name deny the same way.
+    nobody = create_user(mcp_server)
+    for name in ("judge", "other"):
+        with pytest.raises(ToolError, match="^Permission denied$"):
+            await _call(
+                mcp_server,
+                nobody,
+                "register_llm_judge_scorer",
+                name=name,
+                instructions="Is {{ outputs }} correct?",
+                experiment_id=exp_id,
+            )
+
+    # Update on the scorer allows a new version and confers nothing more.
+    updater_username, _ = updater = create_user(mcp_server)
+    grant_role_permission(mcp_server, updater_username, "scorer", f"{exp_id}/judge", "EDIT")
+    again = await _register_judge(mcp_server, updater, exp_id, instructions="Is {{ outputs }} right?")
+    assert again == {"name": "judge", "experiment_id": exp_id, "version": 2}
+    assert (
+        _scorer_request(
+            mcp_server, "DELETE", updater, "scorers/delete", experiment_id=exp_id, name="judge"
+        ).status_code
+        == 403
+    )
+    # The creator keeps MANAGE and can still delete it.
+    assert (
+        _scorer_request(
+            mcp_server, "DELETE", creator, "scorers/delete", experiment_id=exp_id, name="judge"
+        ).status_code
+        == 200
+    )
 
 
 @pytest.mark.asyncio

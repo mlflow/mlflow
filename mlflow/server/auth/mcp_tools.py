@@ -155,6 +155,31 @@ def _can_list_scorers(arguments: dict[str, Any], username: str) -> bool:
     return auth_module._get_experiment_permission(str(experiment_id), username).can_read
 
 
+def _scorer_exists(experiment_id: str, name: str) -> bool:
+    try:
+        _get_tracking_store().get_scorer(experiment_id, name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return True
+
+
+def _can_register_scorer(arguments: dict[str, Any], username: str) -> bool:
+    # RegisterScorer -> validate_can_update_experiment. Registering an existing name adds a
+    # version to that scorer, which over REST an experiment editor may do (and is then granted
+    # MANAGE on it). Here a new version is gated like the scorer-level validators
+    # (validate_can_update_scorer), so only a caller who may update the scorer can replace it;
+    # a genuinely new scorer needs update on the experiment. Both denials are the generic one.
+    experiment_id, name = arguments.get("experiment_id"), arguments.get("name")
+    if experiment_id is None or not name:
+        return False
+    experiment_id = str(experiment_id)
+    if _scorer_exists(experiment_id, name):
+        return auth_module._get_scorer_permission(experiment_id, name, username).can_update
+    return auth_module._get_experiment_permission(experiment_id, username).can_update
+
+
 def _any_authenticated(arguments: dict[str, Any], username: str) -> bool:
     return True
 
@@ -197,8 +222,7 @@ MCP_TOOL_RULES: dict[str, McpToolRule] = {
     # Results are filtered per scorer by ``list_readable_scorers`` (ListScorers ->
     # filter_list_scorers).
     "list_scorers": McpToolRule(check=_can_list_scorers),
-    # RegisterScorer -> validate_can_update_experiment (the scorer does not exist yet)
-    "register_llm_judge_scorer": McpToolRule(_experiment, "can_update"),
+    "register_llm_judge_scorer": McpToolRule(check=_can_register_scorer),
 }
 
 
@@ -310,7 +334,10 @@ def _grant_experiment_creator(username: str, result: ExperimentRef) -> None:
 
 
 def _grant_scorer_creator(username: str, result: RegisteredScorer) -> None:
-    auth_module.grant_creator_scorer_permission(username, result.experiment_id, result.name)
+    # Only the creator of a scorer is granted MANAGE; a new version of an existing scorer
+    # (which needs update on it) leaves the grants as they are.
+    if result.version == 1:
+        auth_module.grant_creator_scorer_permission(username, result.experiment_id, result.name)
 
 
 def get_mcp_tool_policy() -> McpToolPolicy:

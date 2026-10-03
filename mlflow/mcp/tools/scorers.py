@@ -6,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import list_scorers as list_registered_scorers
 from mlflow.genai.scorers.builtin_scorers import _builtin_scorer_catalog
+from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.mcp.tools._args import DeprecatedOutput, as_json_object
 from mlflow.mcp.tools._types import RegisteredScorer, ScorerInfo, ScorerList
 
@@ -92,4 +93,5 @@ def register_llm_judge_scorer(
         extra_headers=headers,
     )
     registered = judge.register(experiment_id=experiment_id)
-    return RegisteredScorer(name=registered.name, experiment_id=experiment_id)
+    version = _get_scorer_store().get_scorer(experiment_id, registered.name).scorer_version
+    return RegisteredScorer(name=registered.name, experiment_id=experiment_id, version=version)

@@ -1075,10 +1075,7 @@ def _get_permission_from_registered_model_or_prompt_name() -> Permission:
     )
 
 
-def _get_permission_from_scorer_name() -> Permission:
-    experiment_id = _get_request_param("experiment_id")
-    name = _get_request_param("name")
-    username = authenticate_request().username
+def _get_scorer_permission(experiment_id: str, name: str, username: str) -> Permission:
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -1088,6 +1085,14 @@ def _get_permission_from_scorer_name() -> Permission:
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
         ),
+    )
+
+
+def _get_permission_from_scorer_name() -> Permission:
+    return _get_scorer_permission(
+        _get_request_param("experiment_id"),
+        _get_request_param("name"),
+        authenticate_request().username,
     )
 
 

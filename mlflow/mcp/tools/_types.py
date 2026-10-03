@@ -236,3 +236,5 @@ class ScorerList(BaseModel):
 class RegisteredScorer(BaseModel):
     name: str
     experiment_id: str
+    # 1 for a new scorer; registering an existing name adds a version.
+    version: int

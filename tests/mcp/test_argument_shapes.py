@@ -190,7 +190,7 @@ async def test_register_llm_judge_accepts_json_string_headers(client, experiment
         experiment_id=experiment_id,
         extra_headers=extra_headers,
     )
-    assert result == {"name": "judge", "experiment_id": experiment_id}
+    assert result == {"name": "judge", "experiment_id": experiment_id, "version": 1}
 
 
 @pytest.mark.parametrize(

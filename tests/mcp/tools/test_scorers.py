@@ -35,11 +35,18 @@ def test_register_and_list_llm_judge(experiment_id):
     )
     assert registered.name == "quality"
     assert registered.experiment_id == experiment_id
+    assert registered.version == 1
 
     (scorer,) = list_scorers(experiment_id=experiment_id).scorers
     assert scorer.name == "quality"
     assert scorer.description == "Checks quality"
     assert scorer.required_args is None
+
+    # Registering an existing name adds a version.
+    again = register_llm_judge_scorer(
+        name="quality", instructions="Is {{ outputs }} right?", experiment_id=experiment_id
+    )
+    assert again.version == 2
 
 
 @pytest.mark.parametrize(
