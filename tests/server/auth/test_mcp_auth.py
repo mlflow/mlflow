@@ -260,6 +260,28 @@ async def test_run_tools_resolve_the_run_experiment(mcp_server, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_search_traces_needs_read_on_the_run_it_is_scoped_to(mcp_server, monkeypatch):
+    exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
+    client = _admin_client(mcp_server, monkeypatch)
+    run_a = client.create_run(exp_a).info.run_id
+    run_b = client.create_run(exp_b).info.run_id
+    reader = _reader(mcp_server, exp_a)
+
+    # The run is resolved to scope the search, so a run in an unreadable experiment and a
+    # missing run deny alike, rather than the client naming the run's experiment.
+    for run_id in (run_b, "no-such-run"):
+        with pytest.raises(ToolError, match="^Permission denied$"):
+            await _call(mcp_server, reader, "search_traces", experiment_id=exp_a, run_id=run_id)
+    assert await _call(mcp_server, reader, "search_traces", experiment_id=exp_a, run_id=run_a) == {
+        "traces": [],
+        "next_page_token": None,
+    }
+    # READ on the run's experiment does not stand in for READ on the searched experiment.
+    with pytest.raises(ToolError, match="^Permission denied$"):
+        await _call(mcp_server, reader, "search_traces", experiment_id=exp_b, run_id=run_a)
+
+
+@pytest.mark.asyncio
 async def test_create_run_needs_read_on_the_parent_run(mcp_server, monkeypatch):
     exp_a, exp_b = _experiments(mcp_server, monkeypatch, ["exp-a", "exp-b"])
     parent = _admin_client(mcp_server, monkeypatch).create_run(exp_a).info.run_id

@@ -134,6 +134,20 @@ def _can_create_run(arguments: dict[str, Any], username: str) -> bool:
     return auth_module._get_experiment_permission(experiment.experiment_id, username).can_update
 
 
+def _can_search_traces(arguments: dict[str, Any], username: str) -> bool:
+    # SearchTracesV3 -> validate_can_search_traces_v3: read on the experiment. The tool also
+    # resolves ``run_id`` to scope the search, and the client names the run's experiment when it
+    # is not the one searched, so that run must be readable too (REST does not check it). A
+    # missing or unreadable run denies like ``describe_run``.
+    experiment_permissions = _experiment(arguments, username)
+    if not experiment_permissions or not experiment_permissions[0].can_read:
+        return False
+    if arguments.get("run_id") is None:
+        return True
+    run_permissions = _run(arguments, username)
+    return bool(run_permissions) and run_permissions[0].can_read
+
+
 def _can_link_traces_to_run(arguments: dict[str, Any], username: str) -> bool:
     # LinkTracesToRun -> validate_can_link_traces_to_run: update on the run's experiment and
     # read on every trace's experiment.
@@ -205,7 +219,7 @@ MCP_TOOL_RULES: dict[str, McpToolRule] = {
     "restore_run": McpToolRule(_run, "can_delete"),
     # Traces
     "get_trace": McpToolRule(_trace, "can_read"),
-    "search_traces": McpToolRule(_experiment, "can_read"),
+    "search_traces": McpToolRule(check=_can_search_traces),
     "delete_traces": McpToolRule(_experiment, "can_delete"),
     "set_trace_tag": McpToolRule(_trace, "can_update"),
     # DeleteTraceTagV3 -> validate_can_update_trace_by_trace_id
