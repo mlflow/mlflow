@@ -50,19 +50,19 @@ print(result.summary())
 
 `summary()` returns a DataFrame with one row per scorer:
 
-| Column                           | Meaning                                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| `status`                         | `ok`, or `insufficient_pairs` when fewer than two rows could be compared       |
-| `n_paired`                       | Number of paired rows with a value from both runs                              |
-| `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used         |
-| `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                          |
-| `diff`                           | Mean paired difference, candidate minus baseline                               |
-| `ci_low`, `ci_high`              | Bootstrap confidence interval of `diff` (95% by default)                       |
-| `p_value`                        | Two-sided p-value of `method`                                                  |
-| `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                  |
-| `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas  |
-| `ties`                           | Number of pairs where both runs produced the same value                        |
-| `greater_is_better`              | Direction used by `assert_improved`                                            |
+| Column                           | Meaning                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `status`                         | `ok`, or `insufficient_pairs` when fewer than two rows could be compared      |
+| `n_paired`                       | Number of paired rows with a value from both runs                             |
+| `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used        |
+| `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                         |
+| `diff`                           | Mean paired difference, candidate minus baseline                              |
+| `ci_low`, `ci_high`              | Bootstrap confidence interval of `diff` (95% by default)                      |
+| `p_value`                        | Two-sided p-value of `method`                                                 |
+| `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                 |
+| `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas |
+| `ties`                           | Number of pairs where both runs produced the same value                       |
+| `greater_is_better`              | Direction used by `assert_improved`                                           |
 
 A result such as "paired difference +0.05, 95% CI [-0.01, +0.11], p = 0.09 on n = 200" tells you the improvement is plausible but not established. That is a statement the two means alone cannot make.
 
@@ -79,10 +79,10 @@ Rows that have no match, or whose key appears more than once in a run, are **not
 
 The test is chosen from the type of the paired values:
 
-| Feedback values                           | Test (`method`)                                                                                                                                   |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Feedback values                            | Test (`method`)                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Pass/fail: booleans and `yes`/`no` ratings | McNemar's test. Exact binomial (`mcnemar_exact`) with fewer than 25 discordant pairs, chi-square with continuity correction (`mcnemar_chi2`) otherwise |
-| Numeric                                   | Wilcoxon signed-rank test (`wilcoxon`), with the paired t-test reported alongside as `t_test_p_value`                                             |
+| Numeric                                    | Wilcoxon signed-rank test (`wilcoxon`), with the paired t-test reported alongside as `t_test_p_value`                                                  |
 
 For every scorer, the confidence interval of `diff` is a percentile bootstrap over the paired differences. The bootstrap uses a fixed seed, so repeating a comparison yields the same interval. Use `confidence_level` to change its width:
 
