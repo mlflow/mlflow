@@ -13,6 +13,8 @@ export const useLoggedModelsForExperimentRunsTable = ({
     { experimentIds },
     {
       enabled,
+      // The runs table shows model names and links, without metric values.
+      includeMetrics: false,
     },
   );
 
