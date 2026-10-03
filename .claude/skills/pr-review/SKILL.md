@@ -181,7 +181,19 @@ Validate before finishing, then fix any errors and re-emit until both of these p
 uv run --directory $base_dir --only-group lint check-jsonschema \
   --schemafile .claude/skills/pr-review/review-payload.schema.json "$payload_path"
 # only when you wrote a file into $media_dir
-uv run --directory $base_dir --package skills skills embed-media --check --dir $media_dir --target $payload_path
+set -o pipefail
+jq -j '[.body, .comments[]?.body] | map(select(type == "string")) | join("\n")' "$payload_path" |
+  uv run --directory $base_dir --package skills skills embed-media --check --dir "$media_dir"
+```
+
+The check covers the top-level body and every string comment body. When embedding a single field,
+extract and update it with `jq` rather than passing the whole JSON payload to `embed-media`.
+Use `-j` to avoid adding a newline to the body:
+
+```bash
+jq -j '.body' review.json | skills embed-media --check --dir "$media_dir"
+jq -j '.body' review.json | skills embed-media --dir "$media_dir" --repository-id "$repo_id" > embedded-body.txt
+jq --rawfile body embedded-body.txt '.body = $body' review.json > updated-review.json
 ```
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
