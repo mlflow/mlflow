@@ -9989,6 +9989,67 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session.flush()
             return row.to_mlflow_entity()
 
+    # Tag tables are per-entity, so pushdown needs the table and the column that
+    # holds the owning resource's id. An entity absent here declines (``None``)
+    # rather than guessing, so adding a type is opt-in and a typo cannot silently
+    # answer for the wrong table.
+    _TAG_PUSHDOWN_ENTITIES = {
+        "run": ("SqlTag", "run_uuid"),
+        "experiment": ("SqlExperimentTag", "experiment_id"),
+        "trace": ("SqlTraceTag", "request_id"),
+        "logged_model": ("SqlLoggedModelTag", "model_id"),
+    }
+
+    def filter_ids_by_tag_clauses(self, entity, ids, clauses):
+        """Push a conjunctive tag predicate into SQL.
+
+        See :meth:`AbstractStore.filter_ids_by_tag_clauses`. Each clause narrows
+        the surviving id set with one query, so the work is bounded by the number
+        of clauses rather than by how much the resources contain -- no tag values
+        are returned and the resources themselves are never loaded.
+
+        Absence is handled by the shape rather than by a special case: a clause
+        asks which ids *have* a tag row with that key whose value compares true,
+        so an id with no such row is simply not in the result, for ``!=`` and
+        ``NOT IN`` exactly as for ``=``.
+        """
+        mapping = self._TAG_PUSHDOWN_ENTITIES.get(entity)
+        if mapping is None:
+            return None
+        model_name, id_column_name = mapping
+        tag_model = {
+            "SqlTag": SqlTag,
+            "SqlExperimentTag": SqlExperimentTag,
+            "SqlTraceTag": SqlTraceTag,
+            "SqlLoggedModelTag": SqlLoggedModelTag,
+        }[model_name]
+
+        surviving = set(ids)
+        if not surviving:
+            return set()
+        if not clauses:
+            return surviving
+
+        id_column = getattr(tag_model, id_column_name)
+        dialect = self._get_dialect()
+        with self.ManagedSessionMaker() as session:
+            for key, comparator, value in clauses:
+                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
+                rows = (
+                    session
+                    .query(id_column)
+                    .filter(
+                        id_column.in_(surviving),
+                        tag_model.key == key,
+                        comparison(tag_model.value, value),
+                    )
+                    .all()
+                )
+                surviving = {row[0] for row in rows}
+                if not surviving:
+                    break
+        return surviving
+
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """

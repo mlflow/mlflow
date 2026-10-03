@@ -2,6 +2,7 @@ import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
@@ -2175,3 +2176,35 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def filter_ids_by_tag_clauses(
+        self,
+        entity: str,
+        ids: Sequence[str],
+        clauses: Sequence[tuple[str, str, str | tuple[str, ...]]],
+    ) -> set[str] | None:
+        """Return which of ``ids`` have tags satisfying **every** clause.
+
+        An optional pushdown hook for callers that must decide whether a set of
+        resources satisfies a tag predicate without loading the resources. A
+        clause is a ``(key, comparator, value)`` triple, where ``comparator`` is
+        one of ``=``, ``!=``, ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN`` and
+        ``value`` is a string, or a tuple for the two list comparators.
+
+        A resource satisfies a clause only if it **has** a tag with that key
+        whose value compares true. An absent tag therefore satisfies nothing,
+        including ``!=`` and ``NOT IN`` -- a resource with no such tag is
+        excluded rather than vacuously included.
+
+        Returns:
+            The matching subset of ``ids``, or ``None`` if this store cannot
+            push the predicate down. ``None`` is a contract, not a failure: the
+            caller must then load each resource and evaluate the clauses itself.
+            Only *cost* varies by backend this way, never the outcome -- an
+            implementation that returns a set MUST agree with that in-memory
+            evaluation on every comparator and on absence.
+
+            An empty ``ids`` or ``clauses`` returns an empty set and the full
+            set respectively, so neither is confused with ``None``.
+        """
+        return None
