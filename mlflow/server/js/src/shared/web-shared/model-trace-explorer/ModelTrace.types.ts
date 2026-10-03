@@ -20,6 +20,7 @@ export enum ModelSpanType {
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
   MEMORY = 'MEMORY',
+  EVALUATOR = 'EVALUATOR',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -49,6 +50,7 @@ export enum ModelIconType {
   USER = 'user',
   SYSTEM = 'system',
   SAVE = 'save',
+  JUDGE = 'judge',
 }
 
 /**

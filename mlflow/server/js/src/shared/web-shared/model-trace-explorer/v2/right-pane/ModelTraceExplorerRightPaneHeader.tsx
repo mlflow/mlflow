@@ -20,9 +20,9 @@ import { useCopyController } from '../../../copy/useCopyController';
 import { doesTraceSupportV4API } from '../../../genai-traces-table/utils/TraceLocationUtils';
 import { formatCostUSD } from '../../CostUtils';
 import { getExperimentChatSessionPageRoute } from '../../MlflowUtils';
-import type { ModelTrace, ModelTraceSpanNode, SpanCostInfo } from '../ModelTrace.types';
+import { ModelSpanType, type ModelTrace, type ModelTraceSpanNode, type SpanCostInfo } from '../ModelTrace.types';
 import { createTraceV4LongIdentifier, getSpanExceptionCount, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
-import { isTraceCostType, type TraceCost } from '../../ModelTraceExplorerCostHoverCard';
+import type { TraceCost } from '../../ModelTraceExplorerCostHoverCard';
 import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { Link, useParams } from '../../RoutingUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM, SESSION_ID_METADATA_KEY } from '../../constants';
@@ -309,14 +309,18 @@ export const CostMetadataItem = ({
           <Typography.Title level={3} withoutMargins>
             <FormattedMessage defaultMessage="Cost breakdown" description="Header for cost breakdown" />
           </Typography.Title>
-          <BreakdownRow
-            label={<FormattedMessage defaultMessage="Input cost" description="Label for input cost" />}
-            value={formatCostUSD(cost.input_cost)}
-          />
-          <BreakdownRow
-            label={<FormattedMessage defaultMessage="Output cost" description="Label for output cost" />}
-            value={formatCostUSD(cost.output_cost)}
-          />
+          {cost.input_cost !== undefined && (
+            <BreakdownRow
+              label={<FormattedMessage defaultMessage="Input cost" description="Label for input cost" />}
+              value={formatCostUSD(cost.input_cost)}
+            />
+          )}
+          {cost.output_cost !== undefined && (
+            <BreakdownRow
+              label={<FormattedMessage defaultMessage="Output cost" description="Label for output cost" />}
+              value={formatCostUSD(cost.output_cost)}
+            />
+          )}
           <div
             css={{
               borderTop: `1px solid ${theme.colors.borderDecorative}`,
@@ -407,7 +411,14 @@ export const ModelTraceExplorerRightPaneHeader = ({
   const isRootSpan = !activeSpan.parentId;
   const modelName = activeSpan.modelName;
 
-  const tokenUsage = useMemo<HeaderTokenUsage | undefined>(() => getSpanTokenUsage(activeSpan), [activeSpan]);
+  const tokenUsage = useMemo<HeaderTokenUsage | undefined>(
+    () =>
+      getSpanTokenUsage({
+        ...activeSpan,
+        outputs: activeSpan.type === ModelSpanType.EVALUATOR ? activeSpan.outputs : undefined,
+      }),
+    [activeSpan],
+  );
   const cost = activeSpan.cost;
 
   const sessionId =
@@ -435,7 +446,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
     parseLinkedPrompts(modelTraceInfo.tags?.[MLFLOW_LINKED_PROMPTS_TAG]).length > 0;
 
   const hasMetadata =
-    modelName || tokenUsage || isTraceCostType(cost) || sessionId || tags.length > 0 || hasLinkedPrompts;
+    modelName || tokenUsage || Boolean(cost) || sessionId || tags.length > 0 || hasLinkedPrompts;
 
   return (
     <div
@@ -550,7 +561,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
               </MetadataItem>
             )}
             {tokenUsage && <TokenUsageMetadataItem tokenUsage={tokenUsage} />}
-            {isTraceCostType(cost) && <CostMetadataItem cost={cost} />}
+            {cost && <CostMetadataItem cost={cost} />}
             {sessionId && <SessionMetadataItem sessionId={sessionId} sessionPageUrl={sessionPageUrl} />}
             <TagsMetadataItem tags={tags} />
             {hasLinkedPrompts && isV3ModelTraceInfo(modelTraceInfo) && (

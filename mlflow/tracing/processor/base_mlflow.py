@@ -32,10 +32,11 @@ from mlflow.tracing.context import get_configured_trace_metadata, get_configured
 from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
-from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
+from mlflow.tracing.trace_manager import _Trace
 from mlflow.tracing.utils import (
     aggregate_cost_from_spans,
     aggregate_usage_from_spans,
+    encode_span_id,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_logged_model_id,
@@ -44,6 +45,7 @@ from mlflow.tracing.utils import (
     update_trace_state_from_span_conditionally,
 )
 from mlflow.tracing.utils.environment import resolve_env_metadata
+from mlflow.tracing.utils.processor import preserve_evaluation_span_metrics
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,
     _get_latest_active_run,
@@ -231,7 +233,14 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 return
             trace_id = trace_info.trace_id
 
-        InMemoryTraceManager.get_instance().register_span(create_mlflow_span(span, trace_id))
+        mlflow_span = create_mlflow_span(span, trace_id)
+        if span.parent is not None:
+            parent = self._trace_manager.get_span_from_id(
+                trace_id, encode_span_id(span.parent.span_id)
+            )
+            if parent and parent.get_attribute(SpanAttributeKey.EVALUATION_SCORER) is True:
+                mlflow_span.set_attribute(SpanAttributeKey.EVALUATION_SCORER, True)
+        self._trace_manager.register_span(mlflow_span)
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         raise NotImplementedError("Subclasses must implement this method.")
@@ -254,6 +263,12 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                     self._pending_on_end_condition.notify_all()
 
     def _on_end_impl(self, span: OTelReadableSpan) -> None:
+        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        if live_span := self._trace_manager.get_span_from_id(
+            trace_id, encode_span_id(span.context.span_id)
+        ):
+            preserve_evaluation_span_metrics(span, live_span)
+
         if self._export_metrics:
             self.record_metrics_for_span(span)
 

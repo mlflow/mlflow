@@ -4,10 +4,12 @@ export type SpanTokenUsage = Partial<TokenUsage> & Pick<TokenUsage, 'total_token
 
 export interface SpanTokenUsageSource {
   attributes?: unknown;
+  outputs?: unknown;
   tokenUsage?: SpanTokenUsage;
 }
 
 const MLFLOW_TOKEN_USAGE_ATTRIBUTE = 'mlflow.chat.tokenUsage';
+const EVALUATION_TOKEN_USAGE_ATTRIBUTE = 'mlflow.evaluation.tokenUsage';
 const OTEL_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.input_tokens';
 const OTEL_OUTPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.output_tokens';
 const OTEL_LEGACY_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.prompt_tokens';
@@ -121,7 +123,39 @@ const getOtelTokenUsage = (attributes: unknown): SpanTokenUsage | undefined => {
   };
 };
 
+export const getJudgeMetadata = (outputs: unknown): Record<string, unknown> | undefined => {
+  let parsedOutputs = outputs;
+  if (typeof parsedOutputs === 'string') {
+    try {
+      parsedOutputs = JSON.parse(parsedOutputs);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!isRecord(parsedOutputs)) {
+    return undefined;
+  }
+  const metadata =
+    parsedOutputs.metadata ?? (isRecord(parsedOutputs.feedback) ? parsedOutputs.feedback.metadata : undefined);
+  return isRecord(metadata) ? metadata : undefined;
+};
+
+const getJudgeTokenUsage = (outputs: unknown): SpanTokenUsage | undefined => {
+  const metadata = getJudgeMetadata(outputs);
+  if (!metadata) {
+    return undefined;
+  }
+  const inputTokens = getFiniteNumber(metadata['mlflow.assessment.judgeInputTokens']);
+  const outputTokens = getFiniteNumber(metadata['mlflow.assessment.judgeOutputTokens']);
+  if (inputTokens === undefined || outputTokens === undefined) {
+    return undefined;
+  }
+  return { input_tokens: inputTokens, output_tokens: outputTokens, total_tokens: inputTokens + outputTokens };
+};
+
 export const getSpanTokenUsage = (span: SpanTokenUsageSource): SpanTokenUsage | undefined =>
   span.tokenUsage ??
   normalizeMlflowTokenUsage(getAttribute(span.attributes, MLFLOW_TOKEN_USAGE_ATTRIBUTE)) ??
-  getOtelTokenUsage(span.attributes);
+  normalizeMlflowTokenUsage(getAttribute(span.attributes, EVALUATION_TOKEN_USAGE_ATTRIBUTE)) ??
+  getOtelTokenUsage(span.attributes) ??
+  getJudgeTokenUsage(span.outputs);

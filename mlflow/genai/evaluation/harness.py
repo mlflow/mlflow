@@ -10,6 +10,7 @@ import time
 import traceback
 import uuid
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, as_completed, wait
+from contextlib import contextmanager, nullcontext
 from typing import Any, Callable
 
 import pandas as pd
@@ -88,7 +89,8 @@ from mlflow.genai.utils.trace_utils import (
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, SpanAttributeKey
+from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -916,6 +918,56 @@ def _invoke_scorer(scorer_func: Callable[..., Any], eval_item: EvalItem):
     )
 
 
+@contextmanager
+def _evaluated_trace_context(trace: Trace):
+    root = next((span for span in trace.data.spans if span.parent_id is None), None)
+    if root is None:
+        yield False
+        return
+
+    headers = {"traceparent": f"00-{root._trace_id}-{root.span_id}-01"}
+    with set_tracing_context_from_http_request_headers(headers, _trace_info=trace.info):
+        try:
+            yield True
+        finally:
+            mlflow.flush_trace_async_logging()
+
+
+def _format_scorer_span_output(value):
+    if isinstance(value, Feedback):
+        result = {"feedback": value.value}
+        if value.rationale:
+            result["rationale"] = value.rationale
+        if value.metadata:
+            result["metadata"] = value.metadata
+        if value.error:
+            result["error"] = value.error.error_message
+        return result
+    if isinstance(value, (list, tuple)):
+        return [_format_scorer_span_output(item) for item in value]
+    return value
+
+
+def _set_judge_span_metrics(span, value):
+    if not isinstance(value, Feedback) or not value.metadata:
+        return
+    metadata = value.metadata
+    input_tokens = metadata.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS)
+    output_tokens = metadata.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS)
+    if input_tokens is not None and output_tokens is not None:
+        input_tokens, output_tokens = int(input_tokens), int(output_tokens)
+        span.set_attribute(
+            SpanAttributeKey.EVALUATION_TOKEN_USAGE,
+            {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            },
+        )
+    if (cost := metadata.get(AssessmentMetadataKey.JUDGE_COST)) is not None:
+        span.set_attribute(SpanAttributeKey.EVALUATION_COST, {"total_cost": float(cost)})
+
+
 def _compute_eval_scores(
     *,
     eval_item: EvalItem,
@@ -926,20 +978,29 @@ def _compute_eval_scores(
     if not scorers:
         return EvalResult(eval_item=eval_item, assessments=[], scorer_stats={})
 
-    should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
+    should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and eval_item.trace is not None
 
     def run_scorer(scorer):
+        scorer_span = None
         try:
-            scorer_func = scorer.run
-
             if should_trace:
-                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
-                    scorer_func
+                with mlflow.start_span(name=scorer.name, span_type=SpanType.EVALUATOR) as span:
+                    scorer_span = span
+                    span.set_attribute(SpanAttributeKey.EVALUATION_SCORER, True)
+                    span.set_inputs({
+                        "inputs": eval_item.inputs,
+                        "outputs": eval_item.outputs,
+                        "expectations": eval_item.expectations,
+                    })
+                    value = call_with_retry(
+                        lambda: _invoke_scorer(scorer.run, eval_item), rate_limiter, max_retries
+                    )
+                    span.set_outputs(_format_scorer_span_output(value))
+                    _set_judge_span_metrics(span, value)
+            else:
+                value = call_with_retry(
+                    lambda: _invoke_scorer(scorer.run, eval_item), rate_limiter, max_retries
                 )
-
-            value = call_with_retry(
-                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
-            )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
         except Exception as e:
@@ -957,28 +1018,27 @@ def _compute_eval_scores(
 
         add_scorer_metadata(scorer, feedbacks)
 
-        # Record the trace ID for the scorer function call.
-        if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):
+        if scorer_span is not None:
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
-                    AssessmentMetadataKey.SCORER_TRACE_ID: trace_id,
+                    AssessmentMetadataKey.SCORER_SPAN_ID: scorer_span.span_id,
                 }
-            # Set the scorer name tag to the trace to identify the trace is generated by a scorer.
-            mlflow.set_trace_tag(
-                trace_id=trace_id,
-                key=TraceTagKey.SOURCE_SCORER_NAME,
-                value=scorer.name,
-            )
         return feedbacks
 
     # Use a thread pool to run scorers in parallel
     # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
     max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
-    with ThreadPoolExecutor(
-        max_workers=max_scorer_workers,
-        thread_name_prefix="MlflowGenAIEvalScorer",
-    ) as executor:
+    trace_context = (
+        _evaluated_trace_context(eval_item.trace) if should_trace else nullcontext(False)
+    )
+    with (
+        trace_context as should_trace,
+        ThreadPoolExecutor(
+            max_workers=max_scorer_workers,
+            thread_name_prefix="MlflowGenAIEvalScorer",
+        ) as executor,
+    ):
         # Carry the caller's context (e.g. eval_retry_context() flags) into each
         # worker; a fresh copy per submit is required since a Context can't be
         # entered by two threads at once.

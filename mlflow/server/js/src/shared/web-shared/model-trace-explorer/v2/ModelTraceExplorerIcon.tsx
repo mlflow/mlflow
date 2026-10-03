@@ -15,6 +15,7 @@ import {
   UserIcon,
   GearIcon,
   SaveIcon,
+  GavelIcon,
 } from '@databricks/design-system';
 
 import { ModelIconType } from './ModelTrace.types';
@@ -60,6 +61,7 @@ export const ModelTraceExplorerIcon = ({
     [ModelIconType.USER]: <UserIcon color={iconColor} />,
     [ModelIconType.SYSTEM]: <GearIcon color={iconColor} />,
     [ModelIconType.SAVE]: <SaveIcon color={iconColor} />,
+    [ModelIconType.JUDGE]: <GavelIcon color={iconColor} />,
   };
 
   // custom colors depending on span type
@@ -89,6 +91,11 @@ export const ModelTraceExplorerIcon = ({
       color = theme.colors.indigo;
       tooltipColor = theme.colors.indigo;
       backgroundColor = theme.isDarkMode ? `${theme.colors.indigo}40` : `${theme.colors.indigo}24`;
+      break;
+    case ModelIconType.JUDGE:
+      color = theme.isDarkMode ? theme.colors.yellow300 : theme.colors.yellow700;
+      tooltipColor = color;
+      backgroundColor = theme.isDarkMode ? `${theme.colors.yellow800}40` : theme.colors.yellow100;
       break;
   }
 

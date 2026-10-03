@@ -1195,6 +1195,28 @@ def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_track
         assert trace_info.token_usage["total_tokens"] == 300
 
 
+def test_log_spans_without_usage_preserves_finalized_duration_in_workspace(
+    workspace_tracking_store,
+):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("trace-finalized-duration-workspace")
+        _create_trace(
+            workspace_tracking_store,
+            trace_id,
+            exp_id,
+            request_time=1_000,
+            execution_duration=500,
+        )
+        workspace_tracking_store.log_spans(
+            exp_id,
+            [create_test_span(trace_id, name="evaluator", attributes={})],
+        )
+        trace_info = workspace_tracking_store.get_trace_info(trace_id)
+        assert trace_info.request_time == 1_000
+        assert trace_info.execution_duration == 500
+
+
 def test_start_trace_conflict_update_is_workspace_scoped(
     workspace_tracking_store, monkeypatch, tmp_path
 ):

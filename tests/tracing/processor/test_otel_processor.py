@@ -112,3 +112,41 @@ def test_on_end_filters_mlflow_prefixed_tags():
         and k != SpanAttributeKey.TRACE_TAG_PREFIX + "user_tag"
     ]
     assert mlflow_tag_attrs == []
+
+
+def test_dual_export_preserves_evaluator_metrics_without_canonical_usage(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", "true")
+    processor, exporter = _make_processor()
+    assert not processor._should_register_traces
+
+    span = create_mock_otel_span(trace_id=0xDEADBEEF, span_id=0x5678, parent_id=0x1234)
+    span._attributes = {
+        SpanAttributeKey.CHAT_USAGE: '{"input_tokens": 10, "output_tokens": 5}',
+        SpanAttributeKey.LLM_COST: '{"total_cost": 0.003}',
+        "gen_ai.usage.input_tokens": 10,
+    }
+    live_span = mock.MagicMock()
+    live_span.get_attribute.side_effect = lambda key: {
+        SpanAttributeKey.EVALUATION_SCORER: True,
+        SpanAttributeKey.CHAT_USAGE: {"input_tokens": 10, "output_tokens": 5},
+    }.get(key)
+    with (
+        mock.patch.object(
+            processor._trace_manager, "get_mlflow_trace_id_from_otel_id", return_value="tr-abc"
+        ),
+        mock.patch.object(processor._trace_manager, "get_span_from_id", return_value=live_span),
+    ):
+        processor.on_end(span)
+        assert processor.force_flush()
+
+    exported_span = exporter.export.call_args.args[0][0]
+    assert SpanAttributeKey.CHAT_USAGE not in exported_span.attributes
+    assert SpanAttributeKey.LLM_COST not in exported_span.attributes
+    assert exported_span.attributes[SpanAttributeKey.EVALUATION_TOKEN_USAGE] == (
+        '{"input_tokens": 10, "output_tokens": 5}'
+    )
+    assert exported_span.attributes[SpanAttributeKey.EVALUATION_COST] == '{"total_cost": 0.003}'
+    assert "gen_ai.usage.input_tokens" not in exported_span.attributes
+    assert live_span._span._attributes == exported_span.attributes
+    live_span.get_attribute.assert_any_call(SpanAttributeKey.EVALUATION_SCORER)
+    processor.shutdown()

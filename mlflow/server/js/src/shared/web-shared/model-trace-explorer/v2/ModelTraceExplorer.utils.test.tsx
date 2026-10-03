@@ -40,6 +40,8 @@ import {
   getDefaultActiveTab,
   getTotalTokens,
   getTraceCost,
+  getIconTypeForSpan,
+  getDisplayNameForSpanType,
   convertOtelAttributesToMap,
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
@@ -49,6 +51,12 @@ import {
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+import { ModelIconType } from './ModelTrace.types';
+
+it('displays evaluator spans with the judge icon', () => {
+  expect(getIconTypeForSpan(ModelSpanType.EVALUATOR)).toBe(ModelIconType.JUDGE);
+  expect(getDisplayNameForSpanType(ModelSpanType.EVALUATOR)).toBe('Evaluator');
+});
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -962,6 +970,20 @@ describe('normalizeNewSpanData', () => {
       output_cost: 0.002,
       total_cost: 0.003,
     });
+  });
+
+  it('should display evaluator cost and token usage without standard attributes', () => {
+    const span: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        'mlflow.evaluation.cost': JSON.stringify({ input_cost: 0.001, output_cost: 0.002, total_cost: 0.003 }),
+        'mlflow.evaluation.tokenUsage': JSON.stringify({ input_tokens: 10, output_tokens: 5, total_tokens: 15 }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({ input_cost: 0.001, output_cost: 0.002, total_cost: 0.003 });
+    expect(normalized.tokenUsage).toEqual({ input_tokens: 10, output_tokens: 5, total_tokens: 15 });
   });
 
   it('should extract token usage from the MLflow standard attribute before OTel attributes', () => {
