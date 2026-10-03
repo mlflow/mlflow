@@ -53,7 +53,8 @@ def _load_model(model_uri, dst_path=None):
     mlflow_model = Model.load(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name="dspy")
 
-    model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
+    # Models saved on Windows record `model_path` with backslashes
+    model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH).replace("\\", "/")
     task = flavor_conf.get("inference_task")
 
     allow_pickle = (
