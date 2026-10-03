@@ -3,6 +3,7 @@
 
 import inspect
 import json
+import re
 from types import SimpleNamespace
 
 from mlflow.server import auth as a
@@ -215,7 +216,7 @@ def test_every_ownership_grant_route_has_a_before_request_validator():
     # An after-request MANAGE grant only records ownership; the create itself must be
     # authorized up front, or the grant would mask the missing check. Scanning
     # AFTER_REQUEST_HANDLERS alone is sufficient because
-    # WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS is derived from it.
+    # PARAMETERIZED_AFTER_REQUEST_HANDLERS is derived from it.
     grants = {
         h
         for h in a.AFTER_REQUEST_PATH_HANDLERS.values()
@@ -411,4 +412,50 @@ def test_every_protected_graphql_field_has_a_gate():
     for parent_type, field in middleware.PROTECTED_NESTED_FIELDS:
         assert f'"{field}"' in post_resolve, (
             f"{parent_type}.{field} is routed through the middleware but never filtered"
+        )
+
+
+def test_every_after_request_handler_is_dispatchable():
+    """A response filter on a parameterized rule is silently unreachable by exact-path lookup.
+
+    AFTER_REQUEST_HANDLERS is keyed by the Flask rule, so ".../traces/<trace_id>" can never equal
+    a concrete request path. ``_after_request`` therefore falls back to
+    PARAMETERIZED_AFTER_REQUEST_HANDLERS, and a rule missing from that table is registered but
+    never runs. That failure mode is invisible from the outside: authorization still passes, so the
+    route answers 200 carrying exactly the fields the filter exists to remove. This caught
+    PARAMETERIZED_AFTER_REQUEST_HANDLERS being scoped to "/workspaces/", which left the trace,
+    logged-model and issue redactors inert.
+    """
+    unreachable = sorted(
+        f"{method:6} {path} -> {handler.__name__}"
+        for (path, method), handler in a.AFTER_REQUEST_HANDLERS.items()
+        if "<" in path
+        and not any(
+            m == method and pat.fullmatch(re.sub(r"<[^>]+>", "sample-id", path))
+            for (pat, m) in a.PARAMETERIZED_AFTER_REQUEST_HANDLERS
+        )
+    )
+    assert not unreachable, (
+        "After-request handlers registered on a parameterized route with no entry in "
+        "PARAMETERIZED_AFTER_REQUEST_HANDLERS. They never run:\n" + "\n".join(unreachable)
+    )
+
+
+def test_parameterized_trace_route_redacts_assessments():
+    """The UI reads a trace by path parameter, not the SDK's ``traces/get?trace_id=``.
+
+    Both resolve to GetTraceInfoV3, but only the query-string form matches
+    AFTER_REQUEST_HANDLERS by exact path, so a redactor reachable from the SDK route can still be
+    missing from the one a browser uses. Pinned per prefix because the UI calls the /ajax-api twin.
+    """
+    for prefix in ("/api", "/ajax-api"):
+        path = f"{prefix}/3.0/mlflow/traces/tr-0123456789abcdef"
+        matched = [
+            handler
+            for (pat, method), handler in a.PARAMETERIZED_AFTER_REQUEST_HANDLERS.items()
+            if method == "GET" and pat.fullmatch(path)
+        ]
+        assert matched == [a.redact_trace_info_v3_assessments], (
+            f"GET {path} dispatches to {[h.__name__ for h in matched]}, "
+            "so assessments ride out unredacted"
         )

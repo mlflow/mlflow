@@ -6829,9 +6829,9 @@ def _after_request(resp: Response):
         return resp
 
     handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
-    if handler is None and "/workspaces/" in request.path:
-        # Fallback to regex matching for workspace paths.
-        for (path, method), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
+    if handler is None:
+        # Fall back to regex matching: a parameterized rule never matches by exact path.
+        for (path, method), candidate in PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
             if method != request.method:
                 continue
             if path.fullmatch(request.path):
@@ -7231,6 +7231,8 @@ def list_current_user_permissions():
     # Sender == target. Returns every permission grant across every role the
     # user holds, plus ``is_admin`` at the top level so the frontend can show
     # admin status without a second call to ``/users/get``.
+    # ADVISORY ONLY: the UI gates controls on this and silently no-ops a denied action without
+    # issuing the request, so a UI that appears to accept an edit may never have attempted it.
     username = authenticate_request().username
     is_admin, rows = _list_user_role_permissions(username)
     return jsonify({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
