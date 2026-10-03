@@ -172,8 +172,46 @@ def _attrs() -> dict[str, Any]:
     return _cache(_G_ATTRS_ATTR, _ATTRS_CACHE)
 
 
+_CONDITION_DENIAL: ContextVar[bool] = ContextVar("mlflow_auth_condition_denial", default=False)
+
+_G_CONDITION_DENIAL_ATTR = "_mlflow_auth_condition_denial"
+
+
+def note_condition_denial() -> None:
+    """Record that a mutation condition -- not a missing grant -- refused this request.
+
+    Lives here, beside the resource memo, because it has exactly the same lifetime and the
+    same hazard: left set, it would label the NEXT request's grant denial as a condition
+    denial. Putting it behind ``clear_cache()`` means every funnel that already clears
+    covers it too, so the "forgot to clear" failure mode cannot be reintroduced by adding a
+    funnel.
+    """
+    _CONDITION_DENIAL.set(True)
+    if _in_flask_request():
+        from flask import g
+
+        setattr(g, _G_CONDITION_DENIAL_ATTR, True)
+
+
+def condition_denied() -> bool:
+    """Whether a condition refused something during this request.
+
+    Read only to choose between two 403 messages, so it can never widen access. It says a
+    condition failed somewhere in this request's authorization, not that a condition was the
+    sole reason: a validator evaluating a disjunction can have one branch refused by a
+    condition and another by a grant.
+    """
+    if _in_flask_request():
+        from flask import g
+
+        if getattr(g, _G_CONDITION_DENIAL_ATTR, False):
+            return True
+    return _CONDITION_DENIAL.get()
+
+
 def clear_cache() -> None:
-    """Drop both caches. Call from a ``finally`` when before-request work completes.
+    """Drop both caches and the denial reason. Call from a ``finally`` when before-request
+    work completes.
 
     Mandatory on the FastAPI funnel, where the caches live in ContextVars that survive
     the request: without this a pooled worker thread would serve the next request stale
@@ -183,10 +221,11 @@ def clear_cache() -> None:
     """
     _ENTITY_CACHE.set(None)
     _ATTRS_CACHE.set(None)
+    _CONDITION_DENIAL.set(False)
     if _in_flask_request():
         from flask import g
 
-        for attr in (_G_ENTITY_ATTR, _G_ATTRS_ATTR):
+        for attr in (_G_ENTITY_ATTR, _G_ATTRS_ATTR, _G_CONDITION_DENIAL_ATTR):
             if hasattr(g, attr):
                 delattr(g, attr)
 

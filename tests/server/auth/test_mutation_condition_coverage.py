@@ -888,6 +888,73 @@ def _delete_experiment():
         return auth_module.validate_can_delete_experiment()
 
 
+@pytest.fixture(autouse=True)
+def _clear_per_request_auth_state():
+    """Every test starts at a request boundary, as the server does."""
+    auth_resources.clear_cache()
+    yield
+    auth_resources.clear_cache()
+
+
+def _denial_body():
+    # ``make_response`` needs an app context; the reason itself is request-scoped state.
+    with auth_module.app.test_request_context("/"):
+        return auth_module.make_forbidden_response().get_data(as_text=True)
+
+
+def test_a_condition_denial_says_so(monkeypatch):
+    """A caller holding EDIT who is refused cannot otherwise tell whether their grant is wrong
+    or a condition fired. The two are fixed in completely different places -- a grant on the
+    permission, a condition on the role -- so the message has to distinguish them, without
+    disclosing the condition itself, which is policy the caller is not entitled to read.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
+    assert _proxy("1/r1/artifacts/f.txt", "update") is False
+    assert auth_resources.condition_denied() is True
+    assert "condition" in _denial_body()
+
+
+def test_a_grant_denial_stays_generic(monkeypatch):
+    """Nothing was refused by a condition, so the message must not claim one was."""
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",))
+    assert _proxy("1/r1/artifacts/f.txt", "update") is True
+    assert auth_resources.condition_denied() is False
+    assert _denial_body() == "Permission denied"
+
+
+def test_a_condition_denial_does_not_leak_into_the_next_request(monkeypatch):
+    """The reason is per-request state with the same hazard as the resource memo: left set, it
+    would label the NEXT request's grant denial as a condition denial. It is cleared by
+    `clear_cache()` precisely so every funnel that already clears covers it too.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
+    assert _proxy("1/r1/artifacts/f.txt", "update") is False
+    assert auth_resources.condition_denied() is True
+
+    auth_resources.clear_cache()  # what request completion does
+
+    assert auth_resources.condition_denied() is False, "denial reason leaked past the clear"
+    assert _denial_body() == "Permission denied"
+
+
+def test_the_reason_is_cleared_inside_a_flask_request_too(monkeypatch):
+    """On the Flask path the reason is mirrored onto `g`, so clearing the ContextVar alone
+    would leave it readable for the rest of that request -- which is what narrows the window
+    to before-request rather than the whole request context. Flask discards `g` at request
+    end regardless, so this is belt-and-braces, but it is the half a ContextVar-only clear
+    would miss.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
+    with auth_module.app.test_request_context("/"):
+        assert _proxy("1/r1/artifacts/f.txt", "update") is False
+        assert auth_resources.condition_denied() is True
+
+        auth_resources.clear_cache()
+
+        assert auth_resources.condition_denied() is False, "reason survived inside the request"
+        assert auth_module.make_forbidden_response().get_data(as_text=True) == "Permission denied"
+
+
 def _proxy(path, action):
     """Authorize an artifact proxy request the way both funnels do."""
     child = auth_module._artifact_proxy_child(path, action)

@@ -654,8 +654,26 @@ def make_basic_auth_response() -> Response:
     return res
 
 
+_GENERIC_DENIAL = "Permission denied"
+_CONDITION_DENIAL_MESSAGE = (
+    "Permission denied by an access condition on this resource. Your permission level "
+    "allows this operation, but a condition configured on one of your roles does not."
+)
+
+
+def denial_message() -> str:
+    """The 403 body: whether a grant or a condition refused the request.
+
+    A caller holding EDIT who is refused cannot otherwise tell which of the two happened,
+    and they are fixed in completely different places -- a grant is changed on the
+    permission, a condition on the role. The message names the CLASS of refusal and never
+    the condition itself, which is policy the caller is not entitled to read.
+    """
+    return _CONDITION_DENIAL_MESSAGE if auth_resources.condition_denied() else _GENERIC_DENIAL
+
+
 def make_forbidden_response() -> Response:
-    res = make_response("Permission denied")
+    res = make_response(denial_message())
     res.status_code = 403
     return res
 
@@ -1019,6 +1037,23 @@ def _parsed_condition_cached(filter_string: str, namespace: str):
 
 
 def authorize_on_conditions(
+    username: str,
+    workspace: "str | None",
+    contexts: "Sequence[ConditionContext]",
+) -> bool:
+    """Evaluate this user's mutation conditions, recording the reason for a denial.
+
+    The reason is recorded HERE, around the whole evaluation, rather than at each of the
+    several ``return False`` points inside it -- a denial added later is then covered
+    automatically instead of silently reporting as a grant denial.
+    """
+    allowed = _authorize_on_conditions(username, workspace, contexts)
+    if not allowed:
+        auth_resources.note_condition_denial()
+    return allowed
+
+
+def _authorize_on_conditions(
     username: str,
     workspace: "str | None",
     contexts: "Sequence[ConditionContext]",
@@ -10155,8 +10190,11 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         if not user.is_admin:
             try:
                 if not await validator(user.username, request):
+                    # Built before the ``finally`` clears the reason: a return expression is
+                    # evaluated first. Were this moved after the clear, the message would
+                    # degrade to the generic one rather than become wrong.
                     return PlainTextResponse(
-                        "Permission denied",
+                        denial_message(),
                         status_code=HTTPStatus.FORBIDDEN,
                     )
             except MlflowException as e:
