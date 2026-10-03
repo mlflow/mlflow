@@ -19,6 +19,7 @@ import urllib
 import uuid
 import warnings
 from dataclasses import replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
@@ -54,6 +55,9 @@ from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerV
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
+from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -96,6 +100,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -109,11 +114,13 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import (
+    NOT_SET,
     SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
@@ -7037,3 +7044,226 @@ class MlflowClient:
 
     def delete_mcp_server_alias(self, name: str, alias: str) -> None:
         self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)
+
+    # ---------------------------------------------------------------------------
+    # Skill Registry
+    # ---------------------------------------------------------------------------
+
+    def create_skill(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        description: str | None = None,
+        icons: list[RegistryIcon] | None = None,
+    ) -> Skill:
+        return self._tracking_client.store.create_skill(
+            name=name, organization=organization, description=description, icons=icons
+        )
+
+    def get_skill(self, *, name: str, organization: str = "") -> Skill:
+        return self._tracking_client.store.get_skill(name=name, organization=organization)
+
+    def search_skills(
+        self,
+        *,
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Skill]:
+        return self._tracking_client.store.search_skills(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_skill(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        description: str | None = NOT_SET,
+        icons: list[RegistryIcon] | None = NOT_SET,
+    ) -> Skill:
+        return self._tracking_client.store.update_skill(
+            name=name, organization=organization, description=description, icons=icons
+        )
+
+    def delete_skill(self, *, name: str, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill(name=name, organization=organization)
+
+    def create_skill_version(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        source: GitSource | OCISource | ZipSource | str | None = None,
+        digest: str | None = None,
+        status: str = "active",
+    ) -> SkillVersion:
+        """Create a skill version from an external source or upload a prepared local archive.
+
+        Local uploads require an HTTP tracking server serving artifacts. The server chooses
+        the artifact location; caller-supplied MLflow artifact sources are rejected. A local
+        source must be a gzip-compressed tar archive, which is validated before uploading.
+        The optional digest describes the unpacked skill tree and is forwarded unchanged;
+        omitting it leaves the digest unset. Use ``mlflow.genai.register_skill`` to inspect,
+        digest, and package a directory, with optional name inference.
+        An omitted or ``None`` source is passed to the store; the backend determines
+        whether it is accepted.
+        """
+        # mlflow.genai imports MlflowClient, so source resolution must be imported lazily.
+        from mlflow.genai.skill_content.sources import resolve_source_type
+
+        resolved = resolve_source_type(source) if source is not None else None
+        if resolved is not None and resolved.is_local:
+            return self._register_local_skill(
+                archive=Path(resolved.source),
+                name=name,
+                organization=organization,
+                digest=digest,
+                status=status,
+            )
+
+        if resolved is not None and resolved.source_type == SkillSourceType.MLFLOW:
+            raise MlflowException.invalid_parameter_value(
+                "MLflow artifact locations are chosen by the server. "
+                "Pass a local gzip-compressed tar archive to upload skill content."
+            )
+
+        return self._tracking_client.store.create_skill_version(
+            name=name,
+            organization=organization,
+            source_type=resolved.source_type.value if resolved else None,
+            source=resolved.source if resolved else None,
+            ref=resolved.ref if resolved else None,
+            subpath=resolved.subpath if resolved else None,
+            digest=digest,
+            status=status,
+        )
+
+    def _register_local_skill(
+        self,
+        *,
+        archive: Path,
+        name: str,
+        digest: str | None = None,
+        organization: str = "",
+        status: str = "active",
+    ) -> SkillVersion:
+        """Validate and upload a prepared gzip-compressed tar, preserving its optional digest."""
+        # mlflow.genai imports MlflowClient, so content helpers must be imported lazily.
+        from mlflow.genai.skill_content.archive import validate_skill_archive
+
+        store = self._tracking_client.store
+        if not isinstance(store, RestStore):
+            raise MlflowException(
+                "Local skill uploads require an HTTP tracking server with --serve-artifacts.",
+                error_code=NOT_IMPLEMENTED,
+            )
+
+        if not archive.is_file():
+            raise MlflowException.invalid_parameter_value(
+                "Local skill source must be a gzip-compressed tar archive file. "
+                "Use mlflow.genai.register_skill() to package a directory."
+            )
+
+        validate_skill_archive(archive, compressed=True)
+        with archive.open("rb") as content:
+            return store._register_skill(
+                name=name, organization=organization, digest=digest, status=status, content=content
+            )
+
+    def bulk_register_skills(
+        self,
+        *,
+        skill_definitions: list[dict[str, Any]],
+        organization: str = "",
+    ) -> list[SkillVersion]:
+        return self._tracking_client.store.bulk_register_skills(
+            skill_definitions=skill_definitions, organization=organization
+        )
+
+    def get_skill_version(self, *, name: str, version: int, organization: str = "") -> SkillVersion:
+        return self._tracking_client.store.get_skill_version(
+            name=name, version=version, organization=organization
+        )
+
+    def get_skill_version_by_alias(
+        self, *, name: str, alias: str, organization: str = ""
+    ) -> SkillVersion:
+        return self._tracking_client.store.get_skill_version_by_alias(
+            name=name, alias=alias, organization=organization
+        )
+
+    def get_latest_skill_version(self, *, name: str, organization: str = "") -> SkillVersion:
+        return self._tracking_client.store.get_latest_skill_version(
+            name=name, organization=organization
+        )
+
+    def search_skill_versions(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[SkillVersion]:
+        return self._tracking_client.store.search_skill_versions(
+            name=name,
+            organization=organization,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_skill_version(
+        self, *, name: str, version: int, organization: str = "", status: str | None = NOT_SET
+    ) -> SkillVersion:
+        return self._tracking_client.store.update_skill_version(
+            name=name, version=version, organization=organization, status=status
+        )
+
+    def delete_skill_version(self, *, name: str, version: int, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill_version(
+            name=name, version=version, organization=organization
+        )
+
+    def set_skill_tag(self, *, name: str, key: str, value: str, organization: str = "") -> None:
+        self._tracking_client.store.set_skill_tag(
+            name=name, key=key, value=value, organization=organization
+        )
+
+    def delete_skill_tag(self, *, name: str, key: str, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill_tag(name=name, key=key, organization=organization)
+
+    def set_skill_version_tag(
+        self, *, name: str, version: int, key: str, value: str, organization: str = ""
+    ) -> None:
+        self._tracking_client.store.set_skill_version_tag(
+            name=name, version=version, key=key, value=value, organization=organization
+        )
+
+    def delete_skill_version_tag(
+        self, *, name: str, version: int, key: str, organization: str = ""
+    ) -> None:
+        self._tracking_client.store.delete_skill_version_tag(
+            name=name, version=version, key=key, organization=organization
+        )
+
+    def set_skill_alias(
+        self, *, name: str, alias: str, version: int, organization: str = ""
+    ) -> None:
+        self._tracking_client.store.set_skill_alias(
+            name=name, alias=alias, version=version, organization=organization
+        )
+
+    def delete_skill_alias(self, *, name: str, alias: str, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill_alias(
+            name=name, alias=alias, organization=organization
+        )

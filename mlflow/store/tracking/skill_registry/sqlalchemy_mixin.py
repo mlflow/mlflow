@@ -21,7 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
@@ -31,7 +31,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
     SqlSkillVersionTag,
 )
-from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
 from mlflow.store.tracking.skill_registry.artifact_paths import owned_skill_upload_path
 from mlflow.store.tracking.skill_registry.constants import (
     SKILL_VERSION_DIGEST_LENGTH,
@@ -52,6 +51,7 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _validate_alias_name,
     _validate_alias_name_reserved,
+    _validate_icon_payloads,
     _validate_organization_name,
     _validate_skill_name,
     _validate_skill_tag,
@@ -217,6 +217,7 @@ class SqlAlchemySkillRegistryMixin:
         created_by: str | None = None,
     ) -> Skill:
         self._validate_skill_identity(name, organization)
+        _validate_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
             self._assert_name_not_a_packaged_member(session, name, organization)
@@ -257,6 +258,8 @@ class SqlAlchemySkillRegistryMixin:
         last_updated_by: str | None = None,
     ) -> Skill:
         self._validate_skill_identity(name, organization)
+        if icons is not NOT_SET:
+            _validate_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             skill = self._get_skill_or_raise(session, name, organization)
             if description is not NOT_SET:

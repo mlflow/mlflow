@@ -11,12 +11,10 @@ from starlette.testclient import TestClient
 
 from mlflow.entities.mcp_server import MCPStatus, MCPTool
 from mlflow.exceptions import MlflowException
-from mlflow.server.fastapi_app import add_mcp_exception_handlers
+from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, mcp_server_router
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import (
-    NOT_SET,
-    MCPServerRegistryMixin,
-)
+from mlflow.store.tracking import NOT_SET
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPServerRegistryMixin
 from mlflow.store.tracking.mcp_server_registry.rest_mixin import RestMCPServerRegistryMixin
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
@@ -36,7 +34,7 @@ def _server_json(name: str, version: str, **extra) -> dict[str, Any]:
 
 def _create_registry_fastapi_app(route_prefixes=None):
     fastapi_app = FastAPI()
-    add_mcp_exception_handlers(fastapi_app)
+    add_registry_exception_handlers(fastapi_app)
     if route_prefixes is None:
         route_prefixes = get_mcp_server_api_route_prefixes()
     elif isinstance(route_prefixes, str):
@@ -131,6 +129,26 @@ def test_rest_client_url_encodes_slashed_name():
         http_request_mock.call_args.kwargs["endpoint"]
         == "/api/3.0/mlflow/mcp-servers/io.github.user%2Fmy-server/versions/2025.6.0"
     )
+
+
+@pytest.mark.parametrize("value", [".", ".."])
+@pytest.mark.parametrize(
+    ("method", "kwargs", "parameter"),
+    [
+        ("delete_mcp_server_tag", {}, "key"),
+        ("delete_mcp_server_version_tag", {"version": "1.0.0"}, "key"),
+        ("delete_mcp_server_alias", {}, "alias"),
+    ],
+)
+def test_rest_client_rejects_dot_path_parameters(method, kwargs, parameter, value):
+    client = _TestRestClient(TestClient(FastAPI()))
+    with (
+        mock.patch("mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request") as request,
+        pytest.raises(MlflowException, match="Path parameters must not be") as exc_info,
+    ):
+        getattr(client, method)(name="io.github.user/my-server", **kwargs, **{parameter: value})
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
 
 
 def test_rest_client_normalizes_null_tools_to_empty_list():

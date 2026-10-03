@@ -19,8 +19,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 from mlflow.telemetry.events import McpRegistryRegisterServerFromUrlEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient
@@ -28,7 +28,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.semver_utils import parse_semver
 from mlflow.utils.uri import get_uri_scheme, is_local_uri
-from mlflow.utils.validation import _validate_mcp_icon_payloads, _validate_mcp_initial_status
+from mlflow.utils.validation import _validate_icon_payloads, _validate_mcp_initial_status
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -168,7 +168,7 @@ def register_mcp_server(
         )
     validate_mcp_server_name(name)
     parse_semver(version, param_name="server_json.version")
-    _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+    _validate_icon_payloads(server_json.get("icons"), "server_json.icons")
 
     # When omit->discover would scrape, reject an existing live version first so
     # retries do not hit the remote before create. Store create remains

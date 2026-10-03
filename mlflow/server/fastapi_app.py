@@ -20,6 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from flask import Flask
+from starlette.exceptions import HTTPException
 from starlette.middleware.wsgi import WSGIResponder, build_environ
 from starlette.types import Receive, Scope, Send
 
@@ -44,6 +45,11 @@ from mlflow.server.mcp_server_api import (
     mcp_server_router,
 )
 from mlflow.server.otel_api import otel_router
+from mlflow.server.skill_registry_api import (
+    get_skill_registry_api_route_prefixes,
+    is_skill_registry_api_path,
+    skill_registry_router,
+)
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
@@ -175,18 +181,20 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     fastapi_app.state.gateway_timing_middleware_added = True
 
 
-def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
-    if getattr(fastapi_app.state, "mcp_exception_handlers_added", False):
+def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
+    if getattr(fastapi_app.state, "registry_exception_handlers_added", False):
         return
 
     original_mlflow_exception_handler = fastapi_app.exception_handlers.get(MlflowException)
+    original_http_exception_handler = fastapi_app.exception_handlers.get(HTTPException)
 
     # These handlers are registered on the shared FastAPI app, so keep them
-    # scoped to MCP routes to avoid changing response behavior for other APIs.
+    # scoped to MCP and Skill Registry routes to avoid changing response
+    # behavior for other APIs.
     @fastapi_app.exception_handler(MlflowException)
-    async def mcp_mlflow_exception_handler(request: Request, exc: MlflowException):
+    async def registry_mlflow_exception_handler(request: Request, exc: MlflowException):
         path = get_routed_asgi_path(request)
-        if is_mcp_server_api_path(path):
+        if is_mcp_server_api_path(path) or is_skill_registry_api_path(path):
             return _mlflow_error_response(exc)
         if original_mlflow_exception_handler is not None:
             response = original_mlflow_exception_handler(request, exc)
@@ -196,13 +204,35 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
         return _mlflow_error_response(exc)
 
     @fastapi_app.exception_handler(RequestValidationError)
-    async def mcp_request_validation_error_handler(request: Request, exc: RequestValidationError):
+    async def registry_request_validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ):
         path = get_routed_asgi_path(request)
-        if is_mcp_server_api_path(path):
+        if is_mcp_server_api_path(path) or is_skill_registry_api_path(path):
             return _request_validation_error_response(exc)
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
-    fastapi_app.state.mcp_exception_handlers_added = True
+    @fastapi_app.exception_handler(HTTPException)
+    async def registry_http_exception_handler(request: Request, exc: HTTPException):
+        path = get_routed_asgi_path(request)
+        if is_skill_registry_api_path(path):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"message": exc.detail},
+                headers=exc.headers,
+            )
+        if original_http_exception_handler is not None:
+            response = original_http_exception_handler(request, exc)
+            if inspect.isawaitable(response):
+                return await response
+            return response
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers,
+        )
+
+    fastapi_app.state.registry_exception_handlers_added = True
 
 
 @asynccontextmanager
@@ -292,9 +322,11 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes
     fastapi_app.include_router(artifact_router)
 
-    add_mcp_exception_handlers(fastapi_app)
+    add_registry_exception_handlers(fastapi_app)
     for route_prefix in get_mcp_server_api_route_prefixes():
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
+    for route_prefix in get_skill_registry_api_route_prefixes():
+        fastapi_app.include_router(skill_registry_router, prefix=route_prefix)
 
     # Mount the entire Flask application at the root path.
     # Must come AFTER include_router so native FastAPI routes take precedence.
