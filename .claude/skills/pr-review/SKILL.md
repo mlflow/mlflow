@@ -186,8 +186,8 @@ jq -j '[.body, .comments[]?.body] | map(select(type == "string")) | join("\n")' 
   uv run --directory $base_dir --package skills skills embed-media --check --dir "$media_dir"
 ```
 
-The check covers the top-level body and every string comment body. When embedding a single field,
-extract and update it with `jq` rather than passing the whole JSON payload to `embed-media`.
+When embedding a single field, extract and update it with `jq` rather than passing the whole JSON
+payload to `embed-media`.
 Use `-j` to avoid adding a newline to the body:
 
 ```bash
