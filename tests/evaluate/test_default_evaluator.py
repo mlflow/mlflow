@@ -3325,6 +3325,24 @@ def test_evaluate_with_latency():
     assert all(isinstance(grade, float) for grade in logged_data["latency"])
 
 
+def test_evaluate_with_latency_does_not_mutate_extra_metrics():
+    # The latency metric used to be removed from the caller's list in place, so
+    # a second evaluate() with the same list silently lost it.
+    extra_metrics = [mlflow.metrics.latency()]
+    data = pd.DataFrame({"text": ["sentence not", "Hello world."]})
+    for _ in range(2):
+        with mlflow.start_run():
+            results = mlflow.evaluate(
+                language_model,
+                data,
+                evaluators="default",
+                extra_metrics=extra_metrics,
+            )
+        assert "latency/mean" in results.metrics
+
+    assert [metric.name for metric in extra_metrics] == ["latency"]
+
+
 def test_evaluate_with_latency_and_pd_series():
     with mlflow.start_run() as run:
 
