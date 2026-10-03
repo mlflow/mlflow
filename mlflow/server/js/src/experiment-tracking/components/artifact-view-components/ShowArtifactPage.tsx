@@ -65,6 +65,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         runUuid,
         experimentId,
         entityTags,
+        artifactUri: this.props.artifactRootUri,
       };
 
       const normalizedExtension = getExtension(this.props.path);
@@ -111,6 +112,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
               path={path}
               runUuid={runUuid}
               size={this.props.size}
+              artifactUri={this.props.artifactRootUri}
             />
           );
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {

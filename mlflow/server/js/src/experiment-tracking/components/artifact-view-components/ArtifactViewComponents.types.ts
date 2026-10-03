@@ -21,4 +21,11 @@ export interface LoggedModelArtifactViewerProps {
   experimentId: string;
 
   entityTags?: Partial<KeyValueEntity>[];
+
+  /**
+   * The entity's stored artifact URI. When it points at an MLflow artifact proxy
+   * the UI can reach, artifacts are fetched from there instead of through the
+   * tracking server.
+   */
+  artifactUri?: string;
 }

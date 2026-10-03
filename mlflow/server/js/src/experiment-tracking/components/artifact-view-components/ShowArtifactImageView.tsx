@@ -30,6 +30,7 @@ const ShowArtifactImageView = ({
   isLoggedModelsMode,
   loggedModelId,
   entityTags,
+  artifactUri,
 }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -48,6 +49,7 @@ const ShowArtifactImageView = ({
         loggedModelId,
         experimentId,
         entityTags,
+        artifactUri,
       },
       getArtifact,
     ).then((result: any) => {
@@ -56,7 +58,7 @@ const ShowArtifactImageView = ({
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri]);
 
   return (
     imageUrl && (
