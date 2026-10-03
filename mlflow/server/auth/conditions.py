@@ -131,6 +131,36 @@ _VERSION_RESOURCE_TYPES = frozenset({
     "mcp_server_version",
 })
 
+#: Each child type's single direct parent. Parent scope is *exact*: a condition scoped
+#: to experiment 42 governs that experiment's children and nothing else. There is no
+#: inheritance across types -- a scoped ``run`` condition does not reach traces or
+#: logged models -- so this map is the whole containment vocabulary a condition can name.
+#:
+#: The version rows mirror ``ALIAS_OWNING_RESOURCE_TYPES``: a version's aliases live on
+#: its registry entry, and so does its parent scope. Both encode the same containment.
+PARENT_RESOURCE_TYPES: "dict[str, str]" = {
+    "run": "experiment",
+    "trace": "experiment",
+    "logged_model": "experiment",
+    "registered_model_version": "registered_model",
+    "prompt_version": "prompt",
+    "mcp_server_version": "mcp_server",
+}
+
+#: Types with no direct parent, and so no parent scope.
+#:
+#: Declared literally rather than derived as "supported minus parented". A derived set
+#: would make the completeness test tautological: a new child type added to
+#: ``SUPPORTED_RESOURCE_TYPES`` but forgotten here would silently become parentless and
+#: reject the scope it should accept. Spelling both sets out means that omission fails a
+#: test instead.
+PARENTLESS_RESOURCE_TYPES = frozenset({
+    "experiment",
+    "registered_model",
+    "prompt",
+    "mcp_server",
+})
+
 
 def validate_condition_resource_type(resource_type: str) -> None:
     """Reject a resource type that no condition could govern.
@@ -145,6 +175,58 @@ def validate_condition_resource_type(resource_type: str) -> None:
             f"Supported types are {sorted(SUPPORTED_RESOURCE_TYPES)} -- a condition is only "
             f"meaningful for a type that carries tags or aliases and has a mutating route "
             f"naming them.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def validate_condition_parent_scope(
+    resource_type: str,
+    parent_resource_type: "str | None",
+    parent_resource_id: "str | None",
+) -> None:
+    """Reject a parent scope that could never match the target type.
+
+    Same reasoning as :func:`validate_condition_resource_type`, applied to scope rather
+    than type: a scope that cannot match stores a restriction the admin believes is in
+    force, which is worse than no restriction at all. So every rejection here is a thing
+    that would otherwise have been persisted and never fired.
+
+    Unscoped -- both arguments ``None`` -- is the shape that predates parent scope and
+    stays valid for every supported type, including the parentless ones.
+    """
+    validate_condition_resource_type(resource_type)
+    if parent_resource_type is None and parent_resource_id is None:
+        return
+    if parent_resource_type is None or parent_resource_id is None:
+        raise MlflowException(
+            "A parent scope needs both 'parent_resource_type' and 'parent_resource_id', "
+            "or neither. A type without an ID would name every parent of that type, and "
+            "an ID without a type names nothing -- both are restrictions that were not "
+            "written, so neither is inferred.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if resource_type in PARENTLESS_RESOURCE_TYPES:
+        raise MlflowException(
+            f"Resource type '{resource_type}' has no direct parent, so a condition on it "
+            f"cannot be parent-scoped. Scope it to the workspace instead by omitting both "
+            f"parent fields. Parent-scopable types are "
+            f"{sorted(PARENT_RESOURCE_TYPES)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    expected = PARENT_RESOURCE_TYPES[resource_type]
+    if parent_resource_type != expected:
+        raise MlflowException(
+            f"The direct parent of '{resource_type}' is '{expected}', not "
+            f"'{parent_resource_type}'. Parent scope is exact and does not inherit across "
+            f"resource types, so only the declared parent can be named.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not parent_resource_id.strip():
+        raise MlflowException(
+            "A parent resource ID must be a non-empty string. An empty ID is not a "
+            "wildcard: stored, it would match no parent while reading as a scope. It is "
+            "refused rather than treated as unscoped, because an admin who asked for a "
+            "narrowing must not silently receive a broadening.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

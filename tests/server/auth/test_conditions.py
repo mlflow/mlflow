@@ -13,6 +13,8 @@ from mlflow.server.auth.conditions import (
     MAX_CLAUSES,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
+    PARENT_RESOURCE_TYPES,
+    PARENTLESS_RESOURCE_TYPES,
     REQUEST_IDENTIFIERS,
     REQUEST_VALUES_SHAPES,
     RESOURCE_PREFIXES,
@@ -35,6 +37,7 @@ from mlflow.server.auth.conditions import (
     request_values_shape,
     resource_values_shape,
     validate_condition,
+    validate_condition_parent_scope,
 )
 
 # ---- Parsing: request namespace --------------------------------------------
@@ -563,6 +566,111 @@ def test_validate_condition_requires_a_resource_type():
     """
     with pytest.raises(TypeError, match="resource_type"):
         validate_condition("alias = 'champion'", NAMESPACE_REQUEST)
+
+
+# ---- Parent scope ----------------------------------------------------------
+
+
+def test_every_supported_type_declares_whether_it_has_a_parent():
+    """The map must be total over the supported types.
+
+    A type missing from it is indistinguishable from a parentless one, so a child
+    type accidentally omitted would silently accept no parent scope -- the admin
+    would be told their scoped condition is invalid for a type that should support
+    it. Completeness is the guard.
+    """
+    classified = set(PARENT_RESOURCE_TYPES) | set(PARENTLESS_RESOURCE_TYPES)
+    assert classified == set(SUPPORTED_RESOURCE_TYPES)
+    assert not (set(PARENT_RESOURCE_TYPES) & set(PARENTLESS_RESOURCE_TYPES))
+
+
+def test_parent_map_matches_the_rfc_table():
+    """Pinned literally rather than derived. The RFC publishes this table as launch
+    scope, so a change here is a change to the published design and should have to
+    edit a test that says so.
+    """
+    assert PARENT_RESOURCE_TYPES == {
+        "run": "experiment",
+        "trace": "experiment",
+        "logged_model": "experiment",
+        "registered_model_version": "registered_model",
+        "prompt_version": "prompt",
+        "mcp_server_version": "mcp_server",
+    }
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "parent"),
+    [
+        ("registered_model_version", "registered_model"),
+        ("prompt_version", "prompt"),
+        ("mcp_server_version", "mcp_server"),
+    ],
+)
+def test_every_version_type_parents_to_its_registry_entry(resource_type, parent):
+    """Mirrors the alias rule: a version's aliases live on its registry entry, and so
+    does its parent scope. The two encode the same containment.
+    """
+    assert PARENT_RESOURCE_TYPES[resource_type] == parent
+    assert parent in ALIAS_OWNING_RESOURCE_TYPES
+
+
+@pytest.mark.parametrize("resource_type", sorted(PARENTLESS_RESOURCE_TYPES))
+def test_parent_scope_is_rejected_for_a_parentless_type(resource_type):
+    """An experiment has no direct parent a condition could scope to. Accepting one
+    would store a filter that can never match, which is the same phantom-restriction
+    failure `validate_condition_resource_type` exists to prevent.
+    """
+    with pytest.raises(MlflowException, match="no direct parent"):
+        validate_condition_parent_scope(resource_type, "workspace", "ws-1")
+
+
+def test_parent_scope_rejects_a_parent_type_that_is_not_the_declared_one():
+    """A run's parent is an experiment. Scoping it to a registered model would be
+    accepted by any check that only asked "is this a supported type?", so the check
+    is against the *declared* parent of this child, not the type vocabulary.
+    """
+    with pytest.raises(MlflowException, match="parent of 'run' is 'experiment'"):
+        validate_condition_parent_scope("run", "registered_model", "m-1")
+
+
+@pytest.mark.parametrize(
+    ("parent_type", "parent_id"),
+    [("experiment", None), (None, "123")],
+)
+def test_parent_scope_must_be_a_complete_pair(parent_type, parent_id):
+    """Half a pair is ambiguous: a type with no ID names every parent of that type,
+    and an ID with no type names nothing. Both readings are restrictions the admin
+    did not write, so neither is inferred.
+    """
+    with pytest.raises(MlflowException, match="both.*or neither"):
+        validate_condition_parent_scope("run", parent_type, parent_id)
+
+
+def test_unscoped_is_accepted_for_every_supported_type():
+    """Both null is the unscoped case -- the only shape available before parent scope
+    existed, so it must stay valid for every type including the parentless ones.
+    """
+    for resource_type in sorted(SUPPORTED_RESOURCE_TYPES):
+        validate_condition_parent_scope(resource_type, None, None)
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_parent_scope_rejects_a_blank_parent_id(blank):
+    """An empty ID is not a wildcard. Stored, it would match no parent while reading
+    as a scope, so it is refused rather than normalised to unscoped -- the admin
+    asked for a narrowing and must not silently get a broadening.
+    """
+    with pytest.raises(MlflowException, match="parent resource ID"):
+        validate_condition_parent_scope("run", "experiment", blank)
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "parent_type"),
+    sorted(PARENT_RESOURCE_TYPES.items()),
+)
+def test_each_child_type_accepts_its_own_parent(resource_type, parent_type):
+    validate_condition_parent_scope(resource_type, parent_type, "parent-1")
 
 
 def test_clause_describe_round_trips_readably():
