@@ -71,7 +71,9 @@ def _configure(monkeypatch, *, value_condition=None, target_condition=None, perm
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+        def list_mutation_conditions_for_user(
+            self, user_id, workspace, resource_types, parents=None
+        ):
             if value_condition is None and target_condition is None:
                 return []
             return [
@@ -243,7 +245,9 @@ def _version_configured(monkeypatch, *, value_condition=None, target_condition=N
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+        def list_mutation_conditions_for_user(
+            self, user_id, workspace, resource_types, parents=None
+        ):
             return [
                 MutationConditionSpec(
                     "mcp_server_version",
@@ -457,7 +461,9 @@ def _version_restricted(monkeypatch, children, target_condition="tags.keep != 'y
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+        def list_mutation_conditions_for_user(
+            self, user_id, workspace, resource_types, parents=None
+        ):
             return [
                 MutationConditionSpec(
                     "mcp_server_version", value_condition=None, target_condition=target_condition

@@ -84,7 +84,7 @@ def _conditioned_user(
         auth_client.add_role_permission(role.id, "registered_model", "*", permission)
         auth_client.assign_role(username, role.id)
         if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_conditions(
+            auth_client.add_mutation_condition(
                 role.id,
                 "registered_model",
                 value_condition=value_condition,
@@ -218,7 +218,7 @@ def test_conditions_never_confer_access(server, auth_client, monkeypatch):
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         auth_client.assign_role(username, role.id)
         # A permissive condition, and deliberately no grant at all.
-        auth_client.add_mutation_conditions(
+        auth_client.add_mutation_condition(
             role.id, "registered_model", value_condition="tag_key != 'nothing-matches-this'"
         )
     name = _model_with_tags(server, monkeypatch)
@@ -356,7 +356,7 @@ def test_a_registered_model_condition_does_not_gate_a_prompt_create(
         auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
         auth_client.add_role_permission(role.id, "prompt", "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_conditions(
+        auth_client.add_mutation_condition(
             role.id, "registered_model", value_condition="tag_key != 'lifecycle'"
         )
 
@@ -603,7 +603,7 @@ def _version_conditioned_user(
         auth_client.add_role_permission(role.id, "registered_model_version", "*", permission)
         auth_client.assign_role(username, role.id)
         if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_conditions(
+            auth_client.add_mutation_condition(
                 role.id,
                 "registered_model_version",
                 value_condition=value_condition,
@@ -684,7 +684,7 @@ def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_c
         auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
         auth_client.add_role_permission(role.id, "registered_model_version", "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_conditions(
+        auth_client.add_mutation_condition(
             role.id, "registered_model", value_condition="tag_key != 'validated'"
         )
     name = _model_with_version(server, monkeypatch)
@@ -706,11 +706,8 @@ def _run_conditioned_user(auth_client, monkeypatch, *, value_condition=None, tar
         auth_client.add_role_permission(role.id, "run", "*", "EDIT")
         auth_client.assign_role(username, role.id)
         if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_conditions(
-                role.id,
-                "run",
-                value_condition=value_condition,
-                target_condition=target_condition,
+            auth_client.add_mutation_condition(
+                role.id, "run", value_condition=value_condition, target_condition=target_condition
             )
     return username, password
 
@@ -856,14 +853,14 @@ def test_a_reserved_tag_key_cannot_be_named_by_a_request_condition(auth_client, 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         with pytest.raises(MlflowException, match=r"reserved tag keys"):
-            auth_client.add_mutation_conditions(
+            auth_client.add_mutation_condition(
                 role.id, "run", value_condition="tag_key != 'mlflow.runName'"
             )
 
         # The resource side rejects it too: the same keys are freely settable, so a target
         # condition reading one restricts nothing -- the holder renames the run and passes.
         with pytest.raises(MlflowException, match=r"reserved tag keys"):
-            auth_client.add_mutation_conditions(
+            auth_client.add_mutation_condition(
                 role.id, "run", target_condition="tags.`mlflow.runName` != 'secret'"
             )
 
@@ -949,11 +946,8 @@ def _trace_conditioned_user(
         auth_client.add_role_permission(role.id, "assessment", "*", permission)
         auth_client.assign_role(username, role.id)
         if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_conditions(
-                role.id,
-                "trace",
-                value_condition=value_condition,
-                target_condition=target_condition,
+            auth_client.add_mutation_condition(
+                role.id, "trace", value_condition=value_condition, target_condition=target_condition
             )
     return username, password
 
@@ -1076,7 +1070,7 @@ def _typed_conditioned_user(
             auth_client.add_role_permission(role.id, extra_type, "*", extra_permission)
         auth_client.assign_role(username, role.id)
         if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_conditions(
+            auth_client.add_mutation_condition(
                 role.id,
                 resource_type,
                 value_condition=value_condition,
@@ -1177,7 +1171,7 @@ def test_reads_are_never_gated_across_every_wired_type(server, auth_client, monk
         for resource_type in ("experiment", "run", "registered_model", "registered_model_version"):
             auth_client.add_role_permission(role.id, resource_type, "*", "EDIT")
             # A condition no tag can satisfy, so any leak into a read path denies it.
-            auth_client.add_mutation_conditions(
+            auth_client.add_mutation_condition(
                 role.id, resource_type, value_condition="tag_key = 'impossible'"
             )
         auth_client.assign_role(username, role.id)

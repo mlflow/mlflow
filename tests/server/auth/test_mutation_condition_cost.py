@@ -54,7 +54,7 @@ class CountingStore:
         self.workspace_admin_checks += 1
         return self.is_ws_admin
 
-    def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+    def list_mutation_conditions_for_user(self, user_id, workspace, resource_types, parents=None):
         self.condition_loads.append(set(resource_types))
         return list(self.rows)
 

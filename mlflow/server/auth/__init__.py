@@ -289,6 +289,7 @@ from mlflow.server.auth.conditions import (
     RunRequestValues,
     TraceRequestValues,
     combine,
+    condition_load_parents,
     condition_load_types,
     context_for,
     evaluate_request,
@@ -1050,7 +1051,10 @@ def authorize_on_conditions(
         return False
 
     rows = store.list_mutation_conditions_for_user(
-        user.id, workspace, condition_load_types(contexts)
+        user.id,
+        workspace,
+        condition_load_types(contexts),
+        condition_load_parents(contexts),
     )
     # The overwhelmingly common case, and the one that makes an empty table behave
     # exactly like today's server: nothing configured, nothing to enforce.
@@ -3451,10 +3455,10 @@ def _get_role_workspace_from_request() -> str | None:
     Resolve the workspace the request is targeting for role-authorization purposes.
 
     Requests identify a role either directly (``role_id``), indirectly via a role
-    permission (``role_permission_id``), or by supplying ``workspace`` on create.
-    Returns ``None`` if the referenced role/role_permission does not exist — callers
-    (validators) should treat that as unauthorized rather than leaking existence via
-    a 404.
+    permission (``role_permission_id``) or a mutation condition (``condition_id``), or
+    by supplying ``workspace`` on create. Returns ``None`` if the referenced
+    role/role_permission/condition does not exist — callers (validators) should treat
+    that as unauthorized rather than leaking existence via a 404.
     """
     params = _request_params()
     try:
@@ -3465,6 +3469,16 @@ def _get_role_workspace_from_request() -> str | None:
                 _coerce_int_param("role_permission_id", params["role_permission_id"])
             )
             return store.get_role(rp.role_id).workspace
+        if "condition_id" in params:
+            # A mutation condition is addressed by its own id, so the owning role --
+            # and therefore the workspace whose admin may manage it -- has to be
+            # resolved through it. Without this branch the role-management check
+            # cannot run at all for these routes, and a workspace admin is refused
+            # with a malformed-request error rather than being authorized.
+            mc = store.get_mutation_condition(
+                _coerce_int_param("condition_id", params["condition_id"])
+            )
+            return store.get_role(mc.role_id).workspace
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return None
@@ -3477,7 +3491,7 @@ def _get_role_workspace_from_request() -> str | None:
             )
         return workspace
     raise MlflowException.invalid_parameter_value(
-        "Request must include one of: role_id, role_permission_id, workspace."
+        "Request must include one of: role_id, role_permission_id, condition_id, workspace."
     )
 
 
@@ -6500,20 +6514,21 @@ def add_mutation_conditions():
     role_id = _get_int_request_param("role_id")
     resource_type = _get_request_param("resource_type")
     params = _request_params()
-    mc = store.add_mutation_conditions(
+    mc = store.add_mutation_condition(
         role_id,
         resource_type,
-        _optional_condition_param(params, "value_condition"),
-        _optional_condition_param(params, "target_condition"),
+        parent_resource_type=_optional_condition_param(params, "parent_resource_type"),
+        parent_resource_id=_optional_condition_param(params, "parent_resource_id"),
+        value_condition=_optional_condition_param(params, "value_condition"),
+        target_condition=_optional_condition_param(params, "target_condition"),
     )
     return jsonify({"mutation_conditions": mc.to_json()})
 
 
 @catch_mlflow_exception
 def get_mutation_conditions():
-    role_id = _get_int_request_param("role_id")
-    resource_type = _get_request_param("resource_type")
-    mc = store.get_mutation_conditions(role_id, resource_type)
+    condition_id = _get_int_request_param("condition_id")
+    mc = store.get_mutation_condition(condition_id)
     return jsonify({"mutation_conditions": mc.to_json()})
 
 
@@ -6525,26 +6540,33 @@ def update_mutation_conditions():
     target condition" and "leave the target condition alone" would otherwise both
     arrive as ``null`` -- and guessing wrong in the clearing direction silently
     removes a restriction the admin still wants.
+
+    The parent scope is replaced as a pair under an explicit ``update_parent_scope``
+    flag rather than by key presence, because rescoping needs *both* halves and a
+    client sending only one must be refused, not have the other inferred.
+
+    Clearing both filters deletes the object, so the response carries a ``null``
+    ``mutation_conditions``.
     """
-    role_id = _get_int_request_param("role_id")
-    resource_type = _get_request_param("resource_type")
+    condition_id = _get_int_request_param("condition_id")
     params = _request_params()
-    mc = store.update_mutation_conditions(
-        role_id,
-        resource_type,
+    mc = store.update_mutation_condition(
+        condition_id,
         value_condition=_optional_condition_param(params, "value_condition"),
         target_condition=_optional_condition_param(params, "target_condition"),
         update_value_condition="value_condition" in params,
         update_target_condition="target_condition" in params,
+        parent_resource_type=_optional_condition_param(params, "parent_resource_type"),
+        parent_resource_id=_optional_condition_param(params, "parent_resource_id"),
+        update_parent_scope=bool(params.get("update_parent_scope")),
     )
-    return jsonify({"mutation_conditions": mc.to_json()})
+    return jsonify({"mutation_conditions": mc.to_json() if mc else None})
 
 
 @catch_mlflow_exception
 def remove_mutation_conditions():
-    role_id = _get_int_request_param("role_id")
-    resource_type = _get_request_param("resource_type")
-    store.remove_mutation_conditions(role_id, resource_type)
+    condition_id = _get_int_request_param("condition_id")
+    store.remove_mutation_condition(condition_id)
     return make_response({})
 
 

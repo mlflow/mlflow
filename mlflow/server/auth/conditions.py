@@ -84,6 +84,19 @@ ALLOWED_COMPARATORS = frozenset({"=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"})
 #: read at a glance is one they cannot reason about, and every clause is an AND.
 MAX_CLAUSES = 5
 
+#: Per the RFC: how many condition objects a role may hold for one resource type.
+#:
+#: A storage bound, not an evaluation bound. Scope selects before combination, so a
+#: request only evaluates the unscoped conditions plus those whose parent matches the
+#: target's resolved parent -- the other objects are filtered out in SQL and never
+#: reach the evaluator. The bound is high because parent scope makes conditions
+#: per-parent: governing N models individually costs N objects, so a small limit would
+#: be exhausted by a modest workspace.
+#:
+#: Enforced by the slot column's range CHECK plus its UNIQUE, which together bound the
+#: count without a count-then-insert race.
+MAX_CONDITIONS_PER_ROLE_TYPE = 100
+
 #: Tags MLflow writes itself. Exempt from request conditions (D4) -- an admin must
 #: not be able to block MLflow's own bookkeeping, e.g. ``mlflow.runName`` -- but
 #: permitted in resource conditions, where testing current ``mlflow.*`` state is
@@ -498,6 +511,15 @@ class ConditionContext(NamedTuple):
     child ids, or ``None`` when they could not be enumerated -- and those are different
     answers: no children lets the cascade proceed, while "could not enumerate" must deny,
     because a condition that cannot be evaluated must never pass vacuously.
+
+    ``parent_resource_id`` is the target's resolved direct parent, and is what lets a
+    parent-scoped condition be selected. Validators that mutate a child type already
+    hold it -- sub-resource routes resolve the experiment as their grant anchor, and
+    version routes carry the registry name in the request -- so supplying it costs no
+    extra fetch. ``None`` for a parentless type is correct and expected; ``None`` for a
+    child type means the parent could not be resolved, which the gate must treat as a
+    refusal rather than as "no scoped condition applies", since a request outside every
+    scope would otherwise escape exactly the conditions written to govern it.
     """
 
     resource_type: str
@@ -505,6 +527,7 @@ class ConditionContext(NamedTuple):
     request: RequestValues
     resource_ids: tuple[str, ...] = ()
     resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None
+    parent_resource_id: str | None = None
 
 
 class MutationConditionSpec(NamedTuple):
@@ -1052,6 +1075,27 @@ def condition_load_types(contexts: Sequence[ConditionContext]) -> tuple[str, ...
     return tuple(seen)
 
 
+def condition_load_parents(
+    contexts: Sequence[ConditionContext],
+) -> "dict[str, tuple[str, ...]]":
+    """The resolved direct parents in play, per resource type.
+
+    Handed to the store so the scope predicate runs in SQL: a role holding the full
+    ``MAX_CONDITIONS_PER_ROLE_TYPE`` for a type transfers only its unscoped conditions
+    plus those naming a parent actually in play.
+
+    Grouped per type rather than flattened into one set of ids, because an id is only
+    meaningful against its own type. A request touching runs of experiment 7 and
+    versions of model 7 must not let either 7 satisfy the other's scope.
+    """
+    parents: dict[str, dict[str, None]] = {}
+    for context in contexts:
+        if context.parent_resource_id is None:
+            continue
+        parents.setdefault(context.resource_type, {}).setdefault(context.parent_resource_id, None)
+    return {resource_type: tuple(ids) for resource_type, ids in parents.items()}
+
+
 def needs_resource_values(
     contexts: Sequence[ConditionContext], types_with_target: frozenset[str] | set[str]
 ) -> bool:
@@ -1104,6 +1148,7 @@ def context_for(
     scope: ConditionScope,
     request: RequestValues | None = None,
     resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None,
+    parent_resource_id: str | None = None,
 ) -> ConditionContext:
     """Build a context, treating a wildcard id as "no specific resource".
 
@@ -1112,6 +1157,10 @@ def context_for(
     framework off to fetch a resource named ``*``. A wildcard means the operation is
     not scoped to one identified resource, so there is nothing for a resource
     condition to read -- request conditions still apply.
+
+    ``parent_resource_id`` is the target's resolved direct parent, needed to select a
+    parent-scoped condition. A wildcard is normalised to ``None`` for the same reason
+    as the resource id: it names no particular parent.
 
     Also the one place a validator's request values are checked against the type it
     declared, so the mis-wiring the shared shape cannot prevent fails loudly here
@@ -1123,10 +1172,13 @@ def context_for(
     ids: tuple[str, ...] = ()
     if resource_id is not None and resource_id != "*":
         ids = (resource_id,)
+    if parent_resource_id == "*":
+        parent_resource_id = None
     return ConditionContext(
         resource_type=resource_type,
         scope=scope,
         request=request,
         resource_ids=ids,
         resource_id_resolver=resource_id_resolver,
+        parent_resource_id=parent_resource_id,
     )

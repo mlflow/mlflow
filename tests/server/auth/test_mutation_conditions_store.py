@@ -35,67 +35,104 @@ def role(store):
 
 
 def test_add_and_get(store, role):
-    created = store.add_mutation_conditions(
-        role.id, "registered_model", "tag_key != 'lifecycle'", "tags.lifecycle = 'dev'"
+    created = store.add_mutation_condition(
+        role.id,
+        "registered_model",
+        value_condition="tag_key != 'lifecycle'",
+        target_condition="tags.lifecycle = 'dev'",
     )
     assert created.resource_type == "registered_model"
     assert created.value_condition == "tag_key != 'lifecycle'"
     assert created.target_condition == "tags.lifecycle = 'dev'"
 
-    fetched = store.get_mutation_conditions(role.id, "registered_model")
+    fetched = store.get_mutation_condition(created.id)
     assert fetched.to_json() == created.to_json()
 
 
 def test_add_with_only_one_condition(store, role):
     # Either may be absent -- a role may restrict values, targets, or both.
-    value_only = store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", None)
+    value_only = store.add_mutation_condition(
+        role.id, "run", value_condition="tag_key != 'a'", target_condition=None
+    )
     assert value_only.target_condition is None
 
-    target_only = store.add_mutation_conditions(role.id, "trace", None, "tags.a = '1'")
+    target_only = store.add_mutation_condition(
+        role.id, "trace", value_condition=None, target_condition="tags.a = '1'"
+    )
     assert target_only.value_condition is None
 
 
-def test_duplicate_role_resource_type_rejected(store, role):
-    # At most one of each condition per (role, resource_type), per the RFC.
-    store.add_mutation_conditions(role.id, "registered_model", "tag_key != 'a'")
-    with pytest.raises(MlflowException, match="already exist"):
-        store.add_mutation_conditions(role.id, "registered_model", "tag_key != 'b'")
+def test_several_conditions_per_resource_type_get_distinct_slots(store, role):
+    """A role may hold several conditions for one type -- that is what makes
+    per-parent scoping expressible, one object per governed parent.
+
+    They **AND**: both must pass. Several narrow objects are not alternatives.
+    """
+    first = store.add_mutation_condition(
+        role.id, "registered_model", value_condition="tag_key != 'a'"
+    )
+    second = store.add_mutation_condition(
+        role.id, "registered_model", value_condition="tag_key != 'b'"
+    )
+    assert {first.condition_slot, second.condition_slot} == {1, 2}
+    assert len(store.list_mutation_conditions(role.id)) == 2
+
+
+def test_slot_is_reused_after_a_removal(store, role):
+    """Lowest-free rather than max-plus-one. Otherwise a role that repeatedly adds and
+    removes would exhaust the range while holding almost nothing.
+    """
+    first = store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
+    assert first.condition_slot == 1
+    store.remove_mutation_condition(first.id)
+    again = store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'b'")
+    assert again.condition_slot == 1
+
+
+def test_add_refuses_an_object_with_neither_filter(store, role):
+    """An object with no filter restricts nothing while occupying a slot and reading
+    as a configured restriction.
+    """
+    with pytest.raises(MlflowException, match="at least one"):
+        store.add_mutation_condition(role.id, "run")
 
 
 def test_same_resource_type_on_different_roles_is_fine(store):
     a = store.create_role("a", _WORKSPACE, None)
     b = store.create_role("b", _WORKSPACE, None)
-    store.add_mutation_conditions(a.id, "run", "tag_key != 'x'")
-    store.add_mutation_conditions(b.id, "run", "tag_key != 'y'")
+    store.add_mutation_condition(a.id, "run", value_condition="tag_key != 'x'")
+    store.add_mutation_condition(b.id, "run", value_condition="tag_key != 'y'")
     assert len(store.list_mutation_conditions(a.id)) == 1
     assert len(store.list_mutation_conditions(b.id)) == 1
 
 
 def test_get_missing_raises(store, role):
     with pytest.raises(MlflowException, match="not found"):
-        store.get_mutation_conditions(role.id, "trace")
+        store.get_mutation_condition(99999)
 
 
 def test_add_to_missing_role_raises(store):
     with pytest.raises(MlflowException, match="not found"):
-        store.add_mutation_conditions(99999, "run", "tag_key != 'a'")
+        store.add_mutation_condition(99999, "run", value_condition="tag_key != 'a'")
 
 
 def test_remove(store, role):
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
-    store.remove_mutation_conditions(role.id, "run")
+    created = store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
+    store.remove_mutation_condition(created.id)
     with pytest.raises(MlflowException, match="not found"):
-        store.get_mutation_conditions(role.id, "run")
+        store.get_mutation_condition(created.id)
 
 
 def test_remove_missing_raises(store, role):
     with pytest.raises(MlflowException, match="not found"):
-        store.remove_mutation_conditions(role.id, "run")
+        store.remove_mutation_condition(99999)
 
 
 def test_list_for_role(store, role):
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
-    store.add_mutation_conditions(role.id, "trace", None, "tags.b = '1'")
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
+    store.add_mutation_condition(
+        role.id, "trace", value_condition=None, target_condition="tags.b = '1'"
+    )
     listed = store.list_mutation_conditions(role.id)
     assert {m.resource_type for m in listed} == {"run", "trace"}
 
@@ -108,8 +145,12 @@ def test_list_for_role_empty(store, role):
 
 
 def test_update_sets_both(store, role):
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
-    updated = store.update_mutation_conditions(role.id, "run", "tag_key != 'z'", "tags.c = '2'")
+    created = store.add_mutation_condition(
+        role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
+    )
+    updated = store.update_mutation_condition(
+        created.id, value_condition="tag_key != 'z'", target_condition="tags.c = '2'"
+    )
     assert updated.value_condition == "tag_key != 'z'"
     assert updated.target_condition == "tags.c = '2'"
 
@@ -118,33 +159,49 @@ def test_update_leaves_omitted_field_unchanged(store, role):
     """ "Leave unchanged" must be distinguishable from "clear" -- otherwise an update
     that only touches one field silently removes the other restriction.
     """
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
-    updated = store.update_mutation_conditions(
-        role.id, "run", value_condition="tag_key != 'z'", update_target_condition=False
+    created = store.add_mutation_condition(
+        role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
+    )
+    updated = store.update_mutation_condition(
+        created.id, value_condition="tag_key != 'z'", update_target_condition=False
     )
     assert updated.value_condition == "tag_key != 'z'"
     assert updated.target_condition == "tags.b = '1'"
 
 
 def test_update_clears_with_explicit_none(store, role):
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
-    updated = store.update_mutation_conditions(
-        role.id, "run", target_condition=None, update_value_condition=False
+    created = store.add_mutation_condition(
+        role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
+    )
+    updated = store.update_mutation_condition(
+        created.id, target_condition=None, update_value_condition=False
     )
     assert updated.value_condition == "tag_key != 'a'"
     assert updated.target_condition is None
 
 
-def test_update_can_clear_both(store, role):
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
-    updated = store.update_mutation_conditions(role.id, "run", None, None)
-    assert updated.value_condition is None
-    assert updated.target_condition is None
+def test_update_clearing_both_deletes_the_object(store, role):
+    """Clearing both filters removes the row and returns ``None``.
+
+    The alternative -- keeping an object with neither filter -- would hold a slot
+    against the per-type limit while restricting nothing, and would list as a
+    configured restriction that cannot fire. ``add`` refuses such an object for the
+    same reason, so ``update`` must not be able to manufacture one.
+    """
+    created = store.add_mutation_condition(
+        role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
+    )
+    assert (
+        store.update_mutation_condition(created.id, value_condition=None, target_condition=None)
+        is None
+    )
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mutation_condition(created.id)
 
 
 def test_update_missing_raises(store, role):
     with pytest.raises(MlflowException, match="not found"):
-        store.update_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        store.update_mutation_condition(99999, value_condition="tag_key != 'a'")
 
 
 # ---- Write-time validation -------------------------------------------------
@@ -159,7 +216,7 @@ def test_unsupported_resource_type_rejected(store, role, resource_type):
     is in force.
     """
     with pytest.raises(MlflowException, match="not supported for resource type"):
-        store.add_mutation_conditions(role.id, resource_type, "tag_key != 'a'")
+        store.add_mutation_condition(role.id, resource_type, value_condition="tag_key != 'a'")
 
 
 @pytest.mark.parametrize(
@@ -177,7 +234,7 @@ def test_unsupported_resource_type_rejected(store, role, resource_type):
 )
 def test_supported_resource_types_accepted(store, role, resource_type):
     # Includes prompt and prompt_version at full parity with the model types (D2).
-    assert store.add_mutation_conditions(role.id, resource_type, "tag_key != 'a'")
+    assert store.add_mutation_condition(role.id, resource_type, value_condition="tag_key != 'a'")
 
 
 @pytest.mark.parametrize(
@@ -196,15 +253,19 @@ def test_malformed_condition_rejected(store, role, value_condition, target_condi
     (unsafe) or deny every mutation (an outage), so it must be caught on the way in.
     """
     with pytest.raises(MlflowException, match=expected):
-        store.add_mutation_conditions(role.id, "run", value_condition, target_condition)
+        store.add_mutation_condition(
+            role.id, "run", value_condition=value_condition, target_condition=target_condition
+        )
 
 
 def test_malformed_condition_rejected_on_update(store, role):
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+    created = store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
     with pytest.raises(MlflowException, match="OR is not supported"):
-        store.update_mutation_conditions(role.id, "run", "tag_key = 'a' OR tag_key = 'b'")
+        store.update_mutation_condition(
+            created.id, value_condition="tag_key = 'a' OR tag_key = 'b'"
+        )
     # The stored row is untouched by the rejected update.
-    assert store.get_mutation_conditions(role.id, "run").value_condition == "tag_key != 'a'"
+    assert store.get_mutation_condition(created.id).value_condition == "tag_key != 'a'"
 
 
 @pytest.mark.parametrize(
@@ -237,26 +298,34 @@ def test_alias_condition_rejected_for_a_type_without_aliases(
     the way in, and nothing is persisted.
     """
     with pytest.raises(MlflowException, match=expected):
-        store.add_mutation_conditions(role.id, resource_type, value_condition, target_condition)
-    # Nothing was persisted: absence raises, per the store's convention.
-    with pytest.raises(MlflowException, match="not found"):
-        store.get_mutation_conditions(role.id, resource_type)
+        store.add_mutation_condition(
+            role.id,
+            resource_type,
+            value_condition=value_condition,
+            target_condition=target_condition,
+        )
+    # Nothing was persisted. Asserted over the role's listing rather than by id,
+    # because a rejected add never produced one.
+    assert store.list_mutation_conditions(role.id) == []
 
 
 def test_alias_condition_rejected_for_a_type_without_aliases_on_update(store, role):
     """The update path validates too: an admin editing a legitimate tag condition into
     an alias one must not slip past the check the add path applies.
     """
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+    created = store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
     with pytest.raises(MlflowException, match="does not carry aliases"):
-        store.update_mutation_conditions(role.id, "run", "alias = 'champion'")
-    assert store.get_mutation_conditions(role.id, "run").value_condition == "tag_key != 'a'"
+        store.update_mutation_condition(created.id, value_condition="alias = 'champion'")
+    assert store.get_mutation_condition(created.id).value_condition == "tag_key != 'a'"
 
 
 def test_alias_condition_accepted_for_the_registry_entry_types(store, role):
     for resource_type in ("registered_model", "prompt"):
-        created = store.add_mutation_conditions(
-            role.id, resource_type, "alias = 'champion'", "aliases.champion = '3'"
+        created = store.add_mutation_condition(
+            role.id,
+            resource_type,
+            value_condition="alias = 'champion'",
+            target_condition="aliases.champion = '3'",
         )
         assert created.value_condition == "alias = 'champion'"
 
@@ -264,8 +333,11 @@ def test_alias_condition_accepted_for_the_registry_entry_types(store, role):
 def test_reserved_key_rejected_in_target_condition_too(store, role):
     """D4 is symmetric at the store boundary as well as the parser's."""
     with pytest.raises(MlflowException, match="reserved tag keys"):
-        store.add_mutation_conditions(
-            role.id, "registered_model", None, "tags.`mlflow.prompt.is_prompt` = 'true'"
+        store.add_mutation_condition(
+            role.id,
+            "registered_model",
+            value_condition=None,
+            target_condition="tags.`mlflow.prompt.is_prompt` = 'true'",
         )
 
 
@@ -274,7 +346,7 @@ def test_reserved_key_rejected_in_target_condition_too(store, role):
 
 def test_delete_role_cascades_conditions(store, user, role):
     store.assign_role_to_user(user.id, role.id)
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
     store.delete_role(role.id)
     assert store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"]) == []
 
@@ -287,8 +359,8 @@ def test_loader_returns_rows_from_every_role(store, user):
     b = store.create_role("b", _WORKSPACE, None)
     store.assign_role_to_user(user.id, a.id)
     store.assign_role_to_user(user.id, b.id)
-    store.add_mutation_conditions(a.id, "run", "tag_key != 'a'")
-    store.add_mutation_conditions(b.id, "run", "tag_key != 'b'")
+    store.add_mutation_condition(a.id, "run", value_condition="tag_key != 'a'")
+    store.add_mutation_condition(b.id, "run", value_condition="tag_key != 'b'")
 
     rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert {r.value_condition for r in rows} == {"tag_key != 'a'", "tag_key != 'b'"}
@@ -298,8 +370,8 @@ def test_loader_excludes_roles_the_user_does_not_hold(store, user):
     mine = store.create_role("mine", _WORKSPACE, None)
     theirs = store.create_role("theirs", _WORKSPACE, None)
     store.assign_role_to_user(user.id, mine.id)
-    store.add_mutation_conditions(mine.id, "run", "tag_key != 'mine'")
-    store.add_mutation_conditions(theirs.id, "run", "tag_key != 'theirs'")
+    store.add_mutation_condition(mine.id, "run", value_condition="tag_key != 'mine'")
+    store.add_mutation_condition(theirs.id, "run", value_condition="tag_key != 'theirs'")
 
     rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert [r.value_condition for r in rows] == ["tag_key != 'mine'"]
@@ -307,8 +379,8 @@ def test_loader_excludes_roles_the_user_does_not_hold(store, user):
 
 def test_loader_filters_by_resource_type(store, user, role):
     store.assign_role_to_user(user.id, role.id)
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'run'")
-    store.add_mutation_conditions(role.id, "trace", "tag_key != 'trace'")
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'run'")
+    store.add_mutation_condition(role.id, "trace", value_condition="tag_key != 'trace'")
 
     rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert [r.resource_type for r in rows] == ["run"]
@@ -317,7 +389,7 @@ def test_loader_filters_by_resource_type(store, user, role):
 def test_loader_scopes_by_workspace(store, user):
     here = store.create_role("here", _WORKSPACE, None)
     store.assign_role_to_user(user.id, here.id)
-    store.add_mutation_conditions(here.id, "run", "tag_key != 'here'")
+    store.add_mutation_condition(here.id, "run", value_condition="tag_key != 'here'")
 
     assert store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert store.list_mutation_conditions_for_user(user.id, "elsewhere", ["run"]) == []
@@ -325,7 +397,7 @@ def test_loader_scopes_by_workspace(store, user):
 
 def test_loader_empty_types_returns_empty_without_querying(store, user, role):
     store.assign_role_to_user(user.id, role.id)
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
     assert store.list_mutation_conditions_for_user(user.id, _WORKSPACE, []) == []
 
 
@@ -339,8 +411,8 @@ def test_loader_issues_one_query_for_many_types(store, user, role):
     with the number of types a validator declares.
     """
     store.assign_role_to_user(user.id, role.id)
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
-    store.add_mutation_conditions(role.id, "trace", "tag_key != 'b'")
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
+    store.add_mutation_condition(role.id, "trace", value_condition="tag_key != 'b'")
 
     engine = store.engine
     statements = []
@@ -377,7 +449,7 @@ def test_loader_picks_up_per_user_conditions_with_no_special_casing(store, user)
     """
     store.grant_user_permission("alice", "run", "*", "READ")
     synthetic = next(r for r in store.list_roles([_WORKSPACE]) if r.name == f"__user_{user.id}__")
-    store.add_mutation_conditions(synthetic.id, "run", "tag_key != 'peruser'")
+    store.add_mutation_condition(synthetic.id, "run", value_condition="tag_key != 'peruser'")
 
     rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert [r.value_condition for r in rows] == ["tag_key != 'peruser'"]
@@ -388,11 +460,11 @@ def test_loader_aggregates_named_and_per_user_conditions(store, user, role):
     which kind of role each came from.
     """
     store.assign_role_to_user(user.id, role.id)
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'fromrole'")
+    store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'fromrole'")
 
     store.grant_user_permission("alice", "run", "*", "READ")
     synthetic = next(r for r in store.list_roles([_WORKSPACE]) if r.name == f"__user_{user.id}__")
-    store.add_mutation_conditions(synthetic.id, "run", "tag_key != 'fromuser'")
+    store.add_mutation_condition(synthetic.id, "run", value_condition="tag_key != 'fromuser'")
 
     rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert {r.value_condition for r in rows} == {
@@ -406,7 +478,9 @@ def test_loader_rows_are_detached_plain_tuples(store, user, role):
     SQLAlchemy instance.
     """
     store.assign_role_to_user(user.id, role.id)
-    store.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
+    store.add_mutation_condition(
+        role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
+    )
     (row,) = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert isinstance(row, tuple)
     assert row == ("run", "tag_key != 'a'", "tags.b = '1'")

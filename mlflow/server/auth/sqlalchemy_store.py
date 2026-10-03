@@ -1,6 +1,6 @@
 import logging
 import re
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Mapping
 from typing import NamedTuple
 from urllib.parse import quote, unquote
 
@@ -12,14 +12,19 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    TEMPORARILY_UNAVAILABLE,
 )
 from mlflow.server.auth.conditions import (
+    MAX_CONDITIONS_PER_ROLE_TYPE,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
+    PARENT_RESOURCE_TYPES,
     validate_condition,
+    validate_condition_parent_scope,
     validate_condition_resource_type,
 )
 from mlflow.server.auth.db import utils as dbutils
@@ -131,6 +136,16 @@ class MutationConditionRow(NamedTuple):
     resource_type: str
     value_condition: str | None
     target_condition: str | None
+
+
+#: How many times ``add_mutation_condition`` re-picks a slot before giving up.
+#:
+#: Each retry means a concurrent writer committed the slot this transaction chose, so
+#: the loop only spins while adds are genuinely racing. A small bound is right: the
+#: alternative to retrying is overshooting the per-role-and-type limit, and a caller
+#: who loses this many races is better served by an explicit "retry the request" than
+#: by an unbounded loop holding a write transaction open.
+_SLOT_ALLOCATION_ATTEMPTS = 5
 
 
 class SqlAlchemyStore:
@@ -2000,77 +2015,127 @@ class SqlAlchemyStore:
     # Conditions subtract from what grants allow and never confer access, so an
     # empty table reproduces the pre-conditions behaviour exactly.
 
-    def add_mutation_conditions(
+    def add_mutation_condition(
         self,
         role_id: int,
         resource_type: str,
+        *,
+        parent_resource_type: "str | None" = None,
+        parent_resource_id: "str | None" = None,
         value_condition: str | None = None,
         target_condition: str | None = None,
     ) -> MutationConditions:
         validate_condition_resource_type(resource_type)
+        validate_condition_parent_scope(resource_type, parent_resource_type, parent_resource_id)
         # Validate here, not at evaluation time. A condition that failed to parse
         # mid-request would have to either fail open (unsafe) or deny every mutation
         # (an outage), so the only good place to catch it is on the way in.
         validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
         validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
+        if value_condition is None and target_condition is None:
+            raise MlflowException(
+                "A mutation condition needs at least one of 'value_condition' or "
+                "'target_condition'. An object with neither restricts nothing, so it would "
+                "occupy a slot while reading as a configured restriction.",
+                INVALID_PARAMETER_VALUE,
+            )
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
-            try:
+            # Allocate-then-insert, retrying on the UNIQUE. The slot is picked from
+            # what this transaction can see, so two concurrent adds can choose the
+            # same free slot; the constraint is what actually enforces the bound, and
+            # the loser simply picks again. A savepoint keeps the failed insert from
+            # poisoning the surrounding session.
+            for _ in range(_SLOT_ALLOCATION_ATTEMPTS):
+                slot = self._allocate_condition_slot(session, role_id, resource_type)
                 mc = SqlMutationConditions(
                     role_id=role_id,
                     resource_type=resource_type,
+                    condition_slot=slot,
+                    parent_resource_type=parent_resource_type,
+                    parent_resource_id=parent_resource_id,
                     value_condition=value_condition,
                     target_condition=target_condition,
                 )
-                session.add(mc)
-                session.flush()
+                try:
+                    with session.begin_nested():
+                        session.add(mc)
+                        session.flush()
+                except IntegrityError:
+                    continue
                 return mc.to_mlflow_entity()
-            except IntegrityError as e:
-                raise MlflowException(
-                    f"Mutation conditions for (role_id={role_id}, "
-                    f"resource_type={resource_type}) already exist. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                ) from e
+            raise MlflowException(
+                f"Could not allocate a condition slot for (role_id={role_id}, "
+                f"resource_type={resource_type}) after {_SLOT_ALLOCATION_ATTEMPTS} attempts "
+                f"because concurrent writers kept taking the chosen slot. Retry the request.",
+                TEMPORARILY_UNAVAILABLE,
+            )
 
     @staticmethod
-    def _get_mutation_conditions(session, role_id: int, resource_type: str):
+    def _allocate_condition_slot(session, role_id: int, resource_type: str) -> int:
+        """The lowest free slot for this ``(role, resource_type)``.
+
+        Lowest-free rather than max-plus-one so that slots freed by ``remove`` are
+        reused -- otherwise a role repeatedly adding and removing conditions would
+        exhaust the range while holding almost none.
+
+        Slots carry no ordering meaning: every applicable condition must pass, so
+        there is nothing to order. The number exists only to make the bound
+        enforceable by a constraint.
+        """
+        used = {
+            slot
+            for (slot,) in session
+            .query(SqlMutationConditions.condition_slot)
+            .filter(
+                SqlMutationConditions.role_id == role_id,
+                SqlMutationConditions.resource_type == resource_type,
+            )
+            .all()
+        }
+        for slot in range(1, MAX_CONDITIONS_PER_ROLE_TYPE + 1):
+            if slot not in used:
+                return slot
+        raise MlflowException(
+            f"Role {role_id} already has the maximum of {MAX_CONDITIONS_PER_ROLE_TYPE} "
+            f"mutation conditions for resource type '{resource_type}'. Remove one before "
+            f"adding another, or express the restriction in fewer objects -- conditions all "
+            f"AND, so several narrow objects are often one broader one.",
+            RESOURCE_ALREADY_EXISTS,
+        )
+
+    @staticmethod
+    def _get_mutation_condition(session, condition_id: int):
         try:
             return (
                 session
                 .query(SqlMutationConditions)
-                .filter(
-                    SqlMutationConditions.role_id == role_id,
-                    SqlMutationConditions.resource_type == resource_type,
-                )
+                .filter(SqlMutationConditions.id == condition_id)
                 .one()
             )
         except NoResultFound:
             raise MlflowException(
-                f"Mutation conditions for (role_id={role_id}, "
-                f"resource_type={resource_type}) not found",
+                f"Mutation condition with id={condition_id} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
-        except MultipleResultsFound:
-            raise MlflowException(
-                f"Found multiple mutation conditions for (role_id={role_id}, "
-                f"resource_type={resource_type})",
-                INVALID_STATE,
-            )
 
-    def get_mutation_conditions(self, role_id: int, resource_type: str) -> MutationConditions:
+    def get_mutation_condition(self, condition_id: int) -> MutationConditions:
         with self.ManagedSessionMaker() as session:
-            return self._get_mutation_conditions(session, role_id, resource_type).to_mlflow_entity()
+            return self._get_mutation_condition(session, condition_id).to_mlflow_entity()
 
-    def update_mutation_conditions(
+    def update_mutation_condition(
         self,
-        role_id: int,
-        resource_type: str,
+        condition_id: int,
+        *,
         value_condition: str | None = None,
         target_condition: str | None = None,
         update_value_condition: bool = True,
         update_target_condition: bool = True,
-    ) -> MutationConditions:
-        """Partial update.
+        parent_resource_type: "str | None" = None,
+        parent_resource_id: "str | None" = None,
+        update_parent_scope: bool = False,
+    ) -> "MutationConditions | None":
+        """Partial update, addressed by condition id.
 
         Three distinct intents, which is why the ``update_*`` flags exist rather than
         overloading ``None``:
@@ -2082,20 +2147,38 @@ class SqlAlchemyStore:
         Without the flags, "clear the target condition" and "leave the target
         condition alone" would both arrive as ``None`` -- and guessing wrong in the
         clearing direction silently removes a restriction an admin still wants.
+
+        The parent scope is replaced as a **pair** under its own flag: an exact
+        ``(type, id)`` or two ``None``s for unscoped. Updating one half alone is not
+        expressible, because half a scope is not a scope.
+
+        Clearing **both** filters deletes the object and returns ``None``. An object
+        with neither filter restricts nothing, so keeping it would hold a slot while
+        reading as a configured restriction -- the same reason ``add`` refuses one.
         """
         with self.ManagedSessionMaker(read_only=False) as session:
-            mc = self._get_mutation_conditions(session, role_id, resource_type)
+            mc = self._get_mutation_condition(session, condition_id)
+            resource_type = mc.resource_type
             if update_value_condition:
                 validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
                 mc.value_condition = value_condition
             if update_target_condition:
                 validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
                 mc.target_condition = target_condition
+            if update_parent_scope:
+                validate_condition_parent_scope(
+                    resource_type, parent_resource_type, parent_resource_id
+                )
+                mc.parent_resource_type = parent_resource_type
+                mc.parent_resource_id = parent_resource_id
+            if mc.value_condition is None and mc.target_condition is None:
+                session.delete(mc)
+                return None
             return mc.to_mlflow_entity()
 
-    def remove_mutation_conditions(self, role_id: int, resource_type: str) -> None:
+    def remove_mutation_condition(self, condition_id: int) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
-            mc = self._get_mutation_conditions(session, role_id, resource_type)
+            mc = self._get_mutation_condition(session, condition_id)
             session.delete(mc)
 
     def list_mutation_conditions(self, role_id: int) -> list[MutationConditions]:
@@ -2105,12 +2188,20 @@ class SqlAlchemyStore:
                 session
                 .query(SqlMutationConditions)
                 .filter(SqlMutationConditions.role_id == role_id)
+                .order_by(
+                    SqlMutationConditions.resource_type,
+                    SqlMutationConditions.condition_slot,
+                )
                 .all()
             )
             return [r.to_mlflow_entity() for r in rows]
 
     def list_mutation_conditions_for_user(
-        self, user_id: int, workspace: str, resource_types: "Collection[str]"
+        self,
+        user_id: int,
+        workspace: str,
+        resource_types: "Collection[str]",
+        parents: "Mapping[str, Collection[str]] | None" = None,
     ) -> list["MutationConditionRow"]:
         """Every condition applying to ``user_id`` in ``workspace`` for these types.
 
@@ -2128,12 +2219,29 @@ class SqlAlchemyStore:
         Per-user conditions need no special-casing: a per-user grant lives on a
         synthetic ``__user_<id>__`` role that is a real ``roles`` row, so this join
         picks it up like any other role the user holds (D10).
+
+        ``parents`` carries the resolved direct parent IDs in play for each type, and
+        is what keeps the per-role-and-type bound a *storage* bound. The scope
+        predicate runs in SQL, so a role holding the full
+        ``MAX_CONDITIONS_PER_ROLE_TYPE`` for one type transfers only the conditions
+        that actually apply to this request -- the unscoped ones plus those naming a
+        parent in play. Filtering in Python instead would transfer all of them on
+        every request and turn the bound into a per-request cost.
+
+        A type absent from ``parents``, or mapped to no IDs, matches only unscoped
+        conditions. That is the correct reading and not a fail-open: a scoped
+        condition governs children of a named parent, so a request whose parent could
+        not be resolved is outside every scope. The *refusal* for an unresolvable
+        parent belongs at the context-construction boundary, where the caller knows it
+        had a child to govern -- by the time a query runs, an empty parent set and a
+        genuinely parentless target are indistinguishable.
         """
         types = set(resource_types)
         for resource_type in types:
             validate_condition_resource_type(resource_type)
         if not types:
             return []
+        parents = parents or {}
         with self.ManagedSessionMaker() as session:
             rows = (
                 session
@@ -2147,11 +2255,38 @@ class SqlAlchemyStore:
                 .filter(
                     SqlUserRoleAssignment.user_id == user_id,
                     SqlRole.workspace == workspace,
-                    SqlMutationConditions.resource_type.in_(types),
+                    or_(*self._scope_predicates(types, parents)),
                 )
                 .all()
             )
             return [MutationConditionRow(rtype, value, target) for rtype, value, target in rows]
+
+    @staticmethod
+    def _scope_predicates(types: "Collection[str]", parents: "Mapping[str, Collection[str]]"):
+        """One predicate per type in play: unscoped, or scoped to a parent in play.
+
+        Built per type rather than as a single ``resource_type IN (...)`` plus a shared
+        parent filter, because the parents in play differ by type -- a request touching
+        runs of experiment 7 and versions of model M must not let M's ID satisfy a
+        run condition scoped to experiment M.
+        """
+        predicates = []
+        for resource_type in sorted(types):
+            in_play = parents.get(resource_type) or ()
+            unscoped = SqlMutationConditions.parent_resource_id.is_(None)
+            if in_play:
+                scope = or_(
+                    unscoped,
+                    and_(
+                        SqlMutationConditions.parent_resource_type
+                        == PARENT_RESOURCE_TYPES.get(resource_type),
+                        SqlMutationConditions.parent_resource_id.in_(sorted(set(in_play))),
+                    ),
+                )
+            else:
+                scope = unscoped
+            predicates.append(and_(SqlMutationConditions.resource_type == resource_type, scope))
+        return predicates
 
     # ---- UserRoleAssignment CRUD ----
 

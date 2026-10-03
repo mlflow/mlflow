@@ -375,22 +375,38 @@ class AuthServiceClient:
     # never reads. Conditions **subtract** from what the role's grants allow: they
     # never confer access, and a role with no conditions behaves exactly as before.
 
-    def add_mutation_conditions(
+    def add_mutation_condition(
         self,
         role_id: int,
         resource_type: str,
+        *,
+        parent_resource_type: str | None = None,
+        parent_resource_id: str | None = None,
         value_condition: str | None = None,
         target_condition: str | None = None,
     ) -> MutationConditions:
-        """Attach conditions to ``role_id`` for ``resource_type``.
+        """Attach one condition object to ``role_id`` for ``resource_type``.
+
+        A role may hold several conditions per resource type. **Every applicable one
+        must pass** -- they AND, they are not alternatives. Two objects saying
+        "``env = dev``" and "``owner = me``" permit only resources that are both, which
+        is the most common way to lock yourself out.
 
         Args:
             role_id: The role to condition. Conditions apply on top of that role's
                 grants and cannot widen them.
             resource_type: One of ``experiment``, ``run``, ``trace``, ``logged_model``,
                 ``registered_model``, ``registered_model_version``, ``prompt``,
-                ``prompt_version``. Other types are rejected -- a condition is only
-                meaningful for a type carrying tags or aliases.
+                ``prompt_version``, ``mcp_server``, ``mcp_server_version``. Other types
+                are rejected -- a condition is only meaningful for a type carrying tags
+                or aliases.
+            parent_resource_type: Optional exact direct-parent scope, with
+                ``parent_resource_id``. Set both or neither. Scoped, the condition
+                governs only children of that one parent; unscoped, it governs every
+                parent of the target type in the role's workspace. Scope does not
+                inherit across resource types, and a parentless type (``experiment``,
+                ``registered_model``, ``prompt``, ``mcp_server``) cannot be scoped.
+            parent_resource_id: The parent's ID. See ``parent_resource_type``.
             value_condition: Constrains *what values* a mutation may set, as a filter
                 string over ``tag_key``, ``tag_value`` and ``alias``. Evaluated against
                 the request, and applied on create. A clause whose identifier the
@@ -403,11 +419,14 @@ class AuthServiceClient:
                 missing tag fails the clause**, matching search semantics -- so
                 ``tags.lifecycle != 'prod'`` denies an untagged resource.
 
-        Both are optional, and at most five AND-joined clauses each; ``OR`` is not
-        supported. Use ``!=`` or ``NOT IN`` to exclude.
+        At least one of the two filters is required: an object with neither restricts
+        nothing while reading as a configured restriction. Each takes at most five
+        AND-joined clauses; ``OR`` is not supported. Use ``!=`` or ``NOT IN`` to
+        exclude.
 
         Returns:
-            The created :py:class:`MutationConditions`.
+            The created :py:class:`MutationConditions`, carrying the server-allocated
+            ``condition_slot``.
         """
         resp = self._request(
             ADD_MUTATION_CONDITIONS,
@@ -415,47 +434,68 @@ class AuthServiceClient:
             json={
                 "role_id": role_id,
                 "resource_type": resource_type,
+                "parent_resource_type": parent_resource_type,
+                "parent_resource_id": parent_resource_id,
                 "value_condition": value_condition,
                 "target_condition": target_condition,
             },
         )
         return MutationConditions.from_json(resp["mutation_conditions"])
 
-    def get_mutation_conditions(self, role_id: int, resource_type: str) -> MutationConditions:
+    def get_mutation_condition(self, condition_id: int) -> MutationConditions:
         resp = self._request(
             GET_MUTATION_CONDITIONS,
             "GET",
-            params={"role_id": str(role_id), "resource_type": resource_type},
+            params={"condition_id": str(condition_id)},
         )
         return MutationConditions.from_json(resp["mutation_conditions"])
 
-    def update_mutation_conditions(
+    def update_mutation_condition(
         self,
-        role_id: int,
-        resource_type: str,
+        condition_id: int,
+        *,
         value_condition: str | None = _UNSET,
         target_condition: str | None = _UNSET,
-    ) -> MutationConditions:
-        """Update conditions, leaving any argument you omit untouched.
+        parent_resource_type: str | None = _UNSET,
+        parent_resource_id: str | None = _UNSET,
+    ) -> MutationConditions | None:
+        """Update one condition object, leaving any argument you omit untouched.
 
         Passing ``None`` explicitly **clears** that condition; omitting the argument
         leaves it as it is. The two are different operations, so they cannot share a
         sentinel -- if they did, an update that only meant to change the value
         condition would silently drop the target condition.
+
+        The parent scope is replaced as a pair: pass both parent arguments to rescope,
+        or both as ``None`` to make the condition workspace-wide. Passing one alone is
+        rejected, because half a scope is not a scope.
+
+        Returns:
+            The updated object, or ``None`` if clearing both filters deleted it -- an
+            object restricting nothing is removed rather than left holding a slot.
         """
-        body: dict[str, object] = {"role_id": role_id, "resource_type": resource_type}
+        body: dict[str, object] = {"condition_id": condition_id}
         if value_condition is not _UNSET:
             body["value_condition"] = value_condition
         if target_condition is not _UNSET:
             body["target_condition"] = target_condition
+        if parent_resource_type is not _UNSET or parent_resource_id is not _UNSET:
+            body["update_parent_scope"] = True
+            body["parent_resource_type"] = (
+                None if parent_resource_type is _UNSET else parent_resource_type
+            )
+            body["parent_resource_id"] = (
+                None if parent_resource_id is _UNSET else parent_resource_id
+            )
         resp = self._request(UPDATE_MUTATION_CONDITIONS, "PATCH", json=body)
-        return MutationConditions.from_json(resp["mutation_conditions"])
+        payload = resp.get("mutation_conditions")
+        return MutationConditions.from_json(payload) if payload else None
 
-    def remove_mutation_conditions(self, role_id: int, resource_type: str) -> None:
+    def remove_mutation_condition(self, condition_id: int) -> None:
         self._request(
             REMOVE_MUTATION_CONDITIONS,
             "DELETE",
-            json={"role_id": role_id, "resource_type": resource_type},
+            json={"condition_id": condition_id},
         )
 
     def list_mutation_conditions(self, role_id: int) -> list[MutationConditions]:

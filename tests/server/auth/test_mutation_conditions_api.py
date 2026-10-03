@@ -17,7 +17,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
-    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
     ErrorCode,
@@ -95,7 +94,7 @@ def _non_admin(client, monkeypatch):
 
 def test_add_get_list_remove_round_trip(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        created = client.add_mutation_conditions(
+        created = client.add_mutation_condition(
             role.id,
             "registered_model",
             value_condition="tag_key != 'lifecycle'",
@@ -105,26 +104,26 @@ def test_add_get_list_remove_round_trip(client, monkeypatch, role):
         assert created.value_condition == "tag_key != 'lifecycle'"
         assert created.target_condition == "tags.lifecycle = 'dev'"
 
-        fetched = client.get_mutation_conditions(role.id, "registered_model")
+        fetched = client.get_mutation_condition(created.id)
         assert fetched.to_json() == created.to_json()
 
         listed = client.list_mutation_conditions(role.id)
         assert [c.resource_type for c in listed] == ["registered_model"]
 
-        client.remove_mutation_conditions(role.id, "registered_model")
+        client.remove_mutation_condition(created.id)
         assert client.list_mutation_conditions(role.id) == []
 
 
 def test_add_with_only_a_value_condition(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        created = client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        created = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
     assert created.value_condition == "tag_key != 'a'"
     assert created.target_condition is None
 
 
 def test_add_with_only_a_target_condition(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        created = client.add_mutation_conditions(role.id, "run", target_condition="tags.a = '1'")
+        created = client.add_mutation_condition(role.id, "run", target_condition="tags.a = '1'")
     assert created.value_condition is None
     assert created.target_condition == "tags.a = '1'"
 
@@ -132,8 +131,8 @@ def test_add_with_only_a_target_condition(client, monkeypatch, role):
 def test_prompt_parity_round_trip(client, monkeypatch, role):
     # D2: prompt and prompt_version are first-class, at parity with the model types.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "prompt", "alias LIKE 'dev-%'")
-        client.add_mutation_conditions(role.id, "prompt_version", "tag_key != 'x'")
+        client.add_mutation_condition(role.id, "prompt", value_condition="alias LIKE 'dev-%'")
+        client.add_mutation_condition(role.id, "prompt_version", value_condition="tag_key != 'x'")
         listed = {c.resource_type for c in client.list_mutation_conditions(role.id)}
     assert listed == {"prompt", "prompt_version"}
 
@@ -146,18 +145,20 @@ def test_update_omitted_field_is_left_alone(client, monkeypatch, role):
     them different -- otherwise updating one condition silently clears the other.
     """
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
-        updated = client.update_mutation_conditions(
-            role.id, "run", value_condition="tag_key != 'z'"
+        created = client.add_mutation_condition(
+            role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
         )
+        updated = client.update_mutation_condition(created.id, value_condition="tag_key != 'z'")
     assert updated.value_condition == "tag_key != 'z'"
     assert updated.target_condition == "tags.b = '1'"
 
 
 def test_update_explicit_none_clears(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'", "tags.b = '1'")
-        updated = client.update_mutation_conditions(role.id, "run", target_condition=None)
+        created = client.add_mutation_condition(
+            role.id, "run", value_condition="tag_key != 'a'", target_condition="tags.b = '1'"
+        )
+        updated = client.update_mutation_condition(created.id, target_condition=None)
     assert updated.value_condition == "tag_key != 'a'"
     assert updated.target_condition is None
 
@@ -165,45 +166,59 @@ def test_update_explicit_none_clears(client, monkeypatch, role):
 # ---- Errors ----------------------------------------------------------------
 
 
-def test_duplicate_rejected(client, monkeypatch, role):
+def test_several_conditions_for_one_type_are_accepted(client, monkeypatch, role):
+    """No longer a duplicate: a role may hold several conditions per type, which is
+    what makes per-parent scoping expressible. They AND, so adding one can only
+    narrow what the role may do.
+    """
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
-        with pytest.raises(MlflowException, match="already exist") as exc:
-            client.add_mutation_conditions(role.id, "run", "tag_key != 'b'")
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        first = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
+        second = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'b'")
+        assert {first.condition_slot, second.condition_slot} == {1, 2}
+        assert len(client.list_mutation_conditions(role.id)) == 2
+
+
+def test_add_with_neither_filter_is_rejected(client, monkeypatch, role):
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        with pytest.raises(MlflowException, match="at least one"):
+            client.add_mutation_condition(role.id, "run")
 
 
 def test_get_missing_returns_resource_does_not_exist(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="not found") as exc:
-            client.get_mutation_conditions(role.id, "run")
+            client.get_mutation_condition(99999)
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_unsupported_resource_type_rejected(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="not supported for resource type"):
-            client.add_mutation_conditions(role.id, "scorer", "tag_key != 'a'")
+            client.add_mutation_condition(role.id, "scorer", value_condition="tag_key != 'a'")
 
 
 def test_malformed_condition_rejected(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="OR is not supported"):
-            client.add_mutation_conditions(role.id, "run", "tag_key = 'a' OR tag_key = 'b'")
+            client.add_mutation_condition(
+                role.id, "run", value_condition="tag_key = 'a' OR tag_key = 'b'"
+            )
 
 
 def test_reserved_tag_key_rejected_in_value_condition(client, monkeypatch, role):
     # D4: an admin must not be able to block MLflow's own tag writes.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="reserved tag keys"):
-            client.add_mutation_conditions(role.id, "run", "tag_key = 'mlflow.runName'")
+            client.add_mutation_condition(
+                role.id, "run", value_condition="tag_key = 'mlflow.runName'"
+            )
 
 
 def test_reserved_tag_key_rejected_in_target_condition_too(client, monkeypatch, role):
     """D4 is symmetric: a reserved key is refused in either namespace."""
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="reserved tag keys"):
-            client.add_mutation_conditions(
+            client.add_mutation_condition(
                 role.id,
                 "registered_model",
                 target_condition="tags.`mlflow.prompt.is_prompt` = 'true'",
@@ -217,47 +232,78 @@ def test_writes_require_role_management(client, monkeypatch, role):
     username, password = _non_admin(client, monkeypatch)
 
     with assert_unauthenticated():
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
 
     with User(username, password, monkeypatch), assert_unauthorized():
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        assert client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        assert client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
 
 
 def test_update_requires_role_management(client, monkeypatch, role):
     username, password = _non_admin(client, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        created = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
 
     with User(username, password, monkeypatch), assert_unauthorized():
-        client.update_mutation_conditions(role.id, "run", value_condition="tag_key != 'z'")
+        client.update_mutation_condition(created.id, value_condition="tag_key != 'z'")
 
 
 def test_remove_requires_role_management(client, monkeypatch, role):
     username, password = _non_admin(client, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        created = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
 
     with User(username, password, monkeypatch), assert_unauthorized():
-        client.remove_mutation_conditions(role.id, "run")
+        client.remove_mutation_condition(created.id)
 
     # And the condition survived the denied attempt.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        assert client.get_mutation_conditions(role.id, "run")
+        assert client.get_mutation_condition(created.id)
+
+
+def test_workspace_admin_can_manage_a_condition_by_id(client, monkeypatch, role):
+    """A condition is addressed by its own id, so the workspace whose admin may manage
+    it has to be resolved *through* the condition to its owning role.
+
+    Regression test: while the routes were keyed on ``role_id`` the workspace fell out
+    of the request directly. Moving to id addressing removed it, and the
+    role-management check then could not run at all -- a workspace admin was refused
+    with a malformed-request error rather than being authorized. The failure was
+    fail-closed, but it made the route unusable for exactly the non-super-admin it
+    exists to serve.
+    """
+    username = random_str()
+    password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
+        admin_role = client.create_role(workspace=_WORKSPACE, name=f"wsadmin-{random_str()}")
+        client.add_role_permission(admin_role.id, "workspace", "*", "MANAGE")
+        client.assign_role(username, admin_role.id)
+        created = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
+
+    # The workspace admin never names the role, only the condition.
+    with User(username, password, monkeypatch):
+        assert client.get_mutation_condition(created.id).id == created.id
+        updated = client.update_mutation_condition(created.id, value_condition="tag_key != 'z'")
+        assert updated.value_condition == "tag_key != 'z'"
+        client.remove_mutation_condition(created.id)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert client.list_mutation_conditions(role.id) == []
 
 
 def test_reads_require_role_visibility(client, monkeypatch, role):
     username, password = _non_admin(client, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        created = client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
 
     with assert_unauthenticated():
-        client.get_mutation_conditions(role.id, "run")
+        client.get_mutation_condition(created.id)
 
     with User(username, password, monkeypatch), assert_unauthorized():
-        client.get_mutation_conditions(role.id, "run")
+        client.get_mutation_condition(created.id)
 
     with User(username, password, monkeypatch), assert_unauthorized():
         client.list_mutation_conditions(role.id)
@@ -265,7 +311,7 @@ def test_reads_require_role_visibility(client, monkeypatch, role):
 
 def test_cascade_on_role_delete(client, monkeypatch, role):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        client.add_mutation_conditions(role.id, "run", "tag_key != 'a'")
+        client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'a'")
         client.delete_role(role.id)
         with pytest.raises(MlflowException, match="not found"):
             client.list_mutation_conditions(role.id)

@@ -1,15 +1,18 @@
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
 
+from mlflow.server.auth.conditions import MAX_CONDITIONS_PER_ROLE_TYPE
 from mlflow.server.auth.entities import (
     MutationConditions,
     Role,
@@ -139,9 +142,53 @@ class SqlMutationConditions(Base):
     # the clause-count limit the parser enforces.
     value_condition = Column(Text, nullable=True)
     target_condition = Column(Text, nullable=True)
+    # Which of the role's conditions for this resource type this row is. The slot is
+    # allocated by the store, never supplied by the caller, and carries no ordering
+    # meaning: conditions all AND, so there is nothing to order. Its whole job is to
+    # make the per-(role, type) bound race-safe -- UNIQUE below plus the CHECK range
+    # enforce "at most MAX_CONDITIONS_PER_ROLE_TYPE" without a count-then-insert race.
+    #
+    # Deliberately no server_default: an INSERT that omits the slot is a store bug, and
+    # should fail rather than silently land in slot 1 and collide.
+    condition_slot = Column(SmallInteger, nullable=False)
+    # Optional exact direct-parent scope. Both columns are set together or neither is
+    # (the CHECK below): a type without an ID would name every parent of that type, and
+    # an ID without a type names nothing. Unscoped -- both NULL -- applies to every
+    # parent of the target type in the role's workspace.
+    #
+    # Widths match SqlRolePermission: the same vocabulary and the same identifiers.
+    parent_resource_type = Column(String(64), nullable=True)
+    parent_resource_id = Column(String(255), nullable=True)
     __table_args__ = (
-        # At most one of each condition per (role, resource_type), per the RFC.
-        UniqueConstraint("role_id", "resource_type", name="unique_role_resource_type"),
+        # One row per slot. Replaces the single-object UniqueConstraint on
+        # (role_id, resource_type): a role may now hold up to
+        # MAX_CONDITIONS_PER_ROLE_TYPE conditions for each type, which is what makes
+        # per-parent scoping expressible -- one object per governed parent.
+        UniqueConstraint(
+            "role_id", "resource_type", "condition_slot", name="unique_role_resource_type_slot"
+        ),
+        CheckConstraint(
+            f"condition_slot BETWEEN 1 AND {MAX_CONDITIONS_PER_ROLE_TYPE}",
+            name="ck_mutation_conditions_slot_range",
+        ),
+        CheckConstraint(
+            "(parent_resource_type IS NULL AND parent_resource_id IS NULL) OR "
+            "(parent_resource_type IS NOT NULL AND parent_resource_id IS NOT NULL)",
+            name="ck_mutation_conditions_parent_pair",
+        ),
+        # The lookup index. The gate resolves conditions by role, target type, and
+        # either no parent scope or the exact resolved parent -- so the predicate runs
+        # in SQL and row volume stays proportional to the conditions that *apply*, not
+        # to the number stored. Without the parent columns in the index, a role holding
+        # the full MAX_CONDITIONS_PER_ROLE_TYPE would transfer all of them on every
+        # request, turning a storage bound into a per-request cost.
+        Index(
+            "idx_mutation_conditions_lookup",
+            "role_id",
+            "resource_type",
+            "parent_resource_type",
+            "parent_resource_id",
+        ),
         Index("idx_mutation_conditions_role_id", "role_id"),
     )
 
@@ -152,6 +199,9 @@ class SqlMutationConditions(Base):
             resource_type=self.resource_type,
             value_condition=self.value_condition,
             target_condition=self.target_condition,
+            condition_slot=self.condition_slot,
+            parent_resource_type=self.parent_resource_type,
+            parent_resource_id=self.parent_resource_id,
         )
 
 

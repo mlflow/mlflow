@@ -479,6 +479,15 @@ class MutationConditions:
     Either may be ``None``, meaning unconstrained in that direction. Conditions
     **subtract** from what grants allow and never confer access, so an absent
     condition -- or an absent row -- is exactly today's behaviour.
+
+    A role may hold several of these for one resource type, distinguished by
+    ``condition_slot``. The slot is allocated by the store and carries no ordering
+    meaning: every applicable condition must pass, so there is nothing to order.
+
+    ``parent_resource_type`` and ``parent_resource_id`` are an optional exact
+    direct-parent scope, set together or both ``None``. Unscoped applies to every
+    parent of the target type in the role's workspace; scoped applies only to children
+    of that one parent, and does not inherit across resource types.
     """
 
     def __init__(
@@ -488,12 +497,18 @@ class MutationConditions:
         resource_type,
         value_condition=None,
         target_condition=None,
+        condition_slot=None,
+        parent_resource_type=None,
+        parent_resource_id=None,
     ):
         self._id = id_
         self._role_id = role_id
         self._resource_type = resource_type
         self._value_condition = value_condition
         self._target_condition = target_condition
+        self._condition_slot = condition_slot
+        self._parent_resource_type = parent_resource_type
+        self._parent_resource_id = parent_resource_id
 
     @property
     def id(self):
@@ -506,6 +521,18 @@ class MutationConditions:
     @property
     def resource_type(self):
         return self._resource_type
+
+    @property
+    def condition_slot(self):
+        return self._condition_slot
+
+    @property
+    def parent_resource_type(self):
+        return self._parent_resource_type
+
+    @property
+    def parent_resource_id(self):
+        return self._parent_resource_id
 
     @property
     def value_condition(self):
@@ -530,6 +557,9 @@ class MutationConditions:
             "resource_type": self.resource_type,
             "value_condition": self.value_condition,
             "target_condition": self.target_condition,
+            "condition_slot": self.condition_slot,
+            "parent_resource_type": self.parent_resource_type,
+            "parent_resource_id": self.parent_resource_id,
         }
 
     @classmethod
@@ -540,6 +570,9 @@ class MutationConditions:
             resource_type=dictionary["resource_type"],
             value_condition=dictionary.get("value_condition"),
             target_condition=dictionary.get("target_condition"),
+            condition_slot=dictionary.get("condition_slot"),
+            parent_resource_type=dictionary.get("parent_resource_type"),
+            parent_resource_id=dictionary.get("parent_resource_id"),
         )
 
 

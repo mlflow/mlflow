@@ -427,7 +427,9 @@ def _conditioned_store(**kwargs):
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+        def list_mutation_conditions_for_user(
+            self, user_id, workspace, resource_types, parents=None
+        ):
             return [MutationConditionSpec("trace", **kwargs)]
 
     return Store()
@@ -734,7 +736,9 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(self, user_id, workspace, resource_types):
+        def list_mutation_conditions_for_user(
+            self, user_id, workspace, resource_types, parents=None
+        ):
             return [
                 MutationConditionSpec(
                     child_type, value_condition=None, target_condition=target_condition
