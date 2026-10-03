@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -199,6 +200,47 @@ async def test_chat():
     result = jsonable_encoder(response)
     assert result["id"] == "chatcmpl-db-123"
     assert result["choices"][0]["message"]["content"] == "Hello from Databricks!"
+
+
+def _chat_stream_chunk(content):
+    chunk = {
+        "id": "chatcmpl-db-123",
+        "object": "chat.completion.chunk",
+        "created": 1700000000,
+        "model": "databricks-gpt-oss-120b",
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": content}}],
+    }
+    return f"data: {json.dumps(chunk)}\n\n".encode()
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_normalizes_list_content():
+    provider = _make_provider()
+    chunks = [
+        _chat_stream_chunk([
+            {"type": "reasoning", "summary": [{"type": "summary_text", "text": "thinking"}]}
+        ]),
+        _chat_stream_chunk([
+            {"type": "text", "text": "Hello, "},
+            {"type": "text", "text": "world"},
+        ]),
+        _chat_stream_chunk("!"),
+        b"data: [DONE]\n\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+            stream=True,
+        )
+        responses = [jsonable_encoder(r) async for r in provider.chat_stream(payload)]
+
+    assert [r["choices"][0]["delta"]["content"] for r in responses] == [
+        None,
+        "Hello, world",
+        "!",
+    ]
 
 
 @pytest.mark.asyncio
