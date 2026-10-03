@@ -254,7 +254,10 @@ def update_trace_assessment(
     assessment_id: AssessmentId,
     value: Annotated[
         Any,
-        Field(description="New value. Strings holding JSON are parsed. Unchanged when omitted."),
+        Field(
+            description="New value. Strings holding JSON are parsed. Unchanged when omitted or "
+            "null."
+        ),
     ] = None,
     rationale: Annotated[
         str | None, Field(description="New rationale (feedback only). Unchanged when omitted.")
@@ -272,7 +275,12 @@ def update_trace_assessment(
     """
     client = TracingClient()
     existing = client.get_assessment(trace_id, assessment_id)
-    new_value = existing.value if value is None else as_json_value(value)
+    # An omitted value, a JSON null and the legacy string "null" all leave the value as it is: an
+    # assessment cannot be left without a value, so null is never a replacement.
+    new_value = as_json_value(value)
+    keep_value = new_value is None
+    if keep_value:
+        new_value = existing.value
     new_metadata = existing.metadata if metadata is None else as_string_map(metadata, "metadata")
     if isinstance(existing, Feedback):
         # The store replaces the feedback value and its error together, so a stored error (a
@@ -280,7 +288,7 @@ def update_trace_assessment(
         updated = Feedback(
             name=existing.name,
             value=new_value,
-            error=existing.error if value is None else None,
+            error=existing.error if keep_value else None,
             rationale=existing.rationale if rationale is None else rationale,
             metadata=new_metadata,
         )

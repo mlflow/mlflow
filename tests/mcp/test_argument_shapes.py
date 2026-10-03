@@ -215,3 +215,20 @@ async def test_search_experiments_without_max_results_still_returns_everything(c
     result = await _call(client, "search_experiments")
     assert len(result["experiments"]) == 4
     assert result["next_page_token"] is None
+
+
+@pytest.mark.parametrize("null", [None, "null"])
+@pytest.mark.asyncio
+async def test_update_trace_assessment_keeps_the_value_for_null(client, experiment_id, null):
+    trace_id = _trace()
+    logged = await _call(client, "log_trace_feedback", trace_id=trace_id, name="q", value=1)
+    updated = await _call(
+        client,
+        "update_trace_assessment",
+        trace_id=trace_id,
+        assessment_id=logged["assessment_id"],
+        value=null,
+        rationale="kept",
+    )
+    assert updated["value"] == 1
+    assert updated["rationale"] == "kept"
