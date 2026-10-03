@@ -4,6 +4,7 @@ Streamable HTTP MCP endpoint served by the MLflow tracking server (``mlflow serv
 
 import functools
 from collections.abc import Callable, Iterable, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -164,8 +165,18 @@ def create_server_mcp_app(path: str, tool_policy: McpToolPolicy | None = None) -
         ]
 
     mcp = create_mcp(tools=tools)
-    # Same event as ``mlflow mcp run``; the marker tells the two transports apart.
-    _record_event(McpRunEvent, {"context": "server"})
     app = mcp.http_app(path=path, stateless_http=True, transport="streamable-http")
     app.state.identity_app = _McpRequestIdentity(app)
+    mcp_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(served_app):
+        # Same event as ``mlflow mcp run``; the marker tells the two transports apart. Recorded
+        # when the app starts serving, not when it is built: the basic-auth factory also builds
+        # the module-level app, which is never served.
+        _record_event(McpRunEvent, {"context": "server"})
+        async with mcp_lifespan(served_app):
+            yield
+
+    app.router.lifespan_context = lifespan
     return app

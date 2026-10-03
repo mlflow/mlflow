@@ -10,10 +10,12 @@ from starlette.testclient import TestClient
 import mlflow
 from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_SERVER_ENABLE_MCP
 from mlflow.mcp.server import collect_category_tools
+from mlflow.mcp.server_app import create_server_mcp_app
 from mlflow.mcp.tools import SHARED_TOOLS
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR, handlers
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+from mlflow.telemetry.events import McpRunEvent
 
 _ALL_CATEGORIES = ("traces", "scorers", "experiments", "runs", "models", "deployments")
 
@@ -90,6 +92,16 @@ async def test_mcp_tool_round_trips_through_backend_store(mcp_app):
         "experiment_id": experiment.experiment_id,
         "name": "created-via-mcp",
     }
+
+
+@pytest.mark.asyncio
+async def test_mcp_startup_telemetry_is_recorded_when_the_app_starts(backend_store_env):
+    # The basic-auth factory builds two apps and serves one; only a served app counts as a run.
+    with mock.patch("mlflow.mcp.server_app._record_event") as record_event:
+        app = create_server_mcp_app("/mcp")
+        record_event.assert_not_called()
+        async with app.lifespan(app):
+            record_event.assert_called_once_with(McpRunEvent, {"context": "server"})
 
 
 @pytest.mark.asyncio
