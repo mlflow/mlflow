@@ -10,7 +10,7 @@ on:
         required: true
         type: number
       dry_run:
-        description: "Classify and prepare the triage report without mutating the issue or posting a comment"
+        description: "Prepare the triage report without posting an issue comment"
         required: false
         type: boolean
         default: true
@@ -76,7 +76,7 @@ jobs:
         env:
           SECURITY_MATCH: ${{ contains(needs.issue.outputs.title, 'security') && contains(needs.issue.outputs.title, 'vulnerability') }}
         run: echo "match=$SECURITY_MATCH" >> "$GITHUB_OUTPUT"
-      - if: steps.security.outputs.match == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+      - if: steps.security.outputs.match == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
@@ -203,7 +203,6 @@ jobs:
           ISSUE_URL: ${{ needs.issue.outputs.url }}
           DETECTED_TYPE: ${{ steps.detect.outputs.type }}
           CLASSIFIED_TYPE: ${{ steps.classify.outputs.type }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
           type="$DETECTED_TYPE"
           if [ "$type" = unknown ]; then
@@ -219,13 +218,6 @@ jobs:
           echo "type=$type" >> "$GITHUB_OUTPUT"
           if [ "$type" = unknown ]; then
             echo "No matching title prefix, template, or classifier result"
-            if [ "$DRY_RUN" = true ]; then
-              echo "No issue type or labels would be applied." >> "$GITHUB_STEP_SUMMARY"
-            fi
-            exit 0
-          fi
-          if [ "$DRY_RUN" = true ]; then
-            echo "Would classify as \`$type\` and add labels \`$labels\` to $ISSUE_URL." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           # Templates apply these labels already; adding them again is a no-op.
