@@ -1422,6 +1422,47 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
     return (RESOURCE_TYPE_RUN,) if recursive else ()
 
 
+def _artifact_proxy_child_ids(
+    artifact_path: str, child_types: "tuple[str, ...]"
+) -> "dict[str, str]":
+    """The specific child ids ``artifact_path`` names, for the tiers being judged.
+
+    All three child tiers lay artifacts out uniformly under the experiment's artifact root --
+    ``<run_id>/artifacts/``, ``traces/<trace_id>/artifacts/``, ``models/<model_id>/artifacts/``
+    (see ``SqlAlchemyStore``'s artifact location construction) -- so wherever the path reaches
+    into a specific child, that child's id is a path segment. Recovering it is what lets a
+    target condition judge the object actually being written instead of refusing the tier.
+
+    The TIER an id is filed under is load-bearing: the caller looks the id up by type, so
+    filing a model id under ``run`` would judge the run condition against a model id -- a
+    resource that does not exist, which the resource side treats as having no tags and so
+    fails every comparator. Verified by mutation: swapping the tier breaks the model and
+    trace cases.
+
+    Restricting the result to ``child_types`` is defence in depth rather than the thing that
+    provides that safety, since an entry under a tier the caller is not judging is simply
+    never looked up. It is kept so the returned mapping is honest on its own terms, for a
+    future caller that iterates it instead of indexing by type.
+
+    A tier whose id the path does not name is absent from the result, and the caller
+    enumerates that tier instead.
+    """
+    remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
+    segments = [segment for segment in remainder.split("/") if segment]
+    if not segments:
+        # The experiment artifact root names no child; every tier is enumerated.
+        return {}
+    if folder_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(segments[0]):
+        # A bare ``traces/`` or ``models/`` names the folder but no child within it.
+        if len(segments) > 1 and folder_type in child_types:
+            return {folder_type: segments[1]}
+        return {}
+    if RESOURCE_TYPE_RUN in child_types:
+        # ``<run_id>/artifacts/...``, or the bare ``<run_id>`` a recursive delete reaches.
+        return {RESOURCE_TYPE_RUN: segments[0]}
+    return {}
+
+
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
         return validate_path_is_safe(artifact_path)
@@ -1440,10 +1481,10 @@ _ARTIFACT_PROXY_RECURSIVE_ACTIONS = frozenset({"manage"})
 def _artifact_proxy_child(artifact_path: "str | None", action: str):
     """Resolve an artifact proxy path to the sub-resources the request is judged against.
 
-    Returns ``(child_types, experiment_key)``, ``None`` when no child tier applies -- either the
-    path names no experiment, or it is an experiment-level artifact, and the caller falls through
-    to the experiment -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot be canonicalized,
-    which must deny rather than fall through.
+    Returns ``(child_types, experiment_key, child_ids)``, ``None`` when no child tier applies
+    -- either the path names no experiment, or it is an experiment-level artifact, and the
+    caller falls through to the experiment -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path
+    cannot be canonicalized, which must deny rather than fall through.
 
     ``action`` is needed because a recursive delete reaches tiers a point read does not.
     """
@@ -1460,7 +1501,11 @@ def _artifact_proxy_child(artifact_path: "str | None", action: str):
     )
     if not child_types:
         return None
-    return child_types, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+    return (
+        child_types,
+        (RESOURCE_TYPE_EXPERIMENT, match.group(1)),
+        _artifact_proxy_child_ids(canonical, child_types),
+    )
 
 
 def _authorize_artifact_proxy_resolved(
@@ -1479,7 +1524,7 @@ def _authorize_artifact_proxy_resolved(
         return False
     if child is None:
         return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
-    child_types, experiment = child
+    child_types, experiment, child_ids = child
     return authorize(
         username,
         experiment,
@@ -1490,7 +1535,52 @@ def _authorize_artifact_proxy_resolved(
                 for child_type in child_types
             ),
         ],
+        conditions=_artifact_proxy_contexts(child_types, child_ids, experiment[1], action),
     )
+
+
+# The proxy's write surface. A read declares no condition, as every read does.
+_ARTIFACT_PROXY_MUTATING_ACTIONS = frozenset({"update", "manage"})
+
+
+def _artifact_proxy_contexts(
+    child_types: "tuple[str, ...]",
+    child_ids: "dict[str, str]",
+    experiment_id: str,
+    action: str,
+) -> "list[ConditionContext]":
+    """MUTATE contexts for the child tiers an artifact write or delete reaches.
+
+    The grant half checks each tier with a wildcard id, because a grant is held per type. A
+    condition is not: it judges a resource's state, so it needs the resource. Where the path
+    names one, that id is used directly. Where it does not -- a recursive delete of the
+    experiment root, or of a ``models/`` directory -- the tier is enumerated, which is exactly
+    the cascade's problem, so it reuses the cascade's contexts and therefore its LAZY resolver:
+    a server with no condition on that tier pays nothing, and a tier that cannot be enumerated
+    is refused rather than let through unjudged.
+
+    An artifact write sets no tags or aliases, so request values are empty and only a target
+    condition can apply.
+    """
+    if action not in _ARTIFACT_PROXY_MUTATING_ACTIONS:
+        return []
+    contexts: "list[ConditionContext]" = []
+    for child_type in child_types:
+        if child_type not in SUPPORTED_RESOURCE_TYPES:
+            continue
+        if child_id := child_ids.get(child_type):
+            contexts.append(
+                context_for(
+                    child_type,
+                    child_id,
+                    ConditionScope.MUTATE,
+                    request_values_shape(child_type)(),
+                    parent_resource_id=experiment_id,
+                )
+            )
+        else:
+            contexts.extend(_cascade_contexts(experiment_id, (child_type,)))
+    return contexts
 
 
 def _authorize_flask_artifact_proxy(action: str) -> bool:

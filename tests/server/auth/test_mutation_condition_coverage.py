@@ -888,6 +888,65 @@ def _delete_experiment():
         return auth_module.validate_can_delete_experiment()
 
 
+def _proxy(path, action):
+    """Authorize an artifact proxy request the way both funnels do."""
+    child = auth_module._artifact_proxy_child(path, action)
+    return auth_module._authorize_artifact_proxy_resolved(
+        child,
+        "alice",
+        action,
+        # Only consulted for a path naming no child tier; these all name one.
+        lambda: pytest.fail("fell through to the experiment permission"),
+    )
+
+
+def test_writing_a_run_artifact_declares_the_run(monkeypatch):
+    """`<exp>/<run_id>/artifacts/...` is the run's payload. The grant half checks the run tier
+    with a wildcard id, so without a declared context a run target condition never sees the
+    run it is written to govern.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
+    assert _proxy("1/r1/artifacts/f.txt", "update") is False
+
+
+def test_writing_a_run_artifact_permits_a_passing_run(monkeypatch):
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",))
+    assert _proxy("1/r1/artifacts/f.txt", "update") is True
+
+
+def test_writing_a_logged_model_artifact_declares_the_model(monkeypatch):
+    """Logged model artifacts live under `<exp>/models/<model_id>/artifacts/`, so the id the
+    condition needs is in the path.
+    """
+    _child_restricted(monkeypatch, "logged_model", "tags.keep != 'y'", ("m-1",), failing=("m-1",))
+    assert _proxy("1/models/m-1/artifacts/f.txt", "update") is False
+
+
+def test_writing_a_trace_artifact_declares_the_trace(monkeypatch):
+    _child_restricted(monkeypatch, "trace", "tags.keep != 'y'", ("tr-1",), failing=("tr-1",))
+    assert _proxy("1/traces/tr-1/artifacts/f.txt", "update") is False
+
+
+def test_recursively_deleting_a_bare_run_id_declares_the_run(monkeypatch):
+    """A point write to a bare `<run_id>` is the experiment's business, but a recursive delete
+    of it removes that run's artifacts -- and the id is right there in the path.
+    """
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
+    assert _proxy("1/r1", "manage") is False
+
+
+def test_recursively_deleting_the_experiment_root_judges_each_child(monkeypatch):
+    """The root names no id, so this is the cascade case: enumerate the tier, lazily."""
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1", "r2"), failing=("r2",))
+    assert _proxy("1/", "manage") is False
+
+
+def test_reading_an_artifact_declares_no_condition(monkeypatch):
+    """Reads are unconditioned. A failing run condition must not block a download."""
+    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
+    assert _proxy("1/r1/artifacts/f.txt", "read") is True
+
+
 def test_deleting_an_experiment_denies_when_one_run_fails_its_condition(monkeypatch):
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1", "r2"), failing=("r2",))
     assert _delete_experiment() is False
