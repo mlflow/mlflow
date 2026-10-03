@@ -358,18 +358,33 @@ def fetch_mcp_server_version(name: str, version: str):
 MAX_CASCADE_CHILDREN = 2000
 
 
-def _collect_ids(fetch_page, id_of) -> "tuple[str, ...] | None":
+def _collect_ids(fetch_page, id_of, resource_type: "str | None" = None) -> "tuple[str, ...] | None":
     """Page through a search, returning ids -- or ``None`` when there are too many.
 
     ``None`` and ``()`` mean different things to the caller and must not be conflated: ``()``
     is "this parent genuinely has no children", which lets the cascade proceed, while ``None``
     is "the children could not be enumerated", which must deny.
+
+    When ``resource_type`` is given, each entity the search already returned is put in the
+    per-request entity memo. This is the difference between a cascade costing one search per
+    page and costing that PLUS one fetch per child: the pages already carry the tags a target
+    condition reads, and only ``trace`` has a bulk attribute path to soften a refetch, so a
+    2000-run experiment would otherwise pay 2000 separate ``get_run`` round trips to authorize
+    one delete.
+
+    ``setdefault`` rather than assignment: an entity already memoized this request was fetched
+    by a path that may know more about it than a search projection does, so the existing entry
+    wins.
     """
     ids: list[str] = []
     token = None
     while True:
         page = fetch_page(token)
-        ids.extend(id_of(entity) for entity in page)
+        for entity in page:
+            resource_id = id_of(entity)
+            ids.append(resource_id)
+            if resource_type is not None:
+                _entities().setdefault(_cache_key(resource_type, resource_id), entity)
         if len(ids) > MAX_CASCADE_CHILDREN:
             return None
         token = getattr(page, "token", None)
@@ -393,6 +408,16 @@ def runs_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
             page_token=token,
         ),
         lambda run: run.info.run_id,
+        # Memoize the entities the search already returned. Verified against a real store:
+        # ``search_runs`` and ``get_run`` project identical tags, so reusing the search result
+        # cannot make a condition read different state than a fetch would have.
+        #
+        # Only ``run`` is enabled so far, because it is both the dominant cost (runs have no
+        # bulk attribute path, unlike traces) and the one whose search/fetch parity has been
+        # checked. Each remaining enumerator needs the same check before being switched on --
+        # a search that returned a partial projection would silently narrow what a condition
+        # sees.
+        "run",
     )
 
 
@@ -578,6 +603,15 @@ def _tags_of(entity) -> Mapping[str, str]:
     """
     if (private := getattr(entity, "_tags", None)) is not None:
         return _as_str_mapping(private)
+    # ``Run`` is the one conditionable entity that exposes neither: its tags hang off
+    # ``run.data.tags``. Without this branch a run projects NO tags, and because absence
+    # fails on the resource side (D20) every run target condition would refuse every run
+    # mutation -- `tags.x = 'y'` never matching and `tags.x != 'y'` failing on absence.
+    # Checked before the public ``tags`` lookup only for ordering tidiness; ``Run`` has no
+    # ``tags`` attribute at all.
+    if (data := getattr(entity, "data", None)) is not None:
+        if (nested := getattr(data, "tags", None)) is not None:
+            return _as_str_mapping(nested)
     tags = getattr(entity, "tags", None)
     if isinstance(tags, Mapping):
         return _as_str_mapping(tags)

@@ -20,6 +20,7 @@ from mlflow.server.auth.conditions import (
     RegisteredModelResourceValues,
     RegisteredModelVersionResourceValues,
 )
+from mlflow.store.entities.paged_list import PagedList
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +63,7 @@ class FakeTrackingStore:
         self.experiment_calls = []
         self.trace_calls = []
         self.batch_calls = []
+        self.search_calls = []
 
     def get_run(self, run_id):
         self.run_calls.append(run_id)
@@ -80,6 +82,11 @@ class FakeTrackingStore:
         if trace_id not in self.traces:
             _missing()
         return self.traces[trace_id]
+
+    def search_runs(self, experiment_ids, *args, **kwargs):
+        self.search_calls.append(tuple(experiment_ids))
+        page = [r for r in self.runs.values() if r.info.experiment_id in set(experiment_ids)]
+        return PagedList(page, None)
 
     def batch_get_trace_infos(self, trace_ids, location=None, experiment_ids=None):
         self.batch_calls.append(list(trace_ids))
@@ -383,6 +390,110 @@ def test_strict_and_lenient_share_the_cache(registry):
 
 
 # ---- Cache lifetime --------------------------------------------------------
+
+
+def _real_entities_with_one_tag():
+    """One REAL entity per conditionable type, each carrying ``governed=yes``.
+
+    Real entities, not ``SimpleNamespace(tags=...)``. That substitution is exactly what let a
+    projection bug hide: a stub always has a ``.tags`` attribute, so a type whose tags live
+    somewhere else projects fine in tests and empty in production.
+    """
+    from mlflow.entities import (
+        Experiment,
+        ExperimentTag,
+        LoggedModel,
+        LoggedModelStatus,
+        Run,
+        RunData,
+        RunInfo,
+        RunTag,
+    )
+    from mlflow.entities.model_registry import ModelVersion, RegisteredModel, RegisteredModelTag
+    from mlflow.entities.trace_info import TraceInfo
+    from mlflow.entities.trace_location import TraceLocation
+    from mlflow.entities.trace_state import TraceState
+
+    run_info = RunInfo(
+        run_id="r1",
+        experiment_id="7",
+        user_id="u",
+        status="FINISHED",
+        start_time=0,
+        end_time=1,
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    return {
+        "run": Run(run_info, RunData(metrics=[], params=[], tags=[RunTag("governed", "yes")])),
+        "experiment": Experiment(
+            "7", "e", "loc", LifecycleStage.ACTIVE, tags=[ExperimentTag("governed", "yes")]
+        ),
+        "registered_model": RegisteredModel("m", tags=[RegisteredModelTag("governed", "yes")]),
+        "registered_model_version": ModelVersion(
+            "m", "1", 0, 0, tags=[RegisteredModelTag("governed", "yes")]
+        ),
+        "trace": TraceInfo(
+            trace_id="t1",
+            trace_location=TraceLocation.from_experiment_id("7"),
+            request_time=0,
+            execution_duration=1,
+            state=TraceState.OK,
+            tags={"governed": "yes"},
+        ),
+        "logged_model": LoggedModel(
+            experiment_id="7",
+            model_id="m-1",
+            name="n",
+            artifact_location="l",
+            creation_timestamp=0,
+            last_updated_timestamp=0,
+            status=LoggedModelStatus.READY,
+            tags={"governed": "yes"},
+        ),
+    }
+
+
+@pytest.mark.parametrize("resource_type", sorted(_real_entities_with_one_tag()))
+def test_every_type_projects_its_tags_from_a_real_entity(resource_type):
+    """A target condition that cannot see a tag denies everything, because absence FAILS on
+    the resource side (D20).
+
+    So a type whose tags do not project is not a cosmetic gap: `tags.x = 'y'` never matches and
+    `tags.x != 'y'` fails on absence, which means ANY target condition on that type refuses
+    every mutation of it, whatever the resource actually holds. Fail-closed, and useless.
+
+    `Run` is the type that caught this out: it keeps tags at ``.data.tags`` while every other
+    entity exposes ``._tags`` or ``.tags``.
+    """
+    entity = _real_entities_with_one_tag()[resource_type]
+    values = auth_resources.values_for_entity(resource_type, "x", entity)
+    assert values.tags.get("governed") == "yes", (
+        f"{resource_type} projected {dict(values.tags)} from a real entity carrying "
+        f"governed=yes. A target condition on this type would deny every mutation"
+    )
+
+
+def test_enumerating_a_cascade_does_not_refetch_each_child(tracking):
+    """The enumeration already holds every child entity, tags included, so judging them must
+    not fetch each one again.
+
+    This is the cost that makes a cascade expensive rather than merely bounded. A 2000-run
+    experiment would otherwise pay 4 search pages PLUS 2000 individual `get_run` calls to
+    authorize one delete -- and unlike traces, runs have no bulk attribute path to fall back
+    on, so every one is a separate round trip.
+    """
+    tracking.runs = {f"r{i}": _run(f"r{i}", experiment_id="7") for i in range(5)}
+
+    ids = auth_resources.runs_of_experiment("7")
+    assert ids is not None
+    assert len(ids) == 5
+
+    resolved = auth_resources.attrs_for_bulk("run", ids)
+    assert set(resolved) == set(ids)
+    assert tracking.run_calls == [], (
+        f"refetched {len(tracking.run_calls)} runs the enumeration already had: "
+        f"{tracking.run_calls}"
+    )
 
 
 def test_clear_cache_empties_both_caches(registry):
