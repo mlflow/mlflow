@@ -328,6 +328,49 @@ def test_full_access_bypasses_permission_checks(workspace):
     assert "Permission denied" not in result
 
 
+def test_read_runs_in_sandbox_when_enabled(workspace, monkeypatch):
+    # With the sandbox on, Read must run inside the container (run_in_sandbox), not on the host,
+    # so it gets the same isolation boundary as Bash.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.tool_executor.assistant_sandbox_enabled", lambda: True
+    )
+    (workspace / "note.txt").write_text("on host")
+    fake = SandboxResult(exit_code=0, output="from sandbox")
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox", return_value=fake) as run_sandbox:
+        result, is_error = _run(execute_tool("Read", {"file_path": "note.txt"}, cwd=workspace))
+
+    assert not is_error
+    # The content came from the sandbox, not from reading the host file in-process.
+    assert result == "from sandbox"
+    run_sandbox.assert_called_once()
+    argv = run_sandbox.call_args.args[0]
+    assert argv[0] == "python"
+    assert argv[1] == "-c"
+    assert run_sandbox.call_args.kwargs["environment"]["MLF_FILE"] == "note.txt"
+    assert run_sandbox.call_args.kwargs["workdir"] == workspace
+
+
+def test_write_in_sandbox_passes_content_via_env_and_skips_host(workspace, monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.tool_executor.assistant_sandbox_enabled", lambda: True
+    )
+    fake = SandboxResult(exit_code=0, output="")
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox", return_value=fake) as run_sandbox:
+        result, is_error = _run(
+            execute_tool(
+                "Write", {"file_path": "out.txt", "content": "line1\nline2"}, cwd=workspace
+            )
+        )
+
+    assert not is_error
+    env = run_sandbox.call_args.kwargs["environment"]
+    # Content is passed via the environment, never the command line, so it is not shell-quoted.
+    assert env["MLF_CONTENT"] == "line1\nline2"
+    assert env["MLF_FILE"] == "out.txt"
+    # The write happened in the container, not on the host.
+    assert not (workspace / "out.txt").exists()
+
+
 @pytest.mark.parametrize(
     ("remote", "docker_path", "expected"),
     [
