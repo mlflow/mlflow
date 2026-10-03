@@ -8,7 +8,7 @@ from fastmcp.client.transports import StreamableHttpTransport
 from starlette.testclient import TestClient
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_MCP
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_SERVER_ENABLE_MCP
 from mlflow.mcp.server import collect_category_tools
 from mlflow.mcp.tools import SHARED_TOOLS
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR, handlers
@@ -90,6 +90,28 @@ async def test_mcp_tool_round_trips_through_backend_store(mcp_app):
         "experiment_id": experiment.experiment_id,
         "name": "created-via-mcp",
     }
+
+
+@pytest.mark.asyncio
+async def test_mcp_tools_use_the_server_artifact_root_on_a_file_backend(monkeypatch, tmp_path):
+    # The tools build their own client on the server's tracking URI; on a file backend that
+    # client must inherit the server's artifact root, not default to the metadata directory.
+    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
+    monkeypatch.setenv(MLFLOW_ALLOW_FILE_STORE.name, "true")
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, (tmp_path / "backend").as_uri())
+    artifact_root = (tmp_path / "artifacts").as_uri()
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, artifact_root)
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_MCP.name, "true")
+    monkeypatch.setattr(handlers, "_tracking_store", None)
+    app = create_fastapi_app()
+
+    async with _mcp_client(app) as client:
+        result = await client.call_tool("create_experiment", {"experiment_name": "via-mcp"})
+
+    store = handlers._get_tracking_store()
+    via_mcp = store.get_experiment(result.structured_content["experiment_id"]).artifact_location
+    via_store = store.get_experiment(store.create_experiment("via-store")).artifact_location
+    assert via_mcp.rsplit("/", 1)[0] == via_store.rsplit("/", 1)[0] == artifact_root
 
 
 @pytest.mark.asyncio

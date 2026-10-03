@@ -350,6 +350,20 @@ def test_get_sqlalchemy_store_uses_server_artifact_root(tmp_path, monkeypatch):
     monkeypatch.delenv(ARTIFACT_ROOT_ENV_VAR, raising=False)
 
 
+def test_get_file_store_uses_server_artifact_root(tmp_path, monkeypatch):
+    store_uri = path_to_local_file_uri(tmp_path / "backend")
+    artifact_uri = path_to_local_file_uri(tmp_path / "server-artifacts")
+
+    with mock.patch("mlflow.store.tracking.file_store.FileStore") as mock_store:
+        mlflow.tracking._tracking_service.utils._get_file_store(store_uri=store_uri)
+    mock_store.assert_called_once_with(store_uri, store_uri)
+
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, artifact_uri)
+    with mock.patch("mlflow.store.tracking.file_store.FileStore") as mock_store:
+        mlflow.tracking._tracking_service.utils._get_file_store(store_uri=store_uri)
+    mock_store.assert_called_once_with(store_uri, artifact_uri)
+
+
 def test_get_store_databricks(monkeypatch):
     for k, v in {
         MLFLOW_TRACKING_URI.name: "databricks",

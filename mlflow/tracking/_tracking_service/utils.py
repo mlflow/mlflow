@@ -178,7 +178,11 @@ def get_tracking_uri() -> str:
 def _get_file_store(store_uri, **_):
     from mlflow.store.tracking.file_store import FileStore
 
-    return FileStore(store_uri, store_uri)
+    # Inside the server process, inherit the server's configured artifact root like
+    # ``_get_sqlalchemy_store`` does, so experiments created there get the same artifact
+    # locations as the ones the REST API creates.
+    artifact_uri = os.environ.get(_SERVER_ARTIFACT_ROOT_ENV_VAR, store_uri)
+    return FileStore(store_uri, artifact_uri)
 
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
