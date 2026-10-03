@@ -275,9 +275,12 @@ def update_trace_assessment(
     new_value = existing.value if value is None else as_json_value(value)
     new_metadata = existing.metadata if metadata is None else as_string_map(metadata, "metadata")
     if isinstance(existing, Feedback):
+        # The store replaces the feedback value and its error together, so a stored error (a
+        # judge or scorer failure) is kept unless the caller supplies a replacement value.
         updated = Feedback(
             name=existing.name,
             value=new_value,
+            error=existing.error if value is None else None,
             rationale=existing.rationale if rationale is None else rationale,
             metadata=new_metadata,
         )

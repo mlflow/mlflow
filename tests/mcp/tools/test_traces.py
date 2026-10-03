@@ -2,7 +2,9 @@ import pytest
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.assessment import AssessmentError
 from mlflow.exceptions import MlflowException
+from mlflow.mcp.tools._types import AssessmentErrorInfo
 from mlflow.mcp.tools.traces import (
     delete_trace_assessment,
     delete_trace_tag,
@@ -155,6 +157,29 @@ def test_assessment_metadata_values_are_stored_as_strings(experiment_id, tool):
     updated = update_trace_assessment(trace_id, logged.assessment_id, metadata={"round": 3})
     assert updated.metadata["round"] == "3"
     assert mlflow.get_assessment(trace_id, logged.assessment_id).metadata["round"] == "3"
+
+
+def test_update_trace_assessment_keeps_the_error_unless_the_value_changes(experiment_id):
+    trace_id = _log_trace()
+    failed = mlflow.log_feedback(
+        trace_id=trace_id,
+        name="judge",
+        error=AssessmentError(error_code="RATE_LIMIT", error_message="slow down"),
+    )
+    error = AssessmentErrorInfo(error_code="RATE_LIMIT", error_message="slow down")
+
+    updated = update_trace_assessment(trace_id, failed.assessment_id, rationale="retry later")
+    assert updated.error == error
+    assert updated.value is None
+    assert updated.rationale == "retry later"
+    updated = update_trace_assessment(trace_id, failed.assessment_id, metadata={"attempt": 2})
+    assert updated.error == error
+    assert updated.metadata == {"attempt": "2"}
+
+    scored = update_trace_assessment(trace_id, failed.assessment_id, value=0.5)
+    assert scored.value == 0.5
+    assert scored.error is None
+    assert get_trace_assessment(trace_id, failed.assessment_id).error is None
 
 
 def test_invalid_metadata_is_rejected(experiment_id):
