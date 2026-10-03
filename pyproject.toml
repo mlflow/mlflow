@@ -505,6 +505,9 @@ TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/
 indx = "indx"                      # intentional shorthand for index
 Tru = "Tru"                        # TruLens library name prefix
 
+[tool.typos.default.extend-identifiers]
+ttest_rel = "ttest_rel" # scipy.stats.ttest_rel (paired t-test)
+
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
 extend-exclude = [

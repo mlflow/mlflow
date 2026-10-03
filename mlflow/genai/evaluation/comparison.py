@@ -37,10 +37,6 @@ _LOGGED_STATS = ("diff", "ci_low", "ci_high", "p_value", "effect_size", "n_paire
 
 _PairedOn = Literal["eval_request_id", "inputs_hash"]
 
-# spellchecker: off
-_paired_t_test = stats.ttest_rel
-# spellchecker: on
-
 
 def _comparison_key(baseline_run_id: str, *parts: str) -> str:
     """
@@ -72,7 +68,8 @@ class ScorerComparison:
         ci_low: Lower bound of the percentile bootstrap confidence interval of ``diff``.
         ci_high: Upper bound of the percentile bootstrap confidence interval of ``diff``.
         p_value: Two-sided p-value of ``method``.
-        t_test_p_value: Two-sided p-value of the paired t-test. Numeric scorers only.
+        t_test_p_value: Two-sided p-value of the paired t-test. Numeric scorers only. ``NaN``
+            when the differences are all the same non-zero value.
         effect_size: Cohen's d_z (mean paired difference / standard deviation of the paired
             differences). ``NaN`` when the differences have no variance.
         ties: Number of pairs whose baseline and candidate values are equal.
@@ -309,11 +306,11 @@ def _compare_paired_values(
     else:
         method = "wilcoxon"
         if constant:
-            # The t-test is undefined without variance: the differences are either all zero
-            # (no evidence of a change) or all the same non-zero value.
-            t_test_p_value = 0.0 if np.any(deltas != 0) else 1.0
+            # Without variance the t statistic is undefined, unless the differences are all
+            # zero, which is no evidence of a change.
+            t_test_p_value = float("nan") if np.any(deltas != 0) else 1.0
         else:
-            t_test_p_value = float(_paired_t_test(candidate, baseline).pvalue)
+            t_test_p_value = float(stats.ttest_rel(candidate, baseline).pvalue)
         # The signed-rank test discards zero differences and is undefined when all are zero.
         p_value = float(stats.wilcoxon(deltas).pvalue) if np.any(deltas != 0) else 1.0
 

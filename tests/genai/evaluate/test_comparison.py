@@ -12,12 +12,16 @@ from mlflow.genai.evaluation.comparison import (
     _compare_paired_values,
     _comparison_key,
 )
+from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.scorers import scorer
 from mlflow.tracking.client import MlflowClient
 
-# spellchecker: off
-_paired_t_test = stats.ttest_rel
-# spellchecker: on
+
+@pytest.fixture(autouse=True)
+def reset_context():
+    # `mlflow.genai.evaluate` leaves its run ID on the evaluation context of the calling thread.
+    yield
+    _set_context(NoneContext())
 
 
 @scorer
@@ -75,7 +79,7 @@ def test_numeric_comparison_matches_scipy_and_detects_known_effect():
     assert result.baseline_mean == pytest.approx(baseline.mean())
     assert result.candidate_mean == pytest.approx(candidate.mean())
     assert result.p_value == pytest.approx(stats.wilcoxon(candidate, baseline).pvalue)
-    assert result.t_test_p_value == pytest.approx(_paired_t_test(candidate, baseline).pvalue)
+    assert result.t_test_p_value == pytest.approx(stats.ttest_rel(candidate, baseline).pvalue)
     assert result.effect_size == pytest.approx(deltas.mean() / deltas.std(ddof=1))
     assert result.ties == 0
     assert result.p_value < 0.001
@@ -168,6 +172,33 @@ def test_identical_values_are_all_ties(binary: bool):
     assert np.isnan(result.effect_size)
 
 
+@pytest.mark.parametrize(("n", "expected_p_value"), [(3, 0.25), (10, 2 / 2**10)])
+def test_constant_nonzero_deltas(n: int, expected_p_value: float):
+    baseline = np.arange(n, dtype=float)
+    candidate = baseline + 0.5
+
+    comparison = _compare_paired_values("score", baseline, candidate, binary=False)
+
+    assert comparison.status == "ok"
+    assert comparison.method == "wilcoxon"
+    assert comparison.diff == 0.5
+    assert comparison.ties == 0
+    assert (comparison.ci_low, comparison.ci_high) == (0.5, 0.5)
+    # The t statistic and d_z divide by a zero standard deviation.
+    assert np.isnan(comparison.t_test_p_value)
+    assert np.isnan(comparison.effect_size)
+    # All n differences share one sign, so the exact two-sided p-value is 2 / 2**n.
+    assert comparison.p_value == pytest.approx(expected_p_value)
+    assert comparison.p_value == pytest.approx(stats.wilcoxon(candidate, baseline).pvalue)
+
+    result = ComparisonResult("candidate", "baseline", {"score": comparison})
+    if expected_p_value < 0.05:
+        result.assert_improved(["score"])
+    else:
+        with pytest.raises(AssertionError, match="score: diff=\\+0.5"):
+            result.assert_improved(["score"])
+
+
 @pytest.mark.parametrize("n", [0, 1])
 def test_insufficient_pairs(n: int):
     values = np.arange(n, dtype=float)
@@ -202,7 +233,7 @@ def test_compare_evaluations_dispatches_on_value_type():
         stats.wilcoxon(candidate_scores, baseline_scores).pvalue
     )
     assert numeric.t_test_p_value == pytest.approx(
-        _paired_t_test(candidate_scores, baseline_scores).pvalue
+        stats.ttest_rel(candidate_scores, baseline_scores).pvalue
     )
 
     # 5 rows flip from fail to pass, none regress.
