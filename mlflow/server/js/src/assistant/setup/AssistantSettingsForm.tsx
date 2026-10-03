@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import {
   Button,
   Typography,
@@ -13,6 +13,7 @@ import {
 } from '@databricks/design-system';
 
 import { updateConfig, installSkills } from '../AssistantService';
+import { useAssistant } from '../AssistantContext';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
@@ -62,6 +63,23 @@ const deriveSkillsLocation = (
   return { location: 'custom', customPath: skillsLocation };
 };
 
+// A soft-background note used where an editable field is replaced by explanatory text
+// (e.g. a host-only setting shown to a remote client, or when no experiment is selected).
+const InfoNote = ({ children }: { children: ReactNode }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        backgroundColor: theme.colors.backgroundSecondary,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.md,
+      }}
+    >
+      <Typography.Text color="secondary">{children}</Typography.Text>
+    </div>
+  );
+};
+
 export const AssistantSettingsForm = ({
   experimentId,
   provider = 'claude_code',
@@ -71,6 +89,7 @@ export const AssistantSettingsForm = ({
   backLabel = 'Back',
 }: AssistantSettingsFormProps) => {
   const { theme } = useDesignSystemTheme();
+  const { isLocalServer } = useAssistant();
   const { config, isLoading: isLoadingConfig, refetch: refetchConfig } = useAssistantConfigQuery();
 
   const [projectPath, setProjectPath] = useState<string>('');
@@ -123,14 +142,17 @@ export const AssistantSettingsForm = ({
             permissions: {
               allow_edit_files: editFiles,
               allow_read_docs: readDocs,
-              full_access: fullPermission,
+              // Full access is a host-only setting; a remote caller cannot grant it.
+              full_access: isLocalServer ? fullPermission : false,
             },
           },
         },
       };
 
-      // Handle project mapping - add if path provided, remove if cleared
-      if (experimentId) {
+      // Project mappings and skills point at paths on the server host's filesystem, so they
+      // are only configurable from the host. A remote caller edits provider settings only;
+      // the server rejects project/skills writes from a non-local request.
+      if (isLocalServer && experimentId) {
         if (projectPath.trim()) {
           configUpdate.projects = {
             [experimentId]: { type: 'local' as const, location: projectPath.trim() },
@@ -147,7 +169,7 @@ export const AssistantSettingsForm = ({
 
       // Install skills based on selected location. Providers that don't load
       // skills at runtime (e.g. Ollama, MLflow Gateway) skip this entirely.
-      if (PROVIDERS_WITH_SKILLS.has(provider)) {
+      if (isLocalServer && PROVIDERS_WITH_SKILLS.has(provider)) {
         try {
           await installSkills(
             skillsLocation,
@@ -177,6 +199,7 @@ export const AssistantSettingsForm = ({
     editFiles,
     readDocs,
     fullPermission,
+    isLocalServer,
   ]);
 
   if (isLoadingConfig) {
@@ -250,7 +273,10 @@ export const AssistantSettingsForm = ({
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_read_docs"
                   isChecked={readDocs}
-                  onChange={(checked) => setReadDocs(checked)}
+                  onChange={(checked) => {
+                    setReadDocs(checked);
+                    if (error) setError(null);
+                  }}
                 >
                   <Typography.Text>Read MLflow doc</Typography.Text>
                 </Checkbox>
@@ -269,7 +295,10 @@ export const AssistantSettingsForm = ({
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_edit_files"
                   isChecked={editFiles}
-                  onChange={(checked) => setEditFiles(checked)}
+                  onChange={(checked) => {
+                    setEditFiles(checked);
+                    if (error) setError(null);
+                  }}
                 >
                   <Typography.Text>Edit project code</Typography.Text>
                 </Checkbox>
@@ -287,14 +316,22 @@ export const AssistantSettingsForm = ({
               <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_full"
-                  isChecked={fullPermission}
-                  onChange={(checked) => setFullPermission(checked)}
+                  isChecked={isLocalServer && fullPermission}
+                  disabled={!isLocalServer}
+                  onChange={(checked) => {
+                    setFullPermission(checked);
+                    if (error) setError(null);
+                  }}
                 >
-                  <Typography.Text>Full access</Typography.Text>
+                  <Typography.Text color={!isLocalServer ? 'secondary' : undefined}>Full access</Typography.Text>
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_full_tooltip"
-                  content="Bypass all permission checks. Use with caution."
+                  content={
+                    isLocalServer
+                      ? 'Bypass all permission checks. Use with caution.'
+                      : 'Full access can only be enabled from the MLflow server host.'
+                  }
                 >
                   <QuestionMarkIcon
                     css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
@@ -314,7 +351,12 @@ export const AssistantSettingsForm = ({
               context.
             </Typography.Text>
 
-            {experimentId ? (
+            {!isLocalServer ? (
+              <InfoNote>
+                Project paths point at the MLflow server host&apos;s filesystem and can only be configured from the
+                host.
+              </InfoNote>
+            ) : experimentId ? (
               <Input
                 componentId="mlflow.assistant.setup.project.path_input"
                 value={projectPath}
@@ -326,17 +368,7 @@ export const AssistantSettingsForm = ({
                 css={{ width: '100%' }}
               />
             ) : (
-              <div
-                css={{
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  padding: theme.spacing.md,
-                }}
-              >
-                <Typography.Text color="secondary">
-                  No experiment selected. You can configure project mappings later in Settings.
-                </Typography.Text>
-              </div>
+              <InfoNote>No experiment selected. You can configure project mappings later in Settings.</InfoNote>
             )}
           </div>
 
@@ -358,54 +390,64 @@ export const AssistantSettingsForm = ({
                 to find list of skills to be installed.
               </Typography.Text>
 
-              <Radio.Group
-                componentId="mlflow.assistant.setup.project.skills_location"
-                name="skills-location"
-                value={skillsLocation}
-                onChange={(e) => setSkillsLocation(e.target.value as SkillsLocation)}
-              >
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
-                    <Typography.Text>Global</Typography.Text>
-                    <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                      (~/{getSkillsDir(provider)}/)
-                    </Typography.Text>
-                  </Radio>
-
-                  <Radio
-                    componentId="mlflow.assistant.setup.project.skills_project"
-                    value="project"
-                    disabled={!projectPath.trim()}
-                  >
-                    <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
-                    <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
-                      {projectPath.trim()
-                        ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
-                        : '(requires project path)'}
-                    </Typography.Text>
-                  </Radio>
-
-                  <div>
-                    <Radio componentId="mlflow.assistant.setup.project.skills_custom" value="custom">
-                      <Typography.Text>Custom location</Typography.Text>
+              {!isLocalServer ? (
+                <InfoNote>
+                  Skills are installed on the MLflow server host&apos;s filesystem and can only be configured from the
+                  host.
+                </InfoNote>
+              ) : (
+                <Radio.Group
+                  componentId="mlflow.assistant.setup.project.skills_location"
+                  name="skills-location"
+                  value={skillsLocation}
+                  onChange={(e) => {
+                    setSkillsLocation(e.target.value as SkillsLocation);
+                    if (error) setError(null);
+                  }}
+                >
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                    <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
+                      <Typography.Text>Global</Typography.Text>
+                      <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                        (~/{getSkillsDir(provider)}/)
+                      </Typography.Text>
                     </Radio>
-                    {skillsLocation === 'custom' && (
-                      <div css={{ marginTop: theme.spacing.sm, paddingLeft: 24 }}>
-                        <Input
-                          componentId="mlflow.assistant.setup.project.custom_skills_path"
-                          value={customSkillsPath}
-                          onChange={(e) => {
-                            setCustomSkillsPath(e.target.value);
-                            if (error) setError(null);
-                          }}
-                          placeholder="/path/to/skills"
-                          css={{ width: '100%' }}
-                        />
-                      </div>
-                    )}
+
+                    <Radio
+                      componentId="mlflow.assistant.setup.project.skills_project"
+                      value="project"
+                      disabled={!projectPath.trim()}
+                    >
+                      <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
+                      <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                        {projectPath.trim()
+                          ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
+                          : '(requires project path)'}
+                      </Typography.Text>
+                    </Radio>
+
+                    <div>
+                      <Radio componentId="mlflow.assistant.setup.project.skills_custom" value="custom">
+                        <Typography.Text>Custom location</Typography.Text>
+                      </Radio>
+                      {skillsLocation === 'custom' && (
+                        <div css={{ marginTop: theme.spacing.sm, paddingLeft: 24 }}>
+                          <Input
+                            componentId="mlflow.assistant.setup.project.custom_skills_path"
+                            value={customSkillsPath}
+                            onChange={(e) => {
+                              setCustomSkillsPath(e.target.value);
+                              if (error) setError(null);
+                            }}
+                            placeholder="/path/to/skills"
+                            css={{ width: '100%' }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Radio.Group>
+                </Radio.Group>
+              )}
             </div>
           )}
         </div>

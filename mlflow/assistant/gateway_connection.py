@@ -11,6 +11,21 @@ _GATEWAY_VENDOR_MODELS = {
     "gemini": "gemini-3-pro",
 }
 
+# Name prefix for the gateway endpoints the Assistant creates and manages (one per vendor).
+ASSISTANT_GATEWAY_ENDPOINT_PREFIX = "mlflow-assistant-"
+
+
+def managed_gateway_endpoint_names() -> set[str]:
+    """Exact names of the gateway endpoints the Assistant creates and manages, one per vendor.
+
+    Callers use this to tell an Assistant-managed endpoint apart from an operator's own
+    endpoints (e.g. when deciding which endpoints an Assistant user may be granted access to).
+    Matching the exact closed set, rather than the bare name prefix, keeps an operator's own
+    endpoint that merely starts with the prefix out of scope.
+    """
+    return {f"{ASSISTANT_GATEWAY_ENDPOINT_PREFIX}{vendor}" for vendor in _GATEWAY_VENDOR_MODELS}
+
+
 _NOT_FOUND = ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
@@ -23,7 +38,7 @@ def ensure_gateway_connection(vendor: str, api_key: str) -> str:
     if (model_name := _GATEWAY_VENDOR_MODELS.get(vendor)) is None:
         raise ValueError(f"Unknown Gateway vendor: {vendor!r}")
 
-    name = f"mlflow-assistant-{vendor}"
+    name = f"{ASSISTANT_GATEWAY_ENDPOINT_PREFIX}{vendor}"
     store = _get_store()
 
     try:
