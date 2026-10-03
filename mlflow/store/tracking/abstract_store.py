@@ -2208,3 +2208,28 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             set respectively, so neither is confused with ``None``.
         """
         return None
+
+    def any_child_failing_tag_clauses(
+        self,
+        entity: str,
+        parent_id: str,
+        clauses: Sequence[tuple[str, str, str | tuple[str, ...]]],
+    ) -> bool | None:
+        """Whether ``parent_id`` holds a child of ``entity`` failing the clauses.
+
+        The cascading counterpart to :meth:`filter_ids_by_tag_clauses`, for a
+        caller that must decide whether it may touch *all* children of a parent
+        without enumerating them. Clause semantics are identical, including
+        absence failing every comparator; a child fails if it fails any clause.
+
+        Returns:
+            ``True`` if some child fails, ``False`` if every child satisfies, or
+            ``None`` if this store cannot push the predicate down, in which case
+            the caller must enumerate the children and evaluate them itself.
+
+            No children is ``False``, not ``True`` -- a parent with nothing to
+            cascade over is vacuously permitted. That differs from a *failure*
+            to enumerate, which a caller must treat as a refusal; this method
+            says ``None`` for that, never ``False``.
+        """
+        return None

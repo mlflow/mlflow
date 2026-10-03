@@ -10000,6 +10000,78 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         "logged_model": ("SqlLoggedModelTag", "model_id"),
     }
 
+    # Cascade pushdown needs the child's own table too, to scope by parent:
+    # (child model, child id column, parent column, tag model, tag id column).
+    _CASCADE_PUSHDOWN_ENTITIES = {
+        "run": (SqlRun, "run_uuid", "experiment_id", SqlTag, "run_uuid"),
+        "trace": (
+            SqlTraceInfo,
+            "request_id",
+            "experiment_id",
+            SqlTraceTag,
+            "request_id",
+        ),
+        "logged_model": (
+            SqlLoggedModel,
+            "model_id",
+            "experiment_id",
+            SqlLoggedModelTag,
+            "model_id",
+        ),
+    }
+
+    def any_child_failing_tag_clauses(self, entity, parent_id, clauses):
+        """Whether ``parent_id`` holds a child that fails the tag predicate.
+
+        Answers the question a cascading mutation actually asks -- "may I touch
+        all of them?" -- without enumerating the children or reading any tag
+        value. One ``LIMIT 1`` query suffices, so cost stops scaling with child
+        count and depends only on the number of clauses.
+
+        A child fails if it fails *any* clause, since clauses are conjunctive,
+        so the predicate is a disjunction of ``NOT IN (satisfies)`` subqueries.
+        Note this cannot be done by searching for children that *violate* the
+        filter: with absence failing on the target side, the complement of
+        ``!= 'x'`` is not ``= 'x'`` -- an untagged child satisfies neither, and
+        must still deny. Asking "which children satisfy" and negating that set
+        membership is the only formulation that keeps absence failing.
+
+        Returns:
+            ``True`` if some child fails, ``False`` if every child satisfies
+            (including when there are no children, which is vacuous rather than
+            a refusal), or ``None`` if this store cannot push the predicate
+            down, in which case the caller must enumerate and evaluate itself.
+        """
+        mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+        if mapping is None:
+            return None
+        child_model, child_id_name, parent_name, tag_model, tag_id_name = mapping
+        if not clauses:
+            return False
+
+        child_id = getattr(child_model, child_id_name)
+        parent_column = getattr(child_model, parent_name)
+        tag_id = getattr(tag_model, tag_id_name)
+        dialect = self._get_dialect()
+
+        with self.ManagedSessionMaker() as session:
+            fails_a_clause = []
+            for key, comparator, value in clauses:
+                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
+                satisfies = select(tag_id).where(
+                    tag_model.key == key,
+                    comparison(tag_model.value, value),
+                )
+                fails_a_clause.append(~child_id.in_(satisfies))
+            found = (
+                session
+                .query(child_id)
+                .filter(parent_column == parent_id, or_(*fails_a_clause))
+                .limit(1)
+                .first()
+            )
+        return found is not None
+
     def filter_ids_by_tag_clauses(self, entity, ids, clauses):
         """Push a conjunctive tag predicate into SQL.
 

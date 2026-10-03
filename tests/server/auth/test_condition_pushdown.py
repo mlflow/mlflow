@@ -19,7 +19,7 @@ import tempfile
 
 import pytest
 
-from mlflow.entities import RunTag
+from mlflow.entities import RunTag, ViewType
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     NAMESPACE_RESOURCE,
@@ -59,6 +59,27 @@ def store_with_runs(monkeypatch):
         if tag is not None:
             store.set_tag(run_id, RunTag(TAG_KEY, tag))
     return store, experiment_id, ids
+
+
+def _store_with(monkeypatch, runs):
+    """A fresh store holding one experiment with the given ``(label, tag)`` runs."""
+    d = tempfile.mkdtemp()
+    store = SqlAlchemyStore(f"sqlite:///{d}/mlflow.db", d)
+    monkeypatch.setattr(auth_resources, "_tracking_store", lambda: store)
+    experiment_id = store.create_experiment("cascade")
+    for label, tag in runs:
+        run_id = store.create_run(experiment_id, "u", 0, [], label).info.run_id
+        if tag is not None:
+            store.set_tag(run_id, RunTag(TAG_KEY, tag))
+    return store, experiment_id
+
+
+def _run_ids(store, experiment_id):
+    """Every run id under the experiment, matching the enumerator's ViewType.ALL."""
+    return [
+        run.info.run_id
+        for run in store.search_runs([experiment_id], None, ViewType.ALL, max_results=500)
+    ]
 
 
 def _in_memory(filter_text, ids):
@@ -139,3 +160,104 @@ def test_an_unknown_entity_declines_rather_than_matching(store_with_runs):
         )
         is None
     )
+
+
+class TestCascadePushdown:
+    """Deleting a parent must judge every child, without enumerating them.
+
+    The expensive shape this replaces: enumerate every child id, fetch each
+    child, project its tags, evaluate. That is what forced a cap on how many
+    children a conditioned delete could consider at all -- an experiment with
+    more children than the cap could not be deleted once any condition existed
+    on those types, even one scoped elsewhere, because the refusal was about
+    enumerability rather than about matching.
+
+    The question is only ever "does ANY child fail", so it needs no enumeration
+    and no tag values: one ``LIMIT 1`` query over a ``NOT IN (satisfies)``
+    subquery. Cost stops depending on child count.
+    """
+
+    def _answer(self, store, experiment_id, comparator="!=", value="prod"):
+        return store.any_child_failing_tag_clauses(
+            "run", experiment_id, [(TAG_KEY, comparator, value)]
+        )
+
+    def test_a_failing_child_is_found(self, store_with_runs):
+        """The fixture holds a prod run and an untagged one, both failing."""
+        store, experiment_id, _ = store_with_runs
+        assert self._answer(store, experiment_id) is True
+
+    def test_all_satisfying_children_pass(self, monkeypatch):
+        store, experiment_id = _store_with(monkeypatch, [("a", "dev"), ("b", "dev")])
+        assert self._answer(store, experiment_id) is False
+
+    def test_an_untagged_child_fails(self, monkeypatch):
+        """D20 again, and the case a complement-based query gets wrong.
+
+        Searching for children that *violate* the filter cannot work, because
+        the complement of ``!= 'prod'`` is not ``= 'prod'`` when absence fails
+        on both. An untagged child satisfies neither and must still deny.
+        """
+        store, experiment_id = _store_with(monkeypatch, [("a", "dev"), ("b", None)])
+        assert self._answer(store, experiment_id) is True
+
+    def test_a_parent_with_no_children_passes(self, monkeypatch):
+        """Vacuous, and distinct from "could not enumerate", which denied."""
+        store, experiment_id = _store_with(monkeypatch, [])
+        assert self._answer(store, experiment_id) is False
+
+    def test_no_clauses_cannot_fail(self, store_with_runs):
+        store, experiment_id, _ = store_with_runs
+        assert store.any_child_failing_tag_clauses("run", experiment_id, []) is False
+
+    def test_a_child_failing_only_the_second_clause_is_found(self, monkeypatch):
+        """Clauses are conjunctive, so failing any one of them fails the child."""
+        store, experiment_id = _store_with(monkeypatch, [("a", "dev")])
+        assert (
+            store.any_child_failing_tag_clauses(
+                "run",
+                experiment_id,
+                [(TAG_KEY, "!=", "prod"), (TAG_KEY, "=", "prod")],
+            )
+            is True
+        )
+
+    def test_a_sibling_parents_children_are_not_considered(self, monkeypatch):
+        """The query must be scoped to the parent, or one experiment's
+        protected run would block deleting an unrelated experiment.
+        """
+        store, experiment_id = _store_with(monkeypatch, [("a", "dev")])
+        other = store.create_experiment("other")
+        run_id = store.create_run(other, "u", 0, [], "p").info.run_id
+        store.set_tag(run_id, RunTag(TAG_KEY, "prod"))
+        assert self._answer(store, experiment_id) is False
+        assert self._answer(store, other) is True
+
+    def test_an_unknown_entity_declines(self, store_with_runs):
+        store, experiment_id, _ = store_with_runs
+        assert (
+            store.any_child_failing_tag_clauses(
+                "not_an_entity", experiment_id, [(TAG_KEY, "=", "prod")]
+            )
+            is None
+        )
+
+    def test_the_answer_matches_judging_each_child_individually(self, monkeypatch):
+        """Parity with the enumerate-and-evaluate path this replaces."""
+        filter_text = f"tags.{TAG_KEY} != 'prod'"
+        clauses = parse_condition(filter_text, NAMESPACE_RESOURCE)
+        for runs in (
+            [("a", "dev"), ("b", "dev")],
+            [("a", "dev"), ("b", "prod")],
+            [("a", "dev"), ("b", None)],
+            [("a", None)],
+            [],
+        ):
+            store, experiment_id = _store_with(monkeypatch, runs)
+            individually = False
+            for run_id in _run_ids(store, experiment_id):
+                auth_resources.clear_cache()
+                if not evaluate_resource(clauses, auth_resources.attrs_for("run", run_id)):
+                    individually = True
+                    break
+            assert self._answer(store, experiment_id) is individually, runs
