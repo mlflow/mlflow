@@ -1,0 +1,136 @@
+---
+title: Comparing Evaluation Runs
+description: Decide whether one evaluation run is really better than another with paired significance tests, confidence intervals, and effect sizes.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Comparing Evaluation Runs
+
+:::info
+`mlflow.genai.compare_evaluations` is experimental and may change in a future release.
+:::
+
+<APILink fn="mlflow.genai.evaluate" /> reduces each scorer to an aggregate such as the mean. Comparing two runs by their means says nothing about noise: with LLM judges and evaluation sets of a few hundred rows, a 3-point gain is often within run-to-run variation.
+
+<APILink fn="mlflow.genai.compare_evaluations" /> answers "is the candidate better, and not by chance?" Because both runs evaluate the same dataset, it pairs their rows and tests the per-row differences, which has far more statistical power than comparing two independent means.
+
+## Quickstart
+
+Evaluate the baseline and the candidate on the same data with the same scorers, then compare the two runs.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness, scorer
+
+
+@scorer
+def conciseness(outputs) -> float:
+    return 1 / (1 + len(outputs.split()) / 100)
+
+
+data = [
+    {
+        "inputs": {"question": "What is MLflow Tracking?"},
+        "expectations": {"expected_response": "An API and UI for logging runs."},
+    },
+    # ...
+]
+scorers = [Correctness(), conciseness]
+
+baseline = mlflow.genai.evaluate(data=data, predict_fn=agent_v1, scorers=scorers)
+candidate = mlflow.genai.evaluate(data=data, predict_fn=agent_v2, scorers=scorers)
+
+result = mlflow.genai.compare_evaluations(
+    candidate_run_id=candidate.run_id,
+    baseline_run_id=baseline.run_id,
+)
+print(result.summary())
+```
+
+`summary()` returns a DataFrame with one row per scorer:
+
+| Column                           | Meaning                                                                       |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `status`                         | `ok`, or `insufficient_pairs` when fewer than two rows could be compared      |
+| `n_paired`                       | Number of paired rows with a value from both runs                             |
+| `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used        |
+| `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                         |
+| `diff`                           | Mean paired difference, candidate minus baseline                              |
+| `ci_low`, `ci_high`              | Bootstrap confidence interval of `diff` (95% by default)                      |
+| `p_value`                        | Two-sided p-value of `method`                                                 |
+| `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                 |
+| `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas |
+| `ties`                           | Number of pairs where both runs produced the same value                       |
+| `greater_is_better`              | Direction used by `assert_improved`                                           |
+
+A result such as "paired difference +0.05, 95% CI [-0.01, +0.11], p = 0.09 on n = 200" tells you the improvement is plausible but not established. That is a statement the two means alone cannot make.
+
+## How rows are paired
+
+Each row of the candidate run is matched to a row of the baseline run:
+
+1. On the evaluation request ID of the row's trace (the `mlflow.eval.requestId` tag). This is stable across runs when you evaluate a static dataset of inputs and outputs.
+2. Otherwise, on a stable hash of the row's inputs. Runs that call a `predict_fn` are paired this way, since each prediction gets a fresh request ID.
+
+Rows that have no match, or whose key appears more than once in a run, are **not** included in the statistics. They are reported in `result.unpaired_baseline_trace_ids` and `result.unpaired_candidate_trace_ids`, and a warning is logged. Only scorers that produced feedback in both runs are compared; rows where a scorer errored in either run are skipped for that scorer.
+
+## Which test is used
+
+The test is chosen from the type of the paired values:
+
+| Feedback values                            | Test (`method`)                                                                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pass/fail: booleans and `yes`/`no` ratings | McNemar's test. Exact binomial (`mcnemar_exact`) with fewer than 25 discordant pairs, chi-square with continuity correction (`mcnemar_chi2`) otherwise |
+| Numeric                                    | Wilcoxon signed-rank test (`wilcoxon`), with the paired t-test reported alongside as `t_test_p_value`                                                  |
+
+For every scorer, the confidence interval of `diff` is a percentile bootstrap over the paired differences. The bootstrap uses a fixed seed, so repeating a comparison yields the same interval. Use `confidence_level` to change its width:
+
+```python
+result = mlflow.genai.compare_evaluations(
+    candidate_run_id=candidate.run_id,
+    baseline_run_id=baseline.run_id,
+    confidence_level=0.99,
+)
+```
+
+## Gating a release in CI
+
+`assert_improved` raises an `AssertionError` unless every listed scorer moved in its better direction with `p_value < alpha`. A scorer with insufficient pairs counts as not improved.
+
+```python
+def test_candidate_beats_baseline():
+    result = mlflow.genai.compare_evaluations(
+        candidate_run_id=candidate.run_id,
+        baseline_run_id=baseline.run_id,
+    )
+    result.assert_improved(scorers=["correctness"], alpha=0.05)
+```
+
+Scorers are assumed to be better when higher. For scorers where lower is better, pass an override:
+
+```python
+result = mlflow.genai.compare_evaluations(
+    candidate_run_id=candidate.run_id,
+    baseline_run_id=baseline.run_id,
+    greater_is_better={"response_length": False},
+)
+```
+
+`greater_is_better` only affects `assert_improved`. `diff` is always candidate minus baseline.
+
+## Logged results
+
+By default (`log_results=True`) the comparison is logged to the **candidate** run, so it is visible in the runs table and can be re-derived later:
+
+- Metrics `compare/<baseline_short_id>/<scorer>/{diff, ci_low, ci_high, p_value, effect_size, n_paired}`, where `<baseline_short_id>` is the first 8 characters of the baseline run ID.
+- One artifact `compare/<baseline_short_id>.json` containing the full baseline run ID, the per-scorer statistics, the unpaired trace IDs, and the baseline value, candidate value and delta of every paired row.
+
+Because the baseline is part of the key, comparing one candidate against several baselines keeps each comparison's results. Pass `log_results=False` to compute the comparison without writing anything.
+
+## Caveats
+
+- **Calibrate with an A/A run.** LLM judges are not deterministic. Evaluate the same application twice and compare the two runs to see how much difference pure noise produces on your dataset before trusting a small effect.
+- **Multiple comparisons.** No correction is applied across scorers. If you test many scorers at `alpha=0.05`, some will appear significant by chance; gate on the few scorers you decided on in advance, or use a stricter `alpha`.
+- **Significance is not importance.** With many rows a tiny difference can be significant. Read `diff`, the confidence interval, and `effect_size` together with the p-value.
+- **Small samples.** With few pairs the tests have little power, and a non-significant result does not show that the runs are equivalent.
