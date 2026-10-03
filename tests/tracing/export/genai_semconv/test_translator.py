@@ -147,8 +147,8 @@ def test_translate_malformed_json_attributes():
             SpanKind.CLIENT,
         ),
         ("generate_content", "gemini-pro", "generate_content gemini-pro", SpanKind.CLIENT),
-        ("execute_tool", None, "execute_tool", SpanKind.INTERNAL),
-        ("invoke_agent", None, "invoke_agent", SpanKind.INTERNAL),
+        ("execute_tool", None, "execute_tool original", SpanKind.INTERNAL),
+        ("invoke_agent", None, "invoke_agent original", SpanKind.INTERNAL),
     ],
 )
 def test_span_name_and_kind(operation, model, expected_name, expected_kind):
@@ -175,6 +175,40 @@ def test_span_name_unmapped_type_uses_span_type():
     assert result.name == "CHAIN"
 
 
+@pytest.mark.parametrize(
+    ("span_type", "span_name", "name_key", "expected_name"),
+    [
+        ("TOOL", "execute_tool get_weather", GenAiSemconvKey.TOOL_NAME, "get_weather"),
+        ("AGENT", "invoke_agent travel_planner", GenAiSemconvKey.AGENT_NAME, "travel_planner"),
+    ],
+)
+def test_tool_and_agent_name_attribute_set_by_instrumentation_is_kept(
+    span_type, span_name, name_key, expected_name
+):
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(span_type), name_key: expected_name}
+    span = _make_span(name=span_name, attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == span_name
+    assert result.attributes[name_key] == expected_name
+
+
+@pytest.mark.parametrize(
+    ("span_type", "span_name", "name_key"),
+    [
+        ("TOOL", "", GenAiSemconvKey.TOOL_NAME),
+        ("TOOL", "execute_tool", GenAiSemconvKey.TOOL_NAME),
+        ("AGENT", "", GenAiSemconvKey.AGENT_NAME),
+        ("AGENT", "invoke_agent", GenAiSemconvKey.AGENT_NAME),
+    ],
+)
+def test_tool_and_agent_span_without_name_uses_operation(span_type, span_name, name_key):
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(span_type)}
+    span = _make_span(name=span_name, attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == result.attributes[GenAiSemconvKey.OPERATION_NAME]
+    assert name_key not in result.attributes
+
+
 # --- translate_span_to_genai (end-to-end) ---
 
 
@@ -199,6 +233,36 @@ def test_full_chat_span():
     assert result.attributes[GenAiSemconvKey.PROVIDER_NAME] == "openai"
     assert result.attributes[GenAiSemconvKey.USAGE_INPUT_TOKENS] == 100
     assert result.attributes[GenAiSemconvKey.USAGE_OUTPUT_TOKENS] == 50
+    assert not any(k.startswith("mlflow.") for k in result.attributes)
+
+
+def test_full_tool_span():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("TOOL"),
+        SpanAttributeKey.INPUTS: json.dumps({"city": "Paris"}),
+        SpanAttributeKey.OUTPUTS: json.dumps("18C"),
+    }
+    span = _make_span(name="get_weather", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "execute_tool get_weather"
+    assert result.kind == SpanKind.INTERNAL
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "execute_tool"
+    assert result.attributes[GenAiSemconvKey.TOOL_NAME] == "get_weather"
+    assert result.attributes[GenAiSemconvKey.TOOL_CALL_ARGUMENTS] == '{"city": "Paris"}'
+    assert result.attributes[GenAiSemconvKey.TOOL_CALL_RESULT] == '"18C"'
+    assert not any(k.startswith("mlflow.") for k in result.attributes)
+
+
+def test_full_agent_span():
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps("AGENT")}
+    span = _make_span(name="travel_planner", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "invoke_agent travel_planner"
+    assert result.kind == SpanKind.INTERNAL
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "invoke_agent"
+    assert result.attributes[GenAiSemconvKey.AGENT_NAME] == "travel_planner"
     assert not any(k.startswith("mlflow.") for k in result.attributes)
 
 

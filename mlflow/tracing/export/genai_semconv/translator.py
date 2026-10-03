@@ -122,12 +122,34 @@ def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
 
     # 5. Tool attributes (for TOOL spans)
     if span_type == SpanType.TOOL:
+        if tool_name := _get_tool_or_agent_name(span, GenAiSemconvKey.TOOL_NAME, "execute_tool"):
+            genai_attrs[GenAiSemconvKey.TOOL_NAME] = tool_name
         if (inputs := get_otel_attribute(span, SpanAttributeKey.INPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_ARGUMENTS] = json.dumps(inputs)
         if (outputs := get_otel_attribute(span, SpanAttributeKey.OUTPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_RESULT] = json.dumps(outputs)
 
+    # 6. Agent name (for AGENT spans)
+    if span_type == SpanType.AGENT:
+        if agent_name := _get_tool_or_agent_name(span, GenAiSemconvKey.AGENT_NAME, "invoke_agent"):
+            genai_attrs[GenAiSemconvKey.AGENT_NAME] = agent_name
+
     return genai_attrs
+
+
+def _get_tool_or_agent_name(span: ReadableSpan, name_key: str, operation: str) -> str | None:
+    """
+    Get the tool or agent name for a TOOL or AGENT span.
+
+    Instrumentations that follow GenAI semconv (e.g., Strands, Semantic Kernel) set the name
+    attribute and already name the span "{operation} {name}". Otherwise, the span name is the
+    tool or agent name, unless it is empty or just the operation.
+    """
+    if name := (span.attributes or {}).get(name_key):
+        return name
+    if span.name and span.name != operation:
+        return span.name
+    return None
 
 
 def _get_converter(
@@ -163,15 +185,20 @@ def _get_converter(
 
 def _build_genai_span_name(original_name: str, genai_attrs: dict[str, Any]) -> str:
     """
-    Build GenAI semconv span name: "{operation} {model}" (e.g., "chat gpt-4o").
+    Build GenAI semconv span name: "{operation} {model}" (e.g., "chat gpt-4o"), or
+    "{operation} {name}" with the tool or agent name (e.g., "execute_tool get_weather").
 
-    Falls back to the original span name if operation or model is missing.
+    Falls back to the operation alone, or to the original span name if there is no operation.
     """
     operation = genai_attrs.get(GenAiSemconvKey.OPERATION_NAME)
-    model = genai_attrs.get(GenAiSemconvKey.REQUEST_MODEL)
+    target = (
+        genai_attrs.get(GenAiSemconvKey.TOOL_NAME)
+        or genai_attrs.get(GenAiSemconvKey.AGENT_NAME)
+        or genai_attrs.get(GenAiSemconvKey.REQUEST_MODEL)
+    )
 
-    if operation and model:
-        return f"{operation} {model}"
+    if operation and target:
+        return f"{operation} {target}"
     return operation or original_name
 
 
