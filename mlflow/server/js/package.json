@@ -63,6 +63,7 @@
     "js-yaml": "^3.14.0",
     "leaflet": "^1.5.1",
     "lodash": "^4.17.21",
+    "mermaid": "^11.16.1",
     "moment": "^2.29.4",
     "monaco-editor": "^0.52.0",
     "pako": "0.2.7",
