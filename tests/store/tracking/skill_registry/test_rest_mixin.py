@@ -59,11 +59,7 @@ def test_rest_store_resolves_skill_methods_to_rest_mixin():
     [
         ("my-skill", "", "/my-skill"),
         ("my-skill", "team", "/@team/my-skill"),
-        ("a/b c?#%", "", "/a%2Fb%20c%3F%23%25"),
-        ("a/b c?#%", "org/team @", "/@org%2Fteam%20%40/a%2Fb%20c%3F%23%25"),
-        ("skill-\u2603", "team-\u2603", "/@team-%E2%98%83/skill-%E2%98%83"),
-        ("@team", "", "/%40team"),
-        ("review.v1", "team..name", "/@team..name/review.v1"),
+        ("review-v1", "team.name", "/@team.name/review-v1"),
     ],
 )
 def test_skill_path(name, organization, expected):
@@ -72,6 +68,26 @@ def test_skill_path(name, organization, expected):
 
 def test_skill_path_defaults_to_unscoped():
     assert _skill_path("my-skill") == "/my-skill"
+
+
+@pytest.mark.parametrize(
+    ("name", "organization"),
+    [
+        ("a/b c?#%", ""),
+        ("skill-\u2603", ""),
+        ("@team", ""),
+        ("review.v1", ""),
+        ("review", "org/team @"),
+        ("review", "team-\u2603"),
+        ("review", "team..name"),
+    ],
+)
+def test_skill_path_rejects_invalid_identity(name, organization):
+    with pytest.raises(
+        MlflowException, match="Invalid skill name|Invalid organization"
+    ) as exc_info:
+        _skill_path(name, organization)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize("workspace", [None, "team-a"])
@@ -214,6 +230,59 @@ def test_parent_organizations_are_independent(registry_client):
     client.update_skill(name="review", organization="acme", description="updated")
     client.delete_skill(name="review", organization="acme")
     assert client.get_skill(name="review").description == "unscoped"
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("delete_skill", {"name": "@other/review"}),
+        ("delete_skill", {"name": "review/versions/1"}),
+        ("delete_skill", {"name": "1", "organization": "acme/review/versions"}),
+        (
+            "set_skill_tag",
+            {"name": "review/versions/1", "key": "team", "value": "changed"},
+        ),
+        ("get_skill_version", {"name": "review", "version": "1/tags/team"}),
+        ("update_skill_version", {"name": "review", "version": "1/tags/team"}),
+        ("delete_skill_version", {"name": "review", "version": "1/tags/team"}),
+        (
+            "set_skill_version_tag",
+            {"name": "review", "version": "1/tags/team", "key": "team", "value": "changed"},
+        ),
+        (
+            "delete_skill_version_tag",
+            {"name": "review", "version": "1/tags/team", "key": "team"},
+        ),
+    ],
+)
+def test_invalid_path_parameters_cannot_change_target(registry_client, method, kwargs):
+    client, db_store = registry_client
+    parents = []
+    versions = []
+    for organization in ("", "other", "acme"):
+        identity = {"name": "review", "organization": organization}
+        client.create_skill_version(
+            **identity, source="https://example.com/repo.git", status="draft"
+        )
+        client.set_skill_tag(**identity, key="team", value="parent")
+        client.set_skill_version_tag(**identity, version=1, key="team", value="version")
+        parents.append(db_store.get_skill(**identity))
+        versions.append(db_store.get_skill_version(**identity, version=1))
+
+    with (
+        mock.patch("mlflow.store.tracking.skill_registry.rest_mixin.http_request") as request,
+        pytest.raises(
+            MlflowException, match="Invalid skill name|Invalid organization|Skill version"
+        ) as exc_info,
+    ):
+        getattr(client, method)(**kwargs)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+
+    for parent, version in zip(parents, versions):
+        identity = {"name": parent.name, "organization": parent.organization}
+        assert db_store.get_skill(**identity) == parent
+        assert db_store.get_skill_version(**identity, version=1) == version
 
 
 @pytest.mark.parametrize("api", ["client", "genai"])
@@ -687,12 +756,12 @@ def test_tag_and_alias_delete_paths_are_encoded(store, method, kwargs, suffix):
     with mock.patch.object(store, "_skill_request") as request:
         if suffix is None:
             with pytest.raises(MlflowException, match="Path parameters must not be") as exc_info:
-                getattr(store, method)(name="my skill", organization="my org", **kwargs)
+                getattr(store, method)(name="my-skill", organization="my-org", **kwargs)
             assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
             request.assert_not_called()
             return
-        getattr(store, method)(name="my skill", organization="my org", **kwargs)
-    request.assert_called_once_with("DELETE", f"/@my%20org/my%20skill/{suffix}")
+        getattr(store, method)(name="my-skill", organization="my-org", **kwargs)
+    request.assert_called_once_with("DELETE", f"/@my-org/my-skill/{suffix}")
 
 
 @pytest.fixture
