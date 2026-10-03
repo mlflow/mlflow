@@ -99,7 +99,7 @@ def test_skill_request_preserves_transport_context(store, workspace):
     params = {"page_token": "previous"}
     with (
         WorkspaceContext(workspace),
-        mock.patch.object(store, "_probe_workspace_support", return_value=True),
+        mock.patch.object(store, "_probe_workspace_support", return_value=True) as probe,
         mock.patch(
             "mlflow.utils.rest_utils._get_http_response_with_retries", return_value=response
         ) as request,
@@ -109,6 +109,10 @@ def test_skill_request_preserves_transport_context(store, workspace):
         )
 
     assert result == {"skills": [], "next_page_token": "next"}
+    if workspace:
+        probe.assert_called_once_with()
+    else:
+        probe.assert_not_called()
     assert request.call_args.args[:2] == (
         "PATCH",
         "https://registry.example.com/api/3.0/mlflow/skills/@team/my-skill",
@@ -123,13 +127,14 @@ def test_skill_request_preserves_transport_context(store, workspace):
 def test_skill_request_rejects_unsupported_workspace_before_request(store):
     with (
         WorkspaceContext("team-a"),
-        mock.patch.object(store, "_probe_workspace_support", return_value=False),
+        mock.patch.object(store, "_probe_workspace_support", return_value=False) as probe,
         mock.patch("mlflow.store.tracking.skill_registry.rest_mixin.http_request") as request,
         pytest.raises(MlflowException, match="does not support workspaces") as exc_info,
     ):
         store._skill_request("GET", _skill_path("my-skill"))
 
     assert exc_info.value.error_code == "FEATURE_DISABLED"
+    probe.assert_called_once_with()
     request.assert_not_called()
 
 
@@ -144,12 +149,19 @@ def test_skill_request_preserves_server_errors(store, status_code, error_code):
     with (
         mock.patch(
             "mlflow.store.tracking.skill_registry.rest_mixin.http_request", return_value=response
-        ),
+        ) as request,
         pytest.raises(MlflowException, match="Skill error") as exc_info,
     ):
         store._skill_request("GET", _skill_path("my-skill"))
 
     assert exc_info.value.error_code == error_code
+    request.assert_called_once_with(
+        host_creds=store.get_host_creds(),
+        endpoint="/api/3.0/mlflow/skills/my-skill",
+        method="GET",
+        json=None,
+        params=None,
+    )
 
 
 @pytest.fixture
@@ -373,13 +385,21 @@ def test_parent_methods_preserve_complete_response(store, method):
     response = (
         {"skills": [data], "next_page_token": "opaque-token"} if method == "search_skills" else data
     )
-    with mock.patch.object(store, "_skill_request", return_value=response):
+    with mock.patch.object(store, "_skill_request", return_value=response) as request:
         if method == "search_skills":
             page = store.search_skills()
             assert page == [expected]
             assert page.token == "opaque-token"
         else:
             assert getattr(store, method)(name="review", organization="acme") == expected
+    if method == "create_skill":
+        request.assert_called_once_with("POST", "", json={"name": "review", "organization": "acme"})
+    elif method == "get_skill":
+        request.assert_called_once_with("GET", "/@acme/review")
+    elif method == "update_skill":
+        request.assert_called_once_with("PATCH", "/@acme/review", json={})
+    else:
+        request.assert_called_once_with("GET", "", params={"max_results": 1000})
 
 
 def test_parent_requests_omit_audit_arguments(store):
@@ -608,7 +628,7 @@ def test_get_skill_version_preserves_complete_response(store, source_type, sourc
         "creation_timestamp": 1000,
         "last_updated_timestamp": 2000,
     }
-    with mock.patch.object(store, "_skill_request", return_value=data):
+    with mock.patch.object(store, "_skill_request", return_value=data) as request:
         assert store.get_skill_version(
             name="review", version=7, organization="acme"
         ) == SkillVersion(
@@ -626,6 +646,7 @@ def test_get_skill_version_preserves_complete_response(store, source_type, sourc
             creation_timestamp=1000,
             last_updated_timestamp=2000,
         )
+    request.assert_called_once_with("GET", "/@acme/review/versions/7")
 
 
 def test_skill_version_request_paths_and_audit_arguments(store):
@@ -925,7 +946,7 @@ def test_import_skills(
     fetch, roots = remote_repository
     resolved = resolve_source_type(source)
     with (
-        mock.patch("mlflow.genai.skills.MlflowClient", return_value=client),
+        mock.patch("mlflow.genai.skills.MlflowClient", return_value=client) as client_factory,
         mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
     ):
         result = import_skills(
@@ -934,6 +955,7 @@ def test_import_skills(
             skill_names=skill_names,
             **({"status": status} if status else {}),
         )
+    client_factory.assert_called_once_with()
     expected = [
         {
             "name": name,
@@ -1152,6 +1174,7 @@ def test_import_batch_size_limit(skill_repository, remote_repository, count, ski
                 import_skills(source="https://example.com/skills.git", skill_names=skill_names)
                 == []
             )
+            client.assert_called_once_with()
             register = client.return_value.bulk_register_skills
             register.assert_called_once()
             assert len(register.call_args.kwargs["skill_definitions"]) == selected_count
@@ -1269,6 +1292,11 @@ def test_import_prepares_entire_batch_before_request(
     request.assert_not_called()
     if failure != "digest":
         compute_digest.assert_not_called()
+    else:
+        assert compute_digest.call_args_list == [
+            mock.call(roots[0] / "skills/a-review"),
+            mock.call(roots[0] / "skills/nested/z-docs"),
+        ]
     assert db_store.search_skills() == []
     assert all(not root.exists() for root in roots)
 
@@ -1611,14 +1639,17 @@ def test_register_local_propagates_artifact_capability_error(
 
 
 def test_register_with_direct_sql_store(registry_client, skill_tree, remote_content):
-    _, db_store = registry_client
+    client, db_store = registry_client
     fetch, roots = remote_content
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=db_store):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._get_store", return_value=db_store
+    ) as get_store:
         version = register_skill(source="https://example.com/repo.git")
         assert version == db_store.get_skill_version("review", 1)
         with pytest.raises(MlflowException, match="HTTP tracking server") as exc:
             register_skill(source=str(skill_tree))
     assert exc.value.error_code == "NOT_IMPLEMENTED"
+    get_store.assert_called_with(client.tracking_uri)
     fetch.assert_called_once()
     assert all(not root.exists() for root in roots)
 
@@ -1630,7 +1661,7 @@ def test_register_multipart_preserves_transport_context(store, workspace):
     response._content = b'{"name": "review", "version": 1, "status": "active"}'
     with (
         WorkspaceContext(workspace),
-        mock.patch.object(store, "_probe_workspace_support", return_value=True),
+        mock.patch.object(store, "_probe_workspace_support", return_value=True) as probe,
         mock.patch(
             "mlflow.utils.rest_utils._get_http_response_with_retries", return_value=response
         ) as request,
@@ -1655,6 +1686,10 @@ def test_register_multipart_preserves_transport_context(store, workspace):
             "status": "active",
         }
         assert kwargs["files"]["content"] == ("content.tar.gz", content, "application/gzip")
+    if workspace:
+        probe.assert_called_once_with()
+    else:
+        probe.assert_not_called()
 
 
 def test_register_cleans_up_after_packaging_failure(registry_client, store, skill_tree):
