@@ -12,6 +12,7 @@ import { ModelTraceExplorerTraceTooLargeView } from '../ModelTraceExplorerTraceT
 import { ModelTraceExplorerViewStateProvider } from './ModelTraceExplorerViewStateContext';
 import { useGetModelTraceInfo } from '../hooks/useGetModelTraceInfo';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
+import { TraceArtifactLocationContextProvider } from '../contexts/TraceArtifactLocationContext';
 
 export const ContextProviders = ({ children }: { traceId: string; children: React.ReactNode }): JSX.Element => {
   return <ErrorBoundary fallbackRender={ModelTraceExplorerErrorState}>{children}</ErrorBoundary>;
@@ -94,28 +95,30 @@ export const ModelTraceExplorerImpl = ({
 
   return (
     <ContextProviders traceId={traceId}>
-      <ModelTraceExplorerViewStateProvider
-        modelTrace={modelTrace}
-        selectedSpanIdOnRender={selectedSpanId}
-        assessmentsPaneEnabled={assessmentsPaneEnabled}
-        initialAssessmentsPaneCollapsed={collapseAssessmentPane}
-        isTraceInitialLoading={isTraceInitialLoading}
-        initialShowTimelineTreeGantt={initialShowTimelineTreeGantt}
-        refreshTrace={refreshTrace}
-        isRefreshingTrace={isRefreshingTrace}
-      >
-        {showLoadingState ? (
-          <ModelTraceExplorerSkeleton />
-        ) : (
-          <ModelTraceExplorerContent
-            modelTraceInfo={modelTrace.info}
-            className={className}
-            selectedSpanId={selectedSpanId}
-            onSelectSpan={onSelectSpan}
-            enableGraphView={enableGraphView}
-          />
-        )}
-      </ModelTraceExplorerViewStateProvider>
+      <TraceArtifactLocationContextProvider modelTrace={modelTrace}>
+        <ModelTraceExplorerViewStateProvider
+          modelTrace={modelTrace}
+          selectedSpanIdOnRender={selectedSpanId}
+          assessmentsPaneEnabled={assessmentsPaneEnabled}
+          initialAssessmentsPaneCollapsed={collapseAssessmentPane}
+          isTraceInitialLoading={isTraceInitialLoading}
+          initialShowTimelineTreeGantt={initialShowTimelineTreeGantt}
+          refreshTrace={refreshTrace}
+          isRefreshingTrace={isRefreshingTrace}
+        >
+          {showLoadingState ? (
+            <ModelTraceExplorerSkeleton />
+          ) : (
+            <ModelTraceExplorerContent
+              modelTraceInfo={modelTrace.info}
+              className={className}
+              selectedSpanId={selectedSpanId}
+              onSelectSpan={onSelectSpan}
+              enableGraphView={enableGraphView}
+            />
+          )}
+        </ModelTraceExplorerViewStateProvider>
+      </TraceArtifactLocationContextProvider>
     </ContextProviders>
   );
 };
