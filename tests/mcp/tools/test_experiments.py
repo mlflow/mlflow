@@ -4,6 +4,7 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
+from mlflow.mcp.tools._types import ExperimentPage
 from mlflow.mcp.tools.experiments import (
     create_experiment,
     delete_experiment,
@@ -137,3 +138,13 @@ def test_search_experiments_view_and_lifecycle_tools():
 def test_search_experiments_rejects_negative_max_results():
     with pytest.raises(MlflowException, match="non-negative"):
         search_experiments(max_results=-1)
+
+
+def test_search_experiments_returns_an_empty_page_for_zero_max_results():
+    create_experiment("exp-a")
+    assert search_experiments(max_results=0) == ExperimentPage(experiments=[], next_page_token=None)
+    # Nothing is consumed, so the page resumes where it started.
+    first = search_experiments(max_results=1)
+    assert first.next_page_token is not None
+    resumed = search_experiments(max_results=0, page_token=first.next_page_token)
+    assert resumed == ExperimentPage(experiments=[], next_page_token=first.next_page_token)

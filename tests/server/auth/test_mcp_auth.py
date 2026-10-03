@@ -26,6 +26,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.tools import SHARED_TOOLS
+from mlflow.mcp.tools._types import ExperimentPage
 from mlflow.mcp.tools.experiments import search_experiments
 from mlflow.mcp.tools.scorers import list_scorers
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
@@ -442,6 +443,15 @@ def test_search_readable_experiments_rejects_negative_max_results(paged_client):
     paged_client([])
     with pytest.raises(MlflowException, match="non-negative"):
         search_readable_experiments(max_results=-1)
+
+
+def test_search_readable_experiments_returns_an_empty_page_for_zero_max_results(paged_client):
+    client = paged_client(["r0", "r1"])
+    assert search_readable_experiments(max_results=0) == ExperimentPage(
+        experiments=[], next_page_token=None
+    )
+    assert search_readable_experiments(max_results=0, page_token="1").next_page_token == "1"
+    assert client.page_sizes == []
 
 
 @pytest.mark.asyncio

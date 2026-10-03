@@ -159,6 +159,10 @@ def search_experiments(
 ) -> ExperimentPage:
     """Search for experiments in the configured tracking server."""
     check_non_negative(max_results, "max_results")
+    # The stores reject a page size of 0; an empty page that resumes where it started matches
+    # the filtered search non-admin callers get over the tracking server.
+    if max_results == 0:
+        return ExperimentPage(experiments=[], next_page_token=page_token or None)
     client = MlflowClient()
     view_type = as_view_type(view)
     order_by_list = as_list(order_by)
