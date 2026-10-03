@@ -5,6 +5,7 @@ import posixpath
 import subprocess
 import sys
 from pathlib import Path
+from shlex import quote
 
 import mlflow
 from mlflow import tracking
@@ -342,7 +343,15 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
     for key, value in env_vars.items():
         cmd += ["-e", f"{key}={value}"]
     cmd += [image.tags[0]]
-    return cmd
+    # `_run_entry_point` joins this command with spaces and hands it to `bash -c`, or to
+    # `cmd /c` on Windows, so every word has to survive being parsed by a shell. Values
+    # come from the project's environment variables, its `--docker-args` and its volume
+    # paths, any of which may contain a space or a metacharacter. The two shells do not
+    # share a quoting syntax: POSIX single quotes mean nothing to `cmd`, which quotes with
+    # double quotes instead. Both routines leave an ordinary word untouched.
+    if is_windows():
+        return [subprocess.list2cmdline([part]) for part in cmd]
+    return [quote(part) for part in cmd]
 
 
 def _get_local_artifact_cmd_and_envs(artifact_repo):

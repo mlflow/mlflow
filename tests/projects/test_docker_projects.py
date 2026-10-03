@@ -1,4 +1,5 @@
 import os
+import shlex
 from unittest import mock
 
 import docker
@@ -328,3 +329,72 @@ entry_points:
     submitted_run = mlflow.projects.run(str(tmp_path))
     run = mlflow.get_run(submitted_run.run_id)
     assert run.data.tags[MLFLOW_DOCKER_IMAGE_URI] == "python:3.9"
+
+
+def _shell_words(command):
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    return list(lexer)
+
+
+def _fake_run_and_image():
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = "/tmp/mlruns/artifacts"
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+    return active_run, image
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        ")iY{wq!h",
+        "pass word",
+        "it's",
+        'say "hi"',
+        "a;b",
+        "a|b",
+        "$(echo pwned)",
+    ],
+)
+def test_docker_command_values_survive_a_posix_shell(value):
+    """
+    `_run_entry_point` joins this command with single spaces and hands the result to
+    `bash -c`, so a value carrying a shell metacharacter has to reach docker unchanged.
+    https://github.com/mlflow/mlflow/issues/12475
+    """
+    active_run, image = _fake_run_and_image()
+    volume = "/host path:/container path"
+
+    with mock.patch("mlflow.projects.backend.local.is_windows", return_value=False):
+        docker_command = _get_docker_command(
+            image, active_run, {"network": value}, [volume], [["SECRET", value]]
+        )
+
+    words = _shell_words(" ".join(docker_command))
+    assert f"SECRET={value}" in words
+    assert volume in words
+    assert value in words
+
+
+def test_docker_command_values_are_quoted_for_cmd_on_windows():
+    """
+    On Windows the same command goes to `cmd /c`, which does not understand the POSIX
+    single quotes `shlex.quote` produces.
+    https://github.com/mlflow/mlflow/issues/12475
+    """
+    active_run, image = _fake_run_and_image()
+
+    with mock.patch("mlflow.projects.backend.local.is_windows", return_value=True):
+        docker_command = _get_docker_command(
+            image, active_run, None, [r"C:\host path:/container path"], [["SECRET", "pass word"]]
+        )
+
+    assert '"SECRET=pass word"' in docker_command
+    assert r'"C:\host path:/container path"' in docker_command
+    assert "docker" in docker_command
+    assert "--rm" in docker_command
