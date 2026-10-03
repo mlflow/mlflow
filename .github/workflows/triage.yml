@@ -297,11 +297,10 @@ jobs:
           retention-days: 1
   triage_gate:
     needs: [issue, label, safety]
-    # Scoped to bugs from maintainers for now. Manual runs skip the author check
-    # since only users with write access can dispatch.
+    # Triage any safety-approved issue from maintainers. Manual runs skip the
+    # author check since only users with write access can dispatch.
     if: >-
       needs.safety.outputs.decision == 'safe' &&
-      needs.label.outputs.type == 'bug' &&
       (github.event_name == 'workflow_dispatch' ||
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
     runs-on: ubuntu-slim
