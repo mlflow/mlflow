@@ -1,6 +1,7 @@
 import io
 import json
 import shutil
+import subprocess
 import tarfile
 from copy import deepcopy
 from pathlib import Path
@@ -22,11 +23,12 @@ from mlflow.entities.skill_source import (
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.environment_variables import MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE
 from mlflow.exceptions import MlflowException
-from mlflow.genai import register_skill
+from mlflow.genai import import_skills, register_skill
 from mlflow.genai.skill_content.archive import package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.skill_md import inspect_skill_dir
 from mlflow.genai.skill_content.sources import resolve_source_type
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import skill_registry_router
@@ -36,6 +38,7 @@ from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMix
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.validation import _MAX_BULK_REGISTER_SKILLS
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -792,6 +795,426 @@ def test_bulk_register_omits_audit_argument(store, skill_definitions):
 
 
 @pytest.fixture
+def skill_repository(tmp_path):
+    repo = tmp_path / "repository"
+    for path, name in [("skills/a-review", "review"), ("skills/nested/z-docs", "docs")]:
+        root = repo / path
+        root.mkdir(parents=True)
+        (root / "SKILL.md").write_text(f"---\nname: {name}\n---\n# {name}\n")
+        (root / "script.py").write_text(f"print('{name}')\n")
+    (repo / "README.md").write_text("A repository of skills\n")
+    return repo
+
+
+@pytest.fixture
+def remote_repository(skill_repository):
+    roots = []
+
+    def fetch(resolved, dest, scratch, limit):
+        roots.append(dest)
+        shutil.copytree(skill_repository, dest)
+        return dest
+
+    with mock.patch("mlflow.genai.skill_content.fetchers._fetch_remote", side_effect=fetch) as call:
+        yield call, roots
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/skills.git",
+        GitSource("https://example.com/skills", ref="v2", subpath=" skills// "),
+    ],
+)
+@pytest.mark.parametrize("skill_names", [None, ["docs", "review"], ["docs"]])
+@pytest.mark.parametrize("status", [None, "draft"])
+def test_import_skills(
+    registry_client, store, skill_repository, remote_repository, source, skill_names, status
+):
+    client, db_store = registry_client
+    fetch, roots = remote_repository
+    resolved = resolve_source_type(source)
+    with (
+        mock.patch("mlflow.genai.skills.MlflowClient", return_value=client),
+        mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
+    ):
+        result = import_skills(
+            source=source,
+            organization="acme",
+            skill_names=skill_names,
+            **({"status": status} if status else {}),
+        )
+    expected = [
+        {
+            "name": name,
+            "source_type": "git",
+            "source": resolved.source,
+            "ref": resolved.ref,
+            "subpath": path,
+            "digest": compute_tree_digest(skill_repository / path),
+            "status": status or "active",
+        }
+        for name, path in [("review", "skills/a-review"), ("docs", "skills/nested/z-docs")]
+        if skill_names is None or name in skill_names
+    ]
+    request.assert_called_once_with(
+        "POST", "/bulk-register", json={"organization": "acme", "skills": expected}
+    )
+    fetch.assert_called_once()
+    assert fetch.call_args.args[0] == resolved
+    assert [version.name for version in result] == [entry["name"] for entry in expected]
+    assert [version.status for version in result] == [status or "active"] * len(expected)
+    assert result == [
+        db_store.get_skill_version(name=entry["name"], version=1, organization="acme")
+        for entry in expected
+    ]
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("subpath", [None, "skills/a-review"])
+def test_import_includes_skill_at_discovery_root(
+    registry_client, skill_repository, remote_repository, subpath
+):
+    if subpath is None:
+        shutil.rmtree(skill_repository / "skills")
+    (skill_repository / "SKILL.md").write_text("---\nname: root-skill\n---\n")
+    versions = import_skills(
+        source=GitSource("https://example.com/skills", subpath=subpath),
+        skill_names=["root-skill" if subpath is None else "review"],
+    )
+    assert len(versions) == 1
+    assert versions[0].source.subpath == subpath
+    assert versions[0].digest == compute_tree_digest(skill_repository / (subpath or ""))
+
+
+def test_import_limits_discovery_to_subpath(registry_client, skill_repository, remote_repository):
+    (skill_repository / "SKILL.md").write_text("---\nname: review\n---\n")
+    versions = import_skills(source=GitSource("https://example.com/skills", subpath="skills"))
+    assert [version.name for version in versions] == ["review", "docs"]
+
+
+@pytest.mark.parametrize(
+    "path", [" leading/skill-a", "\u00a0leading/skill-a", "skills/skill-a\u00a0"]
+)
+def test_import_rejects_subpath_changed_by_normalization(
+    registry_client, store, skill_repository, remote_repository, path
+):
+    root = skill_repository / path
+    root.mkdir(parents=True)
+    (root / "SKILL.md").write_text("---\nname: skill-a\n---\n")
+    fetch, roots = remote_repository
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="would change during source normalization") as exc,
+    ):
+        import_skills(source="https://example.com/skills.git", skill_names=["skill-a"])
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    digest.assert_not_called()
+    request.assert_not_called()
+    assert registry_client[1].search_skills() == []
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("subpath", [None, "skills"])
+def test_import_preserves_internal_subpath_whitespace(
+    registry_client, skill_repository, remote_repository, subpath
+):
+    path = "skills/ leading/skill-a"
+    root = skill_repository / path
+    root.mkdir(parents=True)
+    (root / "SKILL.md").write_text("---\nname: skill-a\n---\n")
+    versions = import_skills(
+        source=GitSource("https://example.com/skills.git", subpath=subpath),
+        skill_names=["skill-a"],
+    )
+    assert len(versions) == 1
+    assert versions[0].source.subpath == path
+    assert versions[0].digest == compute_tree_digest(root)
+
+
+@pytest.mark.parametrize("directory", [False, True])
+def test_import_rejects_case_insensitive_nested_manifest(
+    registry_client, store, skill_repository, remote_repository, directory
+):
+    root = skill_repository / "skills/a-review/child"
+    root.mkdir()
+    manifest = root / "skill.md"
+    if directory:
+        manifest.mkdir()
+    else:
+        manifest.write_text("---\nname: child\n---\n")
+    if not (root / "SKILL.md").exists():
+        pytest.skip("Requires a case-insensitive filesystem")
+    fetch, roots = remote_repository
+    message = "must be a file, not a directory" if directory else "Nested skill roots"
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        import_skills(source="https://example.com/skills.git")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    digest.assert_not_called()
+    request.assert_not_called()
+    assert registry_client[1].search_skills() == []
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("nested_path", ["child", "AAA/deep-child"])
+@pytest.mark.parametrize("skill_names", [None, ["review"], ["child"], ["docs"]])
+def test_import_rejects_nested_skill_roots(
+    registry_client, store, skill_repository, remote_repository, nested_path, skill_names
+):
+    root = skill_repository / "skills/a-review" / nested_path
+    root.mkdir(parents=True)
+    (root / "SKILL.md").write_text("---\nname: child\n---\n")
+    fetch, roots = remote_repository
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="Nested skill roots") as exc,
+    ):
+        import_skills(source="https://example.com/skills.git", skill_names=skill_names)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert f"'{nested_path}/SKILL.md'" in exc.value.message
+    assert str(roots[0] / "skills/a-review") in exc.value.message
+    digest.assert_not_called()
+    request.assert_not_called()
+    assert registry_client[1].search_skills() == []
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+def test_import_rejects_nested_skill_under_discovery_root(
+    registry_client, skill_repository, remote_repository
+):
+    (skill_repository / "SKILL.md").write_text("---\nname: root-skill\n---\n")
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch("mlflow.genai.skills.MlflowClient") as client,
+        pytest.raises(MlflowException, match="'skills/a-review/SKILL.md'"),
+    ):
+        import_skills(source="https://example.com/skills.git", skill_names=["root-skill"])
+    digest.assert_not_called()
+    client.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "path", ["SKILL.md", "skills/a-review/SKILL.md", "skills/a-review/assets/SKILL.md"]
+)
+@pytest.mark.parametrize("skill_names", [None, ["docs"]])
+def test_import_rejects_manifest_directory(
+    registry_client, store, skill_repository, remote_repository, path, skill_names
+):
+    directory = skill_repository / path
+    if directory.is_file():
+        directory.unlink()
+    directory.mkdir(parents=True)
+    (directory / "notes.txt").write_text("Supporting content\n")
+    fetch, roots = remote_repository
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="must be a file|does not contain a SKILL.md") as exc,
+    ):
+        import_skills(source="https://example.com/skills.git", skill_names=skill_names)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    digest.assert_not_called()
+    request.assert_not_called()
+    assert registry_client[1].search_skills() == []
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize(
+    ("count", "skill_names"),
+    [
+        (_MAX_BULK_REGISTER_SKILLS, None),
+        (_MAX_BULK_REGISTER_SKILLS + 1, None),
+        (_MAX_BULK_REGISTER_SKILLS + 1, ["review"]),
+    ],
+)
+def test_import_batch_size_limit(skill_repository, remote_repository, count, skill_names):
+    for index in range(count - 2):
+        root = skill_repository / "skills" / f"skill-{index}"
+        root.mkdir()
+        (root / "SKILL.md").write_text(f"---\nname: skill-{index}\n---\n")
+    fetch, roots = remote_repository
+    selected_count = count if skill_names is None else len(skill_names)
+    with (
+        mock.patch("mlflow.genai.skills.MlflowClient") as client,
+        mock.patch("mlflow.genai.skills.compute_tree_digest", wraps=compute_tree_digest) as digest,
+    ):
+        client.return_value.bulk_register_skills.return_value = []
+        if selected_count > _MAX_BULK_REGISTER_SKILLS:
+            with pytest.raises(
+                MlflowException, match=f"at most {_MAX_BULK_REGISTER_SKILLS} skills"
+            ) as exc:
+                import_skills(source="https://example.com/skills.git", skill_names=skill_names)
+            assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+            client.assert_not_called()
+            digest.assert_not_called()
+        else:
+            assert (
+                import_skills(source="https://example.com/skills.git", skill_names=skill_names)
+                == []
+            )
+            register = client.return_value.bulk_register_skills
+            register.assert_called_once()
+            assert len(register.call_args.kwargs["skill_definitions"]) == selected_count
+            assert digest.call_count == selected_count
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+def test_import_fetches_requested_git_ref(registry_client, skill_repository):
+    for args in [
+        ["init", "-q", "-b", "main"],
+        ["add", "."],
+        ["commit", "-q", "-m", "Initial skills"],
+        ["tag", "v1"],
+    ]:
+        subprocess.run(
+            ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", *args],
+            cwd=skill_repository,
+            check=True,
+            capture_output=True,
+        )
+    digest = compute_tree_digest(skill_repository / "skills/a-review")
+    (skill_repository / "skills/a-review/SKILL.md").write_text("Uncommitted invalid manifest")
+    source = GitSource(skill_repository.as_uri(), ref="v1", subpath="skills")
+    versions = import_skills(source=source, skill_names=["review"])
+    assert len(versions) == 1
+    assert versions[0].digest == digest
+    assert versions[0].source == GitSource(source.url, ref="v1", subpath="skills/a-review")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        None,
+        "./skills",
+        "https://example.com/skills",
+        "https://example.com/skills.zip",
+        OCISource("example.com/skills:v1"),
+        "mlflow-artifacts:/skills",
+    ],
+)
+def test_import_rejects_invalid_source_before_fetch(source):
+    with (
+        mock.patch("mlflow.genai.skills.fetch_source") as fetch,
+        pytest.raises(MlflowException, match="source|Cannot infer") as exc,
+    ):
+        import_skills(source=source)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    fetch.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"organization": "bad/org"},
+        {"status": "deprecated"},
+        {"skill_names": []},
+        {"skill_names": "review"},
+        {"skill_names": [123]},
+        {"skill_names": ["BAD NAME"]},
+    ],
+)
+def test_import_rejects_invalid_metadata_before_fetch(metadata):
+    with (
+        mock.patch("mlflow.genai.skills.fetch_source") as fetch,
+        pytest.raises(MlflowException, match="name|imported") as exc,
+    ):
+        import_skills(source="https://example.com/skills.git", **metadata)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    fetch.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        ("duplicate", "Duplicate discovered"),
+        ("missing", "not found"),
+        ("directory-name", "not found"),
+        ("empty", "No skills"),
+        ("invalid", "name"),
+        ("digest", "Unreadable content"),
+    ],
+)
+def test_import_prepares_entire_batch_before_request(
+    registry_client, store, skill_repository, remote_repository, failure, message
+):
+    _, db_store = registry_client
+    fetch, roots = remote_repository
+    names = None
+    if failure == "duplicate":
+        (skill_repository / "skills/nested/z-docs/SKILL.md").write_text("---\nname: review\n---\n")
+        names = ["review"]
+    elif failure == "missing":
+        names = ["review", "missing"]
+    elif failure == "directory-name":
+        names = ["a-review"]
+    elif failure == "empty":
+        shutil.rmtree(skill_repository / "skills")
+    elif failure == "invalid":
+        (skill_repository / "skills/nested/z-docs/SKILL.md").write_text("No declared name")
+
+    def digest(root):
+        if failure == "digest" and root.name == "z-docs":
+            raise MlflowException.invalid_parameter_value("Unreadable content")
+        return compute_tree_digest(root)
+
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest", side_effect=digest) as compute_digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        import_skills(source="https://example.com/skills.git", skill_names=names)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    fetch.assert_called_once()
+    request.assert_not_called()
+    if failure != "digest":
+        compute_digest.assert_not_called()
+    assert db_store.search_skills() == []
+    assert all(not root.exists() for root in roots)
+
+
+def test_import_preserves_reused_version_status(registry_client, remote_repository):
+    _, db_store = registry_client
+    source = "https://example.com/skills.git"
+    first = import_skills(source=source, skill_names=["review"], status="draft")[0]
+    db_store.set_skill_version_tag(name="review", version=first.version, key="scan", value="clean")
+    expected = db_store.get_skill_version(name="review", version=first.version)
+    versions = import_skills(source=source)
+    assert versions[0] == expected
+    assert versions[0].status == "draft"
+    assert versions[1].name == "docs"
+    assert versions[1].status == "active"
+    assert len(db_store.search_skill_versions(name="review")) == 1
+
+
+def test_import_cleans_up_and_preserves_server_error(registry_client, store, remote_repository):
+    fetch, roots = remote_repository
+    with (
+        mock.patch.object(
+            store,
+            "_skill_request",
+            side_effect=MlflowException("Not allowed", error_code=PERMISSION_DENIED),
+        ) as request,
+        pytest.raises(MlflowException, match="Not allowed") as exc,
+    ):
+        import_skills(source="https://example.com/skills.git")
+    assert exc.value.error_code == "PERMISSION_DENIED"
+    request.assert_called_once()
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.fixture
 def skill_tree(tmp_path):
     root = tmp_path / "skill"
     root.mkdir()
@@ -1021,6 +1444,46 @@ def test_register_explicit_name_still_validates_content(
     fetch.assert_called_once()
     request.assert_not_called()
     assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("local", [False, True])
+@pytest.mark.parametrize("name", [None, "custom-review"])
+@pytest.mark.parametrize(
+    ("kind", "message"),
+    [
+        ("nested-file", "Nested skill roots"),
+        ("nested-directory", "must be a file, not a directory"),
+        ("root-directory", "does not contain a SKILL.md"),
+    ],
+)
+def test_register_rejects_invalid_skill_structure_before_digest(
+    registry_client, store, skill_tree, remote_content, local, name, kind, message
+):
+    invalid = skill_tree / ("SKILL.md" if kind == "root-directory" else "nested/SKILL.md")
+    if kind == "root-directory":
+        invalid.unlink()
+    if kind == "nested-file":
+        invalid.parent.mkdir()
+        invalid.write_text("---\nname: child\n---\n")
+    else:
+        invalid.mkdir(parents=True)
+        (invalid / "notes.txt").write_text("Supporting content\n")
+    fetch, roots = remote_content
+    with (
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        register_skill(
+            source=str(skill_tree) if local else "https://example.com/repo.git", name=name
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    digest.assert_not_called()
+    request.assert_not_called()
+    assert registry_client[1].search_skills() == []
+    assert fetch.call_count == (0 if local else 1)
+    assert all(not root.exists() for root in roots)
+    assert invalid.exists()
 
 
 @pytest.mark.parametrize("local", [False, True])

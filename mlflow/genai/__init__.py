@@ -91,9 +91,10 @@ from mlflow.genai.scorers import (
     scorer,
 )
 from mlflow.genai.simulators import ConversationSimulator
-from mlflow.genai.skills import register_skill
+from mlflow.genai.skills import import_skills, register_skill
 
 __all__ = [
+    "import_skills",
     "register_skill",
     "datasets",
     "test_agent",
