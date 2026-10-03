@@ -585,7 +585,7 @@ jobs:
             (.[0] | type == "object" and .issue_number == $expected and
              (.body | type == "string" and length > 0 and length < 10000))
           ' "$REPORT_PATH" > /dev/null
-          jq -j '.body | gsub("@"; "@\u200b")' "$REPORT_PATH" > "$BODY_FILE"
+          jq -j '.body' "$REPORT_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
         env:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
