@@ -1149,6 +1149,7 @@ def context_for(
     request: RequestValues | None = None,
     resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None,
     parent_resource_id: str | None = None,
+    allow_unscoped_parent: bool = False,
 ) -> ConditionContext:
     """Build a context, treating a wildcard id as "no specific resource".
 
@@ -1159,8 +1160,21 @@ def context_for(
     condition to read -- request conditions still apply.
 
     ``parent_resource_id`` is the target's resolved direct parent, needed to select a
-    parent-scoped condition. A wildcard is normalised to ``None`` for the same reason
-    as the resource id: it names no particular parent.
+    parent-scoped condition, and **required for a child type**. A wildcard is
+    normalised to ``None`` for the same reason as the resource id: it names no
+    particular parent.
+
+    Omitting it for a child type raises. This is the one place the fail-open direction
+    is reachable: a scoped condition is selected by matching the target's parent, so a
+    context without one matches no scoped condition and the admin's restriction
+    silently stops applying. Unlike a wrong denial, nothing surfaces. Validators that
+    mutate a child already hold the parent -- sub-resource routes resolve the
+    container as their grant anchor, and version routes carry the registry name -- so
+    supplying it costs no fetch.
+
+    ``allow_unscoped_parent`` is the explicit escape hatch for an enumeration whose
+    parent is genuinely not a conditionable resource. It must be asked for, so that
+    *forgetting* a parent cannot silently take it.
 
     Also the one place a validator's request values are checked against the type it
     declared, so the mis-wiring the shared shape cannot prevent fails loudly here
@@ -1174,6 +1188,21 @@ def context_for(
         ids = (resource_id,)
     if parent_resource_id == "*":
         parent_resource_id = None
+    if (
+        parent_resource_id is None
+        and not allow_unscoped_parent
+        and resource_type in PARENT_RESOURCE_TYPES
+    ):
+        raise MlflowException(
+            f"Validator wiring error: resource type '{resource_type}' is a child of "
+            f"'{PARENT_RESOURCE_TYPES[resource_type]}', but no parent was supplied. A "
+            f"parent-scoped condition is selected by matching the target's parent, so a "
+            f"context without one silently escapes every scoped condition written to govern "
+            f"it. Pass the parent the validator already resolved, or "
+            f"allow_unscoped_parent=True if the parent genuinely is not a conditionable "
+            f"resource.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     return ConditionContext(
         resource_type=resource_type,
         scope=scope,

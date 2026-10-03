@@ -452,14 +452,23 @@ def test_context_for_treats_wildcard_id_as_no_resource():
     literally ``"*"``. Passing that through would send the framework off to fetch a
     resource named ``*``.
     """
-    assert context_for("logged_model", "*", ConditionScope.MUTATE).resource_ids == ()
-    assert context_for("run", None, ConditionScope.CREATE).resource_ids == ()
-    assert context_for("run", "r1", ConditionScope.MUTATE).resource_ids == ("r1",)
+    assert (
+        context_for(
+            "logged_model", "*", ConditionScope.MUTATE, parent_resource_id="e1"
+        ).resource_ids
+        == ()
+    )
+    assert (
+        context_for("run", None, ConditionScope.CREATE, parent_resource_id="e1").resource_ids == ()
+    )
+    assert context_for(
+        "run", "r1", ConditionScope.MUTATE, parent_resource_id="e1"
+    ).resource_ids == ("r1",)
 
 
 def test_context_for_mirrors_request_values():
     values = RunRequestValues(tags=(("a", "1"),))
-    context = context_for("run", "r1", ConditionScope.MUTATE, values)
+    context = context_for("run", "r1", ConditionScope.MUTATE, values, parent_resource_id="e1")
     assert context.resource_type == "run"
     assert context.scope is ConditionScope.MUTATE
     assert context.request == values
@@ -467,8 +476,8 @@ def test_context_for_mirrors_request_values():
 
 def test_needs_resource_values_short_circuits():
     # Two common ways to answer no, and each avoids reading a resource at all.
-    create = context_for("run", None, ConditionScope.CREATE)
-    mutate = context_for("run", "r1", ConditionScope.MUTATE)
+    create = context_for("run", None, ConditionScope.CREATE, parent_resource_id="e1")
+    mutate = context_for("run", "r1", ConditionScope.MUTATE, parent_resource_id="e1")
 
     # A create has no prior state.
     assert needs_resource_values([create], {"run"}) is False
@@ -482,8 +491,18 @@ def test_needs_resource_values_short_circuits():
     # resources it will change cannot be checked against a condition on them. Answering
     # False here would return *allow* instead, making a predicate-mode bulk delete a way
     # around every resource condition -- so this deliberately does not short-circuit.
-    assert needs_resource_values([context_for("run", "*", ConditionScope.MUTATE)], {"run"}) is True
-    assert needs_resource_values([context_for("run", None, ConditionScope.MUTATE)], {"run"}) is True
+    assert (
+        needs_resource_values(
+            [context_for("run", "*", ConditionScope.MUTATE, parent_resource_id="e1")], {"run"}
+        )
+        is True
+    )
+    assert (
+        needs_resource_values(
+            [context_for("run", None, ConditionScope.MUTATE, parent_resource_id="e1")], {"run"}
+        )
+        is True
+    )
 
 
 def test_no_none_scope():
@@ -673,6 +692,54 @@ def test_each_child_type_accepts_its_own_parent(resource_type, parent_type):
     validate_condition_parent_scope(resource_type, parent_type, "parent-1")
 
 
+def test_context_for_refuses_a_child_type_without_a_parent():
+    """A child-type context with no parent is a wiring bug, and must raise.
+
+    This is the one place the fail-open direction is reachable: a parent-scoped
+    condition is selected by matching the target's resolved parent, so a validator
+    that omits it produces a context no scoped condition matches. The admin's
+    restriction silently stops biting -- and unlike a denial, nothing surfaces.
+
+    Raising mirrors the request-values shape check: a mis-wired validator fails in
+    the tests that exercise its route rather than in production, and fails closed if
+    one slips through.
+    """
+    for resource_type in sorted(PARENT_RESOURCE_TYPES):
+        with pytest.raises(MlflowException, match="no parent was supplied"):
+            context_for(resource_type, "child-1", ConditionScope.MUTATE)
+
+
+def test_context_for_accepts_a_child_type_with_a_parent():
+    for resource_type, parent_type in sorted(PARENT_RESOURCE_TYPES.items()):
+        context = context_for(
+            resource_type, "child-1", ConditionScope.MUTATE, parent_resource_id="parent-1"
+        )
+        assert context.parent_resource_id == "parent-1"
+        assert PARENT_RESOURCE_TYPES[resource_type] == parent_type
+
+
+@pytest.mark.parametrize("resource_type", sorted(PARENTLESS_RESOURCE_TYPES))
+def test_context_for_needs_no_parent_for_a_parentless_type(resource_type):
+    assert context_for(resource_type, "r-1", ConditionScope.MUTATE).parent_resource_id is None
+
+
+def test_context_for_allows_an_unresolved_parent_only_when_explicit():
+    """A cascade tier names no specific child, and its parent is the resource being
+    cascaded -- so the parent is always known there. The escape hatch exists for the
+    reverse case: an enumeration whose parent genuinely is not a conditionable
+    resource. It has to be asked for, so that forgetting to pass a parent cannot
+    silently take it.
+    """
+    context = context_for(
+        "run",
+        None,
+        ConditionScope.MUTATE,
+        parent_resource_id=None,
+        allow_unscoped_parent=True,
+    )
+    assert context.parent_resource_id is None
+
+
 def test_clause_describe_round_trips_readably():
     (clause,) = parse_condition("tags.lifecycle != 'prod'", NAMESPACE_RESOURCE)
     assert clause.describe() == "tags.lifecycle != 'prod'"
@@ -719,7 +786,14 @@ def test_context_allows_tags_for_every_supported_type(resource_type):
     table so a type whose shape changes does not silently stop being covered here.
     """
     shape = request_values_shape(resource_type)
-    context = context_for(resource_type, "x", ConditionScope.MUTATE, shape(tags=(("k", "v"),)))
+    context = context_for(
+        resource_type,
+        "x",
+        ConditionScope.MUTATE,
+        shape(tags=(("k", "v"),)),
+        # A child type must declare its parent, exactly as its validator does.
+        parent_resource_id="p1" if resource_type in PARENT_RESOURCE_TYPES else None,
+    )
     assert context.request.tags == (("k", "v"),)
 
 

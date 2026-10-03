@@ -279,6 +279,7 @@ from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
+    PARENT_RESOURCE_TYPES,
     SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
@@ -1628,6 +1629,7 @@ def _authorize_logged_model_id(
                 model_id,
                 ConditionScope.MUTATE,
                 LoggedModelRequestValues(tags=tags),
+                parent_resource_id=model.experiment_id,
             ),
         ),
     )
@@ -2226,6 +2228,19 @@ _CASCADE_CHILD_ENUMERATORS = {
 }
 
 
+def _parent_for(resource_type: str, parent_id: "str | None") -> "str | None":
+    """The parent id to declare for ``resource_type``, or ``None`` if it has none.
+
+    Several validators compute their resource type -- a created sub-resource, a
+    version type derived from its container, a cascade tier -- and the same call site
+    can therefore produce a child type or a parentless one. Declaring a parent for a
+    parentless type would be harmless (no scoped condition can name one, since the
+    store refuses to store it) but misleading, so it is dropped here rather than
+    special-cased at each site.
+    """
+    return parent_id if resource_type in PARENT_RESOURCE_TYPES else None
+
+
 def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[ConditionContext]":
     """MUTATE contexts for the children a cascade transitions.
 
@@ -2256,6 +2271,7 @@ def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[Condition
                 None,
                 ConditionScope.MUTATE,
                 request_values_shape(tier)(),
+                parent_resource_id=parent_id,
                 resource_id_resolver=(
                     (lambda enumerate_children=enumerator: enumerate_children(parent_id))
                     if enumerator is not None
@@ -2385,6 +2401,7 @@ def _authorize_run_id(
                 run_id,
                 ConditionScope.MUTATE,
                 RunRequestValues(tags=tags),
+                parent_resource_id=anchor[1],
             ),
         ),
     )
@@ -2458,6 +2475,7 @@ def _authorize_create_in_experiment_as(
                 None,
                 ConditionScope.CREATE,
                 request_values_shape(created_type)(tags=tags),
+                parent_resource_id=_parent_for(created_type, experiment_id),
             )
         ]
         if created_type in SUPPORTED_RESOURCE_TYPES
@@ -2553,6 +2571,7 @@ def _validate_can_update_run_and_models(
                 _get_request_param("run_id"),
                 ConditionScope.MUTATE,
                 RunRequestValues(tags=tags),
+                parent_resource_id=anchor[1],
             )
         ],
     )
@@ -2883,6 +2902,7 @@ def _authorize_version_action(
                 resource_id,
                 ConditionScope.MUTATE,
                 request_values_shape(version_type)(tags=tags),
+                parent_resource_id=name,
             )
         ],
     )
@@ -3095,6 +3115,7 @@ def _authorize_create_version(
                 None,
                 ConditionScope.CREATE,
                 request_values_shape(condition_type)(tags=tags),
+                parent_resource_id=_parent_for(condition_type, name),
             )
             for condition_type in types
         ],
@@ -4689,6 +4710,7 @@ def _authorize_trace(
                 trace_id,
                 ConditionScope.MUTATE,
                 TraceRequestValues(tags=tags),
+                parent_resource_id=trace.experiment_id,
             ),
         ),
     )
@@ -9179,6 +9201,7 @@ async def _mcp_condition_context(
             auth_resources.version_resource_id(name, version),
             ConditionScope.MUTATE,
             McpServerVersionRequestValues(tags=tags),
+            parent_resource_id=name,
         )
 
     # `versions/<version>` itself: PATCH updates that version, DELETE destroys it. Neither
@@ -9190,6 +9213,7 @@ async def _mcp_condition_context(
             auth_resources.version_resource_id(name, nested[1]),
             ConditionScope.MUTATE,
             McpServerVersionRequestValues(),
+            parent_resource_id=name,
         )
 
     # The server itself: PATCH updates it, DELETE destroys it and every version under it.
