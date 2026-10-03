@@ -1,7 +1,7 @@
 import ftplib
 import posixpath
 from ftplib import FTP
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -17,6 +17,33 @@ def ftp_mock():
 def test_artifact_uri_factory():
     repo = get_artifact_repository("ftp://user:pass@test_ftp:123/some/path")
     assert isinstance(repo, FTPArtifactRepository)
+
+
+def test_get_ftp_client(ftp_mock):
+    repo = FTPArtifactRepository("ftp://user:pass@test_ftp:123/some/path")
+
+    with patch("mlflow.store.artifact.ftp_artifact_repo.FTP", return_value=ftp_mock):
+        with repo.get_ftp_client() as client:
+            assert client is ftp_mock
+            ftp_mock.connect.assert_called_once_with("test_ftp", 123)
+            ftp_mock.login.assert_called_once_with("user", "pass")
+            ftp_mock.close.assert_not_called()
+
+    ftp_mock.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("failing_operation", ["connect", "login", "nlst"])
+def test_get_ftp_client_closes_on_error(ftp_mock, failing_operation):
+    repo = FTPArtifactRepository("ftp://user:pass@test_ftp:123/some/path")
+    error = ftplib.error_temp("421 Service not available")
+    getattr(ftp_mock, failing_operation).side_effect = error
+
+    with patch("mlflow.store.artifact.ftp_artifact_repo.FTP", return_value=ftp_mock):
+        with pytest.raises(ftplib.error_temp, match="421 Service not available") as exc:
+            repo.list_artifacts()
+
+    assert exc.value is error
+    ftp_mock.close.assert_called_once_with()
 
 
 def test_list_artifacts_empty(ftp_mock):
