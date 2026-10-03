@@ -295,7 +295,7 @@ jobs:
           path: ${{ runner.temp }}/sanitized_issue.json
           if-no-files-found: error
           retention-days: 1
-  triage:
+  triage_gate:
     needs: [issue, label, safety]
     # Scoped to bugs from maintainers for now. Manual runs skip the author check
     # since only users with write access can dispatch.
@@ -304,6 +304,45 @@ jobs:
       needs.label.outputs.type == 'bug' &&
       (github.event_name == 'workflow_dispatch' ||
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    concurrency:
+      group: triage-rate-limit-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.actor }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          WORKFLOW_FILE: ${{ job.workflow_file_path }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo 'allowed=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          workflow=${WORKFLOW_FILE##*/}
+          # The first page is enough: runs are newest first, and five matches block triage.
+          count=$(
+            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100" \
+              | jq --arg since "$since" --argjson current "$GITHUB_RUN_ID" \
+                '[.workflow_runs[] | select(.id != $current and .created_at >= $since)] | length'
+          )
+          if [ "$count" -ge 5 ]; then
+            echo 'allowed=false' >> "$GITHUB_OUTPUT"
+            echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'allowed=true' >> "$GITHUB_OUTPUT"
+          fi
+  triage:
+    needs: triage_gate
+    if: needs.triage_gate.outputs.allowed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
