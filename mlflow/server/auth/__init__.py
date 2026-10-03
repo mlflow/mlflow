@@ -994,9 +994,7 @@ def authorize(
     workspace_name = workspace if workspace is not None else get_anchor_workspace(*anchor)
     if workspace_name is None:
         return False
-    decisions = _resolve_requirement_decisions_in_workspace(
-        username, workspace_name, requirements
-    )
+    decisions = _resolve_requirement_decisions_in_workspace(username, workspace_name, requirements)
     if not all(action_met(action, permission) for permission, action in decisions):
         return False
     return authorize_on_conditions(username, workspace_name, conditions)
