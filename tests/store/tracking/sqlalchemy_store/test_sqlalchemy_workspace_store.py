@@ -1460,6 +1460,36 @@ def test_metric_bulk_operations_are_workspace_scoped(workspace_tracking_store):
             )
 
 
+@pytest.mark.parametrize("scope_size", [800, 1000])
+def test_search_logged_models_large_experiment_scope_preserves_workspace_isolation(
+    workspace_tracking_store,
+    limit_sqlite_variables,
+    scope_size,
+):
+    limit_sqlite_variables(workspace_tracking_store.engine)
+    with WorkspaceContext("team-model-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-model-a")
+        model_a = workspace_tracking_store.create_logged_model(
+            exp_a, "model-a", params=[LoggedModelParameter("scope-test", "match")]
+        )
+    with WorkspaceContext("team-model-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-model-b")
+        workspace_tracking_store.create_logged_model(
+            exp_b, "model-b", params=[LoggedModelParameter("scope-test", "match")]
+        )
+
+    experiment_ids = [exp_a, exp_b, *[str(10000 + index) for index in range(scope_size)]]
+    param_values = ["match", *[f"other-{index}" for index in range(400)]]
+    with WorkspaceContext("team-model-a"):
+        result = workspace_tracking_store.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string="params.`scope-test` IN ("
+            + ", ".join(repr(value) for value in param_values)
+            + ")",
+        )
+        assert [model.model_id for model in result] == [model_a.model_id]
+
+
 def test_logged_model_operations_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-model-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-model-a")
