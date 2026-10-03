@@ -3695,19 +3695,44 @@ def validate_can_batch_get_traces():
 
 
 def validate_can_delete_traces():
-    # Destroys the traces and, through the assessments FK (ondelete=CASCADE), their assessments,
-    # so both tiers carry ``delete`` with the experiment as fallback -- the same shape
-    # DeleteExperiment uses for the cascade that subsumes this route.
+    """DeleteTraces: ``delete`` on the trace tier, falling back to the experiment.
+
+    Destroys the traces and, through the assessments FK (ondelete=CASCADE), their assessments, so
+    both tiers carry ``delete``. The experiment baseline is ``read``, as on every other
+    sub-resource route, rather than ``delete``: a ``delete`` baseline leaves a grant on the trace
+    tier able only to SUBTRACT, never to confer the one right it exists to confer, which is not
+    what ``MANAGE`` means anywhere else in the model. ``DeleteRun`` already lets
+    ``(run, *, MANAGE)`` delete a run with experiment ``read``; the trace tier now matches.
+
+    Nothing that previously required experiment ``MANAGE`` is loosened. A caller holding no trace
+    grant falls back to experiment ``delete``, and the assessment rung still demands authority
+    over the assessments the cascade destroys, inheriting experiment ``update`` exactly as
+    ``validate_can_delete_assessment`` does. The route is therefore deliberately NOT gated
+    identically to ``DeleteExperiment`` any more: destroying an experiment's traces is a narrower
+    act than destroying the experiment, so a tier grant may authorize it.
+    """
     experiment_id = _get_request_param("experiment_id")
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     return authorize(
         authenticate_request().username,
         experiment,
         [
-            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
-            Requirement(RESOURCE_TYPE_TRACE, "*", "delete", fallback_if_no_grant=(experiment,)),
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
             Requirement(
-                RESOURCE_TYPE_ASSESSMENT, "*", "delete", fallback_if_no_grant=(experiment,)
+                RESOURCE_TYPE_TRACE,
+                "*",
+                "delete",
+                fallback_if_no_grant=(
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
+                ),
+            ),
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT,
+                "*",
+                "delete",
+                fallback_if_no_grant=(
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+                ),
             ),
         ],
     )
@@ -5255,7 +5280,7 @@ def _authorized_outside_before_request(req) -> bool:
         return True
     return any(
         pat.fullmatch(path) and m == method and handler in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS
-        for (pat, m), handler in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items()
+        for (pat, m), handler in PARAMETERIZED_AFTER_REQUEST_HANDLERS.items()
     )
 
 
@@ -6781,11 +6806,16 @@ AFTER_REQUEST_HANDLERS = {
     and handler in AFTER_REQUEST_PATH_HANDLERS.values()
 }
 
-# Precompile workspace parameterized paths for after-request handlers.
-WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
+# Precompile every parameterized path for after-request handlers. AFTER_REQUEST_HANDLERS is keyed
+# by the Flask rule, so a key like ".../traces/<trace_id>" can never equal a concrete request path
+# and its handler is unreachable by exact match. This table is the regex fallback _after_request
+# needs in order to dispatch them. Scoping it to "/workspaces/" left the response filters on every
+# other parameterized route registered but never run -- authorization still passed, so the route
+# answered 200 with the fields the filter exists to remove.
+PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
     (_re_compile_path(path), method): handler
     for (path, method), handler in AFTER_REQUEST_HANDLERS.items()
-    if "<" in path and "/workspaces/" in path
+    if "<" in path
 }
 
 # GATEWAY_SECRETS_CONFIG is excluded from the auto-built handlers above (it is an ajax gateway

@@ -4621,27 +4621,48 @@ def _grant(store, username, workspace, rows):
 
 
 @pytest.mark.parametrize(
-    ("rows", "allowed"),
+    ("rows", "traces_allowed", "experiment_allowed"),
     [
-        ([("experiment", "exp-2", MANAGE.name)], True),
+        ([("experiment", "exp-2", MANAGE.name)], True, True),
         # the trace tier decides, and neither READ nor EDIT can delete
-        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", READ.name)], False),
-        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", EDIT.name)], False),
-        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", DENY.name)], False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", READ.name)], False, False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", EDIT.name)], False, False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", DENY.name)], False, False),
         # the assessments FK is ondelete=CASCADE, so the assessment tier gates this route too
-        ([("experiment", "exp-2", MANAGE.name), ("assessment", "*", READ.name)], False),
-        ([("experiment", "exp-2", MANAGE.name), ("assessment", "*", DENY.name)], False),
-        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", MANAGE.name)], True),
+        ([("experiment", "exp-2", MANAGE.name), ("assessment", "*", READ.name)], False, False),
+        ([("experiment", "exp-2", MANAGE.name), ("assessment", "*", DENY.name)], False, False),
+        ([("experiment", "exp-2", MANAGE.name), ("trace", "*", MANAGE.name)], True, True),
+        # The trace tier CONFERS, so the two routes deliberately DIVERGE here: a tier grant
+        # authorizes destroying an experiment's traces without authorizing destroying the
+        # experiment. Deleting the traces is the narrower act.
+        ([("experiment", "exp-2", EDIT.name), ("trace", "*", MANAGE.name)], True, False),
+        (
+            [
+                ("experiment", "exp-2", READ.name),
+                ("trace", "*", MANAGE.name),
+                ("assessment", "*", MANAGE.name),
+            ],
+            True,
+            False,
+        ),
+        # ...but the cascade must still be covered: experiment READ cannot satisfy the assessment
+        # rung's inherited ``update``.
+        ([("experiment", "exp-2", READ.name), ("trace", "*", MANAGE.name)], False, False),
     ],
 )
-def test_delete_traces_is_gated_like_the_experiment_cascade(
-    workspace_permission_setup, monkeypatch, rows, allowed
+def test_delete_traces_requires_trace_tier_delete_over_a_readable_experiment(
+    workspace_permission_setup, monkeypatch, rows, traces_allowed, experiment_allowed
 ):
-    # DeleteTraces destroys the traces AND their assessments, so it must be gated exactly as
-    # DeleteExperiment is -- otherwise deleting every trace in an experiment is less protected
-    # than deleting the experiment that contains them. It previously resolved the trace tier with
-    # ACTION_NOT_DENIED and named no assessment tier at all, so (trace, READ) did not narrow
-    # experiment MANAGE and (assessment, DENY) did not stop the cascade.
+    # DeleteTraces destroys the traces AND, through the assessments FK (ondelete=CASCADE), their
+    # assessments, so both tiers carry ``delete``. The experiment baseline is ``read`` as on every
+    # other sub-resource route: a ``delete`` baseline would leave a trace-tier grant able only to
+    # subtract, never to confer, which is not what MANAGE means elsewhere in the model. With no
+    # trace grant the rung falls back to experiment ``delete``, so the first row below still needs
+    # MANAGE and nothing that previously required it is loosened.
+    #
+    # This route is therefore NOT gated identically to DeleteExperiment. The last three rows pin
+    # that divergence on purpose -- an earlier revision coupled them, which made the trace tier
+    # inert on its own destructive route.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -4651,12 +4672,12 @@ def test_delete_traces_is_gated_like_the_experiment_cascade(
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/traces/delete-traces", method="POST", json={"experiment_id": "exp-2"}
     ):
-        assert auth_module.validate_can_delete_traces() is allowed
-    # and the broad route that subsumes it agrees
+        assert auth_module.validate_can_delete_traces() is traces_allowed
+    # The broad route is asserted per row rather than assumed to agree.
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/delete", method="POST", json={"experiment_id": "exp-2"}
     ):
-        assert auth_module.validate_can_delete_experiment() is allowed
+        assert auth_module.validate_can_delete_experiment() is experiment_allowed
 
 
 def test_legacy_resolver_lets_deny_beat_a_positive_grant(workspace_permission_setup):
