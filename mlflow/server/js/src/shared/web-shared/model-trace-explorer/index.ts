@@ -73,6 +73,15 @@ export {
   type ModelTraceExplorerRunJudgeConfig,
 } from './contexts/RunJudgesContext';
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
+export { SingleChatTurnMessages as ModelTraceExplorerV2SingleChatTurnMessages } from './v2/session-view/SingleChatTurnMessages';
+export { SingleChatTurnAssessments as ModelTraceExplorerV2SingleChatTurnAssessments } from './v2/session-view/SingleChatTurnAssessments';
+export { AssessmentPaneToggle as ModelTraceExplorerV2AssessmentPaneToggle } from './v2/assessments-pane/AssessmentPaneToggle';
+export { AssessmentsPane as ModelTraceExplorerV2AssessmentsPane } from './v2/assessments-pane/AssessmentsPane';
+export { default as ModelTraceExplorerV2ResizablePane } from './v2/ModelTraceExplorerResizablePane';
+export {
+  ModelTraceExplorerViewStateProvider as ModelTraceExplorerV2ViewStateProvider,
+  useModelTraceExplorerViewState as useModelTraceExplorerV2ViewState,
+} from './v2/ModelTraceExplorerViewStateContext';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
 export { SpanModelCostBadge } from './right-pane/SpanModelCostBadge';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';

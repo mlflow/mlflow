@@ -1,17 +1,28 @@
 import { isNil } from 'lodash';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerChatMessage } from './ModelTraceExplorerChatMessage';
 import type { ModelTraceChatMessage } from '../ModelTrace.types';
 
 export function ModelTraceExplorerConversation({
   messages,
+  maxVisibleMessages,
 }: {
   messages: ModelTraceChatMessage[] | null;
+  maxVisibleMessages?: number;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
+  const [messagesExpanded, setMessagesExpanded] = useState(false);
+  const previousMessagesRef = useRef(messages);
+  if (previousMessagesRef.current !== messages) {
+    previousMessagesRef.current = messages;
+    if (messagesExpanded) {
+      setMessagesExpanded(false);
+    }
+  }
   const toolCallNameById = useMemo(() => {
     const toolCallNames = new Map<string, string>();
 
@@ -28,6 +39,11 @@ export function ModelTraceExplorerConversation({
     return null;
   }
 
+  const visibleMessageLimit = maxVisibleMessages ?? messages.length;
+  const shouldTruncateMessages = messages.length > visibleMessageLimit;
+  const visibleMessages = messagesExpanded || !shouldTruncateMessages ? messages : messages.slice(-visibleMessageLimit);
+  const hiddenMessageCount = messages.length - visibleMessages.length;
+
   return (
     <div
       css={{
@@ -36,7 +52,27 @@ export function ModelTraceExplorerConversation({
         gap: theme.spacing.sm,
       }}
     >
-      {messages.map((message, index) => (
+      {shouldTruncateMessages && (
+        <Typography.Link
+          css={{ alignSelf: 'flex-start', marginLeft: theme.spacing.xs }}
+          componentId="shared.model-trace-explorer.conversation-toggle"
+          onClick={() => setMessagesExpanded((expanded) => !expanded)}
+        >
+          {messagesExpanded ? (
+            <FormattedMessage
+              defaultMessage="Show less"
+              description="Button label to collapse conversation messages in model trace explorer"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Show {hiddenMessageCount} more"
+              description="Button label to expand and show hidden conversation messages in model trace explorer"
+              values={{ hiddenMessageCount }}
+            />
+          )}
+        </Typography.Link>
+      )}
+      {visibleMessages.map((message, index) => (
         <ModelTraceExplorerChatMessage
           css={{
             // Render each message as a left-aligned chat bubble.

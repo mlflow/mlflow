@@ -63,6 +63,11 @@ describe('useExperimentSingleChatMetrics', () => {
             input_tokens: 100,
             output_tokens: 50,
           }),
+          'mlflow.trace.cost': JSON.stringify({
+            input_cost: 0.001,
+            output_cost: 0.002,
+            total_cost: 0.003,
+          }),
         },
       },
       {
@@ -72,6 +77,11 @@ describe('useExperimentSingleChatMetrics', () => {
           'mlflow.trace.tokenUsage': JSON.stringify({
             input_tokens: 150,
             output_tokens: 75,
+          }),
+          'mlflow.trace.cost': JSON.stringify({
+            input_cost: 0.004,
+            output_cost: 0.005,
+            total_cost: 0.009,
           }),
         },
       },
@@ -83,6 +93,11 @@ describe('useExperimentSingleChatMetrics', () => {
             input_tokens: 200,
             output_tokens: 100,
           }),
+          'mlflow.trace.cost': JSON.stringify({
+            input_cost: 0.006,
+            output_cost: 0.007,
+            total_cost: 0.013,
+          }),
         },
       },
     ] as any;
@@ -90,10 +105,15 @@ describe('useExperimentSingleChatMetrics', () => {
     const { result } = renderHook(() => useExperimentSingleChatMetrics({ traceInfos }));
 
     // Assert
-    // Session tokens should be from the last trace
     expect(result.current.sessionTokens).toEqual({
-      input_tokens: 200,
-      output_tokens: 100,
+      input_tokens: 450,
+      output_tokens: 225,
+      total_tokens: 675,
+    });
+    expect(result.current.sessionCost).toEqual({
+      input_cost: 0.011,
+      output_cost: 0.014,
+      total_cost: 0.025,
     });
     // Session latency should be sum of all traces
     expect(result.current.sessionLatency).toBeCloseTo(5.0);
@@ -134,7 +154,7 @@ describe('useExperimentSingleChatMetrics', () => {
     const { result } = renderHook(() => useExperimentSingleChatMetrics({ traceInfos }));
 
     // Assert
-    expect(result.current.sessionTokens).toBeUndefined();
+    expect(result.current.sessionTokens).toEqual({});
     expect(result.current.sessionLatency).toBe(1.5);
   });
 

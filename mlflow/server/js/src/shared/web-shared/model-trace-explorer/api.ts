@@ -206,24 +206,31 @@ export const searchTracesV4 = async ({
   locations,
   filter,
   pageSize,
+  fetchAllPages = false,
 }: {
   signal?: AbortSignal;
   orderBy?: string[];
   filter?: string;
   locations?: ModelTraceSearchLocation[];
   pageSize?: number;
+  fetchAllPages?: boolean;
 }) => {
-  const payload = {
-    locations,
-    filter,
-    max_results: pageSize ?? 1000,
-    order_by: orderBy,
-  } satisfies Record<string, any>;
-  const queryResponse = await fetchAPI(getAjaxUrl('ajax-api/4.0/mlflow/traces/search'), 'POST', payload, signal);
-
-  const json = queryResponse as { trace_infos: ModelTraceInfoV3[]; next_page_token?: string };
-
-  return json?.trace_infos ?? [];
+  const traceInfos: ModelTraceInfoV3[] = [];
+  let pageToken: string | undefined;
+  do {
+    const payload = {
+      locations,
+      filter,
+      max_results: pageSize ?? 1000,
+      order_by: orderBy,
+      ...(pageToken ? { page_token: pageToken } : {}),
+    } satisfies Record<string, any>;
+    const queryResponse = await fetchAPI(getAjaxUrl('ajax-api/4.0/mlflow/traces/search'), 'POST', payload, signal);
+    const json = queryResponse as { trace_infos: ModelTraceInfoV3[]; next_page_token?: string };
+    traceInfos.push(...(json?.trace_infos ?? []));
+    pageToken = fetchAllPages ? json?.next_page_token : undefined;
+  } while (pageToken);
+  return traceInfos;
 };
 
 export const getBatchTracesV4 = async ({

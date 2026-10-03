@@ -3,7 +3,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   DragIcon,
-  SpeechBubbleIcon,
   Table,
   TableCell,
   TableHeader,
@@ -31,7 +30,6 @@ import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types'
 import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/utils/TraceUtils';
-import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import { type ColumnSizingState, flexRender, getCoreRowModel, type Row } from '@tanstack/react-table';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPath } from 'react-router';
@@ -370,24 +368,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       '.table-row-select-cell': { alignItems: 'center', paddingRight: theme.spacing.sm },
     } as const;
 
-    // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
-    // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
-    // When grouped, session + input/output are pinned left. When column reordering is enabled, columnOrder
-    // overrides the canonical order.
+    // Configured-order visible column defs + any product columns. Grouped sessions promote the Session
+    // column while preserving the relative order of every other column.
     const columns = useMemo(() => {
-      // Grouped mode always shows session + the input/output previews and pins them left, so a session
-      // header reads left-to-right as "which session → first input → last output" regardless of the
-      // user's own column visibility/order.
-      const groupedLeadingColumns: TraceColumnId[] = ['session', 'input', 'output'];
+      const groupedRequiredColumns: TraceColumnId[] = ['session', 'input', 'output'];
       const groupedVisibleColumns = isGroupedBySession
-        ? [...new Set([...visibleColumns, ...groupedLeadingColumns])]
+        ? [...new Set([...visibleColumns, ...groupedRequiredColumns])]
         : visibleColumns;
       const visibleColumnDefs = getVisibleColumnDefs(groupedVisibleColumns, extraColumns, columnOrder);
-      const groupedColumnRank = new Map<string, number>(groupedLeadingColumns.map((id, index) => [id, index]));
-      const getGroupedColumnRank = (id: string | undefined) =>
-        id === undefined ? Infinity : (groupedColumnRank.get(id) ?? Infinity);
       const orderedVisibleColumnDefs = isGroupedBySession
-        ? [...visibleColumnDefs].sort((left, right) => getGroupedColumnRank(left.id) - getGroupedColumnRank(right.id))
+        ? [
+            ...visibleColumnDefs.filter((column) => column.id === 'session'),
+            ...visibleColumnDefs.filter((column) => column.id !== 'session'),
+          ]
         : visibleColumnDefs;
       // Product-specific column ids are intentionally absent and resolve to undefined.
       const contentMaxSizes: Readonly<Record<string, number | undefined>> = getContentColumnMaxSizes(traces, intl);
@@ -637,7 +630,37 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
 
     // Empty cell matching the leading session-toggle button's width, so rows without a toggle (header,
     // skeleton, expanded trace rows) keep their columns aligned under the session rows that do.
-    const renderSessionToggleSpacer = () => <div css={{ width: sessionToggleWidth, flexShrink: 0 }} />;
+    const renderSessionToggleSpacer = (showTurnGuide = false, isLastTurn = false) => (
+      <div
+        aria-hidden
+        css={{
+          position: 'relative',
+          alignSelf: 'stretch',
+          width: sessionToggleWidth,
+          flexShrink: 0,
+          ...(showTurnGuide
+            ? {
+                '&::before': {
+                  content: "''",
+                  position: 'absolute',
+                  top: 0,
+                  bottom: isLastTurn ? '50%' : 0,
+                  left: theme.general.heightSm / 2,
+                  borderLeft: `1px solid ${theme.colors.borderDecorative}`,
+                },
+                '&::after': {
+                  content: "''",
+                  position: 'absolute',
+                  top: '50%',
+                  left: theme.general.heightSm / 2,
+                  width: theme.spacing.sm,
+                  borderTop: `1px solid ${theme.colors.borderDecorative}`,
+                },
+              }
+            : undefined),
+        }}
+      />
+    );
 
     const renderSessionPreview = (value: string, color: 'primary' | 'secondary' = 'primary') =>
       value ? (
@@ -648,31 +671,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         <Typography.Text color="secondary">-</Typography.Text>
       );
 
-    const renderSessionHeaderCell = (sessionId: string, trace: ModelTraceInfoV3) => {
-      const tag = (
-        <Tag componentId={`${COMPONENT_ID}.session-id`} title={sessionId} css={{ maxWidth: '100%' }}>
-          <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
-          <Typography.Text ellipsis>{sessionId}</Typography.Text>
-        </Tag>
-      );
-      const sessionHref = getSessionHref?.({ trace, sessionId });
-      return sessionHref ? (
-        <Link
-          componentId={`${COMPONENT_ID}.session-link`}
-          to={sessionHref}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {tag}
-        </Link>
-      ) : (
-        tag
-      );
-    };
-
     const renderTraceRow = (
       row: Row<ModelTraceInfoV3>,
       includeSessionToggleSpacer = false,
       sessionTurnNumber?: number,
+      isLastSessionTurn = false,
     ) => {
       const isSelected = row.id === selectedTraceId;
       const isBulkChecked = selectedForBulk.has(row.original.trace_id);
@@ -695,7 +698,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           style={dataRowStyle}
           css={{
             cursor: 'pointer',
-            backgroundColor: isSelected ? theme.colors.tableBackgroundUnselectedHover : undefined,
+            backgroundColor: isSelected
+              ? theme.colors.tableBackgroundUnselectedHover
+              : sessionTurnNumber !== undefined
+                ? theme.colors.backgroundPrimary
+                : undefined,
             ...rowPaddingCss,
             ...dataSelectCellAlign,
           }}
@@ -713,7 +720,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
             )}
             {...stopPropagationProps}
           />
-          {includeSessionToggleSpacer && renderSessionToggleSpacer()}
+          {includeSessionToggleSpacer && renderSessionToggleSpacer(sessionTurnNumber !== undefined, isLastSessionTurn)}
           {row.getVisibleCells().map((cell) => (
             <TableCell key={cell.id} css={{ verticalAlign: 'middle' }} style={columnStyles.get(cell.column.id)}>
               {cell.column.id === 'session' && sessionTurnNumber !== undefined ? (
@@ -865,8 +872,17 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                             style={rowWidthStyle}
                             css={{
                               cursor: onSessionSelected ? 'pointer' : undefined,
+                              fontWeight: theme.typography.typographyBoldFontWeight,
                               ...rowPaddingCss,
                               ...dataSelectCellAlign,
+                              '&&.table-isHeader': { position: 'static' },
+                              '&& > *': {
+                                borderTop: `1px solid ${theme.colors.border}`,
+                                borderBottom: `1px solid ${theme.colors.border}`,
+                              },
+                              '&&:hover > *': onSessionSelected
+                                ? { backgroundColor: theme.colors.tableBackgroundUnselectedHover }
+                                : undefined,
                             }}
                             onClick={
                               onSessionSelected
@@ -931,8 +947,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                                 >
                                   {/* Session summary per column: the session tag, first-turn input, last-turn
                                       output/state, first-turn time, else a product-owned aggregate (or blank). */}
-                                  {header.column.id === 'session'
-                                    ? renderSessionHeaderCell(sessionId, rows[0].original)
+                                  {header.column.id === 'session' && firstCell
+                                    ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                     : header.column.id === 'input'
                                       ? renderSessionPreview(getTraceInfoInputs(rows[0].original), 'secondary')
                                       : header.column.id === 'output'
@@ -953,7 +969,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                               );
                             })}
                           </TableRow>
-                          {isExpanded && rows.map((row, index) => renderTraceRow(row, true, index + 1))}
+                          {isExpanded &&
+                            rows.map((row, index) => renderTraceRow(row, true, index + 1, index === rows.length - 1))}
                         </Fragment>
                       );
                     })
@@ -1064,8 +1081,17 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                           style={rowWidthStyle}
                           css={{
                             cursor: onSessionSelected ? 'pointer' : undefined,
+                            fontWeight: theme.typography.typographyBoldFontWeight,
                             ...rowPaddingCss,
                             ...dataSelectCellAlign,
+                            '&&.table-isHeader': { position: 'static' },
+                            '&& > *': {
+                              borderTop: `1px solid ${theme.colors.border}`,
+                              borderBottom: `1px solid ${theme.colors.border}`,
+                            },
+                            '&&:hover > *': onSessionSelected
+                              ? { backgroundColor: theme.colors.tableBackgroundUnselectedHover }
+                              : undefined,
                           }}
                           onClick={
                             onSessionSelected
@@ -1130,8 +1156,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                               >
                                 {/* Session summary per column: the session tag, first-turn input, last-turn
                                     output/state, first-turn time, else a product-owned aggregate (or blank). */}
-                                {header.column.id === 'session'
-                                  ? renderSessionHeaderCell(sessionId, rows[0].original)
+                                {header.column.id === 'session' && firstCell
+                                  ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                   : header.column.id === 'input'
                                     ? renderSessionPreview(getTraceInfoInputs(rows[0].original), 'secondary')
                                     : header.column.id === 'output'
@@ -1149,7 +1175,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                             );
                           })}
                         </TableRow>
-                        {isExpanded && rows.map((row, index) => renderTraceRow(row, true, index + 1))}
+                        {isExpanded &&
+                          rows.map((row, index) => renderTraceRow(row, true, index + 1, index === rows.length - 1))}
                       </Fragment>
                     );
                   })

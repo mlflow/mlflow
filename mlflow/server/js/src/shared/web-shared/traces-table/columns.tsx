@@ -5,6 +5,9 @@ import { COLUMN_SIZES } from './constants';
 import { TRACE_COLUMN_LABELS } from './columnLabels';
 import type { SessionHrefGetter, TraceColumnId, TraceHrefGetter, TraceTableColumn } from './types';
 import {
+  SessionCostCell,
+  SessionDurationCell,
+  SessionTokensCell,
   TraceCostCell,
   TraceDurationCell,
   TraceIdCell,
@@ -19,7 +22,6 @@ import {
   TraceTagsCell,
   TraceMetadataCell,
   TraceTokensCell,
-  SessionTokensCell,
   TraceUserCell,
 } from './TraceCell';
 
@@ -149,6 +151,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.duration,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.duration} />,
     cell: (ctx) => <TraceDurationCell trace={ctx.row.original} />,
+    renderSessionCell: (traces) => <SessionDurationCell traces={traces} />,
   },
   {
     id: 'state',
@@ -180,6 +183,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.cost,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.cost} />,
     cell: (ctx) => <TraceCostCell trace={ctx.row.original} />,
+    renderSessionCell: (traces) => <SessionCostCell traces={traces} />,
   },
   {
     id: 'tags',

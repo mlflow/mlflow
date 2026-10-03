@@ -15,9 +15,11 @@ const isExpectationAssessment = (assessment: Assessment): assessment is Expectat
 export const SingleChatTurnAssessments = ({
   trace,
   getAssessmentTitle,
+  visibleItemsCount = ASSESSMENT_DISPLAY_LIMIT,
 }: {
   trace: ModelTrace;
   getAssessmentTitle: (assessmentName: string) => string;
+  visibleItemsCount?: number;
 }): JSX.Element | null => {
   const { theme } = useDesignSystemTheme();
   const info = isV3ModelTraceInfo(trace.info) ? trace.info : null;
@@ -55,7 +57,7 @@ export const SingleChatTurnAssessments = ({
       <Overflow
         noMargin
         css={{ gap: theme.spacing.sm, width: '100%', minWidth: 0, maxWidth: '100%' }}
-        visibleItemsCount={ASSESSMENT_DISPLAY_LIMIT}
+        visibleItemsCount={visibleItemsCount}
       >
         {assessmentGroups.map((assessments) => {
           // In this preview, we only show the most recent assessment for each assessment name

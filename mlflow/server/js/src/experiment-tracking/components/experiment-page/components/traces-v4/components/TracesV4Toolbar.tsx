@@ -1,8 +1,19 @@
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { SchemaIcon, ToggleButton, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ForkHorizontalIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  SpeechBubbleIcon,
+  Tooltip,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
+import {
+  DetectIssuesButton,
+  shouldEnableSessionGrouping,
+  shouldEnableSessionViewInTraceDrawer,
+} from '@databricks/web-shared/genai-traces-table';
 import {
   TraceFilterButton,
   type ColumnSelectorOption,
@@ -163,7 +174,17 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
+  const sessionDrawerViewEnabled = shouldEnableSessionViewInTraceDrawer();
+  const sessionGroupingEnabled = shouldEnableSessionGrouping();
   const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
+  const tracesViewLabel = intl.formatMessage({
+    defaultMessage: 'Traces',
+    description: 'Trace table view switcher option',
+  });
+  const sessionsViewLabel = intl.formatMessage({
+    defaultMessage: 'Sessions',
+    description: 'Session table view switcher option',
+  });
 
   // While grouped by session the table force-shows the Session column, so lock its column-selector
   // toggle (checked + disabled) rather than letting an unchecking click silently no-op.
@@ -295,10 +316,45 @@ export const useTracesV4ToolbarSlots = ({
   // Note: the Databricks build disables Delete for UC-backed traces (with a "delete from the Delta
   // table instead" tooltip). OSS traces are always deletable via the standard path, so that gate is
   // dropped here and Delete is always enabled.
+  const tableViewControl = (
+    <SegmentedControlGroup
+      name="mlflow.traces-v4.table-view"
+      componentId="mlflow.traces-v4.table-view"
+      value={isGroupedBySession ? 'sessions' : 'traces'}
+      newStyleFlagOverride
+    >
+      <SegmentedControlButton
+        value="traces"
+        aria-label={tracesViewLabel}
+        onClick={() => onToggleSessionGrouping(false)}
+        icon={
+          <Tooltip componentId="mlflow.traces-v4.table-view-traces-tooltip" content={tracesViewLabel} delayDuration={0}>
+            <ForkHorizontalIcon />
+          </Tooltip>
+        }
+      />
+      <SegmentedControlButton
+        value="sessions"
+        aria-label={sessionsViewLabel}
+        onClick={() => onToggleSessionGrouping(true)}
+        icon={
+          <Tooltip
+            componentId="mlflow.traces-v4.table-view-sessions-tooltip"
+            content={sessionsViewLabel}
+            delayDuration={0}
+          >
+            <SpeechBubbleIcon />
+          </Tooltip>
+        }
+      />
+    </SegmentedControlGroup>
+  );
+
   return {
     leftControls: (
       <>
         {savedViewsButton}
+        {sessionDrawerViewEnabled && sessionGroupingEnabled && tableViewControl}
         <TracesV4DateSelector experimentId={experimentId} />
       </>
     ),
@@ -311,32 +367,6 @@ export const useTracesV4ToolbarSlots = ({
           onClearAll={onClearFilters}
           activeCount={activeFilterCount}
         />
-        {shouldEnableSessionGrouping() && (
-          <Tooltip
-            componentId="mlflow.traces-v4.group-by-session.tooltip"
-            content={intl.formatMessage({
-              defaultMessage: 'Group traces by session',
-              description: 'Tooltip for the group by session button in the V4 traces table toolbar',
-            })}
-          >
-            <ToggleButton
-              componentId="mlflow.traces-v4.group-by-session"
-              pressed={isGroupedBySession}
-              onPressedChange={onToggleSessionGrouping}
-              icon={<SchemaIcon />}
-              // Icon-only ToggleButtons render borderless here; managed's `forceWithBorder` prop
-              // doesn't exist in this design-system version, so restore the border manually.
-              css={{
-                border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-                boxShadow: theme.shadows.xs,
-              }}
-              aria-label={intl.formatMessage({
-                defaultMessage: 'Group traces by session',
-                description: 'Accessible label for the group by session button in the V4 traces table toolbar',
-              })}
-            />
-          </Tooltip>
-        )}
         <TracesV4DisplayButton
           onResetColumns={onResetColumns}
           sortColumnLabels={COLUMN_LABELS}
@@ -353,6 +383,7 @@ export const useTracesV4ToolbarSlots = ({
           }}
           columnGroups={columnGroups}
         />
+        {!sessionDrawerViewEnabled && sessionGroupingEnabled && tableViewControl}
         {hasSelection && (
           <TracesV4ActionsButton
             selectionCount={selectionCount}

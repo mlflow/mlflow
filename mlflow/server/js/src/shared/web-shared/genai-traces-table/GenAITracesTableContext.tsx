@@ -28,6 +28,9 @@ export interface GenAITracesTableContextValue<T> {
   /** Whether traces are grouped by session */
   isGroupedBySession: boolean;
 
+  /** Fetches a full trace body for surfaces composed inside the table provider. */
+  getTrace?: GetTraceFunction;
+
   /**
    * Drawer component to use when rendering the trace UI & comparison views.
    * In OSS, we pass in the AssistantAwareDrawer component, but otherwise it
