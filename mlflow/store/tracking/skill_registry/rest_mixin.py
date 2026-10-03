@@ -10,6 +10,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.rest_utils import http_request, verify_rest_response
+from mlflow.utils.validation import (
+    _validate_organization_name,
+    _validate_skill_name,
+    _validate_skill_version,
+)
 
 _SKILL_API_PREFIX = "/api/3.0/mlflow/skills"
 
@@ -22,6 +27,8 @@ def _encode_path_param(value: str) -> str:
 
 
 def _skill_path(name: str, organization: str = "") -> str:
+    _validate_skill_name(name)
+    _validate_organization_name(organization)
     if organization:
         return f"/@{_encode_path_param(organization)}/{_encode_path_param(name)}"
     return f"/{_encode_path_param(name)}"
@@ -178,10 +185,9 @@ class RestSkillRegistryMixin:
         version: int,
         organization: str = "",
     ) -> SkillVersion:
+        _validate_skill_version(version)
         return SkillVersion.from_dict(
-            self._skill_request(
-                "GET", f"{_skill_path(name, organization)}/versions/{_encode_path_param(version)}"
-            )
+            self._skill_request("GET", f"{_skill_path(name, organization)}/versions/{version}")
         )
 
     def get_skill_version_by_alias(
@@ -235,13 +241,14 @@ class RestSkillRegistryMixin:
         status: SkillStatus | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> SkillVersion:
+        _validate_skill_version(version)
         body = {}
         if status is not NOT_SET:
             body["status"] = str(status) if status is not None else None
         return SkillVersion.from_dict(
             self._skill_request(
                 "PATCH",
-                f"{_skill_path(name, organization)}/versions/{_encode_path_param(version)}",
+                f"{_skill_path(name, organization)}/versions/{version}",
                 json=body,
             )
         )
@@ -253,9 +260,8 @@ class RestSkillRegistryMixin:
         organization: str = "",
         last_updated_by: str | None = None,
     ) -> None:
-        self._skill_request(
-            "DELETE", f"{_skill_path(name, organization)}/versions/{_encode_path_param(version)}"
-        )
+        _validate_skill_version(version)
+        self._skill_request("DELETE", f"{_skill_path(name, organization)}/versions/{version}")
 
     def set_skill_tag(
         self,
@@ -286,9 +292,10 @@ class RestSkillRegistryMixin:
         value: str,
         organization: str = "",
     ) -> None:
+        _validate_skill_version(version)
         self._skill_request(
             "POST",
-            f"{_skill_path(name, organization)}/versions/{_encode_path_param(version)}/tags",
+            f"{_skill_path(name, organization)}/versions/{version}/tags",
             json={"key": key, "value": value},
         )
 
@@ -299,10 +306,10 @@ class RestSkillRegistryMixin:
         key: str,
         organization: str = "",
     ) -> None:
+        _validate_skill_version(version)
         self._skill_request(
             "DELETE",
-            f"{_skill_path(name, organization)}/versions/{_encode_path_param(version)}"
-            f"/tags/{_encode_path_param(key)}",
+            f"{_skill_path(name, organization)}/versions/{version}/tags/{_encode_path_param(key)}",
         )
 
     def set_skill_alias(
