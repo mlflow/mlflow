@@ -3618,6 +3618,14 @@ def _trace_search_selects_on_tiers(
 def _authorize_trace_search(
     experiment_ids, *filter_strings: str, order_by: "Sequence[str]" = ()
 ) -> bool:
+    """Trace search requires read on each named experiment, unlike its sibling listings.
+
+    Every listing built on ``_role_based_read_predicate`` -- experiments, runs, logged models,
+    registered models, model versions -- falls back to the workspace tier at the row action, so
+    ``(workspace, "*", USE)`` alone lists them all while their point routes still return 403.
+    Trace search resolves experiment read directly instead, so it denies that caller; the
+    divergence is deliberate, since closing it on the others would deny callers master allows.
+    """
     resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
     if resolved is None:
         return False
