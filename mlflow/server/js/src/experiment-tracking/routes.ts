@@ -32,6 +32,7 @@ export enum PageId {
   experimentPageTabPlayground = 'mlflow.experiment.tab.playground',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
   experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
+  experimentPageTabSettings = 'mlflow.experiment.tab.settings',
   // Child routes for experiment page - end
   experimentPageSearch = 'mlflow.experiment.details.search',
   compareExperimentsSearch = 'mlflow.experiment.compare',
@@ -96,6 +97,9 @@ export class RoutePaths {
   }
   static get experimentPageTabReviewQueue() {
     return createMLflowRoutePath('/experiments/:experimentId/review-queue');
+  }
+  static get experimentPageTabSettings() {
+    return createMLflowRoutePath('/experiments/:experimentId/settings');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {

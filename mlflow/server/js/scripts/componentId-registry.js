@@ -1099,6 +1099,14 @@ module.exports = {
   "mlflow.experiment_list_view.tag_filter.trigger": "",
 
   // -- mlflow.experiment_page --
+  "mlflow.experiment_page.breadcrumb.copy_link": "",
+  "mlflow.experiment_page.breadcrumb.experiment": "",
+  "mlflow.experiment_page.breadcrumb.experiment_name_tooltip": "",
+  "mlflow.experiment_page.breadcrumb.experiments": "",
+  "mlflow.experiment_page.breadcrumb.leaf_name_tooltip": "",
+  "mlflow.experiment_page.breadcrumb.settings": "",
+  "mlflow.experiment_page.breadcrumb.settings_tooltip": "",
+  "mlflow.experiment_page.breadcrumb.tab": "",
   "mlflow.experiment_page.grouped_runs.open_runs_in_new_tab": "",
   "mlflow.experiment_page.mode.artifact": "",
   "mlflow.experiment_page.runs.add_new_tag": "",
@@ -1127,6 +1135,12 @@ module.exports = {
   "mlflow.experiment_page.sort_select_v2.sort_desc": "",
   "mlflow.experiment_page.sort_select_v2.toggle": "",
   "mlflow.experiment_page.table_resizer.collapse": "",
+
+  // -- mlflow.experiment_settings --
+  "mlflow.experiment_settings.delete": "",
+  "mlflow.experiment_settings.load_error": "",
+  "mlflow.experiment_settings.name": "",
+  "mlflow.experiment_settings.name_retry": "",
 
   // -- mlflow.experiment_side_nav --
   "mlflow.experiment_side_nav.assistant_beta_tag": "",

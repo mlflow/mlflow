@@ -67,6 +67,8 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
       return <TextBoxIcon />;
     case ExperimentPageTabName.ReviewQueue:
       return <UserGroupIcon />;
+    case ExperimentPageTabName.Settings:
+      return <BeakerIcon />;
     default:
       return <BeakerIcon />;
   }
@@ -192,6 +194,13 @@ const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
         <FormattedMessage
           defaultMessage="Review"
           description="Label for the review tab in the MLflow experiment navbar"
+        />
+      );
+    case ExperimentPageTabName.Settings:
+      return (
+        <FormattedMessage
+          defaultMessage="Settings"
+          description="Label for the settings page in the MLflow experiment navigation"
         />
       );
     default:

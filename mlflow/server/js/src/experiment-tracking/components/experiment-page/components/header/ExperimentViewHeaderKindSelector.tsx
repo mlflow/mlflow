@@ -56,8 +56,10 @@ export const ExperimentViewHeaderKindSelector = ({
 
   const visibleLabel = getVisibleLabel(currentValue, readOnly);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const suppressPopoverForSilentGenAI = inferredExperimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
   const [displayInferencePopover, setDisplayInferencePopover] = useState(
-    Boolean(inferredExperimentKind && !readOnly && isEditableExperimentKind(inferredExperimentKind)),
+    !suppressPopoverForSilentGenAI &&
+      Boolean(inferredExperimentKind && !readOnly && isEditableExperimentKind(inferredExperimentKind)),
   );
 
   // Determines if we should render a dropdown or just a tag.

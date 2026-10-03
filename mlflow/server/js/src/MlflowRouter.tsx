@@ -11,6 +11,7 @@ import {
   createLazyRouteElement,
   useLocation,
   useNavigate,
+  usePageManagesDocumentTitle,
   useParams,
   usePageTitle,
   useSearchParams,
@@ -137,7 +138,8 @@ const MlflowRootRoute = () => {
   useInitializeExperimentRunColors();
 
   const routeTitle = usePageTitle();
-  useDocumentTitle({ title: routeTitle });
+  const pageManagesDocumentTitle = usePageManagesDocumentTitle();
+  useDocumentTitle({ skip: pageManagesDocumentTitle, title: routeTitle });
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { experimentId } = useParams();
