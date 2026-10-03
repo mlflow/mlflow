@@ -2,6 +2,7 @@ import os
 from pathlib import PurePosixPath
 from tempfile import TemporaryDirectory
 
+from mlflow.entities.skill import Skill
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
@@ -15,6 +16,7 @@ from mlflow.genai.skill_content.skill_md import (
     inspect_skill_dir,
 )
 from mlflow.genai.skill_content.sources import resolve_source_type
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.validation import (
@@ -22,6 +24,45 @@ from mlflow.utils.validation import (
     _validate_organization_name,
     _validate_skill_name,
 )
+
+
+@experimental(version="3.16.0")
+def search_skills(
+    *,
+    filter_string: str | None = None,
+    max_results: int = 100,
+    order_by: list[str] | None = None,
+    page_token: str | None = None,
+) -> PagedList[Skill]:
+    """Search registered skills with optional filtering, ordering, and pagination.
+
+    Args:
+        filter_string: SQL-like filter expression, such as ``"organization = 'acme'"``.
+        max_results: Maximum number of skills to return in one page. Defaults to 100.
+        order_by: Fields and optional sort directions, such as ``["name ASC"]``.
+        page_token: Token from a previous page's ``token`` attribute. Use the same
+            filter and ordering when requesting subsequent pages.
+
+    Returns:
+        A PagedList of Skill entities. Its ``token`` is ``None`` when no more results remain.
+
+    Example:
+        .. code-block:: python
+
+            import mlflow
+
+            skills = mlflow.genai.search_skills(
+                filter_string="organization = 'acme'", order_by=["name ASC"]
+            )
+            for skill in skills:
+                print(skill.name, skill.latest_version)
+    """
+    return MlflowClient().search_skills(
+        filter_string=filter_string,
+        max_results=max_results,
+        order_by=order_by,
+        page_token=page_token,
+    )
 
 
 @experimental(version="3.16.0")

@@ -23,7 +23,7 @@ from mlflow.entities.skill_source import (
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.environment_variables import MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE
 from mlflow.exceptions import MlflowException
-from mlflow.genai import import_skills, register_skill
+from mlflow.genai import import_skills, register_skill, search_skills
 from mlflow.genai.skill_content.archive import package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.skill_md import inspect_skill_dir
@@ -216,21 +216,45 @@ def test_parent_organizations_are_independent(registry_client):
     assert client.get_skill(name="review").description == "unscoped"
 
 
-def test_search_skills_filters_ordering_and_pagination(registry_client):
+@pytest.mark.parametrize("api", ["client", "genai"])
+def test_search_skills_filters_ordering_and_pagination(registry_client, api):
     client, _ = registry_client
-    assert client.search_skills() == []
+    search = client.search_skills if api == "client" else search_skills
+    empty = search()
+    assert isinstance(empty, PagedList)
+    assert empty == []
+    assert empty.token is None
     for name in ["alpha", "bravo", "charlie"]:
         client.create_skill(name=name, organization="acme")
     client.create_skill(name="other")
     query = {"filter_string": "organization = 'acme'", "order_by": ["name DESC"], "max_results": 2}
-    first = client.search_skills(**query)
+    first = search(**query)
     assert isinstance(first, PagedList)
     assert [skill.name for skill in first] == ["charlie", "bravo"]
     assert first.token is not None
     assert first[0] == client.get_skill(name="charlie", organization="acme")
-    second = client.search_skills(**query, page_token=first.token)
+    second = search(**query, page_token=first.token)
+    assert isinstance(second, PagedList)
     assert [skill.name for skill in second] == ["alpha"]
     assert second.token is None
+
+
+@pytest.mark.parametrize("api", ["client", "genai"])
+@pytest.mark.parametrize(
+    ("query", "message"),
+    [
+        ({"page_token": "invalid-token"}, "[Pp]age.token"),
+        ({"filter_string": "unknown_field = 'value'"}, "unknown_field"),
+        ({"order_by": ["unknown_field ASC"]}, "unknown_field"),
+        ({"max_results": 0}, "max_results"),
+    ],
+)
+def test_search_skills_propagates_server_errors(registry_client, api, query, message):
+    client, _ = registry_client
+    search = client.search_skills if api == "client" else search_skills
+    with pytest.raises(MlflowException, match=message) as exc_info:
+        search(**query)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_parent_crud_propagates_server_errors(registry_client):
@@ -243,9 +267,6 @@ def test_parent_crud_propagates_server_errors(registry_client):
         with pytest.raises(MlflowException, match="not found") as exc_info:
             method(name="missing")
         assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
-    with pytest.raises(MlflowException, match="[Pp]age.token") as exc_info:
-        client.search_skills(page_token="invalid-token")
-    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize("method", ["create_skill", "get_skill", "update_skill", "search_skills"])
