@@ -60,7 +60,7 @@ const ShowArtifactImageView = ({
 
   return (
     imageUrl && (
-      <div css={{ flex: 1 }}>
+         <div css={{ flex: 1, minWidth: 0 }}>
         <div css={classNames.imageOuterContainer}>
           {isLoading && <LegacySkeleton active />}
           <div css={isLoading ? classNames.hidden : classNames.imageWrapper}>
@@ -86,12 +86,12 @@ const ShowArtifactImageView = ({
 const classNames = {
   imageOuterContainer: {
     padding: '10px',
-    overflow: 'scroll',
+    overflow: 'auto',
     // Let's keep images (esp. transparent PNGs) on the white background regardless of the theme
     background: 'white',
     minHeight: '100%',
   },
-  imageWrapper: { display: 'inline-block' },
+    imageWrapper: { display: 'block', maxWidth: '100%' },
   image: {
     maxWidth: '100%',
     height: 'auto',
