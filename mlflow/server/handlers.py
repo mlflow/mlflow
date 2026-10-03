@@ -3402,6 +3402,12 @@ def _create_model_version():
             _validate_source_model(source, model_id)
         else:
             _validate_source_run(source, run_id)
+
+    # create_model_version resolves models:/ URIs via MlflowClient(), which uses
+    # the process-global tracking URI. Registry-only workers never call
+    # _get_tracking_store(), so that URI stays the default ./mlruns path and
+    # get_logged_model 500s (mlflow#17812). Initialize tracking first.
+    _get_tracking_store()
     store = _get_model_registry_store()
     model_version = store.create_model_version(
         name=request_message.name,
