@@ -147,6 +147,21 @@ def create_run(
             )
         user_tags[MLFLOW_RUN_NOTE] = description
 
+    # The parent may be named by ``parent_run_id`` or by the ``mlflow.parentRunId`` tag; both are
+    # resolved to one run and validated the same way, as the authorization rule reads them.
+    tag_parent_run_id = user_tags.get(MLFLOW_PARENT_RUN_ID)
+    if (
+        parent_run_id is not None
+        and tag_parent_run_id is not None
+        and parent_run_id != tag_parent_run_id
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"parent_run_id '{parent_run_id}' and the {MLFLOW_PARENT_RUN_ID} tag "
+            f"'{tag_parent_run_id}' name different runs."
+        )
+    if parent_run_id is None:
+        parent_run_id = tag_parent_run_id
+
     client = MlflowClient()
     if parent_run_id is not None:
         parent_run = client.get_run(parent_run_id)

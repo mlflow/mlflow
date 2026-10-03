@@ -85,15 +85,44 @@ def test_create_run_over_http_without_identity_does_not_use_the_server_user(
     assert MLFLOW_USER not in run.data.tags
 
 
-def test_create_run_nests_under_parent(experiment_id):
+@pytest.mark.parametrize(
+    "parent_arguments",
+    [
+        lambda parent: {"parent_run_id": parent},
+        lambda parent: {"tags": {MLFLOW_PARENT_RUN_ID: parent}},
+        lambda parent: {"tags": [f"{MLFLOW_PARENT_RUN_ID}={parent}"]},
+    ],
+    ids=["argument", "tag-object", "tag-list"],
+)
+def test_create_run_nests_under_parent(experiment_id, parent_arguments):
     parent = create_run(experiment_id=experiment_id)
-    child = create_run(experiment_id=experiment_id, parent_run_id=parent.run_id)
+    child = create_run(experiment_id=experiment_id, **parent_arguments(parent.run_id))
     tags = MlflowClient().get_run(child.run_id).data.tags
     assert tags[MLFLOW_PARENT_RUN_ID] == parent.run_id
 
+    # Every way of naming the parent goes through the same validation.
+    with pytest.raises(MlflowException, match="no-such-run"):
+        create_run(experiment_id=experiment_id, **parent_arguments("no-such-run"))
     delete_run(parent.run_id)
     with pytest.raises(MlflowException, match="deleted state"):
-        create_run(experiment_id=experiment_id, parent_run_id=parent.run_id)
+        create_run(experiment_id=experiment_id, **parent_arguments(parent.run_id))
+
+
+def test_create_run_rejects_a_parent_argument_and_tag_that_disagree(experiment_id):
+    parent = create_run(experiment_id=experiment_id)
+    other = create_run(experiment_id=experiment_id)
+    with pytest.raises(MlflowException, match="name different runs"):
+        create_run(
+            experiment_id=experiment_id,
+            parent_run_id=parent.run_id,
+            tags={MLFLOW_PARENT_RUN_ID: other.run_id},
+        )
+    child = create_run(
+        experiment_id=experiment_id,
+        parent_run_id=parent.run_id,
+        tags={MLFLOW_PARENT_RUN_ID: parent.run_id},
+    )
+    assert MlflowClient().get_run(child.run_id).data.tags[MLFLOW_PARENT_RUN_ID] == parent.run_id
 
 
 @pytest.mark.parametrize(
