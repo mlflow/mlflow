@@ -1140,7 +1140,7 @@ def test_update_mcp_server_version_invalid_transition(store):
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-def test_update_mcp_server_version_status(store):
+def test_update_mcp_server_version_status_without_last_updated_by(store):
     store.create_mcp_server_version(_server_json())
     updated = store.update_mcp_server_version(
         "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE

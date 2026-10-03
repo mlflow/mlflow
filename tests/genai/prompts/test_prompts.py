@@ -1174,7 +1174,7 @@ def test_prompt_associate_with_run_chat_format():
     assert linked_prompts[0]["version"] == "1"
 
 
-def test_register_prompt_with_pydantic_response_format():
+def test_register_and_load_prompt_with_pydantic_response_format():
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
@@ -1193,7 +1193,7 @@ def test_register_prompt_with_pydantic_response_format():
     assert prompt.commit_message == "Test Pydantic response format"
 
 
-def test_register_prompt_with_dict_response_format():
+def test_register_and_load_prompt_with_dict_response_format():
     response_format = {
         "type": "object",
         "properties": {
@@ -1280,7 +1280,7 @@ def test_register_prompt_complex_chat_template():
     assert formatted == expected
 
 
-def test_register_prompt_with_none_response_format():
+def test_register_and_load_prompt_with_none_response_format():
     # Register prompt with None response format
     mlflow.genai.register_prompt(
         name="test_none_response", template="Hello {{name}}!", response_format=None
@@ -1291,7 +1291,7 @@ def test_register_prompt_with_none_response_format():
     assert prompt.response_format is None
 
 
-def test_register_prompt_with_single_message_chat():
+def test_register_and_load_prompt_with_single_message_chat():
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     # Register single message chat prompt
@@ -1299,12 +1299,12 @@ def test_register_prompt_with_single_message_chat():
 
     # Load and verify
     prompt = mlflow.genai.load_prompt("test_single_message", version=1)
-    not prompt.is_text_prompt
+    assert not prompt.is_text_prompt
     assert prompt.template == chat_template
     assert prompt.variables == {"name"}
 
 
-def test_register_prompt_with_multiple_variables_in_chat():
+def test_register_and_load_prompt_with_multiple_variables_in_chat():
     chat_template = [
         {
             "role": "system",
@@ -1326,7 +1326,7 @@ def test_register_prompt_with_multiple_variables_in_chat():
     assert prompt.variables == expected_variables
 
 
-def test_register_prompt_with_mixed_content_types():
+def test_register_and_load_prompt_with_mixed_content_types():
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -1338,12 +1338,12 @@ def test_register_prompt_with_mixed_content_types():
 
     # Load and verify
     prompt = mlflow.genai.load_prompt("test_mixed_content", version=1)
-    not prompt.is_text_prompt
+    assert not prompt.is_text_prompt
     assert prompt.template == chat_template
     assert prompt.variables == {"name"}
 
 
-def test_register_prompt_with_nested_variables():
+def test_register_and_load_prompt_with_nested_variables():
     chat_template = [
         {
             "role": "system",
