@@ -524,11 +524,16 @@ def _as_str_mapping(mapping) -> Mapping[str, str]:
 def _tags_of(entity) -> Mapping[str, str]:
     """Project tags from ``._tags``, not the public ``tags`` property.
 
-    ``RegisteredModel.tags`` **strips** the prompt marker ("should not be user-facing"),
-    so reading the property would make a resource condition on
-    ``tags.mlflow.prompt.is_prompt`` silently see nothing -- and D4 permits exactly that
-    key on the resource side. ``SearchUtils`` reads ``._tags`` for the same reason,
-    with the reasoning in a comment: "consider all tags including reserved ones".
+    ``SearchUtils`` reads ``._tags`` with the reasoning in a comment -- "consider all tags
+    including reserved ones" -- and matching it is what keeps a resource condition selecting
+    exactly the resources the same filter string would return in a search box. The public
+    ``RegisteredModel.tags`` **strips** the prompt marker ("should not be user-facing"), so
+    reading the property would diverge from search on an entity carrying it.
+
+    D4 now rejects a ``tags.mlflow.*`` clause at authoring in both namespaces, so no stored
+    clause can name a reserved key and the two projections agree on every key a condition
+    can actually reach. ``._tags`` is kept anyway: search parity is the invariant, and it
+    should not depend on which keys the authoring layer happens to allow today.
 
     Keys and values are coerced to ``str`` for the reason given in :func:`_as_str_mapping`.
     """

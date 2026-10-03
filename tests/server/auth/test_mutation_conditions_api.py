@@ -199,14 +199,15 @@ def test_reserved_tag_key_rejected_in_value_condition(client, monkeypatch, role)
             client.add_mutation_conditions(role.id, "run", "tag_key = 'mlflow.runName'")
 
 
-def test_reserved_tag_key_permitted_in_target_condition(client, monkeypatch, role):
+def test_reserved_tag_key_rejected_in_target_condition_too(client, monkeypatch, role):
+    """D4 is symmetric: a reserved key is refused in either namespace."""
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
-        created = client.add_mutation_conditions(
-            role.id,
-            "registered_model",
-            target_condition="tags.`mlflow.prompt.is_prompt` = 'true'",
-        )
-    assert created.target_condition == "tags.`mlflow.prompt.is_prompt` = 'true'"
+        with pytest.raises(MlflowException, match="reserved tag keys"):
+            client.add_mutation_conditions(
+                role.id,
+                "registered_model",
+                target_condition="tags.`mlflow.prompt.is_prompt` = 'true'",
+            )
 
 
 # ---- Authorization ---------------------------------------------------------

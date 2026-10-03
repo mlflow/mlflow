@@ -40,7 +40,6 @@ from sqlparse.sql import Comparison, Parenthesis, Statement, TokenList
 from sqlparse.tokens import Token as TokenType
 
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.search_utils import SearchUtils, _join_in_comparison_tokens
 
@@ -649,30 +648,46 @@ def _parse_comparison(comparison: Comparison, namespace: str) -> Clause:
     value = _parse_value(value_token, comparator, raw_lhs)
 
     if namespace == NAMESPACE_REQUEST and identifier == REQUEST_IDENTIFIER_TAG_KEY:
-        _reject_reserved_request_keys(value)
+        # Request side: the reserved name is the clause's VALUE (``tag_key = 'mlflow.x'``).
+        _reject_reserved_keys(value)
+    elif namespace == NAMESPACE_RESOURCE and identifier == RESOURCE_PREFIX_TAGS:
+        # Resource side: it is the clause's KEY (``tags.mlflow.x = '...'``).
+        _reject_reserved_keys(key)
 
     return Clause(identifier=identifier, key=key, comparator=comparator, value=value)
 
 
-def _reject_reserved_request_keys(value: str | tuple[str, ...]) -> None:
-    """D4: ``mlflow.*`` keys may not appear in a request condition.
+def _reject_reserved_keys(value: str | tuple[str, ...]) -> None:
+    """D4: ``mlflow.*`` keys may not appear in a condition, in EITHER namespace.
 
-    MLflow writes these itself -- ``mlflow.runName`` on a run, the prompt marker on
-    a registered model -- so a condition that constrained them would make an admin
-    able to break ordinary logging, and would fail in ways that look like MLflow
-    bugs rather than policy. Rejecting at authoring time is clearer than silently
-    exempting at evaluation time, because the admin finds out immediately.
+    MLflow writes these itself -- ``mlflow.runName`` on a run, the prompt marker on a
+    registered model -- so a *request* condition constraining them would make an admin
+    able to break ordinary logging, and would fail in ways that look like MLflow bugs
+    rather than policy.
 
-    Resource conditions have no such restriction: reading current ``mlflow.*``
-    state is exactly how an admin expresses "only prompts" or "only runs named X".
+    A *resource* condition on one is refused for a different reason that lands in the same
+    place: it restricts nothing. A reserved tag is user-writable with an arbitrary value --
+    ``set_tag`` accepts ``mlflow.runName``, ``mlflow.user`` and ``mlflow.source.type``
+    unchallenged -- and by the rule above no request condition can ever gate that write. So
+    the holder of the grant simply sets the tag to whatever makes the condition pass:
+    ``tags.mlflow.runName != 'secret'`` is escaped by renaming the run, and
+    ``tags.mlflow.user = 'alice'`` reads as "only alice's runs" while being forgeable by
+    anyone who can set a tag.
+
+    Both directions are therefore the same hazard -- a protection the admin believes is in
+    force that is not -- and rejecting at authoring time is clearer than discovering it when
+    the restriction fails to bite.
+
+    The test is a prefix test on the tag key, so a user-owned ``mlflow_stage`` or
+    ``team.mlflow.note`` is unaffected.
     """
     candidates = value if isinstance(value, tuple) else (value,)
     if reserved := [v for v in candidates if v.startswith(RESERVED_TAG_PREFIX)]:
         raise MlflowException(
-            f"Request conditions may not reference reserved tag keys "
-            f"{sorted(reserved)} (the '{RESERVED_TAG_PREFIX}' prefix is written by MLflow "
-            f"itself, so constraining it would block MLflow's own tag writes). Reserved keys "
-            f"are permitted in resource conditions, where they test existing state.",
+            f"Conditions may not reference reserved tag keys {sorted(reserved)} (the "
+            f"'{RESERVED_TAG_PREFIX}' prefix is written by MLflow itself, so constraining it "
+            f"would block MLflow's own tag writes, and testing it restricts nothing because "
+            f"the same keys are freely settable and no request condition may gate them).",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -903,29 +918,17 @@ def evaluate_resource(clauses: Sequence[Clause], values: ResourceValues) -> bool
     every ``tags.*`` restriction, and fail-on-absence on the request side would deny
     ordinary value-free writes.
 
-    **The footgun this creates, which must stay documented:**
-    ``tags.lifecycle != 'prod'`` *denies* a resource with no ``lifecycle`` tag,
+    Absence fails for EVERY comparator, with no exception -- including ``!=``, where
+    ``tags.lifecycle != 'prod'`` *denies* a resource carrying no ``lifecycle`` tag,
     because the tag is absent rather than not-'prod'. That surprises admins, but the
-    surprise is in the strict direction.
+    surprise is in the strict direction, and it is what makes deleting a governing tag
+    lose access rather than escape the restriction.
+
+    The rule has no reserved-key carve-out because it needs none: D4 rejects a
+    ``tags.mlflow.*`` clause at authoring in both namespaces, so one cannot be stored.
     """
     for clause in clauses:
         lhs = _resource_lhs(clause, values)
-
-        # The prompt marker is special in MLflow's own search path and must be
-        # special here for the same reason: an ordinary registered model carries no
-        # `mlflow.prompt.is_prompt` tag, so absence means "not a prompt" rather
-        # than "unknown". Without this, `tags.mlflow.prompt.is_prompt != 'true'` --
-        # the natural way to write "models, not prompts" -- would deny every
-        # ordinary registered model, which is both wrong and the opposite of what
-        # the admin asked for.
-        if clause.key == IS_PROMPT_TAG_KEY and lhs is None:
-            matched = (clause.comparator == "=" and clause.value == "false") or (
-                clause.comparator == "!=" and clause.value == "true"
-            )
-            if not matched:
-                return False
-            continue
-
         if lhs is None:
             return False
         if not _compare(clause, lhs):

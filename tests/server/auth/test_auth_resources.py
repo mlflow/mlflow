@@ -222,9 +222,13 @@ def test_experiment_is_fetched_here_not_via_workspace_resolution(tracking):
 
 def test_tags_are_projected_from_private_attribute(registry):
     """``RegisteredModel.tags`` strips the prompt marker ("should not be user-facing"),
-    so reading the public property would make a resource condition on
-    ``tags.mlflow.prompt.is_prompt`` silently see nothing -- and D4 permits exactly
-    that key on the resource side.
+    so reading the public property would diverge from ``SearchUtils``, which reads
+    ``._tags`` to "consider all tags including reserved ones".
+
+    D4 now rejects a ``tags.mlflow.*`` clause in both namespaces, so no stored condition
+    can name the marker and the divergence is unreachable through a condition today. The
+    projection is pinned regardless: search parity is the invariant, and it should not
+    depend on which keys the authoring layer happens to allow.
     """
     registry.entries["m"] = _registered_model(
         "m", tags={"mlflow.prompt.is_prompt": "true", "lifecycle": "dev"}

@@ -71,7 +71,7 @@ def test_parse_request_accepts(filter_string):
     [
         "tags.lifecycle = 'dev'",
         "tags.lifecycle != 'prod'",
-        "tags.`mlflow.prompt.is_prompt` = 'true'",
+        "tags.`my.dotted.key` = 'true'",
         "aliases.champion = '3'",
         "tags.a = '1' AND aliases.b = '2'",
         "tags.x IN ('a', 'b')",
@@ -171,12 +171,37 @@ def test_request_condition_rejects_reserved_keys(filter_string):
         parse_condition(filter_string, NAMESPACE_REQUEST)
 
 
-def test_resource_condition_permits_reserved_keys():
-    """D4, the other direction: testing current ``mlflow.*`` state is exactly how
-    an admin expresses "only prompts" or "only runs named X".
+def test_resource_condition_also_rejects_reserved_keys():
+    """D4 applies to BOTH namespaces, for one shared reason.
+
+    A reserved tag is user-writable with an arbitrary value -- ``set_tag`` accepts
+    ``mlflow.runName``, ``mlflow.user`` and ``mlflow.source.type`` unchallenged -- and the
+    request side can never gate that write, because naming a reserved key there is
+    rejected. So a resource condition on a reserved tag restricts nothing: the holder sets
+    the tag to whatever makes the condition pass. ``tags.mlflow.user = 'alice'`` reads as
+    "only alice's runs" and is forgeable by anyone who can set a tag.
+
+    That is the same phantom-restriction hazard the request-side ban exists to prevent, so
+    it is refused in the same place, at authoring, where the admin finds out immediately.
     """
-    clauses = parse_condition("tags.`mlflow.prompt.is_prompt` = 'true'", NAMESPACE_RESOURCE)
-    assert clauses[0].key == "mlflow.prompt.is_prompt"
+    for filter_string in (
+        "tags.`mlflow.prompt.is_prompt` = 'true'",
+        "tags.`mlflow.prompt.is_prompt` != 'true'",
+        "tags.`mlflow.runName` != 'secret'",
+        "tags.`mlflow.user` = 'alice'",
+    ):
+        with pytest.raises(MlflowException, match="reserved tag keys"):
+            parse_condition(filter_string, NAMESPACE_RESOURCE)
+
+
+def test_resource_condition_permits_an_ordinary_key_that_merely_contains_mlflow():
+    """The ban is a prefix test on the key, not a substring search: a user-owned
+    ``mlflow_stage`` or ``team.mlflow.note`` is not MLflow-written and stays authorable.
+    """
+    assert parse_condition("tags.mlflow_stage = 'dev'", NAMESPACE_RESOURCE)[0].key == "mlflow_stage"
+    assert parse_condition("tags.`team.mlflow.note` = 'x'", NAMESPACE_RESOURCE)[0].key == (
+        "team.mlflow.note"
+    )
 
 
 # ---- Evaluation: request, and the D13/D20 vacuity rule ---------------------
@@ -293,28 +318,32 @@ def test_absence_semantics_are_opposite_per_namespace():
     )
 
 
-def test_resource_prompt_marker_absence_means_not_a_prompt():
-    """An ordinary registered model carries no ``mlflow.prompt.is_prompt`` tag, so
-    absence means "not a prompt" rather than "unknown" -- which is why MLflow's own
-    registered-model search special-cases it too.
+def test_resource_absence_fails_for_every_comparator_with_no_carve_out():
+    """Absence denies uniformly, including for ``!=``, and there is no reserved-key
+    exception any more.
 
-    Without this, ``tags.mlflow.prompt.is_prompt != 'true'`` -- the natural way to
-    write "models, not prompts" -- would deny every ordinary registered model.
+    The prompt marker used to be special-cased here so that absence read as "not a
+    prompt". D4 now rejects a ``tags.mlflow.*`` clause at authoring in both namespaces,
+    so no such clause can be stored and the carve-out had nothing left to apply to. The
+    model/prompt distinction is carried by ``resource_type`` instead, since ``prompt`` is
+    a first-class RBAC type.
+
+    What remains is the one rule, which is also what makes deleting a governing tag lose
+    access rather than escape the restriction.
     """
-    not_prompt = parse_condition("tags.`mlflow.prompt.is_prompt` != 'true'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(not_prompt, RunResourceValues("m")) is True
-    assert (
-        evaluate_resource(
-            not_prompt, RunResourceValues("m", tags={"mlflow.prompt.is_prompt": "true"})
-        )
-        is False
-    )
+    for filter_string in (
+        "tags.lifecycle = 'dev'",
+        "tags.lifecycle != 'prod'",
+        "tags.lifecycle LIKE 'd%'",
+        "tags.lifecycle IN ('dev', 'staging')",
+        "tags.lifecycle NOT IN ('prod',)",
+    ):
+        clauses = parse_condition(filter_string, NAMESPACE_RESOURCE)
+        assert evaluate_resource(clauses, RunResourceValues("m")) is False, filter_string
 
-    is_false = parse_condition("tags.`mlflow.prompt.is_prompt` = 'false'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(is_false, RunResourceValues("m")) is True
-
-    is_true = parse_condition("tags.`mlflow.prompt.is_prompt` = 'true'", NAMESPACE_RESOURCE)
-    assert evaluate_resource(is_true, RunResourceValues("m")) is False
+    # And a reserved key cannot reach evaluation at all.
+    with pytest.raises(MlflowException, match="reserved tag keys"):
+        parse_condition("tags.`mlflow.prompt.is_prompt` != 'true'", NAMESPACE_RESOURCE)
 
 
 @pytest.mark.parametrize(

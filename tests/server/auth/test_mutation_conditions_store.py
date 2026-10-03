@@ -261,14 +261,12 @@ def test_alias_condition_accepted_for_the_registry_entry_types(store, role):
         assert created.value_condition == "alias = 'champion'"
 
 
-def test_reserved_key_permitted_in_target_condition(store, role):
-    """D4's other direction: reading current ``mlflow.*`` state is how an admin
-    expresses "only prompts".
-    """
-    created = store.add_mutation_conditions(
-        role.id, "registered_model", None, "tags.`mlflow.prompt.is_prompt` = 'true'"
-    )
-    assert created.target_condition == "tags.`mlflow.prompt.is_prompt` = 'true'"
+def test_reserved_key_rejected_in_target_condition_too(store, role):
+    """D4 is symmetric at the store boundary as well as the parser's."""
+    with pytest.raises(MlflowException, match="reserved tag keys"):
+        store.add_mutation_conditions(
+            role.id, "registered_model", None, "tags.`mlflow.prompt.is_prompt` = 'true'"
+        )
 
 
 # ---- Cascade ---------------------------------------------------------------

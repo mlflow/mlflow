@@ -860,11 +860,12 @@ def test_a_reserved_tag_key_cannot_be_named_by_a_request_condition(auth_client, 
                 role.id, "run", value_condition="tag_key != 'mlflow.runName'"
             )
 
-        # The resource side permits it, because reading current state reveals nothing the
-        # caller could not already read.
-        auth_client.add_mutation_conditions(
-            role.id, "run", target_condition="tags.mlflow.runName != 'secret'"
-        )
+        # The resource side rejects it too: the same keys are freely settable, so a target
+        # condition reading one restricts nothing -- the holder renames the run and passes.
+        with pytest.raises(MlflowException, match=r"reserved tag keys"):
+            auth_client.add_mutation_conditions(
+                role.id, "run", target_condition="tags.`mlflow.runName` != 'secret'"
+            )
 
 
 def test_an_update_run_rename_is_not_denied_by_a_tag_condition(server, auth_client, monkeypatch):
