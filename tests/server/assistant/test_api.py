@@ -149,6 +149,16 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_invalid_session_id_returns_422(client):
+    # A malformed client-supplied session_id must be rejected at the boundary rather than
+    # surfacing as a 500 from SessionManager's path-traversal guard deep in save().
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello", "session_id": "../../etc/passwd"},
+    )
+    assert response.status_code == 422
+
+
 def test_message_fills_in_working_dir_once_experiment_id_arrives(client, tmp_path):
     # A session started with no experiment_id has no working_dir, so file
     # tools (Read, and Bash + python/python3) are denied. Related to
@@ -329,6 +339,8 @@ async def test_stream_resolves_provider_off_event_loop():
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.base_url = "http://localhost:5000/"
     mock_request.client.host = "127.0.0.1"
     event_loop_thread_id = threading.get_ident()
@@ -600,6 +612,9 @@ def test_get_config_remote_access_allowed(
     client, monkeypatch, enabled, allows_remote_access, expected
 ):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
+    # Hold the sandbox enabled so remote_access_allowed reflects the enabled/provider inputs and
+    # does not depend on a docker executable being present on the test worker.
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
     with patch("mlflow.server.assistant.api._get_selected_provider") as mock_get_selected_provider:
         mock_get_selected_provider.return_value.allows_remote_access = allows_remote_access
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
@@ -792,30 +807,40 @@ def test_update_config_expand_user_home(client, tmp_path):
 
 def test_is_localhost_allows_ipv4():
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client.host = "127.0.0.1"
     assert _is_localhost(mock_request)
 
 
 def test_is_localhost_allows_ipv6():
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client.host = "::1"
     assert _is_localhost(mock_request)
 
 
 def test_is_localhost_blocks_external_ip():
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client.host = "192.168.1.100"
     assert not _is_localhost(mock_request)
 
 
 def test_is_localhost_blocks_external_hostname():
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client.host = "external.example.com"
     assert not _is_localhost(mock_request)
 
 
 def test_is_localhost_blocks_when_no_client():
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client = None
     assert not _is_localhost(mock_request)
 
@@ -831,6 +856,9 @@ def test_is_localhost_blocks_when_no_client():
 )
 def test_provider_allows_remote_access(enabled, allows_remote_access, expected, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
+    # The sandbox requirement is covered separately (test_provider_remote_access_requires_sandbox);
+    # hold it enabled here so this case does not depend on a docker executable being present.
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
     provider = MagicMock()
     provider.allows_remote_access = allows_remote_access
     assert _provider_allows_remote_access(provider) is expected
@@ -870,6 +898,8 @@ def test_invalid_remote_access_value_raises(monkeypatch):
 def test_enforce_remote_access_allows_localhost_regardless_of_mode(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client.host = "127.0.0.1"
     _enforce_remote_access(mock_request, None)  # should not raise
 
@@ -877,6 +907,8 @@ def test_enforce_remote_access_allows_localhost_regardless_of_mode(monkeypatch):
 def test_enforce_remote_access_blocks_remote_when_disabled(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.client.host = "192.168.1.100"
     with pytest.raises(HTTPException, match="same host"):
         _enforce_remote_access(mock_request, None)
@@ -977,6 +1009,8 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.base_url = "http://localhost:5000/"
     mock_request.client.host = "127.0.0.1"
     provider = _DeferredProvider()
@@ -990,7 +1024,7 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
 
     # Deliver the decision, then a fresh stream resumes to completion.
     res = await resolve_permission(
-        session_id, PermissionDecision(request_id="t1", decision=decision)
+        session_id, PermissionDecision(request_id="t1", decision=decision), mock_request
     )
     assert res.session_id == session_id
 
@@ -1051,6 +1085,8 @@ async def test_stream_preserves_provider_session_id_from_error_for_next_turn():
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.base_url = "http://localhost:5000/"
     mock_request.client.host = "127.0.0.1"
     provider = _ErrorThenCaptureProvider()
@@ -1089,6 +1125,8 @@ async def test_stream_prefers_new_message_over_stale_tool_decision():
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.base_url = "http://localhost:5000/"
     mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
@@ -1112,6 +1150,8 @@ async def test_stream_tracking_uri_includes_static_prefix(monkeypatch):
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.base_url = "http://localhost:5000/"
     mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
@@ -1136,6 +1176,8 @@ async def test_stream_forwards_tool_decision_when_no_pending_message():
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
+    # The route handler normally sets this; direct-call tests emulate a no-auth server.
+    mock_request.state.assistant_username = None
     mock_request.base_url = "http://localhost:5000/"
     mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
