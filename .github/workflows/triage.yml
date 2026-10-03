@@ -139,13 +139,7 @@ jobs:
           # Templates apply these labels already; adding them again is a no-op.
           gh issue edit "$ISSUE_URL" --add-label "$labels"
   safety:
-    needs: [issue, label]
-    # Scoped to bugs from maintainers for now. Manual runs skip the author check
-    # since only users with write access can dispatch.
-    if: >-
-      needs.label.outputs.type == 'bug' &&
-      (github.event_name == 'workflow_dispatch' ||
-       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
+    needs: issue
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -302,8 +296,14 @@ jobs:
           if-no-files-found: error
           retention-days: 1
   triage:
-    needs: [issue, safety]
-    if: needs.safety.outputs.decision == 'safe'
+    needs: [issue, label, safety]
+    # Scoped to bugs from maintainers for now. Manual runs skip the author check
+    # since only users with write access can dispatch.
+    if: >-
+      needs.safety.outputs.decision == 'safe' &&
+      needs.label.outputs.type == 'bug' &&
+      (github.event_name == 'workflow_dispatch' ||
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
