@@ -167,7 +167,7 @@ A few conventions apply across tools:
 
 - **Paging.** `search_experiments`, `list_runs` and `search_traces` return `next_page_token` when more results exist. Pass it back as `page_token` to continue; it is `null` on the last page.
 - **Traces.** `search_traces` and `get_trace` return traces in the shape of `Trace.to_dict()`, with `info` and `data.spans`. Pass `extract_fields` (for example `["info.trace_id", "info.state"]`) to return only those fields.
-- **Assessments.** The feedback and expectation tools return the assessment, including its `assessment_id`, `kind` (`feedback` or `expectation`), `value`, `source` and timestamps.
+- **Assessments.** The feedback and expectation tools return the assessment, including its `assessment_id`, `kind` (`feedback` or `expectation`), `value`, `source` and timestamps. Assessment `metadata` values are stored as strings, as the REST API stores them, so a value such as `0.9` is returned as `"0.9"`.
 - **Lists and objects.** Arguments that take a list, such as `trace_ids`, `order_by` or `extract_fields`, also accept a comma-separated string. Arguments that take an object, such as `metadata`, also accept a JSON string.
 
 ### Argument shape changes
@@ -182,7 +182,7 @@ The tools used to take some arguments in the shape of the `mlflow` CLI options t
 | `search_traces`, `get_experiment`, `list_scorers`                        | `output`                                                 | `"table"` or `"json"`              | Deprecated: results are always structured  | Yes, ignored                          |
 | `delete_traces`                                                          | `trace_ids`                                              | Comma-separated string             | List of strings                            | Yes                                   |
 | `log_trace_feedback`, `log_trace_expectation`, `update_trace_assessment` | `value`                                                  | String, parsed as JSON if possible | Any JSON value                             | Yes: strings are still parsed as JSON |
-| `log_trace_feedback`, `log_trace_expectation`, `update_trace_assessment` | `metadata`                                               | JSON string                        | Object                                     | Yes                                   |
+| `log_trace_feedback`, `log_trace_expectation`, `update_trace_assessment` | `metadata`                                               | JSON string                        | Object; values are stored as strings       | Yes                                   |
 | `log_trace_feedback`, `log_trace_expectation`                            | `source_type`                                            | String                             | One of `HUMAN`, `LLM_JUDGE`, `CODE`        | Yes, for valid values                 |
 | `create_run`                                                             | `tags`                                                   | List of `key=value` strings        | Object                                     | Yes                                   |
 | `create_run`                                                             | `status`                                                 | String                             | `FINISHED`, `FAILED` or `KILLED`, any case | Yes                                   |

@@ -7,7 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.mcp.tools._args import (
     DeprecatedOutput,
     PageToken,
-    as_json_object,
+    as_string_map,
     as_json_value,
     as_list,
 )
@@ -47,7 +47,10 @@ SourceId = Annotated[
 ]
 Metadata = Annotated[
     dict[str, Any] | str | None,
-    Field(description="Additional metadata as an object, or a JSON string holding one."),
+    Field(
+        description="Additional metadata as an object, or a JSON string holding one. Values are "
+        "stored as strings."
+    ),
 ]
 SpanId = Annotated[str | None, Field(description="Associate the assessment with this span.")]
 
@@ -208,7 +211,7 @@ def log_trace_feedback(
         value=as_json_value(value),
         source=_source(source_type, source_id),
         rationale=rationale,
-        metadata=as_json_object(metadata, "metadata"),
+        metadata=as_string_map(metadata, "metadata"),
         span_id=span_id,
     )
     return AssessmentInfo.from_entity(assessment)
@@ -235,7 +238,7 @@ def log_trace_expectation(
         name=name,
         value=as_json_value(value),
         source=_source(source_type, source_id),
-        metadata=as_json_object(metadata, "metadata"),
+        metadata=as_string_map(metadata, "metadata"),
         span_id=span_id,
     )
     return AssessmentInfo.from_entity(assessment)
@@ -258,7 +261,10 @@ def update_trace_assessment(
     ] = None,
     metadata: Annotated[
         dict[str, Any] | str | None,
-        Field(description="New metadata as an object or JSON string. Unchanged when omitted."),
+        Field(
+            description="New metadata as an object or JSON string; values are stored as strings. "
+            "Unchanged when omitted."
+        ),
     ] = None,
 ) -> AssessmentInfo:
     """
@@ -267,7 +273,7 @@ def update_trace_assessment(
     client = TracingClient()
     existing = client.get_assessment(trace_id, assessment_id)
     new_value = existing.value if value is None else as_json_value(value)
-    new_metadata = existing.metadata if metadata is None else as_json_object(metadata, "metadata")
+    new_metadata = existing.metadata if metadata is None else as_string_map(metadata, "metadata")
     if isinstance(existing, Feedback):
         updated = Feedback(
             name=existing.name,

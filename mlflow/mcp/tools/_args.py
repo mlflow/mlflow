@@ -70,6 +70,19 @@ def as_json_object(value: dict[str, Any] | str | None, name: str) -> dict[str, A
     return parsed
 
 
+def as_string_map(value: dict[str, Any] | str | None, name: str) -> dict[str, str] | None:
+    """
+    ``as_json_object`` with every value converted to a string.
+
+    Assessment metadata is a ``map<string, string>`` over REST: ``Assessment.to_proto`` applies
+    ``str`` to each value on the way out, and the REST store rejects non-strings on update.
+    Converting the same way up front gives the tools the same stored and returned values on a
+    direct store connection as against a remote tracking server.
+    """
+    parsed = as_json_object(value, name)
+    return None if parsed is None else {key: str(item) for key, item in parsed.items()}
+
+
 def as_tag_dict(value: dict[str, str] | list[str] | None) -> dict[str, str]:
     """A tag mapping, or a list of ``key=value`` strings."""
     if value is None:

@@ -7,6 +7,7 @@ from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from starlette.testclient import TestClient
 
+import mlflow
 from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_MCP
 from mlflow.mcp.server import collect_category_tools
 from mlflow.mcp.tools import SHARED_TOOLS
@@ -89,6 +90,46 @@ async def test_mcp_tool_round_trips_through_backend_store(mcp_app):
         "experiment_id": experiment.experiment_id,
         "name": "created-via-mcp",
     }
+
+
+@pytest.mark.asyncio
+async def test_mcp_assessment_metadata_is_stored_as_strings(mcp_app):
+    # The tool runs on the backend store directly, where a non-string value would otherwise be
+    # kept as is; it stores the strings the REST API would, so both transports agree.
+    store = handlers._get_tracking_store()
+    mlflow.set_experiment(experiment_id=store.create_experiment("exp"))
+    with mlflow.start_span("span") as span:
+        pass
+    mlflow.flush_trace_async_logging()
+    trace_id = span.trace_id
+
+    async with _mcp_client(mcp_app) as client:
+        logged = (
+            await client.call_tool(
+                "log_trace_feedback",
+                {
+                    "trace_id": trace_id,
+                    "name": "quality",
+                    "value": 1,
+                    "metadata": {"confidence": 0.9, "round": 2},
+                },
+            )
+        ).structured_content
+        stored = store.get_assessment(trace_id, logged["assessment_id"]).metadata
+        assert logged["metadata"] == stored == {"confidence": "0.9", "round": "2"}
+
+        updated = (
+            await client.call_tool(
+                "update_trace_assessment",
+                {
+                    "trace_id": trace_id,
+                    "assessment_id": logged["assessment_id"],
+                    "metadata": {"confidence": 0.5, "round": 3},
+                },
+            )
+        ).structured_content
+        stored = store.get_assessment(trace_id, logged["assessment_id"]).metadata
+        assert updated["metadata"] == stored == {"confidence": "0.5", "round": "3"}
 
 
 @pytest.mark.asyncio

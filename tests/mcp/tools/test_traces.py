@@ -142,14 +142,19 @@ def test_feedback_source_needs_both_type_and_id(experiment_id):
     assert logged.value == "good"
 
 
-def test_assessment_metadata_keeps_non_string_values(experiment_id):
+@pytest.mark.parametrize("tool", [log_trace_feedback, log_trace_expectation])
+def test_assessment_metadata_values_are_stored_as_strings(experiment_id, tool):
+    # The REST API serializes assessment metadata as a string map, so a direct store connection
+    # stores and returns the same strings a remote tracking server would.
     trace_id = _log_trace()
-    metadata = {"confidence": 0.9, "round": 1, "flags": ["a", "b"]}
-    logged = log_trace_feedback(trace_id, "q", value=1, metadata=metadata)
-    assert logged.metadata == metadata
-    assert get_trace_assessment(trace_id, logged.assessment_id).metadata == metadata
-    updated = update_trace_assessment(trace_id, logged.assessment_id, metadata={"round": 2})
-    assert updated.metadata["round"] == 2
+    logged = tool(trace_id, "q", value=1, metadata={"confidence": 0.9, "round": 2})
+    assert logged.metadata == {"confidence": "0.9", "round": "2"}
+    assert get_trace_assessment(trace_id, logged.assessment_id).metadata == logged.metadata
+    assert mlflow.get_assessment(trace_id, logged.assessment_id).metadata == logged.metadata
+
+    updated = update_trace_assessment(trace_id, logged.assessment_id, metadata={"round": 3})
+    assert updated.metadata["round"] == "3"
+    assert mlflow.get_assessment(trace_id, logged.assessment_id).metadata["round"] == "3"
 
 
 def test_invalid_metadata_is_rejected(experiment_id):

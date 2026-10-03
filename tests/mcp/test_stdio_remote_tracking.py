@@ -46,13 +46,30 @@ async def test_stdio_tools_work_against_a_remote_tracking_server(tracking_server
 
         await call("set_trace_tag", trace_id=trace_id, key="env", value="prod")
         feedback = await call(
-            "log_trace_feedback", trace_id=trace_id, name="quality", value=1, rationale="ok"
+            "log_trace_feedback",
+            trace_id=trace_id,
+            name="quality",
+            value=1,
+            rationale="ok",
+            metadata={"confidence": 0.9, "round": 2},
         )
         trace = (await call("get_trace", trace_id=trace_id))["trace"]
         assert trace["info"]["tags"]["env"] == "prod"
         assert [a["assessment_id"] for a in trace["info"]["assessments"]] == [
             feedback["assessment_id"]
         ]
+        # Metadata is a string map over REST; the tool stores and returns the same strings the
+        # endpoint does on a direct store connection.
+        stored = mlflow.get_assessment(trace_id, feedback["assessment_id"]).metadata
+        assert feedback["metadata"] == stored == {"confidence": "0.9", "round": "2"}
+        updated = await call(
+            "update_trace_assessment",
+            trace_id=trace_id,
+            assessment_id=feedback["assessment_id"],
+            metadata={"confidence": 0.5, "round": 3},
+        )
+        stored = mlflow.get_assessment(trace_id, feedback["assessment_id"]).metadata
+        assert updated["metadata"] == stored == {"confidence": "0.5", "round": "3"}
 
         names = [e["name"] for e in (await call("search_experiments"))["experiments"]]
         assert "remote-exp" in names
