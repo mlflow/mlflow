@@ -32,6 +32,7 @@ const ShowArtifactMarkdownView = ({
   isLoggedModelsMode,
   loggedModelId,
   size,
+  artifactUri,
 }: ShowArtifactMarkdownViewProps) => {
   const isLargeFile = (size || 0) > LARGE_MARKDOWN_SIZE;
   const { theme } = useDesignSystemTheme();
@@ -55,6 +56,7 @@ const ShowArtifactMarkdownView = ({
         path,
         isLoggedModelsMode,
         loggedModelId,
+        artifactUri,
       },
       getArtifactContent,
     )
@@ -72,7 +74,7 @@ const ShowArtifactMarkdownView = ({
     return () => {
       cancelled = true;
     };
-  }, [runUuid, path, isLoggedModelsMode, loggedModelId]);
+  }, [runUuid, path, isLoggedModelsMode, loggedModelId, artifactUri]);
 
   if (loading) {
     return <ArtifactViewSkeleton className="artifact-markdown-view-loading" />;
