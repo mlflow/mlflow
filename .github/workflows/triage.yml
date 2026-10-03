@@ -10,7 +10,7 @@ on:
         required: true
         type: number
       dry_run:
-        description: "Prepare the triage report without posting an issue comment"
+        description: "Preview triage without issue mutations"
         required: false
         type: boolean
         default: true
@@ -47,6 +47,7 @@ jobs:
       body: ${{ fromJSON(steps.issue.outputs.json).body }}
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
+      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     steps:
       - id: issue
         env:
@@ -78,10 +79,15 @@ jobs:
         run: echo "match=$SECURITY_MATCH" >> "$GITHUB_OUTPUT"
       - if: steps.security.outputs.match == 'true'
         env:
+          DRY_RUN: ${{ needs.issue.outputs.dry_run }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           REPO: ${{ github.repository }}
         run: |
+          if [ "$DRY_RUN" = true ]; then
+            echo "Dry run: would close issue #$ISSUE_NUMBER as a possible security vulnerability." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           gh issue close "$ISSUE_NUMBER" --repo "$REPO" --comment "$(cat <<'EOF'
           This issue has been automatically closed because it appears to report a security vulnerability.
 
@@ -203,6 +209,7 @@ jobs:
           ISSUE_URL: ${{ needs.issue.outputs.url }}
           DETECTED_TYPE: ${{ steps.detect.outputs.type }}
           CLASSIFIED_TYPE: ${{ steps.classify.outputs.type }}
+          DRY_RUN: ${{ needs.issue.outputs.dry_run }}
         run: |
           type="$DETECTED_TYPE"
           if [ "$type" = unknown ]; then
@@ -218,6 +225,13 @@ jobs:
           echo "type=$type" >> "$GITHUB_OUTPUT"
           if [ "$type" = unknown ]; then
             echo "No matching title prefix, template, or classifier result"
+            if [ "$DRY_RUN" = true ]; then
+              echo "Dry run: no type label would be added to $ISSUE_URL." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+          if [ "$DRY_RUN" = true ]; then
+            echo "Dry run: would add labels \`$labels\` to $ISSUE_URL." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           # Templates apply these labels already; adding them again is a no-op.
@@ -668,7 +682,7 @@ jobs:
       - name: Write triage comment preview
         env:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
-          SHOULD_POST: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
+          SHOULD_POST: ${{ github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false' }}
         run: |
           if [ "$SHOULD_POST" = true ]; then
             state="Posting this triage report as an issue comment."
@@ -683,7 +697,7 @@ jobs:
             jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Post triage comment
-        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        if: github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
