@@ -147,9 +147,10 @@ def search_experiments(
     max_results: Annotated[
         int | None,
         Field(
-            description="Maximum number of experiments to return. Every experiment when omitted."
+            description="Maximum number of experiments in one page (default 1000). Pass the "
+            "returned next_page_token as page_token for more."
         ),
-    ] = None,
+    ] = SEARCH_MAX_RESULTS_DEFAULT,
     page_token: PageToken = None,
     filter_string: Annotated[
         str | None,
@@ -157,43 +158,29 @@ def search_experiments(
     ] = None,
     order_by: OrderBy = None,
 ) -> ExperimentPage:
-    """Search for experiments in the configured tracking server."""
+    """
+    Search for experiments in the configured tracking server. Returns one page; pass
+    ``next_page_token`` back as ``page_token`` for the next one.
+    """
+    # Clients commonly send null for optional arguments they leave unset.
+    if max_results is None:
+        max_results = SEARCH_MAX_RESULTS_DEFAULT
     check_non_negative(max_results, "max_results")
     # The stores reject a page size of 0; an empty page that resumes where it started matches
     # the filtered search non-admin callers get over the tracking server.
     if max_results == 0:
         return ExperimentPage(experiments=[], next_page_token=page_token or None)
-    client = MlflowClient()
-    view_type = as_view_type(view)
-    order_by_list = as_list(order_by)
-
-    if max_results is not None:
-        page = client.search_experiments(
-            view_type=view_type,
-            max_results=max_results,
-            filter_string=filter_string,
-            order_by=order_by_list,
-            page_token=page_token,
-        )
-        return ExperimentPage(
-            experiments=[ExperimentInfo.from_entity(e) for e in page],
-            next_page_token=page.token or None,
-        )
-
-    experiments = []
-    while True:
-        page = client.search_experiments(
-            view_type=view_type,
-            max_results=SEARCH_MAX_RESULTS_DEFAULT,
-            filter_string=filter_string,
-            order_by=order_by_list,
-            page_token=page_token,
-        )
-        experiments.extend(ExperimentInfo.from_entity(e) for e in page)
-        page_token = page.token
-        if not page_token:
-            break
-    return ExperimentPage(experiments=experiments, next_page_token=None)
+    page = MlflowClient().search_experiments(
+        view_type=as_view_type(view),
+        max_results=max_results,
+        filter_string=filter_string,
+        order_by=as_list(order_by),
+        page_token=page_token,
+    )
+    return ExperimentPage(
+        experiments=[ExperimentInfo.from_entity(e) for e in page],
+        next_page_token=page.token or None,
+    )
 
 
 def get_experiment(

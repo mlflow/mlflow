@@ -210,7 +210,9 @@ async def test_output_format_is_accepted_and_ignored(client, tool, arguments, ou
 
 
 @pytest.mark.asyncio
-async def test_search_experiments_without_max_results_still_returns_everything(client):
+async def test_search_experiments_without_max_results_returns_the_first_page(client):
+    tool = next(t for t in await client.list_tools() if t.name == "search_experiments")
+    assert tool.inputSchema["properties"]["max_results"]["default"] == 1000
     for i in range(3):
         MlflowClient().create_experiment(f"exp-{i}")
     result = await _call(client, "search_experiments")
@@ -244,3 +246,19 @@ async def test_update_trace_assessment_keeps_the_value_for_null(client, experime
     )
     assert updated["value"] == 1
     assert updated["rationale"] == "kept"
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "default"),
+    [
+        ("search_experiments", {}, 1000),
+        ("list_runs", {"experiment_id": "0"}, 1000),
+        ("search_traces", {"experiment_id": "0"}, 100),
+    ],
+)
+@pytest.mark.asyncio
+async def test_paged_tools_treat_a_null_max_results_as_omitted(client, tool, arguments, default):
+    schema = next(t for t in await client.list_tools() if t.name == tool).inputSchema
+    assert schema["properties"]["max_results"]["default"] == default
+    omitted = await _call(client, tool, **arguments)
+    assert await _call(client, tool, **arguments, max_results=None) == omitted

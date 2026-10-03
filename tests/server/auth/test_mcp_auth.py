@@ -42,6 +42,7 @@ from mlflow.server.auth.mcp_tools import (
 )
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -394,6 +395,7 @@ async def test_unscoped_search_experiments_fills_the_page_with_readable_rows(
     unlimited = await _call(mcp_server, reader, "search_experiments")
     assert unlimited["experiments"] == page["experiments"]
     assert unlimited["next_page_token"] is None
+    assert await _call(mcp_server, reader, "search_experiments", max_results=None) == unlimited
 
     admin_page = await _call(mcp_server, ADMIN, "search_experiments", max_results=2)
     assert _names(admin_page) == ["exp-4", "exp-3"]
@@ -449,6 +451,7 @@ def paged_client(monkeypatch):
 
 
 def _walk(max_results: int | None) -> list[list[str]]:
+    # An explicit ``None`` walks with the default page size, like an omitted ``max_results``.
     pages = []
     page_token = None
     while True:
@@ -509,6 +512,15 @@ def test_search_readable_experiments_rejects_negative_max_results(paged_client):
     paged_client([])
     with pytest.raises(MlflowException, match="non-negative"):
         search_readable_experiments(max_results=-1)
+
+
+def test_search_readable_experiments_defaults_to_one_store_page(paged_client):
+    client = paged_client([f"r{i}" for i in range(SEARCH_MAX_RESULTS_DEFAULT + 1)])
+    page = search_readable_experiments()
+    assert len(page.experiments) == SEARCH_MAX_RESULTS_DEFAULT
+    assert page.next_page_token == str(SEARCH_MAX_RESULTS_DEFAULT)
+    assert client.page_sizes == [SEARCH_MAX_RESULTS_DEFAULT]
+    assert search_readable_experiments(max_results=None) == page
 
 
 def test_search_readable_experiments_returns_an_empty_page_for_zero_max_results(paged_client):

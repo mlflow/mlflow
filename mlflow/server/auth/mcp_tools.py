@@ -237,7 +237,7 @@ SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES = 10
 
 def search_readable_experiments(
     view: str = "active_only",
-    max_results: int | None = None,
+    max_results: int | None = SEARCH_MAX_RESULTS_DEFAULT,
     page_token: str | None = None,
     filter_string: str | None = None,
     order_by: list[str] | str | None = None,
@@ -252,8 +252,9 @@ def search_readable_experiments(
     so every row of a fetched page is consumed and the store's token always resumes right after
     it. At most ``SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES`` store pages are read per call;
     the result carries the last store token whenever the store has more rows.
-    ``max_results=None`` collects every readable experiment within that bound.
     """
+    if max_results is None:
+        max_results = SEARCH_MAX_RESULTS_DEFAULT
     check_non_negative(max_results, "max_results")
     view_type = as_view_type(view)
     order_by_list = as_list(order_by)
@@ -262,9 +263,7 @@ def search_readable_experiments(
 
     readable = []
     for _ in range(SEARCH_READABLE_EXPERIMENTS_MAX_STORE_PAGES):
-        if max_results is None:
-            page_size = SEARCH_MAX_RESULTS_DEFAULT
-        elif (page_size := max_results - len(readable)) == 0:
+        if (page_size := max_results - len(readable)) == 0:
             break
         page = client.search_experiments(
             view_type=view_type,

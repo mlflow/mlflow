@@ -30,7 +30,7 @@ def list_runs(
     experiment_id: Annotated[str, Field(description="ID of the experiment to list runs of.")],
     view: View = "active_only",
     max_results: Annotated[
-        int, Field(description="Maximum number of runs to return.", ge=1)
+        int | None, Field(description="Maximum number of runs to return (default 1000).", ge=1)
     ] = SEARCH_MAX_RESULTS_DEFAULT,
     page_token: PageToken = None,
     filter_string: Annotated[
@@ -44,7 +44,7 @@ def list_runs(
         experiment_ids=[experiment_id],
         filter_string=filter_string or "",
         run_view_type=as_view_type(view),
-        max_results=max_results,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT if max_results is None else max_results,
         order_by=as_list(order_by),
         page_token=page_token,
     )

@@ -14,7 +14,9 @@ from mlflow.mcp.tools.experiments import (
     search_experiments,
     update_experiment,
 )
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.constant import TraceExperimentTagKey
+from mlflow.tracking._tracking_service.utils import _get_store
 
 
 def test_create_and_get_experiment_by_id_and_name():
@@ -91,12 +93,22 @@ def test_update_experiment_rejects_invalid_combinations(kwargs, match):
         update_experiment(experiment_id, **kwargs)
 
 
-def test_search_experiments_returns_everything_by_default():
-    for i in range(3):
-        create_experiment(f"exp-{i}")
-    page = search_experiments()
-    assert {e.name for e in page.experiments} == {"Default", "exp-0", "exp-1", "exp-2"}
-    assert page.next_page_token is None
+def test_search_experiments_returns_one_default_page_and_a_token():
+    store = _get_store()
+    created = {store.create_experiment(f"exp-{i}") for i in range(SEARCH_MAX_RESULTS_DEFAULT + 1)}
+
+    first = search_experiments()
+    assert len(first.experiments) == SEARCH_MAX_RESULTS_DEFAULT
+    assert first.next_page_token is not None
+
+    seen = [e.experiment_id for e in first.experiments]
+    page_token = first.next_page_token
+    while page_token:
+        page = search_experiments(page_token=page_token)
+        seen.extend(e.experiment_id for e in page.experiments)
+        page_token = page.next_page_token
+    assert len(seen) == len(set(seen)) == len(created) + 1
+    assert set(seen) == created | {"0"}
 
 
 def test_search_experiments_pages_with_the_store_token():

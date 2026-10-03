@@ -19,6 +19,7 @@ from mlflow.mcp.tools._types import (
     TraceResult,
     TraceTag,
 )
+from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.assessment import log_expectation, log_feedback
 from mlflow.tracing.client import TracingClient
 from mlflow.utils.jsonpath_utils import filter_json_by_fields, validate_field_paths
@@ -85,8 +86,8 @@ def search_traces(
         ),
     ] = None,
     max_results: Annotated[
-        int, Field(description="Maximum number of traces to return.", ge=1)
-    ] = 100,
+        int | None, Field(description="Maximum number of traces to return (default 100).", ge=1)
+    ] = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
     order_by: Annotated[
         list[str] | str | None,
         Field(
@@ -116,7 +117,7 @@ def search_traces(
     traces = TracingClient().search_traces(
         locations=[experiment_id],
         filter_string=filter_string,
-        max_results=max_results,
+        max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS if max_results is None else max_results,
         order_by=as_list(order_by),
         page_token=page_token,
         run_id=run_id,

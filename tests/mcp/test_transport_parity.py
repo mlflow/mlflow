@@ -5,6 +5,9 @@ from mlflow.mcp.tools import SHARED_TOOLS
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR, handlers
 from mlflow.server.fastapi_app import create_fastapi_app
 
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracking._tracking_service.utils import _get_store
+
 from tests.mcp.helpers import SCENARIOS, http_client, normalize, stdio_client
 
 
@@ -53,3 +56,38 @@ async def test_every_shared_tool_returns_the_same_structured_content_on_both_tra
                 assert normalize(
                     stdio_result.structured_content, stdio_args, scenario.generated
                 ) == normalize(http_result.structured_content, http_args, scenario.generated)
+
+
+async def _walk_experiments(client) -> list[list[str]]:
+    pages = []
+    arguments = {}
+    while True:
+        page = (await client.call_tool("search_experiments", arguments)).structured_content
+        pages.append([e["experiment_id"] for e in page["experiments"]])
+        if page["next_page_token"] is None:
+            return pages
+        arguments = {"page_token": page["next_page_token"]}
+
+
+@pytest.mark.asyncio
+async def test_search_experiments_default_page_and_token_walk_match_on_both_transports(
+    mcp_app, db_uri
+):
+    store = _get_store(db_uri)
+    created = {store.create_experiment(f"exp-{i}") for i in range(SEARCH_MAX_RESULTS_DEFAULT + 1)}
+
+    async with stdio_client(db_uri) as stdio, http_client(mcp_app) as http:
+        stdio_pages = await _walk_experiments(stdio)
+        http_pages = await _walk_experiments(http)
+        # An explicit null is the first default page on both transports.
+        for client in (stdio, http):
+            null_page = await client.call_tool("search_experiments", {"max_results": None})
+            assert [
+                e["experiment_id"] for e in null_page.structured_content["experiments"]
+            ] == stdio_pages[0]
+
+    assert stdio_pages == http_pages
+    assert [len(page) for page in stdio_pages] == [SEARCH_MAX_RESULTS_DEFAULT, 2]
+    seen = [experiment_id for page in stdio_pages for experiment_id in page]
+    assert len(seen) == len(set(seen))
+    assert set(seen) == created | {"0"}

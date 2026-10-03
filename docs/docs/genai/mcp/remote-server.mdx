@@ -165,7 +165,7 @@ For example, `search_experiments` returns a page of experiments and a token for 
 
 A few conventions apply across tools:
 
-- **Paging.** `search_experiments`, `list_runs` and `search_traces` return `next_page_token` when more results exist. Pass it back as `page_token` to continue; it is `null` on the last page.
+- **Paging.** `search_experiments`, `list_runs` and `search_traces` return one page of at most `max_results` results, which defaults to 1000 for `search_experiments` and `list_runs` and to 100 for `search_traces`, and `next_page_token` when more results exist. Pass it back as `page_token` to continue; it is `null` on the last page.
 - **Traces.** `search_traces` and `get_trace` return traces in the shape of `Trace.to_dict()`, with `info` and `data.spans`. Pass `extract_fields` (for example `["info.trace_id", "info.state"]`) to return only those fields.
 - **Assessments.** The feedback and expectation tools return the assessment, including its `assessment_id`, `kind` (`feedback` or `expectation`), `value`, `source` and timestamps. Assessment `metadata` values are stored as strings, as the REST API stores them, so a value such as `0.9` is returned as `"0.9"`.
 - **Lists and objects.** Arguments that take a list, such as `trace_ids`, `order_by` or `extract_fields`, also accept a comma-separated string. Arguments that take an object, such as `metadata`, also accept a JSON string.
@@ -187,6 +187,7 @@ The tools used to take some arguments in the shape of the `mlflow` CLI options t
 | `create_run`                                                             | `tags`                                                   | List of `key=value` strings        | Object                                     | Yes                                   |
 | `create_run`                                                             | `status`                                                 | String                             | `FINISHED`, `FAILED` or `KILLED`, any case | Yes                                   |
 | `register_llm_judge_scorer`                                              | `extra_headers`                                          | JSON string                        | Object                                     | Yes                                   |
+| `search_experiments`                                                     | `max_results`                                            | Every experiment when omitted      | One page of 1000 when omitted              | Not applicable: pass the token for more |
 | `search_experiments`                                                     | `page_token`, `filter_string`, `order_by`                | Not available                      | New arguments                              | Not applicable                        |
 | `list_runs`                                                              | `max_results`, `page_token`, `filter_string`, `order_by` | Not available                      | New arguments                              | Not applicable                        |
 
