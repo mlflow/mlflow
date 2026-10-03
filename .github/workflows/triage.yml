@@ -143,7 +143,7 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/setup-gateway
         with:
-          task: issue-triage-safety
+          task: issue-triage-classifier
           host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
           client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
