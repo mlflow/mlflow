@@ -440,6 +440,35 @@ async def _run_test_chat_stream(resp, provider):
         )
 
 
+@pytest.mark.asyncio
+async def test_chat_stream_propagates_usage():
+    resp = [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"content":"Hello"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":"stop",'
+        b'"delta":{"content":""}}],'
+        b'"usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hi"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    assert chunks[0]["usage"] is None
+    assert chunks[-1]["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 34,
+        "total_tokens": 46,
+    }
+
+
 @pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
 @pytest.mark.asyncio
 async def test_chat_stream(resp):
