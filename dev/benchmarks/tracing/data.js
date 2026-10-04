@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791127444444,
+  "lastUpdate": 1791128456969,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84737625+kriscon-db@users.noreply.github.com",
-            "name": "Kris Concepcion",
-            "username": "kriscon-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c508e57beb754ab06c84cda6617ed364455715d9",
-          "message": "Unify review-queue reviewer pickers on a searchable checkbox list (#23934)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Isaac <noreply@anthropic.com>\nCo-authored-by: Isaac <isaac@example.com>",
-          "timestamp": "2026-06-14T06:09:11Z",
-          "tree_id": "0a3f89299a8438c6c3af654cc7cd1c887395f982",
-          "url": "https://github.com/mlflow/mlflow/commit/c508e57beb754ab06c84cda6617ed364455715d9"
-        },
-        "date": 1781417560552,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 53.84721585000278,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.71094111764612,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.8747722542363,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.493839490566764,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.70071025454854,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.471951400001899,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.936497600017447,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "70249239+codechrl@users.noreply.github.com",
+            "name": "kurniawan",
+            "username": "codechrl"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c6a8c9a5adc71519a60cf1d71b4dfaae5b2372ed",
+          "message": "Return 422 for an unmatched `tool_call_id` in `GeminiAdapter` (#26253)\n\nSigned-off-by: codechrl <codechrl@gmail.com>",
+          "timestamp": "2026-10-04T15:37:18Z",
+          "tree_id": "d1101b48b16601008c6363099cda3284f284ddb3",
+          "url": "https://github.com/mlflow/mlflow/commit/c6a8c9a5adc71519a60cf1d71b4dfaae5b2372ed"
+        },
+        "date": 1791128454517,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 52.06625015000199,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 11.874726560000113,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.76574262500042,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.854270666666961,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.097852705882005,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.397689599999694,
             "unit": "ms"
           }
         ]
