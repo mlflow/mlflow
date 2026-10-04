@@ -8959,3 +8959,78 @@ def test_optimizer_gateway_endpoint_requirement_is_keyed_by_id(monkeypatch):
     assert requirement_for("openai:/gpt-4o") is None
     assert auth_module._optimizer_gateway_endpoint_requirement("") is None
     assert auth_module._optimizer_gateway_endpoint_requirement("not json") is None
+
+
+def _search_logged_models_pages(tracking_uri, auth, body, max_pages=4):
+    """Walk `logged-models/search` pages, returning (status, names) per page."""
+    pages = []
+    token = None
+    for _ in range(max_pages):
+        payload = dict(body)
+        if token:
+            payload["page_token"] = token
+        resp = requests.post(
+            f"{tracking_uri}/api/2.0/mlflow/logged-models/search", json=payload, auth=auth
+        )
+        body_json = resp.json() if resp.status_code == 200 else {}
+        names = [m["info"]["name"] for m in body_json.get("models", [])]
+        pages.append((resp.status_code, names))
+        token = body_json.get("next_page_token")
+        if resp.status_code != 200 or not token:
+            break
+    return pages
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_search_logged_models_pagination_survives_filtering(client, monkeypatch):
+    """Filtered logged-model pagination must not serve a bad page, and must stay self-consistent.
+
+    Both defects here predate this branch and need a caller who can read SOME but not all of the
+    searched experiments, or the refill loop never runs and the assertions pass vacuously.
+
+    * The refill loop rebuilt `order_by` without the handler's `or None`, so `dataset_name` and
+      `dataset_digest` were `""` where the page token recorded `None`. The store rejected the
+      token the auth layer had itself issued -- HTTP 400, "Order by in the page token does not
+      match the requested order by".
+    * On the last page the loop issued a token even when every remaining row was unreadable,
+      buying the caller a request that returns nothing. Suppressing it also has to CLEAR the
+      field: the handler sets its own token before filtering, so leaving it in place re-served a
+      page the filter had already consumed.
+    """
+    owner, owner_pw = create_user(client.tracking_uri)
+    stranger, stranger_pw = create_user(client.tracking_uri)
+
+    with User(owner, owner_pw, monkeypatch):
+        readable = client.create_experiment("lm-pagination-readable")
+    with User(stranger, stranger_pw, monkeypatch):
+        hidden = client.create_experiment("lm-pagination-hidden")
+
+    # Interleaved by name, so ordering by name puts an unreadable row last: the loop breaks on
+    # reaching max_results with only a denied row after it, on the final page.
+    for name, experiment_id, as_user in (
+        ("a1", readable, (owner, owner_pw)),
+        ("a2", hidden, (stranger, stranger_pw)),
+        ("a3", readable, (owner, owner_pw)),
+        ("a4", hidden, (stranger, stranger_pw)),
+    ):
+        with User(as_user[0], as_user[1], monkeypatch):
+            client.create_logged_model(experiment_id=experiment_id, name=name)
+
+    body = {
+        "experiment_ids": [readable, hidden],
+        "max_results": 2,
+        "order_by": [{"field_name": "name", "ascending": True}],
+    }
+    pages = _search_logged_models_pages(client.tracking_uri, (owner, owner_pw), body)
+
+    # Every page the caller is handed must succeed: no rejected self-issued token.
+    assert [status for status, _ in pages] == [200] * len(pages)
+    # No page is empty, so no token promised rows that filtering had already removed.
+    assert all(names for _, names in pages)
+    # Only readable rows, each served exactly once.
+    served = [name for _, names in pages for name in names]
+    assert served == ["a1", "a3"]

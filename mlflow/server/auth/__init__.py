@@ -5829,8 +5829,8 @@ def filter_search_logged_models(resp: Response) -> None:
                 {
                     "field_name": ob.field_name,
                     "ascending": ob.ascending,
-                    "dataset_name": ob.dataset_name,
-                    "dataset_digest": ob.dataset_digest,
+                    "dataset_name": ob.dataset_name or None,
+                    "dataset_digest": ob.dataset_digest or None,
                 }
                 for ob in request_proto.order_by
             ]
@@ -5846,15 +5846,19 @@ def filter_search_logged_models(resp: Response) -> None:
         )
         is_last_page = batch.token is None
         offset = Token.decode(next_page_token).offset if next_page_token else 0
-        last_index = len(batch) - 1
         for index, model in enumerate(batch):
             if not can_read(model.experiment_id):
                 continue
             response_proto.models.append(model.to_proto())
             if len(response_proto.models) >= max_results:
+                # Only issue a token if a readable row could still follow. On the last page the
+                # rows after `index` may all be unreadable, and a token then bought the caller an
+                # extra request that returns nothing. `any([])` is false, so this also covers
+                # `index` being the final row.
                 next_page_token = (
                     None
-                    if is_last_page and index == last_index
+                    if is_last_page
+                    and not any(can_read(m.experiment_id) for m in batch[index + 1 :])
                     else Token(offset=offset + index + 1, **params).encode()
                 )
                 break
@@ -5866,6 +5870,10 @@ def filter_search_logged_models(resp: Response) -> None:
 
     if next_page_token:
         response_proto.next_page_token = next_page_token
+    else:
+        # The handler set its own token before filtering, so suppressing ours has to clear the
+        # field -- leaving the handler's token would hand back a page the filter already consumed.
+        response_proto.ClearField("next_page_token")
     _withhold_denied_metric_references(
         [metric for model in response_proto.models for metric in model.data.metrics],
         username,
