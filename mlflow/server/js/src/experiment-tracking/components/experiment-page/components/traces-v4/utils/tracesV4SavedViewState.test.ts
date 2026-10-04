@@ -11,6 +11,7 @@ import {
   urlHasCapturedV4ViewState,
   TRACE_V4_SAVED_VIEW_TAG_PREFIX,
   TRACE_V4_SHARE_URL_PARAM_KEY,
+  TRACE_V4_FILTERS_PARAM_KEY,
 } from './tracesV4SavedViewState';
 
 const params = (query: string) => new URLSearchParams(query);
@@ -81,19 +82,21 @@ describe('captureV4ViewState', () => {
   });
 
   test('stores the live popover filter model, and omits an empty one', () => {
-    // Filters are React state (not URL-backed), so they're passed in and stored on the envelope; an
-    // empty model is omitted so a filter-less view stays byte-identical to a legacy (pre-filter) one.
+    // Filters are passed in and stored on the envelope; an empty model is omitted so a filter-less
+    // view stays byte-identical to a legacy (pre-filter) one.
     const withFilters = captureV4ViewState(
       params('q=x'),
       ['start_time'],
       [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }],
     );
     expect(withFilters.filters).toEqual([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
-    // Filters never leak into the rebuilt URL query.
-    expect(params(buildV4ViewQuery(withFilters, 'view-1')).has('filters')).toBe(false);
+    expect(JSON.parse(params(buildV4ViewQuery(withFilters, 'view-1')).get(TRACE_V4_FILTERS_PARAM_KEY) ?? '')).toEqual(
+      withFilters.filters,
+    );
 
     const noFilters = captureV4ViewState(params('q=x'), ['start_time'], []);
     expect(noFilters.filters).toBeUndefined();
+    expect(params(buildV4ViewQuery(noFilters, 'view-1')).get(TRACE_V4_FILTERS_PARAM_KEY)).toBe('[]');
   });
 
   test('captures assessment-column visibility, omitting an empty map', () => {
@@ -152,6 +155,7 @@ describe('urlHasCapturedV4ViewState', () => {
   test('true when the URL carries any serialized view state', () => {
     expect(urlHasCapturedV4ViewState(params('sort=duration'))).toBe(true);
     expect(urlHasCapturedV4ViewState(params('tag=env%3Dprod'))).toBe(true);
+    expect(urlHasCapturedV4ViewState(params('filters=%5B%5D'))).toBe(true);
   });
 
   test('false for a bare share key with no view state (a garbage/stale link)', () => {

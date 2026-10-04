@@ -46,6 +46,7 @@ import {
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
   type CapturedV4ViewState,
+  TRACE_V4_FILTERS_PARAM_KEY,
   TRACE_V4_SHARE_URL_PARAM_KEY,
 } from '../utils/tracesV4SavedViewState';
 import { capturedV4StatesMatch } from '../utils/tracesV4DirtyState';
@@ -97,14 +98,12 @@ interface UseTracesV4SavedViewsParams {
    * captured into a view on save (as `cols`, carrying both membership and order) and diffed for dirty.
    */
   visibleColumns: string[];
-  /** The live popover filter model — captured into a view on save, restored on open, diffed for dirty. */
+  /** The live URL-backed filter model — captured into a view on save and diffed for dirty. */
   filterModel: TraceFilterModel;
   /** Writes an explicit column set into the user's persisted store (used by open / reset). */
   setColumns: (columns: TraceColumnId[]) => void;
   /** Clears column overrides (standard + assessment) back to defaults; used by "Default view". */
   resetColumns: () => void;
-  /** Sets the popover filter clauses (React state, not URL-backed); used by open / reset / default. */
-  setFilterModel: (next: TraceFilterModel) => void;
   /** Candidate assessment names, so restored assessment-filter clauses validate against live fields. */
   assessmentNames?: string[];
   /**
@@ -137,7 +136,6 @@ export const useTracesV4SavedViews = ({
   filterModel,
   setColumns,
   resetColumns,
-  setFilterModel,
   assessmentNames = [],
   assessmentVisibility = {},
   setAssessmentVisibility,
@@ -336,14 +334,17 @@ export const useTracesV4SavedViews = ({
     [experiment?.tags],
   );
 
-  // Activate a view: rewrite the URL query to its state (+ the share key), and restore the two
-  // non-URL surfaces — its columns into the user's own column store, and its popover filter model
-  // into React state (validated so a clause referencing a since-removed field/operator is dropped).
+  // Activate a view: rewrite the URL query to its state (+ the share key), and restore columns into
+  // the user's own column store. Filter clauses are validated before being serialized so a clause
+  // referencing a since-removed field/operator is dropped.
   // The V4 hooks read the params on the next render, so this IS the applied view. A view with no
   // resolvable columns leaves the user's columns untouched rather than hiding everything.
   const applyView = useCallback(
     (state: CapturedV4ViewState, id: string) => {
-      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+      const filters = supportedFilters(state.filters);
+      setSearchParams(
+        new URLSearchParams(buildV4ViewQuery({ ...state, filters: filters.length > 0 ? filters : undefined }, id)),
+      );
       const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
       if (columns) {
         setColumns(columns);
@@ -351,7 +352,6 @@ export const useTracesV4SavedViews = ({
       // Restore the full mixed (standard + assessment) column order so a reordered view round-trips.
       // Absent `cols` (an older view) leaves the user's order intact.
       setColumnOrder?.(decodeViewColumnOrder(state));
-      setFilterModel(supportedFilters(state.filters));
       // Restore assessment-column visibility (localStorage, not URL). An older view without the field
       // clears overrides rather than leaving the previous view's visibility applied on top.
       setAssessmentVisibility?.(state.assessmentColumns);
@@ -359,24 +359,16 @@ export const useTracesV4SavedViews = ({
       // clears overrides rather than leaving the previous view's visibility applied on top.
       setCustomVisibility?.(state.customColumns);
     },
-    [
-      setSearchParams,
-      setColumns,
-      setColumnOrder,
-      setFilterModel,
-      supportedFilters,
-      setAssessmentVisibility,
-      setCustomVisibility,
-    ],
+    [setSearchParams, setColumns, setColumnOrder, supportedFilters, setAssessmentVisibility, setCustomVisibility],
   );
 
-  // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
-  // popover filters). Time-range label is kept (not dropped) so the default has a window, not empty.
+  // Return to the default state: drop every view param and clear the non-URL column state. The
+  // filter model is URL-backed, so replacing the query clears it atomically with the other params.
+  // Time-range label is kept (not dropped) so the default has a window, not empty.
   const resetToDefaultView = useCallback(() => {
     setSearchParams(new URLSearchParams({ startTimeLabel: DEFAULT_TRACES_V4_TIME_LABEL }));
     resetColumns();
-    setFilterModel(EMPTY_FILTER_MODEL);
-  }, [setSearchParams, resetColumns, setFilterModel]);
+  }, [setSearchParams, resetColumns]);
 
   // Apply a saved view by decoding its stored state, then activating it.
   const openView = useCallback(
@@ -503,9 +495,23 @@ export const useTracesV4SavedViews = ({
         return;
       }
       setActiveStoredState(state);
-      // Cold-load: a link opened directly carries the query in the URL but not the columns or the
-      // popover filter model, so restore both once per view id. Menu-open already restored them via
-      // applyView; this is a harmless no-op in that case.
+      // Current share links carry filters in the URL. Older V4 and V3 links do not, so migrate their
+      // stored filters only when the URL has no filter marker. An explicit `filters=[]` means the
+      // user intentionally cleared them and must remain authoritative.
+      const filters = supportedFilters(state.filters);
+      if (!searchParams.has(TRACE_V4_FILTERS_PARAM_KEY) && filters.length > 0) {
+        setSearchParams(
+          (params) => {
+            if (!params.has(TRACE_V4_FILTERS_PARAM_KEY)) {
+              params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(filters));
+            }
+            return params;
+          },
+          { replace: true },
+        );
+      }
+      // Restore only the local-storage-backed state once per view id, so hydration cannot overwrite
+      // URL edits.
       if (hydratedViewIdRef.current !== activeViewId) {
         hydratedViewIdRef.current = activeViewId;
         const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
@@ -513,7 +519,6 @@ export const useTracesV4SavedViews = ({
           setColumns(columns);
         }
         setColumnOrder?.(decodeViewColumnOrder(state));
-        setFilterModel(supportedFilters(state.filters));
         setAssessmentVisibility?.(state.assessmentColumns);
         setCustomVisibility?.(state.customColumns);
       }
@@ -524,9 +529,10 @@ export const useTracesV4SavedViews = ({
   }, [
     activeViewId,
     decodeViewState,
+    searchParams,
+    setSearchParams,
     setColumns,
     setColumnOrder,
-    setFilterModel,
     supportedFilters,
     setAssessmentVisibility,
     setCustomVisibility,

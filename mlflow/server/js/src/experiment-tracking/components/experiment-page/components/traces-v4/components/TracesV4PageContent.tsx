@@ -117,7 +117,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     filterModel,
     setColumns: columns.setColumns,
     resetColumns,
-    setFilterModel: controller.setFilterModel,
     assessmentNames: assessments.candidateNames,
     assessmentVisibility: assessments.visibilityByName,
     setAssessmentVisibility: assessments.setVisibility,
@@ -280,9 +279,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // Filter button "clear all": resets exactly what the count badge totals — the popover clauses AND
   // the URL tag filters — but leaves the search box (a separate control the badge doesn't count).
   const clearAllFilters = useCallback(() => {
-    controller.setFilterModel(EMPTY_FILTER_MODEL);
-    url.clearTagFilters();
-  }, [controller, url]);
+    url.setFilterState(EMPTY_FILTER_MODEL, []);
+  }, [url]);
   // Empty-state "clear filters": the broader reset that also clears the search query, since the
   // no-results state can be caused by the search too.
   const clearFilters = useCallback(() => {

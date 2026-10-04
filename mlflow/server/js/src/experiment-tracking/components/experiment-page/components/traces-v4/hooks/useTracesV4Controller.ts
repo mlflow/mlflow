@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { SEARCH_MLFLOW_TRACES_QUERY_KEY, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import { SESSION_ID_METADATA_KEY, type ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
-  EMPTY_FILTER_MODEL,
   countActiveFilters,
   useBulkTraceSelection,
   useTracesPageQuery,
@@ -86,7 +85,8 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
 
   const isGroupedBySession = shouldEnableSessionGrouping() && url.isGroupedBySession;
 
-  const [filterModel, setFilterModel] = useState<TraceFilterModel>(EMPTY_FILTER_MODEL);
+  const filterModel = url.filterModel;
+  const setFilterModel = url.setFilterModel;
 
   const searchInput = useDebouncedSearchInput({
     committedValue: url.search,

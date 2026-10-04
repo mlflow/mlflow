@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 // Reuse the generic (branding-free) number-search-param helper from datasets-v2.
 import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useNumberSearchParam';
@@ -6,12 +7,16 @@ import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DIR,
+  EMPTY_FILTER_MODEL,
   PAGE_SIZE_OPTIONS,
   isSortableTraceColumn,
   type PageSize,
   type SortDirection,
   type TraceColumnId,
+  type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
+import { getMlflowTraceFilterFields, isSupportedFilterClause } from '../utils/filterModel';
+import { TRACE_V4_FILTERS_PARAM_KEY, TRACE_V4_SHARE_URL_PARAM_KEY } from '../utils/tracesV4SavedViewState';
 
 const Q_PARAM = 'q';
 const PAGE_PARAM = 'page';
@@ -54,6 +59,47 @@ const isSortableColumnId = (value: string | null): value is TraceColumnId =>
   value !== null && isSortableTraceColumn(value);
 
 const PAGE_SIZE_SET = new Set<number>(PAGE_SIZE_OPTIONS);
+
+const parseFilterModel = (
+  raw: string | null,
+  fields: ReturnType<typeof getMlflowTraceFilterFields>,
+): TraceFilterModel => {
+  if (!raw) {
+    return EMPTY_FILTER_MODEL;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((clause): clause is TraceFilterModel[number] => isSupportedFilterClause(fields, clause))
+      : EMPTY_FILTER_MODEL;
+  } catch {
+    return EMPTY_FILTER_MODEL;
+  }
+};
+
+const writeFilterModel = (params: URLSearchParams, next: TraceFilterModel) => {
+  if (next.length === 0) {
+    // A saved view's older share links have no URL filter parameter, so absence means "hydrate the
+    // stored filters." Keep an explicit empty marker while a view is active to distinguish a user
+    // deliberately clearing those filters from a legacy link that still needs migration.
+    if (params.has(TRACE_V4_SHARE_URL_PARAM_KEY)) {
+      params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(EMPTY_FILTER_MODEL));
+    } else {
+      params.delete(TRACE_V4_FILTERS_PARAM_KEY);
+    }
+  } else {
+    params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(next));
+  }
+};
+
+const writeTagFilters = (params: URLSearchParams, filters: TagFilter[]) => {
+  params.delete(TAG_PARAM);
+  for (const filter of filters) {
+    params.append(TAG_PARAM, encodeTagFilter(filter));
+  }
+};
+
 const toValidPageSize = (raw: string | null): PageSize => {
   const parsed = raw === null ? NaN : Number.parseInt(raw, 10);
   return PAGE_SIZE_SET.has(parsed) ? (parsed as PageSize) : DEFAULT_PAGE_SIZE;
@@ -77,6 +123,11 @@ export interface TracesV4UrlState {
   /** Whether traces are grouped into collapsible session rows. */
   isGroupedBySession: boolean;
   setIsGroupedBySession: (next: boolean) => void;
+  /** Structured filter clauses, persisted in the URL. */
+  filterModel: TraceFilterModel;
+  setFilterModel: (next: TraceFilterModel) => void;
+  /** Replaces structured and tag filters atomically. */
+  setFilterState: (filterModel: TraceFilterModel, tagFilters: TagFilter[]) => void;
   /** Click-to-filter tag constraints, in URL order. */
   tagFilters: TagFilter[];
   /** Add a tag filter; toggles off if the identical (key, value) is already present. Resets `?page`. */
@@ -103,6 +154,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   // OSS's `useSearchParams` is the raw react-router hook — it returns `[searchParams, setSearchParams]`
   // and has no read-selector overload (unlike the Databricks variant), so read each param off the
   // `searchParams` object directly.
+  const intl = useIntl();
+  const filterFields = useMemo(() => getMlflowTraceFilterFields(intl), [intl]);
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get(Q_PARAM) ?? '';
   const [pageIndex, setPageIndex] = useNumberSearchParam({ key: PAGE_PARAM, defaultValue: 1, min: 1 });
@@ -111,6 +164,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const dirRaw = searchParams.get(DIR_PARAM);
   const traceId = searchParams.get(TRACE_ID_PARAM) ?? searchParams.get(LEGACY_TRACE_ID_PARAM) ?? undefined;
   const isGroupedBySession = searchParams.get(GROUP_BY_PARAM) === SESSION_GROUP_BY_VALUE;
+  const filterModelRaw = searchParams.get(TRACE_V4_FILTERS_PARAM_KEY);
   // getAll → the repeatable `tag` values. Memoize on the serialized params: `getAll().map().filter()`
   // returns a fresh array every render, and consumers use `tagFilters` as an effect dependency (e.g.
   // the controller's clear-selection effect). Without a stable identity that effect would re-run on
@@ -129,6 +183,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const pageSize = toValidPageSize(pageSizeRaw);
   const sort: TraceColumnId = isSortableColumnId(sortRaw) ? sortRaw : DEFAULT_SORT_COLUMN;
   const dir: SortDirection = dirRaw === 'asc' ? 'asc' : dirRaw === 'desc' ? 'desc' : DEFAULT_SORT_DIR;
+  const filterModel = useMemo(() => parseFilterModel(filterModelRaw, filterFields), [filterModelRaw, filterFields]);
 
   const setSearch = useCallback(
     (next: string) => {
@@ -210,6 +265,35 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     [setSearchParams],
   );
 
+  const setFilterModel = useCallback(
+    (next: TraceFilterModel) => {
+      setSearchParams((params) => {
+        writeFilterModel(
+          params,
+          next.filter((clause) => isSupportedFilterClause(filterFields, clause)),
+        );
+        params.delete(PAGE_PARAM);
+        return params;
+      });
+    },
+    [filterFields, setSearchParams],
+  );
+
+  const setFilterState = useCallback(
+    (nextFilterModel: TraceFilterModel, nextTagFilters: TagFilter[]) => {
+      setSearchParams((params) => {
+        writeFilterModel(
+          params,
+          nextFilterModel.filter((clause) => isSupportedFilterClause(filterFields, clause)),
+        );
+        writeTagFilters(params, nextTagFilters);
+        params.delete(PAGE_PARAM);
+        return params;
+      });
+    },
+    [filterFields, setSearchParams],
+  );
+
   // Rewrite the whole `tag` param set from a transform of the current list. Centralizes the
   // delete-all-then-re-append dance (URLSearchParams has no "replace all of key X") and the shared
   // `?page` reset that every tag-filter change needs.
@@ -220,10 +304,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
           .getAll(TAG_PARAM)
           .map(decodeTagFilter)
           .filter((filter): filter is TagFilter => filter !== undefined);
-        params.delete(TAG_PARAM);
-        for (const filter of transform(current)) {
-          params.append(TAG_PARAM, encodeTagFilter(filter));
-        }
+        writeTagFilters(params, transform(current));
         params.delete(PAGE_PARAM);
         return params;
       });
@@ -270,6 +351,9 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     setTraceId,
     isGroupedBySession,
     setIsGroupedBySession,
+    filterModel,
+    setFilterModel,
+    setFilterState,
     tagFilters,
     addTagFilter,
     setTagFilters,
