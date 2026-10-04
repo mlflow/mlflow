@@ -31,6 +31,9 @@ from mlflow.server.auth.conditions import (
     parse_condition,
 )
 from mlflow.server.auth.resources import version_resource_id
+from mlflow.store.model_registry.sqlalchemy_store import (
+    SqlAlchemyStore as RegistrySqlAlchemyStore,
+)
 from mlflow.store.tracking.dbmodels.models import SqlTag
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -1328,7 +1331,12 @@ class TestPushdownColumnNamesResolve:
     column fails here instead of in production.
     """
 
-    def test_every_namespace_mapping_names_real_columns(self):
+    @pytest.mark.parametrize(
+        "store",
+        [SqlAlchemyStore, RegistrySqlAlchemyStore],
+        ids=["tracking", "registry"],
+    )
+    def test_every_namespace_mapping_names_real_columns(self, store):
         store = SqlAlchemyStore
         problems = []
         for entity, namespaces in store._PUSHDOWN_NAMESPACES.items():
