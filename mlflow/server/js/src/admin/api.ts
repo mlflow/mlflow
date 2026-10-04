@@ -9,6 +9,7 @@ import type {
   ListRolesResponse,
   ListUsersResponse,
   AddMutationConditionRequest,
+  AddUserMutationConditionRequest,
   ListMutationConditionsResponse,
   MutationConditionResponse,
   RolePermissionResponse,
@@ -155,6 +156,20 @@ export const AdminApi = {
       body: JSON.stringify({ condition_id: conditionId }),
       error: defaultErrorHandler,
     });
+  },
+
+  // The server resolves -- and creates, if absent -- the synthetic role backing this
+  // user's direct grants, so there is no role_id and no direct grant has to exist first.
+  // ``workspace`` overrides the session workspace the same way the grant call does, so
+  // both halves target the same per-user role.
+  addUserMutationCondition: (request: AddUserMutationConditionRequest, workspace?: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/users/mutation-conditions/add',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
+    }) as Promise<MutationConditionResponse>;
   },
 
   listMutationConditions: (roleId: number) => {

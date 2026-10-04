@@ -9,6 +9,7 @@ from mlflow.server.auth.entities import (
 from mlflow.server.auth.routes import (
     ADD_MUTATION_CONDITIONS,
     ADD_ROLE_PERMISSION,
+    ADD_USER_MUTATION_CONDITION,
     ASSIGN_ROLE,
     CREATE_ROLE,
     CREATE_USER,
@@ -433,6 +434,54 @@ class AuthServiceClient:
             "POST",
             json={
                 "role_id": role_id,
+                "resource_type": resource_type,
+                "parent_resource_type": parent_resource_type,
+                "parent_resource_id": parent_resource_id,
+                "value_condition": value_condition,
+                "target_condition": target_condition,
+            },
+        )
+        return MutationConditions.from_json(resp["mutation_conditions"])
+
+    def add_user_mutation_condition(
+        self,
+        username: str,
+        resource_type: str,
+        *,
+        parent_resource_type: str | None = None,
+        parent_resource_id: str | None = None,
+        value_condition: str | None = None,
+        target_condition: str | None = None,
+    ) -> MutationConditions:
+        """Attach one condition object to ``username``'s direct grants.
+
+        The user-addressed counterpart of :meth:`add_mutation_condition`, and the
+        condition analogue of :meth:`grant_user_permission`. Per-user access is stored on
+        a hidden per-user role; this resolves that role -- creating it if the user has no
+        direct grants yet -- so the caller never names it.
+
+        Everything :meth:`add_mutation_condition` says about semantics applies unchanged:
+        conditions AND with each other and with those on the user's other roles, they
+        cannot widen a grant, and they never apply to reads.
+
+        Args:
+            username: The user whose direct grants to condition.
+            resource_type: As :meth:`add_mutation_condition`.
+            parent_resource_type: As :meth:`add_mutation_condition`.
+            parent_resource_id: As :meth:`add_mutation_condition`.
+            value_condition: As :meth:`add_mutation_condition`.
+            target_condition: As :meth:`add_mutation_condition`.
+
+        Returns:
+            The created :py:class:`MutationConditions`. Its ``role_id`` is the per-user
+            role, which is an implementation detail -- address later updates and removals
+            by the returned ``id``.
+        """
+        resp = self._request(
+            ADD_USER_MUTATION_CONDITION,
+            "POST",
+            json={
+                "username": username,
                 "resource_type": resource_type,
                 "parent_resource_type": parent_resource_type,
                 "parent_resource_id": parent_resource_id,

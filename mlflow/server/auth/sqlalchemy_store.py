@@ -2041,35 +2041,112 @@ class SqlAlchemyStore:
             )
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
-            # Allocate-then-insert, retrying on the UNIQUE. The slot is picked from
-            # what this transaction can see, so two concurrent adds can choose the
-            # same free slot; the constraint is what actually enforces the bound, and
-            # the loser simply picks again. A savepoint keeps the failed insert from
-            # poisoning the surrounding session.
-            for _ in range(_SLOT_ALLOCATION_ATTEMPTS):
-                slot = self._allocate_condition_slot(session, role_id, resource_type)
-                mc = SqlMutationConditions(
-                    role_id=role_id,
-                    resource_type=resource_type,
-                    condition_slot=slot,
-                    parent_resource_type=parent_resource_type,
-                    parent_resource_id=parent_resource_id,
-                    value_condition=value_condition,
-                    target_condition=target_condition,
-                )
-                try:
-                    with session.begin_nested():
-                        session.add(mc)
-                        session.flush()
-                except IntegrityError:
-                    continue
-                return mc.to_mlflow_entity()
-            raise MlflowException(
-                f"Could not allocate a condition slot for (role_id={role_id}, "
-                f"resource_type={resource_type}) after {_SLOT_ALLOCATION_ATTEMPTS} attempts "
-                f"because concurrent writers kept taking the chosen slot. Retry the request.",
-                TEMPORARILY_UNAVAILABLE,
+            return self._insert_mutation_condition(
+                session,
+                role_id,
+                resource_type,
+                parent_resource_type=parent_resource_type,
+                parent_resource_id=parent_resource_id,
+                value_condition=value_condition,
+                target_condition=target_condition,
             )
+
+    def add_user_mutation_condition(
+        self,
+        username: str,
+        resource_type: str,
+        *,
+        parent_resource_type: "str | None" = None,
+        parent_resource_id: "str | None" = None,
+        value_condition: str | None = None,
+        target_condition: str | None = None,
+    ) -> MutationConditions:
+        """Add a condition to ``username``'s synthetic role in the active workspace.
+
+        The user-addressed counterpart of ``grant_user_resource_permission``, and it
+        exists for the same reason: a direct grant and a direct condition both belong to
+        the hidden ``__user_<id>__`` role, and a caller naming a user should not have to
+        know that, nor have to create the role first.
+
+        Creating the role on demand is what makes the two symmetric. Requiring a direct
+        grant before a direct condition could be added would be an ordering constraint
+        with no model behind it -- the role is an implementation detail of how per-user
+        access is stored, not something the caller asked for.
+
+        Validation is shared with the role-addressed path, so an unparseable filter or a
+        filterless object is refused here too, before any role is created.
+        """
+        validate_condition_resource_type(resource_type)
+        validate_condition_parent_scope(resource_type, parent_resource_type, parent_resource_id)
+        validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
+        validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
+        if value_condition is None and target_condition is None:
+            raise MlflowException(
+                "A mutation condition needs at least one of 'value_condition' or "
+                "'target_condition'. An object with neither restricts nothing, so it would "
+                "occupy a slot while reading as a configured restriction.",
+                INVALID_PARAMETER_VALUE,
+            )
+        with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            return self._insert_mutation_condition(
+                session,
+                role.id,
+                resource_type,
+                parent_resource_type=parent_resource_type,
+                parent_resource_id=parent_resource_id,
+                value_condition=value_condition,
+                target_condition=target_condition,
+            )
+
+    def _insert_mutation_condition(
+        self,
+        session,
+        role_id: int,
+        resource_type: str,
+        *,
+        parent_resource_type: "str | None",
+        parent_resource_id: "str | None",
+        value_condition: str | None,
+        target_condition: str | None,
+    ) -> MutationConditions:
+        """Allocate a slot and insert, retrying on the UNIQUE.
+
+        The slot is picked from what this transaction can see, so two concurrent adds can
+        choose the same free slot; the constraint is what actually enforces the bound, and
+        the loser simply picks again. A savepoint keeps the failed insert from poisoning
+        the surrounding session.
+
+        Takes a session rather than opening one so the user-addressed path can create the
+        synthetic role and insert the condition in a single transaction -- otherwise a
+        failure here would leave behind a role the caller never asked for.
+        """
+        for _ in range(_SLOT_ALLOCATION_ATTEMPTS):
+            slot = self._allocate_condition_slot(session, role_id, resource_type)
+            mc = SqlMutationConditions(
+                role_id=role_id,
+                resource_type=resource_type,
+                condition_slot=slot,
+                parent_resource_type=parent_resource_type,
+                parent_resource_id=parent_resource_id,
+                value_condition=value_condition,
+                target_condition=target_condition,
+            )
+            try:
+                with session.begin_nested():
+                    session.add(mc)
+                    session.flush()
+            except IntegrityError:
+                continue
+            return mc.to_mlflow_entity()
+        raise MlflowException(
+            f"Could not allocate a condition slot for (role_id={role_id}, "
+            f"resource_type={resource_type}) after {_SLOT_ALLOCATION_ATTEMPTS} attempts "
+            f"because concurrent writers kept taking the chosen slot. Retry the request.",
+            TEMPORARILY_UNAVAILABLE,
+        )
 
     @staticmethod
     def _allocate_condition_slot(session, role_id: int, resource_type: str) -> int:

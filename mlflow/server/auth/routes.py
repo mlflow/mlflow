@@ -89,6 +89,13 @@ AJAX_REMOVE_MUTATION_CONDITIONS = _get_ajax_path(
 )
 LIST_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/list", version=3)
 AJAX_LIST_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/list", version=3)
+# User-addressed add, the counterpart of GRANT_USER_PERMISSION: resolves (and creates)
+# the caller-invisible synthetic role that backs a user's direct grants, so a direct
+# condition does not require a direct grant to exist first.
+ADD_USER_MUTATION_CONDITION = _get_rest_path("/mlflow/users/mutation-conditions/add", version=3)
+AJAX_ADD_USER_MUTATION_CONDITION = _get_ajax_path(
+    "/mlflow/users/mutation-conditions/add", version=3
+)
 ASSIGN_ROLE = _get_rest_path("/mlflow/roles/assign", version=3)
 AJAX_ASSIGN_ROLE = _get_ajax_path("/mlflow/roles/assign", version=3)
 UNASSIGN_ROLE = _get_rest_path("/mlflow/roles/unassign", version=3)

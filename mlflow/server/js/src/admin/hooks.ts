@@ -11,6 +11,7 @@ import type { Role } from '../account/types';
 import { useUserRolesQuery as useUserRolesQueryInternal } from '../account/hooks';
 import type {
   AddMutationConditionRequest,
+  AddUserMutationConditionRequest,
   AddPermissionRequest,
   CreateRoleRequest,
   CreateUserRequest,
@@ -289,6 +290,25 @@ export const useAddMutationCondition = (roleId: number) => {
     mutationFn: (request: AddMutationConditionRequest) => AdminApi.addMutationCondition(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
+    },
+  });
+};
+
+/**
+ * Add a condition to a user's direct grants.
+ *
+ * Invalidates by role id, which is only known once the role exists -- so on the very
+ * first add it invalidates nothing and the caller's own role query has to refetch. The
+ * modal re-reads the user's roles on reopen, which is what surfaces the new role.
+ */
+export const useAddUserMutationCondition = (username: string, roleId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ request, workspace }: { request: AddUserMutationConditionRequest; workspace?: string }) =>
+      AdminApi.addUserMutationCondition(request, workspace),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
+      queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
     },
   });
 };

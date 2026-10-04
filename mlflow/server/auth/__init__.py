@@ -360,8 +360,10 @@ from mlflow.server.auth.requirements import (
 from mlflow.server.auth.routes import (
     ADD_MUTATION_CONDITIONS,
     ADD_ROLE_PERMISSION,
+    ADD_USER_MUTATION_CONDITION,
     AJAX_ADD_MUTATION_CONDITIONS,
     AJAX_ADD_ROLE_PERMISSION,
+    AJAX_ADD_USER_MUTATION_CONDITION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
     AJAX_CREATE_USER,
@@ -3823,6 +3825,29 @@ def validate_can_manage_roles():
     return _is_workspace_admin(user.id, workspace)
 
 
+def validate_can_manage_user_conditions():
+    """Authorization for the user-addressed condition add.
+
+    ``validate_can_manage_roles`` cannot serve this route: it resolves the workspace from
+    a ``role_id`` / ``role_permission_id`` / ``condition_id`` in the request, and this
+    route names only a user. Falling through would deny every non-admin with a
+    malformed-request error -- the same defect the ``condition_id`` branch was added to
+    fix.
+
+    The workspace is resolved the way the store's write path resolves it
+    (``add_user_mutation_condition`` -> ``_get_active_workspace_name``), because the two
+    halves must agree about which workspace is being written to.
+    """
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    workspace = _wildcard_grant_workspace()
+    if workspace is None:
+        return False
+    return _is_workspace_admin(user.id, workspace)
+
+
 def validate_can_view_roles():
     username = authenticate_request().username
     user = store.get_user(username)
@@ -6013,6 +6038,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     # authorization as role permissions: manage to author, view to read.
     (ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
     (AJAX_ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
+    (ADD_USER_MUTATION_CONDITION, "POST"): validate_can_manage_user_conditions,
+    (AJAX_ADD_USER_MUTATION_CONDITION, "POST"): validate_can_manage_user_conditions,
     (GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
     (AJAX_GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
     (UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
@@ -6935,6 +6962,28 @@ def list_mutation_conditions():
     role_id = _get_int_request_param("role_id")
     conditions = store.list_mutation_conditions(role_id)
     return jsonify({"mutation_conditions": [c.to_json() for c in conditions]})
+
+
+@catch_mlflow_exception
+def add_user_mutation_condition():
+    """Add a condition to a user's direct grants, creating their synthetic role if needed.
+
+    Mirrors ``grant_user_permission``: the caller names a user, not the hidden
+    ``__user_<id>__`` role the condition actually lands on.
+    """
+    params = _request_params()
+    username = _get_request_param("username")
+    resource_type = _get_request_param("resource_type")
+    store.get_user(username)
+    condition = store.add_user_mutation_condition(
+        username,
+        resource_type,
+        parent_resource_type=_optional_condition_param(params, "parent_resource_type"),
+        parent_resource_id=_optional_condition_param(params, "parent_resource_id"),
+        value_condition=_optional_condition_param(params, "value_condition"),
+        target_condition=_optional_condition_param(params, "target_condition"),
+    )
+    return jsonify({"mutation_conditions": condition.to_json()})
 
 
 def _optional_condition_param(params: dict[str, Any], name: str) -> str | None:
@@ -10428,6 +10477,12 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     # validate_can_view_roles, like the role-permission routes above -- a condition is
     # part of a role's definition, so it carries the same authorization.
     (add_mutation_conditions, "POST", ADD_MUTATION_CONDITIONS, AJAX_ADD_MUTATION_CONDITIONS),
+    (
+        add_user_mutation_condition,
+        "POST",
+        ADD_USER_MUTATION_CONDITION,
+        AJAX_ADD_USER_MUTATION_CONDITION,
+    ),
     (get_mutation_conditions, "GET", GET_MUTATION_CONDITIONS, AJAX_GET_MUTATION_CONDITIONS),
     (
         update_mutation_conditions,

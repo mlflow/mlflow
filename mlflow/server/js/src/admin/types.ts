@@ -268,6 +268,21 @@ export interface AddMutationConditionRequest {
   target_condition?: string | null;
 }
 
+/**
+ * Add a condition to a user's direct grants. The counterpart of the per-user grant
+ * endpoint: the server resolves -- and creates, if needed -- the synthetic role that
+ * backs those grants, so no ``role_id`` is supplied and no direct grant has to exist
+ * first.
+ */
+export interface AddUserMutationConditionRequest {
+  username: string;
+  resource_type: string;
+  parent_resource_type?: string | null;
+  parent_resource_id?: string | null;
+  value_condition?: string | null;
+  target_condition?: string | null;
+}
+
 export interface UpdateMutationConditionRequest {
   condition_id: number;
   value_condition?: string | null;

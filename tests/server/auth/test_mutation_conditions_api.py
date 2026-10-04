@@ -315,3 +315,70 @@ def test_cascade_on_role_delete(client, monkeypatch, role):
         client.delete_role(role.id)
         with pytest.raises(MlflowException, match="not found"):
             client.list_mutation_conditions(role.id)
+
+
+# ---- The user-addressed add ------------------------------------------------
+
+
+def test_user_addressed_add_creates_the_per_user_role(client, monkeypatch):
+    """A direct condition does not require a direct grant to exist first.
+
+    The route is the condition analogue of ``grant_user_permission``: the caller names a
+    user, and the per-user role the condition actually lands on is resolved -- and
+    created -- server-side.
+    """
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        username = f"u-{random_str()}"
+        client.create_user(username, "password1234")
+        assert client.list_user_roles(username) == []
+
+        created = client.add_user_mutation_condition(
+            username, "run", target_condition="tags.lifecycle != 'prod'"
+        )
+        assert created.target_condition == "tags.lifecycle != 'prod'"
+
+        roles = client.list_user_roles(username)
+        assert len(roles) == 1, "the per-user role must be created on demand"
+        assert created.role_id == roles[0].id
+        # Addressable by its own id afterwards, like any other condition.
+        assert client.get_mutation_condition(created.id).id == created.id
+
+
+def test_user_addressed_add_reuses_the_role_a_direct_grant_made(client, monkeypatch):
+    """It must land on the same role the direct grants use, not a second one."""
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        username = f"u-{random_str()}"
+        client.create_user(username, "password1234")
+        client.grant_user_permission(username, "experiment", "*", "EDIT")
+        roles = client.list_user_roles(username)
+        assert len(roles) == 1
+
+        created = client.add_user_mutation_condition(
+            username, "run", target_condition="tags.x = 'y'"
+        )
+        assert created.role_id == roles[0].id
+        assert len(client.list_user_roles(username)) == 1, "no second role"
+
+
+def test_user_addressed_add_refuses_a_filterless_object(client, monkeypatch):
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        username = f"u-{random_str()}"
+        client.create_user(username, "password1234")
+        with pytest.raises(MlflowException, match="at least one of"):
+            client.add_user_mutation_condition(username, "run")
+
+
+def test_user_addressed_add_is_refused_for_a_non_admin(client, monkeypatch):
+    """Same gate as the role-addressed add: only an admin or workspace admin may set one.
+
+    Worth its own case because this route resolves the workspace differently -- it names
+    no role, so the shared role-workspace resolver cannot serve it.
+    """
+    username, password = _non_admin(client, monkeypatch)
+    target = f"u-{random_str()}"
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(target, "password1234")
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", username)
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", password)
+    with pytest.raises(MlflowException, match="PERMISSION_DENIED|Permission denied"):
+        client.add_user_mutation_condition(target, "run", target_condition="tags.x = 'y'")

@@ -20,7 +20,7 @@ import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
   useCurrentUserIsAdmin,
-  useAddMutationCondition,
+  useAddUserMutationCondition,
   useGrantUserPermission,
   useRemoveMutationCondition,
   useRoleMutationConditionsQuery,
@@ -158,7 +158,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const syntheticRoleId = syntheticRole?.id ?? Number.NaN;
 
   const { data: conditionsData, isLoading: conditionsLoading } = useRoleMutationConditionsQuery(syntheticRoleId);
-  const addCondition = useAddMutationCondition(syntheticRoleId);
+  const addCondition = useAddUserMutationCondition(username, syntheticRoleId);
   const removeCondition = useRemoveMutationCondition(syntheticRoleId);
 
   const currentConditions = useMemo<StagedMutationCondition[]>(
@@ -403,17 +403,21 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     for (const c of diff.conditionsToAdd) {
       try {
         await addCondition.mutateAsync({
-          role_id: syntheticRoleId,
-          resource_type: c.resourceType,
-          parent_resource_type: c.parentResourceType,
-          parent_resource_id: c.parentResourceId,
-          value_condition: c.valueCondition,
-          target_condition: c.targetCondition,
+          request: {
+            username,
+            resource_type: c.resourceType,
+            parent_resource_type: c.parentResourceType,
+            parent_resource_id: c.parentResourceId,
+            value_condition: c.valueCondition,
+            target_condition: c.targetCondition,
+          },
+          workspace: grantWorkspaceForRequest,
         });
       } catch (e: any) {
         failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
       }
     }
+    // A stored condition implies the role exists, so removal stays id-addressed.
     for (const id of diff.conditionIdsToRemove) {
       try {
         await removeCondition.mutateAsync(id);
@@ -433,7 +437,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   }, [
     diff,
     isAdmin,
-    syntheticRoleId,
     addCondition,
     removeCondition,
     username,
@@ -602,29 +605,21 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                 />
               </LongFormSection>
               <LongFormSection title="Direct conditions" hideDivider={!isCurrentUserAdmin}>
-                {Number.isFinite(syntheticRoleId) ? (
-                  <>
-                    <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                      Current conditions on this user's direct grants are pre-filled. Remove a row to drop it; use the
-                      form below to add more.
-                    </Typography.Text>
-                    <MutationConditionsSection
-                      key={String(open)}
-                      value={conditions}
-                      onChange={setConditions}
-                      workspace={grantWorkspaceForRequest}
-                      disabled={submitting}
-                      onUnsavedDraftChange={setHasUnsavedConditionDraft}
-                    />
-                  </>
-                ) : (
-                  // No synthetic role exists yet, so there is nothing for a direct
-                  // condition to attach to. Say so instead of offering a form that
-                  // would fail on submit.
-                  <Typography.Text color="secondary">
-                    Grant a direct permission first — direct conditions attach to the role backing those grants.
-                  </Typography.Text>
-                )}
+                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                  Current conditions on this user's direct grants are pre-filled. Remove a row to drop it; use the form
+                  below to add more.
+                </Typography.Text>
+                {/* No pre-existing role needed: the add is addressed by username and the
+                    server creates the role backing the direct grants if it is absent, the
+                    same way granting a direct permission does. */}
+                <MutationConditionsSection
+                  key={String(open)}
+                  value={conditions}
+                  onChange={setConditions}
+                  workspace={grantWorkspaceForRequest}
+                  disabled={submitting}
+                  onUnsavedDraftChange={setHasUnsavedConditionDraft}
+                />
               </LongFormSection>
               {isCurrentUserAdmin && (
                 <LongFormSection title="Admin status" hideDivider>

@@ -575,3 +575,96 @@ def test_loader_rows_are_detached_plain_tuples(store, user, role):
     (row,) = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert isinstance(row, tuple)
     assert row == ("run", "tag_key != 'a'", "tags.b = '1'")
+
+
+# ---- The user-addressed add ------------------------------------------------
+#
+# The counterpart of ``grant_user_resource_permission``: a caller naming a user should
+# not have to know that per-user access is stored on a hidden ``__user_<id>__`` role,
+# nor have to create that role first. Requiring a direct grant before a direct condition
+# would be an ordering constraint with no model behind it.
+
+
+def _synthetic_role(store, user_id):
+    name = store._synthetic_user_role_name(user_id)
+    return next((r for r in store.list_roles() if r.name == name), None)
+
+
+class TestTheUserAddressedAdd:
+    def test_creates_the_synthetic_role_on_demand(self, store, user):
+        """The headline: no direct grant has to exist first."""
+        assert _synthetic_role(store, user.id) is None
+
+        mc = store.add_user_mutation_condition(
+            "alice", "run", target_condition="tags.lifecycle != 'prod'"
+        )
+
+        role = _synthetic_role(store, user.id)
+        assert role is not None, "the synthetic role must be created on demand"
+        assert mc.role_id == role.id
+        assert mc.target_condition == "tags.lifecycle != 'prod'"
+
+    def test_reuses_the_role_a_direct_grant_already_created(self, store, user):
+        """It must land on the SAME role the direct grants use, not a second one."""
+        store.grant_user_resource_permission("alice", "experiment", "*", "EDIT")
+        role = _synthetic_role(store, user.id)
+        assert role is not None
+
+        mc = store.add_user_mutation_condition("alice", "run", target_condition="tags.x = 'y'")
+        assert mc.role_id == role.id
+
+    def test_the_condition_is_visible_through_the_role_addressed_list(self, store, user):
+        """Remove and list stay role-addressed, so the two paths have to agree."""
+        mc = store.add_user_mutation_condition("alice", "run", target_condition="tags.x = 'y'")
+        role = _synthetic_role(store, user.id)
+        assert [c.id for c in store.list_mutation_conditions(role.id)] == [mc.id]
+
+        store.remove_mutation_condition(mc.id)
+        assert store.list_mutation_conditions(role.id) == []
+
+    def test_allocates_distinct_slots_like_the_role_path(self, store, user):
+        a = store.add_user_mutation_condition("alice", "run", target_condition="tags.a = '1'")
+        b = store.add_user_mutation_condition("alice", "run", target_condition="tags.b = '2'")
+        assert {a.condition_slot, b.condition_slot} == {1, 2}
+
+    def test_refuses_an_object_with_neither_filter(self, store, user):
+        with pytest.raises(MlflowException, match="at least one of"):
+            store.add_user_mutation_condition("alice", "run")
+
+    def test_refuses_an_unparseable_filter_without_creating_the_role(self, store, user):
+        """Validation runs BEFORE the role is created.
+
+        Otherwise a rejected request leaves behind a role the caller never asked for,
+        and the next read reports the user as having a synthetic role with nothing on it.
+        """
+        with pytest.raises(MlflowException, match="comparator"):
+            store.add_user_mutation_condition("alice", "run", target_condition="tags.x >= 'y'")
+        assert _synthetic_role(store, user.id) is None, (
+            "a refused condition must not leave a role behind"
+        )
+
+    def test_refuses_a_reserved_key_like_the_role_path(self, store, user):
+        with pytest.raises(MlflowException, match="mlflow\\."):
+            store.add_user_mutation_condition(
+                "alice", "run", target_condition="tags.mlflow.runName = 'x'"
+            )
+
+    def test_refuses_a_parent_scope_the_type_cannot_have(self, store, user):
+        with pytest.raises(MlflowException, match="parent"):
+            store.add_user_mutation_condition(
+                "alice",
+                "experiment",
+                parent_resource_type="experiment",
+                parent_resource_id="0",
+                target_condition="tags.x = 'y'",
+            )
+
+    def test_missing_user_raises(self, store):
+        with pytest.raises(MlflowException, match="not found"):
+            store.add_user_mutation_condition("nobody", "run", target_condition="tags.x = 'y'")
+
+    def test_the_condition_reaches_the_runtime_loader(self, store, user):
+        """D10: a per-user condition is picked up with no special-casing."""
+        store.add_user_mutation_condition("alice", "run", target_condition="tags.x = 'y'")
+        rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
+        assert [r.target_condition for r in rows] == ["tags.x = 'y'"]
