@@ -1,6 +1,6 @@
 """Parity between pushed-down and in-memory evaluation of a target condition.
 
-``AbstractStore.filter_ids_by_tag_clauses`` lets a store answer "which of these
+``AbstractStore.filter_ids_by_clauses`` lets a store answer "which of these
 resources satisfy this tag predicate" without loading the resources. That makes
 **two** implementations of one semantic: the store's SQL predicate and the
 auth layer's :func:`evaluate_resource`. Nothing in the type system forces them
@@ -25,6 +25,7 @@ from mlflow.entities import RunTag, ViewType
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     NAMESPACE_RESOURCE,
+    Clause,
     evaluate_resource,
     parse_condition,
 )
@@ -32,6 +33,14 @@ from mlflow.store.tracking.dbmodels.models import SqlTag
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 TAG_KEY = "lifecycle"
+
+# MCP names are reverse-DNS and so contain "/" -- the separator
+# ``version_resource_id`` percent-encodes. Using realistic names here is what makes
+# the composite-id tests meaningful: a store that parsed a joined id would split
+# these in the wrong place.
+PROD_SERVER = "com.example/svc-prod"
+DEV_SERVER = "com.example/svc-dev"
+BARE_SERVER = "com.example/svc-bare"
 
 # (comparator, pushdown value, the equivalent condition filter text)
 COMPARATORS = [
@@ -101,7 +110,7 @@ def test_pushdown_agrees_with_in_memory_evaluation(store_with_runs, comparator, 
     store, _, ids = store_with_runs
     by_id = {run_id: label for label, run_id in ids.items()}
 
-    pushed = store.filter_ids_by_tag_clauses("run", list(by_id), [(TAG_KEY, comparator, value)])
+    pushed = store.filter_ids_by_clauses("run", list(by_id), [("tags", TAG_KEY, comparator, value)])
     assert pushed is not None, (
         f"SqlAlchemyStore must push {comparator} down; returning None falls back to "
         "loading every resource, which is the cost this exists to avoid"
@@ -120,8 +129,8 @@ def test_an_untagged_resource_satisfies_no_comparator(
     untagged resource, so the absence rule is asserted on its own.
     """
     store, _, ids = store_with_runs
-    pushed = store.filter_ids_by_tag_clauses(
-        "run", list(ids.values()), [(TAG_KEY, comparator, value)]
+    pushed = store.filter_ids_by_clauses(
+        "run", list(ids.values()), [("tags", TAG_KEY, comparator, value)]
     )
     assert pushed is not None
     assert ids["untagged"] not in pushed, (
@@ -133,10 +142,10 @@ def test_an_untagged_resource_satisfies_no_comparator(
 def test_every_clause_must_hold(store_with_runs):
     """Clauses are conjunctive, matching ``combine``'s AND-only semantics."""
     store, _, ids = store_with_runs
-    pushed = store.filter_ids_by_tag_clauses(
+    pushed = store.filter_ids_by_clauses(
         "run",
         list(ids.values()),
-        [(TAG_KEY, "=", "prod"), (TAG_KEY, "=", "dev")],
+        [("tags", TAG_KEY, "=", "prod"), ("tags", TAG_KEY, "=", "dev")],
     )
     assert pushed is not None
     assert pushed == set(), "no run can hold two different values for one tag key"
@@ -145,8 +154,8 @@ def test_every_clause_must_hold(store_with_runs):
 def test_no_clauses_matches_everything_and_no_ids_matches_nothing(store_with_runs):
     """Neither empty input may be confused with ``None``'s "cannot push down"."""
     store, _, ids = store_with_runs
-    assert store.filter_ids_by_tag_clauses("run", list(ids.values()), []) == set(ids.values())
-    assert store.filter_ids_by_tag_clauses("run", [], [(TAG_KEY, "=", "prod")]) == set()
+    assert store.filter_ids_by_clauses("run", list(ids.values()), []) == set(ids.values())
+    assert store.filter_ids_by_clauses("run", [], [("tags", TAG_KEY, "=", "prod")]) == set()
 
 
 def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_runs):
@@ -158,7 +167,7 @@ def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_run
     """
     store, _, ids = store_with_runs
     padded = list(ids.values()) + [f"absent-{i}" for i in range(60_000)]
-    pushed = store.filter_ids_by_tag_clauses("run", padded, [(TAG_KEY, "!=", "prod")])
+    pushed = store.filter_ids_by_clauses("run", padded, [("tags", TAG_KEY, "!=", "prod")])
     assert pushed == {ids["other"]}, (
         "only the dev-tagged run satisfies != 'prod'; absent ids must not match, and "
         "the untagged run must not either"
@@ -188,8 +197,8 @@ class TestPushdownGoesThroughTheWorkspaceHook:
         monkeypatch.setattr(
             store, "_get_query", lambda session, model: original(session, model).filter(sql.false())
         )
-        pushed = store.filter_ids_by_tag_clauses(
-            "run", list(ids.values()), [(TAG_KEY, "=", "prod")]
+        pushed = store.filter_ids_by_clauses(
+            "run", list(ids.values()), [("tags", TAG_KEY, "=", "prod")]
         )
         assert pushed == set(), (
             "the pushdown must build its query through _get_query; bypassing it ignores "
@@ -206,7 +215,7 @@ class TestPushdownGoesThroughTheWorkspaceHook:
         # permitted -- the same answer as a genuinely empty experiment. Asserting
         # False here is asserting the hook was consulted, not that nothing failed.
         assert (
-            store.any_child_failing_tag_clauses("run", experiment_id, [(TAG_KEY, "!=", "prod")])
+            store.any_child_failing_clauses("run", experiment_id, [("tags", TAG_KEY, "!=", "prod")])
             is False
         )
 
@@ -230,7 +239,7 @@ class TestPushdownGoesThroughTheWorkspaceHook:
         # every child fails -> deny. Bypassed: the dev tags are read out of scope,
         # every child satisfies -> permit, granting a write on another tenant's state.
         assert (
-            store.any_child_failing_tag_clauses("run", experiment_id, [(TAG_KEY, "!=", "prod")])
+            store.any_child_failing_clauses("run", experiment_id, [("tags", TAG_KEY, "!=", "prod")])
             is True
         )
 
@@ -244,8 +253,8 @@ def test_an_unknown_entity_declines_rather_than_matching(store_with_runs):
     """
     store, _, ids = store_with_runs
     assert (
-        store.filter_ids_by_tag_clauses(
-            "not_an_entity", list(ids.values()), [(TAG_KEY, "=", "prod")]
+        store.filter_ids_by_clauses(
+            "not_an_entity", list(ids.values()), [("tags", TAG_KEY, "=", "prod")]
         )
         is None
     )
@@ -267,8 +276,8 @@ class TestCascadePushdown:
     """
 
     def _answer(self, store, experiment_id, comparator="!=", value="prod"):
-        return store.any_child_failing_tag_clauses(
-            "run", experiment_id, [(TAG_KEY, comparator, value)]
+        return store.any_child_failing_clauses(
+            "run", experiment_id, [("tags", TAG_KEY, comparator, value)]
         )
 
     def test_a_failing_child_is_found(self, store_with_runs):
@@ -297,16 +306,16 @@ class TestCascadePushdown:
 
     def test_no_clauses_cannot_fail(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
-        assert store.any_child_failing_tag_clauses("run", experiment_id, []) is False
+        assert store.any_child_failing_clauses("run", experiment_id, []) is False
 
     def test_a_child_failing_only_the_second_clause_is_found(self, monkeypatch):
         """Clauses are conjunctive, so failing any one of them fails the child."""
         store, experiment_id = _store_with(monkeypatch, [("a", "dev")])
         assert (
-            store.any_child_failing_tag_clauses(
+            store.any_child_failing_clauses(
                 "run",
                 experiment_id,
-                [(TAG_KEY, "!=", "prod"), (TAG_KEY, "=", "prod")],
+                [("tags", TAG_KEY, "!=", "prod"), ("tags", TAG_KEY, "=", "prod")],
             )
             is True
         )
@@ -325,8 +334,8 @@ class TestCascadePushdown:
     def test_an_unknown_entity_declines(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
         assert (
-            store.any_child_failing_tag_clauses(
-                "not_an_entity", experiment_id, [(TAG_KEY, "=", "prod")]
+            store.any_child_failing_clauses(
+                "not_an_entity", experiment_id, [("tags", TAG_KEY, "=", "prod")]
             )
             is None
         )
@@ -391,7 +400,7 @@ class TestTheGateConsultsPushdown:
         monkeypatch.setattr(
             auth_module,
             "_get_tracking_store",
-            lambda: SimpleNamespace(any_child_failing_tag_clauses=lambda *a, **k: pushdown_answer),
+            lambda: SimpleNamespace(any_child_failing_clauses=lambda *a, **k: pushdown_answer),
         )
 
         def _must_not_enumerate(_experiment_id):
@@ -422,33 +431,195 @@ class TestTheGateConsultsPushdown:
             self._gate(monkeypatch, None)
 
 
-class TestOnlyTagClausesArePushed:
+class TestWhichClausesArePushed:
     """A clause the store cannot express must take the whole row in memory.
 
-    The pushdown hooks speak only about tags, but the resource namespace also
-    has ``aliases.<name>``. Pushing a row's tag clauses and silently ignoring
-    its alias clause would judge a conjunction against a subset of itself --
-    the fail-open direction, and one that no end-to-end case detects, because
-    aliases live on version types while the cascade entities are runs, traces
-    and logged models. So the guard is asserted directly on the helper.
+    Both resource namespaces now push, so the conversion is expected to succeed
+    for ``tags.*`` and ``aliases.*`` alike -- the earlier version of this class
+    asserted that an alias clause *declined*, which was true only while pushdown
+    was tag-only.
+
+    The invariant it protects is unchanged, and is the reason the helper is
+    asserted directly rather than end to end: a clause that cannot be pushed must
+    decline the **whole row**, never have its understood half pushed, because a
+    conjunction judged on a subset of itself is the fail-open direction -- the
+    dropped clause is exactly the one that would have denied.
     """
 
     @staticmethod
-    def _triples(filter_text):
-        from mlflow.server.auth import _tag_clause_triples
+    def _pushed(filter_text):
+        from mlflow.server.auth import _pushable_clauses
 
-        return _tag_clause_triples(parse_condition(filter_text, NAMESPACE_RESOURCE))
+        return _pushable_clauses(parse_condition(filter_text, NAMESPACE_RESOURCE))
 
     def test_tag_clauses_convert(self):
-        assert self._triples(f"tags.{TAG_KEY} != 'prod'") == [(TAG_KEY, "!=", "prod")]
+        assert self._pushed(f"tags.{TAG_KEY} != 'prod'") == [("tags", TAG_KEY, "!=", "prod")]
 
     def test_several_tag_clauses_convert_in_order(self):
-        triples = self._triples(f"tags.{TAG_KEY} != 'prod' AND tags.team = 'ml'")
-        assert triples == [(TAG_KEY, "!=", "prod"), ("team", "=", "ml")]
+        pushed = self._pushed(f"tags.{TAG_KEY} != 'prod' AND tags.team = 'ml'")
+        assert pushed == [("tags", TAG_KEY, "!=", "prod"), ("tags", "team", "=", "ml")]
 
-    def test_an_alias_clause_declines(self):
-        assert self._triples("aliases.production = 'yes'") is None
+    def test_an_alias_clause_converts(self):
+        assert self._pushed("aliases.production = 'yes'") == [("aliases", "production", "=", "yes")]
 
-    def test_a_row_mixing_tags_and_aliases_declines_whole(self):
-        """Not "push the tag half" -- the row is indivisible."""
-        assert self._triples(f"tags.{TAG_KEY} != 'prod' AND aliases.production = 'yes'") is None
+    def test_a_row_mixing_tags_and_aliases_converts_whole(self):
+        """Both halves in one call, so the conjunction is never split."""
+        pushed = self._pushed(f"tags.{TAG_KEY} != 'prod' AND aliases.production = 'yes'")
+        assert pushed == [
+            ("tags", TAG_KEY, "!=", "prod"),
+            ("aliases", "production", "=", "yes"),
+        ]
+
+    def test_an_unrecognised_identifier_declines_the_whole_row(self):
+        """The guard that outlives any particular namespace list.
+
+        Constructed directly rather than parsed, because the parser rejects an
+        unknown prefix at authoring time -- so this pins the helper's own refusal
+        rather than relying on the parser never changing.
+        """
+        from mlflow.server.auth import _pushable_clauses
+
+        rows = [
+            Clause(identifier="tags", key=TAG_KEY, comparator="!=", value="prod"),
+            Clause(identifier="something_new", key="x", comparator="=", value="y"),
+        ]
+        assert _pushable_clauses(rows) is None
+
+    def test_a_clause_with_no_key_declines(self):
+        """A flat request-style clause has ``key is None`` and names no column."""
+        from mlflow.server.auth import _pushable_clauses
+
+        rows = [Clause(identifier="tags", key=None, comparator="=", value="v")]
+        assert _pushable_clauses(rows) is None
+
+
+class TestTheNewlyCoveredTypes:
+    """MCP tags, the alias namespace, and a composite-keyed version id.
+
+    These are the cases the first pass could not answer: it covered four tracking
+    tag tables and declined everything else, so an alias condition or an MCP
+    condition silently took the in-memory path. Coverage is the point of the
+    unified clause shape, so each namespace is exercised against a real store.
+    """
+
+    @pytest.fixture
+    def mcp_store(self, monkeypatch):
+        d = tempfile.mkdtemp()
+        store = SqlAlchemyStore(f"sqlite:///{d}/mlflow.db", d)
+        monkeypatch.setattr(auth_resources, "_tracking_store", lambda: store)
+        for name, tag in (
+            (PROD_SERVER, "prod"),
+            (DEV_SERVER, "dev"),
+            (BARE_SERVER, None),
+        ):
+            store.create_mcp_server(name)
+            store.create_mcp_server_version({"name": name, "version": "1.0.0"})
+            if tag is not None:
+                store.set_mcp_server_tag(name, TAG_KEY, tag)
+                store.set_mcp_server_version_tag(name, "1.0.0", TAG_KEY, tag)
+        store.set_mcp_server_alias(PROD_SERVER, "champion", "1.0.0")
+        return store
+
+    ALL_SERVERS = [PROD_SERVER, DEV_SERVER, BARE_SERVER]
+
+    def test_mcp_server_tags_push_down(self, mcp_store):
+        assert mcp_store.filter_ids_by_clauses(
+            "mcp_server", self.ALL_SERVERS, [("tags", TAG_KEY, "=", "prod")]
+        ) == {PROD_SERVER}
+
+    def test_an_untagged_mcp_server_satisfies_no_negative_comparator(self, mcp_store):
+        """D20 again, on a type whose id is a name rather than a uuid."""
+        assert mcp_store.filter_ids_by_clauses(
+            "mcp_server", self.ALL_SERVERS, [("tags", TAG_KEY, "!=", "prod")]
+        ) == {DEV_SERVER}
+
+    def test_mcp_server_aliases_push_down(self, mcp_store):
+        """The alias namespace, which the first pass declined outright.
+
+        An alias row is ``(name, alias, version)``, so the clause key is the alias
+        name and the compared value is the version it points at.
+        """
+        assert mcp_store.filter_ids_by_clauses(
+            "mcp_server", self.ALL_SERVERS, [("aliases", "champion", "=", "1.0.0")]
+        ) == {PROD_SERVER}
+
+    def test_an_absent_alias_satisfies_nothing(self, mcp_store):
+        assert mcp_store.filter_ids_by_clauses(
+            "mcp_server", self.ALL_SERVERS, [("aliases", "champion", "!=", "9.9.9")]
+        ) == {PROD_SERVER}
+
+    def test_tags_and_aliases_are_conjunctive_in_one_call(self, mcp_store):
+        """The reason both namespaces share a call rather than two methods."""
+        both_hold = [("tags", TAG_KEY, "=", "prod"), ("aliases", "champion", "=", "1.0.0")]
+        assert mcp_store.filter_ids_by_clauses("mcp_server", self.ALL_SERVERS, both_hold) == {
+            PROD_SERVER
+        }
+        one_fails = [("tags", TAG_KEY, "=", "dev"), ("aliases", "champion", "=", "1.0.0")]
+        assert mcp_store.filter_ids_by_clauses("mcp_server", self.ALL_SERVERS, one_fails) == set()
+
+    def test_a_version_is_matched_by_its_decomposed_id(self, mcp_store):
+        """A composite id arrives as parts, so the store never parses ``name/version``."""
+        ids = [(name, "1.0.0") for name in self.ALL_SERVERS]
+        assert mcp_store.filter_ids_by_clauses(
+            "mcp_server_version", ids, [("tags", TAG_KEY, "=", "prod")]
+        ) == {(PROD_SERVER, "1.0.0")}
+
+    def test_a_version_id_must_match_both_parts(self, mcp_store):
+        """The half-match a plain ``IN`` on the name column would wrongly accept."""
+        assert (
+            mcp_store.filter_ids_by_clauses(
+                "mcp_server_version", [(PROD_SERVER, "2.0.0")], [("tags", TAG_KEY, "=", "prod")]
+            )
+            == set()
+        )
+
+    def test_an_alias_clause_on_a_version_declines(self, mcp_store):
+        """D18: a version's aliases live on its parent, so it exposes no alias table."""
+        assert (
+            mcp_store.filter_ids_by_clauses(
+                "mcp_server_version",
+                [(PROD_SERVER, "1.0.0")],
+                [("aliases", "champion", "=", "1.0.0")],
+            )
+            is None
+        )
+
+
+class TestTheCascadeDeclinesWhatItCannotExpress:
+    """Asserted on the store method, because nothing reaches this end to end.
+
+    Cascade entities are experiment children -- runs, traces, logged models --
+    and none of those own aliases (D18), so no authored condition puts an alias
+    clause on a cascading delete today.
+
+    It still needs a test. Widening ``_pushable_clauses`` to convert the alias
+    namespace means the cascade now *receives* a clause shape it never saw while
+    pushdown was tag-only, and the guard that refuses it was confirmed unprotected
+    by mutation: replacing its ``return None`` with ``continue`` left all 45 tests
+    passing. Silently dropping the clause is the fail-open direction.
+    """
+
+    def test_an_alias_clause_declines_rather_than_being_dropped(self, store_with_runs):
+        store, experiment_id, _ = store_with_runs
+        assert (
+            store.any_child_failing_clauses(
+                "run", experiment_id, [("aliases", "champion", "=", "1.0.0")]
+            )
+            is None
+        ), "an unexpressible clause must decline the call, not be skipped"
+
+    def test_a_mixed_row_declines_whole_rather_than_pushing_its_tag_half(self, store_with_runs):
+        """The dangerous case: the tag half alone would answer, and answer wrongly.
+
+        Every run here is dev-tagged, so the tag clause alone permits. Dropping the
+        alias clause would turn a conjunction nothing can satisfy into a pass.
+        """
+        store, experiment_id, _ = store_with_runs
+        assert (
+            store.any_child_failing_clauses(
+                "run",
+                experiment_id,
+                [("tags", TAG_KEY, "!=", "nothing"), ("aliases", "champion", "=", "x")],
+            )
+            is None
+        )

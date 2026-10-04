@@ -869,7 +869,7 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
-        lambda: SimpleNamespace(any_child_failing_tag_clauses=lambda *a, **k: None),
+        lambda: SimpleNamespace(any_child_failing_clauses=lambda *a, **k: None),
     )
     monkeypatch.setattr(auth_resources, "traces_of_experiment", lambda _e: ())
     monkeypatch.setattr(auth_resources, "logged_models_of_experiment", lambda _e: ())

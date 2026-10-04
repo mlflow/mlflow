@@ -280,6 +280,7 @@ from mlflow.server.auth.conditions import (
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     PARENT_RESOURCE_TYPES,
+    RESOURCE_PREFIX_ALIASES,
     RESOURCE_PREFIX_TAGS,
     SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
@@ -1054,21 +1055,24 @@ def authorize_on_conditions(
     return allowed
 
 
-def _tag_clause_triples(clauses):
-    """Convert parsed clauses to store triples, or ``None`` if any is not a tag clause.
+def _pushable_clauses(clauses):
+    """Convert parsed clauses to store tuples, or ``None`` if any cannot be pushed.
 
-    The pushdown hooks speak only about tags. The resource namespace also has
-    ``aliases.<name>``, and a row mixing the two must take the in-memory path
-    whole rather than have its tag half pushed down -- a partial answer would
-    silently drop the alias clause, and dropping a clause is the fail-open
-    direction for a conjunction.
+    Both resource namespaces push down, so a row mixing ``tags.*`` and
+    ``aliases.*`` still goes in one call -- which is the point. The clauses are
+    conjunctive, so pushing only the half a store understands would judge the
+    conjunction against a subset of itself, and the dropped clause is the one that
+    would have denied. Anything unrecognised declines the whole row instead.
     """
-    triples = []
+    pushable = []
     for clause in clauses:
-        if clause.identifier != RESOURCE_PREFIX_TAGS or clause.key is None:
+        if clause.key is None or clause.identifier not in (
+            RESOURCE_PREFIX_TAGS,
+            RESOURCE_PREFIX_ALIASES,
+        ):
             return None
-        triples.append((clause.key, clause.comparator, clause.value))
-    return triples
+        pushable.append((clause.identifier, clause.key, clause.comparator, clause.value))
+    return pushable
 
 
 def _cascade_target_pushdown(context, target_rows):
@@ -1091,13 +1095,13 @@ def _cascade_target_pushdown(context, target_rows):
     per_row = []
     for row in target_rows:
         clauses = _parsed_condition(row.target_condition, NAMESPACE_RESOURCE)
-        triples = _tag_clause_triples(clauses)
+        triples = _pushable_clauses(clauses)
         if triples is None:
             return None
         per_row.append(triples)
     found_failure = False
     for triples in per_row:
-        answer = store_.any_child_failing_tag_clauses(context.resource_type, parent_id, triples)
+        answer = store_.any_child_failing_clauses(context.resource_type, parent_id, triples)
         if answer is None:
             return None
         found_failure = found_failure or answer

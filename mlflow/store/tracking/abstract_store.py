@@ -2177,47 +2177,60 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def filter_ids_by_tag_clauses(
+    def filter_ids_by_clauses(
         self,
         entity: str,
-        ids: Sequence[str],
-        clauses: Sequence[tuple[str, str, str | tuple[str, ...]]],
-    ) -> set[str] | None:
-        """Return which of ``ids`` have tags satisfying **every** clause.
+        ids: Sequence[str | tuple[str, ...]],
+        clauses: Sequence[tuple[str, str, str, str | tuple[str, ...]]],
+    ) -> set[str | tuple[str, ...]] | None:
+        """Return which of ``ids`` satisfy **every** clause.
 
         An optional pushdown hook for callers that must decide whether a set of
-        resources satisfies a tag predicate without loading the resources. A
-        clause is a ``(key, comparator, value)`` triple, where ``comparator`` is
-        one of ``=``, ``!=``, ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN`` and
-        ``value`` is a string, or a tuple for the two list comparators.
+        resources satisfies a predicate without loading the resources. A clause is
+        a ``(namespace, key, comparator, value)`` tuple, where ``namespace`` is
+        ``"tags"`` or ``"aliases"``, ``comparator`` is one of ``=``, ``!=``,
+        ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN``, and ``value`` is a string, or a
+        tuple for the two list comparators.
 
-        A resource satisfies a clause only if it **has** a tag with that key
-        whose value compares true. An absent tag therefore satisfies nothing,
-        including ``!=`` and ``NOT IN`` -- a resource with no such tag is
-        excluded rather than vacuously included.
+        Both namespaces are asked in one call deliberately. The clauses are
+        conjunctive, so answering only the part a store can express would judge a
+        conjunction against a subset of itself -- and the dropped clause is the one
+        that would have denied. A store that cannot express any clause in the list
+        must decline the whole call.
+
+        A resource satisfies a clause only if it **has** an entry under that key
+        whose value compares true. An absent tag or alias therefore satisfies
+        nothing, including ``!=`` and ``NOT IN`` -- a resource with no such entry
+        is excluded rather than vacuously included.
+
+        An id is normally a string. For an entity whose identity is composite --
+        a model or prompt version, addressed by name *and* version -- the caller
+        passes the parts as a tuple and gets tuples back. The composite id
+        *format* belongs to the caller, so a store matches parts and never parses
+        a joined id.
 
         Returns:
-            The matching subset of ``ids``, or ``None`` if this store cannot
-            push the predicate down. ``None`` is a contract, not a failure: the
-            caller must then load each resource and evaluate the clauses itself.
-            Only *cost* varies by backend this way, never the outcome -- an
+            The matching subset of ``ids``, or ``None`` if this store cannot push
+            the predicate down. ``None`` is a contract, not a failure: the caller
+            must then load each resource and evaluate the clauses itself. Only
+            *cost* varies by backend this way, never the outcome -- an
             implementation that returns a set MUST agree with that in-memory
             evaluation on every comparator and on absence.
 
-            An empty ``ids`` or ``clauses`` returns an empty set and the full
-            set respectively, so neither is confused with ``None``.
+            An empty ``ids`` or ``clauses`` returns an empty set and the full set
+            respectively, so neither is confused with ``None``.
         """
         return None
 
-    def any_child_failing_tag_clauses(
+    def any_child_failing_clauses(
         self,
         entity: str,
         parent_id: str,
-        clauses: Sequence[tuple[str, str, str | tuple[str, ...]]],
+        clauses: Sequence[tuple[str, str, str, str | tuple[str, ...]]],
     ) -> bool | None:
         """Whether ``parent_id`` holds a child of ``entity`` failing the clauses.
 
-        The cascading counterpart to :meth:`filter_ids_by_tag_clauses`, for a
+        The cascading counterpart to :meth:`filter_ids_by_clauses`, for a
         caller that must decide whether it may touch *all* children of a parent
         without enumerating them. Clause semantics are identical, including
         absence failing every comparator; a child fails if it fails any clause.

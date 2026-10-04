@@ -150,6 +150,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
+    SqlMCPServerAlias,
+    SqlMCPServerTag,
+    SqlMCPServerVersionTag,
     SqlMetric,
     SqlOnlineScoringConfig,
     SqlParam,
@@ -9994,15 +9997,45 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     # per-dialect, and so a cascade's 2000 children cost two statements, not a failure.
     _TAG_PUSHDOWN_ID_CHUNK = 900
 
-    # Tag tables are per-entity, so pushdown needs the table and the column that
-    # holds the owning resource's id. An entity absent here declines (``None``)
-    # rather than guessing, so adding a type is opt-in and a typo cannot silently
-    # answer for the wrong table.
-    _TAG_PUSHDOWN_ENTITIES = {
-        "run": ("SqlTag", "run_uuid"),
-        "experiment": ("SqlExperimentTag", "experiment_id"),
-        "trace": ("SqlTraceTag", "request_id"),
-        "logged_model": ("SqlLoggedModelTag", "model_id"),
+    # A pushable namespace is described by its table and the columns the predicate
+    # needs: the id column(s), the column holding the clause key, and the column
+    # holding the compared value. Both namespaces have the same shape -- a tag row
+    # is (id, key, value), an alias row is (name, alias, version) -- so one query
+    # builder serves both and ``aliases`` needs no second method.
+    #
+    # ``id_columns`` is a tuple because a version's id is composite: the auth layer
+    # addresses one as ``name/version`` while the table keeps the parts in separate
+    # columns. Such an entity is passed already-decomposed ids (see the contract on
+    # ``AbstractStore.filter_ids_by_clauses``) -- the composite *format* is the auth
+    # layer's invention, so the store matches parts and never parses it.
+    #
+    # An entity, or a namespace within one, absent here declines (``None``) rather
+    # than guessing: adding one is opt-in, and a typo cannot answer for the wrong
+    # table. Only the three alias-owning types list ``aliases`` (D18) -- a version's
+    # alias list names aliases stored on its parent, so a version must not be gated
+    # on one.
+    _PUSHDOWN_NAMESPACES = {
+        "run": {"tags": ("SqlTag", ("run_uuid",), "key", "value")},
+        "experiment": {"tags": ("SqlExperimentTag", ("experiment_id",), "key", "value")},
+        "trace": {"tags": ("SqlTraceTag", ("request_id",), "key", "value")},
+        "logged_model": {"tags": ("SqlLoggedModelTag", ("model_id",), "key", "value")},
+        "mcp_server": {
+            "tags": ("SqlMCPServerTag", ("name",), "key", "value"),
+            "aliases": ("SqlMCPServerAlias", ("name",), "alias", "version"),
+        },
+        "mcp_server_version": {
+            "tags": ("SqlMCPServerVersionTag", ("name", "version"), "key", "value"),
+        },
+    }
+
+    _PUSHDOWN_MODELS = {
+        "SqlTag": SqlTag,
+        "SqlExperimentTag": SqlExperimentTag,
+        "SqlTraceTag": SqlTraceTag,
+        "SqlLoggedModelTag": SqlLoggedModelTag,
+        "SqlMCPServerTag": SqlMCPServerTag,
+        "SqlMCPServerAlias": SqlMCPServerAlias,
+        "SqlMCPServerVersionTag": SqlMCPServerVersionTag,
     }
 
     # Cascade pushdown needs the child's own table too, to scope by parent:
@@ -10025,7 +10058,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         ),
     }
 
-    def any_child_failing_tag_clauses(self, entity, parent_id, clauses):
+    def any_child_failing_clauses(self, entity, parent_id, clauses):
         """Whether ``parent_id`` holds a child that fails the tag predicate.
 
         Answers the question a cascading mutation actually asks -- "may I touch
@@ -10061,7 +10094,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker() as session:
             fails_a_clause = []
-            for key, comparator, value in clauses:
+            for namespace, key, comparator, value in clauses:
+                # Every cascade entity is an experiment child (run, trace, logged
+                # model) and none of those own aliases (D18), so an alias clause here
+                # has no table to answer from. Decline rather than ignore it: an
+                # ignored clause is a conjunction judged on a subset of itself.
+                if namespace != "tags":
+                    return None
                 comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
                 # Built through ``_get_query`` like the outer query, so a
                 # workspace-aware subclass scopes the satisfying set too. Scoping
@@ -10088,62 +10127,76 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
         return found is not None
 
-    def filter_ids_by_tag_clauses(self, entity, ids, clauses):
-        """Push a conjunctive tag predicate into SQL.
+    def filter_ids_by_clauses(self, entity, ids, clauses):
+        """Push a conjunctive tag/alias predicate into SQL.
 
-        See :meth:`AbstractStore.filter_ids_by_tag_clauses`. Each clause narrows
-        the surviving id set with one query, so the work is bounded by the number
-        of clauses rather than by how much the resources contain -- no tag values
-        are returned and the resources themselves are never loaded.
+        See :meth:`AbstractStore.filter_ids_by_clauses`. Each clause narrows the
+        surviving id set with one query, so the work is bounded by the number of
+        clauses rather than by how much the resources contain -- no values are
+        returned and the resources themselves are never loaded.
 
         Absence is handled by the shape rather than by a special case: a clause
-        asks which ids *have* a tag row with that key whose value compares true,
-        so an id with no such row is simply not in the result, for ``!=`` and
-        ``NOT IN`` exactly as for ``=``.
+        asks which ids *have* a row with that key whose value compares true, so an
+        id with no such row is simply not in the result, for ``!=`` and ``NOT IN``
+        exactly as for ``=``.
         """
-        mapping = self._TAG_PUSHDOWN_ENTITIES.get(entity)
-        if mapping is None:
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
             return None
-        model_name, id_column_name = mapping
-        tag_model = {
-            "SqlTag": SqlTag,
-            "SqlExperimentTag": SqlExperimentTag,
-            "SqlTraceTag": SqlTraceTag,
-            "SqlLoggedModelTag": SqlLoggedModelTag,
-        }[model_name]
 
-        surviving = set(ids)
+        surviving = {_as_pushdown_key(i) for i in ids}
         if not surviving:
             return set()
         if not clauses:
             return surviving
 
-        id_column = getattr(tag_model, id_column_name)
+        # Resolve every clause before running any. A namespace this entity does not
+        # expose must decline the whole call, never just its own clause: answering a
+        # conjunction from a subset of itself is the fail-open direction, because the
+        # dropped clause is the one that would have denied.
+        resolved = []
+        for namespace, key, comparator, value in clauses:
+            mapping = namespaces.get(namespace)
+            if mapping is None:
+                return None
+            model_name, id_names, key_name, value_name = mapping
+            model = self._PUSHDOWN_MODELS[model_name]
+            resolved.append((
+                model,
+                tuple(getattr(model, n) for n in id_names),
+                getattr(model, key_name),
+                getattr(model, value_name),
+                key,
+                comparator,
+                value,
+            ))
+
         dialect = self._get_dialect()
         with self.ManagedSessionMaker() as session:
-            for key, comparator, value in clauses:
+            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
                 comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
                 matched = set()
-                # The ids bind one parameter each, and every backend caps how many a
-                # statement may carry -- SQLite raises "too many SQL variables" well
-                # below the 2000 children a cascade can reach. Chunk so that cap stays a
-                # property of the statement rather than a limit on how many resources a
-                # caller may ask about.
+                # Ids bind one parameter each -- two for a composite -- and every
+                # backend caps how many a statement may carry; SQLite raises "too many
+                # SQL variables" well below the 2000 children a cascade can reach.
+                # Chunk so that cap stays a property of the statement rather than a
+                # limit on how many resources a caller may ask about.
                 ordered = sorted(surviving)
-                for start in range(0, len(ordered), self._TAG_PUSHDOWN_ID_CHUNK):
-                    chunk = ordered[start : start + self._TAG_PUSHDOWN_ID_CHUNK]
+                chunk_size = max(1, self._TAG_PUSHDOWN_ID_CHUNK // len(id_columns))
+                for start in range(0, len(ordered), chunk_size):
+                    chunk = ordered[start : start + chunk_size]
                     rows = (
                         self
-                        ._get_query(session, tag_model)
-                        .with_entities(id_column)
+                        ._get_query(session, model)
+                        .with_entities(*id_columns)
                         .filter(
-                            id_column.in_(chunk),
-                            tag_model.key == key,
-                            comparison(tag_model.value, value),
+                            _pushdown_id_predicate(id_columns, chunk),
+                            key_column == key,
+                            comparison(value_column, value),
                         )
                         .all()
                     )
-                    matched.update(row[0] for row in rows)
+                    matched.update(_as_pushdown_key(tuple(row)) for row in rows)
                 surviving = matched
                 if not surviving:
                     break
@@ -11178,3 +11231,25 @@ def _upsert_batch(
             # Fallback for MSSQL and other dialects
             for row in rows:
                 session.merge(model_class(**row))
+
+
+def _as_pushdown_key(value):
+    """Normalise an id to the key the pushdown compares on.
+
+    A single-column entity is keyed by its id string; a composite-keyed one (a
+    version, whose parts live in separate columns) by a tuple of its parts. The
+    same function normalises both the caller's ids and the rows coming back, so
+    the two cannot drift -- and ``str`` coercion makes an integer column, such as
+    the registry's ``version``, compare equal to the string the caller supplied.
+    """
+    if isinstance(value, (tuple, list)):
+        parts = tuple(str(part) for part in value)
+        return parts[0] if len(parts) == 1 else parts
+    return value
+
+
+def _pushdown_id_predicate(id_columns, keys):
+    """Match a chunk of ids, by column for a single key or by row value for a composite."""
+    if len(id_columns) == 1:
+        return id_columns[0].in_(keys)
+    return sql.tuple_(*id_columns).in_([tuple(key) for key in keys])
