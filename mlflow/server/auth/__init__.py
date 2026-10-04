@@ -2560,7 +2560,23 @@ def _scorer_version_delete_allowed() -> bool:
 
 
 def validate_can_delete_scorer():
-    return _get_permission_from_scorer_name().can_delete and _scorer_version_delete_allowed()
+    """One route deletes either a single scorer version or the whole scorer.
+
+    Without a ``version`` the handler removes the scorer and every version it holds, which stays
+    the parent's ``delete``. With a ``version`` it removes just that one, so the parent carries
+    only the read that addresses it and the ``scorer_version`` tier carries the delete -- the
+    shape every other sub-resource route uses. Requiring the parent's ``delete`` in both cases
+    meant a ``scorer_version`` grant could only ever subtract, never confer, so holding
+    ``MANAGE`` on the versions of a scorer read-only to you could not delete one.
+
+    The version tier is consulted either way: deleting the scorer destroys every version, so a
+    ``DENY`` there still vetoes. ``version`` is read the way the handler reads it, so the gate
+    cannot judge a different operation than the one performed.
+    """
+    permission = _get_permission_from_scorer_name()
+    names_a_version = _get_request_message(DeleteScorer()).HasField("version")
+    addressed = permission.can_read if names_a_version else permission.can_delete
+    return addressed and _scorer_version_delete_allowed()
 
 
 def validate_can_manage_scorer():

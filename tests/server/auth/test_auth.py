@@ -8748,9 +8748,7 @@ def test_artifact_proxy_classifies_a_bare_run_id_as_a_run():
         auth_module.RESOURCE_TYPE_RUN,
     )
     assert classify("1", recursive=False) == ()
-    assert (
-        classify("1", recursive=True) == auth_module._ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS
-    )
+    assert classify("1", recursive=True) == auth_module._ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS
 
 
 @pytest.mark.parametrize(
@@ -8808,3 +8806,61 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
         auth=(owner, owner_pw),
     )
     assert denied.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_delete_scorer_version_is_gated_on_the_version_tier(client, monkeypatch):
+    """A `scorer_version` grant must be able to confer a version delete, not only subtract.
+
+    `DELETE /mlflow/scorers/delete` removes one version when `version` is set and the whole
+    scorer when it is not. Requiring the parent's `delete` for both meant the `scorer_version`
+    tier could never carry the action, so `MANAGE` on the versions of a scorer that is read-only
+    to you could not delete one -- the defect fixed for `DeleteTraces`, missed on this route.
+
+    403 is the gate refusing; any other status means the gate passed and the handler then failed
+    on the nonexistent scorer, which is what distinguishes an authorization outcome here.
+    """
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("scorer-version-delete-tier")
+
+    name = "scorer-that-does-not-exist"
+    pattern = auth_module.store._scorer_pattern(experiment_id, name)
+
+    def delete(version):
+        body = {"experiment_id": experiment_id, "name": name}
+        if version is not None:
+            body["version"] = version
+        return requests.delete(
+            f"{client.tracking_uri}/api/3.0/mlflow/scorers/delete",
+            json=body,
+            auth=(owner, owner_pw),
+        ).status_code
+
+    # The scorer rung holds a grant, so it decides the scorer tier and the experiment MANAGE the
+    # owner got at creation does not leak through.
+    grant_role_permission(client.tracking_uri, owner, "scorer", pattern, "READ")
+    grant_role_permission(client.tracking_uri, owner, "scorer_version", "*", "MANAGE")
+
+    # READ addresses the scorer and the version tier carries the delete.
+    assert delete(1) != 403
+    # ...but a version grant must not confer deleting the scorer and every version it holds.
+    assert delete(None) == 403
+
+    # The version tier still vetoes: a DENY there outranks the parent's MANAGE.
+    other, other_pw = create_user(client.tracking_uri)
+    with User(other, other_pw, monkeypatch):
+        other_experiment = client.create_experiment("scorer-version-delete-veto")
+    other_pattern = auth_module.store._scorer_pattern(other_experiment, name)
+    grant_role_permission(client.tracking_uri, other, "scorer", other_pattern, "MANAGE")
+    grant_role_permission(client.tracking_uri, other, "scorer_version", "*", "DENY")
+    vetoed = requests.delete(
+        f"{client.tracking_uri}/api/3.0/mlflow/scorers/delete",
+        json={"experiment_id": other_experiment, "name": name, "version": 1},
+        auth=(other, other_pw),
+    )
+    assert vetoed.status_code == 403
