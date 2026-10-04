@@ -2,7 +2,7 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
 import { useTracesV4TraceCount } from './useTracesV4TraceCount';
-import { AggregationType } from '@databricks/web-shared/model-trace-explorer';
+import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
 const mockUseTraceMetricsQuery = jest.fn();
 jest.mock('../../../../../pages/experiment-overview/hooks/useTraceMetricsQuery', () => ({
@@ -28,7 +28,31 @@ describe('useTracesV4TraceCount', () => {
 
     expect(result.current).toEqual({ currentCount: 10, totalCount: 42, isTotalLoading: false });
     // The metrics query is enabled when the search isn't an exact trace-id.
-    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true, metricName: TraceMetricKey.TRACE_COUNT }),
+    );
+  });
+
+  it('requests the session_count metric, scoped to the same time range, when counting sessions', () => {
+    mockUseTraceMetricsQuery.mockReturnValue({
+      data: { data_points: [{ values: { [AggregationType.COUNT]: 7 } }] },
+      isLoading: false,
+      isFetching: false,
+    });
+
+    // The caller passes the page's session groups (2) as the current count.
+    const { result } = renderHook(() => useTracesV4TraceCount('exp-1', 2, timeRange, { countSessions: true }));
+
+    expect(result.current).toEqual({ currentCount: 2, totalCount: 7, isTotalLoading: false });
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experimentIds: ['exp-1'],
+        metricName: TraceMetricKey.SESSION_COUNT,
+        startTimeMs: 1000,
+        endTimeMs: 2000,
+        enabled: true,
+      }),
+    );
   });
 
   it('spins (undefined total) while the metrics query is fetching, even with cached data', () => {

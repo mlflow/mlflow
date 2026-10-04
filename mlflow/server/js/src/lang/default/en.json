@@ -12075,6 +12075,10 @@
     "defaultMessage": "{numValue}/{numEvals} for run \"{runName}\"",
     "description": "Passing assessment tooltip"
   },
+  "jjuT5Z": {
+    "defaultMessage": "{count} of {total} sessions",
+    "description": "Traces table footer showing how many sessions are loaded out of the total when traces are grouped by session"
+  },
   "jkeYf8": {
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"

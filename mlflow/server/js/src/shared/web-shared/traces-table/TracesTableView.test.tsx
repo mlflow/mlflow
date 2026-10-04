@@ -109,6 +109,17 @@ describe('TracesTableView', () => {
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
   });
 
+  test('labels the footer count as sessions only when isSessionCount is set', async () => {
+    const counts = { viewState: 'ready' as const, traceCount: 2, traceTotal: 7 };
+
+    const { unmount } = await renderWithProviders(<TracesTableView {...baseProps(counts)} />);
+    expect(screen.getByText('2 of 7')).toBeInTheDocument();
+    unmount();
+
+    await renderWithProviders(<TracesTableView {...baseProps({ ...counts, isSessionCount: true })} />);
+    expect(screen.getByText('2 of 7 sessions')).toBeInTheDocument();
+  });
+
   test('forwards sessionsMayBeIncomplete so paginated grouped sessions hide partial aggregates', async () => {
     const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
     const grouped = { traces, visibleColumns: ['tokens' as const], isGroupedBySession: true };

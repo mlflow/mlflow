@@ -4,9 +4,12 @@ import { useTraceMetricsQuery } from '@mlflow/mlflow/src/experiment-tracking/pag
 import type { StartEndTime } from '../utils/timeRange';
 
 export interface TracesV4TraceCount {
-  /** Rows on the current page. */
+  /** Rows on the current page (session groups when counting sessions). */
   currentCount: number;
-  /** Total traces matching the current experiment + time range, from the trace-metrics endpoint. */
+  /**
+   * Total traces (or sessions, when counting sessions) matching the current experiment + time range,
+   * from the trace-metrics endpoint.
+   */
   totalCount: number | undefined;
   /** True while the total is still resolving (the current count is always known immediately). */
   isTotalLoading: boolean;
@@ -25,6 +28,11 @@ interface UseTracesV4TraceCountOptions {
    * it as the total.
    */
   isResultLoading?: boolean;
+  /**
+   * Count sessions instead of traces (the table is grouped by session). The total then comes from
+   * the `session_count` metric, and `currentPageCount` is expected to be the page's session groups.
+   */
+  countSessions?: boolean;
 }
 
 /**
@@ -43,7 +51,7 @@ export const useTracesV4TraceCount = (
   experimentId: string,
   currentPageCount: number,
   timeRange: StartEndTime,
-  { isExactTraceIdSearch = false, isResultLoading = false }: UseTracesV4TraceCountOptions = {},
+  { isExactTraceIdSearch = false, isResultLoading = false, countSessions = false }: UseTracesV4TraceCountOptions = {},
 ): TracesV4TraceCount => {
   const experimentIds = useMemo(() => [experimentId], [experimentId]);
   const startTimeMs = timeRange.startTime ? Number(timeRange.startTime) : undefined;
@@ -52,7 +60,7 @@ export const useTracesV4TraceCount = (
   const { data, isLoading, isFetching } = useTraceMetricsQuery({
     experimentIds,
     viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TRACE_COUNT,
+    metricName: countSessions ? TraceMetricKey.SESSION_COUNT : TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     startTimeMs,
     endTimeMs,
