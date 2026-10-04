@@ -27,6 +27,12 @@ The MLflow MCP server exposes all MLflow trace management operations through the
 
 This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your LLM applications and AI agents.
 
+:::tip
+
+The `mlflow mcp run` command described here runs the MCP server locally over stdio. A tracking server can also serve the same tools over HTTP, so a shared server is reachable from any MCP client without a local MLflow install. See [Remote MCP Server](/genai/mcp/remote-server).
+
+:::
+
 ## Prerequisites
 
 - MLflow version 3.5.1 or newer
@@ -134,9 +140,15 @@ The MLflow MCP server provides comprehensive trace management capabilities:
 | `update_assessment` | Modify existing assessments             | `trace_id`, `assessment_id`, `value`, `rationale`                 |
 | `delete_assessment` | Remove assessments                      | `trace_id`, `assessment_id`                                       |
 
+## Structured results
+
+The traces, scorers, experiments and runs tools return JSON. Each tool declares an output schema and returns its result as structured content, together with the same object serialized as JSON text for clients that only read text content. For example, `search_experiments` returns `{"experiments": [...], "next_page_token": ...}` rather than a table. The `evaluate_traces`, models and deployments tools still return text.
+
+The tools take some arguments in a typed shape, such as lists instead of comma-separated strings; the old shapes are still accepted. See [Structured results](/genai/mcp/remote-server#structured-results) and [Argument shape changes](/genai/mcp/remote-server#argument-shape-changes) for the result conventions and the full list. The stdio server and the remote endpoint serve the same tools, so both pages apply to `mlflow mcp run`.
+
 ## Field Selection and Filtering
 
-The MCP server supports sophisticated field selection through the `extract_fields` parameter, available in both `search_traces` and `get_trace` tools. This parameter accepts comma-separated field paths using dot notation, allowing you to retrieve only the data you need, reducing response size and improving performance. The `extract_fields` parameter lets you:
+The MCP server supports sophisticated field selection through the `extract_fields` parameter, available in both `search_traces` and `get_trace` tools. This parameter accepts a list of field paths in dot notation (a comma-separated string also works), allowing you to retrieve only the data you need, reducing response size and improving performance. The `extract_fields` parameter lets you:
 
 - Select specific fields from trace data instead of retrieving everything
 - Use wildcards (`*`) to select all items in arrays or objects
@@ -293,6 +305,7 @@ export MLFLOW_MCP_TOOLS="traces,scorers,experiments"
 
 ## Related Documentation
 
+- [Remote MCP Server](/genai/mcp/remote-server)
 - [MLflow Tracing Overview](/genai/tracing/quickstart)
 - [Collecting User Feedback](/genai/assessments/feedback)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)

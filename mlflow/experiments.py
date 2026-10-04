@@ -8,6 +8,10 @@ from mlflow.entities import ExperimentTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.protos import databricks_pb2
+from mlflow.store.tracking.utils.trace_archival import (
+    _encode_trace_archival_retention_tag,
+    _encode_trace_archive_now_tag,
+)
 from mlflow.tracing.constant import TraceExperimentTagKey
 from mlflow.tracking import _get_store, fluent
 from mlflow.utils.data_utils import is_uri
@@ -32,15 +36,6 @@ def _validate_trace_archival_duration(ctx, param, value):
         return _validate_trace_archival_retention_string(value)
     except MlflowException as e:
         raise click.BadParameter(e.message) from e
-
-
-def _encode_trace_archival_retention_tag(retention):
-    return json.dumps({"type": "duration", "value": retention})
-
-
-def _encode_trace_archive_now_tag(older_than=None):
-    payload = {} if older_than is None else {"older_than": older_than}
-    return json.dumps(payload)
 
 
 @click.group("experiments")
