@@ -8710,3 +8710,101 @@ def test_presigned_upload_url_requires_run_update_permission(client):
         auth=(owner, owner_pw),
     )
     assert resp.status_code != 403
+
+
+def test_artifact_proxy_classifies_a_bare_run_id_as_a_run():
+    """A bare ``<experiment>/<run_id>`` names a run, so an explicit run ``DENY`` reaches it.
+
+    Run ids are ``uuid.uuid4().hex``, and every writer under an experiment's artifact root is
+    tier-prefixed, so a 32-hex segment there is a run and nothing else. Previously only a
+    recursive delete was judged as a run and a point read fell through to the experiment, which
+    is what let an artifact-root listing hand out the ids of denied runs.
+    """
+    run_id = "336fd361d5624171b792e03b99c69f63"
+    classify = auth_module._artifact_proxy_child_types
+
+    # The missing leg: a point read of a bare run id is judged against the run tier.
+    assert classify(f"1/{run_id}", recursive=False) == (auth_module.RESOURCE_TYPE_RUN,)
+    assert classify(f"1/{run_id}", recursive=True) == (auth_module.RESOURCE_TYPE_RUN,)
+    # Workspace-prefixed paths resolve the same way.
+    assert classify(f"workspaces/wsb/1/{run_id}", recursive=False) == (
+        auth_module.RESOURCE_TYPE_RUN,
+    )
+
+    # Shapes that are not a run id stay experiment-level on a point read, so an experiment-level
+    # artifact is not swept into the run tier.
+    for segment in (
+        run_id.upper(),  # run ids are lowercase hex
+        run_id[:-1],  # 31 characters
+        f"{run_id}3",  # 33 characters
+        "notes.txt",
+    ):
+        assert classify(f"1/{segment}", recursive=False) == ()
+
+    # Unchanged: the tier folders, a run's own artifacts subtree, and the experiment root.
+    assert classify("1/models", recursive=False) == (auth_module.RESOURCE_TYPE_LOGGED_MODEL,)
+    assert classify("1/traces", recursive=False) == (auth_module.RESOURCE_TYPE_TRACE,)
+    assert classify(f"1/{run_id}/artifacts/f.txt", recursive=False) == (
+        auth_module.RESOURCE_TYPE_RUN,
+    )
+    assert classify("1", recursive=False) == ()
+    assert (
+        classify("1", recursive=True) == auth_module._ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS
+    )
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        }
+    ],
+    indirect=True,
+)
+def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, monkeypatch):
+    """Listing an experiment's artifact root must not enumerate the ids of denied runs.
+
+    The listing is authorized against the experiment, so a caller holding ``(run, *, DENY)`` used
+    to receive every run id -- their contents correctly denied, but their existence and count
+    disclosed. An entry is now withheld exactly when a point read of it would be denied.
+    """
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("artifact-root-run-enumeration")
+        run_id = fastapi_client.create_run(experiment_id).info.run_id
+
+    base = fastapi_client.tracking_uri
+    # Materialize the run's artifact directory so the root listing has an entry to withhold.
+    upload = requests.put(
+        url=f"{base}/api/2.0/mlflow-artifacts/artifacts/{experiment_id}/{run_id}/artifacts/f.txt",
+        data=b"payload",
+        auth=(owner, owner_pw),
+    )
+    assert upload.status_code == 200
+
+    def listed(auth):
+        resp = requests.get(
+            url=f"{base}/api/2.0/mlflow-artifacts/artifacts",
+            params={"path": experiment_id},
+            auth=auth,
+        )
+        assert resp.status_code == 200
+        return [f["path"] for f in resp.json().get("files", [])]
+
+    # The owner holds MANAGE on the experiment and no run grant: the run is listed, as before.
+    assert run_id in listed((owner, owner_pw))
+
+    # An explicit run DENY withholds the id itself, not merely its contents.
+    grant_role_permission(base, owner, "run", "*", "DENY")
+    assert run_id not in listed((owner, owner_pw))
+
+    # The point read a caller would attempt with that id is denied too, so the listing and the
+    # point check agree rather than one being the softer path.
+    denied = requests.get(
+        url=f"{base}/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/{run_id}"},
+        auth=(owner, owner_pw),
+    )
+    assert denied.status_code == 403

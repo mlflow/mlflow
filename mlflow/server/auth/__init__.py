@@ -1153,6 +1153,15 @@ _ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS = (
 )
 
 
+# A run id is ``uuid.uuid4().hex`` (``SqlAlchemyStore._create_run``), so a segment of this shape
+# directly under an experiment's artifact root names a run. Every writer under that root is
+# tier-prefixed -- ``<run_id>/artifacts``, ``models/<model_id>/artifacts`` and
+# ``traces/<trace_id>/artifacts`` -- and no API writes an experiment-level artifact, so matching
+# here cannot shadow one. A file uploaded through the proxy to a 32-hex name is judged as a run,
+# which fails closed: the uploader hides their own file and no other caller is affected.
+_RUN_ID_SEGMENT_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+
 def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tuple[str, ...]":
     """The child tiers the path is judged against.
 
@@ -1169,10 +1178,13 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
         return (child_type,)
     if len(segments) > 1 and segments[1] == "artifacts":
         return (RESOURCE_TYPE_RUN,)
-    # A bare ``<run_id>`` cannot be told apart from an experiment-level file, since run ids carry
-    # no distinguishing shape. A point read or write of it is the experiment's business, but a
-    # recursive delete of it removes that run's artifacts, so deleting is judged as a run. The
-    # experiment fallback keeps a caller holding no run grant judged on the experiment.
+    if _RUN_ID_SEGMENT_PATTERN.fullmatch(segments[0]):
+        # A bare ``<run_id>``, which is what listing an experiment's artifact root returns. Judged
+        # as a run so an explicit run ``DENY`` is honoured here too; the experiment fallback still
+        # judges a caller holding no run grant on the experiment, exactly as before.
+        return (RESOURCE_TYPE_RUN,)
+    # An experiment-level artifact. A point read or write of it is the experiment's business, but a
+    # recursive delete removes whatever subtree the name covers, so deleting is judged as a run.
     return (RESOURCE_TYPE_RUN,) if recursive else ()
 
 
@@ -6706,6 +6718,50 @@ def redact_secrets_config_for_non_admins(resp: Response) -> None:
         resp.data = json.dumps({k: v for k, v in body.items() if k != "using_default_passphrase"})
 
 
+def filter_list_artifacts_proxy(resp: Response) -> None:
+    """Withhold run directories from an experiment-root listing whose run tier denies reads.
+
+    Listing ``<experiment_id>`` returns one entry per run -- the bare ``<run_id>`` directory --
+    beside the ``models`` and ``traces`` folders. The request is authorized against the
+    experiment, so a caller holding ``(run, *, DENY)`` was still handed every run id: an
+    enumeration of runs whose contents are correctly denied. Run grants are wildcard-only, so a
+    single tier decision covers every entry, and an entry is withheld exactly when a point read
+    of it would be denied. The ``models`` and ``traces`` folder names stay: they are tier
+    folders, not resource ids, and listing either is judged against that tier.
+    """
+    if sender_is_admin():
+        return
+    artifact_path = _artifact_proxy_path()
+    if not artifact_path:
+        # The destination root lists experiment directories, which name no run.
+        return
+    canonical = _canonical_artifact_proxy_path(artifact_path)
+    if canonical is None:
+        return
+    experiment_id = _experiment_id_from_canonical_proxy_path(canonical)
+    if experiment_id is None:
+        return
+    remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{canonical.lstrip('/')}/", count=1)
+    if [segment for segment in remainder.split("/") if segment]:
+        # Not the experiment root: the listed directory already names a tier, and the
+        # request-time check judged the request against it.
+        return
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+    if _authorize_artifact_proxy_resolved(
+        ((RESOURCE_TYPE_RUN,), (RESOURCE_TYPE_EXPERIMENT, experiment_id)),
+        username,
+        "read",
+        _get_permission_from_experiment_id_artifact_proxy,
+    ):
+        return
+    response_message = ListArtifacts.Response()
+    parse_dict(resp.json, response_message)
+    for file_info in list(response_message.files):
+        if _RUN_ID_SEGMENT_PATTERN.fullmatch(file_info.path):
+            response_message.files.remove(file_info)
+    resp.data = message_to_json(response_message)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -6829,6 +6885,19 @@ PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
 # GATEWAY_SECRETS_CONFIG is excluded from the auto-built handlers above (it is an ajax gateway
 # path); register its non-admin redaction filter explicitly.
 AFTER_REQUEST_HANDLERS[(GATEWAY_SECRETS_CONFIG, "GET")] = redact_secrets_config_for_non_admins
+
+# The proxied artifact listing is dispatched by path prefix rather than by proto (see
+# `_get_proxy_artifact_validator`), so it is absent from the auto-built table above. Its path is
+# the prefix exactly -- the download route carries a further `/<artifact_path>` segment -- so an
+# exact-match key reaches the listing alone.
+for _artifact_list_path in (
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+):
+    AFTER_REQUEST_HANDLERS[(_artifact_list_path, "GET")] = filter_list_artifacts_proxy
+    AFTER_REQUEST_HANDLERS[(_add_static_prefix(_artifact_list_path), "GET")] = (
+        filter_list_artifacts_proxy
+    )
 
 
 @catch_mlflow_exception
