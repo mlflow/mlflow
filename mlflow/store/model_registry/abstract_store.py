@@ -1311,3 +1311,23 @@ class AbstractStore:
     def supports_workspaces(self) -> bool:
         """Return whether this model registry store supports workspace-aware operations."""
         return False
+
+    def filter_ids_by_clauses(self, entity, ids, clauses):
+        """Return which of ``ids`` satisfy **every** clause.
+
+        The registry's half of the authorization pushdown hook; see
+        :meth:`mlflow.store.tracking.abstract_store.AbstractStore.filter_ids_by_clauses`
+        for the full contract. In short: a clause is a
+        ``(namespace, key, comparator, value)`` tuple; an absent tag or alias
+        satisfies nothing, including ``!=`` and ``NOT IN``; a composite-keyed
+        entity such as a version is addressed by its decomposed parts; an empty
+        ``ids`` or ``clauses`` returns an empty set or the full set respectively.
+
+        Returns:
+            The matching subset of ``ids``, or ``None`` if this store cannot push
+            the predicate down, in which case the caller loads each resource and
+            evaluates the clauses itself. Only *cost* varies by backend this way,
+            never the outcome -- an implementation that returns a set MUST agree
+            with that in-memory evaluation on every comparator and on absence.
+        """
+        return None

@@ -25,6 +25,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
     _all_tables_exist,
@@ -1795,3 +1796,98 @@ class SqlAlchemyStore(AbstractStore):
             return webhook
 
         raise MlflowException(f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST)
+
+    # A pushable namespace is described by its table, the column(s) holding the
+    # owning resource's id, the column holding the clause key, and the column
+    # holding the compared value. A tag row and an alias row have the same shape,
+    # so one query builder serves both.
+    #
+    # There are no prompt tables: a prompt IS a registered model, discriminated
+    # only by the reserved ``mlflow.prompt.is_prompt`` tag. So ``prompt`` resolves
+    # to the same rows as ``registered_model``, and the type selects nothing but
+    # the table. The discriminator is deliberately absent from the predicate --
+    # the ids come from the request, so a request naming a prompt supplies prompt
+    # names and nothing else can enter the set. It is also unwritable as a
+    # condition, because ``mlflow.*`` is banned in both namespaces (D4).
+    #
+    # Only the alias-owning types list ``aliases`` (D18): a version's alias list
+    # names aliases stored on its parent, so a version must not be gated on one.
+    _PUSHDOWN_NAMESPACES = {
+        "registered_model": {
+            "tags": ("SqlRegisteredModelTag", ("name",), "key", "value"),
+            "aliases": ("SqlRegisteredModelAlias", ("name",), "alias", "version"),
+        },
+        "prompt": {
+            "tags": ("SqlRegisteredModelTag", ("name",), "key", "value"),
+            "aliases": ("SqlRegisteredModelAlias", ("name",), "alias", "version"),
+        },
+        "registered_model_version": {
+            "tags": ("SqlModelVersionTag", ("name", "version"), "key", "value"),
+        },
+        "prompt_version": {
+            "tags": ("SqlModelVersionTag", ("name", "version"), "key", "value"),
+        },
+    }
+
+    _PUSHDOWN_MODELS = {
+        "SqlRegisteredModelTag": SqlRegisteredModelTag,
+        "SqlRegisteredModelAlias": SqlRegisteredModelAlias,
+        "SqlModelVersionTag": SqlModelVersionTag,
+    }
+
+    _PUSHDOWN_ID_CHUNK = 900
+
+    def filter_ids_by_clauses(self, entity, ids, clauses):
+        """Push a conjunctive tag/alias predicate into SQL.
+
+        See :meth:`AbstractStore.filter_ids_by_clauses`. Each clause narrows the
+        surviving id set with one query, so the work is bounded by the number of
+        clauses rather than by how much the resources contain -- no values are
+        returned and the resources themselves are never loaded.
+
+        Every query goes through :meth:`_get_query`, which is where workspace
+        scoping is applied. That is not optional here: every table this method
+        touches carries a ``workspace`` column, because each is keyed by *name*
+        and a name is not unique across workspaces.
+        """
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            return None
+
+        surviving = {condition_pushdown.as_pushdown_key(i) for i in ids}
+        if not surviving:
+            return set()
+        if not clauses:
+            return surviving
+
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            return None
+
+        dialect = self._get_dialect()
+        with self.ManagedSessionMaker() as session:
+            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
+                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
+                matched = set()
+                # Ids bind one parameter each -- two for a composite -- and every
+                # backend caps how many a statement may carry.
+                ordered = sorted(surviving)
+                chunk_size = max(1, self._PUSHDOWN_ID_CHUNK // len(id_columns))
+                for start in range(0, len(ordered), chunk_size):
+                    chunk = ordered[start : start + chunk_size]
+                    rows = (
+                        self
+                        ._get_query(session, model)
+                        .with_entities(*id_columns)
+                        .filter(
+                            condition_pushdown.id_predicate(id_columns, chunk),
+                            key_column == key,
+                            comparison(value_column, value),
+                        )
+                        .all()
+                    )
+                    matched.update(condition_pushdown.as_pushdown_key(tuple(r)) for r in rows)
+                surviving = matched
+                if not surviving:
+                    break
+        return surviving

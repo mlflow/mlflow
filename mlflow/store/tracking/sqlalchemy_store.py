@@ -114,6 +114,7 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL
@@ -10144,32 +10145,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if namespaces is None:
             return None
 
-        surviving = {_as_pushdown_key(i) for i in ids}
+        surviving = {condition_pushdown.as_pushdown_key(i) for i in ids}
         if not surviving:
             return set()
         if not clauses:
             return surviving
 
-        # Resolve every clause before running any. A namespace this entity does not
-        # expose must decline the whole call, never just its own clause: answering a
-        # conjunction from a subset of itself is the fail-open direction, because the
-        # dropped clause is the one that would have denied.
-        resolved = []
-        for namespace, key, comparator, value in clauses:
-            mapping = namespaces.get(namespace)
-            if mapping is None:
-                return None
-            model_name, id_names, key_name, value_name = mapping
-            model = self._PUSHDOWN_MODELS[model_name]
-            resolved.append((
-                model,
-                tuple(getattr(model, n) for n in id_names),
-                getattr(model, key_name),
-                getattr(model, value_name),
-                key,
-                comparator,
-                value,
-            ))
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            return None
 
         dialect = self._get_dialect()
         with self.ManagedSessionMaker() as session:
@@ -10190,13 +10174,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         ._get_query(session, model)
                         .with_entities(*id_columns)
                         .filter(
-                            _pushdown_id_predicate(id_columns, chunk),
+                            condition_pushdown.id_predicate(id_columns, chunk),
                             key_column == key,
                             comparison(value_column, value),
                         )
                         .all()
                     )
-                    matched.update(_as_pushdown_key(tuple(row)) for row in rows)
+                    matched.update(condition_pushdown.as_pushdown_key(tuple(row)) for row in rows)
                 surviving = matched
                 if not surviving:
                     break
@@ -11231,25 +11215,3 @@ def _upsert_batch(
             # Fallback for MSSQL and other dialects
             for row in rows:
                 session.merge(model_class(**row))
-
-
-def _as_pushdown_key(value):
-    """Normalise an id to the key the pushdown compares on.
-
-    A single-column entity is keyed by its id string; a composite-keyed one (a
-    version, whose parts live in separate columns) by a tuple of its parts. The
-    same function normalises both the caller's ids and the rows coming back, so
-    the two cannot drift -- and ``str`` coercion makes an integer column, such as
-    the registry's ``version``, compare equal to the string the caller supplied.
-    """
-    if isinstance(value, (tuple, list)):
-        parts = tuple(str(part) for part in value)
-        return parts[0] if len(parts) == 1 else parts
-    return value
-
-
-def _pushdown_id_predicate(id_columns, keys):
-    """Match a chunk of ids, by column for a single key or by row value for a composite."""
-    if len(id_columns) == 1:
-        return id_columns[0].in_(keys)
-    return sql.tuple_(*id_columns).in_([tuple(key) for key in keys])

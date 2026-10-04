@@ -260,6 +260,30 @@ def test_an_unknown_entity_declines_rather_than_matching(store_with_runs):
     )
 
 
+def _matches_in_memory(value, comparator, operand):
+    """The in-memory semantic the pushdown must agree with, stated independently.
+
+    Deliberately not a call into the condition evaluator: if both sides of a
+    parity test route through the same code, the test proves only that the code
+    equals itself. Absence returns ``False`` for every comparator (D20).
+    """
+    if value is None:
+        return False
+    if comparator == "=":
+        return value == operand
+    if comparator == "!=":
+        return value != operand
+    if comparator == "LIKE":
+        return value.startswith(operand.rstrip("%"))
+    if comparator == "ILIKE":
+        return value.lower().startswith(operand.rstrip("%").lower())
+    if comparator == "IN":
+        return value in operand
+    if comparator == "NOT IN":
+        return value not in operand
+    raise AssertionError(f"unhandled comparator {comparator}")
+
+
 class TestCascadePushdown:
     """Deleting a parent must judge every child, without enumerating them.
 
@@ -623,3 +647,181 @@ class TestTheCascadeDeclinesWhatItCannotExpress:
             )
             is None
         )
+
+
+REGISTRY_COMPARATORS = [
+    ("=", "prod"),
+    ("!=", "prod"),
+    ("LIKE", "pro%"),
+    ("ILIKE", "PRO%"),
+    ("IN", ("prod", "staging")),
+    ("NOT IN", ("prod", "staging")),
+]
+
+
+class TestRegistryPushdown:
+    """The second store. Parity is re-proved here rather than inherited.
+
+    The registry is a different store with its own tables, and the run-tag
+    projection bug (`5d2ea6472`) is the standing example of a projection silently
+    returning less than it appears to. So every comparator is checked against the
+    in-memory evaluator again rather than assumed from the tracking side.
+
+    Two registry-specific hazards the tracking tables do not have:
+
+    - ``version`` is an ``INTEGER`` here, in both the alias table and the version
+      tag table, while every condition value is a string. Uncast, ``1`` would be
+      compared against ``'1'`` -- matching nothing, which on the resource side
+      denies every mutation of the type.
+    - A prompt *is* a registered model (T12.9): there are no prompt tables, so the
+      ``prompt`` and ``registered_model`` types resolve to the same rows.
+    """
+
+    @pytest.fixture
+    def registry(self, monkeypatch):
+        from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+        from mlflow.store.model_registry.sqlalchemy_store import (
+            SqlAlchemyStore as RegistrySqlAlchemyStore,
+        )
+
+        d = tempfile.mkdtemp()
+        store = RegistrySqlAlchemyStore(f"sqlite:///{d}/registry.db")
+        for name, tag in (("m-prod", "prod"), ("m-dev", "dev"), ("m-bare", None)):
+            store.create_registered_model(name)
+            store.create_model_version(name, source="s")
+            if tag is not None:
+                store.set_registered_model_tag(name, RegisteredModelTag(TAG_KEY, tag))
+                store.set_model_version_tag(name, "1", ModelVersionTag(TAG_KEY, tag))
+        store.set_registered_model_alias("m-prod", "champion", "1")
+        return store
+
+    ALL_MODELS = ["m-prod", "m-dev", "m-bare"]
+
+    @pytest.mark.parametrize(("comparator", "value"), REGISTRY_COMPARATORS)
+    def test_every_comparator_agrees_with_in_memory(self, registry, comparator, value):
+        """The parity contract, re-proved on the registry's own tables."""
+        pushed = registry.filter_ids_by_clauses(
+            "registered_model", self.ALL_MODELS, [("tags", TAG_KEY, comparator, value)]
+        )
+        assert pushed is not None, "the registry store must push the predicate down"
+
+        tags = {"m-prod": {TAG_KEY: "prod"}, "m-dev": {TAG_KEY: "dev"}, "m-bare": {}}
+        expected = {
+            name
+            for name, t in tags.items()
+            if _matches_in_memory(t.get(TAG_KEY), comparator, value)
+        }
+        assert pushed == expected
+
+    def test_an_untagged_model_satisfies_no_negative_comparator(self, registry):
+        """D20 on the registry side."""
+        assert registry.filter_ids_by_clauses(
+            "registered_model", self.ALL_MODELS, [("tags", TAG_KEY, "!=", "prod")]
+        ) == {"m-dev"}
+
+    def test_an_integer_version_compares_as_the_string_it_was_written_as(self, registry):
+        """The cast. Uncast this returns nothing and denies every mutation."""
+        assert registry.filter_ids_by_clauses(
+            "registered_model", self.ALL_MODELS, [("aliases", "champion", "=", "1")]
+        ) == {"m-prod"}
+
+    def test_an_integer_version_supports_the_text_comparators_too(self, registry):
+        """``LIKE`` on an INTEGER column only works because the cast makes it text."""
+        assert registry.filter_ids_by_clauses(
+            "registered_model", self.ALL_MODELS, [("aliases", "champion", "LIKE", "1%")]
+        ) == {"m-prod"}
+
+    def test_a_prompt_resolves_to_the_same_rows_as_a_registered_model(self, registry):
+        """T12.9: there are no prompt tables, so both types share storage.
+
+        A consequence worth pinning rather than rediscovering: a ``prompt``-scoped
+        and a ``registered_model``-scoped condition on the same entry BOTH apply,
+        because grants and conditions key on the declared type while the rows are
+        shared.
+        """
+        clause = [("tags", TAG_KEY, "=", "prod")]
+        assert registry.filter_ids_by_clauses(
+            "prompt", self.ALL_MODELS, clause
+        ) == registry.filter_ids_by_clauses("registered_model", self.ALL_MODELS, clause)
+
+    def test_a_version_is_matched_by_its_decomposed_id(self, registry):
+        ids = [(name, "1") for name in self.ALL_MODELS]
+        assert registry.filter_ids_by_clauses(
+            "registered_model_version", ids, [("tags", TAG_KEY, "=", "prod")]
+        ) == {("m-prod", "1")}
+
+    def test_a_version_id_must_match_both_parts(self, registry):
+        assert (
+            registry.filter_ids_by_clauses(
+                "registered_model_version", [("m-prod", "2")], [("tags", TAG_KEY, "=", "prod")]
+            )
+            == set()
+        )
+
+    def test_an_alias_clause_on_a_version_declines(self, registry):
+        """D18: a version's aliases belong to its parent, so it exposes no alias table."""
+        assert (
+            registry.filter_ids_by_clauses(
+                "registered_model_version",
+                [("m-prod", "1")],
+                [("aliases", "champion", "=", "1")],
+            )
+            is None
+        )
+
+    def test_an_unmapped_entity_declines(self, registry):
+        """A tracking type must not be answered from registry tables."""
+        assert registry.filter_ids_by_clauses("run", ["r1"], [("tags", TAG_KEY, "=", "x")]) is None
+
+
+class TestTheIntegerCastIsStructural:
+    """The cast must be asserted on the SQL, because SQLite cannot catch its absence.
+
+    SQLite is dynamically typed and happily evaluates ``1 = '1'`` as true, so every
+    behavioural test in this file passes with or without the cast -- confirmed by
+    mutation: deleting it left all 61 tests green. PostgreSQL does not coerce, so
+    the same code would compare an ``INTEGER`` column against a string, match
+    nothing, and -- because absence fails on the target side (D20) -- deny every
+    mutation of the type.
+
+    That failure mode is invisible to a correctness test on the development
+    backend and would only appear in production, so the guarantee is pinned on the
+    generated SQL instead. Same category as the cost assertions: the thing that
+    matters is not observable in the result.
+    """
+
+    def test_an_integer_column_is_cast_to_text(self):
+        from mlflow.store import condition_pushdown
+        from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelAlias
+
+        compiled = str(condition_pushdown.comparable(SqlRegisteredModelAlias.version))
+        assert "CAST" in compiled.upper(), (
+            "an INTEGER version must be compared as text, or a strictly-typed "
+            "backend matches nothing and denies every mutation of the type"
+        )
+
+    def test_a_text_column_is_left_alone(self):
+        """No gratuitous cast: it would defeat an index for no benefit."""
+        from mlflow.store import condition_pushdown
+        from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelTag
+
+        assert condition_pushdown.comparable(SqlRegisteredModelTag.value) is (
+            SqlRegisteredModelTag.value
+        )
+
+    def test_a_composite_id_predicate_casts_its_integer_part(self):
+        """The id side needs it too, not just the compared value."""
+        from mlflow.store import condition_pushdown
+        from mlflow.store.model_registry.dbmodels.models import SqlModelVersionTag
+
+        predicate = condition_pushdown.id_predicate(
+            (SqlModelVersionTag.name, SqlModelVersionTag.version), [("m", "1")]
+        )
+        assert "CAST" in str(predicate).upper()
+
+    def test_the_tracking_tag_tables_need_no_cast(self):
+        """Every tracking tag value is already text, so nothing is wrapped there."""
+        from mlflow.store import condition_pushdown
+        from mlflow.store.tracking.dbmodels.models import SqlTag
+
+        assert condition_pushdown.comparable(SqlTag.value) is SqlTag.value
