@@ -193,6 +193,24 @@ def test_tool_and_agent_name_attribute_set_by_instrumentation_is_kept(
 
 
 @pytest.mark.parametrize(
+    ("span_type", "name_key", "name", "expected_span_name"),
+    [
+        ("TOOL", GenAiSemconvKey.TOOL_NAME, "get_weather", "execute_tool get_weather"),
+        ("AGENT", GenAiSemconvKey.AGENT_NAME, "travel_planner", "invoke_agent travel_planner"),
+    ],
+)
+def test_tool_and_agent_name_attribute_serialized_by_mlflow_is_decoded(
+    span_type, name_key, name, expected_span_name
+):
+    # MLflow span APIs (e.g., `span.set_attribute`) store attribute values as JSON strings
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(span_type), name_key: json.dumps(name)}
+    span = _make_span(name="Agent.run", attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == expected_span_name
+    assert result.attributes[name_key] == name
+
+
+@pytest.mark.parametrize(
     ("span_type", "span_name", "name_key"),
     [
         ("TOOL", "", GenAiSemconvKey.TOOL_NAME),

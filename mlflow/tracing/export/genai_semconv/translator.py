@@ -145,8 +145,18 @@ def _get_tool_or_agent_name(span: ReadableSpan, name_key: str, operation: str) -
     attribute and already name the span "{operation} {name}". Otherwise, the span name is the
     tool or agent name, unless it is empty or just the operation.
     """
-    if name := (span.attributes or {}).get(name_key):
-        return name
+    name = (span.attributes or {}).get(name_key)
+    if isinstance(name, str):
+        # MLflow span APIs JSON-serialize attribute values, while instrumentations that write to
+        # the OTel span directly store the raw string.
+        try:
+            decoded = json.loads(name)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, str):
+            name = decoded
+        if name:
+            return name
     if span.name and span.name != operation:
         return span.name
     return None
