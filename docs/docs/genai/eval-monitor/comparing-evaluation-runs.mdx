@@ -96,7 +96,7 @@ result = mlflow.genai.compare_evaluations(
 
 ## Gating a release in CI
 
-`assert_improved` raises an `AssertionError` unless every listed scorer moved in its better direction with `p_value < alpha`. A scorer with insufficient pairs counts as not improved.
+`assert_improved` raises an `AssertionError` unless every listed scorer moved in its better direction with `p_value < alpha`. A scorer with insufficient pairs counts as not improved. When `scorers` is omitted, every compared scorer is checked, and `assert_improved` also raises if no scorers were compared at all (for example, when the two runs share no scorer with valid feedback), so a CI gate cannot pass on an empty comparison.
 
 ```python
 def test_candidate_beats_baseline():

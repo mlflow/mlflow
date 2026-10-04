@@ -130,9 +130,15 @@ class ComparisonResult:
         treated as not improved.
 
         Args:
-            scorers: Names of the scorers to check. Defaults to all compared scorers.
+            scorers: Names of the scorers to check. Defaults to all compared scorers, in which
+                case ``AssertionError`` is also raised when no scorers were compared.
             alpha: Significance level.
         """
+        if scorers is None and not self.scorers:
+            raise AssertionError(
+                f"No scorers were compared between candidate run {self.candidate_run_id} and "
+                f"baseline run {self.baseline_run_id}, so no improvement can be asserted."
+            )
         names = list(self.scorers) if scorers is None else scorers
         if unknown := [name for name in names if name not in self.scorers]:
             raise MlflowException.invalid_parameter_value(
@@ -392,7 +398,8 @@ def compare_evaluations(
     Every scorer also gets the mean paired difference (candidate - baseline), a percentile
     bootstrap confidence interval of that difference (fixed seed, so results are
     reproducible), Cohen's d_z effect size and the number of ties. A scorer with fewer than
-    two paired values is reported with status ``"insufficient_pairs"``.
+    two paired values is reported with status ``"insufficient_pairs"``. If no scorer produced
+    valid feedback in both runs, a warning is logged and the result has no scorers.
 
     No correction for multiple comparisons is applied across scorers.
 
@@ -450,10 +457,22 @@ def compare_evaluations(
     def scorer_names(rows: list[_EvalRow]) -> set[str]:
         return {name for row in rows for name in row.feedbacks}
 
-    common_scorers = sorted(
-        scorer_names([*pairing.unpaired_baseline, *(p.baseline for p in pairing.pairs)])
-        & scorer_names([*pairing.unpaired_candidate, *(p.candidate for p in pairing.pairs)])
-    )
+    baseline_scorers = scorer_names([
+        *pairing.unpaired_baseline,
+        *(p.baseline for p in pairing.pairs),
+    ])
+    candidate_scorers = scorer_names([
+        *pairing.unpaired_candidate,
+        *(p.candidate for p in pairing.pairs),
+    ])
+    common_scorers = sorted(baseline_scorers & candidate_scorers)
+    if not common_scorers:
+        _logger.warning(
+            "No scorers were compared because the baseline and candidate runs have no scorer "
+            "with valid feedback in common. Scorers with valid feedback in the baseline run: "
+            f"{sorted(baseline_scorers)}. Scorers with valid feedback in the candidate run: "
+            f"{sorted(candidate_scorers)}."
+        )
 
     paired_rows = [
         {

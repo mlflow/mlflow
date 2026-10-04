@@ -1,4 +1,5 @@
 from typing import Any
+from unittest import mock
 
 import numpy as np
 import pytest
@@ -37,6 +38,11 @@ def passed(outputs) -> bool:
 @scorer
 def rating(outputs) -> str:
     return "yes" if outputs["passed"] else "no"
+
+
+@scorer
+def failing(outputs) -> float:
+    raise ValueError("scorer failed")
 
 
 def _rows(scores: list[float], passes: list[bool] | None = None) -> list[dict[str, Any]]:
@@ -416,6 +422,46 @@ def test_assert_improved():
         result.assert_improved(["improved"], alpha=1e-30)
     with pytest.raises(MlflowException, match="were not compared"):
         result.assert_improved(["missing"])
+
+
+def test_assert_improved_raises_when_no_scorers_were_compared():
+    result = ComparisonResult("candidate", "baseline", scorers={})
+
+    with pytest.raises(AssertionError, match="No scorers were compared"):
+        result.assert_improved()
+    with pytest.raises(MlflowException, match="were not compared"):
+        result.assert_improved(["missing"])
+
+
+@pytest.mark.parametrize(
+    ("candidate_scorers", "expected_candidate_scorers"),
+    [
+        # Errored feedback is not valid, so the candidate run has no feedback to compare.
+        ([failing], []),
+        ([passed], ["passed"]),
+    ],
+)
+def test_compare_evaluations_warns_when_no_scorers_in_common(
+    candidate_scorers, expected_candidate_scorers: list[str]
+):
+    rows = _rows([0.1, 0.2, 0.3])
+    baseline_run_id = _evaluate(rows, scorers=[score])
+    candidate_run_id = _evaluate(rows, scorers=candidate_scorers)
+
+    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert result.scorers == {}
+    assert len(result.paired_rows) == 3
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "No scorers were compared" in message
+    assert "baseline run: ['score']" in message
+    assert f"candidate run: {expected_candidate_scorers}" in message
+    with pytest.raises(AssertionError, match="No scorers were compared"):
+        result.assert_improved()
 
 
 def test_compare_evaluations_greater_is_better_override():
