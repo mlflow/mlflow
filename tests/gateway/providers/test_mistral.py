@@ -446,3 +446,28 @@ async def test_chat_stream(resp):
     config = chat_config()
     provider = MistralProvider(EndpointConfig(**config))
     await _run_test_chat_stream(resp, provider)
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_includes_usage_from_final_chunk():
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    resp = [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"role":"assistant","content":"Hello"}}]}\n\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":"stop",'
+        b'"delta":{"content":""}}],'
+        b'"usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    assert chunks[0].usage is None
+    assert chunks[-1].usage.prompt_tokens == 12
+    assert chunks[-1].usage.completion_tokens == 34
+    assert chunks[-1].usage.total_tokens == 46
