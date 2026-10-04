@@ -1088,6 +1088,25 @@ def test_search_mcp_server_versions_scoped(store):
     assert result[0].name == "io.github.test/server1"
 
 
+def test_search_mcp_server_versions_quoted_literal_regression(store):
+    store.create_mcp_server_version(_server_json("com.example/versionLIKE", "1.0.0"))
+
+    # Test single-quoted literal
+    result = store.search_mcp_server_versions(
+        "com.example/versionLIKE", filter_string="name = 'com.example/versionLIKE' AND version = '1.0.0'"
+    )
+    assert len(result) == 1
+    assert result[0].name == "com.example/versionLIKE"
+
+    # Test double-quoted literal
+    result = store.search_mcp_server_versions(
+        "com.example/versionLIKE", filter_string='name = "com.example/versionLIKE" AND version = "1.0.0"'
+    )
+    assert len(result) == 1
+    assert result[0].name == "com.example/versionLIKE"
+
+
+
 def test_update_mcp_server_version_status(store):
     store.create_mcp_server_version(_server_json())
     updated = store.update_mcp_server_version(
