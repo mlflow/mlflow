@@ -280,8 +280,9 @@ describe('CreateUserModal — direct mutation conditions', () => {
   });
 
   it('creates the user before applying conditions, not after', async () => {
-    // A condition only subtracts from granted access, so it cannot be stored against a
-    // user who does not exist yet. Ordering is the guarantee, so it is asserted.
+    // The add is addressed by username and the server 404s an unknown user, so running
+    // it before ``createUser`` fails every time. (Ordering it after the *grants* is
+    // merely tidier error reporting -- a grantless condition is valid and inert.)
     const order: string[] = [];
     mockCreateUserMutateAsync.mockImplementation(async () => {
       order.push('createUser');

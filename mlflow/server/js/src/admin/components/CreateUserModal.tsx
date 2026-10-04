@@ -194,10 +194,16 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     }
 
     if (wantsConditions) {
-      // After the grants, because a condition only ever subtracts from them: staging one
-      // without the grant it narrows would store a restriction on access the user does not
-      // have. Ordering it second also means a failed grant is reported before the
-      // condition that depended on it.
+      // Last, for two different reasons.
+      //
+      // The user MUST exist: this add is addressed by username and the server 404s an
+      // unknown one, so running before ``createUser`` would be a guaranteed failure.
+      //
+      // Being after the *grants*, though, is only ergonomics -- a failed grant is then
+      // reported before the condition meant to narrow it. It is not a correctness
+      // requirement: a condition with no matching grant is valid and inert, because
+      // ``authorize`` checks grants first and returns on failure without loading a single
+      // condition. Such a condition simply starts applying once a grant arrives.
       for (const c of conditions) {
         try {
           await addCondition.mutateAsync({
