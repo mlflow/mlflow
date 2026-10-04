@@ -1088,6 +1088,57 @@ def test_search_mcp_server_versions_scoped(store):
     assert result[0].name == "io.github.test/server1"
 
 
+def test_search_mcp_server_versions_quoted_literal_regression(store):
+    store.create_mcp_server_version(_server_json("com.example/versionLIKE", "1.0.0"))
+    store.create_mcp_server_version(_server_json("com.example/versionLIKE", "2.0.0"))
+    store.create_mcp_server_version(_server_json("com.example/versionILIKE", "1.0.0"))
+
+    # Test single-quoted and double-quoted name with versionLIKE and versionILIKE
+    for filter_str, name in [
+        ("name = 'com.example/versionLIKE'", "com.example/versionLIKE"),
+        ('name = "com.example/versionLIKE"', "com.example/versionLIKE"),
+        ("name = 'com.example/versionILIKE'", "com.example/versionILIKE"),
+        ('name = "com.example/versionILIKE"', "com.example/versionILIKE"),
+    ]:
+        result = store.search_mcp_server_versions(name, filter_string=filter_str)
+        assert len(result) > 0
+        assert all(r.name == name for r in result)
+
+    # Test ordering of compound filters
+    result1 = store.search_mcp_server_versions(
+        "com.example/versionLIKE", filter_string="name = 'com.example/versionLIKE' AND version = '1.0.0'"
+    )
+    result2 = store.search_mcp_server_versions(
+        "com.example/versionLIKE", filter_string="version = '1.0.0' AND name = 'com.example/versionLIKE'"
+    )
+    assert len(result1) == 1 and result1[0].version == "1.0.0"
+    assert len(result2) == 1 and result2[0].version == "1.0.0"
+
+    # Test version operators
+    import pytest
+    from mlflow.exceptions import MlflowException
+
+    queries = [
+        ("version = '1.0.0'", 1, "1.0.0"),
+        ("version != '1.0.0'", 1, "2.0.0"),
+        ("version > '1.0.0'", 1, "2.0.0"),
+        ("version < '2.0.0'", 1, "1.0.0"),
+    ]
+    for q, expected_len, expected_ver in queries:
+        res = store.search_mcp_server_versions("com.example/versionLIKE", filter_string=q)
+        assert len(res) == expected_len, f"Query failed: {q}"
+        if expected_len > 0:
+            assert res[0].version == expected_ver, f"Query failed: {q}"
+
+    # version LIKE and ILIKE should throw MlflowException
+    with pytest.raises(MlflowException, match="version only supports semantic comparators"):
+        store.search_mcp_server_versions("com.example/versionLIKE", filter_string="version LIKE '1.%'")
+
+    with pytest.raises(MlflowException, match="version only supports semantic comparators"):
+        store.search_mcp_server_versions("com.example/versionLIKE", filter_string="version ILIKE '2.%'")
+
+
+
 def test_update_mcp_server_version_status(store):
     store.create_mcp_server_version(_server_json())
     updated = store.update_mcp_server_version(

@@ -2783,6 +2783,16 @@ class SearchMCPServerVersionUtils(SearchUtils):
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
     LIST_SUPPORTED_KEYS = frozenset({"status"})
 
+    @classmethod
+    def _process_statement(cls, statement):
+        # sqlparse treats version as a SQL keyword, so it does not group
+        # comparisons using this valid version attribute.
+        for index, token in enumerate(statement.tokens):
+            if token.ttype == TokenType.Keyword and token.value.lower() == "version":
+                statement.tokens[index] = Identifier([Token(TokenType.Name, token.value)])
+        group_comparison(statement)
+        return super()._process_statement(statement)
+
 
 class SearchMCPAccessEndpointUtils(SearchUtils):
     """Utility class for parsing MCP access endpoint search filters."""
