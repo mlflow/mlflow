@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 import sqlparse
 from packaging.version import Version
+from sqlparse.engine.grouping import group_comparison
 from sqlparse.sql import (
     Comparison,
     Identifier,
@@ -2794,11 +2795,17 @@ class SearchMCPAccessEndpointUtils(SearchUtils):
         "last_updated_at",
     }
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
-    # `server_name` is not usable with `IN`/`NOT IN` today because `server_name`
-    # is also a reserved word in sqlparse's builtin keyword table, so it never
-    # tokenizes as an Identifier even with a plain `=` comparator. See
-    # https://github.com/mlflow/mlflow/issues/25203.
-    LIST_SUPPORTED_KEYS = frozenset()
+    LIST_SUPPORTED_KEYS = frozenset({"server_name"})
+
+    @classmethod
+    def _process_statement(cls, statement):
+        # sqlparse treats server_name as a SQL keyword, so it does not group
+        # comparisons using this valid endpoint attribute.
+        for index, token in enumerate(statement.tokens):
+            if token.ttype == TokenType.Keyword and token.value == "server_name":
+                statement.tokens[index] = Identifier([Token(TokenType.Name, token.value)])
+        group_comparison(statement)
+        return super()._process_statement(statement)
 
 
 class SearchIssuesUtils(SearchUtils):
