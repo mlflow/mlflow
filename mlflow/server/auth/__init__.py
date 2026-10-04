@@ -1482,6 +1482,28 @@ def _optimizer_gateway_endpoint(optimizer_config_json: str) -> str | None:
     return (name.lstrip("/") or None) if provider == "gateway" else None
 
 
+_OPTIMIZER_ENDPOINT_UNRESOLVED = object()
+
+
+def _optimizer_gateway_endpoint_requirement(optimizer_config_json: str):
+    """The gateway-endpoint requirement for the reflection model, keyed by its stored id.
+
+    ``gateway_endpoint`` grants are keyed by generated id (``e-...``), so requiring the NAME the
+    config carries matched no grant and a denied endpoint was not blocked. Resolve the name the
+    way every other gateway route addresses an endpoint. Returns ``None`` when the config names
+    no gateway endpoint, or ``_OPTIMIZER_ENDPOINT_UNRESOLVED`` when it names one that cannot be
+    resolved, which must refuse rather than drop the requirement.
+    """
+    endpoint_name = _optimizer_gateway_endpoint(optimizer_config_json)
+    if endpoint_name is None:
+        return None
+    try:
+        endpoint = _get_tracking_store().get_gateway_endpoint(name=endpoint_name)
+    except MlflowException:
+        return _OPTIMIZER_ENDPOINT_UNRESOLVED
+    return Requirement(RESOURCE_TYPE_GATEWAY_ENDPOINT, endpoint.endpoint_id, ACTION_NOT_DENIED)
+
+
 def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
     # A built-in that instantiates is code, not a stored resource. Any other name makes the
     # worker load the REGISTERED scorer of that name (optimize.job._load_scorers).
@@ -1500,18 +1522,48 @@ def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
     return sorted(registered)
 
 
+def _source_prompt_names(prompt_uri: str) -> "list[str]":
+    """Every prompt name the submitted URI could resolve to, or ``[]`` if none could be read.
+
+    A ``prompts:/`` URI is resolved by ``_parse_model_uri``, the parser ``load_prompt`` itself
+    uses, which takes the name as everything before the LAST ``@``. Splitting at the first one
+    disagreed for any name containing ``@``, so the grant was checked on a prompt the worker never
+    loads and a ``DENY`` on the real one did not stop the job.
+
+    A bare name is normalized by ``parse_prompt_name_or_uri`` into ``prompts:/<value>@latest``, so
+    the whole value is the name even when it embeds an ``@``: ``other@latest`` loads a prompt
+    literally named ``other@latest``, not alias ``latest`` of prompt ``other``. That is surprising
+    enough that a caller writing it plausibly meant the latter, so both readings are required and a
+    ``DENY`` on either stops the job.
+    """
+    if prompt_uri.startswith("prompts:/"):
+        try:
+            name = _parse_model_uri(prompt_uri, scheme="prompts").name
+        except MlflowException:
+            # Includes `prompts:/` with no name, and `prompts:/name` with no version or alias,
+            # which prompts have no form for.
+            return []
+        return [name] if name else []
+    names = [prompt_uri]
+    if "@" in prompt_uri:
+        before_alias = prompt_uri.rpartition("@")[0]
+        if not before_alias:
+            # `@prod`: no name precedes the alias, so nothing could be identified.
+            return []
+        names.append(before_alias)
+    return names
+
+
 def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
     if not prompt_uri:
         return []
-    # `load_prompt` treats any non-`prompts:` URI as a bare name, so a name is the only form.
-    remainder = prompt_uri.removeprefix("prompts:/")
-    name = remainder.split("@", 1)[0].split("/", 1)[0]
-    if not name:
-        # Non-empty but unclassifiable (`prompts:/`, `@prod`). The worker still has to resolve it
-        # somehow, so refuse rather than authorize a name we could not read.
+    names = _source_prompt_names(prompt_uri)
+    if not names:
+        # Non-empty but no name could be read. The worker still resolves it somehow, so refuse
+        # rather than authorize a prompt the auth layer could not identify.
         return None
     return [
-        Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED),
+        *(Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED) for name in names),
         Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED),
     ]
 
@@ -1519,25 +1571,22 @@ def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
 def validate_can_create_prompt_optimization_job():
     """Submitting hands work to a worker running with NO caller identity.
 
-    KNOWN INCOMPLETE, deliberately. The prompt-optimization endpoints are slated for removal in
-    3.17.0, so this surface is not being hardened further; it is left no weaker than the coarser
-    gate it replaces. Two gaps are known and unfixed:
-
-    * ``_source_prompt_requirements`` splits the prompt name at the FIRST ``@``, while
-      ``load_prompt`` parses an alias at the LAST one. For a name containing ``@``, the grant is
-      checked on a different prompt than the worker loads, so a ``DENY`` on the real prompt does
-      not stop the job.
-    * ``_optimizer_gateway_endpoint`` yields an endpoint NAME, but ``gateway_endpoint`` grants are
-      keyed by generated id (``e-...``). The requirement therefore finds no grant and a denied
-      endpoint is not blocked.
-
-    Both are unreachable once the endpoints go. Anyone keeping this code instead must fix them.
+    This is the only validator that must parse protected resource identities out of free-form
+    payload fields -- ``source_prompt_uri`` and ``optimizer_config_json`` -- rather than reading
+    request params the handler uses verbatim. Everywhere else the gate and the handler cannot
+    disagree because they read the same field; here each identity has to be resolved the same way
+    the worker resolves it, or the grant is checked against the wrong resource.
     """
     message = _get_request_message(CreatePromptOptimizationJob())
     experiment_id = message.experiment_id
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     source_prompt_requirements = _source_prompt_requirements(message.source_prompt_uri)
     if source_prompt_requirements is None:
+        return False
+    endpoint_requirement = _optimizer_gateway_endpoint_requirement(
+        message.config.optimizer_config_json
+    )
+    if endpoint_requirement is _OPTIMIZER_ENDPOINT_UNRESOLVED:
         return False
     requirements = [
         Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
@@ -1555,11 +1604,8 @@ def validate_can_create_prompt_optimization_job():
             for name in _registered_scorer_names(message.config.scorers)
         ),
     ]
-    endpoint_name = _optimizer_gateway_endpoint(message.config.optimizer_config_json)
-    if endpoint_name is not None:
-        requirements.append(
-            Requirement(RESOURCE_TYPE_GATEWAY_ENDPOINT, endpoint_name, ACTION_NOT_DENIED)
-        )
+    if endpoint_requirement is not None:
+        requirements.append(endpoint_requirement)
     return authorize(authenticate_request().username, experiment, requirements)
 
 

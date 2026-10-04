@@ -8864,3 +8864,98 @@ def test_delete_scorer_version_is_gated_on_the_version_tier(client, monkeypatch)
         auth=(other, other_pw),
     )
     assert vetoed.status_code == 403
+
+
+def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
+    """The gate must name the prompt `load_prompt` will actually load.
+
+    `_parse_model_uri` takes the name as everything before the LAST `@`, so splitting at the
+    first one checked the grant against a different prompt for any name containing `@` -- a
+    `DENY` on the real prompt did not stop the job. Switching to `rsplit` is not enough either:
+    it still disagrees for a name with an `@` AND a version suffix (`prompts:/a@b/3`), so the
+    gate delegates to the parser rather than re-deriving the name.
+    """
+    from mlflow.store.artifact.utils.models import _parse_model_uri
+
+    def gated_names(uri):
+        requirements = auth_module._source_prompt_requirements(uri)
+        if requirements is None:
+            return "REFUSED"
+        if not requirements:
+            return "NO_REQUIREMENT"
+        return [
+            r.resource_id
+            for r in requirements
+            if r.resource_type == auth_module.RESOURCE_TYPE_PROMPT
+        ]
+
+    # A `prompts:/` URI resolves to exactly the name the loader parses out of it.
+    for uri in (
+        "prompts:/plain@prod",
+        "prompts:/my@weird@prod",
+        "prompts:/a@b@c",
+        "prompts:/a@b/3",
+        "prompts:/name/3",
+    ):
+        assert gated_names(uri) == [_parse_model_uri(uri, scheme="prompts").name]
+
+    # The two forms the old first-`@` split got wrong, spelled out.
+    assert gated_names("prompts:/my@weird@prod") == ["my@weird"]
+    assert gated_names("prompts:/a@b/3") == ["a@b"]
+
+    # A bare name is normalized to `prompts:/<value>@latest`, so the whole value is the name --
+    # `other@latest` loads a prompt literally named `other@latest`. Both readings are required so
+    # a DENY on either the literal name or the alias-stripped one stops the job.
+    assert gated_names("plainname") == ["plainname"]
+    assert gated_names("other@latest") == ["other@latest", "other"]
+
+    # Unresolvable forms refuse instead of authorizing a name the gate could not read.
+    # `prompts:/plain` has no version or alias, which prompts have no form for; `@prod` has no
+    # name before the alias.
+    for uri in ("prompts:/plain", "prompts:/", "prompts:/@prod", "@prod"):
+        assert gated_names(uri) == "REFUSED"
+
+    # An absent source prompt adds no requirement at all.
+    assert gated_names("") == "NO_REQUIREMENT"
+
+
+def test_optimizer_gateway_endpoint_requirement_is_keyed_by_id(monkeypatch):
+    """`gateway_endpoint` grants are keyed by generated id, so requiring the name matched nothing.
+
+    The config carries `gateway:/<name>`; grants are written against `e-...`. The requirement
+    therefore found no grant and a denied endpoint was not blocked. Resolve the name the way
+    every other gateway route addresses an endpoint, and refuse when it cannot be resolved.
+    """
+    resolved = SimpleNamespace(endpoint_id="e-0123456789abcdef0123456789abcdef")
+
+    class FakeStore:
+        def __init__(self):
+            self.asked_for = []
+
+        def get_gateway_endpoint(self, endpoint_id=None, name=None):
+            self.asked_for.append(name)
+            if name == "known-endpoint":
+                return resolved
+            raise MlflowException("GatewayEndpoint not found", RESOURCE_DOES_NOT_EXIST)
+
+    fake = FakeStore()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
+
+    def requirement_for(model):
+        return auth_module._optimizer_gateway_endpoint_requirement(
+            json.dumps({"reflection_model": model})
+        )
+
+    # A resolvable endpoint is required by its stored id, not the name the caller supplied.
+    requirement = requirement_for("gateway:/known-endpoint")
+    assert requirement.resource_type == auth_module.RESOURCE_TYPE_GATEWAY_ENDPOINT
+    assert requirement.resource_id == resolved.endpoint_id
+    assert fake.asked_for == ["known-endpoint"]
+
+    # An endpoint that cannot be resolved refuses rather than dropping the requirement.
+    assert requirement_for("gateway:/missing") is auth_module._OPTIMIZER_ENDPOINT_UNRESOLVED
+
+    # A model served by another provider names no gateway endpoint, so nothing is required.
+    assert requirement_for("openai:/gpt-4o") is None
+    assert auth_module._optimizer_gateway_endpoint_requirement("") is None
+    assert auth_module._optimizer_gateway_endpoint_requirement("not json") is None
