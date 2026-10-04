@@ -2135,6 +2135,7 @@ module.exports = {
   "mlflow.skill_registry.register_modal.mode": "",
   "mlflow.skill_registry.register_modal.name": "",
   "mlflow.skill_registry.register_modal.ref": "",
+  "mlflow.skill_registry.register_modal.repository_import.copy": "",
   "mlflow.skill_registry.register_modal.source_type": "",
   "mlflow.skill_registry.register_modal.status": "",
   "mlflow.skill_registry.register_modal.submit": "",

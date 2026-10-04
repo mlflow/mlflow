@@ -18,23 +18,38 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { SkillStatus, type SkillVersion } from '../types';
-import { STATUS_TAG_COLOR } from '../utils';
+import { formatSkillStatusLabel, STATUS_TAG_COLOR } from '../utils';
 import { flexColumnGapStyles, flexRowWrapStyles, selectedRowIndicatorStyles, spaceBetweenRowStyles } from '../styles';
 import Utils from '../../common/utils/Utils';
 
 const SkillVersionCell: ColumnDef<SkillVersion>['cell'] = ({ row: { original } }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const isDeleted = original.status === SkillStatus.DELETED;
+
+  if (original.status === SkillStatus.DELETED) {
+    return (
+      <div css={flexColumnGapStyles(theme)}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Version {version}"
+            description="Skill version list item label"
+            values={{ version: original.version }}
+          />
+        </Typography.Text>
+        <Typography.Text size="sm" color="secondary">
+          <FormattedMessage
+            defaultMessage="Deleted, number not reused"
+            description="Subtitle for a deleted skill version in the version list"
+          />
+        </Typography.Text>
+      </div>
+    );
+  }
 
   return (
     <div css={flexColumnGapStyles(theme)}>
       <div css={flexRowWrapStyles(theme)}>
-        <Typography.Text
-          bold
-          color={isDeleted ? 'secondary' : undefined}
-          css={{ textDecoration: isDeleted ? 'line-through' : undefined }}
-        >
+        <Typography.Text bold>
           <FormattedMessage
             defaultMessage="Version {version}"
             description="Skill version list item label"
@@ -42,7 +57,7 @@ const SkillVersionCell: ColumnDef<SkillVersion>['cell'] = ({ row: { original } }
           />
         </Typography.Text>
         <Tag componentId="mlflow.skill_registry.detail.version_status_tag" color={STATUS_TAG_COLOR[original.status]}>
-          {original.status.charAt(0).toUpperCase() + original.status.slice(1)}
+          {formatSkillStatusLabel(original.status)}
         </Tag>
       </div>
       {original.creation_timestamp && (
@@ -141,14 +156,9 @@ export const SkillVersionList = ({
                 aria-selected={isSelected}
                 aria-disabled={isDeleted}
                 css={{
-                  backgroundColor: isDeleted
-                    ? theme.colors.backgroundSecondary
-                    : isSelected
-                      ? theme.colors.actionDefaultBackgroundPress
-                      : 'transparent',
-                  cursor: isDeleted ? 'not-allowed' : 'pointer',
+                  backgroundColor: isSelected ? theme.colors.actionDefaultBackgroundPress : 'transparent',
+                  cursor: isDeleted ? 'default' : 'pointer',
                 }}
-                style={{ opacity: isDeleted ? 0.55 : 1 }}
                 onClick={isDeleted ? undefined : () => onSelectVersion(version)}
                 onKeyDown={
                   isDeleted

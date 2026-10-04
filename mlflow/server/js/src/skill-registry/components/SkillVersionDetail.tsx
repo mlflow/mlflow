@@ -18,12 +18,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { Skill, SkillStatus, SkillVersion } from '../types';
+import { SkillStatus, type Skill, type SkillVersion } from '../types';
 import {
   aliasesForVersion,
   canSoftDeleteSkillVersion,
   describeSkillSource,
   formatSkillReferenceUris,
+  formatSkillStatusLabel,
   skillVersionStatusTransitions,
   STATUS_TAG_COLOR,
 } from '../utils';
@@ -35,7 +36,7 @@ import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { flexRowStyles, inlineCodeStyles } from '../styles';
 import Utils from '../../common/utils/Utils';
 
-const statusLabel = (status: SkillStatus) => status.charAt(0).toUpperCase() + status.slice(1);
+const EDITABLE_STATUS_ORDER = [SkillStatus.DRAFT, SkillStatus.ACTIVE, SkillStatus.DEPRECATED];
 
 const MetadataLabel = ({ children }: { children: ReactNode }) => <Typography.Text bold>{children}</Typography.Text>;
 
@@ -145,6 +146,7 @@ export const SkillVersionDetail = ({
   isStatusUpdating = false,
   statusUpdateError,
   onDismissStatusUpdateError,
+  isOnlyLiveVersion = false,
 }: {
   skill: Skill;
   version?: SkillVersion;
@@ -159,6 +161,7 @@ export const SkillVersionDetail = ({
   isStatusUpdating?: boolean;
   statusUpdateError?: Error | null;
   onDismissStatusUpdateError?: () => void;
+  isOnlyLiveVersion?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -240,7 +243,10 @@ export const SkillVersionDetail = ({
     defaultMessage: 'Version status',
     description: 'Aria label for changing a skill version status',
   });
-  const statusOptions = [version.status, ...skillVersionStatusTransitions(version.status)];
+  const allowedStatuses = new Set([version.status, ...skillVersionStatusTransitions(version.status)]);
+  const statusOptions = EDITABLE_STATUS_ORDER.filter((status) => allowedStatuses.has(status));
+  const statusAllowsDelete = canSoftDeleteSkillVersion(version.status);
+  const canDeleteVersion = statusAllowsDelete && !isOnlyLiveVersion;
   const handleStatusChange = (nextStatus: SkillStatus) => {
     setEditingStatus(false);
     if (nextStatus !== version.status) onStatusChange?.(nextStatus);
@@ -267,15 +273,20 @@ export const SkillVersionDetail = ({
             <Tooltip
               componentId="mlflow.skill_registry.detail.version.delete_tooltip"
               content={
-                canSoftDeleteSkillVersion(version.status) ? (
-                  <FormattedMessage
-                    defaultMessage="Removes this version from resolution, discovery and pull. Its number is never reused."
-                    description="Tooltip for deleting a draft or deprecated skill version"
-                  />
-                ) : (
+                !statusAllowsDelete ? (
                   <FormattedMessage
                     defaultMessage="Unpublish or deprecate this version first. Deprecating keeps it resolving for anything that pins it."
                     description="Tooltip when an active skill version cannot be deleted yet"
+                  />
+                ) : isOnlyLiveVersion ? (
+                  <FormattedMessage
+                    defaultMessage="A skill's only remaining live version can't be deleted."
+                    description="Tooltip when the selected skill version is the last one that is not deleted"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Removes this version from resolution, discovery and pull. Its number is never reused."
+                    description="Tooltip for deleting a draft or deprecated skill version"
                   />
                 )
               }
@@ -284,9 +295,9 @@ export const SkillVersionDetail = ({
                 <Button
                   componentId="mlflow.skill_registry.detail.version.delete"
                   icon={<TrashIcon />}
-                  danger={canSoftDeleteSkillVersion(version.status)}
+                  danger={canDeleteVersion}
                   type="primary"
-                  disabled={!canSoftDeleteSkillVersion(version.status)}
+                  disabled={!canDeleteVersion}
                   onClick={onDelete}
                 >
                   <FormattedMessage
@@ -350,7 +361,7 @@ export const SkillVersionDetail = ({
               <DialogComboboxTrigger
                 aria-label={statusSelectLabel}
                 withInlineLabel={false}
-                renderDisplayedValue={(status) => statusLabel(status as SkillStatus)}
+                renderDisplayedValue={(status) => formatSkillStatusLabel(status as SkillStatus)}
                 allowClear={false}
                 width={160}
               />
@@ -367,7 +378,7 @@ export const SkillVersionDetail = ({
                       checked={status === version.status}
                       onChange={(nextStatus) => handleStatusChange(nextStatus as SkillStatus)}
                     >
-                      {statusLabel(status)}
+                      {formatSkillStatusLabel(status)}
                     </DialogComboboxOptionListSelectItem>
                   ))}
                 </DialogComboboxOptionList>
@@ -376,13 +387,13 @@ export const SkillVersionDetail = ({
           ) : (
             <>
               <Tag componentId="mlflow.skill_registry.detail.version.status" color={STATUS_TAG_COLOR[version.status]}>
-                {statusLabel(version.status)}
+                {formatSkillStatusLabel(version.status)}
               </Tag>
               {canUpdate && onStatusChange && skillVersionStatusTransitions(version.status).length > 0 && (
                 <SkillPencilButton
                   componentId="mlflow.skill_registry.detail.version.status_edit"
                   label={intl.formatMessage({
-                    defaultMessage: 'Edit status',
+                    defaultMessage: 'Edit version status',
                     description: 'Aria label for the skill version status pencil',
                   })}
                   disabled={isStatusUpdating}
@@ -412,7 +423,7 @@ export const SkillVersionDetail = ({
             <SkillPencilButton
               componentId="mlflow.skill_registry.detail.version.metadata.edit"
               label={intl.formatMessage({
-                defaultMessage: 'Edit metadata',
+                defaultMessage: 'Edit version tags',
                 description: 'Aria label for editing skill version tags',
               })}
               onClick={onEditMetadata}

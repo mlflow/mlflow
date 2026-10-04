@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, FormUI, Input, Modal, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 import { SkillRegistryApi } from '../api';
@@ -10,6 +10,7 @@ import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 
 export const useEditSkillModal = ({ name, organization }: { name: string; organization: string }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const invalidate = useInvalidateSkillQueries();
   const [visible, setVisible] = useState(false);
   const [description, setDescription] = useState('');
@@ -47,6 +48,7 @@ export const useEditSkillModal = ({ name, organization }: { name: string; organi
       visible={visible}
       confirmLoading={mutation.isLoading}
       okText={<FormattedMessage defaultMessage="Save" description="Save skill presentation edits" />}
+      cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel skill presentation edits" />}
       onOk={handleSave}
       onCancel={() => {
         mutation.reset();
@@ -71,6 +73,10 @@ export const useEditSkillModal = ({ name, organization }: { name: string; organi
             id="mlflow.skill_registry.edit_skill_modal.description"
             componentId="mlflow.skill_registry.edit_skill_modal.description"
             value={description}
+            placeholder={intl.formatMessage({
+              defaultMessage: 'What this skill does and when to use it.',
+              description: 'Placeholder for the skill description editor',
+            })}
             rows={3}
             onChange={(event) => setDescription(event.target.value)}
           />

@@ -18,6 +18,7 @@ import type { Skill, SkillStatus } from '../types';
 import {
   formatSkillIdentity,
   formatSkillPullCli,
+  formatSkillStatusLabel,
   formatSkillPullPython,
   formatSkillUri,
   SKILL_INSTALL_TARGETS,
@@ -91,7 +92,7 @@ export const UseSkillModal = ({
             </Typography.Text>
             {versionStatus && (
               <Tag componentId="mlflow.skill_registry.use_modal.version_status" color={STATUS_TAG_COLOR[versionStatus]}>
-                {versionStatus}
+                {formatSkillStatusLabel(versionStatus)}
               </Tag>
             )}
           </span>

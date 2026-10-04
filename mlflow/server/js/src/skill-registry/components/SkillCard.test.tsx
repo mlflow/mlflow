@@ -63,7 +63,7 @@ describe('SkillCard', () => {
 
     expect(await screen.findByText('Use @ocp-admin/cluster-inventory')).toBeInTheDocument();
     expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
-    expect(screen.getByText('active')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
     expect(document.body.textContent).toContain('skills:/@ocp-admin/cluster-inventory/2');
     expect(document.body.textContent).toContain('mlflow skills pull skills:/@ocp-admin/cluster-inventory/2');
     expect(document.body.textContent).toContain('--destination .claude/skills');

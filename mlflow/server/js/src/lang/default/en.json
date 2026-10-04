@@ -939,6 +939,10 @@
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
   },
+  "1qo/8I": {
+    "defaultMessage": "Deleted, number not reused",
+    "description": "Subtitle for a deleted skill version in the version list"
+  },
   "1rqKJk": {
     "defaultMessage": "View details",
     "description": "Link to the issue detection run overview from the completion notification"
@@ -1519,6 +1523,10 @@
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
   },
+  "470t+y": {
+    "defaultMessage": "Registers {summary}",
+    "description": "Summary of what a skill location registers"
+  },
   "47JmSp": {
     "defaultMessage": "Configure new model",
     "description": "Option to configure new model"
@@ -1999,6 +2007,10 @@
     "defaultMessage": "finetuning",
     "description": "A short label for experiments focused on model finetuning"
   },
+  "61XJhx": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel skill presentation edits"
+  },
   "61j1EM": {
     "defaultMessage": "Model",
     "description": "Tooltip for span model metadata item"
@@ -2046,10 +2058,6 @@
   "6BqLF2": {
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
-  },
-  "6F40a/": {
-    "defaultMessage": "Edit metadata",
-    "description": "Title for editing tags on a skill version"
   },
   "6HjFD0": {
     "defaultMessage": "Key name",
@@ -3315,10 +3323,6 @@
     "defaultMessage": "Apply filters",
     "description": "Usage overview > apply filters button"
   },
-  "AmPyg3": {
-    "defaultMessage": "Icon",
-    "description": "Label for the skill icon editor"
-  },
   "AqmDon": {
     "defaultMessage": "No custom LLM-as-a-judge scorers found",
     "description": "Empty-state label when the experiment has no custom LLM-as-a-judge scorers"
@@ -3394,10 +3398,6 @@
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
-  },
-  "B6MkZH": {
-    "defaultMessage": "Aliases assign a mutable name to a skill version. The name latest is reserved.",
-    "description": "Description for the skill alias editor"
   },
   "B72CCA": {
     "defaultMessage": "This saved view could not be shared.",
@@ -4855,6 +4855,10 @@
     "defaultMessage": "URL Variables",
     "description": "MCP server remote URL variables heading"
   },
+  "H3vpDh": {
+    "defaultMessage": "Edit tags for version {version}",
+    "description": "Title for editing tags on a skill version"
+  },
   "H6aarx": {
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
@@ -5310,6 +5314,10 @@
   "Ikj6rr": {
     "defaultMessage": "Quick start",
     "description": "Gateway > Endpoints > Compact quick start section label"
+  },
+  "IkzORE": {
+    "defaultMessage": "Edit version status",
+    "description": "Aria label for the skill version status pencil"
   },
   "IlYdrX": {
     "defaultMessage": "Tokens per Trace",
@@ -5895,6 +5903,10 @@
     "defaultMessage": "Transport type",
     "description": "Remote transport type label"
   },
+  "L5uIah": {
+    "defaultMessage": "Registering every skill in this repository? Run this instead:",
+    "description": "Pointer from single-skill registration to the repository import command"
+  },
   "L71uzj": {
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
@@ -6170,6 +6182,10 @@
   "MHWark": {
     "defaultMessage": "Year",
     "description": "Time unit: year"
+  },
+  "MHhHib": {
+    "defaultMessage": "branch {ref}",
+    "description": "Git ref in the skill location summary"
   },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
@@ -8003,10 +8019,6 @@
     "defaultMessage": "Go to the run",
     "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
   },
-  "T4cPQx": {
-    "defaultMessage": "Edit status",
-    "description": "Aria label for the skill version status pencil"
-  },
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
@@ -8211,10 +8223,6 @@
     "defaultMessage": "Created dataset \"{name}\"",
     "description": "Success toast after creating a V2 evaluation dataset"
   },
-  "Tuq3Gt": {
-    "defaultMessage": "Edit aliases for version {version}",
-    "description": "Title for editing aliases on a skill version"
-  },
   "TvjS47": {
     "defaultMessage": "This trace is very large, and may cause UI slowness when attempting to render. You can click the button below to attempt to display it anyway.",
     "description": "Body text explaining issues with rendering large traces."
@@ -8306,6 +8314,10 @@
   "UIi6pp": {
     "defaultMessage": "Guidelines should not be empty",
     "description": "Tooltip message when guidelines are empty"
+  },
+  "UL8ZGk": {
+    "defaultMessage": "Icons",
+    "description": "Label for the skill icon editor"
   },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
@@ -8606,6 +8618,10 @@
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
+  },
+  "VQL4C0": {
+    "defaultMessage": "Aliases are mutable, named pointers to a specific skill version, referenced as {uri}. The alias latest is reserved and always resolves to the skill's latest version.",
+    "description": "Description for the skill alias editor"
   },
   "VS9L0H": {
     "defaultMessage": "Add a parameters schema",
@@ -10143,6 +10159,10 @@
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
   },
+  "b7Ur1m": {
+    "defaultMessage": "Copy register command",
+    "description": "Aria label for copying the skill registration API example"
+  },
   "b9zfzK": {
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
     "description": "Try it description in starter code modal"
@@ -10650,6 +10670,10 @@
   "d44IPd": {
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
+  },
+  "d4GFDp": {
+    "defaultMessage": "Filled in from the source. Edit it to rename the skill or change its organization.",
+    "description": "Hint when the skill registration name was suggested from the source"
   },
   "d4foU0": {
     "defaultMessage": "Learn more about configuring judges",
@@ -12495,6 +12519,10 @@
     "defaultMessage": "Step",
     "description": "Header title for the step column in the logged model list table. Step indicates the run step where the model was logged."
   },
+  "jPK/xS": {
+    "defaultMessage": "Edit version tags",
+    "description": "Aria label for editing skill version tags"
+  },
   "jPW0Lj": {
     "defaultMessage": "Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
@@ -13207,10 +13235,6 @@
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
   },
-  "mBna3p": {
-    "defaultMessage": "Edit metadata",
-    "description": "Aria label for editing skill version tags"
-  },
   "mDb6cp": {
     "defaultMessage": "{action} remote {url}",
     "description": "Aria label for expanding/collapsing a remote row"
@@ -13314,6 +13338,10 @@
   "mYcueV": {
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
+  },
+  "mZeFOg": {
+    "defaultMessage": "Add/Edit alias for skill version {version}",
+    "description": "Title for editing aliases on a skill version"
   },
   "mZtok7": {
     "defaultMessage": "Linked prompts",
@@ -14531,6 +14559,10 @@
     "defaultMessage": "Dataset id copied",
     "description": "Tooltip displayed after dataset id was successfully copied to clipboard"
   },
+  "r7ziwW": {
+    "defaultMessage": "What this skill does and when to use it.",
+    "description": "Placeholder for the skill description editor"
+  },
   "r91Gz/": {
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
@@ -14687,6 +14719,10 @@
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
   },
+  "rlzdLv": {
+    "defaultMessage": "A skill's only remaining live version can't be deleted.",
+    "description": "Tooltip when the selected skill version is the last one that is not deleted"
+  },
   "rmAWZX": {
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
@@ -14766,6 +14802,10 @@
   "s5ygFF": {
     "defaultMessage": "Download as PNG",
     "description": "Experiment page > compare runs tab > chart header > download as PNG option"
+  },
+  "s6gWQs": {
+    "defaultMessage": "Copy repository import command",
+    "description": "Aria label for copying the skill repository import command"
   },
   "s6yj1d": {
     "defaultMessage": "Install for",
@@ -15486,6 +15526,10 @@
   "v9fbSW": {
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the roles table (no rows selected)"
+  },
+  "vAsKGb": {
+    "defaultMessage": "path {subpath}",
+    "description": "Subpath in the skill location summary"
   },
   "vBKFgp": {
     "defaultMessage": "X axis",
@@ -16726,6 +16770,10 @@
   "znEC5M": {
     "defaultMessage": "Adherence",
     "description": "Issue category title for adherence"
+  },
+  "znpWR2": {
+    "defaultMessage": "The alias latest is reserved. Choose a different name.",
+    "description": "Error when a user tries to set the reserved skill alias latest"
   },
   "zp4MBw": {
     "defaultMessage": "Token count",

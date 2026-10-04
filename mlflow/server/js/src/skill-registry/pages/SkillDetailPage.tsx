@@ -438,6 +438,7 @@ const SkillDetailPage = () => {
               statusMutation.variables?.version === currentVersion?.version ? statusMutation.error : undefined
             }
             onDismissStatusUpdateError={statusMutation.reset}
+            isOnlyLiveVersion={!hasMoreVersions && visibleSkillVersions(versions).length <= 1}
           />
         </div>
       </div>

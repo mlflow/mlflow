@@ -218,7 +218,7 @@ describe('SkillDetailPage', () => {
     );
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit status' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit version status' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Deprecated' }));
 
     await waitFor(() => {
@@ -234,11 +234,11 @@ describe('SkillDetailPage', () => {
     );
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit status' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit version status' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Draft' }));
 
     expect(await screen.findByText('Invalid status transition')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit status' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Edit version status' })).toBeEnabled();
   });
 
   it('hides delete actions from a user who can edit but not delete', async () => {

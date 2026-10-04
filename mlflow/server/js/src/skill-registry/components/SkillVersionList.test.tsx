@@ -51,6 +51,8 @@ describe('SkillVersionList', () => {
     });
     const row = screen.getByRole('row', { name: /Version 1/ });
     expect(row).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Deleted, number not reused')).toBeInTheDocument();
+    expect(screen.queryByText('Deleted')).not.toBeInTheDocument();
     await userEvent.hover(screen.getByText('Version 1'));
     expect(
       await screen.findAllByText(

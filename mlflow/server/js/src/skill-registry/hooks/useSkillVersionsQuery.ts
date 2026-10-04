@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { SkillRegistryApi } from '../api';
 import type { SearchSkillVersionsResponse, SkillVersion } from '../types';
@@ -22,10 +23,22 @@ export const useSkillVersionsQuery = (name: string, organization = '') => {
     },
   );
 
+  const returned = queryResult.data?.skill_versions;
+  const hasNextPage = Boolean(queryResult.data?.next_page_token);
+  const data = useMemo(
+    () =>
+      withDeletedVersionPlaceholders(returned, {
+        completeHistory: !hasNextPage,
+        maxRows: SKILL_VERSION_LIST_LIMIT,
+      }),
+    [returned, hasNextPage],
+  );
+  const lowestShown = data[data.length - 1]?.version;
+
   return {
     ...queryResult,
-    data: withDeletedVersionPlaceholders(queryResult.data?.skill_versions),
-    hasMoreVersions: Boolean(queryResult.data?.next_page_token),
+    data,
+    hasMoreVersions: hasNextPage || (lowestShown != null && lowestShown > 1 && data.length >= SKILL_VERSION_LIST_LIMIT),
   };
 };
 

@@ -1,5 +1,6 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { SkillVersionDetail } from './SkillVersionDetail';
@@ -51,6 +52,18 @@ describe('SkillVersionDetail', () => {
     expect(screen.queryByText('Subpath:')).not.toBeInTheDocument();
     expect(document.body.textContent).toContain('env');
     expect(document.body.textContent).toContain('prod');
+  });
+
+  it('explains why the delete button is disabled', async () => {
+    renderDetail({
+      version: createMockSkillVersion({ status: SkillStatus.DEPRECATED }),
+      onDelete: jest.fn(),
+      isOnlyLiveVersion: true,
+    });
+    const button = screen.getByRole('button', { name: 'Delete version' });
+    expect(button).toBeDisabled();
+    await userEvent.hover(button.parentElement as HTMLElement);
+    expect(await screen.findAllByText("A skill's only remaining live version can't be deleted.")).not.toHaveLength(0);
   });
 
   it('does not link unsafe sources', () => {

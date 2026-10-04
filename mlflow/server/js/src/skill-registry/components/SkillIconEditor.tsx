@@ -227,7 +227,7 @@ export const SkillIconEditor = ({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
       <Typography.Text bold>
-        <FormattedMessage defaultMessage="Icon" description="Label for the skill icon editor" />
+        <FormattedMessage defaultMessage="Icons" description="Label for the skill icon editor" />
       </Typography.Text>
       <div
         css={{

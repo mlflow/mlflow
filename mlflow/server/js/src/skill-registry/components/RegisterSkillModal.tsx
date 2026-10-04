@@ -31,6 +31,8 @@ import { findSkillManifest, packageSkillFolder, readSkillManifest } from '../loc
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
+  formatSkillImportCli,
+  formatSkillImportPython,
   formatSkillRegisterCli,
   formatSkillRegisterPython,
   parseSkillIdentityInput,
@@ -42,11 +44,68 @@ import {
 } from '../sourceLocation';
 import { overlayButtonStyles } from '../styles';
 import { SkillStatus, type RegistryIcon, type SkillVersion } from '../types';
-import { formatSkillIdentity } from '../utils';
+import { formatSkillIdentity, formatSkillSourceLabel } from '../utils';
 
 type RegistrationMode = 'pointer' | 'upload';
 type DialogView = 'form' | 'api';
 type SnippetFormat = 'cli' | 'python';
+
+const CopyableSnippet = ({
+  componentId,
+  code,
+  format,
+  copyLabel,
+}: {
+  componentId: string;
+  code: string;
+  format: SnippetFormat;
+  copyLabel: string;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ position: 'relative' }}>
+      <CopyButton
+        componentId={componentId}
+        showLabel={false}
+        copyText={code}
+        icon={<CopyIcon />}
+        aria-label={copyLabel}
+        css={overlayButtonStyles(theme)}
+      />
+      <CodeSnippet
+        language={format === 'python' ? 'python' : 'text'}
+        theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+        style={{ padding: theme.spacing.sm, paddingRight: theme.spacing.xl + theme.spacing.sm }}
+      >
+        {code}
+      </CodeSnippet>
+    </div>
+  );
+};
+
+const RepositoryImportHint = ({ code, format }: { code: string; format: SnippetFormat }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <Typography.Text size="sm" color="secondary">
+        <FormattedMessage
+          defaultMessage="Registering every skill in this repository? Run this instead:"
+          description="Pointer from single-skill registration to the repository import command"
+        />
+      </Typography.Text>
+      <CopyableSnippet
+        componentId="mlflow.skill_registry.register_modal.repository_import.copy"
+        code={code}
+        format={format}
+        copyLabel={intl.formatMessage({
+          defaultMessage: 'Copy repository import command',
+          description: 'Aria label for copying the skill repository import command',
+        })}
+      />
+    </div>
+  );
+};
 
 const EMPTY_FORM: SkillRegistrationFields = {
   location: '',
@@ -410,18 +469,45 @@ export const RegisterSkillModal = ({
     description: 'Label for the skill registration name',
   });
   const formIdentity = form.identity.trim() ? parseSkillIdentityInput(form.identity) : undefined;
-  const snippetIdentity =
+  const snippetIdentity: { name?: string; organization?: string } =
     isVersion && skill
       ? { name: skill.name, organization: skill.organization }
       : formIdentity && !('error' in formIdentity)
         ? formIdentity
         : {};
-  const snippet = (snippetFormat === 'cli' ? formatSkillRegisterCli : formatSkillRegisterPython)({
+  const snippetOptions = {
     sourceType: effectiveSourceType,
-    location: form.location,
+    location: parsed?.source ?? form.location,
     local: mode === 'upload',
+    ref: form.ref.trim() || undefined,
+    subpath: form.subpath.trim() || undefined,
+    status: form.status,
     ...snippetIdentity,
-  });
+  };
+  const snippet =
+    snippetFormat === 'cli' ? formatSkillRegisterCli(snippetOptions) : formatSkillRegisterPython(snippetOptions);
+  // A Git source with no subpath points at a whole repository, which usually holds many skills.
+  const repositoryImport =
+    !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl && !form.subpath.trim()
+      ? { source: parsed.repositoryUrl, ref: form.ref.trim() || undefined }
+      : undefined;
+  const locationSummary = parsed
+    ? [
+        `${formatSkillSourceLabel(effectiveSourceType)} ${parsed.source}`,
+        form.ref.trim() &&
+          intl.formatMessage(
+            { defaultMessage: 'branch {ref}', description: 'Git ref in the skill location summary' },
+            { ref: form.ref.trim() },
+          ),
+        form.subpath.trim() &&
+          intl.formatMessage(
+            { defaultMessage: 'path {subpath}', description: 'Subpath in the skill location summary' },
+            { subpath: form.subpath.trim() },
+          ),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : undefined;
   const apiLink = (
     <Button componentId="mlflow.skill_registry.register_modal.api_link" type="link" onClick={() => setView('api')}>
       <FormattedMessage
@@ -497,22 +583,25 @@ export const RegisterSkillModal = ({
               />
             )}
           </Typography.Text>
-          <div css={{ position: 'relative' }}>
-            <CopyButton
-              componentId="mlflow.skill_registry.register_modal.api_snippet.copy"
-              showLabel={false}
-              copyText={snippet}
-              icon={<CopyIcon />}
-              css={overlayButtonStyles(theme)}
+          <CopyableSnippet
+            componentId="mlflow.skill_registry.register_modal.api_snippet.copy"
+            code={snippet}
+            format={snippetFormat}
+            copyLabel={intl.formatMessage({
+              defaultMessage: 'Copy register command',
+              description: 'Aria label for copying the skill registration API example',
+            })}
+          />
+          {repositoryImport && (
+            <RepositoryImportHint
+              format={snippetFormat}
+              code={
+                snippetFormat === 'cli'
+                  ? formatSkillImportCli({ ...repositoryImport, organization: snippetIdentity.organization })
+                  : formatSkillImportPython({ ...repositoryImport, organization: snippetIdentity.organization })
+              }
             />
-            <CodeSnippet
-              language={snippetFormat === 'python' ? 'python' : 'text'}
-              theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-              style={{ padding: theme.spacing.sm, paddingRight: theme.spacing.xl + theme.spacing.sm }}
-            >
-              {snippet}
-            </CodeSnippet>
-          </div>
+          )}
         </div>
       ) : (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -596,6 +685,20 @@ export const RegisterSkillModal = ({
                         onChange={(event) => applyLocation(event.target.value)}
                         css={{ width: '100%' }}
                       />
+                      {locationSummary && (
+                        <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                          <FormattedMessage
+                            defaultMessage="Registers {summary}"
+                            description="Summary of what a skill location registers"
+                            values={{ summary: locationSummary }}
+                          />
+                        </Typography.Hint>
+                      )}
+                      {repositoryImport && (
+                        <div css={{ marginTop: theme.spacing.sm }}>
+                          <RepositoryImportHint format="cli" code={formatSkillImportCli(repositoryImport)} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -656,10 +759,17 @@ export const RegisterSkillModal = ({
                 css={{ width: '100%' }}
               />
               <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                <FormattedMessage
-                  defaultMessage="Group skills with an organization by adding it to the name, e.g. @my-org/my-skill-name."
-                  description="Hint for the skill registration name field"
-                />
+                {!identityTouched && form.identity.trim() ? (
+                  <FormattedMessage
+                    defaultMessage="Filled in from the source. Edit it to rename the skill or change its organization."
+                    description="Hint when the skill registration name was suggested from the source"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Group skills with an organization by adding it to the name, e.g. @my-org/my-skill-name."
+                    description="Hint for the skill registration name field"
+                  />
+                )}
               </Typography.Hint>
             </div>
           )}

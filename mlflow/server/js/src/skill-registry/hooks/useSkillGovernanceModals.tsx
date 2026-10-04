@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
@@ -8,6 +8,7 @@ import { diffCurrentAndNewTags } from '../../common/utils/TagUtils';
 import type { KeyValueEntity } from '../../common/types';
 import { SkillRegistryApi } from '../api';
 import type { Skill, SkillVersion } from '../types';
+import { formatSkillIdentity } from '../utils';
 import type { AliasMap } from '../../common/types';
 import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 
@@ -28,6 +29,7 @@ export const useSkillGovernanceModals = ({
   canDelete: boolean;
 }) => {
   const intl = useIntl();
+  const [editingTagsVersion, setEditingTagsVersion] = useState<number>();
   const invalidateQueries = useInvalidateSkillQueries();
   const invalidate = () => invalidateQueries(name, organization);
 
@@ -91,7 +93,13 @@ export const useSkillGovernanceModals = ({
     version: number;
     tags?: KeyValueEntity[];
   }>({
-    title: <FormattedMessage defaultMessage="Edit metadata" description="Title for editing tags on a skill version" />,
+    title: (
+      <FormattedMessage
+        defaultMessage="Edit tags for version {version}"
+        description="Title for editing tags on a skill version"
+        values={{ version: editingTagsVersion }}
+      />
+    ),
     valueRequired: true,
     saveTagsHandler: (version, currentTags, newTags) => saveTags(version.version, currentTags, newTags),
   });
@@ -110,19 +118,28 @@ export const useSkillGovernanceModals = ({
     aliases,
     getTitle: (version) => (
       <FormattedMessage
-        defaultMessage="Edit aliases for version {version}"
+        defaultMessage="Add/Edit alias for skill version {version}"
         description="Title for editing aliases on a skill version"
         values={{ version }}
       />
     ),
     description: (
       <FormattedMessage
-        defaultMessage="Aliases assign a mutable name to a skill version. The name latest is reserved."
+        defaultMessage="Aliases are mutable, named pointers to a specific skill version, referenced as {uri}. The alias latest is reserved and always resolves to the skill's latest version."
         description="Description for the skill alias editor"
+        values={{ uri: `skills:/${formatSkillIdentity(name, organization)}@<alias>` }}
       />
     ),
     onSave: async (version, existingAliases, draftAliases) => {
-      const add = draftAliases.filter((alias) => alias !== 'latest' && !existingAliases.includes(alias));
+      if (draftAliases.includes('latest')) {
+        throw new Error(
+          intl.formatMessage({
+            defaultMessage: 'The alias latest is reserved. Choose a different name.',
+            description: 'Error when a user tries to set the reserved skill alias latest',
+          }),
+        );
+      }
+      const add = draftAliases.filter((alias) => !existingAliases.includes(alias));
       const remove = existingAliases.filter((alias) => alias !== 'latest' && !draftAliases.includes(alias));
       if (remove.length > 0 && !canDelete) {
         throw new Error(
@@ -141,7 +158,10 @@ export const useSkillGovernanceModals = ({
     [showParentTags],
   );
   const showEditVersionMetadata = useCallback(
-    (version: SkillVersion) => showVersionTags({ version: version.version, tags: tagsToList(version.tags) }),
+    (version: SkillVersion) => {
+      setEditingTagsVersion(version.version);
+      showVersionTags({ version: version.version, tags: tagsToList(version.tags) });
+    },
     [showVersionTags],
   );
 

@@ -209,8 +209,7 @@ export function MlflowSidebar({
               icon: <SparkleDoubleIcon />,
               linkProps: {
                 to: ExperimentTrackingRoutes.promptsPageRoute,
-                isActive: (currentLocation: Location) =>
-                  !enableWorkflowBasedNavigation && isAiRegistryActive(currentLocation),
+                isActive: isAiRegistryActive,
                 children: (
                   <FormattedMessage
                     defaultMessage="AI Registry"
@@ -219,10 +218,8 @@ export function MlflowSidebar({
                 ),
               },
               componentId: 'mlflow.sidebar.ai_registry_tab_link',
-              nestedItems:
-                shouldEnableWorkflowBasedNavigation() && isAiRegistryActive(location) ? (
-                  <MlflowSidebarAiRegistryItems collapsed={!showSidebar} />
-                ) : undefined,
+              // The section stays expanded on every page so each registry is one click away.
+              nestedItems: <MlflowSidebarAiRegistryItems key="ai-registry" collapsed={!showSidebar} />,
             },
           ]
         : []),

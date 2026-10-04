@@ -451,13 +451,19 @@ describe('SkillRegistryPage', () => {
       'https://github.com/acme/skills/tree/main/network-policy-architect',
     );
     expect(screen.getByLabelText('Name')).toHaveValue('@acme/network-policy-architect');
-    await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
-    expect(screen.getByText(/mlflow skills register git/)).toBeInTheDocument();
+    expect(screen.getByText(/Filled in from the source/)).toBeInTheDocument();
     expect(
-      screen.getByText(/--url 'https:\/\/github.com\/acme\/skills\/tree\/main\/network-policy-architect'/),
+      screen.getByText('Registers Git https://github.com/acme/skills · branch main · path network-policy-architect'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/--name 'network-policy-architect'/)).toBeInTheDocument();
-    expect(screen.getByText(/--organization 'acme'/)).toBeInTheDocument();
+    expect(screen.queryByText(/Registering every skill in this repository/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
+    const snippet = document.body.textContent ?? '';
+    expect(snippet).toContain('mlflow skills register git');
+    expect(snippet).toContain("--name 'network-policy-architect'");
+    expect(snippet).toContain("--organization 'acme'");
+    expect(snippet).toContain("--url 'https://github.com/acme/skills'");
+    expect(snippet).toContain("--ref 'main'");
+    expect(snippet).toContain("--subpath 'network-policy-architect'");
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: /Back to form/ }));
     expect(screen.getByLabelText('Location')).toHaveValue(
@@ -481,6 +487,25 @@ describe('SkillRegistryPage', () => {
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL]);
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSIONS]);
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSION]);
+  });
+
+  it('points a whole-repository location at the repository import command', async () => {
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+
+    expect(screen.getByText('Registers Git https://github.com/redhat-ai/skills-developer')).toBeInTheDocument();
+    expect(screen.getByText('Registering every skill in this repository? Run this instead:')).toBeInTheDocument();
+    expect(document.body.textContent).toContain(
+      "mlflow skills import --source 'https://github.com/redhat-ai/skills-developer'",
+    );
+    expect(screen.getByRole('button', { name: 'Copy repository import command' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
+    await userEvent.click(screen.getByText('Python'));
+    expect(document.body.textContent).toContain('mlflow.genai.import_skills(');
+    expect(document.body.textContent).toContain('organization="redhat-ai"');
   });
 
   it('keeps the form and shows the server error when registration is denied', async () => {

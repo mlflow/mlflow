@@ -3,7 +3,8 @@ import { SkillStatus } from './types';
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
-  formatSkillImportCommand,
+  formatSkillImportCli,
+  formatSkillImportPython,
   formatSkillRegisterCli,
   formatSkillRegisterPython,
   parseSkillIdentityInput,
@@ -56,8 +57,8 @@ describe('parseSkillLocation', () => {
       wholeRepository: true,
       repositoryUrl: 'https://github.com/redhat-ai/skills-developer',
     });
-    expect(formatSkillImportCommand('https://github.com/redhat-ai/skills-developer')).toBe(
-      'mlflow skills import --source https://github.com/redhat-ai/skills-developer',
+    expect(formatSkillImportCli({ source: 'https://github.com/redhat-ai/skills-developer' })).toBe(
+      "mlflow skills import --source 'https://github.com/redhat-ai/skills-developer'",
     );
   });
 
@@ -205,7 +206,59 @@ describe('local skill registration', () => {
         name: "o'brien",
       }),
     ).toBe(
-      "mlflow skills register zip \\\n  --url 'https://example.com/skill.zip?token=a&next=b' \\\n  --name 'o'\\''brien'",
+      "mlflow skills register zip \\\n  --name 'o'\\''brien' \\\n  --url 'https://example.com/skill.zip?token=a&next=b'",
+    );
+  });
+
+  it('carries the ref, subpath, image and non-default status into the API examples', () => {
+    const options = {
+      location: 'https://github.com/acme/skills',
+      local: false,
+      sourceType: 'git' as const,
+      name: 'code-review',
+      organization: 'acme',
+      ref: 'main',
+      subpath: 'skills/code-review',
+      status: SkillStatus.DRAFT,
+    };
+    expect(formatSkillRegisterCli(options)).toBe(
+      [
+        'mlflow skills register git',
+        "  --name 'code-review'",
+        "  --organization 'acme'",
+        "  --url 'https://github.com/acme/skills'",
+        "  --ref 'main'",
+        "  --subpath 'skills/code-review'",
+        '  --status draft',
+      ].join(' \\\n'),
+    );
+    expect(formatSkillRegisterPython(options)).toBe(
+      [
+        'import mlflow',
+        'from mlflow.genai import GitSource',
+        '',
+        'mlflow.genai.register_skill(',
+        '    name="code-review",',
+        '    organization="acme",',
+        '    source=GitSource(url="https://github.com/acme/skills", ref="main", subpath="skills/code-review"),',
+        '    status="draft",',
+        ')',
+      ].join('\n'),
+    );
+    expect(
+      formatSkillRegisterCli({ location: 'quay.io/acme/skill:1.0', local: false, sourceType: 'oci', ref: 'main' }),
+    ).toBe("mlflow skills register oci \\\n  --image 'quay.io/acme/skill:1.0'");
+  });
+
+  it('formats the repository import pointer', () => {
+    expect(formatSkillImportCli({ source: 'https://github.com/acme/skills', ref: 'v1', organization: 'acme' })).toBe(
+      "mlflow skills import --source 'https://github.com/acme/skills' \\\n  --ref 'v1' \\\n  --organization 'acme'",
+    );
+    expect(formatSkillImportPython({ source: 'https://github.com/acme/skills', organization: 'acme' })).toBe(
+      'import mlflow\n\nmlflow.genai.import_skills(\n    source="https://github.com/acme/skills",\n    organization="acme",\n)',
+    );
+    expect(formatSkillImportPython({ source: 'https://github.com/acme/skills', ref: 'v1' })).toContain(
+      'source=GitSource(url="https://github.com/acme/skills", ref="v1")',
     );
   });
 
@@ -218,6 +271,6 @@ describe('local skill registration', () => {
     });
     expect(snippet).toContain('ZipSource(url="https://example.com/x\\")\\nimport os  # \\\\")');
     expect(snippet).toContain('name="code\\"review"');
-    expect(snippet.split('\n')).toHaveLength(4);
+    expect(snippet.split('\n')).toHaveLength(7);
   });
 });
