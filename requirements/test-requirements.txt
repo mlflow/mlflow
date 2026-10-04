@@ -51,10 +51,7 @@ optuna
 # required for testing docker compose
 testcontainers
 # required for testing cost tracking
-# 1.97.0 ships a broken `Message` pydantic model (unresolved forward ref
-# `ChatCompletionReasoningSummaryTextBlock`), see
-# https://github.com/BerriAI/litellm/issues/36384.
-litellm!=1.97.0
+litellm
 # required for testing Redis budget tracker
 fakeredis[lua]
 # required for testing claude_code tracing
