@@ -18,10 +18,8 @@ import { useResourceOptionsQuery } from '../hooks';
 import {
   CONDITION_RESOURCE_TYPES,
   getConditionParentType,
-  getConditionRequestIdentifiers,
   getResourceTypeLabel,
   conditionParentHasPicker,
-  isConditionAliasOwningType,
   isConditionEmpty,
 } from '../types';
 
@@ -68,16 +66,8 @@ export interface MutationConditionFormProps {
 }
 
 /**
- * Add a mutation condition to a role.
- *
- * Deliberately shaped like ``RolePermissionForm`` -- resource type, then a scope radio,
- * then the fields that differ -- because an admin configuring conditions has just come
- * from configuring grants and the two should not feel like different products.
- *
- * What it must not let them assume is that the two compose the same way. A grant adds
- * access; a condition only ever subtracts from access a grant already gave, and every
- * condition the user holds must pass. The copy below says that in the places where a
- * wrong assumption would be expensive.
+ * Add a mutation condition to a role. Shaped like ``RolePermissionForm`` so the two
+ * configuration surfaces read the same way.
  */
 export const MutationConditionForm = ({
   value,
@@ -111,11 +101,6 @@ export const MutationConditionForm = ({
 
   const selectedParent = parentOptions.find((o) => o.id === value.parentResourceId);
   const renderOption = (o: { id: string; name: string }) => (o.name === o.id ? o.name : `${o.name} (${o.id})`);
-
-  const requestIdentifiers = getConditionRequestIdentifiers(value.resourceType);
-  const targetNamespaces = isConditionAliasOwningType(value.resourceType)
-    ? 'tags.<key> or aliases.<name>'
-    : 'tags.<key>';
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -185,19 +170,13 @@ export const MutationConditionForm = ({
                 // validates the pair, but a typo persists as a scope that matches
                 // nothing -- which reads as "the condition is not working" rather than
                 // as a bad id -- so say that here.
-                <>
-                  <Input
-                    componentId="admin.mutation_condition_form.parent_resource_id_text"
-                    value={value.parentResourceId}
-                    onChange={(e) => onChange({ ...value, parentResourceId: e.target.value })}
-                    placeholder={`Enter ${parentLabel?.toLowerCase()} name`}
-                    disabled={disabled}
-                  />
-                  <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                    Enter the exact {parentLabel?.toLowerCase()} name. An id that does not match any{' '}
-                    {parentLabel?.toLowerCase()} is stored as written and the condition simply never applies.
-                  </Typography.Text>
-                </>
+                <Input
+                  componentId="admin.mutation_condition_form.parent_resource_id_text"
+                  value={value.parentResourceId}
+                  onChange={(e) => onChange({ ...value, parentResourceId: e.target.value })}
+                  placeholder={`Enter ${parentLabel?.toLowerCase()} name`}
+                  disabled={disabled}
+                />
               ) : (
                 <DialogCombobox
                   componentId="admin.mutation_condition_form.parent_resource_id"
@@ -255,24 +234,10 @@ export const MutationConditionForm = ({
             </div>
           )}
         </div>
-      ) : (
-        <div>
-          <FieldLabel>Scope</FieldLabel>
-          <Typography.Text color="secondary">
-            All {typeLabel.toLowerCase()}s in the workspace{' '}
-            <Typography.Text color="secondary" size="sm">
-              (a {typeLabel.toLowerCase()} has no parent to scope by)
-            </Typography.Text>
-          </Typography.Text>
-        </div>
-      )}
+      ) : null}
 
       <div>
         <FieldLabel>Request filter (optional)</FieldLabel>
-        <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-          Restricts the values a request may set. Available fields: {requestIdentifiers.join(', ')}. Applies when a
-          value is being written, so it governs creates and tag writes.
-        </Typography.Text>
         <Input
           componentId="admin.mutation_condition_form.value_condition"
           value={value.valueCondition}
@@ -284,11 +249,6 @@ export const MutationConditionForm = ({
 
       <div>
         <FieldLabel>Resource filter (optional)</FieldLabel>
-        <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-          Restricts which existing {typeLabel.toLowerCase()}s may be changed, matched against their current state.
-          Available fields: {targetNamespaces}. A {typeLabel.toLowerCase()} that does not carry the field fails this
-          filter — including with <code>!=</code> — so an untagged resource is refused rather than allowed.
-        </Typography.Text>
         <Input
           componentId="admin.mutation_condition_form.target_condition"
           value={value.targetCondition}
@@ -323,22 +283,26 @@ export const isMutationConditionDraftDirty = (draft: MutationConditionDraft): bo
   draft.targetCondition !== MUTATION_CONDITION_DRAFT_DEFAULT.targetCondition;
 
 /**
- * Translate a draft into the add-request body.
+ * Translate a draft into the condition a staged list holds.
  *
- * Both parent fields travel together or not at all -- the server enforces the pair with
- * a CHECK constraint -- and an empty filter is sent as ``null`` rather than ``''``,
- * because an empty string would reach the condition parser and be reported as a syntax
- * error instead of as an absent filter.
+ * The single place this mapping lives. It used to be duplicated in the staging
+ * section, which meant the tested copy and the copy actually used could drift -- and
+ * drift here produces a malformed write.
+ *
+ * Both parent fields travel together or neither does (the server enforces the pair with
+ * a CHECK constraint), the parent type is derived from the resource type rather than
+ * carried in the draft, and an empty filter becomes ``null`` rather than ``""`` --
+ * an empty string reaches the condition parser and is reported as a filter syntax error
+ * instead of as an absent filter.
  */
-export const draftToAddRequest = (draft: MutationConditionDraft, roleId: number) => {
+export const draftToStagedCondition = (draft: MutationConditionDraft) => {
   const parentType = getConditionParentType(draft.resourceType);
   const scoped = draft.scope === 'parent' && parentType && draft.parentResourceId.trim();
   return {
-    role_id: roleId,
-    resource_type: draft.resourceType,
-    parent_resource_type: scoped ? parentType : null,
-    parent_resource_id: scoped ? draft.parentResourceId.trim() : null,
-    value_condition: draft.valueCondition.trim() || null,
-    target_condition: draft.targetCondition.trim() || null,
+    resourceType: draft.resourceType,
+    parentResourceType: scoped ? parentType : null,
+    parentResourceId: scoped ? draft.parentResourceId.trim() : null,
+    valueCondition: draft.valueCondition.trim() || null,
+    targetCondition: draft.targetCondition.trim() || null,
   };
 };

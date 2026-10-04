@@ -17,10 +17,17 @@ import {
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import AdminRoutes from '../routes';
-import { useRoleDetailQuery, useRoleUsersQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
+import {
+  useRoleDetailQuery,
+  useRoleMutationConditionsQuery,
+  useRoleUsersQuery,
+  useUsersQuery,
+  useWithSettingsReturnTo,
+} from '../hooks';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, isWorkspaceAdminRole } from '../types';
 import { EditRoleModal } from '../components/EditRoleModal';
+import { ConditionsTable } from '../components/ConditionsTable';
 
 const PermissionsSection = ({ roleId }: { roleId: number }) => {
   const { theme } = useDesignSystemTheme();
@@ -70,6 +77,18 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         </TableRow>
       ))}
     </Table>
+  );
+};
+
+const ConditionsSection = ({ roleId }: { roleId: number }) => {
+  const { data, isLoading, error } = useRoleMutationConditionsQuery(roleId);
+  return (
+    <ConditionsTable
+      conditions={data?.mutation_conditions ?? []}
+      isLoading={isLoading}
+      error={error}
+      emptyDescription="Use Edit role to add conditions to this role."
+    />
   );
 };
 
@@ -167,7 +186,7 @@ const RoleDetailPage = () => {
   const withReturnTo = useWithSettingsReturnTo();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = tabFromUrl === 'users' ? 'users' : 'permissions';
+  const activeTab = tabFromUrl === 'users' || tabFromUrl === 'conditions' ? tabFromUrl : 'permissions';
   const [editRoleOpen, setEditRoleOpen] = useState(false);
 
   const role = roleData?.role;
@@ -259,20 +278,9 @@ const RoleDetailPage = () => {
                 {showWorkspaceLabels ? ` · Workspace: ${role.workspace}` : ''}
               </Typography.Text>
             </div>
-            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-              {/* Conditions are a separate page, not a third tab: they narrow what the
-                  Permissions tab grants, and a peer tab would read as another grant
-                  surface. */}
-              <Link
-                componentId="admin.role.conditions_link"
-                to={withReturnTo(AdminRoutes.getRoleConditionsRoute(roleId))}
-              >
-                <Button componentId="admin.role.conditions_button">Conditions</Button>
-              </Link>
-              <Button componentId="admin.role.edit_button" type="primary" onClick={() => setEditRoleOpen(true)}>
-                Edit role
-              </Button>
-            </div>
+            <Button componentId="admin.role.edit_button" type="primary" onClick={() => setEditRoleOpen(true)}>
+              Edit role
+            </Button>
           </div>
         </div>
 
@@ -292,10 +300,14 @@ const RoleDetailPage = () => {
         >
           <Tabs.List>
             <Tabs.Trigger value="permissions">Permissions</Tabs.Trigger>
+            <Tabs.Trigger value="conditions">Conditions</Tabs.Trigger>
             <Tabs.Trigger value="users">Assigned users</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="permissions" css={{ paddingTop: theme.spacing.md }}>
             <PermissionsSection roleId={roleId} />
+          </Tabs.Content>
+          <Tabs.Content value="conditions" css={{ paddingTop: theme.spacing.md }}>
+            <ConditionsSection roleId={roleId} />
           </Tabs.Content>
           <Tabs.Content value="users" css={{ paddingTop: theme.spacing.md }}>
             <AssignedUsersSection roleId={roleId} />

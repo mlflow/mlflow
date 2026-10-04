@@ -20,7 +20,10 @@ import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
   useCurrentUserIsAdmin,
+  useAddMutationCondition,
   useGrantUserPermission,
+  useRemoveMutationCondition,
+  useRoleMutationConditionsQuery,
   useRevokeUserPermission,
   useRolesQuery,
   useUserRolesQuery,
@@ -35,6 +38,11 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
+import {
+  formatStagedCondition,
+  MutationConditionsSection,
+  type StagedMutationCondition,
+} from './MutationConditionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
@@ -57,7 +65,19 @@ interface AccessDiff {
   directToGrant: StagedDirectPermission[];
   directToRevoke: StagedDirectPermission[];
   adminChange: boolean;
+  conditionsToAdd: StagedMutationCondition[];
+  conditionIdsToRemove: number[];
 }
+
+// Any field changing makes a different condition, so the whole tuple is the key.
+const conditionKey = (c: StagedMutationCondition) =>
+  [
+    c.resourceType,
+    c.parentResourceType ?? '',
+    c.parentResourceId ?? '',
+    c.valueCondition ?? '',
+    c.targetCondition ?? '',
+  ].join('::');
 
 /**
  * Edit-style modal for managing one user's access. Pre-fills role
@@ -120,6 +140,40 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
         })),
     [rolesData],
   );
+  /**
+   * The synthetic ``__user_<id>__`` role that backs this user's direct grants in the
+   * selected workspace. A direct condition has to hang off a real role, and this is the
+   * one the direct grants already live on.
+   *
+   * It does not exist until the user has at least one direct grant there, so the
+   * conditions section below stays disabled until then rather than failing on submit.
+   */
+  const syntheticRole = useMemo(
+    () =>
+      (rolesData?.roles ?? []).find(
+        (r) => isSyntheticUserRole(r.name) && (!workspacesEnabled || r.workspace === grantWorkspace),
+      ),
+    [rolesData, workspacesEnabled, grantWorkspace],
+  );
+  const syntheticRoleId = syntheticRole?.id ?? Number.NaN;
+
+  const { data: conditionsData, isLoading: conditionsLoading } = useRoleMutationConditionsQuery(syntheticRoleId);
+  const addCondition = useAddMutationCondition(syntheticRoleId);
+  const removeCondition = useRemoveMutationCondition(syntheticRoleId);
+
+  const currentConditions = useMemo<StagedMutationCondition[]>(
+    () =>
+      (conditionsData?.mutation_conditions ?? []).map((c) => ({
+        id: c.id,
+        resourceType: c.resource_type,
+        parentResourceType: c.parent_resource_type,
+        parentResourceId: c.parent_resource_id,
+        valueCondition: c.value_condition,
+        targetCondition: c.target_condition,
+      })),
+    [conditionsData],
+  );
+
   const currentIsAdmin = useMemo(
     () => Boolean(usersData?.users?.find((u) => u.username === username)?.is_admin),
     [usersData, username],
@@ -130,6 +184,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reported by ``DirectPermissionsSection`` whenever the in-progress
@@ -138,6 +193,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   // can't silently abandon a partially filled permission — but the button
   // itself stays enabled and the admin can always click through.
   const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
+  const [hasUnsavedConditionDraft, setHasUnsavedConditionDraft] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const workspaceOptions = useWorkspaceOptions(workspaces);
@@ -190,8 +246,9 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       setIsAdmin(currentIsAdmin);
     }
     setDirectPermissions([...currentDirectPerms]);
+    setConditions([...currentConditions]);
     filledForWorkspaceRef.current = grantWorkspace;
-  }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentIsAdmin]);
+  }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentConditions, currentIsAdmin]);
 
   // --- Diff computation ---
   const diff = useMemo<AccessDiff>(() => {
@@ -205,12 +262,28 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     const directToGrant = directPermissions.filter((p) => !currentDirectKeys.has(directPermKey(p)));
     const directToRevoke = currentDirectPerms.filter((p) => !desiredDirectKeys.has(directPermKey(p)));
 
+    const desiredConditionKeys = new Set(conditions.map(conditionKey));
+    const conditionsToAdd = conditions.filter((c) => c.id == null);
+    const conditionIdsToRemove = currentConditions
+      .filter((c) => c.id != null && !desiredConditionKeys.has(conditionKey(c)))
+      .map((c) => c.id as number);
+
     const adminChange = isCurrentUserAdmin && isAdmin !== currentIsAdmin;
 
-    return { rolesToAssign, rolesToUnassign, directToGrant, directToRevoke, adminChange };
+    return {
+      rolesToAssign,
+      rolesToUnassign,
+      directToGrant,
+      directToRevoke,
+      adminChange,
+      conditionsToAdd,
+      conditionIdsToRemove,
+    };
   }, [
     currentRoleIds,
     currentDirectPerms,
+    conditions,
+    currentConditions,
     currentIsAdmin,
     roleValue.roleIds,
     directPermissions,
@@ -223,7 +296,9 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     diff.rolesToUnassign.length > 0 ||
     diff.directToGrant.length > 0 ||
     diff.directToRevoke.length > 0 ||
-    diff.adminChange;
+    diff.adminChange ||
+    diff.conditionsToAdd.length > 0 ||
+    diff.conditionIdsToRemove.length > 0;
 
   const roleNameById = useMemo(() => {
     const map = new Map<number, { name: string; workspace: string }>();
@@ -324,6 +399,29 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       }
     }
 
+    // Direct conditions, on the synthetic role that backs the direct grants.
+    for (const c of diff.conditionsToAdd) {
+      try {
+        await addCondition.mutateAsync({
+          role_id: syntheticRoleId,
+          resource_type: c.resourceType,
+          parent_resource_type: c.parentResourceType,
+          parent_resource_id: c.parentResourceId,
+          value_condition: c.valueCondition,
+          target_condition: c.targetCondition,
+        });
+      } catch (e: any) {
+        failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+    for (const id of diff.conditionIdsToRemove) {
+      try {
+        await removeCondition.mutateAsync(id);
+      } catch (e: any) {
+        failures.push(`Removing condition #${id} failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+
     if (failures.length === 0) {
       onClose();
       return;
@@ -335,6 +433,9 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   }, [
     diff,
     isAdmin,
+    syntheticRoleId,
+    addCondition,
+    removeCondition,
     username,
     grantWorkspaceForRequest,
     queryClient,
@@ -365,7 +466,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
               // go back and click Add, or knowingly drop the draft and
               // proceed to the review step.
               onClick={() => {
-                if (hasUnsavedDirectDraft) {
+                if (hasUnsavedDirectDraft || hasUnsavedConditionDraft) {
                   setShowDiscardConfirm(true);
                   return;
                 }
@@ -500,6 +601,31 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   onUnsavedDraftChange={setHasUnsavedDirectDraft}
                 />
               </LongFormSection>
+              <LongFormSection title="Direct conditions" hideDivider={!isCurrentUserAdmin}>
+                {Number.isFinite(syntheticRoleId) ? (
+                  <>
+                    <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                      Current conditions on this user's direct grants are pre-filled. Remove a row to drop it; use the
+                      form below to add more.
+                    </Typography.Text>
+                    <MutationConditionsSection
+                      key={String(open)}
+                      value={conditions}
+                      onChange={setConditions}
+                      workspace={grantWorkspaceForRequest}
+                      disabled={submitting}
+                      onUnsavedDraftChange={setHasUnsavedConditionDraft}
+                    />
+                  </>
+                ) : (
+                  // No synthetic role exists yet, so there is nothing for a direct
+                  // condition to attach to. Say so instead of offering a form that
+                  // would fail on submit.
+                  <Typography.Text color="secondary">
+                    Grant a direct permission first — direct conditions attach to the role backing those grants.
+                  </Typography.Text>
+                )}
+              </LongFormSection>
               {isCurrentUserAdmin && (
                 <LongFormSection title="Admin status" hideDivider>
                   <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
@@ -596,6 +722,17 @@ const ReviewSummary = ({
         title="Direct permissions to revoke"
         items={diff.directToRevoke.map(renderDirect)}
         emptyLabel="No direct permissions to revoke."
+      />
+      <DiffGroup
+        title="Direct conditions to add"
+        items={diff.conditionsToAdd.map(formatStagedCondition)}
+        emptyLabel="No new conditions."
+        addColor
+      />
+      <DiffGroup
+        title="Direct conditions to remove"
+        items={diff.conditionIdsToRemove.map((id) => `condition #${id}`)}
+        emptyLabel="No conditions to remove."
       />
       {diff.adminChange ? (
         <DiffGroup

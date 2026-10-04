@@ -1,0 +1,105 @@
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import React from 'react';
+import userEvent from '@testing-library/user-event';
+import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+
+import {
+  formatStagedCondition,
+  MutationConditionsSection,
+  type StagedMutationCondition,
+} from './MutationConditionsSection';
+
+jest.mock('../hooks', () => ({
+  useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
+}));
+
+const onChange = jest.fn();
+
+describe('MutationConditionsSection', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('stages an empty filter as null rather than an empty string', async () => {
+    // "" reaches the condition parser and comes back as a filter syntax error, so the
+    // absent filter has to be null by the time it leaves the form.
+    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        resourceType: 'experiment',
+        valueCondition: null,
+        targetCondition: "tags.x = 'y'",
+        parentResourceType: null,
+        parentResourceId: null,
+      }),
+    ]);
+  });
+
+  it('keeps Add disabled until a filter is entered', async () => {
+    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    const add = screen.getByRole('button', { name: 'Add condition' });
+    expect(add).toBeDisabled();
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
+    await waitFor(() => expect(add).toBeEnabled());
+  });
+
+  it('lists staged rows and removes one by index', async () => {
+    const value: StagedMutationCondition[] = [
+      {
+        id: 5,
+        resourceType: 'run',
+        parentResourceType: null,
+        parentResourceId: null,
+        valueCondition: null,
+        targetCondition: "tags.lifecycle != 'prod'",
+      },
+    ];
+    renderWithDesignSystem(<MutationConditionsSection value={value} onChange={onChange} />);
+    expect(screen.getByText("tags.lifecycle != 'prod'")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Remove Run condition/ }));
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it('collapses an exact duplicate instead of staging it twice', async () => {
+    const value: StagedMutationCondition[] = [
+      {
+        resourceType: 'experiment',
+        parentResourceType: null,
+        parentResourceId: null,
+        valueCondition: null,
+        targetCondition: "tags.x = 'y'",
+      },
+    ];
+    renderWithDesignSystem(<MutationConditionsSection value={value} onChange={onChange} />);
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+    // Draft is cleared, but nothing is appended.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add condition' })).toBeDisabled());
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('reports a dirty draft so the parent can gate its discard dialog', async () => {
+    const onUnsavedDraftChange = jest.fn();
+    renderWithDesignSystem(
+      <MutationConditionsSection value={[]} onChange={onChange} onUnsavedDraftChange={onUnsavedDraftChange} />,
+    );
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), 'x');
+    await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenCalledWith(true));
+  });
+
+  it('describes a staged condition for the review step', () => {
+    expect(
+      formatStagedCondition({
+        resourceType: 'trace',
+        parentResourceType: 'experiment',
+        parentResourceId: '42',
+        valueCondition: "tag_value != 'prod'",
+        targetCondition: "tags.reviewed = 'yes'",
+      }),
+    ).toBe("trace [Experiment 42] request: tag_value != 'prod', resource: tags.reviewed = 'yes'");
+  });
+});

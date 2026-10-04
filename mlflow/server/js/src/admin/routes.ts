@@ -5,8 +5,6 @@ export enum AdminPageId {
   workspaceManagementPage = 'mlflow.admin.workspace',
   roleDetailPage = 'mlflow.admin.role-detail',
   userDetailPage = 'mlflow.admin.user-detail',
-  roleConditionsPage = 'mlflow.admin.role-conditions',
-  userConditionsPage = 'mlflow.admin.user-conditions',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
@@ -30,17 +28,6 @@ export class AdminRoutePaths {
   static get userDetailPage() {
     return createMLflowRoutePath('/admin/users/:username');
   }
-
-  // Conditions get their own path rather than a ``?tab=`` on the detail pages: a
-  // condition narrows access where a grant widens it, and a peer tab would imply the
-  // two combine the same way.
-  static get roleConditionsPage() {
-    return createMLflowRoutePath('/admin/roles/:roleId/conditions');
-  }
-
-  static get userConditionsPage() {
-    return createMLflowRoutePath('/admin/users/:username/conditions');
-  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
@@ -57,16 +44,6 @@ class AdminRoutes {
 
   static getRoleDetailRoute(roleId: number) {
     return generatePath(AdminRoutePaths.roleDetailPage, { roleId: roleId.toString() });
-  }
-
-  static getRoleConditionsRoute(roleId: number) {
-    return generatePath(AdminRoutePaths.roleConditionsPage, { roleId: roleId.toString() });
-  }
-
-  static getUserConditionsRoute(username: string) {
-    // Same encoding as ``getUserDetailRoute`` -- the backend's username validation is
-    // permissive, so the value can contain ``/``, ``?``, or ``%``.
-    return generatePath(AdminRoutePaths.userConditionsPage, { username: encodeURIComponent(username) });
   }
 
   static getUserDetailRoute(username: string) {

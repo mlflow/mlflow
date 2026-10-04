@@ -16,6 +16,11 @@ const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>()
 const mockUseActiveWorkspace = jest.fn<() => string | null>();
 
 jest.mock('../hooks', () => ({
+  // Conditions now share these modals; stub them so the cases below keep testing
+  // what they were written for.
+  useRoleMutationConditionsQuery: () => ({ data: { mutation_conditions: [] }, isLoading: false, error: null }),
+  useAddMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
+  useRemoveMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
   AdminQueryKeys: {
     users: ['admin_users'],
     roles: ['admin_roles'],

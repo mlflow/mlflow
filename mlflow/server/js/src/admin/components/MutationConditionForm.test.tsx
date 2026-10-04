@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 
 import {
-  draftToAddRequest,
+  draftToStagedCondition,
   isMutationConditionDraftDirty,
   isMutationConditionDraftFillable,
   MUTATION_CONDITION_DRAFT_DEFAULT,
@@ -41,56 +41,58 @@ describe('MutationConditionForm — draft translation', () => {
   it('sends an absent filter as null, never as an empty string', () => {
     // ``''`` would reach the condition parser and be reported as a filter syntax
     // error rather than as an absent filter.
-    const request = draftToAddRequest(draft({ targetCondition: "tags.x = 'y'" }), 7);
-    expect(request.value_condition).toBeNull();
-    expect(request.target_condition).toBe("tags.x = 'y'");
+    const request = draftToStagedCondition(draft({ targetCondition: "tags.x = 'y'" }));
+    expect(request.valueCondition).toBeNull();
+    expect(request.targetCondition).toBe("tags.x = 'y'");
   });
 
   it('sends both parent fields together, or neither', () => {
     // The server enforces the pair with a CHECK constraint, so half a pair is a
     // rejected write.
-    const unscoped = draftToAddRequest(draft({ resourceType: 'run', targetCondition: "tags.x = 'y'" }), 7);
-    expect(unscoped.parent_resource_type).toBeNull();
-    expect(unscoped.parent_resource_id).toBeNull();
+    const unscoped = draftToStagedCondition(draft({ resourceType: 'run', targetCondition: "tags.x = 'y'" }));
+    expect(unscoped.parentResourceType).toBeNull();
+    expect(unscoped.parentResourceId).toBeNull();
 
-    const scoped = draftToAddRequest(
+    const scoped = draftToStagedCondition(
       draft({ resourceType: 'run', scope: 'parent', parentResourceId: '42', targetCondition: "tags.x = 'y'" }),
-      7,
     );
-    expect(scoped.parent_resource_type).toBe('experiment');
-    expect(scoped.parent_resource_id).toBe('42');
+    expect(scoped.parentResourceType).toBe('experiment');
+    expect(scoped.parentResourceId).toBe('42');
   });
 
   it('derives the parent type from the resource type rather than trusting the draft', () => {
     // The draft never carries a parent type. If it did, it could disagree with the
     // resource type and persist a scope that can never match.
-    const versionScoped = draftToAddRequest(
+    const versionScoped = draftToStagedCondition(
       draft({
         resourceType: 'registered_model_version',
         scope: 'parent',
         parentResourceId: 'my-model',
         targetCondition: "tags.x = 'y'",
       }),
-      7,
     );
-    expect(versionScoped.parent_resource_type).toBe('registered_model');
+    expect(versionScoped.parentResourceType).toBe('registered_model');
   });
 
   it('drops a parent scope the resource type cannot have', () => {
     // ``experiment`` is parentless. A scope left over from a previous selection
     // must not travel, or the server rejects the write for a field the admin can
     // no longer see.
-    const request = draftToAddRequest(
-      draft({ resourceType: 'experiment', scope: 'parent', parentResourceId: 'stale', targetCondition: "tags.x = 'y'" }),
-      7,
+    const request = draftToStagedCondition(
+      draft({
+        resourceType: 'experiment',
+        scope: 'parent',
+        parentResourceId: 'stale',
+        targetCondition: "tags.x = 'y'",
+      }),
     );
-    expect(request.parent_resource_type).toBeNull();
-    expect(request.parent_resource_id).toBeNull();
+    expect(request.parentResourceType).toBeNull();
+    expect(request.parentResourceId).toBeNull();
   });
 
   it('trims the filters it sends', () => {
-    const request = draftToAddRequest(draft({ targetCondition: "  tags.x = 'y'  " }), 7);
-    expect(request.target_condition).toBe("tags.x = 'y'");
+    const request = draftToStagedCondition(draft({ targetCondition: "  tags.x = 'y'  " }));
+    expect(request.targetCondition).toBe("tags.x = 'y'");
   });
 
   it('reports a default draft as clean and any edit as dirty', () => {

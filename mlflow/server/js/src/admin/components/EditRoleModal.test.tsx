@@ -20,6 +20,11 @@ jest.mock('../hooks', () => ({
     isLoading: false,
   }),
   useRoleUsersQuery: () => ({ data: { assignments: [] }, isLoading: false }),
+  // Conditions now share these modals; stub them so the cases below keep testing
+  // what they were written for.
+  useRoleMutationConditionsQuery: () => ({ data: { mutation_conditions: [] }, isLoading: false, error: null }),
+  useAddMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
+  useRemoveMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
   useUsersQuery: () => ({ data: { users: [] }, isLoading: false, error: null }),
   useResourceOptionsQuery: (resourceType: string, workspace?: string) =>
     mockUseResourceOptionsQuery(resourceType, workspace),
