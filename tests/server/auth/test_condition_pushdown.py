@@ -29,6 +29,7 @@ from mlflow.server.auth.conditions import (
     evaluate_resource,
     parse_condition,
 )
+from mlflow.server.auth.resources import version_resource_id
 from mlflow.store.tracking.dbmodels.models import SqlTag
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -825,3 +826,331 @@ class TestTheIntegerCastIsStructural:
         from mlflow.store.tracking.dbmodels.models import SqlTag
 
         assert condition_pushdown.comparable(SqlTag.value) is SqlTag.value
+
+
+class TestTheGateConsultsPushdownForExplicitIds:
+    """The batch path: the request names its ids, so the store filters them.
+
+    Same reasoning as the cascade tests -- the loader here *raises*, because
+    deleting the pushdown call would otherwise fail nothing: ``attrs_for_bulk``
+    would quietly answer every case and the suite would stay green.
+
+    ``attrs_for_bulk`` is not replaced. It remains the path for any store that
+    declines, which is every non-SQL backend, and for traces it is barely worse
+    than pushdown anyway (``batch_get_trace_infos`` is already one call for N
+    ids, so pushdown only avoids moving the tag payload).
+    """
+
+    CONDITION = f"tags.{TAG_KEY} != 'prod'"
+
+    @staticmethod
+    def _gate(monkeypatch, *, filter_answer, resource_type="run", ids=("r-1", "r-2"), rows=None):
+        from mlflow.server import auth as auth_module
+        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
+
+        target_rows = rows or [TestTheGateConsultsPushdownForExplicitIds.CONDITION]
+
+        class Store:
+            def get_user(self, username):
+                return SimpleNamespace(id=1, username=username, is_admin=False)
+
+            def is_workspace_admin(self, user_id, workspace):
+                return False
+
+            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
+                return [
+                    SimpleNamespace(
+                        resource_type=resource_type, value_condition=None, target_condition=c
+                    )
+                    for c in target_rows
+                ]
+
+        monkeypatch.setattr(auth_module, "store", Store())
+        seen = {}
+
+        def _filter(entity, pushed_ids, clauses):
+            seen["entity"] = entity
+            seen["ids"] = list(pushed_ids)
+            seen["clauses"] = list(clauses)
+            return filter_answer(set(pushed_ids)) if callable(filter_answer) else filter_answer
+
+        fake = SimpleNamespace(
+            filter_ids_by_clauses=_filter, any_child_failing_clauses=lambda *a, **k: None
+        )
+        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
+        monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake, raising=False)
+
+        def _must_not_load(_type, _ids):
+            raise AssertionError(
+                "the gate loaded resources although the store filtered the ids; "
+                "pushdown exists precisely to avoid this"
+            )
+
+        monkeypatch.setattr(auth_resources, "attrs_for_bulk", _must_not_load)
+        context = ConditionContext(
+            resource_type=resource_type,
+            scope=ConditionScope.MUTATE,
+            request=None,
+            resource_ids=tuple(ids),
+            parent_resource_id="e-1",
+        )
+        return auth_module.authorize_on_conditions("alice", "w", [context]), seen
+
+    def test_a_fully_satisfied_set_permits_without_loading(self, monkeypatch):
+        allowed, seen = self._gate(monkeypatch, filter_answer=lambda ids: ids)
+        assert allowed is True
+        assert seen["ids"] == ["r-1", "r-2"]
+
+    def test_an_unsatisfied_id_denies_without_loading(self, monkeypatch):
+        allowed, _ = self._gate(monkeypatch, filter_answer={"r-1"})
+        assert allowed is False, "an id the filter excluded must deny"
+
+    def test_an_absent_id_denies_like_a_failed_clause(self, monkeypatch):
+        """Indistinguishable by design: a 404 would reveal which ids exist."""
+        allowed, _ = self._gate(monkeypatch, filter_answer=set())
+        assert allowed is False
+
+    def test_a_decline_falls_back_to_loading(self, monkeypatch):
+        """A declining store must still be answered, not refused."""
+        from mlflow.server import auth as auth_module
+        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
+
+        class Store:
+            def get_user(self, username):
+                return SimpleNamespace(id=1, username=username, is_admin=False)
+
+            def is_workspace_admin(self, user_id, workspace):
+                return False
+
+            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
+                return [
+                    SimpleNamespace(
+                        resource_type="run",
+                        value_condition=None,
+                        target_condition=self.__class__
+                        and TestTheGateConsultsPushdownForExplicitIds.CONDITION,
+                    )
+                ]
+
+        monkeypatch.setattr(auth_module, "store", Store())
+        monkeypatch.setattr(
+            auth_module,
+            "_get_tracking_store",
+            lambda: SimpleNamespace(
+                filter_ids_by_clauses=lambda *a, **k: None,
+                any_child_failing_clauses=lambda *a, **k: None,
+            ),
+        )
+        loaded = {}
+
+        def _bulk(resource_type, ids):
+            loaded["ids"] = list(ids)
+            return {i: SimpleNamespace(tags={TAG_KEY: "dev"}, aliases={}) for i in ids}
+
+        monkeypatch.setattr(auth_resources, "attrs_for_bulk", _bulk)
+        context = ConditionContext(
+            resource_type="run",
+            scope=ConditionScope.MUTATE,
+            request=None,
+            resource_ids=("r-1",),
+            parent_resource_id="e-1",
+        )
+        assert auth_module.authorize_on_conditions("alice", "w", [context]) is True
+        assert loaded["ids"] == ["r-1"], "a declining store must fall back to loading"
+
+    def test_a_composite_id_is_pushed_as_parts(self, monkeypatch):
+        """The store must never receive the auth layer's joined ``name/version``.
+
+        The composite format is this layer's invention -- it percent-encodes the
+        name because a name may itself contain ``/`` -- so the store is handed the
+        decomposed parts and the gate recomposes to compare.
+        """
+        joined = version_resource_id("com.example/svc", "1.0.0")
+        allowed, seen = self._gate(
+            monkeypatch,
+            filter_answer=lambda ids: ids,
+            resource_type="registered_model_version",
+            ids=(joined,),
+        )
+        assert allowed is True
+        assert seen["ids"] == [("com.example/svc", "1.0.0")], (
+            "a composite id must reach the store as parts, not as a joined string"
+        )
+
+    def test_one_unpushable_row_falls_back_for_the_whole_context(self, monkeypatch):
+        """A conjunction must not be answered from the half the store understood."""
+        from mlflow.server import auth as auth_module
+
+        pushed = {"called": False}
+
+        def _filter(*a, **k):
+            pushed["called"] = True
+            return set()
+
+        monkeypatch.setattr(
+            auth_module,
+            "_get_tracking_store",
+            lambda: SimpleNamespace(
+                filter_ids_by_clauses=_filter, any_child_failing_clauses=lambda *a, **k: None
+            ),
+        )
+        from mlflow.server.auth import _pushable_clauses
+        from mlflow.server.auth.conditions import Clause
+
+        assert (
+            _pushable_clauses([Clause(identifier="bogus", key="k", comparator="=", value="v")])
+            is None
+        )
+
+
+class TestTheRightStoreAnswers:
+    """A registry type must be asked of the registry store, not the tracking one.
+
+    Found by mutation: collapsing ``_condition_store`` to always return the
+    tracking store changed nothing, because the harness above points both getters
+    at one fake. Asking the wrong store is not a correctness hole -- an unmapped
+    entity declines rather than answering from the wrong table -- but it silently
+    loses the pushdown, which is the kind of regression that shows up as a
+    performance report months later rather than as a failure.
+    """
+
+    @staticmethod
+    def _which_store_was_asked(monkeypatch, resource_type, resource_id):
+        from mlflow.server import auth as auth_module
+        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
+
+        class Store:
+            def get_user(self, username):
+                return SimpleNamespace(id=1, username=username, is_admin=False)
+
+            def is_workspace_admin(self, user_id, workspace):
+                return False
+
+            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
+                return [
+                    SimpleNamespace(
+                        resource_type=resource_type,
+                        value_condition=None,
+                        target_condition=f"tags.{TAG_KEY} != 'prod'",
+                    )
+                ]
+
+        monkeypatch.setattr(auth_module, "store", Store())
+        asked = []
+
+        def _store(label):
+            return SimpleNamespace(
+                filter_ids_by_clauses=lambda entity, ids, clauses: asked.append(label) or set(ids),
+                any_child_failing_clauses=lambda *a, **k: None,
+            )
+
+        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: _store("tracking"))
+        monkeypatch.setattr(
+            auth_module, "_get_model_registry_store", lambda: _store("registry"), raising=False
+        )
+        monkeypatch.setattr(
+            auth_resources,
+            "attrs_for_bulk",
+            lambda *a: (_ for _ in ()).throw(AssertionError("fell back to loading")),
+        )
+        context = ConditionContext(
+            resource_type=resource_type,
+            scope=ConditionScope.MUTATE,
+            request=None,
+            resource_ids=(resource_id,),
+            parent_resource_id="p-1",
+        )
+        assert auth_module.authorize_on_conditions("alice", "w", [context]) is True
+        return asked
+
+    def test_a_registry_entry_asks_the_registry_store(self, monkeypatch):
+        assert self._which_store_was_asked(monkeypatch, "registered_model", "m-1") == ["registry"]
+
+    def test_a_prompt_asks_the_registry_store(self, monkeypatch):
+        """A prompt is stored as a registered model, so it is the registry's to answer."""
+        assert self._which_store_was_asked(monkeypatch, "prompt", "p-1") == ["registry"]
+
+    def test_a_run_asks_the_tracking_store(self, monkeypatch):
+        assert self._which_store_was_asked(monkeypatch, "run", "r-1") == ["tracking"]
+
+    def test_an_mcp_server_asks_the_tracking_store(self, monkeypatch):
+        """MCP lives in the tracking store despite being a registry in name."""
+        assert self._which_store_was_asked(monkeypatch, "mcp_server", "com.example/s") == [
+            "tracking"
+        ]
+
+
+class TestAnUnpushableRowFallsBackWholesale:
+    """One row the converter declines must take the WHOLE context in memory.
+
+    Found by mutation: turning the row loop's ``return None`` into ``continue``
+    changed nothing, because every authored condition converts -- the parser
+    rejects an unknown identifier at authoring time, so the decline is
+    unreachable from a stored condition. The converter is therefore stubbed to
+    decline one row, which is the only way to exercise the loop's own contract.
+
+    Pushing the rows it understood and loading for the rest would in fact be
+    correct, but the rows are a conjunction and a partially-pushed conjunction is
+    one refactor away from being evaluated as the whole thing.
+    """
+
+    def test_a_declining_row_makes_the_context_load_instead(self, monkeypatch):
+        from mlflow.server import auth as auth_module
+        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
+
+        pushable = f"tags.{TAG_KEY} != 'prod'"
+        unpushable = "tags.team = 'ml'"
+
+        class Store:
+            def get_user(self, username):
+                return SimpleNamespace(id=1, username=username, is_admin=False)
+
+            def is_workspace_admin(self, user_id, workspace):
+                return False
+
+            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
+                return [
+                    SimpleNamespace(resource_type="run", value_condition=None, target_condition=c)
+                    for c in (pushable, unpushable)
+                ]
+
+        monkeypatch.setattr(auth_module, "store", Store())
+        real = auth_module._pushable_clauses
+
+        def _selective(clauses):
+            if any(c.key == "team" for c in clauses):
+                return None
+            return real(clauses)
+
+        monkeypatch.setattr(auth_module, "_pushable_clauses", _selective)
+
+        filtered = []
+        monkeypatch.setattr(
+            auth_module,
+            "_get_tracking_store",
+            lambda: SimpleNamespace(
+                filter_ids_by_clauses=lambda e, i, c: filtered.append(c) or set(i),
+                any_child_failing_clauses=lambda *a, **k: None,
+            ),
+        )
+        loaded = []
+        monkeypatch.setattr(
+            auth_resources,
+            "attrs_for_bulk",
+            lambda rt, ids: (
+                loaded.append(list(ids))
+                or {
+                    i: SimpleNamespace(tags={TAG_KEY: "dev", "team": "ml"}, aliases={}) for i in ids
+                }
+            ),
+        )
+        context = ConditionContext(
+            resource_type="run",
+            scope=ConditionScope.MUTATE,
+            request=None,
+            resource_ids=("r-1",),
+            parent_resource_id="e-1",
+        )
+        assert auth_module.authorize_on_conditions("alice", "w", [context]) is True
+        assert loaded == [["r-1"]], "an undeclinable row must send the whole context to the loader"
+        assert filtered == [], "no row may be pushed once one of them cannot be"

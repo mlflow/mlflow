@@ -277,6 +277,7 @@ from mlflow.server import app
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
+    _VERSION_RESOURCE_TYPES,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     PARENT_RESOURCE_TYPES,
@@ -1075,6 +1076,81 @@ def _pushable_clauses(clauses):
     return pushable
 
 
+# Registry entries and versions live in the model-registry store; every other
+# conditionable type in the tracking store. Asking the wrong one would get a safe
+# ``None`` back -- an unmapped entity declines rather than answering from the wrong
+# table -- but it would also silently lose the pushdown, so the split is explicit.
+_REGISTRY_CONDITION_TYPES = frozenset({
+    "registered_model",
+    "registered_model_version",
+    "prompt",
+    "prompt_version",
+})
+
+
+def _condition_store(resource_type):
+    """Return the store that can answer a predicate for this resource type."""
+    if resource_type in _REGISTRY_CONDITION_TYPES:
+        return _get_model_registry_store()
+    return _get_tracking_store()
+
+
+def _condition_pushdown_key(resource_type, resource_id):
+    """Convert an authorization-layer id into the key a store matches on.
+
+    A version is addressed here as ``name/version``, with the name percent-encoded
+    because a name may itself contain ``/`` -- an MCP name is reverse-DNS, so it
+    always does. That format is this layer's invention, so the store is handed the
+    decomposed parts and never asked to parse it; a store that split on ``/``
+    would cut a real name in the wrong place.
+    """
+    if resource_type in _VERSION_RESOURCE_TYPES:
+        return auth_resources._split_version_resource_id(resource_id)
+    return resource_id
+
+
+def _explicit_target_pushdown(context, target_rows, resource_ids):
+    """Ask the store which of ``resource_ids`` satisfy every target row.
+
+    The batch counterpart to :func:`_cascade_target_pushdown`, for the usual case
+    where the request names the resources it will touch. One query per clause
+    replaces loading every resource's tags and matching them here.
+
+    Each row is a separate condition and all of them must hold, so each is pushed
+    and the results ANDed. A row whose clauses the store cannot express declines
+    the whole context: pushing the rows it understood and loading for the rest
+    would work, but a partial answer is the kind of thing that silently becomes
+    wrong, and the fallback already evaluates everything correctly.
+
+    Returns:
+        ``True`` if every id satisfies every row, ``False`` if any does not, and
+        ``None`` if the predicate could not be pushed and the caller should load
+        the resources instead.
+    """
+    pushed_rows = []
+    for row in target_rows:
+        clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
+        if clauses is None:
+            return None
+        pushed_rows.append(clauses)
+
+    keys = [_condition_pushdown_key(context.resource_type, rid) for rid in resource_ids]
+    expected = set(keys)
+    store = _condition_store(context.resource_type)
+    for clauses in pushed_rows:
+        matched = store.filter_ids_by_clauses(context.resource_type, keys, clauses)
+        if matched is None:
+            # Declined after another row answered. Fall back rather than keep a
+            # partial verdict: the loader re-evaluates every row from scratch.
+            return None
+        if matched != expected:
+            # An id the filter excluded either failed a clause or does not exist.
+            # Both deny, and deliberately indistinguishably -- a 404 here would
+            # reveal which ids exist to a caller who may not read them.
+            return False
+    return True
+
+
 def _cascade_target_pushdown(context, target_rows):
     """Whether any child of the context's parent fails a target condition.
 
@@ -1238,6 +1314,17 @@ def _authorize_on_conditions(
             # route at MUTATE scope does. It is the backstop for one that cannot, and for
             # a future wiring bug that forgets to.
             return False
+        # Ask the store first, exactly as the cascade does: one query per clause
+        # answers the predicate without the resources' tags ever crossing the wire.
+        # A decline falls through to the bulk load below, which is still the path for
+        # every non-SQL backend.
+        pushed = _explicit_target_pushdown(context, target_rows, resource_ids)
+        if pushed is not None:
+            if not pushed:
+                # The store reports which ids satisfy the clauses, not why one did
+                # not, so there is no per-id result for `combine` to weigh.
+                return False
+            continue
         # One bulk call for the context's ids rather than one read each. A bulk delete
         # naming N traces would otherwise cost N round trips to evaluate one condition
         # (D11); for a single id the bulk path resolves to the same single fetch.

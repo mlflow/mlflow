@@ -30,6 +30,32 @@ from mlflow.server.auth.conditions import (
 _WORKSPACE = "team-a"
 
 
+@pytest.fixture(autouse=True)
+def _pushdown_declines(monkeypatch):
+    """Make the stores decline pushdown, so these tests pin the fallback path.
+
+    The cases in this module stub the *resource layer* -- enumerators, bulk
+    loaders, counting shims -- rather than the store, so once the gate started
+    asking the store first they reached the real default store and failed on a
+    missing database. Declining here keeps them exercising the enumerate-and-judge
+    path, which is still what every non-SQL backend uses, and is therefore a path
+    that needs its own coverage rather than being an accident of the stubs.
+
+    Autouse but not binding: a test that wants the pushdown consulted can
+    monkeypatch the store again, and its own patch wins.
+    """
+    from types import SimpleNamespace
+
+    from mlflow.server import auth as auth_module
+
+    declining = SimpleNamespace(
+        filter_ids_by_clauses=lambda *a, **k: None,
+        any_child_failing_clauses=lambda *a, **k: None,
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)
+
+
 class _Recorder:
     """Captures the ConditionContexts a validator declares."""
 
@@ -869,7 +895,10 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
     monkeypatch.setattr(
         auth_module,
         "_get_tracking_store",
-        lambda: SimpleNamespace(any_child_failing_clauses=lambda *a, **k: None),
+        lambda: SimpleNamespace(
+            any_child_failing_clauses=lambda *a, **k: None,
+            filter_ids_by_clauses=lambda *a, **k: None,
+        ),
     )
     monkeypatch.setattr(auth_resources, "traces_of_experiment", lambda _e: ())
     monkeypatch.setattr(auth_resources, "logged_models_of_experiment", lambda _e: ())
