@@ -1081,6 +1081,21 @@ async def test_gemini_chat_function_calling_sequential_calls_keep_separate_respo
     ]
 
 
+@pytest.mark.parametrize("tool_message", [{"tool_call_id": "call_002"}, {}])
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_unmatched_tool_call_id(tool_message):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {"role": "assistant", "tool_calls": [_weather_tool_call("call_001", "Singapore")]},
+        {"role": "tool", "content": '{"temperature": 31.2}', **tool_message},
+    ])
+
+    with pytest.raises(AIGatewayException, match="does not match any tool call") as exc_info:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert exc_info.value.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_gemini_chat_function_calling_thought_signature():
     config = chat_config()
