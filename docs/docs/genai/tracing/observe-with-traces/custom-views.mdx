@@ -17,12 +17,14 @@ Custom trace views are available in **MLflow 3.16.0 and above**. They are built 
 
 1. Open a trace from the **Traces** tab of your experiment.
 2. In the header of the trace viewer, click the view selector (it reads **Default view** until you pick something else) and choose **Create custom view**.
+
+   <ImageBox src="/images/llms/tracing/custom-view-selector.png" alt="The view selector in the trace viewer header, listing the default view, saved custom views, and the option to create one" width="60%" />
+
 3. Describe the view you want, for example "Show the user's question, the final answer, and the output of each tool call", then click **Build with Assistant**.
+
+   <ImageBox src="/images/llms/tracing/custom-view-build.png" alt="The prompt box for describing a new custom trace view" width="60%" />
+
 4. The Assistant panel opens with your request, and the trace viewer shows a placeholder until the Assistant returns the view. The view opens as a draft: click **Save** and give it a name to keep it.
-
-<ImageBox src="/images/llms/tracing/custom-view-selector.png" alt="The view selector in the trace viewer header, listing the default view, saved custom views, and the option to create one" width="60%" />
-
-<ImageBox src="/images/llms/tracing/custom-view-build.png" alt="The prompt box for describing a new custom trace view" width="60%" />
 
 A view is a reusable layout, not a snapshot of one trace, so it works on every trace in the experiment. The Assistant designs the layout once. When you open another trace, MLflow fills the same layout with that trace's data, such as the root span's input or the output of the first tool call, without asking the Assistant again.
 
