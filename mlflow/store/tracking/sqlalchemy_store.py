@@ -9989,6 +9989,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session.flush()
             return row.to_mlflow_entity()
 
+    # Ids bind one SQL parameter each. Chosen well below every backend's cap (SQLite's
+    # is ~32k, MySQL and PostgreSQL higher) so one value is safe everywhere rather than
+    # per-dialect, and so a cascade's 2000 children cost two statements, not a failure.
+    _TAG_PUSHDOWN_ID_CHUNK = 900
+
     # Tag tables are per-entity, so pushdown needs the table and the column that
     # holds the owning resource's id. An entity absent here declines (``None``)
     # rather than guessing, so adding a type is opt-in and a typo cannot silently
@@ -10107,17 +10112,27 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         with self.ManagedSessionMaker() as session:
             for key, comparator, value in clauses:
                 comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
-                rows = (
-                    session
-                    .query(id_column)
-                    .filter(
-                        id_column.in_(surviving),
-                        tag_model.key == key,
-                        comparison(tag_model.value, value),
+                matched = set()
+                # The ids bind one parameter each, and every backend caps how many a
+                # statement may carry -- SQLite raises "too many SQL variables" well
+                # below the 2000 children a cascade can reach. Chunk so that cap stays a
+                # property of the statement rather than a limit on how many resources a
+                # caller may ask about.
+                ordered = sorted(surviving)
+                for start in range(0, len(ordered), self._TAG_PUSHDOWN_ID_CHUNK):
+                    chunk = ordered[start : start + self._TAG_PUSHDOWN_ID_CHUNK]
+                    rows = (
+                        session
+                        .query(id_column)
+                        .filter(
+                            id_column.in_(chunk),
+                            tag_model.key == key,
+                            comparison(tag_model.value, value),
+                        )
+                        .all()
                     )
-                    .all()
-                )
-                surviving = {row[0] for row in rows}
+                    matched.update(row[0] for row in rows)
+                surviving = matched
                 if not surviving:
                     break
         return surviving

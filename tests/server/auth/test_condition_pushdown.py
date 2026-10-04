@@ -147,6 +147,22 @@ def test_no_clauses_matches_everything_and_no_ids_matches_nothing(store_with_run
     assert store.filter_ids_by_tag_clauses("run", [], [(TAG_KEY, "=", "prod")]) == set()
 
 
+def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_runs):
+    """Ids bind one SQL parameter each, and backends cap how many a statement carries.
+
+    Unchunked, SQLite raises "too many SQL variables" above ~32k -- and a caller has no
+    way to know the cap, so the failure would surface as an opaque 500 on a large bulk
+    delete rather than a refusal. Verified to fail before chunking was added.
+    """
+    store, _, ids = store_with_runs
+    padded = list(ids.values()) + [f"absent-{i}" for i in range(60_000)]
+    pushed = store.filter_ids_by_tag_clauses("run", padded, [(TAG_KEY, "!=", "prod")])
+    assert pushed == {ids["other"]}, (
+        "only the dev-tagged run satisfies != 'prod'; absent ids must not match, and "
+        "the untagged run must not either"
+    )
+
+
 def test_an_unknown_entity_declines_rather_than_matching(store_with_runs):
     """An unmapped entity must return ``None``, never a wrong or empty answer.
 
