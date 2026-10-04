@@ -237,7 +237,7 @@ export const MutationConditionForm = ({
       ) : null}
 
       <div>
-        <FieldLabel>Request filter (optional)</FieldLabel>
+        <FieldLabel>Request filter</FieldLabel>
         <Input
           componentId="admin.mutation_condition_form.value_condition"
           value={value.valueCondition}
@@ -248,7 +248,7 @@ export const MutationConditionForm = ({
       </div>
 
       <div>
-        <FieldLabel>Resource filter (optional)</FieldLabel>
+        <FieldLabel>Resource filter</FieldLabel>
         <Input
           componentId="admin.mutation_condition_form.target_condition"
           value={value.targetCondition}
@@ -260,7 +260,7 @@ export const MutationConditionForm = ({
 
       {showFilterRequiredError && (
         <Typography.Text color="error" size="sm" data-testid="admin.mutation_condition_form.filter_required_error">
-          Enter at least one filter. A condition with neither would restrict nothing.
+          Enter at least one filter.
         </Typography.Text>
       )}
     </div>
