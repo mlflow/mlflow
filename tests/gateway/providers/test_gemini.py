@@ -640,7 +640,7 @@ async def test_gemini_chat_function_calling():
                     ],
                     "refusal": None,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "tool_calls",
             }
         ],
         "usage": {
@@ -769,7 +769,7 @@ async def test_gemini_chat_multi_function_calling():
                     ],
                     "refusal": None,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "tool_calls",
             }
         ],
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
@@ -1079,6 +1079,21 @@ async def test_gemini_chat_function_calling_sequential_calls_keep_separate_respo
         ("model", 1),
         ("user", 1),
     ]
+
+
+@pytest.mark.parametrize("tool_message", [{"tool_call_id": "call_002"}, {}])
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_unmatched_tool_call_id(tool_message):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {"role": "assistant", "tool_calls": [_weather_tool_call("call_001", "Singapore")]},
+        {"role": "tool", "content": '{"temperature": 31.2}', **tool_message},
+    ])
+
+    with pytest.raises(AIGatewayException, match="does not match any tool call") as exc_info:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert exc_info.value.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -1510,7 +1525,7 @@ async def test_gemini_chat_function_calling_stream():
             "choices": [
                 {
                     "index": 0,
-                    "finish_reason": "stop",
+                    "finish_reason": "tool_calls",
                     "delta": {
                         "role": "assistant",
                         "content": None,
@@ -2139,3 +2154,108 @@ def test_chat_to_model_unknown_content_part_passed_through():
     result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_gemini_finish_reason_is_tool_calls_for_function_call(stream):
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "role": "model",
+                    "parts": [{"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}],
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4},
+        "modelVersion": "gemini-2.0-flash",
+    }
+    config = EndpointConfig(**chat_config())
+    convert = GeminiAdapter.model_to_chat_streaming if stream else GeminiAdapter.model_to_chat
+
+    assert convert(resp, config).choices[0].finish_reason == "tool_calls"
+
+
+def test_gemini_finish_reason_stays_stop_for_text():
+    resp = {
+        "candidates": [
+            {
+                "content": {"role": "model", "parts": [{"text": "hi"}]},
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4},
+        "modelVersion": "gemini-2.0-flash",
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == "stop"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("call_chunks", "stop_candidate"),
+    [
+        (1, {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "STOP"}),
+        (1, {"finishReason": "STOP"}),
+        (3, {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "STOP"}),
+    ],
+    ids=["single_call_empty_text", "single_call_no_content", "parallel_calls_empty_text"],
+)
+async def test_gemini_chat_stream_finish_reason_is_tool_calls_for_trailing_stop_chunk(
+    call_chunks, stop_candidate
+):
+    # Live Gemini streams send each functionCall in its own chunk and STOP in a final chunk
+    # that has no functionCall.
+    call = {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+    chunks_in = [
+        {"candidates": [{"content": {"role": "model", "parts": [call]}, "index": 0}]}
+    ] * call_chunks + [{"candidates": [{**stop_candidate, "index": 0}]}]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    assert [c.choices[0].finish_reason for c in chunks] == [None] * call_chunks + ["tool_calls"]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_trailing_stop_finish_reason_is_per_candidate():
+    call = {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+    chunks_in = [
+        {
+            "candidates": [
+                {"content": {"parts": [call]}, "index": 0},
+                {"content": {"parts": [{"text": "Sunny."}]}, "index": 1},
+            ]
+        },
+        {
+            "candidates": [
+                {"content": {"parts": [{"text": ""}]}, "finishReason": "STOP", "index": 0},
+                {"content": {"parts": [{"text": ""}]}, "finishReason": "STOP", "index": 1},
+            ]
+        },
+    ]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    finish_reasons = {choice.index: choice.finish_reason for choice in chunks[-1].choices}
+    assert finish_reasons == {0: "tool_calls", 1: "stop"}

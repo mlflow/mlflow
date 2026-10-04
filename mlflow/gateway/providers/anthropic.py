@@ -369,7 +369,7 @@ class AnthropicAdapter(ProviderAdapter):
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
         from mlflow.types.chat import TextContentPart
 
-        stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+        stop_reason = cls._to_finish_reason(resp["stop_reason"])
 
         message = convert_message_to_mlflow_chat(resp)
 
@@ -442,6 +442,10 @@ class AnthropicAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def _to_finish_reason(cls, stop_reason):
+        return {"max_tokens": "length", "tool_use": "tool_calls"}.get(stop_reason, "stop")
+
+    @classmethod
     def chat_streaming_to_model(cls, payload, config):
         return cls.chat_to_model(payload, config)
 
@@ -449,7 +453,7 @@ class AnthropicAdapter(ProviderAdapter):
     def model_to_chat_streaming(cls, resp, config):
         content = resp.get("delta") or resp.get("content_block") or {}
         if (stop_reason := content.get("stop_reason")) is not None:
-            stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+            stop_reason = cls._to_finish_reason(stop_reason)
 
         # example of function calling delta message format:
         # https://platform.openai.com/docs/guides/function-calling#streaming
