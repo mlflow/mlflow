@@ -85,6 +85,26 @@ function findApprovedPlans(
   return approved;
 }
 
+/**
+ * The permission mode in effect for the phase of the transcript that ends at endIdx
+ * (exclusive): the last `permission-mode` entry before it, falling back to the mode recorded
+ * on the user prompt. After an approved plan the transcript records the switch (e.g. to
+ * `acceptEdits`) before the first execution step, so the execution trace picks that up.
+ */
+function permissionModeBefore(
+  transcript: TranscriptEntry[],
+  endIdx: number,
+  fallback: string | undefined,
+): string | undefined {
+  for (let i = Math.min(endIdx, transcript.length) - 1; i >= 0; i--) {
+    const entry = transcript[i];
+    if (entry.type === 'permission-mode' && typeof entry.permissionMode === 'string') {
+      return entry.permissionMode;
+    }
+  }
+  return fallback;
+}
+
 // ============================================================================
 // Tool result finding
 // ============================================================================
@@ -697,7 +717,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         promptText,
         plan,
         sessionId,
-        lastUserEntry.permissionMode,
+        permissionModeBefore(transcript, resultIdx + 1, lastUserEntry.permissionMode),
       );
       promptIdx = resultIdx;
       promptText = plan;
@@ -709,7 +729,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
       promptText,
       findFinalAssistantResponse(transcript, promptIdx + 1),
       sessionId,
-      lastUserEntry.permissionMode,
+      permissionModeBefore(transcript, transcript.length, lastUserEntry.permissionMode),
     );
 
     await flushTraces();

@@ -131,7 +131,7 @@ jest.mock('@mlflow/core', () => {
 
 // Import after mock
 import { processTranscript } from '../src/tracing';
-import { startSpan, flushTraces } from '@mlflow/core';
+import { startSpan, flushTraces, InMemoryTraceManager } from '@mlflow/core';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
 
@@ -780,6 +780,33 @@ describe('processTranscript', () => {
         getSpans().length - 2,
       );
       expect(flushTraces).toHaveBeenCalledTimes(1);
+    });
+
+    it('records the permission mode of each phase', async () => {
+      // The shared mock trace info would be overwritten by the second trace, so collect one
+      // info object per trace in creation order.
+      const getInstance = InMemoryTraceManager.getInstance as jest.Mock;
+      const defaultImpl = getInstance.getMockImplementation();
+      const infos: Array<{ traceMetadata: Record<string, string> }> = [];
+      getInstance.mockImplementation(() => ({
+        getTrace: () => {
+          const info = { traceMetadata: {} as Record<string, string> };
+          infos.push(info);
+          return { info, spanDict: new Map(Object.entries(mockSpans)) };
+        },
+      }));
+      try {
+        await processTranscript(resolve(FIXTURES_DIR, 'with-plan-mode.jsonl'), 'plan-session');
+      } finally {
+        getInstance.mockImplementation(defaultImpl);
+      }
+
+      // The prompt was made in plan mode; the transcript switches to acceptEdits right after
+      // the plan is approved, before the first execution step.
+      expect(infos.map((info) => info.traceMetadata['mlflow.trace.permission_mode'])).toEqual([
+        'plan',
+        'acceptEdits',
+      ]);
     });
 
     it('uses the revised plan when an earlier plan was rejected', async () => {
