@@ -11,9 +11,11 @@ import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateCo
 export const FeedbackValueGroup = ({
   jsonValue,
   feedbacks,
+  booleanDisplayMode,
 }: {
   jsonValue: string;
   feedbacks: FeedbackAssessment[];
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
@@ -42,7 +44,11 @@ export const FeedbackValueGroup = ({
           icon={expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           onClick={() => setExpanded(!expanded)}
         />
-        <AssessmentDisplayValue jsonValue={jsonValue} assessmentName={assessmentName} />
+        <AssessmentDisplayValue
+          jsonValue={jsonValue}
+          assessmentName={assessmentName}
+          booleanDisplayMode={booleanDisplayMode}
+        />
         <FeedbackValueGroupSourceCounts feedbacks={feedbacks} />
       </div>
       {expanded && (
@@ -54,7 +60,9 @@ export const FeedbackValueGroup = ({
         >
           {feedbacks.map((feedback) =>
             // don't display assessments that have been overridden
-            feedback?.valid === false ? null : <FeedbackItem feedback={feedback} key={feedback.assessment_id} />,
+            feedback?.valid === false ? null : (
+              <FeedbackItem feedback={feedback} key={feedback.assessment_id} booleanDisplayMode={booleanDisplayMode} />
+            ),
           )}
         </div>
       )}

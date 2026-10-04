@@ -22,7 +22,13 @@ import { getExperimentPageTracesTabRoute } from '../routes';
 import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
 import { formatCostUSD } from '../CostUtils';
 
-export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
+export const FeedbackItemContent = ({
+  feedback,
+  booleanDisplayMode,
+}: {
+  feedback: FeedbackAssessment;
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
+}) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
   const { nodeMap, activeView } = useModelTraceExplorerViewState();
@@ -136,7 +142,11 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
             <FormattedMessage defaultMessage="Feedback" description="Label for the value of an feedback assessment" />
           </Typography.Text>
           <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-            <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={feedback.assessment_name} />
+            <AssessmentDisplayValue
+              jsonValue={JSON.stringify(value)}
+              assessmentName={feedback.assessment_name}
+              booleanDisplayMode={booleanDisplayMode}
+            />
             {feedback.overriddenAssessment && (
               <>
                 <span onClick={() => setIsHistoryModalVisible(true)}>
@@ -159,6 +169,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
                   isModalVisible={isHistoryModalVisible}
                   setIsModalVisible={setIsHistoryModalVisible}
                   feedback={feedback}
+                  booleanDisplayMode={booleanDisplayMode}
                 />
               </>
             )}

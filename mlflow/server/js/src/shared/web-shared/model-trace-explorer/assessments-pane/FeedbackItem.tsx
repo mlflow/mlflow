@@ -7,7 +7,13 @@ import { AssessmentItemHeader } from './AssessmentItemHeader';
 import { FeedbackItemContent } from './FeedbackItemContent';
 import type { FeedbackAssessment } from '../ModelTrace.types';
 
-export const FeedbackItem = ({ feedback }: { feedback: FeedbackAssessment }) => {
+export const FeedbackItem = ({
+  feedback,
+  booleanDisplayMode,
+}: {
+  feedback: FeedbackAssessment;
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
+}) => {
   const { theme } = useDesignSystemTheme();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -33,7 +39,7 @@ export const FeedbackItem = ({ feedback }: { feedback: FeedbackAssessment }) => 
           onCancel={() => setIsEditing(false)}
         />
       ) : (
-        <FeedbackItemContent feedback={feedback} />
+        <FeedbackItemContent feedback={feedback} booleanDisplayMode={booleanDisplayMode} />
       )}
     </div>
   );

@@ -4639,6 +4639,10 @@
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
   },
+  "H6dSQb": {
+    "defaultMessage": "Pass",
+    "description": "Pass label for a positive assessment result"
+  },
   "H7JwOl": {
     "defaultMessage": "Delete version",
     "description": "A label for a button to delete prompt version on the prompt details page"
@@ -6810,6 +6814,10 @@
   "PlP56F": {
     "defaultMessage": "Enter value",
     "description": "Usage overview > filter row > value input placeholder"
+  },
+  "PmP6Er": {
+    "defaultMessage": "Fail",
+    "description": "Fail label for a negative assessment result"
   },
   "PmPV+3": {
     "defaultMessage": "Models",

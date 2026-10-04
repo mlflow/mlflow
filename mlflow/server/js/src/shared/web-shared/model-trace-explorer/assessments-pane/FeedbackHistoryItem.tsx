@@ -11,7 +11,13 @@ import type { FeedbackAssessment } from '../ModelTrace.types';
 
 // this is mostly a copy of FeedbackItem, but with
 // different styling and no ability to edit.
-export const FeedbackHistoryItem = ({ feedback }: { feedback: FeedbackAssessment }) => {
+export const FeedbackHistoryItem = ({
+  feedback,
+  booleanDisplayMode,
+}: {
+  feedback: FeedbackAssessment;
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
+}) => {
   const { theme } = useDesignSystemTheme();
   const value = feedback.feedback.value;
 
@@ -45,7 +51,11 @@ export const FeedbackHistoryItem = ({ feedback }: { feedback: FeedbackAssessment
               <FormattedMessage defaultMessage="Feedback" description="Label for the value of an feedback assessment" />
             </Typography.Text>
             <div>
-              <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={feedback.assessment_name} />
+              <AssessmentDisplayValue
+                jsonValue={JSON.stringify(value)}
+                assessmentName={feedback.assessment_name}
+                booleanDisplayMode={booleanDisplayMode}
+              />
             </div>
           </>
         )}

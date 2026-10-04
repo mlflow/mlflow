@@ -26,6 +26,7 @@ export const FeedbackGroup = ({
   feedbackTypeTag,
   loading,
   onCancelLoading,
+  booleanDisplayMode,
 }: {
   name: string;
   valuesMap: { [value: string]: FeedbackAssessment[] };
@@ -34,6 +35,7 @@ export const FeedbackGroup = ({
   feedbackTypeTag?: React.ReactNode;
   loading?: boolean;
   onCancelLoading?: () => void;
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
 }) => {
   const { theme } = useDesignSystemTheme();
   const displayName = getAssessmentDisplayName(name);
@@ -82,7 +84,12 @@ export const FeedbackGroup = ({
         </Tooltip>
       </div>
       {Object.entries(valuesMap).map(([jsonValue, feedbacks]) => (
-        <FeedbackValueGroup jsonValue={jsonValue} feedbacks={feedbacks} key={jsonValue} />
+        <FeedbackValueGroup
+          jsonValue={jsonValue}
+          feedbacks={feedbacks}
+          key={jsonValue}
+          booleanDisplayMode={booleanDisplayMode}
+        />
       ))}
       {loading && (
         <>

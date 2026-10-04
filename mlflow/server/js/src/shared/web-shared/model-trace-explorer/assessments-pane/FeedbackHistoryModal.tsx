@@ -28,10 +28,12 @@ export const FeedbackHistoryModal = ({
   isModalVisible,
   setIsModalVisible,
   feedback,
+  booleanDisplayMode,
 }: {
   isModalVisible: boolean;
   setIsModalVisible: (isModalVisible: boolean) => void;
   feedback: FeedbackAssessment;
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
 }) => {
   const assessmentHistory = useMemo(() => flattenOverrides(feedback), [feedback]);
 
@@ -51,7 +53,13 @@ export const FeedbackHistoryModal = ({
       }
     >
       {assessmentHistory.map((assessment) =>
-        'feedback' in assessment ? <FeedbackHistoryItem key={assessment.assessment_id} feedback={assessment} /> : null,
+        'feedback' in assessment ? (
+          <FeedbackHistoryItem
+            key={assessment.assessment_id}
+            feedback={assessment}
+            booleanDisplayMode={booleanDisplayMode}
+          />
+        ) : null,
       )}
     </Modal>
   );

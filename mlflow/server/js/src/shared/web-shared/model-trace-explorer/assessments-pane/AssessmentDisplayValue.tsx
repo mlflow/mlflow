@@ -90,6 +90,7 @@ export const AssessmentDisplayValue = ({
   overrideColor,
   assessmentName,
   disableTooltip = false,
+  booleanDisplayMode = 'true-false',
 }: {
   jsonValue: string;
   className?: string;
@@ -99,6 +100,9 @@ export const AssessmentDisplayValue = ({
   assessmentName?: string;
   // Skip the value tooltip (e.g. when a caller already reveals the full value in a hover card).
   disableTooltip?: boolean;
+  // Generic boolean assessments retain their literal value unless the caller explicitly owns
+  // pass/fail semantics (for example, the session-feedback surface).
+  booleanDisplayMode?: 'true-false' | 'pass-fail';
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -176,7 +180,11 @@ export const AssessmentDisplayValue = ({
     children = (
       <>
         {!skipIcons && <CheckCircleIcon css={{ marginRight: theme.spacing.xs }} />}
-        <FormattedMessage defaultMessage="True" description="Label for an assessment with a 'true' boolean value" />
+        {booleanDisplayMode === 'pass-fail' ? (
+          <FormattedMessage defaultMessage="Pass" description="Pass label for a positive assessment result" />
+        ) : (
+          <FormattedMessage defaultMessage="True" description="Label for an assessment with a 'true' boolean value" />
+        )}
       </>
     );
   } else if (parsedValue === false || parsedValue === 'false') {
@@ -184,7 +192,11 @@ export const AssessmentDisplayValue = ({
     children = (
       <>
         {!skipIcons && <XCircleIcon css={{ marginRight: theme.spacing.xs }} />}
-        <FormattedMessage defaultMessage="False" description="Label for an assessment with a 'false' boolean value" />
+        {booleanDisplayMode === 'pass-fail' ? (
+          <FormattedMessage defaultMessage="Fail" description="Fail label for a negative assessment result" />
+        ) : (
+          <FormattedMessage defaultMessage="False" description="Label for an assessment with a 'false' boolean value" />
+        )}
       </>
     );
   } else if (typeof parsedValue === 'string') {

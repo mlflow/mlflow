@@ -286,6 +286,7 @@ export const AssessmentsPaneFeedbackSection = ({
             traceId={traceId}
             activeSpanId={activeSpanId}
             loading={Boolean(loadingEvaluation)}
+            booleanDisplayMode={sessionId ? 'pass-fail' : 'true-false'}
             onCancelLoading={loadingEvaluation && reset ? () => reset(loadingEvaluation.requestKey) : undefined}
           />
         );
