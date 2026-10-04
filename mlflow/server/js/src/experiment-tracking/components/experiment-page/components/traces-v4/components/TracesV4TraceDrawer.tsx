@@ -70,6 +70,8 @@ export interface TracesV4TraceDrawerProps {
   traces: ModelTraceInfoV3[];
   /** Writes the newly-selected trace's id to the URL (as a long id — see {@link idOf}). */
   onSelectTrace: (traceId: string, traceInfo?: ModelTraceInfoV3) => void;
+  /** Reports fetched info for deep-linked traces that are not present on the current page. */
+  onTraceInfoLoaded?: (traceId: string, traceInfo: ModelTraceInfoV3) => void;
   /** Optional in-explorer run-judges config (enables "Run judge" from within a span's assessments). */
   runJudgeConfiguration?: NonNullable<TracesV4TraceActions['runJudges']>['runJudgeConfiguration'];
   viewModeControl?: TracesV4DrawerViewModeControl;
@@ -99,6 +101,7 @@ export const TracesV4TraceDrawer = ({
   experimentId,
   traces,
   onSelectTrace,
+  onTraceInfoLoaded,
   runJudgeConfiguration,
   viewModeControl,
   session,
@@ -121,6 +124,11 @@ export const TracesV4TraceDrawer = ({
   const { data: traceData, isLoading, error } = useGetTrace(traceId ?? '', undefined, currentInfo);
   const sessionFilters = useMemo(() => (sessionId ? getChatSessionsFilter({ sessionId }) : []), [sessionId]);
   const fetchedTraceInfo = traceData?.info;
+  useEffect(() => {
+    if (traceId && fetchedTraceInfo && isV3ModelTraceInfo(fetchedTraceInfo)) {
+      onTraceInfoLoaded?.(traceId, fetchedTraceInfo);
+    }
+  }, [fetchedTraceInfo, onTraceInfoLoaded, traceId]);
   const fetchedTraceLocation = isV3ModelTraceInfo(fetchedTraceInfo) ? fetchedTraceInfo.trace_location : undefined;
   const sessionTraceLocations = useMemo<ModelTraceSearchLocation[]>(() => {
     const traceLocation = session?.traceLocation ?? fetchedTraceLocation;

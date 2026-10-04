@@ -512,13 +512,100 @@ describe('TracesV4PageContent', () => {
       const sessionMode = within(drawer).getByRole('radio', { name: 'Session' });
       const traceMode = within(drawer).getByRole('radio', { name: 'Trace' });
       expect(sessionMode).toBeChecked();
-      expect(new URLSearchParams(env.lastSearch).get('groupBy')).toBe('session');
-      expect(new URLSearchParams(env.lastSearch).get('traceId')).toBe('trace:/cat.sch/tr-000');
+      let searchParams = new URLSearchParams(env.lastSearch);
+      expect(searchParams.get('groupBy')).toBe('session');
+      expect(searchParams.get('traceId')).toBe('trace:/cat.sch/tr-000');
+      expect(searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBe('session');
+      expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBe('sess-1');
 
       await user.click(traceMode);
       expect(traceMode).toBeChecked();
+      searchParams = new URLSearchParams(env.lastSearch);
+      expect(searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBeNull();
+      expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBeNull();
+
       await user.click(sessionMode);
       expect(sessionMode).toBeChecked();
+      searchParams = new URLSearchParams(env.lastSearch);
+      expect(searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBe('session');
+      expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBe('sess-1');
+    });
+
+    test('restores a session drawer deep link and a flat trace click returns to trace mode', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      state.pages = {
+        '': {
+          traces: [makeSessionTrace('tr-000', 'sess-1'), makeSessionTrace('tr-001', 'sess-2')],
+          next_page_token: undefined,
+        },
+      };
+      renderPage({
+        initialUrl:
+          `${URL}?traceId=${encodeURIComponent('trace:/cat.sch/tr-000')}` +
+          `&${TRACE_DRAWER_VIEW_MODE_QUERY_PARAM}=session` +
+          `&${TRACE_DRAWER_SESSION_ID_QUERY_PARAM}=sess-1`,
+      });
+
+      const drawer = await screen.findByRole('dialog');
+      expect(within(drawer).getByRole('radio', { name: 'Session' })).toBeChecked();
+      expect(new URLSearchParams(env.lastSearch).get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBe('session');
+
+      await user.click(within(drawer).getByRole('button', { name: 'Close session panel' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+      await user.click(await findTraceRow('tr-001'));
+      const reopenedDrawer = await screen.findByRole('dialog');
+      expect(within(reopenedDrawer).getByRole('radio', { name: 'Trace' })).toBeChecked();
+      const searchParams = new URLSearchParams(env.lastSearch);
+      expect(searchParams.get('traceId')).toBe('trace:/cat.sch/tr-001');
+      expect(searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBeNull();
+      expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBeNull();
+    });
+
+    test('enables session mode after loading an off-page trace deep link', async () => {
+      const offPageTrace = makeSessionTrace('tr-off-page', 'sess-off-page');
+      state.pages = { '': { traces: [makeTrace('tr-on-page')], next_page_token: undefined } };
+      server.use(
+        rest.get('/ajax-api/3.0/mlflow/traces/:traceId', (_req, res, ctx) =>
+          res(ctx.json({ trace: { trace_info: offPageTrace, spans: [] } })),
+        ),
+        rest.get('/ajax-api/3.0/mlflow/get-trace-artifact', (_req, res, ctx) => res(ctx.json({ spans: [] }))),
+      );
+
+      renderPage({ initialUrl: `${URL}?traceId=tr-off-page` });
+
+      const drawer = await screen.findByRole('dialog');
+      const sessionMode = within(drawer).getByRole('radio', { name: 'Session' });
+      await waitFor(() => expect(sessionMode).toBeEnabled());
+    });
+
+    test('session previous and next navigation update the drawer URL as one state', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      state.pages = {
+        '': {
+          traces: [makeSessionTrace('tr-000', 'sess-1'), makeSessionTrace('tr-001', 'sess-2')],
+          next_page_token: undefined,
+        },
+      };
+      renderPage({ initialUrl: `${URL}?groupBy=session` });
+
+      await user.click(await screen.findByText('request for tr-000'));
+      const drawer = await screen.findByRole('dialog');
+      await user.click(within(drawer).getByRole('button', { name: 'Next session' }));
+
+      await waitFor(() => {
+        const searchParams = new URLSearchParams(env.lastSearch);
+        expect(searchParams.get('traceId')).toBe('trace:/cat.sch/tr-001');
+        expect(searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBe('session');
+        expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBe('sess-2');
+      });
+
+      await user.click(within(drawer).getByRole('button', { name: 'Previous session' }));
+      await waitFor(() => {
+        const searchParams = new URLSearchParams(env.lastSearch);
+        expect(searchParams.get('traceId')).toBe('trace:/cat.sch/tr-000');
+        expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBe('sess-1');
+      });
     });
   });
 

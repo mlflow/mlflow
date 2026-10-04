@@ -127,13 +127,30 @@ describe('useTracesV4UrlState', () => {
   });
 
   test('setTraceId writes and clears the traceId param without touching page', async () => {
-    const { result } = await mountHook('/p?page=3');
+    const { result } = await mountHook('/p?page=3&traceDrawerView=session&traceDrawerSessionId=session-old');
     act(() => result.current.setTraceId('tr-abc'));
     expect(param('traceId')).toBe('tr-abc');
     expect(param('page')).toBe('3'); // opening the drawer must not reset pagination
+    expect(param('traceDrawerView')).toBeNull();
+    expect(param('traceDrawerSessionId')).toBeNull();
 
     act(() => result.current.setTraceId(undefined));
     expect(param('traceId')).toBeNull();
+  });
+
+  test('setSessionTraceId writes session drawer state and close clears it atomically', async () => {
+    const { result } = await mountHook('/p?page=3');
+
+    act(() => result.current.setSessionTraceId('tr-abc', 'session-1'));
+    expect(param('traceId')).toBe('tr-abc');
+    expect(param('traceDrawerView')).toBe('session');
+    expect(param('traceDrawerSessionId')).toBe('session-1');
+    expect(param('page')).toBe('3');
+
+    act(() => result.current.setTraceId(undefined));
+    expect(param('traceId')).toBeNull();
+    expect(param('traceDrawerView')).toBeNull();
+    expect(param('traceDrawerSessionId')).toBeNull();
   });
 
   test('falls back to the legacy selectedEvaluationId param when traceId is absent', async () => {

@@ -134,8 +134,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const [drawerViewMode, setDrawerViewMode] = useState<'trace' | 'session'>(() =>
     controller.isGroupedBySession || sessionDrawerViewRequested ? 'session' : 'trace',
   );
-  const drawerViewModeRef = useRef(drawerViewMode);
-  drawerViewModeRef.current = drawerViewMode;
   const sessionsOnPage = useMemo(() => {
     const seen = new Set<string>();
     return page.traces.flatMap((trace) => {
@@ -147,15 +145,46 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       return [traceSession];
     });
   }, [page.traces]);
-  const activeTraceSession = useMemo(
-    () =>
-      selectedTraceSession ??
-      (traceFromUrl ? getSelectedTraceSession(traceFromUrl) : undefined) ??
-      (sessionDrawerViewRequested && requestedSessionId && url.traceId
-        ? { sessionId: requestedSessionId, traceId: url.traceId }
-        : undefined),
-    [requestedSessionId, selectedTraceSession, sessionDrawerViewRequested, traceFromUrl, url.traceId],
-  );
+  const activeTraceSession = useMemo(() => {
+    if (!url.traceId) {
+      return undefined;
+    }
+    const traceSessionFromUrl = traceFromUrl ? getSelectedTraceSession(traceFromUrl) : undefined;
+    if (sessionDrawerViewRequested && requestedSessionId) {
+      if (traceSessionFromUrl?.sessionId === requestedSessionId) {
+        return traceSessionFromUrl;
+      }
+      if (selectedTraceSession?.sessionId === requestedSessionId && selectedTraceSession.traceId === url.traceId) {
+        return selectedTraceSession;
+      }
+      return { sessionId: requestedSessionId, traceId: url.traceId };
+    }
+    return selectedTraceSession?.traceId === url.traceId ? selectedTraceSession : traceSessionFromUrl;
+  }, [requestedSessionId, selectedTraceSession, sessionDrawerViewRequested, traceFromUrl, url.traceId]);
+
+  // The URL is the durable drawer mode. This keeps direct links and Back/Forward navigation in sync
+  // with the radio control instead of treating those params as one-time initialization hints.
+  useEffect(() => {
+    if (!url.traceId) {
+      setSelectedTraceSession(undefined);
+      setDrawerViewMode('trace');
+      return;
+    }
+    if (sessionDrawerEnabled && sessionDrawerViewRequested && requestedSessionId) {
+      const traceSession = traceFromUrl ? getSelectedTraceSession(traceFromUrl) : undefined;
+      setSelectedTraceSession(
+        traceSession?.sessionId === requestedSessionId
+          ? traceSession
+          : { sessionId: requestedSessionId, traceId: url.traceId },
+      );
+      setDrawerViewMode('session');
+      return;
+    }
+    setDrawerViewMode('trace');
+    if (traceFromUrl) {
+      setSelectedTraceSession(getSelectedTraceSession(traceFromUrl));
+    }
+  }, [requestedSessionId, sessionDrawerEnabled, sessionDrawerViewRequested, traceFromUrl, url.traceId]);
   const activeSessionIndex = activeTraceSession
     ? sessionsOnPage.findIndex((session) => session.sessionId === activeTraceSession.sessionId)
     : -1;
@@ -167,7 +196,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       }
       setSelectedTraceSession(session);
       setDrawerViewMode('session');
-      url.setTraceId(session.traceId);
+      url.setSessionTraceId(session.traceId, session.sessionId);
     },
     [sessionsOnPage, url],
   );
@@ -180,16 +209,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             : undefined,
       }
     : undefined;
-
-  useEffect(() => {
-    if (!sessionDrawerViewRequested) {
-      return;
-    }
-    const next = new URLSearchParams(search);
-    next.delete(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM);
-    next.delete(TRACE_DRAWER_SESSION_ID_QUERY_PARAM);
-    navigate({ pathname, search: next.toString() ? `?${next}` : '', hash }, { replace: true });
-  }, [hash, navigate, pathname, search, sessionDrawerViewRequested]);
 
   // One "Reset to defaults" in the column selector clears standard, assessment, and custom overrides
   // plus the reordered column order.
@@ -331,7 +350,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     (trace: ModelTraceInfoV3) => {
       const traceSession = sessionDrawerEnabled ? getSelectedTraceSession(trace) : undefined;
       setSelectedTraceSession(traceSession);
-      setDrawerViewMode(drawerViewModeRef.current === 'session' && traceSession ? 'session' : 'trace');
+      setDrawerViewMode('trace');
       url.setTraceId(getTraceDrawerId(trace));
     },
     [sessionDrawerEnabled, url],
@@ -350,14 +369,29 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     },
     [sessionDrawerEnabled, url],
   );
+  const handleTraceInfoLoaded = useCallback(
+    (loadedTraceId: string, traceInfo: ModelTraceInfoV3) => {
+      if (!sessionDrawerEnabled || loadedTraceId !== url.traceId) {
+        return;
+      }
+      const traceSession = getSelectedTraceSession(traceInfo);
+      setSelectedTraceSession(traceSession ? { ...traceSession, traceId: loadedTraceId } : undefined);
+    },
+    [sessionDrawerEnabled, url.traceId],
+  );
   const handleDrawerViewModeChange = useCallback(
     (viewMode: 'trace' | 'session') => {
       if (viewMode === 'session' && activeTraceSession) {
-        setSelectedTraceSession({ ...activeTraceSession, traceId: url.traceId ?? activeTraceSession.traceId });
+        const traceId = url.traceId ?? activeTraceSession.traceId;
+        setSelectedTraceSession({ ...activeTraceSession, traceId });
+        setDrawerViewMode('session');
+        url.setSessionTraceId(traceId, activeTraceSession.sessionId);
+        return;
       }
-      setDrawerViewMode(viewMode);
+      setDrawerViewMode('trace');
+      url.setTraceId(url.traceId ?? activeTraceSession?.traceId);
     },
-    [activeTraceSession, url.traceId],
+    [activeTraceSession, url],
   );
 
   // Open a trace by adding `traceId` to the *current* location rather than resetting to a bare Traces
@@ -367,6 +401,9 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       const traceId = doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id;
       const searchParams = new URLSearchParams(search);
       searchParams.set('traceId', traceId);
+      searchParams.delete('spanId');
+      searchParams.delete(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM);
+      searchParams.delete(TRACE_DRAWER_SESSION_ID_QUERY_PARAM);
       return `${pathname}?${searchParams.toString()}${hash}`;
     },
     [pathname, search, hash],
@@ -403,7 +440,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         traceLocation: traceSession?.traceLocation,
       });
       setDrawerViewMode('session');
-      url.setTraceId(getTraceDrawerId(trace));
+      url.setSessionTraceId(getTraceDrawerId(trace), sessionId);
     },
     [url],
   );
@@ -659,6 +696,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             experimentId={experimentId}
             traces={page.traces}
             onSelectTrace={selectTraceFromExplorer}
+            onTraceInfoLoaded={handleTraceInfoLoaded}
             runJudgeConfiguration={actions.runJudges?.runJudgeConfiguration}
             viewModeControl={
               sessionDrawerEnabled

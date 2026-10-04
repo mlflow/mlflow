@@ -1,5 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import {
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) number-search-param helper from datasets-v2.
 import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useNumberSearchParam';
 import {
@@ -74,6 +78,8 @@ export interface TracesV4UrlState {
   /** Trace id whose detail drawer is open, or undefined. */
   traceId: string | undefined;
   setTraceId: (next: string | undefined) => void;
+  /** Opens the drawer in session mode and persists both the active trace and session. */
+  setSessionTraceId: (next: string, sessionId: string) => void;
   /** Whether traces are grouped into collapsible session rows. */
   isGroupedBySession: boolean;
   setIsGroupedBySession: (next: boolean) => void;
@@ -178,8 +184,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     [setSearchParams],
   );
 
-  const setTraceId = useCallback(
-    (next: string | undefined) => {
+  const setTraceIdWithSession = useCallback(
+    (next: string | undefined, sessionId?: string) => {
       setSearchParams((params) => {
         // Always drop the legacy alias so it doesn't shadow future canonical writes or linger in the URL.
         params.delete(LEGACY_TRACE_ID_PARAM);
@@ -188,10 +194,22 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
         } else {
           params.delete(TRACE_ID_PARAM);
         }
+        if (next && sessionId) {
+          params.set(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM, 'session');
+          params.set(TRACE_DRAWER_SESSION_ID_QUERY_PARAM, sessionId);
+        } else {
+          params.delete(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM);
+          params.delete(TRACE_DRAWER_SESSION_ID_QUERY_PARAM);
+        }
         return params;
       });
     },
     [setSearchParams],
+  );
+  const setTraceId = useCallback((next: string | undefined) => setTraceIdWithSession(next), [setTraceIdWithSession]);
+  const setSessionTraceId = useCallback(
+    (next: string, sessionId: string) => setTraceIdWithSession(next, sessionId),
+    [setTraceIdWithSession],
   );
 
   const setIsGroupedBySession = useCallback(
@@ -268,6 +286,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     setSort,
     traceId,
     setTraceId,
+    setSessionTraceId,
     isGroupedBySession,
     setIsGroupedBySession,
     tagFilters,
