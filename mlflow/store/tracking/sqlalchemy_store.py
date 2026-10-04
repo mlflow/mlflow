@@ -10063,14 +10063,25 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             fails_a_clause = []
             for key, comparator, value in clauses:
                 comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
-                satisfies = select(tag_id).where(
-                    tag_model.key == key,
-                    comparison(tag_model.value, value),
+                # Built through ``_get_query`` like the outer query, so a
+                # workspace-aware subclass scopes the satisfying set too. Scoping
+                # only the outer half would be the dangerous direction: children
+                # would be read in-scope but judged against out-of-scope tag rows.
+                satisfies = (
+                    self
+                    ._get_query(session, tag_model)
+                    .with_entities(tag_id)
+                    .filter(
+                        tag_model.key == key,
+                        comparison(tag_model.value, value),
+                    )
+                    .scalar_subquery()
                 )
                 fails_a_clause.append(~child_id.in_(satisfies))
             found = (
-                session
-                .query(child_id)
+                self
+                ._get_query(session, child_model)
+                .with_entities(child_id)
                 .filter(parent_column == parent_id, or_(*fails_a_clause))
                 .limit(1)
                 .first()
@@ -10122,8 +10133,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 for start in range(0, len(ordered), self._TAG_PUSHDOWN_ID_CHUNK):
                     chunk = ordered[start : start + self._TAG_PUSHDOWN_ID_CHUNK]
                     rows = (
-                        session
-                        .query(id_column)
+                        self
+                        ._get_query(session, tag_model)
+                        .with_entities(id_column)
                         .filter(
                             id_column.in_(chunk),
                             tag_model.key == key,

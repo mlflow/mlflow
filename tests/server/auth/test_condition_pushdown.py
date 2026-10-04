@@ -19,6 +19,7 @@ import tempfile
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import sql
 
 from mlflow.entities import RunTag, ViewType
 from mlflow.server.auth import resources as auth_resources
@@ -27,6 +28,7 @@ from mlflow.server.auth.conditions import (
     evaluate_resource,
     parse_condition,
 )
+from mlflow.store.tracking.dbmodels.models import SqlTag
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 TAG_KEY = "lifecycle"
@@ -161,6 +163,76 @@ def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_run
         "only the dev-tagged run satisfies != 'prod'; absent ids must not match, and "
         "the untagged run must not either"
     )
+
+
+class TestPushdownGoesThroughTheWorkspaceHook:
+    """Every query in both stores is built via ``_get_query`` -- the hook a
+    workspace-aware subclass overrides to enforce tenant isolation. The registry
+    store filters ``model.workspace`` there directly; the open-source tracking
+    store returns a bare query and documents that "workspace-aware subclasses
+    override this to enforce scoping". Every existing MCP query honours it.
+
+    A pushdown that builds its own ``session.query`` therefore bypasses the one
+    place isolation is enforced, and could match rows no other query in the
+    process would see. The tag tables carry no ``workspace`` column today, so
+    nothing leaks yet -- but the MCP and registry tables do, and a subclass that
+    scopes a tag table by joining would be silently skipped here.
+    """
+
+    def test_the_filter_honours_an_overridden_get_query(self, store_with_runs, monkeypatch):
+        store, _, ids = store_with_runs
+        original = store._get_query
+        # Patched only after setup, so creating the runs still works. A subclass
+        # excluding everything stands in for one scoping to another workspace:
+        # if the pushdown routes through the hook it must now match nothing.
+        monkeypatch.setattr(
+            store, "_get_query", lambda session, model: original(session, model).filter(sql.false())
+        )
+        pushed = store.filter_ids_by_tag_clauses(
+            "run", list(ids.values()), [(TAG_KEY, "=", "prod")]
+        )
+        assert pushed == set(), (
+            "the pushdown must build its query through _get_query; bypassing it ignores "
+            "whatever scoping a workspace-aware subclass applies"
+        )
+
+    def test_the_cascade_honours_an_overridden_get_query(self, store_with_runs, monkeypatch):
+        store, experiment_id, _ = store_with_runs
+        original = store._get_query
+        monkeypatch.setattr(
+            store, "_get_query", lambda session, model: original(session, model).filter(sql.false())
+        )
+        # With every row hidden the cascade sees no children, which is vacuously
+        # permitted -- the same answer as a genuinely empty experiment. Asserting
+        # False here is asserting the hook was consulted, not that nothing failed.
+        assert (
+            store.any_child_failing_tag_clauses("run", experiment_id, [(TAG_KEY, "!=", "prod")])
+            is False
+        )
+
+    def test_the_cascade_scopes_the_satisfying_set_too(self, monkeypatch):
+        """Scoping only the outer half is the fail-OPEN direction, so it needs its own test.
+
+        The all-hidden test above cannot catch it: with children hidden the outer
+        query returns nothing and the cascade permits, whatever the subquery did.
+        Here the children stay visible and only tag rows are hidden, which splits
+        the two readings -- and the correct one denies.
+        """
+        store, experiment_id = _store_with(monkeypatch, [("a", "dev"), ("b", "dev")])
+        original = store._get_query
+
+        def scoped(session, model):
+            query = original(session, model)
+            return query.filter(sql.false()) if model is SqlTag else query
+
+        monkeypatch.setattr(store, "_get_query", scoped)
+        # Honoured: no tag row is visible, so no child satisfies ``!= 'prod'`` and
+        # every child fails -> deny. Bypassed: the dev tags are read out of scope,
+        # every child satisfies -> permit, granting a write on another tenant's state.
+        assert (
+            store.any_child_failing_tag_clauses("run", experiment_id, [(TAG_KEY, "!=", "prod")])
+            is True
+        )
 
 
 def test_an_unknown_entity_declines_rather_than_matching(store_with_runs):
