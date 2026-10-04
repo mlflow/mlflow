@@ -431,6 +431,10 @@
     "defaultMessage": "No existing model definitions. Create a new one below.",
     "description": "Message when no existing model definitions"
   },
+  "/c/HOe": {
+    "defaultMessage": "Could not package the folder.",
+    "description": "Error when a skill folder cannot be packaged for upload"
+  },
   "/g45Xz": {
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
@@ -5559,6 +5563,10 @@
     "defaultMessage": "Use",
     "description": "Button to use a skill from the Skill Registry catalog"
   },
+  "JlMLaX": {
+    "defaultMessage": "No aliases",
+    "description": "Accessible label for an empty skill alias list"
+  },
   "JmNdE4": {
     "defaultMessage": "required",
     "description": "Text displayed next to a function parameter to indicate that it is required"
@@ -7286,6 +7294,10 @@
   "QEL+JO": {
     "defaultMessage": "This assessment is the root cause of the overall evaluation failure.",
     "description": "Root cause assessment hint that explains that this assessment is causing the overall assessment to fail."
+  },
+  "QEiCO8": {
+    "defaultMessage": "The location, ref, or path is too long.",
+    "description": "Validation error when a skill source field exceeds the length limit"
   },
   "QFbprt": {
     "defaultMessage": "This skill does not have any versions yet.",
@@ -16326,10 +16338,6 @@
   "y2rjoF": {
     "defaultMessage": "No trace data recorded",
     "description": "Empty state in the v2 dataset record side-panel trace modal when the trace has no spans"
-  },
-  "y3UnNi": {
-    "defaultMessage": "Digest must be 64 lowercase hex characters. You can omit it.",
-    "description": "Validation error for a skill content digest"
   },
   "y4I2zP": {
     "defaultMessage": "Select all traces on this page",

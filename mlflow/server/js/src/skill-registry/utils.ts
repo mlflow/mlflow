@@ -71,6 +71,9 @@ export interface SkillSourcePresentation {
   showExternalWarning: boolean;
 }
 
+/** `git@host:owner/repo.git`: host in group 1, path in group 2. */
+export const SCP_GIT_REMOTE_PATTERN = /^git@([^:]+):(.+)$/;
+
 const stripGitSuffix = (url: string) => url.replace(/\.git\/?$/i, '').replace(/\/$/, '');
 
 const encodeGitPath = (value: string) =>
@@ -87,7 +90,7 @@ export const toHttpsGitRepoUrl = (source: string): string | undefined => {
   if (https) {
     return sanitizeHref(stripGitSuffix(https));
   }
-  const scp = trimmed.match(/^git@([^:]+):(.+)$/);
+  const scp = trimmed.match(SCP_GIT_REMOTE_PATTERN);
   if (scp) {
     return sanitizeHref(`https://${scp[1]}/${stripGitSuffix(scp[2]).replace(/^\/+/, '')}`);
   }
@@ -159,7 +162,7 @@ export const describeSkillSource = (
   };
 };
 
-const safeDecode = (value: string) => {
+export const safeDecode = (value: string) => {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -201,42 +204,6 @@ export const formatSkillReferenceUris = (name: string, organization = '', versio
   formatSkillUri(name, organization, version),
   ...aliases.map((alias) => formatSkillAliasUri(name, organization, alias)),
 ];
-
-export const formatSkillPullCli = (uri: string, destination: string) =>
-  `mlflow skills pull ${uri} \\\n    --destination ${destination}`;
-
-export const formatSkillPullPython = ({
-  name,
-  organization,
-  version,
-  destination,
-}: {
-  name: string;
-  organization?: string;
-  version?: number;
-  destination: string;
-}) => {
-  const args = [`name="${name}"`];
-  if (organization) {
-    args.push(`organization="${organization}"`);
-  }
-  if (version != null) {
-    args.push(`version=${version}`);
-  }
-  args.push(`destination="${destination}"`);
-  return `import mlflow.genai\n\nmlflow.genai.pull(\n    ${args.join(',\n    ')},\n)`;
-};
-
-export const buildAliasesByVersion = (aliases: SkillAlias[] = []): Record<number, string[]> => {
-  const result: Record<number, string[]> = {};
-  for (const { alias, version } of aliases) {
-    if (!result[version]) {
-      result[version] = [];
-    }
-    result[version].push(alias);
-  }
-  return result;
-};
 
 export const aliasesForVersion = (
   skill: Pick<Skill, 'aliases'> | undefined,
@@ -327,8 +294,6 @@ export const parseSkillVersionParam = (value: string | null): number | undefined
   }
   return Number(value);
 };
-
-export const buildSkillSourceHref = (source?: string | null): string | undefined => sanitizeHref(source ?? undefined);
 
 export const isPermissionDeniedError = (error: Error | null | undefined) =>
   error instanceof PermissionError || error?.name === 'PermissionError';

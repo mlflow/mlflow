@@ -22,7 +22,7 @@ import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams }
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import { MlflowSidebarAiRegistryItems } from './MlflowSidebarAiRegistryItems';
+import { isAiRegistryActive, MlflowSidebarAiRegistryItems } from './MlflowSidebarAiRegistryItems';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
@@ -52,13 +52,7 @@ const isExperimentsActive = (location: Location) =>
     matchPath('/compare-experiments/*', location.pathname),
   );
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
-const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
-const isMCPRegistryActive = (location: Location) => Boolean(matchPath('/mcp-registry/*', location.pathname));
-const isSkillRegistryActive = (location: Location) =>
-  Boolean(matchPath({ path: '/skills', end: true }, location.pathname) || matchPath('/skills/*', location.pathname));
-const isAiRegistryActive = (location: Location) =>
-  isPromptsActive(location) || isMCPRegistryActive(location) || isSkillRegistryActive(location);
 const isSettingsActive = (location: Location) =>
   Boolean(
     matchPath({ path: '/settings', end: true }, location.pathname) ||

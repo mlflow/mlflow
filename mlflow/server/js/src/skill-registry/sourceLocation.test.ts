@@ -3,14 +3,16 @@ import { SkillStatus } from './types';
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
-  formatSkillImportCli,
-  formatSkillImportPython,
-  formatSkillRegisterCli,
-  formatSkillRegisterPython,
   parseSkillIdentityInput,
   parseSkillLocation,
   toRegisterSkillRequest,
 } from './sourceLocation';
+import {
+  formatSkillImportCli,
+  formatSkillImportPython,
+  formatSkillRegisterCli,
+  formatSkillRegisterPython,
+} from './snippets';
 
 const fields = {
   location: '',
@@ -18,7 +20,6 @@ const fields = {
   sourceTypeOverride: '' as const,
   ref: '',
   subpath: '',
-  digest: '',
   status: SkillStatus.ACTIVE,
 };
 
@@ -100,7 +101,6 @@ describe('buildExternalSkillVersionRequest', () => {
       location: 'https://github.com/acme/skills/tree/main/skills/code-review',
       ref: 'main',
       subpath: 'skills/code-review',
-      digest: 'sha256:' + 'a'.repeat(64),
     });
     expect(named.ok).toBe(true);
     if (!named.ok) return;
@@ -111,7 +111,6 @@ describe('buildExternalSkillVersionRequest', () => {
       source_type: 'git',
       ref: 'main',
       subpath: 'skills/code-review',
-      digest: 'a'.repeat(64),
       status: 'active',
     });
   });
@@ -145,7 +144,7 @@ describe('buildExternalSkillVersionRequest', () => {
     expect(conflict).toEqual({ ok: false, error: 'source_type_conflict' });
   });
 
-  it('rejects credentials, refs on non-git sources, and malformed digests', () => {
+  it('rejects credentials, refs on non-git sources, and non-creatable statuses', () => {
     expect(
       buildExternalSkillVersionRequest({
         ...fields,
@@ -159,13 +158,6 @@ describe('buildExternalSkillVersionRequest', () => {
         ref: 'main',
       }),
     ).toEqual({ ok: false, error: 'ref_not_git' });
-    expect(
-      buildExternalSkillVersionRequest({
-        ...fields,
-        location: 'https://github.com/acme/skills.git',
-        digest: 'abc',
-      }),
-    ).toEqual({ ok: false, error: 'digest_invalid' });
     expect(
       buildExternalSkillVersionRequest({
         ...fields,
@@ -196,7 +188,7 @@ describe('local skill registration', () => {
       name: 'prompt-style-guide',
     });
     expect(formatSkillRegisterCli({ location: '', local: false })).toBe(
-      "mlflow skills register git \\\n  --url '<location>'",
+      "mlflow skills register git \\\n    --url '<location>'",
     );
     expect(
       formatSkillRegisterCli({
@@ -206,7 +198,7 @@ describe('local skill registration', () => {
         name: "o'brien",
       }),
     ).toBe(
-      "mlflow skills register zip \\\n  --name 'o'\\''brien' \\\n  --url 'https://example.com/skill.zip?token=a&next=b'",
+      "mlflow skills register zip \\\n    --name 'o'\\''brien' \\\n    --url 'https://example.com/skill.zip?token=a&next=b'",
     );
   });
 
@@ -224,12 +216,12 @@ describe('local skill registration', () => {
     expect(formatSkillRegisterCli(options)).toBe(
       [
         'mlflow skills register git',
-        "  --name 'code-review'",
-        "  --organization 'acme'",
-        "  --url 'https://github.com/acme/skills'",
-        "  --ref 'main'",
-        "  --subpath 'skills/code-review'",
-        '  --status draft',
+        "    --name 'code-review'",
+        "    --organization 'acme'",
+        "    --url 'https://github.com/acme/skills'",
+        "    --ref 'main'",
+        "    --subpath 'skills/code-review'",
+        '    --status draft',
       ].join(' \\\n'),
     );
     expect(formatSkillRegisterPython(options)).toBe(
@@ -247,12 +239,28 @@ describe('local skill registration', () => {
     );
     expect(
       formatSkillRegisterCli({ location: 'quay.io/acme/skill:1.0', local: false, sourceType: 'oci', ref: 'main' }),
-    ).toBe("mlflow skills register oci \\\n  --image 'quay.io/acme/skill:1.0'");
+    ).toBe("mlflow skills register oci \\\n    --image 'quay.io/acme/skill:1.0'");
+  });
+
+  it('quotes the local directory placeholder', () => {
+    expect(formatSkillRegisterCli({ location: '', local: true })).toBe("mlflow skills register '<directory>'");
+  });
+
+  it('keeps the owner of SCP remotes, including GitLab subgroups', () => {
+    expect(parseSkillLocation('git@github.com:acme/skills.git')).toMatchObject({
+      sourceType: 'git',
+      suggestedName: 'skills',
+      suggestedOrganization: 'acme',
+    });
+    expect(parseSkillLocation('git@gitlab.com:acme/platform/skills.git')).toMatchObject({
+      suggestedName: 'skills',
+      suggestedOrganization: 'acme',
+    });
   });
 
   it('formats the repository import pointer', () => {
     expect(formatSkillImportCli({ source: 'https://github.com/acme/skills', ref: 'v1', organization: 'acme' })).toBe(
-      "mlflow skills import --source 'https://github.com/acme/skills' \\\n  --ref 'v1' \\\n  --organization 'acme'",
+      "mlflow skills import --source 'https://github.com/acme/skills' \\\n    --ref 'v1' \\\n    --organization 'acme'",
     );
     expect(formatSkillImportPython({ source: 'https://github.com/acme/skills', organization: 'acme' })).toBe(
       'import mlflow\n\nmlflow.genai.import_skills(\n    source="https://github.com/acme/skills",\n    organization="acme",\n)',

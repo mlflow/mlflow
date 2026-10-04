@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 import { SkillRegistryApi } from '../api';
 import type {
@@ -8,7 +8,7 @@ import type {
   SkillVersion,
   UploadedSkillVersionRequest,
 } from '../types';
-import { SKILL_QUERY_KEYS } from '../utils';
+import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 
 export type RegisterSkillMutationInput =
   | { kind: 'register'; request: RegisterExternalSkillRequest }
@@ -17,7 +17,7 @@ export type RegisterSkillMutationInput =
   | { kind: 'version-upload'; name: string; organization: string; request: UploadedSkillVersionRequest; content: Blob };
 
 export const useRegisterSkillMutation = () => {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateSkillQueries();
   return useMutation<SkillVersion, Error, RegisterSkillMutationInput>({
     mutationFn: (input) => {
       if (input.kind === 'register') {
@@ -31,11 +31,6 @@ export const useRegisterSkillMutation = () => {
       }
       return SkillRegistryApi.createSkillVersion(input.name, input.request, input.organization);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries([SKILL_QUERY_KEYS.SKILLS_LIST]);
-      queryClient.invalidateQueries([SKILL_QUERY_KEYS.SKILL]);
-      queryClient.invalidateQueries([SKILL_QUERY_KEYS.SKILL_VERSIONS]);
-      queryClient.invalidateQueries([SKILL_QUERY_KEYS.SKILL_VERSION]);
-    },
+    onSuccess: () => invalidate(),
   });
 };

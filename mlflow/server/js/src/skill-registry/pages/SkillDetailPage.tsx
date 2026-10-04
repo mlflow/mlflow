@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Breadcrumb,
@@ -16,7 +16,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { Link, useNavigate, useParams } from '../../common/utils/RoutingUtils';
@@ -30,13 +29,11 @@ import {
   isPermissionDeniedError,
   isSkillDimmed,
   parseSkillRouteParams,
-  resolveDefaultSkillVersion,
   visibleSkillVersions,
 } from '../utils';
 import { headerIconStyles } from '../styles';
 import { useSkillQuery } from '../hooks/useSkillQuery';
-import { useSkillVersionQuery, useSkillVersionsQuery } from '../hooks/useSkillVersionsQuery';
-import { useSelectedSkillVersion } from '../hooks/useSelectedSkillVersion';
+import { useSkillVersionSelection } from '../hooks/useSkillVersionSelection';
 import { SkillIcon } from '../components/SkillIcon';
 import { SkillTags } from '../components/SkillTags';
 import { SkillExpandableDescription } from '../components/SkillExpandableDescription';
@@ -44,14 +41,12 @@ import { SkillPencilButton } from '../components/SkillPencilButton';
 import { SkillVersionList } from '../components/SkillVersionList';
 import { SkillVersionDetail } from '../components/SkillVersionDetail';
 import { RegisterSkillModal } from '../components/RegisterSkillModal';
-import { SkillRegistryApi } from '../api';
 import { useEditSkillModal } from '../hooks/useEditSkillModal';
 import { useDeleteSkillModal } from '../hooks/useDeleteSkillModal';
 import { useDeleteSkillVersionModal } from '../hooks/useDeleteSkillVersionModal';
-import { useInvalidateSkillQueries } from '../hooks/useInvalidateSkillQueries';
 import { useSkillGovernanceModals } from '../hooks/useSkillGovernanceModals';
 import { SkillRegistryEmptyState } from '../components/SkillRegistryEmptyState';
-import { SkillStatus, type Skill } from '../types';
+import type { Skill } from '../types';
 
 const breadcrumbs = (
   <Breadcrumb>
@@ -166,7 +161,7 @@ const SkillDetailHeader = ({
           {organizationLabel}
         </Typography.Text>
       )}
-      {skill.description && <SkillExpandableDescription text={skill.description} />}
+      {skill.description && <SkillExpandableDescription key={skill.description} text={skill.description} />}
       {(hasTags || canUpdate) && (
         <div
           css={{
@@ -199,60 +194,19 @@ const SkillDetailPage = () => {
   const navigate = useNavigate();
   const params = useParams<{ skillKey?: string; organization?: string; skillName?: string }>();
   const { name, organization } = parseSkillRouteParams(params);
-  const [selectedVersion, setSelectedVersion] = useSelectedSkillVersion();
   const [createVersionOpen, setCreateVersionOpen] = useState(false);
   const { data: skill, isLoading: skillLoading, error: skillError, refetch } = useSkillQuery(name, organization);
   const {
-    data: versions,
-    hasMoreVersions,
-    isLoading: versionsLoading,
-    error: versionsError,
-  } = useSkillVersionsQuery(name, organization);
-
-  const selectedFromList = versions?.find((version) => version.version === selectedVersion);
-  const selectedVersionDeleted = selectedFromList?.status === SkillStatus.DELETED;
-  const shouldFetchSelectedVersion = selectedVersion != null && !selectedFromList && !versionsLoading;
-  const {
-    data: fetchedVersion,
-    isLoading: fetchedVersionLoading,
-    error: fetchedVersionError,
-  } = useSkillVersionQuery(name, organization, selectedVersion, shouldFetchSelectedVersion);
-  const currentVersion = selectedVersionDeleted ? undefined : (selectedFromList ?? fetchedVersion);
-  const selectedVersionMissing =
-    selectedVersionDeleted ||
-    (shouldFetchSelectedVersion &&
-      !fetchedVersionLoading &&
-      (isNotFoundError(fetchedVersionError) || currentVersion?.status === SkillStatus.DELETED));
-  const selectedVersionError =
-    shouldFetchSelectedVersion && !fetchedVersionLoading && fetchedVersionError && !selectedVersionMissing
-      ? fetchedVersionError
-      : undefined;
-  const isVersionDetailLoading =
-    Boolean(selectedVersion) &&
-    !currentVersion &&
-    !selectedVersionMissing &&
-    !selectedVersionError &&
-    (versionsLoading || fetchedVersionLoading);
-
-  useEffect(() => {
-    if (selectedVersion != null || skillLoading || !skill) {
-      return;
-    }
-    if (skill.latest_version != null) {
-      setSelectedVersion(skill.latest_version);
-      return;
-    }
-    if (versionsLoading) {
-      return;
-    }
-    const next = resolveDefaultSkillVersion(skill, versions);
-    if (next != null) {
-      setSelectedVersion(next);
-    }
-  }, [selectedVersion, skill, skillLoading, versions, versionsLoading, setSelectedVersion]);
+    versionsQuery: { data: versions, hasMoreVersions, isLoading: versionsLoading, error: versionsError },
+    selectedVersion,
+    setSelectedVersion,
+    currentVersion,
+    isLoading: isVersionDetailLoading,
+    isMissing: selectedVersionMissing,
+    error: selectedVersionError,
+  } = useSkillVersionSelection(name, organization, skill);
 
   const permissions = getSkillPermissions(skill);
-  const invalidate = useInvalidateSkillQueries();
   const aliases = (skill?.aliases ?? [])
     .filter((alias) => alias.alias !== 'latest')
     .map((alias) => ({ alias: alias.alias, version: String(alias.version) }));
@@ -276,11 +230,9 @@ const SkillDetailPage = () => {
     aliases,
     canDelete: permissions.canDelete,
   });
-  const statusMutation = useMutation<unknown, Error, { version: number; status: SkillStatus }>({
-    mutationFn: ({ version, status }) =>
-      SkillRegistryApi.updateSkillVersionStatus(name, version, { status }, organization),
-    onSuccess: () => invalidate(name, organization),
-  });
+  const { statusMutation } = governance;
+  const editableVersion = permissions.canUpdate ? currentVersion : undefined;
+  const deletableVersion = permissions.canDelete ? currentVersion : undefined;
 
   if (skillLoading) {
     return (
@@ -416,28 +368,21 @@ const SkillDetailPage = () => {
         >
           <SkillVersionDetail
             skill={skill}
-            version={selectedVersionMissing ? undefined : currentVersion}
+            version={currentVersion}
             isLoading={isVersionDetailLoading}
             isMissing={selectedVersionMissing}
             error={selectedVersionError}
-            canUpdate={permissions.canUpdate}
-            onEditAliases={
-              currentVersion ? () => governance.showEditAliasesModal(String(currentVersion.version)) : undefined
+            onEditAliases={editableVersion && (() => governance.showEditAliasesModal(String(editableVersion.version)))}
+            onEditMetadata={editableVersion && (() => governance.showEditVersionMetadata(editableVersion))}
+            onDelete={deletableVersion && (() => openDeleteSkillVersion(deletableVersion.version))}
+            statusUpdate={
+              editableVersion && {
+                onChange: (status) => statusMutation.mutate({ version: editableVersion.version, status }),
+                isPending: statusMutation.isLoading,
+                error: statusMutation.variables?.version === editableVersion.version ? statusMutation.error : undefined,
+                onDismissError: statusMutation.reset,
+              }
             }
-            onEditMetadata={currentVersion ? () => governance.showEditVersionMetadata(currentVersion) : undefined}
-            onDelete={
-              permissions.canDelete && currentVersion ? () => openDeleteSkillVersion(currentVersion.version) : undefined
-            }
-            onStatusChange={
-              currentVersion
-                ? (status) => statusMutation.mutate({ version: currentVersion.version, status })
-                : undefined
-            }
-            isStatusUpdating={statusMutation.isLoading}
-            statusUpdateError={
-              statusMutation.variables?.version === currentVersion?.version ? statusMutation.error : undefined
-            }
-            onDismissStatusUpdateError={statusMutation.reset}
             isOnlyLiveVersion={!hasMoreVersions && visibleSkillVersions(versions).length <= 1}
           />
         </div>

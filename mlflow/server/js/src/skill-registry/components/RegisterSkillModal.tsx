@@ -3,38 +3,28 @@ import {
   Alert,
   Button,
   ChevronDownIcon,
-  ChevronLeftIcon,
   ChevronRightIcon,
-  CopyIcon,
   FormUI,
   Input,
   Modal,
-  PlusIcon,
   Radio,
-  SegmentedControlButton,
-  SegmentedControlGroup,
   SimpleSelect,
   SimpleSelectOption,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 
-import { CopyButton } from '../../shared/building_blocks/CopyButton';
-import { KeyValueTag } from '../../common/components/KeyValueTag';
-import { CodeSnippet } from '@databricks/web-shared/snippet';
 import Utils from '../../common/utils/Utils';
 import { SkillIconEditor } from './SkillIconEditor';
+import { SkillTagsInput } from './SkillTagsInput';
+import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiView';
 import { SkillRegistryApi } from '../api';
-import { useRegisterSkillMutation } from '../hooks/useRegisterSkillMutation';
+import { useRegisterSkillMutation, type RegisterSkillMutationInput } from '../hooks/useRegisterSkillMutation';
 import { findSkillManifest, packageSkillFolder, readSkillManifest } from '../localSkillFolder';
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
-  formatSkillImportCli,
-  formatSkillImportPython,
-  formatSkillRegisterCli,
-  formatSkillRegisterPython,
   parseSkillIdentityInput,
   parseSkillLocation,
   toRegisterSkillRequest,
@@ -42,187 +32,13 @@ import {
   type SkillRegistrationFields,
   type SkillRegistrationSourceType,
 } from '../sourceLocation';
-import { overlayButtonStyles } from '../styles';
+import { formatSkillImportCli, type SkillImportSnippetOptions, type SkillRegisterSnippetOptions } from '../snippets';
 import { SkillStatus, type RegistryIcon, type SkillVersion } from '../types';
 import { formatSkillIdentity, formatSkillSourceLabel } from '../utils';
 
 type RegistrationMode = 'pointer' | 'upload';
-type DialogView = 'form' | 'api';
-type SnippetFormat = 'cli' | 'python';
 
-const CopyableSnippet = ({
-  componentId,
-  code,
-  format,
-  copyLabel,
-}: {
-  componentId: string;
-  code: string;
-  format: SnippetFormat;
-  copyLabel: string;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <div css={{ position: 'relative' }}>
-      <CopyButton
-        componentId={componentId}
-        showLabel={false}
-        copyText={code}
-        icon={<CopyIcon />}
-        aria-label={copyLabel}
-        css={overlayButtonStyles(theme)}
-      />
-      <CodeSnippet
-        language={format === 'python' ? 'python' : 'text'}
-        theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-        style={{ padding: theme.spacing.sm, paddingRight: theme.spacing.xl + theme.spacing.sm }}
-      >
-        {code}
-      </CodeSnippet>
-    </div>
-  );
-};
-
-const RepositoryImportHint = ({ code, format }: { code: string; format: SnippetFormat }) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-      <Typography.Text size="sm" color="secondary">
-        <FormattedMessage
-          defaultMessage="Registering every skill in this repository? Run this instead:"
-          description="Pointer from single-skill registration to the repository import command"
-        />
-      </Typography.Text>
-      <CopyableSnippet
-        componentId="mlflow.skill_registry.register_modal.repository_import.copy"
-        code={code}
-        format={format}
-        copyLabel={intl.formatMessage({
-          defaultMessage: 'Copy repository import command',
-          description: 'Aria label for copying the skill repository import command',
-        })}
-      />
-    </div>
-  );
-};
-
-const EMPTY_FORM: SkillRegistrationFields = {
-  location: '',
-  identity: '',
-  sourceTypeOverride: '',
-  ref: '',
-  subpath: '',
-  digest: '',
-  status: SkillStatus.ACTIVE,
-};
-
-const errorMessage = (error: SkillRegistrationErrorCode) => {
-  switch (error) {
-    case 'location_required':
-      return (
-        <FormattedMessage
-          defaultMessage="Enter a source location."
-          description="Validation error when skill registration has no source URL"
-        />
-      );
-    case 'name_required':
-      return (
-        <FormattedMessage
-          defaultMessage="Enter a skill name."
-          description="Validation error when skill registration has no name"
-        />
-      );
-    case 'name_invalid':
-      return (
-        <FormattedMessage
-          defaultMessage="Names must be lowercase letters, digits, and single hyphens, as in @my-org/my-skill."
-          description="Validation error for a skill registration name"
-        />
-      );
-    case 'organization_invalid':
-      return (
-        <FormattedMessage
-          defaultMessage="Organization names must be lowercase letters, digits, hyphens, and periods."
-          description="Validation error for a skill registration organization"
-        />
-      );
-    case 'source_type_required':
-      return (
-        <FormattedMessage
-          defaultMessage="Choose a source type in Advanced settings. The location is not a Git, OCI, or ZIP URL."
-          description="Validation error when a skill source type cannot be inferred"
-        />
-      );
-    case 'source_type_conflict':
-      return (
-        <FormattedMessage
-          defaultMessage="That source type does not match this location."
-          description="Validation error when a skill source type override contradicts the URL"
-        />
-      );
-    case 'credentials':
-      return (
-        <FormattedMessage
-          defaultMessage="Remove credentials from the URL. They would be stored with the skill."
-          description="Validation error when a skill source URL contains credentials"
-        />
-      );
-    case 'zip_scheme':
-      return (
-        <FormattedMessage
-          defaultMessage="A ZIP source must be an http(s) URL."
-          description="Validation error for a non-HTTP skill ZIP source"
-        />
-      );
-    case 'ref_not_git':
-      return (
-        <FormattedMessage
-          defaultMessage="Ref is only used for Git sources."
-          description="Validation error when a skill ref is set for a non-Git source"
-        />
-      );
-    case 'digest_invalid':
-      return (
-        <FormattedMessage
-          defaultMessage="Digest must be 64 lowercase hex characters. You can omit it."
-          description="Validation error for a skill content digest"
-        />
-      );
-    case 'status':
-      return (
-        <FormattedMessage
-          defaultMessage="New versions can be Active or Draft."
-          description="Validation error when a new skill version status is not active or draft"
-        />
-      );
-    case 'skill_md_required':
-      return (
-        <FormattedMessage
-          defaultMessage="Select the directory containing SKILL.md."
-          description="Validation error when a skill folder upload has no SKILL.md"
-        />
-      );
-    default:
-      return (
-        <FormattedMessage
-          defaultMessage="Enter a remote Git, OCI, or ZIP location."
-          description="Validation error for an invalid skill source location"
-        />
-      );
-  }
-};
-
-const clientSourceType = (sourceType: string | null | undefined): '' | SkillRegistrationSourceType =>
-  sourceType === 'git' || sourceType === 'oci' || sourceType === 'zip' ? sourceType : '';
-
-export const RegisterSkillModal = ({
-  visible,
-  onClose,
-  skill,
-  sourceVersion,
-  onRegistered,
-}: {
+interface RegisterSkillModalProps {
   visible: boolean;
   onClose: () => void;
   /** Set when adding a version to an existing skill. Identity stays fixed. */
@@ -230,100 +46,145 @@ export const RegisterSkillModal = ({
   /** Version whose source is copied into the form. Status stays Active. */
   sourceVersion?: SkillVersion;
   onRegistered: (version: SkillVersion) => void;
-}) => {
+}
+
+const EMPTY_FORM: SkillRegistrationFields = {
+  location: '',
+  identity: '',
+  sourceTypeOverride: '',
+  ref: '',
+  subpath: '',
+  status: SkillStatus.ACTIVE,
+};
+
+// A Record keyed by every error code, so adding a code without a message fails type checking.
+const REGISTRATION_ERROR_MESSAGES: Record<SkillRegistrationErrorCode, { defaultMessage: string; description: string }> =
+  defineMessages({
+    location_required: {
+      defaultMessage: 'Enter a source location.',
+      description: 'Validation error when skill registration has no source URL',
+    },
+    name_required: {
+      defaultMessage: 'Enter a skill name.',
+      description: 'Validation error when skill registration has no name',
+    },
+    name_invalid: {
+      defaultMessage: 'Names must be lowercase letters, digits, and single hyphens, as in @my-org/my-skill.',
+      description: 'Validation error for a skill registration name',
+    },
+    organization_invalid: {
+      defaultMessage: 'Organization names must be lowercase letters, digits, hyphens, and periods.',
+      description: 'Validation error for a skill registration organization',
+    },
+    source_type_required: {
+      defaultMessage: 'Choose a source type in Advanced settings. The location is not a Git, OCI, or ZIP URL.',
+      description: 'Validation error when a skill source type cannot be inferred',
+    },
+    source_type_conflict: {
+      defaultMessage: 'That source type does not match this location.',
+      description: 'Validation error when a skill source type override contradicts the URL',
+    },
+    credentials: {
+      defaultMessage: 'Remove credentials from the URL. They would be stored with the skill.',
+      description: 'Validation error when a skill source URL contains credentials',
+    },
+    zip_scheme: {
+      defaultMessage: 'A ZIP source must be an http(s) URL.',
+      description: 'Validation error for a non-HTTP skill ZIP source',
+    },
+    ref_not_git: {
+      defaultMessage: 'Ref is only used for Git sources.',
+      description: 'Validation error when a skill ref is set for a non-Git source',
+    },
+    source_invalid: {
+      defaultMessage: 'Enter a remote Git, OCI, or ZIP location.',
+      description: 'Validation error for an invalid skill source location',
+    },
+    source_too_long: {
+      defaultMessage: 'The location, ref, or path is too long.',
+      description: 'Validation error when a skill source field exceeds the length limit',
+    },
+    status: {
+      defaultMessage: 'New versions can be Active or Draft.',
+      description: 'Validation error when a new skill version status is not active or draft',
+    },
+    skill_md_required: {
+      defaultMessage: 'Select the directory containing SKILL.md.',
+      description: 'Validation error when a skill folder upload has no SKILL.md',
+    },
+  });
+
+const clientSourceType = (sourceType: string | null | undefined): '' | SkillRegistrationSourceType =>
+  sourceType === 'git' || sourceType === 'oci' || sourceType === 'zip' ? sourceType : '';
+
+const initialForm = (sourceVersion?: SkillVersion): SkillRegistrationFields =>
+  sourceVersion
+    ? {
+        ...EMPTY_FORM,
+        location: sourceVersion.source ?? '',
+        sourceTypeOverride: clientSourceType(sourceVersion.source_type),
+        ref: sourceVersion.ref ?? '',
+        subpath: sourceVersion.subpath ?? '',
+      }
+    : EMPTY_FORM;
+
+// The dialog is only mounted while visible, so every open starts from fresh state.
+export const RegisterSkillModal = (props: RegisterSkillModalProps) =>
+  props.visible ? <RegisterSkillDialog {...props} /> : null;
+
+const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: RegisterSkillModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const isVersion = Boolean(skill);
   const fixedIdentity = skill ? formatSkillIdentity(skill.name, skill.organization) : '';
-  const [view, setView] = useState<DialogView>('form');
-  const [snippetFormat, setSnippetFormat] = useState<SnippetFormat>('cli');
+  const [view, setView] = useState<'form' | 'api'>('form');
   const [mode, setMode] = useState<RegistrationMode>('pointer');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [advancedOpen, setAdvancedOpen] = useState(Boolean(sourceVersion));
+  const [form, setForm] = useState(() => initialForm(sourceVersion));
   const [description, setDescription] = useState('');
   const [icons, setIcons] = useState<RegistryIcon[]>([]);
   const [tags, setTags] = useState<Record<string, string>>({});
-  const [tagKey, setTagKey] = useState('');
-  const [tagValue, setTagValue] = useState('');
   const [folderFiles, setFolderFiles] = useState<File[]>([]);
   const [identityTouched, setIdentityTouched] = useState(false);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [refTouched, setRefTouched] = useState(false);
   const [subpathTouched, setSubpathTouched] = useState(false);
-  const [validationError, setValidationError] = useState<SkillRegistrationErrorCode | undefined>();
-  const [presentationError, setPresentationError] = useState<string | undefined>();
-  const submitErrorRef = useRef<HTMLDivElement>(null);
-  const submissionRef = useRef(0);
+  const [validationError, setValidationError] = useState<SkillRegistrationErrorCode>();
+  const [packageError, setPackageError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
-  const { mutate, isLoading, error, reset } = useRegisterSkillMutation();
-  const seeded = useRef(false);
+  const submitErrorRef = useRef<HTMLDivElement>(null);
+  // Async work outliving a cancel must not close or navigate a dialog the user already left.
+  const closedRef = useRef(false);
+  const { mutateAsync, error } = useRegisterSkillMutation();
 
   useEffect(() => {
-    if (!validationError && !presentationError && !error) return;
+    if (!validationError && !packageError && !error) return;
     submitErrorRef.current?.scrollIntoView?.({ block: 'nearest' });
-  }, [validationError, presentationError, error]);
+  }, [validationError, packageError, error]);
 
   const parsed = parseSkillLocation(form.location);
   const effectiveSourceType = form.sourceTypeOverride || parsed?.sourceType;
   const hasSkillManifest = Boolean(findSkillManifest(folderFiles));
+  const ref = form.ref.trim();
+  const subpath = form.subpath.trim();
 
   const close = () => {
-    submissionRef.current += 1;
-    setSubmitting(false);
-    setView('form');
-    setSnippetFormat('cli');
-    setMode('pointer');
-    setAdvancedOpen(false);
-    setForm(EMPTY_FORM);
-    setDescription('');
-    setIcons([]);
-    setTags({});
-    setTagKey('');
-    setTagValue('');
-    setFolderFiles([]);
-    setIdentityTouched(false);
-    setDescriptionTouched(false);
-    setRefTouched(false);
-    setSubpathTouched(false);
-    setValidationError(undefined);
-    setPresentationError(undefined);
-    seeded.current = false;
-    reset();
+    closedRef.current = true;
     onClose();
   };
 
-  useEffect(() => {
-    if (!visible) {
-      seeded.current = false;
-      return;
-    }
-    if (!sourceVersion || seeded.current) return;
-    seeded.current = true;
-    setForm({
-      ...EMPTY_FORM,
-      location: sourceVersion.source ?? '',
-      sourceTypeOverride: clientSourceType(sourceVersion.source_type),
-      ref: sourceVersion.ref ?? '',
-      subpath: sourceVersion.subpath ?? '',
-    });
-    setAdvancedOpen(true);
-  }, [visible, sourceVersion]);
-
   const applyLocation = (location: string) => {
     const nextParsed = parseSkillLocation(location);
-    setForm((current) => {
-      const suggested =
+    setForm((current) => ({
+      ...current,
+      location,
+      identity:
         !isVersion && !identityTouched && nextParsed?.suggestedName
           ? formatSkillIdentity(nextParsed.suggestedName, nextParsed.suggestedOrganization)
-          : current.identity;
-      return {
-        ...current,
-        location,
-        identity: suggested,
-        ref: refTouched ? current.ref : (nextParsed?.ref ?? ''),
-        subpath: subpathTouched ? current.subpath : (nextParsed?.subpath ?? ''),
-      };
-    });
+          : current.identity,
+      ref: refTouched ? current.ref : (nextParsed?.ref ?? ''),
+      subpath: subpathTouched ? current.subpath : (nextParsed?.subpath ?? ''),
+    }));
     setValidationError(undefined);
   };
 
@@ -331,24 +192,17 @@ export const RegisterSkillModal = ({
     setFolderFiles(files);
     setValidationError(undefined);
     const manifestFile = findSkillManifest(files);
-    if (!manifestFile) return;
+    if (!manifestFile || isVersion) return;
     const manifest = readSkillManifest(await manifestFile.text());
-    if (!isVersion && manifest.name && !identityTouched) {
+    if (manifest.name && !identityTouched) {
       setForm((current) => ({ ...current, identity: manifest.name ?? current.identity }));
     }
-    if (!isVersion && manifest.description && !descriptionTouched) {
+    if (manifest.description && !descriptionTouched) {
       setDescription(manifest.description);
     }
   };
 
-  const addTag = () => {
-    const key = tagKey.trim();
-    if (!key) return;
-    setTags((current) => ({ ...current, [key]: tagValue }));
-    setTagKey('');
-    setTagValue('');
-  };
-
+  // Description, icons and tags are not part of the register payload; they use their own endpoints.
   const savePresentation = async (version: SkillVersion) => {
     if (isVersion) return;
     const savedIcons = icons.filter((icon) => icon.src.trim());
@@ -362,103 +216,86 @@ export const RegisterSkillModal = ({
         version.organization,
       );
     }
-    for (const [key, value] of Object.entries(tags)) {
-      await SkillRegistryApi.setSkillTag(version.name, { key, value }, version.organization);
-    }
-  };
-
-  const finishRegistration = (version: SkillVersion, submission: number) => {
-    const presentationFailureMessage = intl.formatMessage({
-      defaultMessage: 'The version was created, but its description, icon, or tags could not be saved.',
-      description: 'Error when skill presentation metadata fails after registration',
-    });
-    void savePresentation(version)
-      .catch((presentationFailure: unknown) => {
-        Utils.displayGlobalErrorNotification(
-          presentationFailure instanceof Error ? presentationFailure.message : presentationFailureMessage,
-        );
-      })
-      .finally(() => {
-        // Cancelling while metadata saves are pending already closed the dialog; it may have been reopened since.
-        if (submission !== submissionRef.current) return;
-        close();
-        onRegistered(version);
-      });
-  };
-
-  const submit = () => {
-    if (view !== 'form' || isLoading || submitting) return;
-    const fields: SkillRegistrationFields = { ...form, identity: isVersion ? fixedIdentity : form.identity };
-    if (mode === 'upload') {
-      if (!hasSkillManifest) {
-        setValidationError('skill_md_required');
-        return;
-      }
-      const built = buildUploadedSkillVersionRequest(fields);
-      if (!built.ok) {
-        setValidationError(built.error);
-        return;
-      }
-      setValidationError(undefined);
-      const submission = submissionRef.current;
-      setSubmitting(true);
-      void packageSkillFolder(folderFiles)
-        .then((content) => {
-          if (submission !== submissionRef.current) return;
-          mutate(
-            isVersion && skill
-              ? {
-                  kind: 'version-upload',
-                  name: skill.name,
-                  organization: skill.organization,
-                  request: built.request,
-                  content,
-                }
-              : { kind: 'register-upload', request: toRegisterSkillRequest(built.request, built.identity), content },
-            {
-              onSuccess: (version) => {
-                if (submission !== submissionRef.current) return;
-                finishRegistration(version, submission);
-              },
-              onError: () => {
-                if (submission === submissionRef.current) setSubmitting(false);
-              },
-            },
-          );
-        })
-        .catch((packageError: unknown) => {
-          if (submission !== submissionRef.current) return;
-          setSubmitting(false);
-          setPresentationError(packageError instanceof Error ? packageError.message : 'Could not package the folder.');
-        });
-      return;
-    }
-
-    const built = buildExternalSkillVersionRequest(fields);
-    if (!built.ok) {
-      setValidationError(built.error);
-      return;
-    }
-    setValidationError(undefined);
-    const submission = submissionRef.current;
-    setSubmitting(true);
-    mutate(
-      isVersion && skill
-        ? { kind: 'version', name: skill.name, organization: skill.organization, request: built.request }
-        : { kind: 'register', request: toRegisterSkillRequest(built.request, built.identity) },
-      {
-        onSuccess: (version) => {
-          if (submission !== submissionRef.current) return;
-          finishRegistration(version, submission);
-        },
-        onError: () => {
-          if (submission === submissionRef.current) setSubmitting(false);
-        },
-      },
+    await Promise.all(
+      Object.entries(tags).map(([key, value]) =>
+        SkillRegistryApi.setSkillTag(version.name, { key, value }, version.organization),
+      ),
     );
   };
 
-  if (!visible) return null;
+  const buildMutationInput = async (): Promise<RegisterSkillMutationInput | undefined> => {
+    const fields: SkillRegistrationFields = { ...form, identity: isVersion ? fixedIdentity : form.identity };
+    if (mode === 'pointer') {
+      const built = buildExternalSkillVersionRequest(fields);
+      if (!built.ok) {
+        setValidationError(built.error);
+        return undefined;
+      }
+      return skill
+        ? { kind: 'version', name: skill.name, organization: skill.organization, request: built.request }
+        : { kind: 'register', request: toRegisterSkillRequest(built.request, built.identity) };
+    }
+    if (!hasSkillManifest) {
+      setValidationError('skill_md_required');
+      return undefined;
+    }
+    const built = buildUploadedSkillVersionRequest(fields);
+    if (!built.ok) {
+      setValidationError(built.error);
+      return undefined;
+    }
+    const content = await packageSkillFolder(folderFiles);
+    return skill
+      ? { kind: 'version-upload', name: skill.name, organization: skill.organization, request: built.request, content }
+      : { kind: 'register-upload', request: toRegisterSkillRequest(built.request, built.identity), content };
+  };
+
+  const submit = async () => {
+    if (view !== 'form' || submitting) return;
+    setValidationError(undefined);
+    setPackageError(undefined);
+    setSubmitting(true);
+    let input: RegisterSkillMutationInput | undefined;
+    try {
+      input = await buildMutationInput();
+    } catch (packagingFailure) {
+      setPackageError(
+        packagingFailure instanceof Error
+          ? packagingFailure.message
+          : intl.formatMessage({
+              defaultMessage: 'Could not package the folder.',
+              description: 'Error when a skill folder cannot be packaged for upload',
+            }),
+      );
+    }
+    if (!input || closedRef.current) {
+      setSubmitting(false);
+      return;
+    }
+    let version: SkillVersion;
+    try {
+      version = await mutateAsync(input);
+    } catch {
+      // The mutation error is rendered from `error`.
+      setSubmitting(false);
+      return;
+    }
+    try {
+      await savePresentation(version);
+    } catch (presentationFailure) {
+      Utils.displayGlobalErrorNotification(
+        presentationFailure instanceof Error
+          ? presentationFailure.message
+          : intl.formatMessage({
+              defaultMessage: 'The version was created, but its description, icon, or tags could not be saved.',
+              description: 'Error when skill presentation metadata fails after registration',
+            }),
+      );
+    }
+    if (closedRef.current) return;
+    close();
+    onRegistered(version);
+  };
 
   const locationLabel = intl.formatMessage({
     defaultMessage: 'Location',
@@ -469,40 +306,37 @@ export const RegisterSkillModal = ({
     description: 'Label for the skill registration name',
   });
   const formIdentity = form.identity.trim() ? parseSkillIdentityInput(form.identity) : undefined;
-  const snippetIdentity: { name?: string; organization?: string } =
-    isVersion && skill
-      ? { name: skill.name, organization: skill.organization }
-      : formIdentity && !('error' in formIdentity)
-        ? formIdentity
-        : {};
-  const snippetOptions = {
+  const snippetIdentity: { name?: string; organization?: string } = skill
+    ? { name: skill.name, organization: skill.organization }
+    : formIdentity && !('error' in formIdentity)
+      ? formIdentity
+      : {};
+  const registerSnippet: SkillRegisterSnippetOptions = {
     sourceType: effectiveSourceType,
     location: parsed?.source ?? form.location,
     local: mode === 'upload',
-    ref: form.ref.trim() || undefined,
-    subpath: form.subpath.trim() || undefined,
+    ref: ref || undefined,
+    subpath: subpath || undefined,
     status: form.status,
     ...snippetIdentity,
   };
-  const snippet =
-    snippetFormat === 'cli' ? formatSkillRegisterCli(snippetOptions) : formatSkillRegisterPython(snippetOptions);
   // A Git source with no subpath points at a whole repository, which usually holds many skills.
-  const repositoryImport =
-    !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl && !form.subpath.trim()
-      ? { source: parsed.repositoryUrl, ref: form.ref.trim() || undefined }
+  const repositoryImport: SkillImportSnippetOptions | undefined =
+    !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl && !subpath
+      ? { source: parsed.repositoryUrl, ref: ref || undefined }
       : undefined;
   const locationSummary = parsed
     ? [
         `${formatSkillSourceLabel(effectiveSourceType)} ${parsed.source}`,
-        form.ref.trim() &&
+        ref &&
           intl.formatMessage(
             { defaultMessage: 'branch {ref}', description: 'Git ref in the skill location summary' },
-            { ref: form.ref.trim() },
+            { ref },
           ),
-        form.subpath.trim() &&
+        subpath &&
           intl.formatMessage(
             { defaultMessage: 'path {subpath}', description: 'Subpath in the skill location summary' },
-            { subpath: form.subpath.trim() },
+            { subpath },
           ),
       ]
         .filter(Boolean)
@@ -516,6 +350,9 @@ export const RegisterSkillModal = ({
       />
     </Button>
   );
+  const submitError = validationError
+    ? intl.formatMessage(REGISTRATION_ERROR_MESSAGES[validationError])
+    : packageError || error?.message;
 
   return (
     <Modal
@@ -527,7 +364,7 @@ export const RegisterSkillModal = ({
           <FormattedMessage defaultMessage="Create skill" description="Title for registering a skill" />
         )
       }
-      visible={visible}
+      visible
       onCancel={close}
       size="wide"
       footer={
@@ -538,9 +375,9 @@ export const RegisterSkillModal = ({
           <Button
             componentId="mlflow.skill_registry.register_modal.submit"
             type="primary"
-            loading={isLoading || submitting}
+            loading={submitting}
             disabled={view === 'api' || submitting || (mode === 'upload' && !hasSkillManifest)}
-            onClick={submit}
+            onClick={() => void submit()}
           >
             <FormattedMessage defaultMessage="Create" description="Submit button for skill registration" />
           </Button>
@@ -548,80 +385,26 @@ export const RegisterSkillModal = ({
       }
     >
       {view === 'api' ? (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <div>
-            <Button componentId="mlflow.skill_registry.register_modal.back" type="link" onClick={() => setView('form')}>
-              <FormattedMessage
-                defaultMessage="← Back to form"
-                description="Return from the skill API example to the form"
-              />
-            </Button>
-          </div>
-          <SegmentedControlGroup
-            name="mlflow.skill_registry.register_modal.api_format"
-            componentId="mlflow.skill_registry.register_modal.api_format"
-            value={snippetFormat}
-            onChange={(event) => setSnippetFormat(event.target.value as SnippetFormat)}
-          >
-            <SegmentedControlButton value="cli">
-              <FormattedMessage defaultMessage="CLI" description="CLI example for skill registration" />
-            </SegmentedControlButton>
-            <SegmentedControlButton value="python">
-              <FormattedMessage defaultMessage="Python" description="Python example for skill registration" />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
-          <Typography.Text color="secondary">
-            {snippetFormat === 'cli' ? (
-              <FormattedMessage
-                defaultMessage="The CLI reads the skill locally, so it can infer the name and record a digest."
-                description="Explanation of the skill registration CLI example"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="The Python SDK reads the skill locally, so it can infer the name and record a digest."
-                description="Explanation of the skill registration Python example"
-              />
-            )}
-          </Typography.Text>
-          <CopyableSnippet
-            componentId="mlflow.skill_registry.register_modal.api_snippet.copy"
-            code={snippet}
-            format={snippetFormat}
-            copyLabel={intl.formatMessage({
-              defaultMessage: 'Copy register command',
-              description: 'Aria label for copying the skill registration API example',
-            })}
-          />
-          {repositoryImport && (
-            <RepositoryImportHint
-              format={snippetFormat}
-              code={
-                snippetFormat === 'cli'
-                  ? formatSkillImportCli({ ...repositoryImport, organization: snippetIdentity.organization })
-                  : formatSkillImportPython({ ...repositoryImport, organization: snippetIdentity.organization })
-              }
-            />
-          )}
-        </div>
+        <RegisterSkillApiView
+          register={registerSnippet}
+          repositoryImport={repositoryImport && { ...repositoryImport, organization: snippetIdentity.organization }}
+          onBack={() => setView('form')}
+        />
       ) : (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          {(validationError || presentationError || error) && (
+          {(submitError || error) && (
             <div ref={submitErrorRef}>
               <Alert
                 componentId="mlflow.skill_registry.register_modal.error"
                 closable={false}
                 type="error"
                 message={
-                  validationError
-                    ? errorMessage(validationError)
-                    : presentationError
-                      ? presentationError
-                      : error?.message || (
-                          <FormattedMessage
-                            defaultMessage="Could not register the skill."
-                            description="Fallback error when skill registration fails"
-                          />
-                        )
+                  submitError || (
+                    <FormattedMessage
+                      defaultMessage="Could not register the skill."
+                      description="Fallback error when skill registration fails"
+                    />
+                  )
                 }
               />
             </div>
@@ -806,7 +589,7 @@ export const RegisterSkillModal = ({
                           defaultMessage: 'Source type',
                           description: 'Aria label for the skill source type override',
                         })}
-                        value={form.sourceTypeOverride || parsed?.sourceType}
+                        value={effectiveSourceType}
                         placeholder={intl.formatMessage({
                           defaultMessage: 'Select a source type',
                           description: 'Placeholder for the skill source type override',
@@ -899,7 +682,10 @@ export const RegisterSkillModal = ({
                           defaultMessage: 'Description',
                           description: 'Aria label for the skill description',
                         })}
-                        placeholder="What this skill does and when to use it."
+                        placeholder={intl.formatMessage({
+                          defaultMessage: 'What this skill does and when to use it.',
+                          description: 'Placeholder for the skill description editor',
+                        })}
                         value={description}
                         onChange={(event) => {
                           setDescriptionTouched(true);
@@ -947,74 +733,7 @@ export const RegisterSkillModal = ({
                     />
                   </Typography.Hint>
                 </div>
-                {!isVersion && (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold>
-                      <FormattedMessage
-                        defaultMessage="Tags"
-                        description="Label for skill tags saved after registration"
-                      />
-                    </Typography.Text>
-                    <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'flex-end' }}>
-                      <Input
-                        componentId="mlflow.skill_registry.register_modal.tag_key"
-                        aria-label={intl.formatMessage({
-                          defaultMessage: 'Key',
-                          description: 'Aria label for a skill tag key',
-                        })}
-                        placeholder="Key"
-                        value={tagKey}
-                        onChange={(event) => setTagKey(event.target.value)}
-                        css={{ flex: 1 }}
-                      />
-                      <Input
-                        componentId="mlflow.skill_registry.register_modal.tag_value"
-                        aria-label={intl.formatMessage({
-                          defaultMessage: 'Value',
-                          description: 'Aria label for a skill tag value',
-                        })}
-                        placeholder="Value"
-                        value={tagValue}
-                        onChange={(event) => setTagValue(event.target.value)}
-                        css={{ flex: 1 }}
-                      />
-                      <Button
-                        componentId="mlflow.skill_registry.register_modal.tag_add"
-                        icon={<PlusIcon />}
-                        aria-label={intl.formatMessage({
-                          defaultMessage: 'Add tag',
-                          description: 'Aria label for adding a skill tag',
-                        })}
-                        disabled={!tagKey.trim()}
-                        onClick={addTag}
-                      />
-                    </div>
-                    <Typography.Hint>
-                      <FormattedMessage
-                        defaultMessage="Key/value metadata stored with the skill. You can edit it later from the skill page."
-                        description="Hint for skill registration tags"
-                      />
-                    </Typography.Hint>
-                    {Object.keys(tags).length > 0 && (
-                      <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
-                        {Object.entries(tags).map(([key, value]) => (
-                          <KeyValueTag
-                            key={key}
-                            isClosable
-                            tag={{ key, value }}
-                            onClose={() =>
-                              setTags((current) => {
-                                const next = { ...current };
-                                delete next[key];
-                                return next;
-                              })
-                            }
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {!isVersion && <SkillTagsInput tags={tags} onChange={setTags} />}
               </div>
             )}
           </div>

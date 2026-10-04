@@ -15,6 +15,9 @@ const isMCPRegistryActive = (location: Location) => Boolean(matchPath('/mcp-regi
 const isSkillRegistryActive = (location: Location) =>
   Boolean(matchPath({ path: '/skills', end: true }, location.pathname) || matchPath('/skills/*', location.pathname));
 
+export const isAiRegistryActive = (location: Location) =>
+  isPromptsActive(location) || isMCPRegistryActive(location) || isSkillRegistryActive(location);
+
 export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean }) => {
   const { theme } = useDesignSystemTheme();
 

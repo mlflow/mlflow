@@ -108,70 +108,32 @@ const tarHeader = (name: string, size: number) => {
   return header;
 };
 
-export const createSkillTar = (entries: { name: string; bytes: Uint8Array }[]) => {
-  const parts = entries.flatMap(({ name, bytes }) => {
-    const padding = (BLOCK - (bytes.length % BLOCK)) % BLOCK;
-    return [tarHeader(name, bytes.length), bytes, new Uint8Array(padding)];
-  });
-  const end = new Uint8Array(BLOCK * 2);
-  const size = parts.reduce((total, part) => total + part.length, 0) + end.length;
-  const archive = new Uint8Array(size);
+const concatBytes = (parts: Uint8Array[]) => {
+  const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
   let offset = 0;
-  [...parts, end].forEach((part) => {
-    archive.set(part, offset);
+  for (const part of parts) {
+    result.set(part, offset);
     offset += part.length;
-  });
-  return archive;
+  }
+  return result;
 };
 
-const crc32 = (bytes: Uint8Array) => {
-  let crc = 0xffffffff;
-  for (const byte of bytes) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-};
+export const createSkillTar = (entries: { name: string; bytes: Uint8Array }[]) =>
+  concatBytes([
+    ...entries.flatMap(({ name, bytes }) => {
+      const padding = (BLOCK - (bytes.length % BLOCK)) % BLOCK;
+      return [tarHeader(name, bytes.length), bytes, new Uint8Array(padding)];
+    }),
+    new Uint8Array(BLOCK * 2),
+  ]);
 
-export const gzipStored = (bytes: Uint8Array) => {
-  const chunks: Uint8Array[] = [new Uint8Array([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff])];
-  const maxBlock = 0xffff;
-  for (let offset = 0; offset < bytes.length || offset === 0; offset += maxBlock) {
-    const end = Math.min(offset + maxBlock, bytes.length);
-    const block = bytes.subarray(offset, end);
-    const last = end === bytes.length;
-    const header = new Uint8Array(5);
-    header[0] = last ? 0x01 : 0x00;
-    header[1] = block.length & 0xff;
-    header[2] = (block.length >> 8) & 0xff;
-    const complement = ~block.length & 0xffff;
-    header[3] = complement & 0xff;
-    header[4] = (complement >> 8) & 0xff;
-    chunks.push(header, block);
-    if (bytes.length === 0) break;
-  }
-  const checksum = crc32(bytes);
-  const trailer = new Uint8Array(8);
-  trailer[0] = checksum & 0xff;
-  trailer[1] = (checksum >> 8) & 0xff;
-  trailer[2] = (checksum >> 16) & 0xff;
-  trailer[3] = (checksum >> 24) & 0xff;
-  trailer[4] = bytes.length & 0xff;
-  trailer[5] = (bytes.length >> 8) & 0xff;
-  trailer[6] = (bytes.length >> 16) & 0xff;
-  trailer[7] = (bytes.length >> 24) & 0xff;
-  chunks.push(trailer);
-  const size = chunks.reduce((total, chunk) => total + chunk.length, 0);
-  const gzip = new Uint8Array(size);
-  let write = 0;
-  chunks.forEach((chunk) => {
-    gzip.set(chunk, write);
-    write += chunk.length;
-  });
-  return gzip;
-};
+// Imported lazily to keep pako out of the main bundle, as StringUtils does.
+const lazyPako = () => import('pako');
+
+// Real compression matters: the server caps the upload at the decompressed limit plus a small slack, and
+// tar headers and block padding for many small files would otherwise eat that slack.
+// pako allocates a fresh ArrayBuffer; its typings only promise ArrayBufferLike, which Blob rejects.
+export const gzip = async (bytes: Uint8Array) => (await lazyPako()).gzip(bytes) as Uint8Array<ArrayBuffer>;
 
 export const packageSkillFolder = async (files: File[]) => {
   const stripRoot = sharesSingleRoot(files);
@@ -181,6 +143,5 @@ export const packageSkillFolder = async (files: File[]) => {
       bytes: new Uint8Array(await file.arrayBuffer()),
     })),
   );
-  const tar = createSkillTar(entries.filter((entry) => entry.name));
-  return new Blob([gzipStored(tar)], { type: 'application/gzip' });
+  return new Blob([await gzip(createSkillTar(entries))], { type: 'application/gzip' });
 };

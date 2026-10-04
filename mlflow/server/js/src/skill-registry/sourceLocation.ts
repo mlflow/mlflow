@@ -7,12 +7,12 @@ import {
   type RegisterUploadedSkillRequest,
   type UploadedSkillVersionRequest,
 } from './types';
+import { SCP_GIT_REMOTE_PATTERN, safeDecode } from './utils';
 
 export type SkillRegistrationSourceType = 'git' | 'oci' | 'zip';
 
 const SKILL_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const ORGANIZATION_NAME_PATTERN = /^[a-z0-9]+([-.][a-z0-9]+)*$/;
-const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 const MAX_FIELD_LENGTH = 2048;
 const MAX_NAME_LENGTH = 64;
 
@@ -39,7 +39,6 @@ export type SkillRegistrationErrorCode =
   | 'credentials'
   | 'zip_scheme'
   | 'ref_not_git'
-  | 'digest_invalid'
   | 'source_invalid'
   | 'source_too_long'
   | 'status'
@@ -51,7 +50,6 @@ export interface SkillRegistrationFields {
   sourceTypeOverride: '' | SkillRegistrationSourceType;
   ref: string;
   subpath: string;
-  digest: string;
   status: SkillStatus;
 }
 
@@ -65,14 +63,6 @@ const normalizeToken = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-');
-
-const decodeSegment = (value: string) => {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-};
 
 const hasHttpCredentials = (value: string) => {
   try {
@@ -99,7 +89,7 @@ const parseGitHubLocation = (value: string): ParsedSkillLocation | undefined => 
     return undefined;
   }
   if (url.protocol !== 'https:' || url.hostname !== 'github.com') return undefined;
-  const segments = url.pathname.split('/').filter(Boolean).map(decodeSegment);
+  const segments = url.pathname.split('/').filter(Boolean).map(safeDecode);
   if (segments.length < 2) return undefined;
   const [owner, repoRaw, kind, ...rest] = segments;
   const repo = repoRaw.replace(/\.git$/i, '');
@@ -136,17 +126,22 @@ const parseGitHubLocation = (value: string): ParsedSkillLocation | undefined => 
 };
 
 const parseScpGitLocation = (value: string): ParsedSkillLocation | undefined => {
-  const match = value.match(/^git@([^:]+):(.+)$/);
+  const match = value.match(SCP_GIT_REMOTE_PATTERN);
   if (!match) return undefined;
-  const path = match[2].replace(/\.git$/i, '');
-  const [owner, repo] = path.split('/');
+  const segments = match[2]
+    .replace(/\.git\/?$/i, '')
+    .split('/')
+    .filter(Boolean);
+  // GitLab subgroups put extra segments between the owner and the repository.
+  const owner = segments.length > 1 ? segments[0] : '';
+  const repo = segments.at(-1) ?? '';
   return {
     sourceType: 'git',
     source: value,
     ref: null,
     subpath: null,
-    suggestedName: normalizeToken(repo || owner || ''),
-    suggestedOrganization: repo ? normalizeToken(owner) : '',
+    suggestedName: normalizeToken(repo),
+    suggestedOrganization: normalizeToken(owner),
     wholeRepository: true,
     repositoryUrl: value,
   };
@@ -174,6 +169,9 @@ export const parseSkillLocation = (location: string): ParsedSkillLocation | unde
   const github = parseGitHubLocation(value);
   if (github) return github;
 
+  const scp = parseScpGitLocation(value);
+  if (scp) return scp;
+
   if (value.toLowerCase().startsWith('git://') || /\.git\/?$/i.test(value)) {
     const repoName =
       value
@@ -191,9 +189,6 @@ export const parseSkillLocation = (location: string): ParsedSkillLocation | unde
       repositoryUrl: value.replace(/\/$/, ''),
     };
   }
-
-  const scp = parseScpGitLocation(value);
-  if (scp) return scp;
 
   if (/\.zip$/i.test(value.split('?')[0] ?? value)) {
     let zipUrl: URL | undefined;
@@ -246,12 +241,6 @@ export const parseSkillIdentityInput = (
   return { name, organization };
 };
 
-const normalizeDigest = (digest: string) =>
-  digest
-    .trim()
-    .toLowerCase()
-    .replace(/^sha256:/, '');
-
 const creatableStatus = (status: SkillStatus): CreateSkillVersionStatus | undefined =>
   status === SkillStatus.ACTIVE || status === SkillStatus.DRAFT ? status : undefined;
 
@@ -297,37 +286,14 @@ export const buildExternalSkillVersionRequest = (
     return { ok: false, error: 'source_too_long' };
   }
 
-  const digest = normalizeDigest(fields.digest);
-  if (digest && !DIGEST_PATTERN.test(digest)) return { ok: false, error: 'digest_invalid' };
-
   const status = creatableStatus(fields.status);
   if (!status) return { ok: false, error: 'status' };
 
+  const optional = { ...(subpath ? { subpath } : {}), status };
   const request: ExternalSkillVersionRequest =
     sourceType === 'git'
-      ? {
-          source,
-          source_type: 'git',
-          ...(ref ? { ref } : {}),
-          ...(subpath ? { subpath } : {}),
-          ...(digest ? { digest } : {}),
-          status,
-        }
-      : sourceType === 'oci'
-        ? {
-            source,
-            source_type: 'oci',
-            ...(subpath ? { subpath } : {}),
-            ...(digest ? { digest } : {}),
-            status,
-          }
-        : {
-            source,
-            source_type: 'zip',
-            ...(subpath ? { subpath } : {}),
-            ...(digest ? { digest } : {}),
-            status,
-          };
+      ? { source, source_type: 'git', ...(ref ? { ref } : {}), ...optional }
+      : { source, source_type: sourceType, ...optional };
 
   return { ok: true, request, identity };
 };
@@ -359,106 +325,4 @@ export const buildUploadedSkillVersionRequest = (
   const status = creatableStatus(fields.status);
   if (!status) return { ok: false, error: 'status' };
   return { ok: true, request: { source: null, status }, identity };
-};
-
-const quoteShellArg = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
-
-// JSON string escapes (\", \\, \n, \uXXXX) are all valid Python string-literal escapes.
-const quotePythonString = (value: string) => JSON.stringify(value);
-
-const cliCommand = (lines: string[]) => lines.map((line, index) => (index === 0 ? line : `  ${line}`)).join(' \\\n');
-
-const pythonCall = (call: string, args: string[]) => `${call}(\n${args.map((arg) => `    ${arg},`).join('\n')}\n)`;
-
-const PYTHON_SOURCE_CLASS: Record<SkillRegistrationSourceType, string> = {
-  git: 'GitSource',
-  oci: 'OCISource',
-  zip: 'ZipSource',
-};
-
-export interface SkillRegisterSnippetOptions {
-  sourceType?: SkillRegistrationSourceType;
-  location: string;
-  local: boolean;
-  name?: string;
-  organization?: string;
-  ref?: string;
-  subpath?: string;
-  status?: SkillStatus;
-}
-
-export const formatSkillRegisterCli = ({
-  sourceType = 'git',
-  location,
-  local,
-  name,
-  organization,
-  ref,
-  subpath,
-  status,
-}: SkillRegisterSnippetOptions) => {
-  const lines = [local ? 'mlflow skills register <directory>' : `mlflow skills register ${sourceType}`];
-  if (name) lines.push(`--name ${quoteShellArg(name)}`);
-  if (organization) lines.push(`--organization ${quoteShellArg(organization)}`);
-  if (!local) {
-    lines.push(`${sourceType === 'oci' ? '--image' : '--url'} ${quoteShellArg(location.trim() || '<location>')}`);
-    if (ref && sourceType === 'git') lines.push(`--ref ${quoteShellArg(ref)}`);
-    if (subpath) lines.push(`--subpath ${quoteShellArg(subpath)}`);
-  }
-  if (status && status !== SkillStatus.ACTIVE) lines.push(`--status ${status}`);
-  return cliCommand(lines);
-};
-
-export const formatSkillRegisterPython = ({
-  sourceType = 'git',
-  location,
-  local,
-  name,
-  organization,
-  ref,
-  subpath,
-  status,
-}: SkillRegisterSnippetOptions) => {
-  const args: string[] = [];
-  if (name) args.push(`name=${quotePythonString(name)}`);
-  if (organization) args.push(`organization=${quotePythonString(organization)}`);
-  if (local) {
-    args.push('source="<directory>"');
-  } else {
-    const sourceArgs = [
-      `${sourceType === 'oci' ? 'image' : 'url'}=${quotePythonString(location.trim() || '<location>')}`,
-    ];
-    if (ref && sourceType === 'git') sourceArgs.push(`ref=${quotePythonString(ref)}`);
-    if (subpath) sourceArgs.push(`subpath=${quotePythonString(subpath)}`);
-    args.push(`source=${PYTHON_SOURCE_CLASS[sourceType]}(${sourceArgs.join(', ')})`);
-  }
-  if (status && status !== SkillStatus.ACTIVE) args.push(`status=${quotePythonString(status)}`);
-  const imports = local
-    ? ['import mlflow']
-    : ['import mlflow', `from mlflow.genai import ${PYTHON_SOURCE_CLASS[sourceType]}`];
-  return [...imports, '', pythonCall('mlflow.genai.register_skill', args)].join('\n');
-};
-
-export interface SkillImportSnippetOptions {
-  source: string;
-  ref?: string;
-  organization?: string;
-}
-
-export const formatSkillImportCli = ({ source, ref, organization }: SkillImportSnippetOptions) => {
-  const lines = [`mlflow skills import --source ${quoteShellArg(source)}`];
-  if (ref) lines.push(`--ref ${quoteShellArg(ref)}`);
-  if (organization) lines.push(`--organization ${quoteShellArg(organization)}`);
-  return cliCommand(lines);
-};
-
-export const formatSkillImportPython = ({ source, ref, organization }: SkillImportSnippetOptions) => {
-  const args = [
-    ref
-      ? `source=GitSource(url=${quotePythonString(source)}, ref=${quotePythonString(ref)})`
-      : `source=${quotePythonString(source)}`,
-  ];
-  if (organization) args.push(`organization=${quotePythonString(organization)}`);
-  const imports = ref ? ['import mlflow', 'from mlflow.genai import GitSource'] : ['import mlflow'];
-  return [...imports, '', pythonCall('mlflow.genai.import_skills', args)].join('\n');
 };

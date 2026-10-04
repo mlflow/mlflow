@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Button,
   CloseIcon,
@@ -109,11 +109,8 @@ const IconRow = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  // Rows are keyed by src, so a committed change remounts the row with the new value.
   const [localSrc, setLocalSrc] = useState(icon.src);
-
-  useEffect(() => {
-    setLocalSrc(icon.src);
-  }, [icon.src]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>

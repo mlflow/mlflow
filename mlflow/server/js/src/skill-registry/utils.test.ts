@@ -3,13 +3,10 @@ import { SkillAction, SkillStatus } from './types';
 import {
   aliasesForVersion,
   buildSkillCatalogFilterString,
-  buildSkillSourceHref,
   describeSkillSource,
   escapeFilterLiteral,
   formatSkillIdentity,
   formatSkillOrganization,
-  formatSkillPullCli,
-  formatSkillPullPython,
   formatSkillReferenceUris,
   formatSkillSourceLabel,
   formatSkillUri,
@@ -26,6 +23,7 @@ import {
   visibleSkillVersions,
   withDeletedVersionPlaceholders,
 } from './utils';
+import { formatSkillPullCli, formatSkillPullPython } from './snippets';
 import { createMockSkill, createMockSkillVersion } from './test-utils';
 
 describe('formatSkillIdentity', () => {
@@ -378,9 +376,11 @@ describe('version helpers', () => {
   });
 
   it('links only safe http(s) sources', () => {
-    expect(buildSkillSourceHref('https://github.com/acme/skills')).toBe('https://github.com/acme/skills');
-    expect(buildSkillSourceHref('mlflow-artifacts:/skills/@acme/code-review/2')).toBeUndefined();
-    expect(buildSkillSourceHref(`${'javascript'}:alert(1)`)).toBeUndefined();
+    const locatorHref = (source: string) =>
+      describeSkillSource({ source_type: 'zip', source, ref: null, subpath: null }).locatorHref;
+    expect(locatorHref('https://example.com/skill.zip')).toBe('https://example.com/skill.zip');
+    expect(locatorHref('mlflow-artifacts:/skills/@acme/code-review/2')).toBeUndefined();
+    expect(locatorHref(`${'javascript'}:alert(1)`)).toBeUndefined();
   });
 
   it('collects aliases that target a version from parent and version records', () => {

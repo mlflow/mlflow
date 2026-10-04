@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  CopyIcon,
   Modal,
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -12,22 +11,17 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { CopyButton } from '../../shared/building_blocks/CopyButton';
-import { CodeSnippet } from '@databricks/web-shared/snippet';
 import type { Skill, SkillStatus } from '../types';
 import {
   formatSkillIdentity,
-  formatSkillPullCli,
   formatSkillStatusLabel,
-  formatSkillPullPython,
   formatSkillUri,
   SKILL_INSTALL_TARGETS,
   STATUS_TAG_COLOR,
   type SkillInstallTargetId,
 } from '../utils';
-import { overlayButtonStyles } from '../styles';
-
-type PullFormat = 'cli' | 'python';
+import { formatSkillPullCli, formatSkillPullPython } from '../snippets';
+import { CopyableSnippet, type SnippetFormat } from './CopyableSnippet';
 
 export const UseSkillModal = ({
   visible,
@@ -44,7 +38,7 @@ export const UseSkillModal = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const [format, setFormat] = useState<PullFormat>('cli');
+  const [format, setFormat] = useState<SnippetFormat>('cli');
   const [targetId, setTargetId] = useState<SkillInstallTargetId>('claude-code');
   const destination = SKILL_INSTALL_TARGETS.find((target) => target.id === targetId)?.destination ?? './skills';
   const uri = formatSkillUri(skill.name, skill.organization, version);
@@ -110,7 +104,7 @@ export const UseSkillModal = ({
             name="mlflow.skill_registry.use_modal.format"
             componentId="mlflow.skill_registry.use_modal.format"
             value={format}
-            onChange={(event) => setFormat(event.target.value as PullFormat)}
+            onChange={(event) => setFormat(event.target.value as SnippetFormat)}
           >
             <SegmentedControlButton value="cli">
               <FormattedMessage defaultMessage="CLI" description="CLI example format in the use-skill modal" />
@@ -139,29 +133,15 @@ export const UseSkillModal = ({
             </SimpleSelect>
           </div>
         </div>
-        <div css={{ position: 'relative' }}>
-          <CopyButton
-            componentId="mlflow.skill_registry.use_modal.copy"
-            showLabel={false}
-            copyText={snippet}
-            icon={<CopyIcon />}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Copy pull command',
-              description: 'Aria label for copying the Skill pull command',
-            })}
-            css={overlayButtonStyles(theme)}
-          />
-          <CodeSnippet
-            language="text"
-            theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-            style={{
-              padding: theme.spacing.sm,
-              paddingRight: theme.spacing.lg * 2,
-            }}
-          >
-            {snippet}
-          </CodeSnippet>
-        </div>
+        <CopyableSnippet
+          componentId="mlflow.skill_registry.use_modal.copy"
+          code={snippet}
+          format={format}
+          copyLabel={intl.formatMessage({
+            defaultMessage: 'Copy pull command',
+            description: 'Aria label for copying the Skill pull command',
+          })}
+        />
         <Typography.Text color="secondary">
           <FormattedMessage
             defaultMessage="Fetches the content from its source into {destination}, where the agent looks for skills."

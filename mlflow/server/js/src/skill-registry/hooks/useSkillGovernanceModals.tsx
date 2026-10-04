@@ -7,7 +7,7 @@ import { useEditKeyValueTagsModal } from '../../common/hooks/useEditKeyValueTags
 import { diffCurrentAndNewTags } from '../../common/utils/TagUtils';
 import type { KeyValueEntity } from '../../common/types';
 import { SkillRegistryApi } from '../api';
-import type { Skill, SkillVersion } from '../types';
+import type { Skill, SkillStatus, SkillVersion } from '../types';
 import { formatSkillIdentity } from '../utils';
 import type { AliasMap } from '../../common/types';
 import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
@@ -53,33 +53,21 @@ export const useSkillGovernanceModals = ({
         ...toDelete.map(({ key }) => SkillRegistryApi.deleteSkillVersionTag(name, version, key, organization)),
       ]);
     },
+    onSuccess: () => invalidate(),
   });
 
-  const saveTags = (version: number | undefined, currentTags: KeyValueEntity[], newTags: KeyValueEntity[]) => {
+  const saveTags = async (version: number | undefined, currentTags: KeyValueEntity[], newTags: KeyValueEntity[]) => {
     const { addedOrModifiedTags, deletedTags } = diffCurrentAndNewTags(currentTags, newTags);
     // Checked up front so a save never applies the additions and then fails on the removals.
     if (deletedTags.length > 0 && !canDelete) {
-      return Promise.reject(
-        new Error(
-          intl.formatMessage({
-            defaultMessage: 'Removing tags requires the Manage permission on this skill.',
-            description: 'Error when a user without delete permission removes skill tags',
-          }),
-        ),
+      throw new Error(
+        intl.formatMessage({
+          defaultMessage: 'Removing tags requires the Manage permission on this skill.',
+          description: 'Error when a user without delete permission removes skill tags',
+        }),
       );
     }
-    return new Promise<void>((resolve, reject) => {
-      tagMutation.mutate(
-        { version, toAdd: addedOrModifiedTags, toDelete: deletedTags },
-        {
-          onSuccess: () => {
-            invalidate();
-            resolve();
-          },
-          onError: reject,
-        },
-      );
-    });
+    await tagMutation.mutateAsync({ version, toAdd: addedOrModifiedTags, toDelete: deletedTags });
   };
 
   const { EditTagsModal: EditSkillTagsModal, showEditTagsModal: showParentTags } =
@@ -102,6 +90,12 @@ export const useSkillGovernanceModals = ({
     ),
     valueRequired: true,
     saveTagsHandler: (version, currentTags, newTags) => saveTags(version.version, currentTags, newTags),
+  });
+
+  const statusMutation = useMutation<unknown, Error, { version: number; status: SkillStatus }>({
+    mutationFn: ({ version, status }) =>
+      SkillRegistryApi.updateSkillVersionStatus(name, version, { status }, organization),
+    onSuccess: invalidate,
   });
 
   const aliasMutation = useMutation<unknown, Error, { version: number; add: string[]; remove: string[] }>({
@@ -172,5 +166,6 @@ export const useSkillGovernanceModals = ({
     showEditParentTags,
     showEditVersionMetadata,
     showEditAliasesModal,
+    statusMutation,
   };
 };

@@ -9,7 +9,14 @@ export const SkillAliases = ({ aliases, onEdit }: { aliases: string[]; onEdit?: 
   const intl = useIntl();
   const content =
     aliases.length === 0 ? (
-      <span aria-label="No aliases">—</span>
+      <span
+        aria-label={intl.formatMessage({
+          defaultMessage: 'No aliases',
+          description: 'Accessible label for an empty skill alias list',
+        })}
+      >
+        —
+      </span>
     ) : (
       <>
         {aliases.map((alias) => (
