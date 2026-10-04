@@ -351,10 +351,23 @@ def fetch_mcp_server_version(name: str, version: str):
     return _memoized("mcp_server_version", version_resource_id(name, version), load)
 
 
-# A cascade's children have to be enumerated to judge each one, and that enumeration is
-# unbounded in principle: an experiment can hold any number of runs. The cap bounds the work,
-# and exceeding it is reported as "cannot enumerate" rather than as "no children" -- the gate
-# then refuses, because a condition that cannot be evaluated must never pass vacuously.
+# A cap on enumerating a cascade's children, which is unbounded in principle: an experiment
+# can hold any number of runs. Exceeding it is reported as "cannot enumerate" rather than as
+# "no children" -- the gate then refuses, because a condition that cannot be evaluated must
+# never pass vacuously.
+#
+# This is now a FALLBACK-ONLY safeguard, and the distinction is user-visible. A store that can
+# push the predicate down answers "does this parent hold a failing child?" in one query and
+# never enumerates, so the cap is unreachable there; it binds only when a store declines, which
+# is every non-SQL backend. The single caller of these enumerators is the cascade branch of
+# `_authorize_on_conditions`, and it reaches them only after pushdown has returned ``None``.
+#
+# The consequence worth stating plainly: whether a very large experiment can be deleted while a
+# condition exists on its children now depends on the backend. On SQL -- what the MLflow server
+# actually runs -- it can. On a store that cannot filter, a parent with more than this many
+# children cannot be deleted at all while any condition exists on those types, including one
+# scoped to a different parent. That is a refusal a caller cannot act on, so it is a property to
+# document rather than discover.
 MAX_CASCADE_CHILDREN = 2000
 
 
@@ -371,6 +384,11 @@ def _collect_ids(fetch_page, id_of, resource_type: "str | None" = None) -> "tupl
     condition reads, and only ``trace`` has a bulk attribute path to soften a refetch, so a
     2000-run experiment would otherwise pay 2000 separate ``get_run`` round trips to authorize
     one delete.
+
+    The memo did not become redundant when pushdown landed -- it became *more* valuable in the
+    only place it still runs. A store that can filter never enumerates, so neither this function
+    nor the memo is reached; what remains is exactly the backend that has to do the work the
+    expensive way, which is where saving ~2000 round trips matters most.
 
     ``setdefault`` rather than assignment: an entity already memoized this request was fetched
     by a path that may know more about it than a search projection does, so the existing entry

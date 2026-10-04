@@ -525,3 +525,236 @@ def test_the_workspace_admin_check_is_skipped_when_nothing_is_configured(gate):
     assert store.workspace_admin_checks == 0, (
         "the workspace-admin lookup ran even though no condition was configured"
     )
+
+
+# ---- What the pushdown is for -----------------------------------------------
+#
+# The whole point of pushing a predicate into SQL is cost, and cost is invisible to
+# a correctness test: delete the pushdown call and every behavioural assertion still
+# passes, because the enumerate-and-judge fallback answers identically. That is not
+# hypothetical -- it is exactly what happened while wiring the cascade, where the
+# only thing that caught a missing pushdown call was making the enumerator raise.
+#
+# So these count instead. They re-patch the stores, which beats the module's autouse
+# `_pushdown_declines` fixture, because here the pushdown is the subject rather than
+# the thing being held out of the way.
+
+
+class CountingPushdown:
+    """A store that answers predicates and counts how often it was asked."""
+
+    def __init__(self, *, filter_answer=None, cascade_answer=None):
+        self._filter_answer = filter_answer
+        self._cascade_answer = cascade_answer
+        self.filter_calls = []
+        self.cascade_calls = []
+
+    def filter_ids_by_clauses(self, entity, ids, clauses):
+        ids = list(ids)
+        self.filter_calls.append((entity, ids, list(clauses)))
+        if callable(self._filter_answer):
+            return self._filter_answer(set(ids))
+        return self._filter_answer
+
+    def any_child_failing_clauses(self, entity, parent_id, clauses):
+        self.cascade_calls.append((entity, parent_id, list(clauses)))
+        return self._cascade_answer
+
+
+@pytest.fixture
+def pushdown(monkeypatch):
+    """Install a counting pushdown store, overriding the module's declining one."""
+
+    def install(store):
+        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
+        monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: store, raising=False)
+        return store
+
+    return install
+
+
+def _cascade(resource_type, parent_id, enumerated):
+    """A cascade context: no ids, a resolver, and a parent to scope conditions by.
+
+    `enumerated` collects a marker if the resolver runs, which is the cost the
+    pushdown exists to avoid.
+    """
+
+    def _resolve():
+        enumerated.append(parent_id)
+        return ("child-1", "child-2")
+
+    return ConditionContext(
+        resource_type=resource_type,
+        scope=ConditionScope.MUTATE,
+        request=RunRequestValues(),
+        resource_ids=(),
+        resource_id_resolver=_resolve,
+        parent_resource_id=parent_id,
+    )
+
+
+def test_a_cascade_costs_one_pushdown_call_and_no_enumeration(gate, pushdown):
+    """The headline saving: a 2000-run experiment answers in one query.
+
+    Previously this cost one search page per 500 children plus a fetch each. The
+    enumeration is what must be zero -- not merely small.
+    """
+    run, state = gate
+    store = pushdown(CountingPushdown(cascade_answer=False))
+    enumerated = []
+    allowed = run(
+        [_cascade("run", "exp-1", enumerated)],
+        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+    )
+    assert allowed is True
+    assert len(store.cascade_calls) == 1
+    assert enumerated == [], "the children must never be enumerated when the store answered"
+    assert state["resources"].bulk_reads == []
+    assert state["resources"].single_reads == []
+
+
+def test_a_denying_cascade_also_enumerates_nothing(gate, pushdown):
+    """A refusal must not pay to find out which child caused it."""
+    run, state = gate
+    store = pushdown(CountingPushdown(cascade_answer=True))
+    enumerated = []
+    allowed = run(
+        [_cascade("run", "exp-1", enumerated)],
+        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+    )
+    assert allowed is False
+    assert len(store.cascade_calls) == 1
+    assert enumerated == []
+    assert state["resources"].bulk_reads == []
+
+
+def test_cost_scales_with_conditions_not_with_children(gate, pushdown):
+    """Two conditions is two queries, independent of how many children exist."""
+    run, _ = gate
+    store = pushdown(CountingPushdown(cascade_answer=False))
+    enumerated = []
+    allowed = run(
+        [_cascade("run", "exp-1", enumerated)],
+        rows=[
+            MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'"),
+            MutationConditionSpec("run", target_condition="tags.team = 'ml'"),
+        ],
+    )
+    assert allowed is True
+    assert len(store.cascade_calls) == 2
+    assert enumerated == []
+
+
+def test_a_declining_store_costs_exactly_what_it_did_before(gate, pushdown):
+    """The fallback must not get more expensive for having tried.
+
+    A non-SQL backend declines every predicate, so its cost is the old cost: one
+    enumeration and one bulk read. If a future change made the gate consult the
+    store twice, or read per child again, this is what notices.
+    """
+    run, state = gate
+    store = pushdown(CountingPushdown(cascade_answer=None, filter_answer=None))
+    enumerated = []
+    allowed = run(
+        [_cascade("run", "exp-1", enumerated)],
+        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        values={
+            ("run", "child-1"): RunResourceValues("child-1", tags={"lifecycle": "dev"}),
+            ("run", "child-2"): RunResourceValues("child-2", tags={"lifecycle": "dev"}),
+        },
+    )
+    assert allowed is True
+    assert len(store.cascade_calls) == 1, "asked once, then gave up -- not retried"
+    assert enumerated == ["exp-1"], "a declining store must still be answered by enumeration"
+    assert state["resources"].bulk_reads == [("run", ["child-1", "child-2"])]
+    assert state["resources"].single_reads == [], "one bulk call, never one read per child"
+
+
+def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
+    """The common case: the request names its ids, so nothing is loaded."""
+    run, state = gate
+    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids))
+    allowed = run(
+        [
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(),
+                resource_ids=("r-1", "r-2", "r-3"),
+            )
+        ],
+        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+    )
+    assert allowed is True
+    assert len(store.filter_calls) == 1, "N ids must cost one query, not N"
+    assert store.filter_calls[0][1] == ["r-1", "r-2", "r-3"]
+    assert state["resources"].bulk_reads == []
+    assert state["resources"].single_reads == []
+
+
+def test_many_ids_are_still_one_call(gate, pushdown):
+    """The bulk-delete shape (D11), where per-id cost was the original complaint."""
+    run, state = gate
+    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids))
+    ids = tuple(f"r-{i}" for i in range(500))
+    allowed = run(
+        [
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(),
+                resource_ids=ids,
+            )
+        ],
+        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+    )
+    assert allowed is True
+    assert len(store.filter_calls) == 1
+    assert state["resources"].bulk_reads == []
+
+
+def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
+    """Admin bypass precedes everything, including the pushdown."""
+    run, _ = gate
+    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids, cascade_answer=False))
+    enumerated = []
+    allowed = run(
+        [_cascade("run", "exp-1", enumerated)],
+        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        is_admin=True,
+    )
+    assert allowed is True
+    assert store.cascade_calls == []
+    assert store.filter_calls == []
+
+
+def test_a_request_only_condition_asks_the_store_no_predicate(gate, pushdown):
+    """No target condition means no resource question, so nothing is pushed."""
+    run, _ = gate
+    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids, cascade_answer=False))
+    allowed = run(
+        [_mutate("run", "r-1", RunRequestValues(tags=(("lifecycle", "dev"),)))],
+        rows=[MutationConditionSpec("run", value_condition="tag_value != 'prod'")],
+    )
+    assert allowed is True
+    assert store.filter_calls == []
+    assert store.cascade_calls == []
+
+
+def test_a_request_denial_short_circuits_before_any_predicate(gate, pushdown):
+    """Request conditions are pure, so a denial there must not reach the database."""
+    run, _ = gate
+    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids))
+    allowed = run(
+        [_mutate("run", "r-1", RunRequestValues(tags=(("lifecycle", "prod"),)))],
+        rows=[
+            MutationConditionSpec(
+                "run",
+                value_condition="tag_value != 'prod'",
+                target_condition="tags.lifecycle != 'prod'",
+            )
+        ],
+    )
+    assert allowed is False
+    assert store.filter_calls == [], "a pure denial must not pay for a query"

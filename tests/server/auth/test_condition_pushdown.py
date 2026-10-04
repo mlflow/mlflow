@@ -1154,3 +1154,91 @@ class TestAnUnpushableRowFallsBackWholesale:
         assert auth_module.authorize_on_conditions("alice", "w", [context]) is True
         assert loaded == [["r-1"]], "an undeclinable row must send the whole context to the loader"
         assert filtered == [], "no row may be pushed once one of them cannot be"
+
+
+class TestTheCascadeCapIsFallbackOnly:
+    """``MAX_CASCADE_CHILDREN`` no longer bounds a delete on a store that can filter.
+
+    It was a global ceiling: an experiment with more children than the cap could not
+    be deleted at all while any condition existed on those types -- including one
+    scoped to a *different* experiment -- because enumeration returned ``None`` and
+    an unevaluable condition must refuse. The UI rendered that as a bare
+    "Permission denied" with nothing the caller could do (F-UI-2a).
+
+    Pushdown removes it where it matters: the store answers "does this parent hold a
+    failing child?" in one query and never enumerates. The cap still guards the
+    fallback, so the refusal is now **backend-dependent** -- behaviour that is
+    uniform everywhere else in this gate, which is exactly why it is pinned rather
+    than left implicit.
+    """
+
+    @staticmethod
+    def _delete_a_huge_experiment(monkeypatch, *, cascade_answer):
+        from mlflow.server import auth as auth_module
+        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
+
+        class Store:
+            def get_user(self, username):
+                return SimpleNamespace(id=1, username=username, is_admin=False)
+
+            def is_workspace_admin(self, user_id, workspace):
+                return False
+
+            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
+                return [
+                    SimpleNamespace(
+                        resource_type="run",
+                        value_condition=None,
+                        target_condition=f"tags.{TAG_KEY} != 'prod'",
+                    )
+                ]
+
+        monkeypatch.setattr(auth_module, "store", Store())
+        monkeypatch.setattr(
+            auth_module,
+            "_get_tracking_store",
+            lambda: SimpleNamespace(
+                any_child_failing_clauses=lambda *a, **k: cascade_answer,
+                filter_ids_by_clauses=lambda *a, **k: None,
+            ),
+        )
+        # The enumerator overflows its bound, which is what `None` means here.
+        context = ConditionContext(
+            resource_type="run",
+            scope=ConditionScope.MUTATE,
+            request=None,
+            resource_ids=(),
+            resource_id_resolver=lambda: None,
+            parent_resource_id="exp-huge",
+        )
+        return auth_module.authorize_on_conditions("alice", "w", [context])
+
+    def test_a_filtering_store_permits_a_delete_the_cap_would_have_refused(self, monkeypatch):
+        """The fix: enumeration overflowing is irrelevant once the store answered."""
+        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=False) is True
+
+    def test_a_filtering_store_still_denies_a_genuinely_failing_child(self, monkeypatch):
+        """Permissiveness must come from the cap going away, not from the gate relaxing."""
+        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=True) is False
+
+    def test_a_declining_store_still_refuses_an_overflowing_enumeration(self, monkeypatch):
+        """The cap still protects the fallback, so the refusal is backend-dependent.
+
+        An unevaluable condition must never pass vacuously, so this half must not be
+        "fixed" by loosening it.
+        """
+        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=None) is False
+
+    def test_the_cap_is_documented_as_fallback_only(self):
+        """A behaviour that varies by backend has to say so where it is defined.
+
+        Asserting on a comment is unusual, but this is the one property of the gate
+        that is not uniform across backends, and the reason it is acceptable lives in
+        prose rather than in code.
+        """
+        import inspect
+
+        source = inspect.getsource(auth_resources)
+        assert "FALLBACK-ONLY" in source, (
+            "the cascade cap's backend-dependence must stay documented at its definition"
+        )
