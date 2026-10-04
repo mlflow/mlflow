@@ -395,7 +395,7 @@ jobs:
           retention-days: 1
   triage_gate:
     needs: [issue, label, safety]
-    # Apply author and rate-limit checks before triage.
+    # Triage any safety-approved issue from maintainers, regardless of type.
     # Manual runs skip the author check since only users with write access can dispatch.
     if: >-
       needs.safety.outputs.decision == 'safe' &&
@@ -438,9 +438,8 @@ jobs:
             echo 'allowed=true' >> "$GITHUB_OUTPUT"
           fi
   triage:
-    needs: [issue, label, safety, triage_gate]
+    needs: [label, triage_gate]
     if: >-
-      needs.safety.outputs.decision == 'safe' &&
       needs.triage_gate.outputs.allowed == 'true' &&
       needs.label.outputs.type == 'bug'
     runs-on: ubuntu-24.04
@@ -630,7 +629,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: /tmp/triage-out/payload.json
+          path: /tmp/triage-out/report.json
           if-no-files-found: ignore
           retention-days: 1
       # Paths and status codes only; nginx doesn't log request headers.
@@ -655,7 +654,7 @@ jobs:
           path: ${{ runner.temp }}/triage-report
       - name: Validate and prepare triage comment
         env:
-          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
+          REPORT_PATH: ${{ runner.temp }}/triage-report/report.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
           jq -e -s '
@@ -663,8 +662,8 @@ jobs:
             (.[0] | type == "object" and (keys == ["body", "label"]) and
              (.label | IN("triage: reproduced", "triage: fixed", "triage: not-reproduced", "triage: needs-info", "triage: skipped")) and
              (.body | type == "string" and length > 0 and length < 10000))
-          ' "$PAYLOAD_PATH" > /dev/null
-          jq -j '.body' "$PAYLOAD_PATH" > "$BODY_FILE"
+          ' "$REPORT_PATH" > /dev/null
+          jq -j '.body' "$REPORT_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
         env:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md

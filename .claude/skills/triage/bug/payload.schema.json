@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Triage Payload",
-  "description": "Payload written by the triage skill to <out_dir>/payload.json.",
+  "description": "Payload written by the triage skill to <out_dir>/report.json.",
   "type": "object",
   "additionalProperties": false,
   "required": ["label", "body"],

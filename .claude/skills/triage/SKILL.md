@@ -8,7 +8,7 @@ arguments: [issue_path, type, out_dir]
 
 # Triage Issue
 
-Triage the issue in `$issue_path` and write a JSON payload to `$out_dir/payload.json`. Do not
+Triage the issue in `$issue_path` and write a JSON payload to `$out_dir/report.json`. Do not
 post anything: writing that payload is the whole job.
 
 `$issue_path` is JSON with `title`, `body`, `repository`, and `issue_number`. `$type` is the
@@ -100,7 +100,7 @@ indefinitely.
 
 ## Payload
 
-Create `$out_dir` first, then write `$out_dir/payload.json`:
+Create `$out_dir` first, then write `$out_dir/report.json`:
 
 ```json
 { "label": "triage: <outcome>", "body": "<Markdown>" }
@@ -120,7 +120,7 @@ Validate before finishing:
 
 ```bash
 uv run --only-group lint check-jsonschema \
-  --schemafile .claude/skills/triage/$type/payload.schema.json "$out_dir/payload.json"
+  --schemafile .claude/skills/triage/$type/payload.schema.json "$out_dir/report.json"
 ```
 
 Fix any errors and rerun until it passes.
