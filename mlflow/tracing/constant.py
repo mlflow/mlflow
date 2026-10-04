@@ -407,5 +407,7 @@ class GenAiSemconvKey:
     REQUEST_STOP_SEQUENCES = "gen_ai.request.stop_sequences"
     RESPONSE_FINISH_REASONS = "gen_ai.response.finish_reasons"
     TOOL_DEFINITIONS = "gen_ai.tool.definitions"
+    TOOL_NAME = "gen_ai.tool.name"
     TOOL_CALL_ARGUMENTS = "gen_ai.tool.call.arguments"
     TOOL_CALL_RESULT = "gen_ai.tool.call.result"
+    AGENT_NAME = "gen_ai.agent.name"

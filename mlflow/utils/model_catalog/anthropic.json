@@ -892,7 +892,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-28"
+      "deprecation_date": "2026-11-30",
+      "last_updated_at": "2026-10-02"
     },
     "claude-sonnet-4-5-20250929": {
       "mode": "chat",
@@ -938,7 +939,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-28"
+      "deprecation_date": "2026-11-30",
+      "last_updated_at": "2026-10-02"
     },
     "claude-sonnet-4-6": {
       "mode": "chat",

@@ -4807,7 +4807,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "deprecation_date": "2028-03-11",
+      "last_updated_at": "2026-10-02"
     },
     "gpt-6.1-sol-2026-09-29": {
       "mode": "chat",
@@ -4845,7 +4846,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "deprecation_date": "2028-03-11",
+      "last_updated_at": "2026-10-02"
     },
     "gpt-audio": {
       "mode": "chat",

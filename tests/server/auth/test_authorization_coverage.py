@@ -104,6 +104,7 @@ def _fastapi_native_routes():
         job_api_router,
         mcp_server_router,
         otel_router,
+        server_info_router,
     )
 
     def _methods(route):
@@ -113,7 +114,14 @@ def _fastapi_native_routes():
             if m not in ("HEAD", "OPTIONS")
         ]
 
-    for router in (artifact_router, assistant_router, gateway_router, job_api_router, otel_router):
+    for router in (
+        artifact_router,
+        assistant_router,
+        gateway_router,
+        job_api_router,
+        otel_router,
+        server_info_router,
+    ):
         for route in router.routes:
             for method in _methods(route):
                 yield route.path, method
@@ -132,6 +140,7 @@ def test_no_ungated_fastapi_native_routes():
         for path, method in _fastapi_native_routes()
         if a._find_fastapi_validator(path, method) is None
         and not a.is_unprotected_route(path)
+        and not a._matches_route_suffix(a._strip_static_prefix(path), a._PUBLIC_ROUTE_SUFFIXES)
         and not any(m in path for m in a._KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
     )
     assert not uncovered, (
