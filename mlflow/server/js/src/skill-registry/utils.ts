@@ -309,16 +309,19 @@ export const isSkillDimmed = (skill: Skill): boolean => skill.status !== SkillSt
 const hasAction = (actions: SkillAction[] | undefined, action: SkillAction) =>
   actions === undefined || actions.includes(action);
 
+/**
+ * RFC-0008 gives skills READ, EDIT (UPDATE) and MANAGE (DELETE). Anyone who can see a skill can read and
+ * pull it, so there is no separate use check. `allowed_actions` is optional (basic-auth adds it, other
+ * auth modes may not), and a missing list leaves enforcement to the server.
+ */
 export const getSkillPermissions = (skill?: Pick<Skill, 'allowed_actions'>) => {
   if (!skill) {
-    return { canUse: false, canUpdate: false, canDelete: false, canManage: false };
+    return { canUpdate: false, canDelete: false };
   }
   const actions = skill.allowed_actions;
   return {
-    canUse: hasAction(actions, SkillAction.USE),
     canUpdate: hasAction(actions, SkillAction.UPDATE),
     canDelete: hasAction(actions, SkillAction.DELETE),
-    canManage: hasAction(actions, SkillAction.MANAGE),
   };
 };
 

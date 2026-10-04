@@ -17,27 +17,12 @@ const renderUseSkillButton = (allowed_actions?: SkillAction[]) =>
     </IntlProvider>,
   );
 
-describe('UseSkillButton permission gating', () => {
-  it('disables the Use button and explains the permission when USE is not allowed', async () => {
-    renderUseSkillButton([]);
+describe('UseSkillButton', () => {
+  // Pulling is a read, so a READ-only user (an empty list under basic-auth) can still use the skill.
+  it.each([[[]], [[SkillAction.USE]], [undefined]])('enables Use for allowed_actions %p', (allowedActions) => {
+    renderUseSkillButton(allowedActions);
 
-    const button = screen.getByRole('button', { name: 'Use' });
-    expect(button).toBeDisabled();
-
-    await userEvent.hover(button.parentElement!);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('You do not have permission to use this skill.');
-  });
-
-  it('shows the Use button when the skill allows USE', () => {
-    renderUseSkillButton([SkillAction.USE]);
-
-    expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
-  });
-
-  it('keeps the Use button when allowed_actions is omitted', () => {
-    renderUseSkillButton(undefined);
-
-    expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use' })).toBeEnabled();
   });
 
   it('pins the selected version and changes the install destination', async () => {

@@ -180,29 +180,20 @@ describe('skill version lifecycle', () => {
 
 describe('getSkillPermissions', () => {
   it('treats missing allowed_actions as unrestricted', () => {
-    expect(getSkillPermissions(createMockSkill())).toEqual({
-      canUse: true,
-      canUpdate: true,
-      canDelete: true,
-      canManage: true,
-    });
+    expect(getSkillPermissions(createMockSkill())).toEqual({ canUpdate: true, canDelete: true });
   });
 
   it('treats an empty allowed_actions list as read-only', () => {
     expect(getSkillPermissions(createMockSkill({ allowed_actions: [] }))).toEqual({
-      canUse: false,
       canUpdate: false,
       canDelete: false,
-      canManage: false,
     });
   });
 
   it('exposes matching parent actions', () => {
     expect(getSkillPermissions(createMockSkill({ allowed_actions: [SkillAction.USE, SkillAction.UPDATE] }))).toEqual({
-      canUse: true,
       canUpdate: true,
       canDelete: false,
-      canManage: false,
     });
   });
 });
