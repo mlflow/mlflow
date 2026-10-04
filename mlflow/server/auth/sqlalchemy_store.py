@@ -1,5 +1,7 @@
 import logging
 import re
+import secrets
+import time
 from collections.abc import Iterable
 from urllib.parse import quote, unquote
 
@@ -19,6 +21,7 @@ from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
     SqlRole,
     SqlRolePermission,
+    SqlSession,
     SqlUser,
     SqlUserRoleAssignment,
 )
@@ -218,6 +221,12 @@ class SqlAlchemyStore:
                 _validate_password(password)
                 pwhash = generate_password_hash(password)
                 user.password_hash = pwhash
+                # A password rotation must invalidate any session minted under
+                # the old password, the same way it already invalidates the
+                # auth cache (_invalidate_user_auth_cache) - otherwise a
+                # session cookie keeps authenticating as this user for up to
+                # session_ttl_seconds after a credential compromise.
+                session.query(SqlSession).filter(SqlSession.user_id == user.id).delete()
             if is_admin is not None:
                 user.is_admin = is_admin
             return user.to_mlflow_entity()
@@ -240,8 +249,59 @@ class SqlAlchemyStore:
                     text(f"DELETE FROM {table} WHERE user_id = :uid"),
                     {"uid": user.id},
                 )
+            # Also invalidate any sessions for this (soon to be deleted) user.
+            session.query(SqlSession).filter(SqlSession.user_id == user.id).delete()
             session.flush()
             session.delete(user)
+
+    # ---- Server-side login sessions (mlflow.server.auth.session) ----
+
+    def create_session(self, username: str, ttl_seconds: int) -> str:
+        """Create a session for ``username``, returning its opaque id."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username)
+            session_id = secrets.token_urlsafe(32)
+            session.add(
+                SqlSession(
+                    session_id=session_id,
+                    user_id=user.id,
+                    expires_at=int(time.time()) + ttl_seconds,
+                )
+            )
+            return session_id
+
+    def get_session_username(self, session_id: str) -> str | None:
+        """Username for a still-valid session, or None if unknown/expired
+        (an expired row is deleted as a side effect)."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            row = (
+                session.query(SqlSession, SqlUser.username)
+                .join(SqlUser, SqlUser.id == SqlSession.user_id)
+                .filter(SqlSession.session_id == session_id)
+                .first()
+            )
+            if row is None:
+                return None
+            sql_session, username = row
+            if sql_session.expires_at < int(time.time()):
+                session.delete(sql_session)
+                return None
+            return username
+
+    def delete_session(self, session_id: str) -> None:
+        """Log out a single session."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            session.query(SqlSession).filter(SqlSession.session_id == session_id).delete()
+
+    def delete_expired_sessions(self) -> int:
+        """Backstop sweep for expired sessions that are never re-presented
+        (the common case is handled lazily by ``get_session_username``)."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            return (
+                session.query(SqlSession)
+                .filter(SqlSession.expires_at < int(time.time()))
+                .delete(synchronize_session=False)
+            )
 
     # ---- Synthetic user-role helpers ----
     #
