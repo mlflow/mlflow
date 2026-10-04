@@ -3,6 +3,7 @@ import { SkillAction, SkillStatus } from './types';
 import {
   aliasesForVersion,
   buildSkillCatalogFilterString,
+  buildGitBrowseHref,
   describeSkillSource,
   escapeFilterLiteral,
   formatSkillIdentity,
@@ -47,6 +48,24 @@ describe('formatSkillSourceLabel', () => {
     expect(formatSkillSourceLabel('zip')).toBe('ZIP archive');
     expect(formatSkillSourceLabel('mlflow')).toBe('MLflow artifacts');
     expect(formatSkillSourceLabel(null)).toBe('');
+  });
+});
+
+describe('buildGitBrowseHref', () => {
+  it("uses each host family's tree URL", () => {
+    expect(buildGitBrowseHref('https://github.com/acme/skills', 'main', 'skills/review')).toBe(
+      'https://github.com/acme/skills/tree/main/skills/review',
+    );
+    expect(buildGitBrowseHref('https://gitlab.com/acme/platform/skills', 'v1.0', 'review')).toBe(
+      'https://gitlab.com/acme/platform/skills/-/tree/v1.0/review',
+    );
+    expect(buildGitBrowseHref('https://gitlab.example.com/acme/skills', 'main')).toBe(
+      'https://gitlab.example.com/acme/skills/-/tree/main',
+    );
+    expect(buildGitBrowseHref('https://bitbucket.org/acme/skills', 'main')).toBe(
+      'https://bitbucket.org/acme/skills/src/main',
+    );
+    expect(buildGitBrowseHref('https://github.com/acme/skills', null)).toBeUndefined();
   });
 });
 

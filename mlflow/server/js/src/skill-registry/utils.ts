@@ -115,6 +115,9 @@ export const buildGitBrowseHref = (
     const host = new URL(repoUrl).hostname;
     if (host === 'bitbucket.org' || host.endsWith('.bitbucket.org')) {
       prefix = 'src';
+    } else if (host.split('.').includes('gitlab')) {
+      // GitLab, including self-managed hosts such as gitlab.example.com, scopes repository pages under /-/.
+      prefix = '-/tree';
     }
   } catch {
     return undefined;
