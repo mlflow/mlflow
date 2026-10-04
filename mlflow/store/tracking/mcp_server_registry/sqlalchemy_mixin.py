@@ -1499,8 +1499,8 @@ def _apply_mcp_server_version_filter(query, filter_string, dialect):
 
 def _normalize_mcp_server_version_filter_string(filter_string: str) -> str:
     return re.sub(
-        r"(?<![`\w.])version(?=\s*(?:=|!=|<=|>=|<|>|LIKE|ILIKE))",
-        "`version`",
+        r"('(?:[^']|'')*')|(\"(?:[^\"]|\"\")*\")|(?<![`\w.])version(?=\s*(?:=|!=|<=|>=|<|>|LIKE|ILIKE))",
+        lambda m: m.group(1) if m.group(1) is not None else (m.group(2) if m.group(2) is not None else "`version`"),
         filter_string,
     )
 
