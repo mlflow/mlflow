@@ -1311,3 +1311,65 @@ class TestResourceScopeMatchingAndPushdown:
         many_unscoped = [self._row("*") for _ in range(5)]
         assert auth_module._has_resource_scoped(many_unscoped) is False
         assert auth_module._has_resource_scoped([*many_unscoped, self._row("x")]) is True
+
+
+class TestPushdownColumnNamesResolve:
+    """Every pushdown mapping must name columns that exist on its model.
+
+    Found by conformance testing, not by these unit tests: ``logged_model`` declared the tag
+    key/value columns as ``key``/``value``, but ``SqlLoggedModelTag`` calls them ``tag_key``
+    and ``tag_value``. The result was an ``AttributeError`` inside the gate, surfacing as a
+    **500 on every logged-model tag write** as soon as any logged-model condition existed --
+    a fail-closed-by-crash, not a denial.
+
+    The existing pushdown tests all build their own clauses against ``SqlTag``, whose columns
+    really are ``key``/``value``, so the table itself was never exercised per entity. These two
+    tests check the table rather than one path through it, so a future entry with a mistyped
+    column fails here instead of in production.
+    """
+
+    def test_every_namespace_mapping_names_real_columns(self):
+        store = SqlAlchemyStore
+        problems = []
+        for entity, namespaces in store._PUSHDOWN_NAMESPACES.items():
+            for namespace, (model_name, id_names, key_name, value_name) in namespaces.items():
+                model = store._PUSHDOWN_MODELS[model_name]
+                for column in (*id_names, key_name, value_name):
+                    if not hasattr(model, column):
+                        actual = [c.name for c in model.__table__.columns]
+                        problems.append(
+                            f"{entity}.{namespace}: {model_name} has no {column!r} "
+                            f"(actual columns: {actual})"
+                        )
+        assert not problems, "\n".join(problems)
+
+    def test_every_cascade_entity_names_real_columns(self):
+        """The cascade path does not consult ``_PUSHDOWN_NAMESPACES``.
+
+        It has its own table, so fixing the namespace mapping alone left this path still
+        broken for the same entity. Both are checked, independently.
+        """
+        problems = []
+        for entity, mapping in SqlAlchemyStore._CASCADE_PUSHDOWN_ENTITIES.items():
+            (
+                child_model,
+                child_id_name,
+                parent_name,
+                tag_model,
+                tag_id_name,
+                tag_key_name,
+                tag_value_name,
+            ) = mapping
+            for model, column in (
+                (child_model, child_id_name),
+                (child_model, parent_name),
+                (tag_model, tag_id_name),
+                (tag_model, tag_key_name),
+                (tag_model, tag_value_name),
+            ):
+                if not hasattr(model, column):
+                    actual = [c.name for c in model.__table__.columns]
+                    problems.append(
+                        f"{entity}: {model.__name__} has no {column!r} (actual columns: {actual})"
+                    )
+        assert not problems, "\n".join(problems)

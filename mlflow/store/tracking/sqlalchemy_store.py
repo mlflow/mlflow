@@ -10019,7 +10019,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         "run": {"tags": ("SqlTag", ("run_uuid",), "key", "value")},
         "experiment": {"tags": ("SqlExperimentTag", ("experiment_id",), "key", "value")},
         "trace": {"tags": ("SqlTraceTag", ("request_id",), "key", "value")},
-        "logged_model": {"tags": ("SqlLoggedModelTag", ("model_id",), "key", "value")},
+        # ``SqlLoggedModelTag`` names its columns ``tag_key``/``tag_value``, unlike the
+        # other tag tables. Spelled per entity precisely so this can differ.
+        "logged_model": {"tags": ("SqlLoggedModelTag", ("model_id",), "tag_key", "tag_value")},
         "mcp_server": {
             "tags": ("SqlMCPServerTag", ("name",), "key", "value"),
             "aliases": ("SqlMCPServerAlias", ("name",), "alias", "version"),
@@ -10040,15 +10042,23 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     }
 
     # Cascade pushdown needs the child's own table too, to scope by parent:
-    # (child model, child id column, parent column, tag model, tag id column).
+    # (child model, child id column, parent column, tag model, tag id column,
+    #  tag key column, tag value column).
+    #
+    # The last two are carried rather than assumed to be ``key``/``value``:
+    # ``SqlLoggedModelTag`` calls them ``tag_key``/``tag_value``, and hardcoding the
+    # common names made every logged-model tag write 500 once a logged-model condition
+    # existed.
     _CASCADE_PUSHDOWN_ENTITIES = {
-        "run": (SqlRun, "run_uuid", "experiment_id", SqlTag, "run_uuid"),
+        "run": (SqlRun, "run_uuid", "experiment_id", SqlTag, "run_uuid", "key", "value"),
         "trace": (
             SqlTraceInfo,
             "request_id",
             "experiment_id",
             SqlTraceTag,
             "request_id",
+            "key",
+            "value",
         ),
         "logged_model": (
             SqlLoggedModel,
@@ -10056,6 +10066,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             "experiment_id",
             SqlLoggedModelTag,
             "model_id",
+            "tag_key",
+            "tag_value",
         ),
     }
 
@@ -10084,7 +10096,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
         if mapping is None:
             return None
-        child_model, child_id_name, parent_name, tag_model, tag_id_name = mapping
+        (
+            child_model,
+            child_id_name,
+            parent_name,
+            tag_model,
+            tag_id_name,
+            tag_key_name,
+            tag_value_name,
+        ) = mapping
         if not clauses:
             return False
 
@@ -10112,8 +10132,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     ._get_query(session, tag_model)
                     .with_entities(tag_id)
                     .filter(
-                        tag_model.key == key,
-                        comparison(tag_model.value, value),
+                        getattr(tag_model, tag_key_name) == key,
+                        comparison(getattr(tag_model, tag_value_name), value),
                     )
                     .scalar_subquery()
                 )
