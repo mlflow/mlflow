@@ -67,6 +67,18 @@ class DatabricksAdapter(OpenAICompatibleAdapter):
                 msg["content"] = cls._normalize_content(msg.get("content"))
         return super().model_to_chat(resp, config)
 
+    @classmethod
+    def model_to_chat_streaming(
+        cls, resp: dict[str, Any], config: EndpointConfig
+    ) -> chat.StreamResponsePayload:
+        # Stream deltas only support string content, so keep text parts and drop the rest
+        # (e.g. `reasoning`, `image_url`).
+        for choice in resp.get("choices", []):
+            if (delta := choice.get("delta")) and isinstance(delta.get("content"), list):
+                texts = [p.get("text", "") for p in delta["content"] if p.get("type") == "text"]
+                delta["content"] = "\n".join(texts) if texts else None
+        return super().model_to_chat_streaming(resp, config)
+
 
 class DatabricksProvider(OpenAICompatibleProvider):
     """Databricks provider using the Databricks SDK for authentication.
