@@ -323,7 +323,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   // A Git source with no subpath points at a whole repository, which usually holds many skills.
   const repositoryImport: SkillImportSnippetOptions | undefined =
     !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl && !subpath
-      ? { source: parsed.repositoryUrl, ref: ref || undefined }
+      ? { source: parsed.repositoryUrl, ref: ref || undefined, organization: snippetIdentity.organization || undefined }
       : undefined;
   const locationSummary = parsed
     ? [
@@ -387,7 +387,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       {view === 'api' ? (
         <RegisterSkillApiView
           register={registerSnippet}
-          repositoryImport={repositoryImport && { ...repositoryImport, organization: snippetIdentity.organization }}
+          repositoryImport={repositoryImport}
           onBack={() => setView('form')}
         />
       ) : (

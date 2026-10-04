@@ -500,6 +500,7 @@ describe('SkillRegistryPage', () => {
     expect(document.body.textContent).toContain(
       "mlflow skills import --source 'https://github.com/redhat-ai/skills-developer'",
     );
+    expect(document.body.textContent).toContain("--organization 'redhat-ai'");
     expect(screen.getByRole('button', { name: 'Copy repository import command' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /create through API/ }));

@@ -124,6 +124,10 @@ const IconRow = ({
               if (localSrc !== icon.src) onChangeSrc(index, localSrc);
             }}
             placeholder={placeholder}
+            aria-label={intl.formatMessage(
+              { defaultMessage: 'Icon URL {number}', description: 'Aria label for an existing skill icon URL' },
+              { number: index + 1 },
+            )}
             validationState={localSrc.trim() ? undefined : 'error'}
           />
         </div>

@@ -10455,6 +10455,10 @@
     "defaultMessage": "Dark",
     "description": "Dark mode icon option"
   },
+  "cCgy82": {
+    "defaultMessage": "Icon URL {number}",
+    "description": "Aria label for an existing skill icon URL"
+  },
   "cEj56l": {
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"
