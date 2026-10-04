@@ -5757,6 +5757,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
+                resource = getattr(span._span, "resource", None)
+                service_name = (
+                    resource.attributes.get("service.name")
+                    if resource is not None and resource.attributes
+                    else None
+                )
+                if service_name is None and "service.name" in span_attributes:
+                    service_name = _try_parse_json_string(span_attributes["service.name"])
+                if service_name is not None:
+                    service_name = str(service_name)
+
                 # Keep non-ASCII text unescaped so `trace.text` / `span.content` LIKE filters
                 # can match it: stored as a \uXXXX escape, it never matches the text users type.
                 # MSSQL keeps the escaped form: its `spans.content` column is a non-Unicode
@@ -5787,6 +5798,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     "name": span.name,
                     "type": span.span_type,
                     "status": span.status.status_code,
+                    "service_name": service_name,
                     "start_time_unix_nano": span.start_time_ns,
                     "end_time_unix_nano": span.end_time_ns,
                     "content": content_json,

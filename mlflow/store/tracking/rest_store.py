@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from packaging.version import Version
 
 from mlflow.entities import (
@@ -164,7 +163,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
-    resource_to_otel_proto,
+    build_otel_export_trace_service_request,
 )
 from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
@@ -2496,12 +2495,7 @@ class RestStore(
                 f" less than 3.4"
             )
 
-        request = ExportTraceServiceRequest()
-        resource_spans = request.resource_spans.add()
-        resource = getattr(spans[0]._span, "resource", None)
-        resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
-        scope_spans = resource_spans.scope_spans.add()
-        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
+        request = build_otel_export_trace_service_request(spans)
 
         response = http_request(
             host_creds=self.get_host_creds(),

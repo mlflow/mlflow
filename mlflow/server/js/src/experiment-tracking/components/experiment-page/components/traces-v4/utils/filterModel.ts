@@ -82,6 +82,15 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
         valueInput: 'text',
       },
       {
+        id: 'service_name',
+        label: intl.formatMessage({
+          defaultMessage: 'Service name',
+          description: 'Trace filter field: service name',
+        }),
+        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
+        valueInput: 'text',
+      },
+      {
         id: 'user',
         label: intl.formatMessage({ defaultMessage: 'User', description: 'Trace filter field: user' }),
         operators: [FilterOp.EQUALS],

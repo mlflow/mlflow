@@ -76,9 +76,7 @@ describe('TracesV4PageContent (interactions)', () => {
       expect(state.searchCalls.some((c) => c.filter?.includes("attributes.status = 'ERROR'"))).toBe(true);
     }, 20000); // heavy full-page userEvent render; bump off the flaky 5s default under parallel jsdom load
 
-    // TODO(traces-v4): service_name filtering was dropped in OSS (the SearchTracesV3 parser rejects span.service_name). Field + clause removed by design.
-
-    test.skip('building a service name clause and applying it sends the compiled span.service_name filter', async () => {
+    test('building a service name clause and applying it sends the compiled span.service_name filter', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       await findTraceRow('tr-000');
@@ -93,7 +91,7 @@ describe('TracesV4PageContent (interactions)', () => {
       await waitFor(() =>
         expect(state.searchCalls.some((c) => c.filter?.includes("span.service_name = 'my-service'"))).toBe(true),
       );
-    });
+    }, 20000);
 
     test('the clear-all button clears an applied clause and the unfiltered rows return', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });

@@ -1773,7 +1773,7 @@ class SearchTraceUtils(SearchUtils):
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
     # Supported span attributes
-    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "service_name", "type", "status"}
     _SPAN_CONTENT_KEY = "content"
     VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
 
@@ -1887,7 +1887,6 @@ class SearchTraceUtils(SearchUtils):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """
-        # Don't replace keys for span filters - they have their own namespace
         if parsed.get("type") == cls._SPAN_IDENTIFIER:
             return parsed
 

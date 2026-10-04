@@ -15939,6 +15939,10 @@
     "defaultMessage": "Expectations",
     "description": "Label for expectations variable option"
   },
+  "zVTQjE": {
+    "defaultMessage": "Service name",
+    "description": "Trace filter field: service name"
+  },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
     "description": "Label indicating positive infinity used as a hover text in a plot UI element"

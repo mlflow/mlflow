@@ -4,6 +4,7 @@ import os
 import zlib
 from typing import Any
 
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValueList
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.sdk.resources import Resource as OTelResource
@@ -283,3 +284,22 @@ def resource_to_otel_proto(resource: OTelResource | None) -> OTelProtoResource:
             attr.key = key
             _set_otel_proto_anyvalue(attr.value, value)
     return otel_resource
+
+
+def build_otel_export_trace_service_request(spans: list[Any]) -> ExportTraceServiceRequest:
+    """Build an OTLP request while preserving each span's resource."""
+    grouped_spans: dict[bytes, tuple[OTelProtoResource, list[Any]]] = {}
+    for span in spans:
+        resource = getattr(span._span, "resource", None)
+        resource_proto = resource_to_otel_proto(resource)
+        resource_key = resource_proto.SerializeToString(deterministic=True)
+        _, span_group = grouped_spans.setdefault(resource_key, (resource_proto, []))
+        span_group.append(span)
+
+    request = ExportTraceServiceRequest()
+    for resource_proto, span_group in grouped_spans.values():
+        resource_spans = request.resource_spans.add()
+        resource_spans.resource.CopyFrom(resource_proto)
+        scope_spans = resource_spans.scope_spans.add()
+        scope_spans.spans.extend(span.to_otel_proto() for span in span_group)
+    return request
