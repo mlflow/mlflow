@@ -157,17 +157,38 @@ describe('TracesV4PageContent', () => {
     await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0] === 'timestamp ASC')).toBe(true));
   });
 
-  test('non-sortable headers (State) expose no sort control in their menu', async () => {
+  test('State header exposes sort controls in its menu', async () => {
     const user = userEvent.setup();
     renderPage();
     await findTraceRow('tr-000');
 
     const stateHeader = screen.getByRole('columnheader', { name: 'State' });
-    // A display-only column still has a menu (for Hide column) but offers no sort items.
     await user.click(within(stateHeader).getByRole('button', { name: 'Column options' }));
-    expect(await screen.findByRole('menuitem', { name: 'Hide column' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: /^Sort/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Sort ascending' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Sort descending' })).toBeInTheDocument();
   });
+
+  test('grouped sessions ignore trace-level sorts and hide their sort controls', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    state.pages = {
+      '': {
+        traces: [makeSessionTrace('tr-000', 'session-1'), makeSessionTrace('tr-001', 'session-1')],
+        next_page_token: undefined,
+      },
+    };
+    renderPage({ initialUrl: `${URL}?groupBy=session&sort=tokens&dir=asc` });
+    expect(await screen.findByText('session-1')).toBeInTheDocument();
+
+    await waitFor(() => expect(state.searchCalls.at(-1)?.order_by?.[0]).toBe('timestamp DESC'));
+    await user.click(screen.getByRole('button', { name: 'Display' }));
+    expect(screen.queryByRole('menuitem', { name: /^Sort/ })).not.toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    const tokensHeader = screen.getByRole('columnheader', { name: 'Tokens' });
+    await user.click(within(tokensHeader).getByRole('button', { name: 'Column options' }));
+    expect(screen.queryByRole('menuitem', { name: 'Sort ascending' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Sort descending' })).not.toBeInTheDocument();
+  }, 20000);
 
   test('select rows → Actions (2) → Delete is enabled in OSS and opens the confirm modal', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });

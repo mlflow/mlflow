@@ -88,10 +88,16 @@ describe('useTracesV4UrlState', () => {
     expect(result.current.pageSize).toBe(25);
   });
 
-  test('a non-server-sortable sort param degrades to the default column', async () => {
+  test('a sortable metric column is honored', async () => {
     const { result } = await mountHook('/p?sort=tokens&dir=asc');
-    // `tokens` is not server-sortable, so it must not be honored.
-    expect(result.current.sort).toBe('start_time');
+    expect(result.current.sort).toBe('tokens');
+    expect(result.current.dir).toBe('asc');
+  });
+
+  test('a dynamic assessment sort column is honored', async () => {
+    const { result } = await mountHook('/p?sort=assessment%3Aquality%20score&dir=asc');
+    expect(result.current.sort).toBe('assessment:quality score');
+    expect(result.current.dir).toBe('asc');
   });
 
   test('setSearch writes q and clears the page param', async () => {

@@ -4267,16 +4267,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             else:
                 location_filter = None
 
-            cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
-                order_by or [], session
-            )
-            stmt = self._trace_query(session).with_entities(*_TRACE_INFO_COLUMNS)
-            if cases_orderby:
-                stmt = stmt.add_columns(*cases_orderby)
-
+            order_by = order_by or []
             scoped_trace_query = self._trace_query(session)
             if locations is not None:
                 scoped_trace_query = scoped_trace_query.filter(location_filter)
+            stmt = self._trace_query(session).with_entities(*_TRACE_INFO_COLUMNS)
+
             (
                 attribute_filters,
                 non_attribute_filters,
@@ -4296,19 +4292,23 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 run_id_filter,
             )
 
-            # using an outer join is necessary here because we want to be able to sort
-            # on a column (tag, metric or param) without removing the lines that
-            # do not have a value for this column (which is what inner join would do)
-            for j in sorting_joins:
-                stmt = stmt.outerjoin(j)
-
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
             if location_filter is not None:
                 stmt = stmt.filter(location_filter)
 
-            stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results)
+            cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
+                order_by,
+                session,
+                scoped_trace_query=stmt,
+                supports_window_functions=self._supports_window_functions(session),
+            )
+            if cases_orderby:
+                stmt = stmt.add_columns(*cases_orderby)
+            # Outer joins preserve traces that have no value for an ordered field.
+            for join in sorting_joins:
+                stmt = stmt.outerjoin(join)
 
-            trace_rows = stmt.all()
+            trace_rows = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results).all()
             trace_infos = _build_trace_infos_from_rows(session, trace_rows)
 
             # Compute next search token
@@ -10355,7 +10355,13 @@ def _parse_trace_filter(filter_string):
     )
 
 
-def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
+def _get_orderby_clauses_for_search_traces(
+    order_by_list: list[str],
+    session,
+    scoped_trace_query: Query | None = None,
+    *,
+    supports_window_functions: bool = True,
+):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by trace_id for tie-breaking.
     """
@@ -10375,7 +10381,13 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 f"Ordering by reserved metadata '{key}' is not supported because it is "
                 "represented by multiple columns."
             )
-        if SearchTraceUtils.is_attribute(key_type, key, "="):
+        order_values = None
+        reverse_order_value_directions = None
+        if key_type == SearchTraceUtils._ATTRIBUTE_IDENTIFIER and key == "state":
+            # Databricks groups every non-error state together and places ERROR after it for ASC.
+            # Keep that behavior instead of exposing the storage enum's lexical order.
+            order_value = sql.case((SqlTraceInfo.status == TraceState.ERROR.value, 1), else_=0)
+        elif SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
             order_value = SqlTraceInfo.trace_name
@@ -10384,6 +10396,174 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             and key == TraceMetadataKey.TRACE_SESSION
         ):
             order_value = SqlTraceInfo.session_id
+        elif key_type == SearchTraceUtils._FEEDBACK_IDENTIFIER:
+            if scoped_trace_query is None:
+                raise MlflowException.invalid_parameter_value(
+                    "A scoped trace query is required when ordering by feedback."
+                )
+            dialect_name = session.get_bind().dialect.name
+            scoped_trace_ids = (
+                scoped_trace_query
+                .with_entities(SqlTraceInfo.request_id.label("request_id"))
+                .distinct()
+                .subquery()
+            )
+            session_assessment_marker = f'"{TraceMetadataKey.TRACE_SESSION}":'
+            empty_session_assessment_marker = f'"{TraceMetadataKey.TRACE_SESSION}": ""'
+            null_session_assessment_marker = f'"{TraceMetadataKey.TRACE_SESSION}": null'
+
+            def feedback_filters(assessment):
+                case_sensitive_name = SearchUtils.get_sql_case_sensitive_string_expression(
+                    assessment.name, dialect_name
+                )
+                case_sensitive_key = SearchUtils.get_sql_case_sensitive_string_expression(
+                    sql.literal(key), dialect_name
+                )
+                return (
+                    # Keep the plain predicate so case-insensitive indexes can narrow candidates.
+                    assessment.name == key,
+                    case_sensitive_name == case_sensitive_key,
+                    assessment.assessment_type == "feedback",
+                    assessment.valid == sqlalchemy.true(),
+                    assessment.span_id.is_(None),
+                    or_(
+                        assessment.assessment_metadata.is_(None),
+                        ~assessment.assessment_metadata.contains(session_assessment_marker),
+                        assessment.assessment_metadata.contains(empty_session_assessment_marker),
+                        assessment.assessment_metadata.contains(null_session_assessment_marker),
+                    ),
+                )
+
+            if supports_window_functions:
+                latest_rank = func.row_number().over(
+                    partition_by=SqlAssessments.trace_id,
+                    order_by=(
+                        SqlAssessments.created_timestamp.desc(),
+                        SqlAssessments.assessment_id.desc(),
+                    ),
+                )
+                feedback_value_column = SqlAssessments.value
+                if dialect_name == MSSQL:
+                    # SQL Server stores this column as TEXT, which cannot be compared or ordered.
+                    feedback_value_column = sql.cast(feedback_value_column, sqlalchemy.Unicode())
+                ranked_feedback = (
+                    session
+                    .query(
+                        SqlAssessments.trace_id.label("trace_id"),
+                        feedback_value_column.label("value"),
+                        SqlAssessments.aggregate_value.label("aggregate_value"),
+                        SqlAssessments.is_numeric_value.label("is_numeric_value"),
+                        latest_rank.label("latest_rank"),
+                    )
+                    .join(
+                        scoped_trace_ids,
+                        SqlAssessments.trace_id == scoped_trace_ids.c.request_id,
+                    )
+                    .filter(*feedback_filters(SqlAssessments))
+                    .subquery()
+                )
+                latest_feedback = (
+                    session
+                    .query(
+                        ranked_feedback.c.trace_id,
+                        ranked_feedback.c.value,
+                        ranked_feedback.c.aggregate_value,
+                        ranked_feedback.c.is_numeric_value,
+                    )
+                    .filter(ranked_feedback.c.latest_rank == 1)
+                    .subquery()
+                )
+            else:
+                # MySQL 5.7 has no window functions. An anti-join still selects one latest row per
+                # trace while leaving ordering and pagination in SQL.
+                assessment = aliased(SqlAssessments)
+                newer_assessment = aliased(SqlAssessments)
+                latest_feedback = (
+                    session
+                    .query(
+                        assessment.trace_id.label("trace_id"),
+                        assessment.value.label("value"),
+                        assessment.aggregate_value.label("aggregate_value"),
+                        assessment.is_numeric_value.label("is_numeric_value"),
+                    )
+                    .join(scoped_trace_ids, assessment.trace_id == scoped_trace_ids.c.request_id)
+                    .outerjoin(
+                        newer_assessment,
+                        and_(
+                            newer_assessment.trace_id == assessment.trace_id,
+                            *feedback_filters(newer_assessment),
+                            or_(
+                                newer_assessment.created_timestamp > assessment.created_timestamp,
+                                and_(
+                                    newer_assessment.created_timestamp
+                                    == assessment.created_timestamp,
+                                    newer_assessment.assessment_id > assessment.assessment_id,
+                                ),
+                            ),
+                        ),
+                    )
+                    .filter(
+                        *feedback_filters(assessment),
+                        newer_assessment.assessment_id.is_(None),
+                    )
+                    .subquery()
+                )
+            ordering_joins.append(latest_feedback)
+
+            # An error-only feedback is stored as JSON null text; it is a missing value for sorting.
+            feedback_value = sql.case(
+                (latest_feedback.c.value == "null", None),
+                else_=latest_feedback.c.value,
+            )
+            categorical_feedback_order_value = SearchUtils.get_sql_case_sensitive_string_expression(
+                feedback_value, dialect_name
+            )
+            order_value = feedback_value
+            if supports_window_functions:
+                # If every latest value in the filtered result set is numeric, sort numerically.
+                # The materialized aggregate is a double, matching Databricks feedback ordering;
+                # values represented by the same double intentionally fall through to the standard
+                # timestamp and trace-id tie-breakers. Otherwise sort all values categorically. The
+                # window is evaluated after trace filters, so unrelated traces cannot change mode.
+                has_categorical_value = func.max(
+                    sql.case(
+                        (
+                            and_(
+                                feedback_value.isnot(None),
+                                latest_feedback.c.is_numeric_value == sqlalchemy.false(),
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).over()
+                numeric_order_value = sql.case(
+                    (has_categorical_value == 0, latest_feedback.c.aggregate_value),
+                    else_=None,
+                )
+                categorical_order_value = sql.case(
+                    (has_categorical_value != 0, categorical_feedback_order_value),
+                    else_=None,
+                )
+                order_values = [numeric_order_value, categorical_order_value]
+                reverse_order_value_directions = [False, False]
+            else:
+                has_categorical_value = (
+                    session
+                    .query(latest_feedback.c.trace_id)
+                    .filter(
+                        latest_feedback.c.value != "null",
+                        latest_feedback.c.is_numeric_value == sqlalchemy.false(),
+                    )
+                    .first()
+                    is not None
+                )
+                if has_categorical_value:
+                    order_values = [categorical_feedback_order_value]
+                    reverse_order_value_directions = [False]
+                else:
+                    order_values = [latest_feedback.c.aggregate_value]
+                    reverse_order_value_directions = [False]
         else:
             if SearchTraceUtils.is_tag(key_type, "="):
                 entity = SqlTraceTag
@@ -10402,12 +10582,21 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
         case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
         clauses.append(case.name)
         select_clauses.append(case)
-        select_clauses.append(order_value)
+        order_values = order_values or [order_value]
+        reverse_order_value_directions = reverse_order_value_directions or [False] * len(
+            order_values
+        )
+        select_clauses.extend(order_values)
 
         if (key_type, key) in observed_order_by_clauses:
             raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
         observed_order_by_clauses.add((key_type, key))
-        clauses.append(order_value if ascending else order_value.desc())
+        clauses.extend(
+            order_value if ascending != reverse_direction else order_value.desc()
+            for order_value, reverse_direction in zip(
+                order_values, reverse_order_value_directions, strict=True
+            )
+        )
 
     # Add descending trace start time as default ordering and a tie-breaker
     for attr, ascending in [

@@ -54,7 +54,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -427,6 +427,293 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
     )
     actual_ids = [trace_info.trace_id for trace_info in trace_infos]
     assert actual_ids == expected_ids
+
+
+def _install_case_insensitive_sqlite_collation(store: SqlAlchemyStore):
+    if store.engine.dialect.name != SQLITE:
+        pytest.skip("The test installs a SQLite collation to emulate a case-insensitive backend")
+
+    def case_insensitive(left: str, right: str) -> int:
+        return (left.casefold() > right.casefold()) - (left.casefold() < right.casefold())
+
+    def install_case_insensitive_collation(dbapi_connection, _):
+        dbapi_connection.create_collation("BINARY", case_insensitive)
+
+    sqlalchemy.event.listen(store.engine, "connect", install_case_insensitive_collation)
+    store.engine.dispose()
+
+
+@pytest.mark.parametrize("supports_window_functions", [True, False])
+def test_search_traces_order_by_metrics_state_and_latest_feedback(
+    store: SqlAlchemyStore, monkeypatch, supports_window_functions
+):
+    if not supports_window_functions:
+        monkeypatch.setattr(store, "_supports_window_functions", lambda _: False)
+
+    experiment_id = store.create_experiment("sortable-trace-fields")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    trace_specs = [
+        ("low", 1, TraceState.OK, 2, 0.2),
+        ("high", 2, TraceState.IN_PROGRESS, 10, 0.9),
+        ("error", 3, TraceState.ERROR, None, None),
+    ]
+    for trace_id, request_time, state, total_tokens, total_cost in trace_specs:
+        metadata = {}
+        if total_tokens is not None:
+            metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
+                TokenUsageKey.TOTAL_TOKENS: total_tokens
+            })
+        if total_cost is not None:
+            metadata[TraceMetadataKey.COST] = json.dumps({CostKey.TOTAL_COST: total_cost})
+        _create_trace(
+            store,
+            trace_id,
+            experiment_id,
+            request_time=request_time,
+            state=state,
+            trace_metadata=metadata,
+            tags={"sort_tie": {"low": "beta", "high": "alpha"}.get(trace_id, "")},
+        )
+
+    store.create_assessment(
+        Feedback(
+            trace_id="low",
+            name="quality",
+            value=0.2,
+            source=source,
+            create_time_ms=1,
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id="low",
+            name="quality",
+            value=0.4,
+            source=source,
+            create_time_ms=2,
+        )
+    )
+    store.create_assessment(Feedback(trace_id="high", name="quality", value=0.8, source=source))
+    store.create_assessment(
+        Feedback(trace_id="error", name="quality", error="judge failed", source=source)
+    )
+    store.create_assessment(Feedback(trace_id="low", name="category", value="beta", source=source))
+    store.create_assessment(
+        Feedback(trace_id="high", name="category", value="alpha", source=source)
+    )
+    store.create_assessment(Feedback(trace_id="low", name="mixed", value=2, source=source))
+    store.create_assessment(Feedback(trace_id="high", name="mixed", value="alpha", source=source))
+    store.create_assessment(
+        Feedback(
+            trace_id="low",
+            name="empty_session_marker",
+            value="a",
+            source=source,
+            metadata={TraceMetadataKey.TRACE_SESSION: ""},
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id="high",
+            name="empty_session_marker",
+            value="z",
+            source=source,
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id="low",
+            name="null_session_marker",
+            value="a",
+            source=source,
+            metadata={TraceMetadataKey.TRACE_SESSION: None},
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id="high",
+            name="null_session_marker",
+            value="z",
+            source=source,
+        )
+    )
+    store.create_assessment(
+        Feedback(
+            trace_id="error",
+            name="category",
+            value="aardvark",
+            source=source,
+            metadata={TraceMetadataKey.TRACE_SESSION: "session-1"},
+        )
+    )
+
+    def ordered_ids(*order_by):
+        traces, _ = store.search_traces(locations=[experiment_id], order_by=list(order_by))
+        return [trace.trace_id for trace in traces]
+
+    assert ordered_ids("total_tokens ASC") == ["low", "high", "error"]
+    assert ordered_ids("total_cost DESC") == ["high", "low", "error"]
+    assert ordered_ids("state ASC") == ["high", "low", "error"]
+    assert ordered_ids("state DESC") == ["error", "high", "low"]
+    assert ordered_ids("feedback.quality ASC") == ["low", "high", "error"]
+    assert ordered_ids("feedback.quality DESC") == ["high", "low", "error"]
+    assert ordered_ids("feedback.category ASC") == ["high", "low", "error"]
+    assert ordered_ids("feedback.category DESC") == ["low", "high", "error"]
+    assert ordered_ids("feedback.mixed ASC") == ["high", "low", "error"]
+    assert ordered_ids("feedback.mixed DESC") == ["low", "high", "error"]
+    assert ordered_ids("feedback.empty_session_marker ASC") == ["low", "high", "error"]
+    assert ordered_ids("feedback.null_session_marker ASC") == ["low", "high", "error"]
+    assert ordered_ids("feedback.missing ASC", "tag.sort_tie ASC") == ["error", "high", "low"]
+
+    if not supports_window_functions:
+        loaded_page_sizes = []
+        build_trace_infos = sqlalchemy_store_module._build_trace_infos_from_rows
+
+        def record_loaded_page_size(session, rows):
+            loaded_page_sizes.append(len(rows))
+            return build_trace_infos(session, rows)
+
+        monkeypatch.setattr(
+            sqlalchemy_store_module,
+            "_build_trace_infos_from_rows",
+            record_loaded_page_size,
+        )
+        first_page, page_token = store.search_traces(
+            locations=[experiment_id],
+            order_by=["feedback.quality ASC"],
+            max_results=1,
+        )
+        second_page, _ = store.search_traces(
+            locations=[experiment_id],
+            order_by=["feedback.quality ASC"],
+            max_results=1,
+            page_token=page_token,
+        )
+        assert [trace.trace_id for trace in first_page + second_page] == ["low", "high"]
+        assert loaded_page_sizes == [1, 1]
+
+
+@pytest.mark.parametrize("supports_window_functions", [True, False])
+def test_search_traces_feedback_order_matches_names_case_sensitively(
+    store: SqlAlchemyStore, monkeypatch, supports_window_functions
+):
+    _install_case_insensitive_sqlite_collation(store)
+    if not supports_window_functions:
+        monkeypatch.setattr(store, "_supports_window_functions", lambda _: False)
+
+    experiment_id = store.create_experiment("case-sensitive-feedback-name-order")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, request_time, name, value in (
+        ("upper", 1, "Quality", 10),
+        ("lower", 2, "quality", 1),
+    ):
+        _create_trace(store, trace_id, experiment_id, request_time=request_time)
+        store.create_assessment(Feedback(trace_id=trace_id, name=name, value=value, source=source))
+
+    upper_name, _ = store.search_traces(
+        locations=[experiment_id], order_by=["feedback.Quality ASC"]
+    )
+    lower_name, _ = store.search_traces(
+        locations=[experiment_id], order_by=["feedback.quality ASC"]
+    )
+
+    assert [trace.trace_id for trace in upper_name] == ["upper", "lower"]
+    assert [trace.trace_id for trace in lower_name] == ["lower", "upper"]
+
+
+@pytest.mark.parametrize("supports_window_functions", [True, False])
+def test_search_traces_categorical_feedback_order_is_case_sensitive(
+    store: SqlAlchemyStore, monkeypatch, supports_window_functions
+):
+    _install_case_insensitive_sqlite_collation(store)
+    if not supports_window_functions:
+        monkeypatch.setattr(store, "_supports_window_functions", lambda _: False)
+
+    experiment_id = store.create_experiment("case-sensitive-categorical-feedback-order")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, request_time, value in (("upper", 2, "A"), ("lower", 1, "a")):
+        _create_trace(store, trace_id, experiment_id, request_time=request_time)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="quality", value=value, source=source)
+        )
+
+    ascending, _ = store.search_traces(locations=[experiment_id], order_by=["feedback.quality ASC"])
+    descending, _ = store.search_traces(
+        locations=[experiment_id], order_by=["feedback.quality DESC"]
+    )
+
+    assert [trace.trace_id for trace in ascending] == ["upper", "lower"]
+    assert [trace.trace_id for trace in descending] == ["lower", "upper"]
+
+
+@pytest.mark.parametrize("supports_window_functions", [True, False])
+def test_search_traces_feedback_order_uses_numeric_aggregate(
+    store: SqlAlchemyStore,
+    monkeypatch,
+    supports_window_functions,
+):
+    if not supports_window_functions:
+        monkeypatch.setattr(store, "_supports_window_functions", lambda _: False)
+
+    experiment_id = store.create_experiment("numeric-feedback-order")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, request_time, value in (
+        ("lower", 2, 10**20),
+        ("higher", 1, 2 * 10**20),
+    ):
+        _create_trace(store, trace_id, experiment_id, request_time=request_time)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="quality", value=value, source=source)
+        )
+
+    ascending, _ = store.search_traces(locations=[experiment_id], order_by=["feedback.quality ASC"])
+    descending, _ = store.search_traces(
+        locations=[experiment_id], order_by=["feedback.quality DESC"]
+    )
+
+    assert [trace.trace_id for trace in ascending] == ["lower", "higher"]
+    assert [trace.trace_id for trace in descending] == ["higher", "lower"]
+
+
+@pytest.mark.parametrize("supports_window_functions", [True, False])
+@pytest.mark.parametrize(
+    ("integer_value", "float_value"),
+    [
+        pytest.param(1, 1.0, id="equivalent-encoding"),
+        pytest.param(10**19 - 1, 1e19, id="outside-sqlite-int64"),
+        pytest.param(10**40, 1e40, id="beyond-numeric-precision"),
+    ],
+)
+def test_search_traces_feedback_order_treats_equal_double_aggregates_as_tied(
+    store: SqlAlchemyStore,
+    monkeypatch,
+    supports_window_functions,
+    integer_value,
+    float_value,
+):
+    if not supports_window_functions:
+        monkeypatch.setattr(store, "_supports_window_functions", lambda _: False)
+
+    experiment_id = store.create_experiment("equal-numeric-feedback-order")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, request_time, value in (
+        ("integer", 2, integer_value),
+        ("float", 1, float_value),
+    ):
+        _create_trace(store, trace_id, experiment_id, request_time=request_time)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="quality", value=value, source=source)
+        )
+
+    ascending, _ = store.search_traces(locations=[experiment_id], order_by=["feedback.quality ASC"])
+    descending, _ = store.search_traces(
+        locations=[experiment_id], order_by=["feedback.quality DESC"]
+    )
+
+    expected_order = ["integer", "float"]
+    assert [trace.trace_id for trace in ascending] == expected_order
+    assert [trace.trace_id for trace in descending] == expected_order
 
 
 @pytest.mark.parametrize(

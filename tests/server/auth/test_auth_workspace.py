@@ -7129,7 +7129,11 @@ def _run_search_traces_v3(locations, filter_string="", order_by=None):
 
 @pytest.mark.parametrize(
     ("denied_tier", "selecting_sort"),
-    [("run", "run_id DESC"), ("logged_model", "request_metadata.`mlflow.modelId` ASC")],
+    [
+        ("assessment", "feedback.safety DESC"),
+        ("run", "run_id DESC"),
+        ("logged_model", "request_metadata.`mlflow.modelId` ASC"),
+    ],
 )
 def test_trace_search_gates_the_order_by(workspace_permission_setup, denied_tier, selecting_sort):
     """Both validators gated `filter` and ignored `order_by`, but a sort key is the same oracle one
@@ -7156,14 +7160,16 @@ def test_trace_search_gates_the_order_by(workspace_permission_setup, denied_tier
     assert _run_search_traces("") is True
 
 
-def test_trace_search_order_by_allowed_without_a_deny(workspace_permission_setup):
+@pytest.mark.parametrize("selecting_sort", ["feedback.safety DESC", "run_id DESC"])
+def test_trace_search_order_by_allowed_without_a_deny(workspace_permission_setup, selecting_sort):
     # No grant on the tier: the sort is not an oracle, exactly as for the filter path.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("experiment", "*", READ.name)])
 
-    assert _run_search_traces("", order_by=["run_id DESC"]) is True
+    assert _run_search_traces("", order_by=[selecting_sort]) is True
+    assert _run_search_traces_v3([_snake_location("exp-1")], order_by=[selecting_sort]) is True
 
 
 def _snake_location(experiment_id):

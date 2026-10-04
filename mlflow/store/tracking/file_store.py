@@ -2202,8 +2202,9 @@ class FileStore(AbstractStore):
             filter_string: A search filter string. Supported filter keys are `name`,
                            `status`, `timestamp_ms` and `tags`.
             max_results: Maximum number of traces desired.
-            order_by: List of order_by clauses. Supported sort key is `timestamp_ms`. By default
-                      we sort by timestamp_ms DESC.
+            order_by: List of order-by clauses. Supported keys include trace attributes, tags,
+                request metadata, and trace-level feedback. By default, traces are sorted by
+                ``timestamp_ms DESC``.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.

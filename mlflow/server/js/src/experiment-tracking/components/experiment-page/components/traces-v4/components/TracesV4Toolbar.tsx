@@ -9,13 +9,14 @@ import {
   type SortDirection,
   type ReorderableTraceColumnOption,
   type TraceColumnId,
+  type TraceSortColumnId,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
 import { type TracesV4CustomColumns } from '../hooks/useTracesV4CustomColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
-import { isAssessmentColumnId } from '../utils/assessmentColumns';
+import { assessmentColumnId, assessmentNameFromColumnId, isAssessmentColumnId } from '../utils/assessmentColumns';
 import { TracesV4DateSelector, TracesV4RefreshButton } from './TracesV4DateSelector';
 import { TracesV4DisplayButton, type TracesV4ColumnGroup } from './TracesV4DisplayButton';
 import { TracesV4ActionsButton } from './TracesV4ActionsButton';
@@ -40,9 +41,9 @@ export interface TracesV4ToolbarParams {
   /** Custom (tag + metadata) column selection (dynamic, per-page). */
   customColumns: TracesV4CustomColumns;
   /** Active sort column + direction, and its setter — surfaced in the Display popover's Sort submenu. */
-  sort: TraceColumnId;
+  sort: TraceSortColumnId;
   dir: SortDirection;
-  onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  onSort: (column: TraceSortColumnId, direction: SortDirection) => void;
   /** Row-height density + setter — surfaced in the Display popover's Row height submenu. */
   density: TracesV4Density;
   onDensityChange: (density: TracesV4Density) => void;
@@ -231,6 +232,16 @@ export const useTracesV4ToolbarSlots = ({
   const toggleAnyColumn = (id: string) =>
     isAssessmentColumnId(id) ? assessmentColumns.toggle(id) : onToggleColumn(id as TraceColumnId);
   const visibleAnyColumns = [...visibleColumns, ...assessmentColumns.visibleIds];
+  const assessmentSortNames = useMemo(() => {
+    const names = [...assessmentColumns.sortableNames];
+    if (isAssessmentColumnId(sort)) {
+      const activeName = assessmentNameFromColumnId(sort);
+      if (!names.includes(activeName)) {
+        names.push(activeName);
+      }
+    }
+    return names;
+  }, [assessmentColumns.sortableNames, sort]);
 
   // Siloed copy of v3's UC-delete disabled reason.
   const deleteDisabledReason = intl.formatMessage({
@@ -340,6 +351,11 @@ export const useTracesV4ToolbarSlots = ({
         <TracesV4DisplayButton
           onResetColumns={onResetColumns}
           sortColumnLabels={COLUMN_LABELS}
+          isSortEnabled={!isGroupedBySession}
+          assessmentSortOptions={assessmentSortNames.map((name) => ({
+            id: assessmentColumnId(name),
+            label: name,
+          }))}
           sort={sort}
           dir={dir}
           onSort={onSort}

@@ -3684,7 +3684,9 @@ def _trace_search_selects_on_tiers(
             key_type, key_name, _ = SearchTraceUtils.parse_order_by_for_search_traces(clause)
         except Exception:
             return every_tier
-        if key_type == "request_metadata" and key_name in metadata_tiers:
+        if key_type == "feedback":
+            tiers.add(RESOURCE_TYPE_ASSESSMENT)
+        elif key_type == "request_metadata" and key_name in metadata_tiers:
             tiers.add(metadata_tiers[key_name])
     return frozenset(tiers)
 

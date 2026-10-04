@@ -102,10 +102,20 @@ describe('buildOrderBy', () => {
     expect(buildOrderBy('duration', 'asc')).toEqual(['execution_time ASC']);
   });
 
-  test('non-server-sortable columns return undefined (fall back to default ordering)', () => {
+  test('metric columns map to their server aggregate with direction', () => {
+    expect(buildOrderBy('tokens', 'desc')).toEqual(['total_tokens DESC']);
+    expect(buildOrderBy('cost', 'asc')).toEqual(['total_cost ASC']);
+  });
+
+  test('state and assessment columns map to backend ordering fields', () => {
+    expect(buildOrderBy('state', 'desc')).toEqual(['state DESC']);
+    expect(buildOrderBy('assessment:quality score', 'asc')).toEqual(['feedback.`quality score` ASC']);
+    expect(buildOrderBy('assessment:quality`score', 'desc')).toEqual(['feedback.`quality``score` DESC']);
+  });
+
+  test('unsupported columns return undefined server ordering', () => {
     expect(buildOrderBy('trace_id', 'asc')).toBeUndefined();
-    expect(buildOrderBy('tokens', 'desc')).toBeUndefined();
     expect(buildOrderBy('input', 'desc')).toBeUndefined();
-    expect(buildOrderBy('cost', 'asc')).toBeUndefined();
+    expect(buildOrderBy('assessment:', 'asc')).toBeUndefined();
   });
 });

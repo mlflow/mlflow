@@ -18,6 +18,7 @@ import {
   type ReorderableTraceColumnOption,
   type SortDirection,
   type TraceColumnId,
+  type TraceSortColumnId,
 } from '@databricks/web-shared/traces-table';
 import type { TracesV4Density } from '../hooks/useTracesV4Density';
 
@@ -42,13 +43,24 @@ const COMPONENT_ID = 'mlflow.traces-v4.display';
 // A `RadioGroup` value must be a string; direction is joined onto the column to form one radio value.
 const SORT_VALUE_SEPARATOR = ':';
 
+export const parseSortValue = (value: string): [TraceSortColumnId, SortDirection] => {
+  const separatorIndex = value.lastIndexOf(SORT_VALUE_SEPARATOR);
+  return [
+    value.slice(0, separatorIndex) as TraceSortColumnId,
+    value.slice(separatorIndex + SORT_VALUE_SEPARATOR.length) as SortDirection,
+  ];
+};
+
 export interface TracesV4DisplayButtonProps {
   onResetColumns: () => void;
   /** Human-readable label per sortable column id, for the Sort submenu options + the trigger hint. */
   sortColumnLabels: Record<TraceColumnId, React.ReactNode>;
-  sort: TraceColumnId;
+  assessmentSortOptions: { id: TraceSortColumnId; label: React.ReactNode }[];
+  /** Whether trace-level sorting is meaningful for the current table representation. */
+  isSortEnabled: boolean;
+  sort: TraceSortColumnId;
   dir: SortDirection;
-  onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  onSort: (column: TraceSortColumnId, direction: SortDirection) => void;
   density: TracesV4Density;
   onDensityChange: (density: TracesV4Density) => void;
   /** Column reordering (drag or Ctrl+Arrow): reorderable columns + visibility + handlers. */
@@ -74,6 +86,8 @@ export interface TracesV4DisplayButtonProps {
 export const TracesV4DisplayButton = ({
   onResetColumns,
   sortColumnLabels,
+  assessmentSortOptions,
+  isSortEnabled,
   sort,
   dir,
   onSort,
@@ -86,6 +100,10 @@ export const TracesV4DisplayButton = ({
   const { theme } = useDesignSystemTheme();
 
   const sortValue = `${sort}${SORT_VALUE_SEPARATOR}${dir}`;
+  const sortOptions = isSortEnabled
+    ? [...SORTABLE_TRACE_COLUMNS.map((id) => ({ id, label: sortColumnLabels[id] })), ...assessmentSortOptions]
+    : [];
+  const activeSortLabel = sortOptions.find((option) => option.id === sort)?.label;
   const rowHeightLabel =
     density === 'small'
       ? intl.formatMessage({
@@ -202,54 +220,56 @@ export const TracesV4DisplayButton = ({
           </DropdownMenu.SubContent>
         </DropdownMenu.Sub>
 
-        <DropdownMenu.Sub>
-          <DropdownMenu.SubTrigger>
-            <DropdownMenu.IconWrapper>
-              <SortAscendingIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage
-              defaultMessage="Sort"
-              description="Display menu item opening the traces table sort submenu"
-            />
-            {/* Grow + right-align so the value sits flush against the chevron the SubTrigger appends;
-                the default HintColumn `margin-left: auto` would otherwise fight the chevron's own
-                auto-margin and float the value mid-row. */}
-            <DropdownMenu.HintColumn css={{ flexGrow: 1, textAlign: 'right', marginLeft: theme.spacing.sm }}>
-              {sortColumnLabels[sort]}
-            </DropdownMenu.HintColumn>
-          </DropdownMenu.SubTrigger>
-          <DropdownMenu.SubContent>
-            <DropdownMenu.RadioGroup
-              componentId={`${COMPONENT_ID}.sort`}
-              value={sortValue}
-              onValueChange={(value) => {
-                const [column, direction] = value.split(SORT_VALUE_SEPARATOR);
-                onSort(column as TraceColumnId, direction as SortDirection);
-              }}
-            >
-              {SORTABLE_TRACE_COLUMNS.map((column) => (
-                <Fragment key={column}>
-                  <DropdownMenu.RadioItem value={`${column}${SORT_VALUE_SEPARATOR}desc`}>
-                    <DropdownMenu.ItemIndicator />
-                    <FormattedMessage
-                      defaultMessage="{column} (descending)"
-                      description="Traces table sort option: sort by a column, newest/largest first"
-                      values={{ column: sortColumnLabels[column] }}
-                    />
-                  </DropdownMenu.RadioItem>
-                  <DropdownMenu.RadioItem value={`${column}${SORT_VALUE_SEPARATOR}asc`}>
-                    <DropdownMenu.ItemIndicator />
-                    <FormattedMessage
-                      defaultMessage="{column} (ascending)"
-                      description="Traces table sort option: sort by a column, oldest/smallest first"
-                      values={{ column: sortColumnLabels[column] }}
-                    />
-                  </DropdownMenu.RadioItem>
-                </Fragment>
-              ))}
-            </DropdownMenu.RadioGroup>
-          </DropdownMenu.SubContent>
-        </DropdownMenu.Sub>
+        {isSortEnabled && (
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger>
+              <DropdownMenu.IconWrapper>
+                <SortAscendingIcon />
+              </DropdownMenu.IconWrapper>
+              <FormattedMessage
+                defaultMessage="Sort"
+                description="Display menu item opening the traces table sort submenu"
+              />
+              {/* Grow + right-align so the value sits flush against the chevron the SubTrigger appends;
+                  the default HintColumn `margin-left: auto` would otherwise fight the chevron's own
+                  auto-margin and float the value mid-row. */}
+              <DropdownMenu.HintColumn css={{ flexGrow: 1, textAlign: 'right', marginLeft: theme.spacing.sm }}>
+                {activeSortLabel}
+              </DropdownMenu.HintColumn>
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.SubContent>
+              <DropdownMenu.RadioGroup
+                componentId={`${COMPONENT_ID}.sort`}
+                value={sortValue}
+                onValueChange={(value) => {
+                  const [column, direction] = parseSortValue(value);
+                  onSort(column, direction);
+                }}
+              >
+                {sortOptions.map(({ id, label }) => (
+                  <Fragment key={id}>
+                    <DropdownMenu.RadioItem value={`${id}${SORT_VALUE_SEPARATOR}desc`}>
+                      <DropdownMenu.ItemIndicator />
+                      <FormattedMessage
+                        defaultMessage="{column} (descending)"
+                        description="Traces table sort option: sort by a column, newest/largest first"
+                        values={{ column: label }}
+                      />
+                    </DropdownMenu.RadioItem>
+                    <DropdownMenu.RadioItem value={`${id}${SORT_VALUE_SEPARATOR}asc`}>
+                      <DropdownMenu.ItemIndicator />
+                      <FormattedMessage
+                        defaultMessage="{column} (ascending)"
+                        description="Traces table sort option: sort by a column, oldest/smallest first"
+                        values={{ column: label }}
+                      />
+                    </DropdownMenu.RadioItem>
+                  </Fragment>
+                ))}
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.SubContent>
+          </DropdownMenu.Sub>
+        )}
 
         <DropdownMenu.Sub>
           <DropdownMenu.SubTrigger>

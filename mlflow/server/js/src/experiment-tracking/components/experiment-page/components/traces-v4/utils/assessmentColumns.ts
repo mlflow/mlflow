@@ -5,6 +5,7 @@ import {
   type IssueReferenceAssessment,
   type ModelTraceInfoV3,
   getAssessmentValue,
+  isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 // Not re-exported from the OSS barrel — import from its module.
 import { NOTES_ASSESSMENT_NAME } from '@databricks/web-shared/model-trace-explorer/assessments-pane/AssessmentsPaneNotesSection';
@@ -13,7 +14,7 @@ import type { Issue } from '@databricks/web-shared/genai-traces-table/cellRender
 // Extra-column ids are namespaced so an assessment named e.g. `state` can't collide with a standard
 // TraceColumnId in the shared sizing/selection stores.
 export const ASSESSMENT_COLUMN_ID_PREFIX = 'assessment:';
-export const assessmentColumnId = (name: string): string => `${ASSESSMENT_COLUMN_ID_PREFIX}${name}`;
+export const assessmentColumnId = (name: string): `assessment:${string}` => `${ASSESSMENT_COLUMN_ID_PREFIX}${name}`;
 export const isAssessmentColumnId = (id: string): boolean => id.startsWith(ASSESSMENT_COLUMN_ID_PREFIX);
 export const assessmentNameFromColumnId = (id: string): string => id.slice(ASSESSMENT_COLUMN_ID_PREFIX.length);
 
@@ -85,7 +86,28 @@ export const computeAssessmentColumns = (
   return { candidateNames, visibleNames };
 };
 
+/**
+ * Assessment sorting is backed by the `feedback.<name>` search namespace, which only considers
+ * trace-level feedback. Keep off-page names available, but require every displayed cell on the
+ * current page to use the same assessment kind as the backend sort.
+ */
+export const getSortableAssessmentNames = (traces: ModelTraceInfoV3[], candidateNames: string[]): string[] => {
+  return candidateNames.filter(
+    (name) =>
+      name.length > 0 &&
+      traces.every((trace) => {
+        const assessment = pickCellAssessment(trace, name);
+        return !assessment || (isFeedbackAssessment(assessment) && !assessment.span_id);
+      }),
+  );
+};
+
 export type AssessmentColumnType = 'numeric' | 'categorical';
+
+const getAssessmentCreateTime = (assessment: Assessment): number => {
+  const timestamp = Date.parse(assessment.create_time ?? '');
+  return Number.isNaN(timestamp) ? -Infinity : timestamp;
+};
 
 /**
  * Determine whether an assessment column should be rendered as numeric (a score with a bar)
@@ -107,11 +129,18 @@ export const getAssessmentColumnType = (traces: ModelTraceInfoV3[], name: string
 
 /** The assessment shown in a cell for `name`: the most recent displayable one, or none. */
 export const pickCellAssessment = (trace: ModelTraceInfoV3, name: string): Assessment | undefined =>
-  // Single pass keeping the max by `create_time` (first-encountered wins a tie, matching a
-  // stable descending sort + head); avoids sorting the whole list per cell per render.
+  // Use the backend's timestamp/id tie-break order so repeated assessment loads select the same value.
   (trace.assessments ?? []).reduce<Assessment | undefined>((best, assessment) => {
     if (assessment.assessment_name !== name || !isDisplayableTraceAssessment(assessment)) {
       return best;
     }
-    return best && (best.create_time ?? '') >= (assessment.create_time ?? '') ? best : assessment;
+    if (!best) {
+      return assessment;
+    }
+    const bestTime = getAssessmentCreateTime(best);
+    const assessmentTime = getAssessmentCreateTime(assessment);
+    return assessmentTime > bestTime ||
+      (assessmentTime === bestTime && (assessment.assessment_id ?? '') > (best.assessment_id ?? ''))
+      ? assessment
+      : best;
   }, undefined);

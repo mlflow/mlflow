@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { TraceIdCell } from './TraceCell';
+import { SessionTokensCell, TraceIdCell, TraceTokensCell } from './TraceCell';
 import { makeTrace } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
 
@@ -42,5 +42,27 @@ describe('TraceIdCell copy button', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect(mockClipboardCopy).toHaveBeenCalledWith(expectedCopy);
+  });
+});
+
+describe('token cells', () => {
+  const zeroTokenTrace = makeTrace('zero-tokens', {
+    trace_metadata: {
+      'mlflow.trace.tokenUsage': JSON.stringify({ input_tokens: 0, output_tokens: 0, total_tokens: 0 }),
+    },
+  });
+
+  test('renders a trace total of zero as 0 instead of a missing value', async () => {
+    await renderWithProviders(<TraceTokensCell trace={zeroTokenTrace} />);
+
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.queryByText('-')).not.toBeInTheDocument();
+  });
+
+  test('renders an aggregated session total of zero as 0 instead of a missing value', async () => {
+    await renderWithProviders(<SessionTokensCell traces={[zeroTokenTrace]} />);
+
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.queryByText('-')).not.toBeInTheDocument();
   });
 });

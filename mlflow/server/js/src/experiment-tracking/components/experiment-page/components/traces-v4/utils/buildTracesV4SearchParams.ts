@@ -1,4 +1,4 @@
-import { type SortDirection, type TraceColumnId } from '@databricks/web-shared/traces-table';
+import { type SortDirection, type TraceSortColumnId } from '@databricks/web-shared/traces-table';
 import { isV4TraceId, parseV4TraceId } from '@databricks/web-shared/model-trace-explorer';
 
 /** A canonical trace-id token, e.g. `tr-1234…`. Matched case-insensitively for the indexed fast path. */
@@ -115,18 +115,27 @@ export const buildFilter = ({ searchQuery, timeRange, extraClauses }: BuildFilte
 };
 
 /**
- * Build the `order_by` array for the search API. The server only supports ordering by
- * `timestamp` (start time) and `execution_time` (duration); every other column returns
- * `undefined` so the caller falls back to the server's default ordering rather than emitting an
- * `order_by` the backend would reject.
+ * Build the `order_by` array for the search API. Every sortable column maps to a server-side field
+ * so pagination and ordering stay consistent across pages. Unsupported columns return `undefined`
+ * rather than emitting an `order_by` the backend would reject.
  */
-export const buildOrderBy = (sort: TraceColumnId, dir: SortDirection): string[] | undefined => {
+export const buildOrderBy = (sort: TraceSortColumnId, dir: SortDirection): string[] | undefined => {
   const direction = dir === 'asc' ? 'ASC' : 'DESC';
+  if (sort.startsWith('assessment:')) {
+    const name = sort.slice('assessment:'.length).replaceAll('`', '``');
+    return name ? [`feedback.\`${name}\` ${direction}`] : undefined;
+  }
   switch (sort) {
     case 'start_time':
       return [`timestamp ${direction}`];
     case 'duration':
       return [`execution_time ${direction}`];
+    case 'state':
+      return [`state ${direction}`];
+    case 'tokens':
+      return [`total_tokens ${direction}`];
+    case 'cost':
+      return [`total_cost ${direction}`];
     default:
       return undefined;
   }

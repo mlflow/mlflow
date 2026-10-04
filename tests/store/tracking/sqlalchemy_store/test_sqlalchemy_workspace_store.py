@@ -1653,6 +1653,48 @@ def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
             )
 
 
+@pytest.mark.parametrize("supports_window_functions", [True, False])
+def test_search_traces_assessment_sort_is_workspace_scoped(
+    workspace_tracking_store, monkeypatch, supports_window_functions
+):
+    if not supports_window_functions:
+        monkeypatch.setattr(
+            workspace_tracking_store,
+            "_supports_window_functions",
+            lambda _: False,
+        )
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    with WorkspaceContext("team-assessment-sort-a"):
+        experiment_id = workspace_tracking_store.create_experiment("exp-assessment-sort-a")
+        for trace_id, request_time, score in (("trace-a-low", 1, 2), ("trace-a-high", 2, 10)):
+            _create_trace(
+                workspace_tracking_store,
+                trace_id,
+                experiment_id,
+                request_time=request_time,
+            )
+            workspace_tracking_store.create_assessment(
+                Feedback(trace_id=trace_id, name="score", value=score, source=source)
+            )
+
+    # A categorical value with the same assessment name in another workspace must not switch the
+    # first workspace from numeric to lexical ordering (where 10 would sort before 2).
+    with WorkspaceContext("team-assessment-sort-b"):
+        other_experiment_id = workspace_tracking_store.create_experiment("exp-assessment-sort-b")
+        _create_trace(workspace_tracking_store, "trace-b", other_experiment_id)
+        workspace_tracking_store.create_assessment(
+            Feedback(trace_id="trace-b", name="score", value="categorical", source=source)
+        )
+
+    with WorkspaceContext("team-assessment-sort-a"):
+        traces, _ = workspace_tracking_store.search_traces(
+            locations=[experiment_id], order_by=["feedback.score ASC"]
+        )
+
+    assert [trace.trace_id for trace in traces] == ["trace-a-low", "trace-a-high"]
+
+
 @pytest.mark.parametrize(
     ("filter_string", "expected_trace_ids"),
     [

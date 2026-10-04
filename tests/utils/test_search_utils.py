@@ -3,10 +3,14 @@ import json
 import re
 
 import pytest
+import sqlalchemy
+from sqlalchemy.dialects import postgresql
 
 from mlflow.entities import (
+    AssessmentSource,
     Dataset,
     DatasetInput,
+    Feedback,
     InputTag,
     LifecycleStage,
     LoggedModel,
@@ -23,6 +27,8 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.db_types import POSTGRES
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
@@ -34,6 +40,14 @@ from mlflow.utils.search_utils import (
     SearchTraceUtils,
     SearchUtils,
 )
+
+
+def test_sql_case_sensitive_string_expression_uses_binary_postgres_collation():
+    expression = SearchUtils.get_sql_case_sensitive_string_expression(
+        sqlalchemy.column("value", sqlalchemy.String()), POSTGRES
+    )
+
+    assert str(expression.compile(dialect=postgresql.dialect())) == 'value COLLATE "C"'
 
 
 @pytest.mark.parametrize(
@@ -992,3 +1006,353 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+def test_search_trace_utils_sorts_trace_metrics_state_and_latest_feedback():
+    location = trace_location.TraceLocation.from_experiment_id("0")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    def trace(trace_id, request_time, state, tokens=None, cost=None, assessments=None):
+        metadata = {}
+        if tokens is not None:
+            metadata["mlflow.trace.tokenUsage"] = json.dumps({"total_tokens": tokens})
+        if cost is not None:
+            metadata["mlflow.trace.cost"] = json.dumps({"total_cost": cost})
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=request_time,
+            state=state,
+            trace_metadata=metadata,
+            assessments=assessments or [],
+        )
+
+    older = Feedback(
+        name="quality",
+        value=0.2,
+        source=source,
+        create_time_ms=1,
+    )
+    older.assessment_id = "older"
+    newer = Feedback(
+        name="quality",
+        value=0.4,
+        source=source,
+        create_time_ms=2,
+    )
+    newer.assessment_id = "newer"
+
+    traces = [
+        trace(
+            "low",
+            1,
+            TraceState.OK,
+            tokens="2",
+            cost="0.2",
+            assessments=[older, newer, Feedback(name="mixed", value=2, source=source)],
+        ),
+        trace(
+            "high",
+            2,
+            TraceState.IN_PROGRESS,
+            tokens="10",
+            cost="0.9",
+            assessments=[
+                Feedback(name="quality", value=0.8, source=source),
+                Feedback(name="mixed", value="alpha", source=source),
+            ],
+        ),
+        trace("error", 3, TraceState.ERROR),
+    ]
+
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["total_tokens ASC"])] == [
+        "low",
+        "high",
+        "error",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["total_cost DESC"])] == [
+        "high",
+        "low",
+        "error",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["state ASC"])] == [
+        "high",
+        "low",
+        "error",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["state DESC"])] == [
+        "error",
+        "high",
+        "low",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["feedback.quality ASC"])] == [
+        "low",
+        "high",
+        "error",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["feedback.quality DESC"])] == [
+        "high",
+        "low",
+        "error",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["feedback.mixed ASC"])] == [
+        "high",
+        "low",
+        "error",
+    ]
+    traces[0].tags["sort_tie"] = "beta"
+    traces[1].tags["sort_tie"] = "alpha"
+    traces[2].tags["sort_tie"] = ""
+    assert [
+        t.trace_id
+        for t in SearchTraceUtils.sort(
+            traces,
+            ["feedback.missing ASC", "tag.sort_tie ASC"],
+        )
+    ] == ["error", "high", "low"]
+
+
+def test_search_trace_utils_treats_malformed_trace_analytics_as_missing():
+    location = trace_location.TraceLocation.from_experiment_id("0")
+
+    def trace(trace_id, request_time, token_usage, cost):
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=request_time,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.TOKEN_USAGE: token_usage,
+                TraceMetadataKey.COST: cost,
+            },
+        )
+
+    traces = [
+        trace("valid", 0, '{"total_tokens": "3"}', '{"total_cost": "0.1"}'),
+        trace("invalid-json", 3, "{", "{"),
+        trace("array", 2, "[]", "[]"),
+        trace("scalar", 1, "1", "null"),
+    ]
+
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["total_tokens ASC"])] == [
+        "valid",
+        "invalid-json",
+        "array",
+        "scalar",
+    ]
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["total_cost DESC"])] == [
+        "valid",
+        "invalid-json",
+        "array",
+        "scalar",
+    ]
+
+
+@pytest.mark.parametrize("metadata_key", [TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST])
+def test_search_trace_utils_rejects_ordering_by_reserved_trace_analytics_metadata(metadata_key):
+    with pytest.raises(
+        MlflowException,
+        match=rf"Ordering by reserved metadata '{re.escape(metadata_key)}' is not supported",
+    ):
+        SearchTraceUtils.sort([], [f"request_metadata.`{metadata_key}` ASC"])
+
+
+def test_search_trace_utils_parses_quoted_feedback_ordering_name():
+    assert SearchTraceUtils.parse_order_by_for_search_traces("feedback.`quality score` ASC") == (
+        "feedback",
+        "quality score",
+        True,
+    )
+    assert SearchTraceUtils.parse_order_by_for_search_traces("feedback.`quality``score` DESC") == (
+        "feedback",
+        "quality`score",
+        False,
+    )
+    assert SearchTraceUtils.parse_order_by_for_search_traces('feedback.`quality"score` ASC') == (
+        "feedback",
+        'quality"score',
+        True,
+    )
+    assert SearchTraceUtils.parse_order_by_for_search_traces(r"feedback.`quality\score` DESC") == (
+        "feedback",
+        r"quality\score",
+        False,
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["name", "run_id", "prompt", "text", "timestamp", "execution_time", "end_time"],
+)
+def test_search_trace_utils_preserves_unquoted_feedback_names_that_are_trace_aliases(name):
+    assert SearchTraceUtils.parse_order_by_for_search_traces(f"feedback.{name} ASC") == (
+        "feedback",
+        name,
+        True,
+    )
+
+
+def test_search_trace_utils_preserves_escaped_backticks_in_other_ordering_names():
+    assert SearchTraceUtils.parse_order_by_for_search_traces("tag.`quality``score` ASC") == (
+        "tag",
+        "quality`score",
+        True,
+    )
+
+
+def test_search_trace_utils_sorts_feedback_with_integer_too_large_for_float():
+    location = trace_location.TraceLocation.from_experiment_id("0")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    traces = [
+        TraceInfo(
+            trace_id="huge",
+            trace_location=location,
+            request_time=1,
+            state=TraceState.OK,
+            assessments=[Feedback(name="quality", value=10**400, source=source)],
+        ),
+        TraceInfo(
+            trace_id="missing",
+            trace_location=location,
+            request_time=2,
+            state=TraceState.OK,
+        ),
+    ]
+
+    assert [
+        trace.trace_id for trace in SearchTraceUtils.sort(traces, ["feedback.quality ASC"])
+    ] == [
+        "huge",
+        "missing",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("integer_value", "float_value"),
+    [
+        pytest.param(1, 1.0, id="equivalent-encoding"),
+        pytest.param(10**19 - 1, 1e19, id="outside-int64"),
+        pytest.param(10**40, 1e40, id="large-magnitude"),
+    ],
+)
+def test_search_trace_utils_treats_equal_double_feedback_aggregates_as_tied(
+    integer_value, float_value
+):
+    location = trace_location.TraceLocation.from_experiment_id("0")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    traces = [
+        TraceInfo(
+            trace_id="integer",
+            trace_location=location,
+            request_time=2,
+            state=TraceState.OK,
+            assessments=[Feedback(name="quality", value=integer_value, source=source)],
+        ),
+        TraceInfo(
+            trace_id="float",
+            trace_location=location,
+            request_time=1,
+            state=TraceState.OK,
+            assessments=[Feedback(name="quality", value=float_value, source=source)],
+        ),
+    ]
+
+    expected_order = ["integer", "float"]
+    for direction in ("ASC", "DESC"):
+        assert [
+            trace.trace_id
+            for trace in SearchTraceUtils.sort(traces, [f"feedback.quality {direction}"])
+        ] == expected_order
+
+
+def test_search_trace_utils_assessment_sort_ignores_invalid_span_and_session_feedback():
+    location = trace_location.TraceLocation.from_experiment_id("0")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    def trace(trace_id, request_time, assessment):
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=location,
+            request_time=request_time,
+            state=TraceState.OK,
+            assessments=[assessment],
+        )
+
+    traces = [
+        trace(
+            "invalid",
+            3,
+            Feedback(name="quality", value="a", source=source, valid=False),
+        ),
+        trace(
+            "span",
+            2,
+            Feedback(name="quality", value="a", source=source, span_id="span-1"),
+        ),
+        trace(
+            "session",
+            1,
+            Feedback(
+                name="quality",
+                value="a",
+                source=source,
+                metadata={"mlflow.trace.session": "session-1"},
+            ),
+        ),
+        trace("trace", 0, Feedback(name="quality", value="z", source=source)),
+    ]
+
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["feedback.quality ASC"])] == [
+        "trace",
+        "invalid",
+        "span",
+        "session",
+    ]
+
+
+def test_search_trace_utils_assessment_sort_accepts_empty_and_null_session_markers():
+    location = trace_location.TraceLocation.from_experiment_id("0")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    traces = [
+        TraceInfo(
+            trace_id="empty-session-marker",
+            trace_location=location,
+            request_time=1,
+            state=TraceState.OK,
+            assessments=[
+                Feedback(
+                    name="quality",
+                    value="a",
+                    source=source,
+                    metadata={TraceMetadataKey.TRACE_SESSION: ""},
+                )
+            ],
+        ),
+        TraceInfo(
+            trace_id="null-session-marker",
+            trace_location=location,
+            request_time=2,
+            state=TraceState.OK,
+            assessments=[
+                Feedback(
+                    name="quality",
+                    value="b",
+                    source=source,
+                    metadata={TraceMetadataKey.TRACE_SESSION: None},
+                )
+            ],
+        ),
+        TraceInfo(
+            trace_id="ordinary",
+            trace_location=location,
+            request_time=3,
+            state=TraceState.OK,
+            assessments=[Feedback(name="quality", value="z", source=source)],
+        ),
+    ]
+
+    assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["feedback.quality ASC"])] == [
+        "empty-session-marker",
+        "null-session-marker",
+        "ordinary",
+    ]

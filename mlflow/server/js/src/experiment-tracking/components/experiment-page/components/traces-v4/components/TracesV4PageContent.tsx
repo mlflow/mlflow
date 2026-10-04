@@ -14,6 +14,7 @@ import {
 } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
+  SORTABLE_TRACE_COLUMNS,
   TRACE_COLUMN_IDS,
   TracesErrorAlert,
   TracesTableView,
@@ -21,6 +22,7 @@ import {
   type SessionSelectionHandler,
   type TraceColumnId,
   type TraceHrefGetter,
+  type TraceSortColumnId,
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/components/evaluations/hooks/useDeleteTraces';
@@ -32,7 +34,7 @@ import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/Feat
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
-import { isAssessmentColumnId } from '../utils/assessmentColumns';
+import { assessmentColumnId, isAssessmentColumnId } from '../utils/assessmentColumns';
 import { isCustomTraceColumnId } from '../utils/customColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
@@ -177,6 +179,13 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const extraColumns = useMemo(
     () => [...customColumns.columnDefs, ...assessments.columnDefs],
     [customColumns.columnDefs, assessments.columnDefs],
+  );
+  const sortableColumnIds = useMemo<TraceSortColumnId[]>(
+    () =>
+      controller.isGroupedBySession
+        ? []
+        : [...SORTABLE_TRACE_COLUMNS, ...assessments.sortableNames.map(assessmentColumnId)],
+    [controller.isGroupedBySession, assessments.sortableNames],
   );
 
   const deleteTracesMutation = useDeleteTracesMutation();
@@ -425,6 +434,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
               controller.isGroupedBySession && (page.hasNext || page.hasPrev) ? undefined : bulk.toggleMany
             }
             onToggleBulkAll={bulk.toggleAll}
+            sortableColumnIds={sortableColumnIds}
             sort={url.sort}
             dir={url.dir}
             onSort={url.setSort}

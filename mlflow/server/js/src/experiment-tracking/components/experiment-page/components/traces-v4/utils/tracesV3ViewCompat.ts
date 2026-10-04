@@ -118,10 +118,21 @@ const V4_KEY_REQUIRING_FIELDS = new Set<string>(['tag', 'metadata', 'assessment'
 // `IS NULL` / `IS NOT NULL`, which V4 has no equivalent for — clauses using them are dropped.
 const V4_FILTER_OPS = new Set<string>(Object.values(FilterOp));
 
-// V3 → V4 sort-key map: only the two server-sortable V3 columns have a V4-sortable counterpart.
+// V3 → V4 sort-key map for columns whose ids changed between versions. Sortable ids shared by
+// both versions pass through below after validation.
 const V3_TO_V4_SORT_KEY = new Map<string, string>([
   ['execution_duration', 'duration'],
   ['request_time', 'start_time'],
+]);
+
+// V3 made assessment column ids by appending this suffix to the assessment name. Keep this frozen
+// wire-format detail here so legacy views can map those ids to V4's `assessment:<name>` namespace.
+const V3_ASSESSMENT_COLUMN_ID_SUFFIX = '_assessment_column';
+const V3_ASSESSMENT_SORT_TYPE = 'ASSESSMENT';
+const V3_TRACE_INFO_SORT_TYPE = 'TRACE_INFO';
+const V3_LEGACY_TRACE_INFO_SORT_TYPES = new Map<string, string>([
+  ['execution_duration', 'number'],
+  ['request_time', 'date'],
 ]);
 
 /**
@@ -144,10 +155,10 @@ const translateV3Columns = (selectedColumns: string | undefined): string | undef
 
 /**
  * Split V3's monolithic `key::type::asc` sort string into V4's separate `sort` + `dir`, mapping the
- * V3 sort key to its V4 column id. The middle `type` segment is dropped (V4 derives a column's sort
- * type from its own definition). Returns an empty object for an absent / malformed value, or for a
- * key that isn't a V4-sortable column, so the view opens (just unsorted) rather than carrying a sort
- * V4 would silently reject.
+ * V3 sort key to its V4 column id. The middle `type` segment distinguishes trace-info fields from
+ * input and assessment fields that may share the same key. Returns an empty object for an absent /
+ * malformed value, or for a key that isn't a V4-sortable column, so the view opens (just unsorted)
+ * rather than carrying a sort V4 would silently reject.
  */
 const translateV3Sort = (sort: string | undefined): Pick<CapturedV4ViewState['single'], 'sort' | 'dir'> => {
   if (!sort) {
@@ -157,9 +168,22 @@ const translateV3Sort = (sort: string | undefined): Pick<CapturedV4ViewState['si
   if (parts.length !== 3) {
     return {};
   }
-  const [v3Key, , ascStr] = parts;
-  const v4Key = V3_TO_V4_SORT_KEY.get(v3Key);
-  if (!v4Key || !isSortableTraceColumn(v4Key)) {
+  const [v3Key, v3Type, ascStr] = parts;
+  if (ascStr !== 'true' && ascStr !== 'false') {
+    return {};
+  }
+  let v4Key: string;
+  if (v3Type === V3_ASSESSMENT_SORT_TYPE && v3Key.endsWith(V3_ASSESSMENT_COLUMN_ID_SUFFIX)) {
+    v4Key = `assessment:${v3Key.slice(0, -V3_ASSESSMENT_COLUMN_ID_SUFFIX.length)}`;
+  } else if (
+    !v3Key.endsWith(V3_ASSESSMENT_COLUMN_ID_SUFFIX) &&
+    (v3Type === V3_TRACE_INFO_SORT_TYPE || V3_LEGACY_TRACE_INFO_SORT_TYPES.get(v3Key) === v3Type)
+  ) {
+    v4Key = V3_TO_V4_SORT_KEY.get(v3Key) ?? v3Key;
+  } else {
+    return {};
+  }
+  if (!isSortableTraceColumn(v4Key)) {
     return {};
   }
   return { sort: v4Key, dir: ascStr === 'true' ? 'asc' : 'desc' };

@@ -1,4 +1,4 @@
-import type { SortDirection, TraceColumnId } from './types';
+import type { SortDirection, TraceColumnId, TraceSortColumnId } from './types';
 
 /** Page-size options offered in the pagination bar. */
 export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
@@ -36,18 +36,18 @@ const TRACE_COLUMN_ID_SET = new Set<string>(TRACE_COLUMN_IDS);
 export const isTraceColumnId = (id: string): id is TraceColumnId => TRACE_COLUMN_ID_SET.has(id);
 
 /**
- * Columns the user can sort by. A cursor-paginated search API can only sort server-side, so sorting
- * a column the API doesn't order by would only reorder the current page and mislead across pages —
- * those headers render without a sort affordance. Kept in one place so the table and any consumer
- * order-by builder can't disagree about what's sortable.
+ * Columns the user can sort by. Consumers map these columns to server-side ordering fields so
+ * pagination remains globally ordered. Kept in one place so the table, URL state, and sort controls
+ * agree about which columns expose the affordance.
  */
-export const SORTABLE_TRACE_COLUMNS: readonly TraceColumnId[] = ['start_time', 'duration'];
+export const SORTABLE_TRACE_COLUMNS: readonly TraceColumnId[] = ['start_time', 'duration', 'state', 'tokens', 'cost'];
 
 const SORTABLE_TRACE_COLUMN_SET = new Set<string>(SORTABLE_TRACE_COLUMNS);
 
-/** Narrows an arbitrary id to a server-sortable `TraceColumnId`. Shared so the table and any consumer
+/** Narrows an arbitrary id to a server-sortable trace column. Shared so the table and any consumer
  * order-by/URL builder agree on what's sortable (both derive from `SORTABLE_TRACE_COLUMNS`). */
-export const isSortableTraceColumn = (id: string): id is TraceColumnId => SORTABLE_TRACE_COLUMN_SET.has(id);
+export const isSortableTraceColumn = (id: string): id is TraceSortColumnId =>
+  SORTABLE_TRACE_COLUMN_SET.has(id) || (id.startsWith('assessment:') && id.length > 'assessment:'.length);
 
 /** Default sort: newest traces first. */
 export const DEFAULT_SORT_COLUMN: TraceColumnId = 'start_time';
