@@ -8,7 +8,11 @@ import type {
   ListAssignmentsResponse,
   ListRolesResponse,
   ListUsersResponse,
+  AddMutationConditionRequest,
+  ListMutationConditionsResponse,
+  MutationConditionResponse,
   RolePermissionResponse,
+  UpdateMutationConditionRequest,
   RoleResponse,
   UpdateAdminRequest,
   UpdateRoleRequest,
@@ -117,6 +121,48 @@ export const AdminApi = {
       body: JSON.stringify({ role_permission_id: rolePermissionId }),
       error: defaultErrorHandler,
     });
+  },
+
+  // Mutation conditions (condition-based access control)
+  //
+  // Addressed by condition id, not by (role, resource_type): a role may hold up to 100
+  // conditions per type, so the pair does not identify one.
+  addMutationCondition: (request: AddMutationConditionRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/mutation-conditions/add',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<MutationConditionResponse>;
+  },
+
+  updateMutationCondition: (request: UpdateMutationConditionRequest) => {
+    // Clearing BOTH filters deletes the object and the response payload is null --
+    // an object with neither filter would restrict nothing, so it is not a state the
+    // server keeps.
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/mutation-conditions/update',
+      method: 'PATCH',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<MutationConditionResponse | null>;
+  },
+
+  removeMutationCondition: (conditionId: number) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/mutation-conditions/remove',
+      method: 'DELETE',
+      body: JSON.stringify({ condition_id: conditionId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listMutationConditions: (roleId: number) => {
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/roles/mutation-conditions/list?role_id=${roleId}`,
+      method: 'GET',
+      error: defaultErrorHandler,
+    }) as Promise<ListMutationConditionsResponse>;
   },
 
   // User-Role Assignments

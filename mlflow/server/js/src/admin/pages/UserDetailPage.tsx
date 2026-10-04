@@ -124,13 +124,21 @@ const UserDetailPage = () => {
             </div>
             <Typography.Text color="secondary">Permissions and roles assigned to this user.</Typography.Text>
           </div>
-          <Button
-            componentId="admin.user_detail.edit_access_button"
-            type="primary"
-            onClick={() => setEditAccessOpen(true)}
-          >
-            Edit access
-          </Button>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Link
+              componentId="admin.user_detail.conditions_link"
+              to={withReturnTo(AdminRoutes.getUserConditionsRoute(username))}
+            >
+              <Button componentId="admin.user_detail.conditions_button">Conditions</Button>
+            </Link>
+            <Button
+              componentId="admin.user_detail.edit_access_button"
+              type="primary"
+              onClick={() => setEditAccessOpen(true)}
+            >
+              Edit access
+            </Button>
+          </div>
         </div>
 
         <Tabs.Root

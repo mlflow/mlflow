@@ -26,6 +26,20 @@ export const getAdminRouteDefs = () => {
       handle: { getPageTitle: (params) => `Role ${params['roleId']}` } satisfies DocumentTitleHandle,
     },
     {
+      path: AdminRoutePaths.roleConditionsPage,
+      element: createLazyRouteElement(() => import('./pages/RoleConditionsPage')),
+      pageId: AdminPageId.roleConditionsPage,
+      handle: { getPageTitle: (params) => `Conditions for role ${params['roleId']}` } satisfies DocumentTitleHandle,
+    },
+    {
+      path: AdminRoutePaths.userConditionsPage,
+      element: createLazyRouteElement(() => import('./pages/UserConditionsPage')),
+      pageId: AdminPageId.userConditionsPage,
+      handle: {
+        getPageTitle: (params) => `Conditions for ${params['username']}`,
+      } satisfies DocumentTitleHandle,
+    },
+    {
       path: AdminRoutePaths.userDetailPage,
       element: createLazyRouteElement(() => import('./pages/UserDetailPage')),
       pageId: AdminPageId.userDetailPage,

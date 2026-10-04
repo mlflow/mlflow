@@ -259,9 +259,20 @@ const RoleDetailPage = () => {
                 {showWorkspaceLabels ? ` · Workspace: ${role.workspace}` : ''}
               </Typography.Text>
             </div>
-            <Button componentId="admin.role.edit_button" type="primary" onClick={() => setEditRoleOpen(true)}>
-              Edit role
-            </Button>
+            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+              {/* Conditions are a separate page, not a third tab: they narrow what the
+                  Permissions tab grants, and a peer tab would read as another grant
+                  surface. */}
+              <Link
+                componentId="admin.role.conditions_link"
+                to={withReturnTo(AdminRoutes.getRoleConditionsRoute(roleId))}
+              >
+                <Button componentId="admin.role.conditions_button">Conditions</Button>
+              </Link>
+              <Button componentId="admin.role.edit_button" type="primary" onClick={() => setEditRoleOpen(true)}>
+                Edit role
+              </Button>
+            </div>
           </div>
         </div>
 
