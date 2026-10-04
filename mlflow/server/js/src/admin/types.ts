@@ -245,8 +245,11 @@ export interface MutationCondition {
   /** 1-100. Server-allocated; the client never chooses it. */
   condition_slot: number;
   /** Both parent fields are set together, or both absent for workspace/type scope. */
-  parent_resource_type: string | null;
-  parent_resource_id: string | null;
+  /** `"*"` for every resource of the type, or the one id this condition governs. */
+  resource_pattern: string;
+  /** `"workspace"` for no containment narrowing, else the type's declared container. */
+  container_resource_type: string;
+  container_resource_pattern: string;
   value_condition: string | null;
   target_condition: string | null;
 }
@@ -262,8 +265,9 @@ export interface ListMutationConditionsResponse {
 export interface AddMutationConditionRequest {
   role_id: number;
   resource_type: string;
-  parent_resource_type?: string | null;
-  parent_resource_id?: string | null;
+  resource_pattern?: string | null;
+  container_resource_type?: string | null;
+  container_resource_pattern?: string | null;
   value_condition?: string | null;
   target_condition?: string | null;
 }
@@ -277,8 +281,9 @@ export interface AddMutationConditionRequest {
 export interface AddUserMutationConditionRequest {
   username: string;
   resource_type: string;
-  parent_resource_type?: string | null;
-  parent_resource_id?: string | null;
+  resource_pattern?: string | null;
+  container_resource_type?: string | null;
+  container_resource_pattern?: string | null;
   value_condition?: string | null;
   target_condition?: string | null;
 }
@@ -287,18 +292,19 @@ export interface UpdateMutationConditionRequest {
   condition_id: number;
   value_condition?: string | null;
   target_condition?: string | null;
-  parent_resource_type?: string | null;
-  parent_resource_id?: string | null;
+  resource_pattern?: string | null;
+  container_resource_type?: string | null;
+  container_resource_pattern?: string | null;
   /**
    * The parent pair is replaced as a unit, so a partial update has to say
    * explicitly whether it means to touch the scope -- otherwise omitting the
    * fields is indistinguishable from clearing them.
    */
-  update_parent_scope?: boolean;
+  update_scope?: boolean;
 }
 
 /** Child resource type -> its only supported direct parent for scoped conditions. */
-export const CONDITION_PARENT_RESOURCE_TYPES = {
+export const CONDITION_CONTAINER_RESOURCE_TYPES = {
   run: 'experiment',
   trace: 'experiment',
   logged_model: 'experiment',
@@ -308,7 +314,7 @@ export const CONDITION_PARENT_RESOURCE_TYPES = {
 } satisfies Record<string, string>;
 
 /** Types that have no parent, so a parent scope is rejected for them. */
-export const CONDITION_PARENTLESS_RESOURCE_TYPES = ['experiment', 'registered_model', 'prompt', 'mcp_server'];
+export const CONDITION_TOP_LEVEL_RESOURCE_TYPES = ['experiment', 'registered_model', 'prompt', 'mcp_server'];
 
 export const MAX_CONDITIONS_PER_ROLE_TYPE = 100;
 
@@ -344,16 +350,38 @@ export const isConditionAliasOwningType = (resourceType: string): boolean =>
   CONDITION_ALIAS_OWNING_RESOURCE_TYPES.includes(resourceType);
 
 /** The parent type a condition on ``resourceType`` may be scoped to, if any. */
-export const getConditionParentType = (resourceType: string): string | undefined =>
-  CONDITION_PARENT_RESOURCE_TYPES[resourceType as keyof typeof CONDITION_PARENT_RESOURCE_TYPES];
+export const getConditionContainerType = (resourceType: string): string | undefined =>
+  CONDITION_CONTAINER_RESOURCE_TYPES[resourceType as keyof typeof CONDITION_CONTAINER_RESOURCE_TYPES];
+
+/**
+ * The wildcard both scope axes default to, and the grants vocabulary's "every resource".
+ */
+export const CONDITION_WILDCARD_PATTERN = '*';
+
+/** The container that means "no narrowing beyond the role's workspace". */
+export const CONDITION_CONTAINER_WORKSPACE = 'workspace';
+
+/**
+ * Which axis a type narrows on, mirroring the grain its *grants* use.
+ *
+ * A top-level type is addressable per-resource, so it narrows with `resource_pattern` and
+ * always sits in the workspace. A sub-resource is wildcard-only -- a per-id child grant
+ * cannot be enforced in list and search paths, and a condition would inherit that hole --
+ * so it narrows by naming its container instead.
+ */
+export const conditionNarrowsByPattern = (resourceType: string): boolean =>
+  CONDITION_TOP_LEVEL_RESOURCE_TYPES.includes(resourceType);
 
 /**
  * Human label for a condition's scope: either the parent it is confined to, or every
  * resource of its type in the workspace.
  */
 export const formatConditionScope = (condition: MutationCondition): string => {
-  if (condition.parent_resource_type && condition.parent_resource_id) {
-    return `${getResourceTypeLabel(condition.parent_resource_type)} ${condition.parent_resource_id}`;
+  if (condition.resource_pattern && condition.resource_pattern !== CONDITION_WILDCARD_PATTERN) {
+    return `${getResourceTypeLabel(condition.resource_type)} ${condition.resource_pattern}`;
+  }
+  if (condition.container_resource_type && condition.container_resource_type !== CONDITION_CONTAINER_WORKSPACE) {
+    return `${getResourceTypeLabel(condition.container_resource_type)} ${condition.container_resource_pattern}`;
   }
   return 'All in workspace';
 };
@@ -379,7 +407,7 @@ export const isConditionEmpty = (valueCondition?: string | null, targetCondition
  * that genuinely holds no experiments would otherwise flip the picker to free text and
  * invite a typo'd id, which persists as a scope that silently never matches.
  */
-export const CONDITION_PARENT_TYPES_WITH_PICKER = ['experiment', 'registered_model', 'prompt'];
+export const CONDITION_SCOPE_TYPES_WITH_PICKER = ['experiment', 'registered_model', 'prompt'];
 
-export const conditionParentHasPicker = (parentType: string | undefined): boolean =>
-  parentType !== undefined && CONDITION_PARENT_TYPES_WITH_PICKER.includes(parentType);
+export const conditionScopeHasPicker = (scopeType: string | undefined): boolean =>
+  scopeType !== undefined && CONDITION_SCOPE_TYPES_WITH_PICKER.includes(scopeType);

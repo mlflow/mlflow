@@ -11,7 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { getResourceTypeLabel } from '../types';
+import { CONDITION_CONTAINER_WORKSPACE, CONDITION_WILDCARD_PATTERN, getResourceTypeLabel } from '../types';
 import {
   draftToStagedCondition,
   isMutationConditionDraftDirty,
@@ -25,12 +25,16 @@ import {
  * One staged mutation condition. ``id`` is set when the row was pre-loaded from the
  * role's current conditions, so the parent modal can call ``removeMutationCondition(id)``
  * on submit. Newly-staged rows have ``id === undefined`` and the diff treats those as adds.
+ *
+ * The three scope fields mirror the wire exactly -- never null, defaulting to the
+ * wildcard and the workspace -- so a staged row and a stored one compare field for field.
  */
 export interface StagedMutationCondition {
   id?: number;
   resourceType: string;
-  parentResourceType: string | null;
-  parentResourceId: string | null;
+  resourcePattern: string;
+  containerResourceType: string;
+  containerResourcePattern: string;
   valueCondition: string | null;
   targetCondition: string | null;
 }
@@ -38,7 +42,7 @@ export interface StagedMutationCondition {
 export interface MutationConditionsSectionProps {
   value: StagedMutationCondition[];
   onChange: (value: StagedMutationCondition[]) => void;
-  /** The role's workspace, so the parent picker lists resources from the right one. */
+  /** The role's workspace, so the scope picker lists resources from the right one. */
   workspace?: string;
   disabled?: boolean;
   onUnsavedDraftChange?: (hasUnsavedDraft: boolean) => void;
@@ -48,22 +52,29 @@ export interface MutationConditionsSectionProps {
 const conditionKey = (c: StagedMutationCondition) =>
   [
     c.resourceType,
-    c.parentResourceType ?? '',
-    c.parentResourceId ?? '',
+    c.resourcePattern,
+    c.containerResourceType,
+    c.containerResourcePattern,
     c.valueCondition ?? '',
     c.targetCondition ?? '',
   ].join('::');
 
-export const formatStagedScope = (c: StagedMutationCondition): string =>
-  c.parentResourceType && c.parentResourceId
-    ? `${getResourceTypeLabel(c.parentResourceType)} ${c.parentResourceId}`
-    : 'All in workspace';
+export const formatStagedScope = (c: StagedMutationCondition): string => {
+  // Only one axis is ever narrowed, so whichever is set is the whole scope.
+  if (c.resourcePattern && c.resourcePattern !== CONDITION_WILDCARD_PATTERN) {
+    return `${getResourceTypeLabel(c.resourceType)} ${c.resourcePattern}`;
+  }
+  if (c.containerResourceType && c.containerResourceType !== CONDITION_CONTAINER_WORKSPACE) {
+    return `${getResourceTypeLabel(c.containerResourceType)} ${c.containerResourcePattern}`;
+  }
+  return 'All in workspace';
+};
 
 /** Human one-liner for the review step. */
 export const formatStagedCondition = (c: StagedMutationCondition): string => {
   const filters = [
-    c.valueCondition && `request: ${c.valueCondition}`,
-    c.targetCondition && `resource: ${c.targetCondition}`,
+    c.valueCondition && `value: ${c.valueCondition}`,
+    c.targetCondition && `target: ${c.targetCondition}`,
   ]
     .filter(Boolean)
     .join(', ');
@@ -72,7 +83,8 @@ export const formatStagedCondition = (c: StagedMutationCondition): string => {
 
 /**
  * Wraps ``MutationConditionForm`` with the same staged-list pattern the permissions
- * sections use: each Add appends a row, rows are removed individually, and the parent
+ * sections use: each Add appends a row, rows are removed individually, and the enclosing
+ * modal
  * submits the whole list as a diff.
  */
 export const MutationConditionsSection = ({
@@ -89,7 +101,7 @@ export const MutationConditionsSection = ({
   const dirty = isMutationConditionDraftDirty(draft);
   // Narrow each reminder to the field actually missing, rather than just refusing.
   const showFilterRequired = dirty && !draft.valueCondition.trim() && !draft.targetCondition.trim();
-  const showParentRequired = dirty && draft.scope === 'parent' && !draft.parentResourceId.trim();
+  const showScopeRequired = dirty && draft.scope === 'scoped' && !draft.scopePattern.trim();
 
   const onUnsavedDraftChangeRef = useRef(onUnsavedDraftChange);
   useEffect(() => {
@@ -126,10 +138,10 @@ export const MutationConditionsSection = ({
               Scope
             </TableHeader>
             <TableHeader componentId="admin.role_conditions.staged_request" css={{ flex: 2 }}>
-              Request filter
+              Value condition
             </TableHeader>
             <TableHeader componentId="admin.role_conditions.staged_resource" css={{ flex: 2 }}>
-              Resource filter
+              Target condition
             </TableHeader>
             <TableHeader
               componentId="admin.role_conditions.staged_actions"
@@ -196,7 +208,7 @@ export const MutationConditionsSection = ({
           workspace={workspace}
           disabled={disabled}
           showFilterRequiredError={showFilterRequired}
-          showParentRequiredError={showParentRequired}
+          showScopeRequiredError={showScopeRequired}
         />
         <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
           {dirty && (

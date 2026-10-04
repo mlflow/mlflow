@@ -19,12 +19,13 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
 )
 from mlflow.server.auth.conditions import (
+    CONTAINER_WORKSPACE,
     MAX_CONDITIONS_PER_ROLE_TYPE,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     PARENT_RESOURCE_TYPES,
+    normalize_condition_scope,
     validate_condition,
-    validate_condition_parent_scope,
     validate_condition_resource_type,
 )
 from mlflow.server.auth.db import utils as dbutils
@@ -136,6 +137,12 @@ class MutationConditionRow(NamedTuple):
     resource_type: str
     value_condition: str | None
     target_condition: str | None
+    #: ``"*"`` for every resource of the type, or the one id this row governs. Matched by
+    #: the gate rather than in SQL: a cascade's child ids are not known when this query
+    #: runs, so filtering here would drop a condition written to govern one of those
+    #: children -- a fail-open. The container axis *is* filtered in SQL, because the
+    #: container is always resolved before the query runs.
+    resource_pattern: str = "*"
 
 
 #: How many times ``add_mutation_condition`` re-picks a slot before giving up.
@@ -2020,13 +2027,21 @@ class SqlAlchemyStore:
         role_id: int,
         resource_type: str,
         *,
-        parent_resource_type: "str | None" = None,
-        parent_resource_id: "str | None" = None,
+        resource_pattern: "str | None" = None,
+        container_resource_type: "str | None" = None,
+        container_resource_pattern: "str | None" = None,
         value_condition: str | None = None,
         target_condition: str | None = None,
     ) -> MutationConditions:
         validate_condition_resource_type(resource_type)
-        validate_condition_parent_scope(resource_type, parent_resource_type, parent_resource_id)
+        resource_pattern, container_resource_type, container_resource_pattern = (
+            normalize_condition_scope(
+                resource_type,
+                resource_pattern,
+                container_resource_type,
+                container_resource_pattern,
+            )
+        )
         # Validate here, not at evaluation time. A condition that failed to parse
         # mid-request would have to either fail open (unsafe) or deny every mutation
         # (an outage), so the only good place to catch it is on the way in.
@@ -2045,8 +2060,9 @@ class SqlAlchemyStore:
                 session,
                 role_id,
                 resource_type,
-                parent_resource_type=parent_resource_type,
-                parent_resource_id=parent_resource_id,
+                resource_pattern=resource_pattern,
+                container_resource_type=container_resource_type,
+                container_resource_pattern=container_resource_pattern,
                 value_condition=value_condition,
                 target_condition=target_condition,
             )
@@ -2056,8 +2072,9 @@ class SqlAlchemyStore:
         username: str,
         resource_type: str,
         *,
-        parent_resource_type: "str | None" = None,
-        parent_resource_id: "str | None" = None,
+        resource_pattern: "str | None" = None,
+        container_resource_type: "str | None" = None,
+        container_resource_pattern: "str | None" = None,
         value_condition: str | None = None,
         target_condition: str | None = None,
     ) -> MutationConditions:
@@ -2077,7 +2094,14 @@ class SqlAlchemyStore:
         filterless object is refused here too, before any role is created.
         """
         validate_condition_resource_type(resource_type)
-        validate_condition_parent_scope(resource_type, parent_resource_type, parent_resource_id)
+        resource_pattern, container_resource_type, container_resource_pattern = (
+            normalize_condition_scope(
+                resource_type,
+                resource_pattern,
+                container_resource_type,
+                container_resource_pattern,
+            )
+        )
         validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
         validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
         if value_condition is None and target_condition is None:
@@ -2095,8 +2119,9 @@ class SqlAlchemyStore:
                 session,
                 role.id,
                 resource_type,
-                parent_resource_type=parent_resource_type,
-                parent_resource_id=parent_resource_id,
+                resource_pattern=resource_pattern,
+                container_resource_type=container_resource_type,
+                container_resource_pattern=container_resource_pattern,
                 value_condition=value_condition,
                 target_condition=target_condition,
             )
@@ -2107,8 +2132,9 @@ class SqlAlchemyStore:
         role_id: int,
         resource_type: str,
         *,
-        parent_resource_type: "str | None",
-        parent_resource_id: "str | None",
+        resource_pattern: str,
+        container_resource_type: str,
+        container_resource_pattern: str,
         value_condition: str | None,
         target_condition: str | None,
     ) -> MutationConditions:
@@ -2129,8 +2155,9 @@ class SqlAlchemyStore:
                 role_id=role_id,
                 resource_type=resource_type,
                 condition_slot=slot,
-                parent_resource_type=parent_resource_type,
-                parent_resource_id=parent_resource_id,
+                resource_pattern=resource_pattern,
+                container_resource_type=container_resource_type,
+                container_resource_pattern=container_resource_pattern,
                 value_condition=value_condition,
                 target_condition=target_condition,
             )
@@ -2208,9 +2235,10 @@ class SqlAlchemyStore:
         target_condition: str | None = None,
         update_value_condition: bool = True,
         update_target_condition: bool = True,
-        parent_resource_type: "str | None" = None,
-        parent_resource_id: "str | None" = None,
-        update_parent_scope: bool = False,
+        resource_pattern: "str | None" = None,
+        container_resource_type: "str | None" = None,
+        container_resource_pattern: "str | None" = None,
+        update_scope: bool = False,
     ) -> "MutationConditions | None":
         """Partial update, addressed by condition id.
 
@@ -2242,12 +2270,24 @@ class SqlAlchemyStore:
             if update_target_condition:
                 validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
                 mc.target_condition = target_condition
-            if update_parent_scope:
-                validate_condition_parent_scope(
-                    resource_type, parent_resource_type, parent_resource_id
+            if update_scope:
+                # One flag for both axes, because they are validated together: whether a
+                # container is legal depends on the resource type, and whether a wildcard
+                # container collapses to the workspace depends on the container. Replacing
+                # half a scope would skip that joint check.
+                (
+                    new_pattern,
+                    new_container_type,
+                    new_container_pattern,
+                ) = normalize_condition_scope(
+                    resource_type,
+                    resource_pattern,
+                    container_resource_type,
+                    container_resource_pattern,
                 )
-                mc.parent_resource_type = parent_resource_type
-                mc.parent_resource_id = parent_resource_id
+                mc.resource_pattern = new_pattern
+                mc.container_resource_type = new_container_type
+                mc.container_resource_pattern = new_container_pattern
             if mc.value_condition is None and mc.target_condition is None:
                 session.delete(mc)
                 return None
@@ -2326,6 +2366,7 @@ class SqlAlchemyStore:
                     SqlMutationConditions.resource_type,
                     SqlMutationConditions.value_condition,
                     SqlMutationConditions.target_condition,
+                    SqlMutationConditions.resource_pattern,
                 )
                 .join(SqlRole, SqlRole.id == SqlMutationConditions.role_id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
@@ -2336,35 +2377,45 @@ class SqlAlchemyStore:
                 )
                 .all()
             )
-            return [MutationConditionRow(rtype, value, target) for rtype, value, target in rows]
+            return [
+                MutationConditionRow(rtype, value, target, pattern)
+                for rtype, value, target, pattern in rows
+            ]
 
     @staticmethod
     def _scope_predicates(types: "Collection[str]", parents: "Mapping[str, Collection[str]]"):
-        """One predicate per type in play: unscoped, or scoped to a parent in play.
+        """One predicate per type in play: workspace-wide, or a container in play.
 
-        Built per type rather than as a single ``resource_type IN (...)`` plus one
-        shared parent filter, because the parents in play differ by type. Under a
-        shared filter a request touching runs of experiment 7 would also pull in a
-        version condition scoped to registered model 7 -- the id would satisfy a scope
-        belonging to another type. Each type therefore gets its own parent set.
+        Every condition has a container, so this is an equality test rather than a
+        null check: ``workspace`` means no containment narrowing and matches always,
+        and any other container must name an id the request actually resolved.
 
-        The ``parent_resource_type`` equality is defence in depth rather than what
-        provides that isolation: the per-type ``resource_type ==`` already partitions
-        the rows, and ``validate_condition_parent_scope`` refuses to store a row whose
-        parent type is not its resource type's declared parent. It costs nothing and
-        keeps a corrupt row from matching.
+        Built per type rather than as a single ``resource_type IN (...)`` plus one shared
+        container filter, because the containers in play differ by type. Under a shared
+        filter a request touching runs of experiment 7 would also pull in a version
+        condition contained by registered model 7 -- the id would satisfy a container
+        belonging to another type. Each type therefore gets its own container set.
+
+        The ``container_resource_type`` equality is defence in depth rather than what
+        provides that isolation: the per-type ``resource_type ==`` already partitions the
+        rows, and :func:`normalize_condition_scope` refuses to store a row whose container
+        is not its resource type's declared one. It costs nothing and keeps a corrupt row
+        from matching.
+
+        A wildcard container never appears here because it is normalised to ``workspace``
+        on write, which is what keeps this to two branches.
         """
         predicates = []
         for resource_type in sorted(types):
             in_play = parents.get(resource_type) or ()
-            unscoped = SqlMutationConditions.parent_resource_id.is_(None)
+            unscoped = SqlMutationConditions.container_resource_type == CONTAINER_WORKSPACE
             if in_play:
                 scope = or_(
                     unscoped,
                     and_(
-                        SqlMutationConditions.parent_resource_type
+                        SqlMutationConditions.container_resource_type
                         == PARENT_RESOURCE_TYPES.get(resource_type),
-                        SqlMutationConditions.parent_resource_id.in_(sorted(set(in_play))),
+                        SqlMutationConditions.container_resource_pattern.in_(sorted(set(in_play))),
                     ),
                 )
             else:

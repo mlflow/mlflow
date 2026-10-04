@@ -50,8 +50,8 @@ const permTripleKey = (p: { resourceType: string; resourcePattern: string; permi
 const conditionKey = (c: StagedMutationCondition) =>
   [
     c.resourceType,
-    c.parentResourceType ?? '',
-    c.parentResourceId ?? '',
+    c.containerResourceType ?? '',
+    c.containerResourcePattern ?? '',
     c.valueCondition ?? '',
     c.targetCondition ?? '',
   ].join('::');
@@ -124,8 +124,9 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     return (conditionsData?.mutation_conditions ?? []).map((c) => ({
       id: c.id,
       resourceType: c.resource_type,
-      parentResourceType: c.parent_resource_type,
-      parentResourceId: c.parent_resource_id,
+      resourcePattern: c.resource_pattern,
+      containerResourceType: c.container_resource_type,
+      containerResourcePattern: c.container_resource_pattern,
       valueCondition: c.value_condition,
       targetCondition: c.target_condition,
     }));
@@ -344,8 +345,8 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         await addCondition.mutateAsync({
           role_id: roleId,
           resource_type: c.resourceType,
-          parent_resource_type: c.parentResourceType,
-          parent_resource_id: c.parentResourceId,
+          container_resource_type: c.containerResourceType,
+          container_resource_pattern: c.containerResourcePattern,
           value_condition: c.valueCondition,
           target_condition: c.targetCondition,
         });

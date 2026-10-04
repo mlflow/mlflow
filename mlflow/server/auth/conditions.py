@@ -41,6 +41,7 @@ from sqlparse.tokens import Token as TokenType
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.server.auth import permissions
 from mlflow.utils.search_utils import SearchUtils, _join_in_comparison_tokens
 
 # ---------------------------------------------------------------------------
@@ -192,56 +193,135 @@ def validate_condition_resource_type(resource_type: str) -> None:
         )
 
 
-def validate_condition_parent_scope(
+#: The grants vocabulary's "every resource of this type" token, and the default for both
+#: scope axes. Shared with grants deliberately: a condition is addressed the way a grant
+#: is, so an admin who has just written ``resource_pattern="*"`` on a grant writes the same
+#: thing here and means the same thing.
+WILDCARD_PATTERN = "*"
+
+#: The default container: no narrowing beyond the role's own workspace. Every condition has
+#: a container, which is what lets a top-level type be addressed at all -- it sits in the
+#: workspace, and ``workspace`` is a container like any other.
+CONTAINER_WORKSPACE = "workspace"
+
+
+def _validate_pattern_grain(pattern: str, pattern_type: str, field: str) -> None:
+    """Reject a pattern at a grain the type does not support, using *grants'* rule.
+
+    The grain map is ``permissions.TYPE``, read rather than restated so a condition can
+    never be narrower or wider than a grant on the same type. The split it encodes is not
+    arbitrary: a sub-resource is wildcard-only because a per-id child grant cannot be
+    enforced in list and search paths, and a restriction that holds on a point route but
+    not in search is worse than none at all. A condition narrowed per-id on such a type
+    would inherit exactly that hole.
+
+    Asserted against grants directly in the tests, so the two cannot drift.
+    """
+    if pattern == WILDCARD_PATTERN:
+        return
+    if not pattern.strip():
+        raise MlflowException(
+            f"A condition's '{field}' must be a non-empty string. An empty pattern is not a "
+            f"wildcard: stored, it would match nothing while reading as a scope. Use "
+            f"'{WILDCARD_PATTERN}' to cover every resource of the type.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if pattern != pattern.strip():
+        raise MlflowException(
+            f"A condition's '{field}' must not have leading or trailing whitespace. "
+            f"Surrounding space is invisible where the scope is displayed but significant "
+            f"when matched, so a padded pattern would read as a scope and match nothing.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    grains = permissions.TYPE.get(pattern_type)
+    if grains is None or permissions.PatternKind.ID not in grains:
+        raise MlflowException(
+            f"Invalid {field} '{pattern}' for '{pattern_type}'. That type is addressed only "
+            f"by the wildcard '{WILDCARD_PATTERN}', the same grain its grants use -- a "
+            f"per-resource restriction on it could not be enforced in list and search paths, "
+            f"so it is refused rather than silently holding on some routes only.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def normalize_condition_scope(
     resource_type: str,
-    parent_resource_type: "str | None",
-    parent_resource_id: "str | None",
-) -> None:
-    """Reject a parent scope that could never match the target type.
+    resource_pattern: "str | None" = None,
+    container_resource_type: "str | None" = None,
+    container_resource_pattern: "str | None" = None,
+) -> "tuple[str, str, str]":
+    """Validate a condition's two scope axes together, returning them normalised.
 
-    Same reasoning as :func:`validate_condition_resource_type`, applied to scope rather
-    than type: a scope that cannot match stores a restriction the admin believes is in
-    force, which is worse than no restriction at all. So every rejection here is a thing
-    that would otherwise have been persisted and never fired.
+    A condition is addressed like a grant -- a type plus a pattern -- and additionally says
+    which container it applies within. The two axes answer different questions:
 
-    Unscoped -- both arguments ``None`` -- is the shape that predates parent scope and
-    stays valid for every supported type, including the parentless ones.
+    - ``resource_pattern`` -- *which resources of this type*: ``"*"`` for all, or one id.
+    - ``container_resource_type`` / ``container_resource_pattern`` -- *within which
+      container*: ``workspace`` / ``"*"`` for the whole workspace, or the type's declared
+      parent and one of its ids.
+
+    In practice each type narrows on exactly one axis, because the grain map makes the
+    choice for it. A top-level type (``experiment``, ``registered_model``, ``prompt``,
+    ``mcp_server``) takes an id pattern and always sits in the workspace; a sub-resource is
+    wildcard-only and narrows by naming its container instead. So "experiment 5" and "runs
+    in experiment 5" are both expressible, while "run abc" is not -- deliberately, for the
+    reason in :func:`_validate_pattern_grain`.
+
+    Omitting everything yields ``("*", "workspace", "*")``: the whole workspace, which is
+    the shape that predates scoping and stays the default.
+
+    Normalisation: naming a real container with a ``"*"`` pattern is the same statement as
+    naming the workspace -- every run in every experiment is every run in the workspace --
+    so it collapses to ``workspace``. That keeps one stored form per meaning, which in turn
+    keeps the loader's SQL from needing a wildcard branch per container type.
+
+    Returns:
+        ``(resource_pattern, container_resource_type, container_resource_pattern)``.
     """
     validate_condition_resource_type(resource_type)
-    if parent_resource_type is None and parent_resource_id is None:
-        return
-    if parent_resource_type is None or parent_resource_id is None:
+    resource_pattern = WILDCARD_PATTERN if resource_pattern is None else resource_pattern
+    _validate_pattern_grain(resource_pattern, resource_type, "resource_pattern")
+
+    container_type = (
+        CONTAINER_WORKSPACE if container_resource_type is None else container_resource_type
+    )
+    container_pattern = (
+        WILDCARD_PATTERN if container_resource_pattern is None else container_resource_pattern
+    )
+
+    if container_type == CONTAINER_WORKSPACE:
+        if container_pattern != WILDCARD_PATTERN:
+            raise MlflowException(
+                f"A '{CONTAINER_WORKSPACE}' container accepts only the wildcard "
+                f"'{WILDCARD_PATTERN}' pattern, matching the grain of a workspace grant. The "
+                f"workspace itself is named by the role, not by the pattern, so "
+                f"'{container_pattern}' would name nothing.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return resource_pattern, CONTAINER_WORKSPACE, WILDCARD_PATTERN
+
+    expected = PARENT_RESOURCE_TYPES.get(resource_type)
+    if expected is None:
         raise MlflowException(
-            "A parent scope needs both 'parent_resource_type' and 'parent_resource_id', "
-            "or neither. A type without an ID would name every parent of that type, and "
-            "an ID without a type names nothing -- both are restrictions that were not "
-            "written, so neither is inferred.",
+            f"Resource type '{resource_type}' has no container other than "
+            f"'{CONTAINER_WORKSPACE}', so it cannot be scoped to '{container_type}'. It is a "
+            f"top-level type: narrow it with 'resource_pattern' instead, or omit the "
+            f"container to cover the whole workspace.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if resource_type in PARENTLESS_RESOURCE_TYPES:
+    if container_type != expected:
         raise MlflowException(
-            f"Resource type '{resource_type}' has no direct parent, so a condition on it "
-            f"cannot be parent-scoped. Scope it to the workspace instead by omitting both "
-            f"parent fields. Parent-scopable types are "
-            f"{sorted(PARENT_RESOURCE_TYPES)}.",
+            f"The container of '{resource_type}' is '{expected}' or '{CONTAINER_WORKSPACE}', "
+            f"not '{container_type}'. Containment is exact and does not inherit across "
+            f"resource types, so only the declared container can be named.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    expected = PARENT_RESOURCE_TYPES[resource_type]
-    if parent_resource_type != expected:
-        raise MlflowException(
-            f"The direct parent of '{resource_type}' is '{expected}', not "
-            f"'{parent_resource_type}'. Parent scope is exact and does not inherit across "
-            f"resource types, so only the declared parent can be named.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    if not parent_resource_id.strip():
-        raise MlflowException(
-            "A parent resource ID must be a non-empty string. An empty ID is not a "
-            "wildcard: stored, it would match no parent while reading as a scope. It is "
-            "refused rather than treated as unscoped, because an admin who asked for a "
-            "narrowing must not silently receive a broadening.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    _validate_pattern_grain(container_pattern, container_type, "container_resource_pattern")
+    if container_pattern == WILDCARD_PATTERN:
+        # Every child in every container is every child in the workspace. One stored form
+        # per meaning, so the loader never needs a per-container wildcard branch.
+        return resource_pattern, CONTAINER_WORKSPACE, WILDCARD_PATTERN
+    return resource_pattern, container_type, container_pattern
 
 
 class ConditionScope(Enum):
@@ -531,11 +611,17 @@ class ConditionContext(NamedTuple):
 
 
 class MutationConditionSpec(NamedTuple):
-    """One role's conditions for one resource type, as loaded from the store."""
+    """One role's conditions for one resource type, as loaded from the store.
+
+    Mirrors ``MutationConditionRow``: ``resource_pattern`` defaults to the wildcard so a
+    spec written without a scope governs every resource of its type, which is what every
+    spec meant before scoping existed.
+    """
 
     resource_type: str
     value_condition: str | None = None
     target_condition: str | None = None
+    resource_pattern: str = "*"
 
 
 # ---------------------------------------------------------------------------

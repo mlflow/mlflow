@@ -90,10 +90,10 @@ export const ConditionsTable = ({
           Scope
         </TableHeader>
         <TableHeader componentId="admin.conditions_table.request_header" css={{ flex: 2 }}>
-          Request Filter
+          Value condition
         </TableHeader>
         <TableHeader componentId="admin.conditions_table.resource_header" css={{ flex: 2 }}>
-          Resource Filter
+          Target condition
         </TableHeader>
         {suffixHeader && (
           <TableHeader componentId="admin.conditions_table.suffix_header" css={{ flex: 1 }}>

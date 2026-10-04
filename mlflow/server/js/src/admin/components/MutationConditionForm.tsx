@@ -17,38 +17,45 @@ import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
 import {
   CONDITION_RESOURCE_TYPES,
-  getConditionParentType,
+  getConditionContainerType,
   getResourceTypeLabel,
-  conditionParentHasPicker,
+  conditionScopeHasPicker,
+  conditionNarrowsByPattern,
+  CONDITION_WILDCARD_PATTERN,
+  CONDITION_CONTAINER_WORKSPACE,
   isConditionEmpty,
 } from '../types';
 
-export type MutationConditionScope = 'all' | 'parent';
+export type MutationConditionScope = 'all' | 'scoped';
 
 /**
  * Internal draft state of one mutation condition.
  *
  * Distinct from the persisted ``MutationCondition`` in two ways. ``scope`` is tracked
- * separately from ``parentResourceId`` so switching to "all" does not lose a parent the
- * admin already picked, and the two filters are plain strings here because an empty
- * string is a field the admin has not filled while the server's ``null`` means the
- * filter is absent.
+ * separately from ``scopePattern`` so switching to "all" does not lose an id the admin
+ * already picked, and the two filters are plain strings here because an empty string is a
+ * field the admin has not filled while the server's ``null`` means the filter is absent.
+ *
+ * One ``scopePattern`` covers both server axes because a type only ever narrows on one of
+ * them: a top-level type by its own ``resource_pattern``, a sub-resource by its
+ * ``container_resource_pattern``. Which axis applies is derived from the type and never
+ * carried here, so the draft cannot describe a scope the server would reject.
  */
 export interface MutationConditionDraft {
   resourceType: string;
   scope: MutationConditionScope;
-  /** Chosen parent id when ``scope === 'parent'``; empty otherwise. */
-  parentResourceId: string;
-  /** Constrains the values a request may set. Empty means no request filter. */
+  /** Chosen id when ``scope === 'scoped'``; empty otherwise. */
+  scopePattern: string;
+  /** Constrains the values a request may set. Empty means no value condition. */
   valueCondition: string;
-  /** Constrains which existing resources may be mutated. Empty means no target filter. */
+  /** Constrains which existing resources may be mutated. Empty means no target condition. */
   targetCondition: string;
 }
 
 export const MUTATION_CONDITION_DRAFT_DEFAULT: MutationConditionDraft = {
   resourceType: CONDITION_RESOURCE_TYPES[0],
   scope: 'all',
-  parentResourceId: '',
+  scopePattern: '',
   valueCondition: '',
   targetCondition: '',
 };
@@ -61,8 +68,8 @@ export interface MutationConditionFormProps {
   disabled?: boolean;
   /** Render the inline reminder that at least one filter is required. */
   showFilterRequiredError?: boolean;
-  /** Render the inline reminder that a parent must be picked for ``scope === 'parent'``. */
-  showParentRequiredError?: boolean;
+  /** Render the inline reminder that an id must be picked for ``scope === 'scoped'``. */
+  showScopeRequiredError?: boolean;
 }
 
 /**
@@ -75,15 +82,20 @@ export const MutationConditionForm = ({
   workspace,
   disabled,
   showFilterRequiredError = false,
-  showParentRequiredError = false,
+  showScopeRequiredError = false,
 }: MutationConditionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [parentSearch, setParentSearch] = useState('');
 
   const typeLabel = getResourceTypeLabel(value.resourceType);
-  const parentType = getConditionParentType(value.resourceType);
-  const parentLabel = parentType ? getResourceTypeLabel(parentType) : undefined;
-  const hasPicker = conditionParentHasPicker(parentType);
+  // Which axis this type narrows on, and therefore what the picker lists. A top-level type
+  // names resources of its OWN type; a sub-resource names its container, because the
+  // children are not individually addressable at the grain its grants use.
+  const narrowsByPattern = conditionNarrowsByPattern(value.resourceType);
+  const containerType = getConditionContainerType(value.resourceType);
+  const scopeType = narrowsByPattern ? value.resourceType : containerType;
+  const scopeLabel = scopeType ? getResourceTypeLabel(scopeType) : undefined;
+  const hasPicker = conditionScopeHasPicker(scopeType);
 
   // The picker lists the PARENT type, not the conditioned type: a scope confines the
   // condition to one parent's children, and the children themselves are never named.
@@ -91,7 +103,7 @@ export const MutationConditionForm = ({
     options: parentOptions,
     isLoading: parentOptionsLoading,
     error: parentOptionsError,
-  } = useResourceOptionsQuery(hasPicker ? (parentType ?? '') : '', workspace);
+  } = useResourceOptionsQuery(hasPicker ? (scopeType ?? '') : '', workspace);
 
   const filteredParents = useMemo(() => {
     const trimmed = parentSearch.trim().toLowerCase();
@@ -99,7 +111,7 @@ export const MutationConditionForm = ({
     return parentOptions.filter((o) => o.name.toLowerCase().includes(trimmed) || o.id.toLowerCase().includes(trimmed));
   }, [parentOptions, parentSearch]);
 
-  const selectedParent = parentOptions.find((o) => o.id === value.parentResourceId);
+  const selectedParent = parentOptions.find((o) => o.id === value.scopePattern);
   const renderOption = (o: { id: string; name: string }) => (o.name === o.id ? o.name : `${o.name} (${o.id})`);
 
   return (
@@ -118,7 +130,7 @@ export const MutationConditionForm = ({
               ...value,
               resourceType: target.value,
               scope: 'all',
-              parentResourceId: '',
+              scopePattern: '',
             });
             setParentSearch('');
           }}
@@ -132,7 +144,7 @@ export const MutationConditionForm = ({
         </SimpleSelect>
       </div>
 
-      {parentType ? (
+      {scopeType ? (
         <div>
           <FieldLabel>Scope</FieldLabel>
           <Radio.Group
@@ -143,25 +155,29 @@ export const MutationConditionForm = ({
               onChange({
                 ...value,
                 scope: e.target.value as MutationConditionScope,
-                parentResourceId: '',
+                scopePattern: '',
               })
             }
             layout="vertical"
           >
             <Radio value="all">All {typeLabel.toLowerCase()}s in the workspace</Radio>
-            <Radio value="parent">Only within one {parentLabel?.toLowerCase()}</Radio>
+            <Radio value="scoped">
+              {narrowsByPattern
+                ? `Only one ${typeLabel.toLowerCase()}`
+                : `Only ${typeLabel.toLowerCase()}s within one ${scopeLabel?.toLowerCase()}`}
+            </Radio>
           </Radio.Group>
-          {value.scope === 'parent' && (
+          {value.scope === 'scoped' && (
             <div css={{ marginTop: theme.spacing.sm }}>
-              <FieldLabel>{parentLabel}</FieldLabel>
-              {showParentRequiredError && (
+              <FieldLabel>{scopeLabel}</FieldLabel>
+              {showScopeRequiredError && (
                 <Typography.Text
                   color="error"
                   size="sm"
                   css={{ display: 'block', marginBottom: theme.spacing.xs }}
                   data-testid="admin.mutation_condition_form.parent_required_error"
                 >
-                  Select a {parentLabel?.toLowerCase()} or switch the scope to{' '}
+                  Select a {scopeLabel?.toLowerCase()} or switch the scope to{' '}
                   <strong>All {typeLabel.toLowerCase()}s in the workspace</strong>.
                 </Typography.Text>
               )}
@@ -172,24 +188,22 @@ export const MutationConditionForm = ({
                 // as a bad id -- so say that here.
                 <Input
                   componentId="admin.mutation_condition_form.parent_resource_id_text"
-                  value={value.parentResourceId}
-                  onChange={(e) => onChange({ ...value, parentResourceId: e.target.value })}
-                  placeholder={`Enter ${parentLabel?.toLowerCase()} name`}
+                  value={value.scopePattern}
+                  onChange={(e) => onChange({ ...value, scopePattern: e.target.value })}
+                  placeholder={`Enter ${scopeLabel?.toLowerCase()} name`}
                   disabled={disabled}
                 />
               ) : (
                 <DialogCombobox
                   componentId="admin.mutation_condition_form.parent_resource_id"
-                  label={parentLabel ?? 'Parent'}
-                  value={value.parentResourceId ? [value.parentResourceId] : []}
+                  label={scopeLabel ?? 'Scope'}
+                  value={value.scopePattern ? [value.scopePattern] : []}
                 >
                   <DialogComboboxTrigger
                     withInlineLabel={false}
-                    placeholder={`Select ${parentLabel?.toLowerCase()}`}
-                    renderDisplayedValue={() =>
-                      selectedParent ? renderOption(selectedParent) : value.parentResourceId
-                    }
-                    onClear={() => onChange({ ...value, parentResourceId: '' })}
+                    placeholder={`Select ${scopeLabel?.toLowerCase()}`}
+                    renderDisplayedValue={() => (selectedParent ? renderOption(selectedParent) : value.scopePattern)}
+                    onClear={() => onChange({ ...value, scopePattern: '' })}
                     width="100%"
                     disabled={disabled}
                   />
@@ -199,7 +213,7 @@ export const MutationConditionForm = ({
                   >
                     {parentOptionsError && (
                       <div css={{ padding: theme.spacing.sm, color: theme.colors.textValidationDanger }}>
-                        Failed to load {parentLabel?.toLowerCase()}s
+                        Failed to load {scopeLabel?.toLowerCase()}s
                       </div>
                     )}
                     <DialogComboboxOptionList>
@@ -217,10 +231,10 @@ export const MutationConditionForm = ({
                               key={option.id}
                               value={option.id}
                               onChange={(v) => {
-                                onChange({ ...value, parentResourceId: v });
+                                onChange({ ...value, scopePattern: v });
                                 setParentSearch('');
                               }}
-                              checked={option.id === value.parentResourceId}
+                              checked={option.id === value.scopePattern}
                             >
                               {renderOption(option)}
                             </DialogComboboxOptionListSelectItem>
@@ -237,7 +251,7 @@ export const MutationConditionForm = ({
       ) : null}
 
       <div>
-        <FieldLabel>Request filter</FieldLabel>
+        <FieldLabel>Value condition</FieldLabel>
         <Input
           componentId="admin.mutation_condition_form.value_condition"
           value={value.valueCondition}
@@ -248,7 +262,7 @@ export const MutationConditionForm = ({
       </div>
 
       <div>
-        <FieldLabel>Resource filter</FieldLabel>
+        <FieldLabel>Target condition</FieldLabel>
         <Input
           componentId="admin.mutation_condition_form.target_condition"
           value={value.targetCondition}
@@ -270,7 +284,7 @@ export const MutationConditionForm = ({
 /** True when the draft is ready to be submitted. */
 export const isMutationConditionDraftFillable = (draft: MutationConditionDraft): boolean => {
   if (isConditionEmpty(draft.valueCondition, draft.targetCondition)) return false;
-  if (draft.scope === 'parent') return draft.parentResourceId.trim().length > 0;
+  if (draft.scope === 'scoped') return draft.scopePattern.trim().length > 0;
   return true;
 };
 
@@ -278,7 +292,7 @@ export const isMutationConditionDraftFillable = (draft: MutationConditionDraft):
 export const isMutationConditionDraftDirty = (draft: MutationConditionDraft): boolean =>
   draft.resourceType !== MUTATION_CONDITION_DRAFT_DEFAULT.resourceType ||
   draft.scope !== MUTATION_CONDITION_DRAFT_DEFAULT.scope ||
-  draft.parentResourceId !== MUTATION_CONDITION_DRAFT_DEFAULT.parentResourceId ||
+  draft.scopePattern !== MUTATION_CONDITION_DRAFT_DEFAULT.scopePattern ||
   draft.valueCondition !== MUTATION_CONDITION_DRAFT_DEFAULT.valueCondition ||
   draft.targetCondition !== MUTATION_CONDITION_DRAFT_DEFAULT.targetCondition;
 
@@ -296,12 +310,17 @@ export const isMutationConditionDraftDirty = (draft: MutationConditionDraft): bo
  * instead of as an absent filter.
  */
 export const draftToStagedCondition = (draft: MutationConditionDraft) => {
-  const parentType = getConditionParentType(draft.resourceType);
-  const scoped = draft.scope === 'parent' && parentType && draft.parentResourceId.trim();
+  const narrowsByPattern = conditionNarrowsByPattern(draft.resourceType);
+  const containerType = getConditionContainerType(draft.resourceType);
+  const scopeType = narrowsByPattern ? draft.resourceType : containerType;
+  const scoped = draft.scope === 'scoped' && scopeType && draft.scopePattern.trim();
   return {
     resourceType: draft.resourceType,
-    parentResourceType: scoped ? parentType : null,
-    parentResourceId: scoped ? draft.parentResourceId.trim() : null,
+    // Which axis carries the id is derived from the type, never taken from the draft, so
+    // the triple the server receives is always one it can accept.
+    resourcePattern: scoped && narrowsByPattern ? draft.scopePattern.trim() : CONDITION_WILDCARD_PATTERN,
+    containerResourceType: scoped && !narrowsByPattern && scopeType ? scopeType : CONDITION_CONTAINER_WORKSPACE,
+    containerResourcePattern: scoped && !narrowsByPattern ? draft.scopePattern.trim() : CONDITION_WILDCARD_PATTERN,
     valueCondition: draft.valueCondition.trim() || null,
     targetCondition: draft.targetCondition.trim() || null,
   };

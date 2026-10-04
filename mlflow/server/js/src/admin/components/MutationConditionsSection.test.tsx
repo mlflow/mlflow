@@ -33,8 +33,9 @@ describe('MutationConditionsSection', () => {
         resourceType: 'experiment',
         valueCondition: null,
         targetCondition: "tags.x = 'y'",
-        parentResourceType: null,
-        parentResourceId: null,
+        resourcePattern: '*',
+        containerResourceType: 'workspace',
+        containerResourcePattern: '*',
       }),
     ]);
   });
@@ -52,8 +53,9 @@ describe('MutationConditionsSection', () => {
       {
         id: 5,
         resourceType: 'run',
-        parentResourceType: null,
-        parentResourceId: null,
+        resourcePattern: '*',
+        containerResourceType: 'workspace',
+        containerResourcePattern: '*',
         valueCondition: null,
         targetCondition: "tags.lifecycle != 'prod'",
       },
@@ -68,8 +70,9 @@ describe('MutationConditionsSection', () => {
     const value: StagedMutationCondition[] = [
       {
         resourceType: 'experiment',
-        parentResourceType: null,
-        parentResourceId: null,
+        resourcePattern: '*',
+        containerResourceType: 'workspace',
+        containerResourcePattern: '*',
         valueCondition: null,
         targetCondition: "tags.x = 'y'",
       },
@@ -95,11 +98,19 @@ describe('MutationConditionsSection', () => {
     expect(
       formatStagedCondition({
         resourceType: 'trace',
-        parentResourceType: 'experiment',
-        parentResourceId: '42',
+        resourcePattern: '*',
+        containerResourceType: 'experiment',
+        containerResourcePattern: '42',
         valueCondition: "tag_value != 'prod'",
         targetCondition: "tags.reviewed = 'yes'",
       }),
-    ).toBe("trace [Experiment 42] request: tag_value != 'prod', resource: tags.reviewed = 'yes'");
+    ).toBe("trace [Experiment 42] value: tag_value != 'prod', target: tags.reviewed = 'yes'");
+  });
+
+  it('offers a scope to a top-level type, which had none before', () => {
+    // The gap this model closes: an experiment has no container, so under the old
+    // parent-only scope its conditions could only ever cover the whole workspace.
+    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    expect(screen.getByText('Only one experiment')).toBeInTheDocument();
   });
 });

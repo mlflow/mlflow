@@ -5,7 +5,9 @@ Revises: f1a2b3c4d5e6
 Create Date: 2026-09-25 00:00:00.000000
 
 Adds the ``mutation_conditions`` table: two optional filters per
-``(role, resource_type)`` that gate create/mutation operations only.
+``(role, resource_type, resource_pattern)`` that gate create/mutation operations
+only. ``resource_pattern`` addresses the governed resources the way a grant does
+-- ``"*"`` or one id -- and defaults to ``"*"``.
 
 The table starts empty, and an empty table is exactly the pre-existing
 behaviour -- conditions only ever subtract from what grants allow. So this
@@ -35,6 +37,10 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("resource_type", sa.String(length=64), nullable=False),
+        # Which resources of that type: "*" or a single id, at the grain the type's grants
+        # use. NOT NULL with a wildcard default so that "every resource" has exactly one
+        # representation -- a nullable column would let NULL and "*" both mean all.
+        sa.Column("resource_pattern", sa.String(length=255), nullable=False, server_default="*"),
         sa.Column("value_condition", sa.Text(), nullable=True),
         sa.Column("target_condition", sa.Text(), nullable=True),
         sa.UniqueConstraint("role_id", "resource_type", name="unique_role_resource_type"),

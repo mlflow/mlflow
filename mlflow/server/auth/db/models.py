@@ -151,14 +151,23 @@ class SqlMutationConditions(Base):
     # Deliberately no server_default: an INSERT that omits the slot is a store bug, and
     # should fail rather than silently land in slot 1 and collide.
     condition_slot = Column(SmallInteger, nullable=False)
-    # Optional exact direct-parent scope. Both columns are set together or neither is
-    # (the CHECK below): a type without an ID would name every parent of that type, and
-    # an ID without a type names nothing. Unscoped -- both NULL -- applies to every
-    # parent of the target type in the role's workspace.
+    # The two scope axes, both NOT NULL with meaningful defaults so that "everything" has
+    # exactly one representation -- a nullable column would let NULL and '*' both mean all,
+    # and the gate's check would then depend on which an admin happened to type.
+    #
+    # resource_pattern: which resources of this type. '*' or one id, at the grain the type's
+    # grants use (permissions.TYPE) -- so the four top-level conditionable types take an id
+    # and the six sub-resources are wildcard-only.
+    #
+    # container_*: within which container. 'workspace'/'*' is no narrowing; otherwise the
+    # type's declared parent and one of its ids. A wildcard container is normalised to
+    # 'workspace' on write, so a non-workspace container always carries a concrete id --
+    # which is what keeps the loader's predicate to two branches.
     #
     # Widths match SqlRolePermission: the same vocabulary and the same identifiers.
-    parent_resource_type = Column(String(64), nullable=True)
-    parent_resource_id = Column(String(255), nullable=True)
+    resource_pattern = Column(String(255), nullable=False, server_default="*")
+    container_resource_type = Column(String(64), nullable=False, server_default="workspace")
+    container_resource_pattern = Column(String(255), nullable=False, server_default="*")
     __table_args__ = (
         # One row per slot. Replaces the single-object UniqueConstraint on
         # (role_id, resource_type): a role may now hold up to
@@ -171,10 +180,14 @@ class SqlMutationConditions(Base):
             f"condition_slot BETWEEN 1 AND {MAX_CONDITIONS_PER_ROLE_TYPE}",
             name="ck_mutation_conditions_slot_range",
         ),
+        # The workspace container is named by the role's own workspace column, not by a
+        # pattern, so it accepts only the wildcard -- the same grain a workspace grant has.
+        # This replaces the old parent-pair CHECK, which existed only because the scope was
+        # two nullable columns that had to be set together; with NOT NULL defaults there is
+        # no half-set state left to forbid.
         CheckConstraint(
-            "(parent_resource_type IS NULL AND parent_resource_id IS NULL) OR "
-            "(parent_resource_type IS NOT NULL AND parent_resource_id IS NOT NULL)",
-            name="ck_mutation_conditions_parent_pair",
+            "container_resource_type <> 'workspace' OR container_resource_pattern = '*'",
+            name="ck_mutation_conditions_container_workspace",
         ),
         # The lookup index. The gate resolves conditions by role, target type, and
         # either no parent scope or the exact resolved parent -- so the predicate runs
@@ -186,8 +199,8 @@ class SqlMutationConditions(Base):
             "idx_mutation_conditions_lookup",
             "role_id",
             "resource_type",
-            "parent_resource_type",
-            "parent_resource_id",
+            "container_resource_type",
+            "container_resource_pattern",
         ),
         Index("idx_mutation_conditions_role_id", "role_id"),
     )
@@ -200,8 +213,9 @@ class SqlMutationConditions(Base):
             value_condition=self.value_condition,
             target_condition=self.target_condition,
             condition_slot=self.condition_slot,
-            parent_resource_type=self.parent_resource_type,
-            parent_resource_id=self.parent_resource_id,
+            resource_pattern=self.resource_pattern,
+            container_resource_type=self.container_resource_type,
+            container_resource_pattern=self.container_resource_pattern,
         )
 
 

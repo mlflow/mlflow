@@ -379,8 +379,8 @@ def test_loader_returns_only_unscoped_conditions_when_no_parent_is_in_play(store
     store.add_mutation_condition(
         role.id,
         "run",
-        parent_resource_type="experiment",
-        parent_resource_id="7",
+        container_resource_type="experiment",
+        container_resource_pattern="7",
         value_condition="tag_key != 'exp7'",
     )
 
@@ -398,8 +398,8 @@ def test_loader_adds_a_scoped_condition_only_for_its_own_parent(store, user, rol
         store.add_mutation_condition(
             role.id,
             "run",
-            parent_resource_type="experiment",
-            parent_resource_id=parent,
+            container_resource_type="experiment",
+            container_resource_pattern=parent,
             value_condition=f"tag_key != 'exp{parent}'",
         )
 
@@ -427,15 +427,15 @@ def test_loader_does_not_let_a_parent_id_satisfy_another_type_scope(store, user,
     store.add_mutation_condition(
         role.id,
         "run",
-        parent_resource_type="experiment",
-        parent_resource_id="7",
+        container_resource_type="experiment",
+        container_resource_pattern="7",
         value_condition="tag_key != 'runscope'",
     )
     store.add_mutation_condition(
         role.id,
         "registered_model_version",
-        parent_resource_type="registered_model",
-        parent_resource_id="7",
+        container_resource_type="registered_model",
+        container_resource_pattern="7",
         value_condition="tag_key != 'modelscope'",
     )
 
@@ -574,7 +574,7 @@ def test_loader_rows_are_detached_plain_tuples(store, user, role):
     )
     (row,) = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert isinstance(row, tuple)
-    assert row == ("run", "tag_key != 'a'", "tags.b = '1'")
+    assert row == ("run", "tag_key != 'a'", "tags.b = '1'", "*")
 
 
 # ---- The user-addressed add ------------------------------------------------
@@ -649,14 +649,15 @@ class TestTheUserAddressedAdd:
                 "alice", "run", target_condition="tags.mlflow.runName = 'x'"
             )
 
-    def test_refuses_a_parent_scope_the_type_cannot_have(self, store, user):
-        with pytest.raises(MlflowException, match="parent"):
+    def test_refuses_a_container_the_type_cannot_have(self, store):
+        store.create_user("u-cont", "password1234")
+        with pytest.raises(MlflowException, match="no container other than"):
             store.add_user_mutation_condition(
-                "alice",
+                "u-cont",
                 "experiment",
-                parent_resource_type="experiment",
-                parent_resource_id="0",
-                target_condition="tags.x = 'y'",
+                container_resource_type="experiment",
+                container_resource_pattern="5",
+                target_condition="tags.a = 'b'",
             )
 
     def test_missing_user_raises(self, store):
@@ -668,3 +669,152 @@ class TestTheUserAddressedAdd:
         store.add_user_mutation_condition("alice", "run", target_condition="tags.x = 'y'")
         rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
         assert [r.target_condition for r in rows] == ["tags.x = 'y'"]
+
+
+# ---- The single-resource scope ---------------------------------------------
+
+
+class TestTheTwoScopeAxes:
+    """A condition is addressed like a grant -- type plus pattern -- and says which
+    container it applies within. Each type narrows on one axis, because the grain map
+    makes the choice for it.
+    """
+
+    def test_stores_and_returns_a_resource_pattern(self, store, role):
+        created = store.add_mutation_condition(
+            role.id, "experiment", resource_pattern="5", target_condition="tags.env = 'dev'"
+        )
+        assert created.resource_pattern == "5"
+        assert created.container_resource_type == "workspace"
+        assert store.get_mutation_condition(created.id).resource_pattern == "5"
+
+    def test_stores_and_returns_a_container(self, store, role):
+        created = store.add_mutation_condition(
+            role.id,
+            "run",
+            container_resource_type="experiment",
+            container_resource_pattern="3",
+            target_condition="tags.env = 'dev'",
+        )
+        assert created.resource_pattern == "*", "a sub-resource is wildcard-only"
+        assert (created.container_resource_type, created.container_resource_pattern) == (
+            "experiment",
+            "3",
+        )
+
+    def test_omitting_everything_is_the_whole_workspace(self, store, role):
+        created = store.add_mutation_condition(
+            role.id, "experiment", target_condition="tags.env = 'dev'"
+        )
+        assert (
+            created.resource_pattern,
+            created.container_resource_type,
+            created.container_resource_pattern,
+        ) == ("*", "workspace", "*"), "the pre-scope shape must stay the default"
+
+    def test_a_wildcard_container_collapses_to_the_workspace(self, store, role):
+        """One stored form per meaning, so the loader's SQL needs no wildcard branch."""
+        created = store.add_mutation_condition(
+            role.id,
+            "run",
+            container_resource_type="experiment",
+            container_resource_pattern="*",
+            target_condition="tags.a = 'b'",
+        )
+        assert created.container_resource_type == "workspace"
+
+    def test_a_sub_resource_cannot_be_narrowed_per_id(self, store, role):
+        """Grants refuse a per-id child grant because it cannot be enforced in list and
+        search paths. A condition inherits that rule rather than restating it, so the two
+        are addressable at exactly the same grain.
+        """
+        with pytest.raises(MlflowException, match="wildcard"):
+            store.add_mutation_condition(
+                role.id, "run", resource_pattern="abc", target_condition="tags.a = 'b'"
+            )
+
+    def test_refuses_an_empty_or_padded_pattern(self, store, role):
+        for bad in ("", "   "):
+            with pytest.raises(MlflowException, match="non-empty"):
+                store.add_mutation_condition(
+                    role.id, "experiment", resource_pattern=bad, target_condition="tags.a = 'b'"
+                )
+        with pytest.raises(MlflowException, match="whitespace"):
+            store.add_mutation_condition(
+                role.id, "experiment", resource_pattern=" 5 ", target_condition="tags.a = 'b'"
+            )
+
+    def test_a_top_level_type_narrows_by_pattern_not_container(self, store, role):
+        """The asymmetry this model fixes: an experiment condition had nothing between
+        "every experiment" and nothing, because it has no container to name.
+        """
+        with pytest.raises(MlflowException, match="no container other than"):
+            store.add_mutation_condition(
+                role.id,
+                "experiment",
+                container_resource_type="experiment",
+                container_resource_pattern="5",
+                target_condition="tags.a = 'b'",
+            )
+        created = store.add_mutation_condition(
+            role.id, "experiment", resource_pattern="5", target_condition="tags.a = 'b'"
+        )
+        assert created.resource_pattern == "5"
+
+    def test_the_runtime_loader_carries_the_pattern(self, store, role):
+        """The gate matches the pattern in Python, so the loader MUST return it.
+
+        Filtering that axis in SQL would be a fail-open: a cascade's child ids are unknown
+        when the query runs, so a condition naming one of those children would be dropped.
+        """
+        store.create_user("alice-scope", "password1234")
+        user = store.get_user("alice-scope")
+        store.assign_role_to_user(user.id, role.id)
+        store.add_mutation_condition(
+            role.id, "experiment", resource_pattern="5", target_condition="tags.a = 'b'"
+        )
+        rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["experiment"])
+        assert [r.resource_pattern for r in rows] == ["5"]
+
+    def test_the_loader_filters_the_container_in_sql(self, store, role):
+        """The container axis *is* resolved before the query, so it is filtered there."""
+        store.create_user("bob-scope", "password1234")
+        user = store.get_user("bob-scope")
+        store.assign_role_to_user(user.id, role.id)
+        store.add_mutation_condition(
+            role.id,
+            "run",
+            container_resource_type="experiment",
+            container_resource_pattern="3",
+            target_condition="tags.a = 'b'",
+        )
+        in_play = store.list_mutation_conditions_for_user(
+            user.id, _WORKSPACE, ["run"], {"run": ["3"]}
+        )
+        assert len(in_play) == 1
+        other = store.list_mutation_conditions_for_user(
+            user.id, _WORKSPACE, ["run"], {"run": ["9"]}
+        )
+        assert other == [], "a condition contained by another experiment must not load"
+
+    def test_update_replaces_the_scope_as_a_whole(self, store, role):
+        created = store.add_mutation_condition(
+            role.id, "experiment", target_condition="tags.a = 'b'"
+        )
+        # The filter flags default to True, so a scope-only update must say it is not
+        # touching them -- otherwise both filters clear and the object is deleted.
+        untouched = {"update_value_condition": False, "update_target_condition": False}
+        narrowed = store.update_mutation_condition(
+            created.id, resource_pattern="7", update_scope=True, **untouched
+        )
+        assert narrowed.resource_pattern == "7"
+        widened = store.update_mutation_condition(created.id, update_scope=True, **untouched)
+        assert widened.resource_pattern == "*", "an omitted axis takes its widest default"
+
+    def test_update_without_the_flag_leaves_the_scope_alone(self, store, role):
+        """A client echoing the object back must not widen a scope it never touched."""
+        created = store.add_mutation_condition(
+            role.id, "experiment", resource_pattern="7", target_condition="tags.a = 'b'"
+        )
+        same = store.update_mutation_condition(created.id, target_condition="tags.a = 'c'")
+        assert same.resource_pattern == "7"

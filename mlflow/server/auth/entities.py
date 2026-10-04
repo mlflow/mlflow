@@ -484,10 +484,12 @@ class MutationConditions:
     ``condition_slot``. The slot is allocated by the store and carries no ordering
     meaning: every applicable condition must pass, so there is nothing to order.
 
-    ``parent_resource_type`` and ``parent_resource_id`` are an optional exact
-    direct-parent scope, set together or both ``None``. Unscoped applies to every
-    parent of the target type in the role's workspace; scoped applies only to children
-    of that one parent, and does not inherit across resource types.
+    Two scope axes say which resources the condition reaches, and each type narrows on
+    one of them. ``resource_pattern`` is ``"*"`` or a single resource id, at the grain that
+    type's *grants* use -- so a top-level type can name one resource while a sub-resource
+    is wildcard-only. ``container_resource_type`` / ``container_resource_pattern`` name the
+    container instead, defaulting to ``workspace`` / ``"*"`` for no narrowing. So
+    "experiment 5" and "runs in experiment 5" are both expressible; "run abc" is not.
     """
 
     def __init__(
@@ -498,8 +500,9 @@ class MutationConditions:
         value_condition=None,
         target_condition=None,
         condition_slot=None,
-        parent_resource_type=None,
-        parent_resource_id=None,
+        resource_pattern="*",
+        container_resource_type="workspace",
+        container_resource_pattern="*",
     ):
         self._id = id_
         self._role_id = role_id
@@ -507,8 +510,9 @@ class MutationConditions:
         self._value_condition = value_condition
         self._target_condition = target_condition
         self._condition_slot = condition_slot
-        self._parent_resource_type = parent_resource_type
-        self._parent_resource_id = parent_resource_id
+        self._resource_pattern = resource_pattern
+        self._container_resource_type = container_resource_type
+        self._container_resource_pattern = container_resource_pattern
 
     @property
     def id(self):
@@ -527,12 +531,19 @@ class MutationConditions:
         return self._condition_slot
 
     @property
-    def parent_resource_type(self):
-        return self._parent_resource_type
+    def resource_pattern(self):
+        """``"*"`` for every resource of the type, or the one id this condition governs."""
+        return self._resource_pattern
 
     @property
-    def parent_resource_id(self):
-        return self._parent_resource_id
+    def container_resource_type(self):
+        """``"workspace"`` for no containment narrowing, else the declared parent type."""
+        return self._container_resource_type
+
+    @property
+    def container_resource_pattern(self):
+        """``"*"`` when the container is the workspace, else one container id."""
+        return self._container_resource_pattern
 
     @property
     def value_condition(self):
@@ -558,8 +569,9 @@ class MutationConditions:
             "value_condition": self.value_condition,
             "target_condition": self.target_condition,
             "condition_slot": self.condition_slot,
-            "parent_resource_type": self.parent_resource_type,
-            "parent_resource_id": self.parent_resource_id,
+            "resource_pattern": self.resource_pattern,
+            "container_resource_type": self.container_resource_type,
+            "container_resource_pattern": self.container_resource_pattern,
         }
 
     @classmethod
@@ -571,8 +583,9 @@ class MutationConditions:
             value_condition=dictionary.get("value_condition"),
             target_condition=dictionary.get("target_condition"),
             condition_slot=dictionary.get("condition_slot"),
-            parent_resource_type=dictionary.get("parent_resource_type"),
-            parent_resource_id=dictionary.get("parent_resource_id"),
+            resource_pattern=dictionary.get("resource_pattern", "*"),
+            container_resource_type=dictionary.get("container_resource_type", "workspace"),
+            container_resource_pattern=dictionary.get("container_resource_pattern", "*"),
         )
 
 

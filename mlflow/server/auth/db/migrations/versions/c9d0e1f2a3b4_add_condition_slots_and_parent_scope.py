@@ -1,4 +1,4 @@
-"""Add condition slots and parent scope to mutation_conditions
+"""Add condition slots and container scope to mutation_conditions
 
 Revision ID: c9d0e1f2a3b4
 Revises: b7c8d9e0f1a2
@@ -15,23 +15,28 @@ Three columns and three constraints:
   ``(role_id, resource_type)``. Together these bound the per-role-and-type count
   without a count-then-insert race: a racing inserter loses the UNIQUE and
   retries a different slot rather than overshooting the limit.
-- ``parent_resource_type`` and ``parent_resource_id``, with a CHECK that they are
-  set together or both NULL. Half a pair is meaningless -- a type with no ID
-  names every parent of that type, an ID with no type names nothing.
-- a lookup index on ``(role_id, resource_type, parent_resource_type,
-  parent_resource_id)`` so the gate's scope predicate runs in SQL. Without it a
+- ``container_resource_type`` and ``container_resource_pattern``, both NOT NULL
+  with defaults of ``'workspace'`` and ``'*'``, plus a CHECK that a ``workspace``
+  container carries only the wildcard. Every condition has a container, which is
+  what lets a top-level type be addressed at all: it sits in the workspace. A
+  wildcard container on a real type is normalised to ``workspace`` before it
+  reaches the database, so a non-workspace row always names a concrete id.
+- a lookup index on ``(role_id, resource_type, container_resource_type,
+  container_resource_pattern)`` so the gate's container predicate runs in SQL.
+  (``resource_pattern`` is deliberately NOT in it: the gate matches that axis in
+  Python, because a cascade's child ids are unknown when the query runs.) Without it a
   role at the limit would transfer every condition on every request, turning a
   storage bound into a per-request cost.
 
 Behaviour-neutral on upgrade. Existing rows -- there should be none, the feature
-is unreleased, but the migration does not assume that -- take slot 1 and stay
-unscoped, which is exactly their current meaning. The slot's ``server_default``
+is unreleased, but the migration does not assume that -- take slot 1 and the
+workspace container, which is exactly their current meaning. The slot's ``server_default``
 exists only to satisfy NOT NULL during that backfill and is dropped afterwards:
 an INSERT that omits the slot is a store bug and should fail, not silently land
 in slot 1.
 
 ``downgrade`` is lossy where upgrade was not. Conditions beyond slot 1, and any
-parent scope, cannot be represented by the old schema -- so rather than silently
+container scope, cannot be represented by the old schema -- so rather than silently
 broadening a scoped restriction to the whole workspace, or silently dropping
 restrictions and leaving a role *less* constrained than the admin wrote, it
 refuses when either exists. A deployment that genuinely wants to downgrade must
@@ -50,9 +55,8 @@ branch_labels = None
 depends_on = None
 
 _SLOT_RANGE_CHECK = f"condition_slot BETWEEN 1 AND {MAX_CONDITIONS_PER_ROLE_TYPE}"
-_PARENT_PAIR_CHECK = (
-    "(parent_resource_type IS NULL AND parent_resource_id IS NULL) OR "
-    "(parent_resource_type IS NOT NULL AND parent_resource_id IS NOT NULL)"
+_CONTAINER_WORKSPACE_CHECK = (
+    "container_resource_type <> 'workspace' OR container_resource_pattern = '*'"
 )
 
 
@@ -63,14 +67,30 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("condition_slot", sa.SmallInteger(), nullable=False, server_default="1")
         )
-        batch_op.add_column(sa.Column("parent_resource_type", sa.String(length=64), nullable=True))
-        batch_op.add_column(sa.Column("parent_resource_id", sa.String(length=255), nullable=True))
+        batch_op.add_column(
+            sa.Column(
+                "container_resource_type",
+                sa.String(length=64),
+                nullable=False,
+                server_default="workspace",
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "container_resource_pattern",
+                sa.String(length=255),
+                nullable=False,
+                server_default="*",
+            )
+        )
         batch_op.drop_constraint("unique_role_resource_type", type_="unique")
         batch_op.create_unique_constraint(
             "unique_role_resource_type_slot", ["role_id", "resource_type", "condition_slot"]
         )
         batch_op.create_check_constraint("ck_mutation_conditions_slot_range", _SLOT_RANGE_CHECK)
-        batch_op.create_check_constraint("ck_mutation_conditions_parent_pair", _PARENT_PAIR_CHECK)
+        batch_op.create_check_constraint(
+            "ck_mutation_conditions_container_workspace", _CONTAINER_WORKSPACE_CHECK
+        )
 
     # Drop the backfill default now that every existing row has a slot.
     with op.batch_alter_table("mutation_conditions") as batch_op:
@@ -79,7 +99,7 @@ def upgrade() -> None:
     op.create_index(
         "idx_mutation_conditions_lookup",
         "mutation_conditions",
-        ["role_id", "resource_type", "parent_resource_type", "parent_resource_id"],
+        ["role_id", "resource_type", "container_resource_type", "container_resource_pattern"],
         unique=False,
     )
 
@@ -92,24 +112,24 @@ def downgrade() -> None:
     blocking = connection.execute(
         sa.text(
             "SELECT COUNT(*) FROM mutation_conditions "
-            "WHERE condition_slot <> 1 OR parent_resource_type IS NOT NULL"
+            "WHERE condition_slot <> 1 OR container_resource_type <> 'workspace'"
         )
     ).scalar()
     if blocking:
         raise RuntimeError(
             f"Cannot downgrade: {blocking} mutation condition(s) use a slot other than 1 or a "
-            f"parent scope, and the previous schema can represent neither. Downgrading would "
-            f"either broaden a parent-scoped restriction to the whole workspace or drop "
+            f"container scope, and the previous schema can represent neither. Downgrading would "
+            f"either broaden a container-scoped restriction to the whole workspace or drop "
             f"restrictions entirely, leaving roles less constrained than configured. Delete "
             f"those conditions first if the loss is intended."
         )
 
     op.drop_index("idx_mutation_conditions_lookup", table_name="mutation_conditions")
     with op.batch_alter_table("mutation_conditions") as batch_op:
-        batch_op.drop_constraint("ck_mutation_conditions_parent_pair", type_="check")
+        batch_op.drop_constraint("ck_mutation_conditions_container_workspace", type_="check")
         batch_op.drop_constraint("ck_mutation_conditions_slot_range", type_="check")
         batch_op.drop_constraint("unique_role_resource_type_slot", type_="unique")
         batch_op.create_unique_constraint("unique_role_resource_type", ["role_id", "resource_type"])
-        batch_op.drop_column("parent_resource_id")
-        batch_op.drop_column("parent_resource_type")
+        batch_op.drop_column("container_resource_pattern")
+        batch_op.drop_column("container_resource_type")
         batch_op.drop_column("condition_slot")

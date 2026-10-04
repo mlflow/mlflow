@@ -284,6 +284,7 @@ from mlflow.server.auth.conditions import (
     RESOURCE_PREFIX_ALIASES,
     RESOURCE_PREFIX_TAGS,
     SUPPORTED_RESOURCE_TYPES,
+    WILDCARD_PATTERN,
     ConditionContext,
     ConditionScope,
     ExperimentRequestValues,
@@ -1186,6 +1187,41 @@ def _cascade_target_pushdown(context, target_rows):
     return found_failure
 
 
+def _row_governs(row, resource_id: "str | None") -> bool:
+    """Does this row's ``resource_pattern`` govern ``resource_id``?
+
+    A wildcard row governs every resource of its type -- the pre-scope behaviour and the
+    overwhelmingly common case. A pattern naming an id governs exactly that resource.
+
+    ``resource_id is None`` on the *asking* side means the caller has no id to offer: a
+    create, or a cascade before its children are resolved. An id pattern cannot be judged
+    against an unnamed resource, so it does not apply. That is vacuous rather than
+    fail-open -- the row restricts one named resource, and an operation naming no resource
+    is not an operation on that one. Restricting a create is the wildcard's job.
+
+    The container axis is not checked here: the loader filters it in SQL, because the
+    container is always resolved before the query runs.
+    """
+    if row.resource_pattern == WILDCARD_PATTERN:
+        return True
+    return resource_id is not None and row.resource_pattern == resource_id
+
+
+def _has_resource_scoped(rows) -> bool:
+    """Whether any row narrows to a single resource rather than the wildcard.
+
+    Gates the pushdowns. Both push ONE clause set covering ALL the context's ids, which is
+    exactly what a resource-scoped row breaks: its clauses apply to one id and must not be
+    charged against the others. Declining is correct and only costs speed -- the in-memory
+    path below judges each id against the rows that actually govern it.
+
+    Only the presence of a scoped row declines; a context whose rows are all unscoped --
+    every condition written before this feature, and most written after -- keeps the
+    pushdown unchanged.
+    """
+    return any(row.resource_pattern != WILDCARD_PATTERN for row in rows)
+
+
 def _authorize_on_conditions(
     username: str,
     workspace: "str | None",
@@ -1252,6 +1288,14 @@ def _authorize_on_conditions(
         for row in by_type.get(context.resource_type, ()):
             if row.value_condition is None:
                 continue
+            # A row naming one resource constrains what may be set on THAT resource, so it
+            # is charged only against an operation naming it. A create names none, which is
+            # why restricting a create is the wildcard's job.
+            if (
+                row.resource_pattern != WILDCARD_PATTERN
+                and row.resource_pattern not in context.resource_ids
+            ):
+                continue
             clauses = _parsed_condition(row.value_condition, NAMESPACE_REQUEST)
             results.append(evaluate_request(clauses, context.request))
     if not combine(results):
@@ -1281,7 +1325,11 @@ def _authorize_on_conditions(
             # query, where enumerating and judging each child is one search page per 500
             # plus a fetch per child. Only the store can answer it, and only for a
             # predicate it can express, so a decline falls through to enumeration below.
-            pushed = _cascade_target_pushdown(context, target_rows)
+            pushed = (
+                None
+                if _has_resource_scoped(target_rows)
+                else _cascade_target_pushdown(context, target_rows)
+            )
             if pushed is not None:
                 if pushed:
                     # Some child fails. Deny directly rather than appending to `results`:
@@ -1320,7 +1368,11 @@ def _authorize_on_conditions(
         # answers the predicate without the resources' tags ever crossing the wire.
         # A decline falls through to the bulk load below, which is still the path for
         # every non-SQL backend.
-        pushed = _explicit_target_pushdown(context, target_rows, resource_ids)
+        pushed = (
+            None
+            if _has_resource_scoped(target_rows)
+            else _explicit_target_pushdown(context, target_rows, resource_ids)
+        )
         if pushed is not None:
             if not pushed:
                 # The store reports which ids satisfy the clauses, not why one did
@@ -1339,6 +1391,11 @@ def _authorize_on_conditions(
                 # ids exist.
                 return False
             for row in target_rows:
+                # Each id is judged against the rows that govern IT. Charging a row that
+                # names one resource against a sibling id would deny a mutation on a
+                # resource the admin never pointed the condition at.
+                if not _row_governs(row, resource_id):
+                    continue
                 clauses = _parsed_condition(row.target_condition, NAMESPACE_RESOURCE)
                 results.append(evaluate_resource(clauses, values))
 
@@ -6904,8 +6961,9 @@ def add_mutation_conditions():
     mc = store.add_mutation_condition(
         role_id,
         resource_type,
-        parent_resource_type=_optional_condition_param(params, "parent_resource_type"),
-        parent_resource_id=_optional_condition_param(params, "parent_resource_id"),
+        resource_pattern=_optional_condition_param(params, "resource_pattern"),
+        container_resource_type=_optional_condition_param(params, "container_resource_type"),
+        container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
         value_condition=_optional_condition_param(params, "value_condition"),
         target_condition=_optional_condition_param(params, "target_condition"),
     )
@@ -6928,9 +6986,12 @@ def update_mutation_conditions():
     arrive as ``null`` -- and guessing wrong in the clearing direction silently
     removes a restriction the admin still wants.
 
-    The parent scope is replaced as a pair under an explicit ``update_parent_scope``
-    flag rather than by key presence, because rescoping needs *both* halves and a
-    client sending only one must be refused, not have the other inferred.
+    The scope is replaced as a *whole* -- both axes at once -- when any scope key is
+    present, or when ``update_scope`` is set explicitly. The axes cannot move
+    independently: whether a container is legal depends on the resource type, and whether a
+    wildcard container collapses to the workspace depends on the container, so replacing
+    half a scope would skip that joint check. Within a replaced scope an omitted key takes
+    its default, which is the widest value -- the same rule the add route follows.
 
     Clearing both filters deletes the object, so the response carries a ``null``
     ``mutation_conditions``.
@@ -6943,9 +7004,18 @@ def update_mutation_conditions():
         target_condition=_optional_condition_param(params, "target_condition"),
         update_value_condition="value_condition" in params,
         update_target_condition="target_condition" in params,
-        parent_resource_type=_optional_condition_param(params, "parent_resource_type"),
-        parent_resource_id=_optional_condition_param(params, "parent_resource_id"),
-        update_parent_scope=bool(params.get("update_parent_scope")),
+        resource_pattern=_optional_condition_param(params, "resource_pattern"),
+        container_resource_type=_optional_condition_param(params, "container_resource_type"),
+        container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
+        update_scope=bool(params.get("update_scope"))
+        or any(
+            key in params
+            for key in (
+                "resource_pattern",
+                "container_resource_type",
+                "container_resource_pattern",
+            )
+        ),
     )
     return jsonify({"mutation_conditions": mc.to_json() if mc else None})
 
@@ -6978,8 +7048,9 @@ def add_user_mutation_condition():
     condition = store.add_user_mutation_condition(
         username,
         resource_type,
-        parent_resource_type=_optional_condition_param(params, "parent_resource_type"),
-        parent_resource_id=_optional_condition_param(params, "parent_resource_id"),
+        resource_pattern=_optional_condition_param(params, "resource_pattern"),
+        container_resource_type=_optional_condition_param(params, "container_resource_type"),
+        container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
         value_condition=_optional_condition_param(params, "value_condition"),
         target_condition=_optional_condition_param(params, "target_condition"),
     )

@@ -381,8 +381,9 @@ class AuthServiceClient:
         role_id: int,
         resource_type: str,
         *,
-        parent_resource_type: str | None = None,
-        parent_resource_id: str | None = None,
+        resource_pattern: str | None = None,
+        container_resource_type: str | None = None,
+        container_resource_pattern: str | None = None,
         value_condition: str | None = None,
         target_condition: str | None = None,
     ) -> MutationConditions:
@@ -401,13 +402,20 @@ class AuthServiceClient:
                 ``prompt_version``, ``mcp_server``, ``mcp_server_version``. Other types
                 are rejected -- a condition is only meaningful for a type carrying tags
                 or aliases.
-            parent_resource_type: Optional exact direct-parent scope, with
-                ``parent_resource_id``. Set both or neither. Scoped, the condition
-                governs only children of that one parent; unscoped, it governs every
-                parent of the target type in the role's workspace. Scope does not
-                inherit across resource types, and a parentless type (``experiment``,
-                ``registered_model``, ``prompt``, ``mcp_server``) cannot be scoped.
-            parent_resource_id: The parent's ID. See ``parent_resource_type``.
+            resource_pattern: Which resources of ``resource_type`` to govern: ``"*"``
+                for all (the default), or one resource id. The grain follows that type's
+                *grants*, so a top-level type (``experiment``, ``registered_model``,
+                ``prompt``, ``mcp_server``) accepts an id while a sub-resource is
+                wildcard-only -- a per-id child restriction could not be enforced in list
+                and search paths, so it is refused rather than half-held.
+            container_resource_type: Which container to govern within. ``"workspace"``
+                (the default) is no narrowing; otherwise the type's declared parent. A
+                top-level type has no other container, which is why it narrows with
+                ``resource_pattern`` instead. Containment is exact and does not inherit
+                across resource types.
+            container_resource_pattern: The container's id, or ``"*"``. A wildcard here
+                means every container, which is the same statement as ``"workspace"`` and
+                is normalised to it.
             value_condition: Constrains *what values* a mutation may set, as a filter
                 string over ``tag_key``, ``tag_value`` and ``alias``. Evaluated against
                 the request, and applied on create. A clause whose identifier the
@@ -435,8 +443,9 @@ class AuthServiceClient:
             json={
                 "role_id": role_id,
                 "resource_type": resource_type,
-                "parent_resource_type": parent_resource_type,
-                "parent_resource_id": parent_resource_id,
+                "resource_pattern": resource_pattern,
+                "container_resource_type": container_resource_type,
+                "container_resource_pattern": container_resource_pattern,
                 "value_condition": value_condition,
                 "target_condition": target_condition,
             },
@@ -448,8 +457,9 @@ class AuthServiceClient:
         username: str,
         resource_type: str,
         *,
-        parent_resource_type: str | None = None,
-        parent_resource_id: str | None = None,
+        resource_pattern: str | None = None,
+        container_resource_type: str | None = None,
+        container_resource_pattern: str | None = None,
         value_condition: str | None = None,
         target_condition: str | None = None,
     ) -> MutationConditions:
@@ -467,8 +477,9 @@ class AuthServiceClient:
         Args:
             username: The user whose direct grants to condition.
             resource_type: As :meth:`add_mutation_condition`.
-            parent_resource_type: As :meth:`add_mutation_condition`.
-            parent_resource_id: As :meth:`add_mutation_condition`.
+            resource_pattern: As :meth:`add_mutation_condition`.
+            container_resource_type: As :meth:`add_mutation_condition`.
+            container_resource_pattern: As :meth:`add_mutation_condition`.
             value_condition: As :meth:`add_mutation_condition`.
             target_condition: As :meth:`add_mutation_condition`.
 
@@ -483,8 +494,9 @@ class AuthServiceClient:
             json={
                 "username": username,
                 "resource_type": resource_type,
-                "parent_resource_type": parent_resource_type,
-                "parent_resource_id": parent_resource_id,
+                "resource_pattern": resource_pattern,
+                "container_resource_type": container_resource_type,
+                "container_resource_pattern": container_resource_pattern,
                 "value_condition": value_condition,
                 "target_condition": target_condition,
             },
@@ -505,8 +517,9 @@ class AuthServiceClient:
         *,
         value_condition: str | None = _UNSET,
         target_condition: str | None = _UNSET,
-        parent_resource_type: str | None = _UNSET,
-        parent_resource_id: str | None = _UNSET,
+        resource_pattern: str | None = _UNSET,
+        container_resource_type: str | None = _UNSET,
+        container_resource_pattern: str | None = _UNSET,
     ) -> MutationConditions | None:
         """Update one condition object, leaving any argument you omit untouched.
 
@@ -515,9 +528,11 @@ class AuthServiceClient:
         sentinel -- if they did, an update that only meant to change the value
         condition would silently drop the target condition.
 
-        The parent scope is replaced as a pair: pass both parent arguments to rescope,
-        or both as ``None`` to make the condition workspace-wide. Passing one alone is
-        rejected, because half a scope is not a scope.
+        The scope moves as a unit: pass any of ``resource_pattern``,
+        ``container_resource_type`` or ``container_resource_pattern`` and all three are
+        replaced, with anything you omit taking its widest default. The axes are validated
+        together -- a container's legality depends on the resource type -- so they cannot be
+        changed independently.
 
         Returns:
             The updated object, or ``None`` if clearing both filters deleted it -- an
@@ -528,13 +543,17 @@ class AuthServiceClient:
             body["value_condition"] = value_condition
         if target_condition is not _UNSET:
             body["target_condition"] = target_condition
-        if parent_resource_type is not _UNSET or parent_resource_id is not _UNSET:
-            body["update_parent_scope"] = True
-            body["parent_resource_type"] = (
-                None if parent_resource_type is _UNSET else parent_resource_type
+        scope_args = (resource_pattern, container_resource_type, container_resource_pattern)
+        if any(arg is not _UNSET for arg in scope_args):
+            # The scope moves as a unit -- the server validates the axes together -- so an
+            # argument left out here takes its default rather than its current value.
+            body["update_scope"] = True
+            body["resource_pattern"] = None if resource_pattern is _UNSET else resource_pattern
+            body["container_resource_type"] = (
+                None if container_resource_type is _UNSET else container_resource_type
             )
-            body["parent_resource_id"] = (
-                None if parent_resource_id is _UNSET else parent_resource_id
+            body["container_resource_pattern"] = (
+                None if container_resource_pattern is _UNSET else container_resource_pattern
             )
         resp = self._request(UPDATE_MUTATION_CONDITIONS, "PATCH", json=body)
         payload = resp.get("mutation_conditions")

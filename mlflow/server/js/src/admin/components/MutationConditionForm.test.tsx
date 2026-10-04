@@ -33,9 +33,9 @@ describe('MutationConditionForm — draft translation', () => {
   });
 
   it('requires a parent once the scope is narrowed to one', () => {
-    const scoped = draft({ scope: 'parent', resourceType: 'run', targetCondition: "tags.x = 'y'" });
+    const scoped = draft({ scope: 'scoped', resourceType: 'run', targetCondition: "tags.x = 'y'" });
     expect(isMutationConditionDraftFillable(scoped)).toBe(false);
-    expect(isMutationConditionDraftFillable({ ...scoped, parentResourceId: '42' })).toBe(true);
+    expect(isMutationConditionDraftFillable({ ...scoped, scopePattern: '42' })).toBe(true);
   });
 
   it('sends an absent filter as null, never as an empty string', () => {
@@ -46,18 +46,29 @@ describe('MutationConditionForm — draft translation', () => {
     expect(request.targetCondition).toBe("tags.x = 'y'");
   });
 
-  it('sends both parent fields together, or neither', () => {
-    // The server enforces the pair with a CHECK constraint, so half a pair is a
-    // rejected write.
+  it('puts the id on the axis the type actually narrows on', () => {
+    // The draft carries one pattern; which of the server's two axes receives it is
+    // derived from the type. Getting that wrong is a write the server rejects.
     const unscoped = draftToStagedCondition(draft({ resourceType: 'run', targetCondition: "tags.x = 'y'" }));
-    expect(unscoped.parentResourceType).toBeNull();
-    expect(unscoped.parentResourceId).toBeNull();
+    expect(unscoped.resourcePattern).toBe('*');
+    expect(unscoped.containerResourceType).toBe('workspace');
+    expect(unscoped.containerResourcePattern).toBe('*');
 
-    const scoped = draftToStagedCondition(
-      draft({ resourceType: 'run', scope: 'parent', parentResourceId: '42', targetCondition: "tags.x = 'y'" }),
+    // A sub-resource narrows by its CONTAINER and stays wildcard itself.
+    const scopedChild = draftToStagedCondition(
+      draft({ resourceType: 'run', scope: 'scoped', scopePattern: '42', targetCondition: "tags.x = 'y'" }),
     );
-    expect(scoped.parentResourceType).toBe('experiment');
-    expect(scoped.parentResourceId).toBe('42');
+    expect(scopedChild.resourcePattern).toBe('*');
+    expect(scopedChild.containerResourceType).toBe('experiment');
+    expect(scopedChild.containerResourcePattern).toBe('42');
+
+    // A top-level type narrows by its OWN pattern and stays in the workspace.
+    const scopedTop = draftToStagedCondition(
+      draft({ resourceType: 'experiment', scope: 'scoped', scopePattern: '7', targetCondition: "tags.x = 'y'" }),
+    );
+    expect(scopedTop.resourcePattern).toBe('7');
+    expect(scopedTop.containerResourceType).toBe('workspace');
+    expect(scopedTop.containerResourcePattern).toBe('*');
   });
 
   it('derives the parent type from the resource type rather than trusting the draft', () => {
@@ -66,12 +77,12 @@ describe('MutationConditionForm — draft translation', () => {
     const versionScoped = draftToStagedCondition(
       draft({
         resourceType: 'registered_model_version',
-        scope: 'parent',
-        parentResourceId: 'my-model',
+        scope: 'scoped',
+        scopePattern: 'my-model',
         targetCondition: "tags.x = 'y'",
       }),
     );
-    expect(versionScoped.parentResourceType).toBe('registered_model');
+    expect(versionScoped.containerResourceType).toBe('registered_model');
   });
 
   it('drops a parent scope the resource type cannot have', () => {
@@ -81,13 +92,13 @@ describe('MutationConditionForm — draft translation', () => {
     const request = draftToStagedCondition(
       draft({
         resourceType: 'experiment',
-        scope: 'parent',
-        parentResourceId: 'stale',
+        scope: 'scoped',
+        scopePattern: 'stale',
         targetCondition: "tags.x = 'y'",
       }),
     );
-    expect(request.parentResourceType).toBeNull();
-    expect(request.parentResourceId).toBeNull();
+    expect(request.containerResourceType).toBe('workspace');
+    expect(request.containerResourcePattern).toBe('*');
   });
 
   it('trims the filters it sends', () => {

@@ -22,6 +22,7 @@ import pytest
 from sqlalchemy import sql
 
 from mlflow.entities import RunTag, ViewType
+from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     NAMESPACE_RESOURCE,
@@ -418,6 +419,7 @@ class TestTheGateConsultsPushdown:
                         resource_type="run",
                         value_condition=None,
                         target_condition=condition,
+                        resource_pattern="*",
                     )
                 ]
 
@@ -860,7 +862,10 @@ class TestTheGateConsultsPushdownForExplicitIds:
             def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
                 return [
                     SimpleNamespace(
-                        resource_type=resource_type, value_condition=None, target_condition=c
+                        resource_type=resource_type,
+                        value_condition=None,
+                        target_condition=c,
+                        resource_pattern="*",
                     )
                     for c in target_rows
                 ]
@@ -929,6 +934,7 @@ class TestTheGateConsultsPushdownForExplicitIds:
                         value_condition=None,
                         target_condition=self.__class__
                         and TestTheGateConsultsPushdownForExplicitIds.CONDITION,
+                        resource_pattern="*",
                     )
                 ]
 
@@ -1032,6 +1038,7 @@ class TestTheRightStoreAnswers:
                         resource_type=resource_type,
                         value_condition=None,
                         target_condition=f"tags.{TAG_KEY} != 'prod'",
+                        resource_pattern="*",
                     )
                 ]
 
@@ -1110,7 +1117,12 @@ class TestAnUnpushableRowFallsBackWholesale:
 
             def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
                 return [
-                    SimpleNamespace(resource_type="run", value_condition=None, target_condition=c)
+                    SimpleNamespace(
+                        resource_type="run",
+                        value_condition=None,
+                        target_condition=c,
+                        resource_pattern="*",
+                    )
                     for c in (pushable, unpushable)
                 ]
 
@@ -1190,6 +1202,7 @@ class TestTheCascadeCapIsFallbackOnly:
                         resource_type="run",
                         value_condition=None,
                         target_condition=f"tags.{TAG_KEY} != 'prod'",
+                        resource_pattern="*",
                     )
                 ]
 
@@ -1242,3 +1255,59 @@ class TestTheCascadeCapIsFallbackOnly:
         assert "FALLBACK-ONLY" in source, (
             "the cascade cap's backend-dependence must stay documented at its definition"
         )
+
+
+class TestResourceScopeMatchingAndPushdown:
+    """The two scope guarantees that no behavioural test reaches end to end.
+
+    Both are asserted directly on the helpers. A behavioural test cannot see either: the
+    fallback path answers identically to the pushdown, and an over-broad scope match only
+    shows up as a *denial* on a resource the admin never named -- which no wired route
+    exercises, because every route in the suite names a single resource whose pattern
+    matches. Mutation testing found both escaping, which is what put them here.
+    """
+
+    @staticmethod
+    def _row(resource_pattern):
+        return SimpleNamespace(
+            resource_type="run",
+            value_condition=None,
+            target_condition=f"tags.{TAG_KEY} != 'prod'",
+            resource_pattern=resource_pattern,
+        )
+
+    def test_an_id_pattern_governs_only_the_resource_it_names(self):
+        """Charging it against a sibling would deny a mutation on a resource the admin
+        never pointed the condition at -- over-restriction rather than a hole, but still
+        not what was written.
+        """
+        row = self._row("abc")
+        assert auth_module._row_governs(row, "abc") is True
+        assert auth_module._row_governs(row, "xyz") is False
+        # Nothing to judge against: a create, or a cascade before resolution.
+        assert auth_module._row_governs(row, None) is False
+
+    def test_a_wildcard_pattern_governs_every_resource_including_unnamed(self):
+        """The pre-scope behaviour, and what makes restricting a create possible at all."""
+        row = self._row("*")
+        for asked in ("abc", "xyz", None):
+            assert auth_module._row_governs(row, asked) is True
+
+    def test_an_id_scoped_row_declines_the_pushdown(self):
+        """Both pushdowns send ONE clause set covering ALL of a context's ids. A row naming
+        a single resource breaks that: its clauses apply to one id and must not be charged
+        against the others. Declining is correct and costs only speed.
+        """
+        assert auth_module._has_resource_scoped([self._row("*")]) is False
+        assert auth_module._has_resource_scoped([self._row("abc")]) is True
+        # One scoped row among unscoped ones still declines -- the clause sets differ.
+        assert auth_module._has_resource_scoped([self._row("*"), self._row("abc")]) is True
+
+    def test_declining_is_keyed_on_the_pattern_not_the_row_count(self):
+        """A regression guard: returning a constant from ``_has_resource_scoped`` passes
+        every behavioural test, because the fallback reaches the same verdict.
+        """
+        assert auth_module._has_resource_scoped([]) is False
+        many_unscoped = [self._row("*") for _ in range(5)]
+        assert auth_module._has_resource_scoped(many_unscoped) is False
+        assert auth_module._has_resource_scoped([*many_unscoped, self._row("x")]) is True

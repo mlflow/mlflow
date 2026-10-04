@@ -7,6 +7,7 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.server.auth import permissions
 from mlflow.server.auth.conditions import (
     ALIAS_OWNING_RESOURCE_TYPES,
     ALLOWED_COMPARATORS,
@@ -33,11 +34,11 @@ from mlflow.server.auth.conditions import (
     evaluate_request,
     evaluate_resource,
     needs_resource_values,
+    normalize_condition_scope,
     parse_condition,
     request_values_shape,
     resource_values_shape,
     validate_condition,
-    validate_condition_parent_scope,
 )
 
 # ---- Parsing: request namespace --------------------------------------------
@@ -661,61 +662,99 @@ def test_every_version_type_parents_to_its_registry_entry(resource_type, parent)
 
 
 @pytest.mark.parametrize("resource_type", sorted(PARENTLESS_RESOURCE_TYPES))
-def test_parent_scope_is_rejected_for_a_parentless_type(resource_type):
-    """An experiment has no direct parent a condition could scope to. Accepting one
-    would store a filter that can never match, which is the same phantom-restriction
-    failure `validate_condition_resource_type` exists to prevent.
+def test_a_top_level_type_takes_no_container_but_takes_a_pattern(resource_type):
+    """A top-level type has no container except the workspace -- but it is addressable.
+
+    This is the asymmetry the container model fixes. Before it, a parentless type had
+    nothing between "every experiment in the workspace" and no condition at all; now it
+    narrows on the other axis instead, which is also the grain its grants use.
     """
-    with pytest.raises(MlflowException, match="no direct parent"):
-        validate_condition_parent_scope(resource_type, "workspace", "ws-1")
+    with pytest.raises(MlflowException, match="no container other than"):
+        normalize_condition_scope(resource_type, None, resource_type, "x-1")
+    assert normalize_condition_scope(resource_type, "r-1") == ("r-1", "workspace", "*")
 
 
-def test_parent_scope_rejects_a_parent_type_that_is_not_the_declared_one():
-    """A run's parent is an experiment. Scoping it to a registered model would be
-    accepted by any check that only asked "is this a supported type?", so the check
-    is against the *declared* parent of this child, not the type vocabulary.
+def test_a_container_must_be_the_declared_one():
+    """A run's container is an experiment. Naming a registered model would pass any check
+    that only asked "is this a supported type?", so the check is against the *declared*
+    container of this child, not the type vocabulary.
     """
-    with pytest.raises(MlflowException, match="parent of 'run' is 'experiment'"):
-        validate_condition_parent_scope("run", "registered_model", "m-1")
+    with pytest.raises(MlflowException, match="container of 'run' is 'experiment'"):
+        normalize_condition_scope("run", None, "registered_model", "m-1")
 
 
-@pytest.mark.parametrize(
-    ("parent_type", "parent_id"),
-    [("experiment", None), (None, "123")],
-)
-def test_parent_scope_must_be_a_complete_pair(parent_type, parent_id):
-    """Half a pair is ambiguous: a type with no ID names every parent of that type,
-    and an ID with no type names nothing. Both readings are restrictions the admin
-    did not write, so neither is inferred.
+def test_the_workspace_container_takes_only_the_wildcard():
+    """The workspace is named by the role, not by the pattern -- the same grain a
+    workspace *grant* has, where ``resource_pattern`` must likewise be ``*``.
     """
-    with pytest.raises(MlflowException, match="both.*or neither"):
-        validate_condition_parent_scope("run", parent_type, parent_id)
+    with pytest.raises(MlflowException, match="accepts only the wildcard"):
+        normalize_condition_scope("run", None, "workspace", "ws-1")
 
 
-def test_unscoped_is_accepted_for_every_supported_type():
-    """Both null is the unscoped case -- the only shape available before parent scope
-    existed, so it must stay valid for every type including the parentless ones.
+def test_a_wildcard_container_collapses_to_the_workspace():
+    """Every run in every experiment is every run in the workspace, so the two spellings
+    are one statement and must have one stored form -- otherwise the loader would need a
+    wildcard branch per container type, and the gate's answer would depend on spelling.
+    """
+    assert normalize_condition_scope("run", None, "experiment", "*") == ("*", "workspace", "*")
+
+
+def test_defaults_are_the_whole_workspace_for_every_supported_type():
+    """Omitting both axes is the shape that predates scoping, so it must stay valid for
+    every type -- including the top-level ones, which have no container to name.
     """
     for resource_type in sorted(SUPPORTED_RESOURCE_TYPES):
-        validate_condition_parent_scope(resource_type, None, None)
+        assert normalize_condition_scope(resource_type) == ("*", "workspace", "*")
 
 
 @pytest.mark.parametrize("blank", ["", "   "])
-def test_parent_scope_rejects_a_blank_parent_id(blank):
-    """An empty ID is not a wildcard. Stored, it would match no parent while reading
-    as a scope, so it is refused rather than normalised to unscoped -- the admin
-    asked for a narrowing and must not silently get a broadening.
+def test_a_blank_pattern_is_refused_rather_than_read_as_a_wildcard(blank):
+    """An empty pattern is not a wildcard. Stored, it would match nothing while reading as
+    a scope, so it is refused rather than normalised -- the admin asked for a narrowing and
+    must not silently get a broadening.
     """
-    with pytest.raises(MlflowException, match="parent resource ID"):
-        validate_condition_parent_scope("run", "experiment", blank)
+    with pytest.raises(MlflowException, match="non-empty"):
+        normalize_condition_scope("run", None, "experiment", blank)
+    with pytest.raises(MlflowException, match="non-empty"):
+        normalize_condition_scope("experiment", blank)
+
+
+@pytest.mark.parametrize("padded", [" 5", "5 "])
+def test_a_padded_pattern_is_refused(padded):
+    with pytest.raises(MlflowException, match="whitespace"):
+        normalize_condition_scope("experiment", padded)
 
 
 @pytest.mark.parametrize(
-    ("resource_type", "parent_type"),
+    ("resource_type", "container_type"),
     sorted(PARENT_RESOURCE_TYPES.items()),
 )
-def test_each_child_type_accepts_its_own_parent(resource_type, parent_type):
-    validate_condition_parent_scope(resource_type, parent_type, "parent-1")
+def test_each_child_type_accepts_its_own_container(resource_type, container_type):
+    assert normalize_condition_scope(resource_type, None, container_type, "parent-1") == (
+        "*",
+        container_type,
+        "parent-1",
+    )
+
+
+@pytest.mark.parametrize("resource_type", sorted(SUPPORTED_RESOURCE_TYPES))
+def test_the_pattern_grain_matches_what_grants_allow(resource_type):
+    """The whole point of reading ``permissions.TYPE`` instead of restating it.
+
+    A condition must be addressable at exactly the grain a grant on the same type is. If
+    conditions were *wider*, a per-id condition would exist on a type whose restriction
+    cannot be enforced in list and search paths; if *narrower*, an admin could grant on one
+    resource but not condition it. Asserted against grants directly so neither can drift.
+    """
+    grants_allow_id = permissions.PatternKind.ID in permissions.TYPE[resource_type]
+    try:
+        normalize_condition_scope(resource_type, "some-id")
+        conditions_allow_id = True
+    except MlflowException:
+        conditions_allow_id = False
+    assert conditions_allow_id == grants_allow_id
+    # The wildcard is always available, for both.
+    assert normalize_condition_scope(resource_type, "*")[0] == "*"
 
 
 def test_context_for_refuses_a_child_type_without_a_parent():
