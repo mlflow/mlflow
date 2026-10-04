@@ -24,7 +24,7 @@ Custom trace views are available in **MLflow 3.16.0 and above**. They are built 
 
 <ImageBox src="/images/llms/tracing/custom-view-build.png" alt="The prompt box for describing a new custom trace view" width="60%" />
 
-The Assistant designs the layout once, as a template that refers to trace data by role ("the root span's input", "the output of the first tool call") rather than by value. When you move to another trace, MLflow fills the same template with that trace's data without asking the Assistant again.
+A view is a reusable layout, not a snapshot of one trace, so it works on every trace in the experiment. The Assistant designs the layout once. When you open another trace, MLflow fills the same layout with that trace's data, such as the root span's input or the output of the first tool call, without asking the Assistant again.
 
 :::note[What the Assistant receives]
 To show the Assistant what the data looks like, MLflow sends the Assistant the trace you are viewing, including each span's inputs and outputs and the trace's assessments. Span attributes are not included.
@@ -68,11 +68,16 @@ The components a view can use are:
 
 ## Collecting Feedback from a View
 
-Feedback controls in a view log ordinary [feedback assessments](/genai/assessments/feedback) on the trace, the same kind that <APILink fn="mlflow.log_feedback" /> creates, with `HUMAN` as the source type. The view itself does not store feedback. Submitted feedback appears under **Assessments** in the trace table and, when you switch back to **Default view**, in the trace's **Assessments** pane (feedback scoped to a span shows up when that span is selected). You can filter traces by it like any other assessment.
+Feedback controls in a view log ordinary [feedback assessments](/genai/assessments/feedback) on the trace, the same kind that <APILink fn="mlflow.log_feedback" /> creates, with `HUMAN` as the source type. The view itself does not store feedback.
 
 - Thumbs up and thumbs down log `true` or `false` immediately, under the assessment name set in the view (the default is `User feedback`).
 - Ratings and text boxes are staged until you click the form's submit button, which logs one assessment per rating or standalone text box. A text box that shares a rating's name is saved as that rating's rationale instead.
 - The Assistant can scope a control to a span, so a per-tool-call rating is logged against that span rather than the whole trace.
+
+Submitted feedback appears in two places:
+
+- In the trace table, under **Assessments**. You can filter traces by it like any other assessment.
+- In the trace's **Assessments** pane, when you switch back to **Default view**. Feedback scoped to a span shows up when that span is selected.
 
 The Assistant adds feedback controls only when you ask for them, so include them in your request, for example "and add an accuracy rating from 1 to 5 with an optional comment".
 
