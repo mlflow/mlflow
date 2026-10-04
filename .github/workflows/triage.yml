@@ -418,23 +418,34 @@ jobs:
           REPO: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
           WORKFLOW_FILE: ${{ job.workflow_file_path }}
-          BYPASS_RATE_LIMIT: ${{ github.event_name == 'workflow_dispatch' || contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association) }}
+          AUTHOR_ASSOCIATION: ${{ needs.issue.outputs.author_association }}
         run: |
-          if [ "$BYPASS_RATE_LIMIT" = true ]; then
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             echo 'allowed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          limit=5
+          case "$AUTHOR_ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) limit=30 ;;
+          esac
           since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
           workflow=${WORKFLOW_FILE##*/}
-          # The first page is enough: runs are newest first, and five matches block triage.
+          # The first page is enough: runs are newest first, and the limit is at most 30.
+          history=$(gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100")
           count=$(
-            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100" \
-              | jq --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" \
-                '[.workflow_runs[] | select(.run_number < $current and .created_at >= $since)] | length'
+            jq -er --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" '
+              if (.workflow_runs | type) != "array" then
+                error("missing workflow_runs array")
+              elif any(.workflow_runs[]; (.run_number | type) != "number" or (.created_at | type) != "string") then
+                error("incomplete workflow run data")
+              else
+                [.workflow_runs[] | select(.run_number < $current and .created_at >= $since)] | length
+              end
+            ' <<< "$history"
           )
-          if [ "$count" -ge 5 ]; then
+          if [ "$count" -ge "$limit" ]; then
             echo 'allowed=false' >> "$GITHUB_OUTPUT"
-            echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes." >> "$GITHUB_STEP_SUMMARY"
+            echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes (limit: $limit)." >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'allowed=true' >> "$GITHUB_OUTPUT"
           fi
