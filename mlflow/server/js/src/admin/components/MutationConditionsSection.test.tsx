@@ -25,7 +25,7 @@ describe('MutationConditionsSection', () => {
     // absent filter has to be null by the time it leaves the form.
     renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
     await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
 
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     expect(onChange.mock.calls[0][0]).toEqual([
@@ -41,7 +41,7 @@ describe('MutationConditionsSection', () => {
 
   it('keeps Add disabled until a filter is entered', async () => {
     renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
-    const add = screen.getByRole('button', { name: 'Add condition' });
+    const add = screen.getByRole('button', { name: 'Add mutation condition' });
     expect(add).toBeDisabled();
     await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
     await waitFor(() => expect(add).toBeEnabled());
@@ -60,7 +60,7 @@ describe('MutationConditionsSection', () => {
     ];
     renderWithDesignSystem(<MutationConditionsSection value={value} onChange={onChange} />);
     expect(screen.getByText("tags.lifecycle != 'prod'")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /Remove Run condition/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Remove Run mutation condition/ }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
@@ -76,9 +76,9 @@ describe('MutationConditionsSection', () => {
     ];
     renderWithDesignSystem(<MutationConditionsSection value={value} onChange={onChange} />);
     await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
     // Draft is cleared, but nothing is appended.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add condition' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add mutation condition' })).toBeDisabled());
     expect(onChange).not.toHaveBeenCalled();
   });
 

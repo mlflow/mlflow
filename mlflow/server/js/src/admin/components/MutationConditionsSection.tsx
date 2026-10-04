@@ -170,7 +170,7 @@ export const MutationConditionsSection = ({
                   type="tertiary"
                   size="small"
                   icon={<CloseIcon />}
-                  aria-label={`Remove ${getResourceTypeLabel(c.resourceType)} condition`}
+                  aria-label={`Remove ${getResourceTypeLabel(c.resourceType)} mutation condition`}
                   onClick={() => handleRemove(i)}
                   disabled={disabled}
                 />
@@ -189,7 +189,7 @@ export const MutationConditionsSection = ({
           gap: theme.spacing.md,
         }}
       >
-        <FieldLabel>Add a condition</FieldLabel>
+        <FieldLabel>Add a mutation condition</FieldLabel>
         <MutationConditionForm
           value={draft}
           onChange={setDraft}
@@ -209,11 +209,11 @@ export const MutationConditionsSection = ({
               Clear
             </Button>
           )}
-          {/* "Add condition", not "Add": this section sits in the same modal as the
+          {/* Named, not a bare "Add": this section sits in the same modal as the
               permissions section, and two buttons with the same accessible name give a
               screen-reader user no way to tell them apart. */}
           <Button componentId="admin.role_conditions.add" onClick={handleAdd} disabled={!canAdd || disabled}>
-            Add condition
+            Add mutation condition
           </Button>
         </div>
       </div>

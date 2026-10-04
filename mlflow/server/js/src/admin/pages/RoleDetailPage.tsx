@@ -87,7 +87,7 @@ const ConditionsSection = ({ roleId }: { roleId: number }) => {
       conditions={data?.mutation_conditions ?? []}
       isLoading={isLoading}
       error={error}
-      emptyDescription="Use Edit role to add conditions to this role."
+      emptyDescription="Use Edit role to add mutation conditions to this role."
     />
   );
 };
@@ -300,7 +300,7 @@ const RoleDetailPage = () => {
         >
           <Tabs.List>
             <Tabs.Trigger value="permissions">Permissions</Tabs.Trigger>
-            <Tabs.Trigger value="conditions">Conditions</Tabs.Trigger>
+            <Tabs.Trigger value="conditions">Mutation conditions</Tabs.Trigger>
             <Tabs.Trigger value="users">Assigned users</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="permissions" css={{ paddingTop: theme.spacing.md }}>

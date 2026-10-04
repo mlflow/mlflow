@@ -54,7 +54,7 @@ const UserConditionsSection = ({ username }: { username: string }) => {
       conditions={conditions}
       isLoading={isLoading}
       error={error}
-      emptyDescription="None of this user's roles carry a condition."
+      emptyDescription="None of this user's roles carry a mutation condition."
       suffixHeader="From Role"
       rowSuffix={(c) => roleNameById.get(c.role_id)}
     />
@@ -187,7 +187,7 @@ const UserDetailPage = () => {
           <Tabs.List>
             <Tabs.Trigger value="roles">Roles</Tabs.Trigger>
             <Tabs.Trigger value="permissions">Permissions</Tabs.Trigger>
-            <Tabs.Trigger value="conditions">Conditions</Tabs.Trigger>
+            <Tabs.Trigger value="conditions">Mutation conditions</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="roles" css={{ paddingTop: theme.spacing.md }}>
             {rolesLoading ? (

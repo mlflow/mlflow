@@ -62,13 +62,14 @@ export const ConditionsTable = ({
       <Alert
         componentId="admin.conditions_table.fetch_error"
         type="error"
-        message="Failed to load conditions"
-        description={(error as Error)?.message || 'An error occurred while fetching conditions.'}
+        message="Failed to load mutation conditions"
+        description={(error as Error)?.message || 'An error occurred while fetching mutation conditions.'}
       />
     );
   }
 
-  const emptyState = conditions.length === 0 ? <Empty title="No conditions" description={emptyDescription} /> : null;
+  const emptyState =
+    conditions.length === 0 ? <Empty title="No mutation conditions" description={emptyDescription} /> : null;
 
   return (
     <Table

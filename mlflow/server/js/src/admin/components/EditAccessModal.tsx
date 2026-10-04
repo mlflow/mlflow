@@ -604,10 +604,10 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   onUnsavedDraftChange={setHasUnsavedDirectDraft}
                 />
               </LongFormSection>
-              <LongFormSection title="Direct conditions" hideDivider={!isCurrentUserAdmin}>
+              <LongFormSection title="Direct mutation conditions" hideDivider={!isCurrentUserAdmin}>
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                  Current conditions on this user's direct grants are pre-filled. Remove a row to drop it; use the form
-                  below to add more.
+                  Current mutation conditions on this user's direct grants are pre-filled. Remove a row to drop it; use
+                  the form below to add more.
                 </Typography.Text>
                 {/* No pre-existing role needed: the add is addressed by username and the
                     server creates the role backing the direct grants if it is absent, the
@@ -719,15 +719,15 @@ const ReviewSummary = ({
         emptyLabel="No direct permissions to revoke."
       />
       <DiffGroup
-        title="Direct conditions to add"
+        title="Direct mutation conditions to add"
         items={diff.conditionsToAdd.map(formatStagedCondition)}
-        emptyLabel="No new conditions."
+        emptyLabel="No new mutation conditions."
         addColor
       />
       <DiffGroup
-        title="Direct conditions to remove"
+        title="Direct mutation conditions to remove"
         items={diff.conditionIdsToRemove.map((id) => `condition #${id}`)}
-        emptyLabel="No conditions to remove."
+        emptyLabel="No mutation conditions to remove."
       />
       {diff.adminChange ? (
         <DiffGroup

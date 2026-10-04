@@ -461,7 +461,8 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       {step === 'edit' ? (
         <>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-            Update name, description, permissions, and assigned users. Changes are previewed before they're applied.
+            Update name, description, permissions, mutation conditions, and assigned users. Changes are previewed before
+            they're applied.
           </Typography.Text>
           {!stateLoaded ? (
             <div
@@ -526,9 +527,9 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                   onUnsavedDraftChange={setHasUnsavedDraft}
                 />
               </LongFormSection>
-              <LongFormSection title="Conditions">
+              <LongFormSection title="Mutation conditions">
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                  Current conditions are pre-filled. Remove a row to drop it; use the form below to add more.
+                  Current mutation conditions are pre-filled. Remove a row to drop it; use the form below to add more.
                 </Typography.Text>
                 <MutationConditionsSection
                   key={String(open)}
@@ -555,7 +556,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         componentId="admin.edit_role_modal.discard_unsaved_draft"
         title="Discard unsaved entry?"
         visible={showDiscardConfirm}
-        message="You started adding a permission or condition to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        message="You started adding a permission or mutation condition to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
         okText="Continue"
         cancelText="Back"
         danger={false}
@@ -616,15 +617,15 @@ const ReviewSummary = ({
         emptyLabel="No permissions to remove."
       />
       <DiffGroup
-        title="Conditions to add"
+        title="Mutation conditions to add"
         items={diff.conditionsToAdd.map(formatStagedCondition)}
-        emptyLabel="No new conditions."
+        emptyLabel="No new mutation conditions."
         addColor
       />
       <DiffGroup
-        title="Conditions to remove"
+        title="Mutation conditions to remove"
         items={diff.conditionIdsToRemove.map((id) => conditionByIdLabel.get(id) ?? `condition #${id}`)}
-        emptyLabel="No conditions to remove."
+        emptyLabel="No mutation conditions to remove."
       />
       <DiffGroup title="Users to assign" items={diff.usersToAssign} emptyLabel="No new user assignments." addColor />
       <DiffGroup title="Users to unassign" items={diff.usersToUnassign} emptyLabel="No user unassignments." />

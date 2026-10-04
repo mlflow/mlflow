@@ -47,14 +47,16 @@ describe('ConditionsTable', () => {
     // An empty table and a failed fetch look identical and mean opposite things:
     // "nothing restricts this" versus "we do not know".
     renderWithDesignSystem(<ConditionsTable conditions={[]} error={new Error('boom')} />);
-    expect(screen.getByText('Failed to load conditions')).toBeInTheDocument();
-    expect(screen.queryByText('No conditions')).not.toBeInTheDocument();
+    expect(screen.getByText('Failed to load mutation conditions')).toBeInTheDocument();
+    expect(screen.queryByText('No mutation conditions')).not.toBeInTheDocument();
   });
 
   it('renders the supplied empty description', () => {
-    renderWithDesignSystem(<ConditionsTable conditions={[]} emptyDescription="Use Edit role to add conditions." />);
-    expect(screen.getByText('No conditions')).toBeInTheDocument();
-    expect(screen.getByText('Use Edit role to add conditions.')).toBeInTheDocument();
+    renderWithDesignSystem(
+      <ConditionsTable conditions={[]} emptyDescription="Use Edit role to add mutation conditions." />,
+    );
+    expect(screen.getByText('No mutation conditions')).toBeInTheDocument();
+    expect(screen.getByText('Use Edit role to add mutation conditions.')).toBeInTheDocument();
   });
 
   it('shows the carrying role only when a suffix header is given', () => {
