@@ -429,26 +429,60 @@ jobs:
             OWNER|MEMBER|COLLABORATOR) limit=30 ;;
           esac
           since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          since_epoch=$(date -u -d "$since" +%s)
           workflow=${WORKFLOW_FILE##*/}
-          # The first page is enough: runs are newest first, and the limit is at most 30.
-          history=$(gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100")
-          count=$(
-            jq -er --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" '
-              if (.workflow_runs | type) != "array" then
-                error("missing workflow_runs array")
-              elif any(.workflow_runs[]; (.run_number | type) != "number" or (.created_at | type) != "string") then
-                error("incomplete workflow run data")
-              else
-                [.workflow_runs[] | select(.run_number < $current and .created_at >= $since)] | length
-              end
-            ' <<< "$history"
-          )
-          if [ "$count" -ge "$limit" ]; then
-            echo 'allowed=false' >> "$GITHUB_OUTPUT"
-            echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes (limit: $limit)." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'allowed=true' >> "$GITHUB_OUTPUT"
-          fi
+          # Runs are newest-first; keep paging until the window cutoff is established.
+          page=1
+          count=0
+          previous_oldest=
+          while true; do
+            history=$(gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100&page=$page")
+            page_data=$(
+              jq -ce --argjson since "$since_epoch" --argjson current "$GITHUB_RUN_NUMBER" '
+                def timestamp: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+                if (.workflow_runs | type) != "array" then
+                  error("missing workflow_runs array")
+                elif any(.workflow_runs[]; (.run_number | type) != "number" or (.created_at | type) != "string" or (try (.created_at | timestamp) catch null) == null) then
+                  error("incomplete workflow run data")
+                else
+                  [.workflow_runs[] | {run_number, epoch: (.created_at | timestamp)}] as $runs
+                  | if any(range(1; ($runs | length)); $runs[.-1].epoch < $runs[.].epoch) then
+                      error("workflow runs are not newest-first")
+                    else
+                      {
+                        count: ([$runs[] | select(.run_number < $current and .epoch >= $since)] | length),
+                        first: ($runs[0].epoch // null),
+                        oldest: ($runs[-1].epoch // null),
+                        length: ($runs | length)
+                      }
+                    end
+                end
+              ' <<< "$history"
+            )
+            page_count=$(jq -r '.count' <<< "$page_data")
+            page_length=$(jq -r '.length' <<< "$page_data")
+            count=$((count + page_count))
+            if [ "$count" -ge "$limit" ]; then
+              echo 'allowed=false' >> "$GITHUB_OUTPUT"
+              echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes (limit: $limit)." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [ "$page_length" -lt 100 ]; then
+              break
+            fi
+            first=$(jq -r '.first' <<< "$page_data")
+            oldest=$(jq -r '.oldest' <<< "$page_data")
+            if [ -n "$previous_oldest" ] && [ "$first" -gt "$previous_oldest" ]; then
+              echo "Workflow run history is not ordered across pages." >&2
+              exit 1
+            fi
+            if [ "$oldest" -lt "$since_epoch" ]; then
+              break
+            fi
+            previous_oldest=$oldest
+            page=$((page + 1))
+          done
+          echo 'allowed=true' >> "$GITHUB_OUTPUT"
   triage:
     needs: rate_limit
     if: needs.rate_limit.outputs.allowed == 'true'
