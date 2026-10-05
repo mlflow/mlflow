@@ -270,7 +270,7 @@ def test_retrieval_relevance_invokes_typesafe():
     inference_params = {"temperature": 0}
     extra_headers = {"X-Test": "value"}
     with patch(
-        "mlflow.genai.scorers.builtin_scorers._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=Feedback(name="retrieval_relevance", value="yes"),
     ) as mock_invoke:
         RetrievalRelevance(
@@ -2511,7 +2511,7 @@ def test_equivalence_invokes_typesafe():
     inference_params = {"temperature": 0}
     extra_headers = {"X-Test": "value"}
     with patch(
-        "mlflow.genai.scorers.builtin_scorers._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=Feedback(name="equivalence", value="yes"),
     ) as mock_invoke:
         Equivalence(

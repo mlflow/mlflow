@@ -14,16 +14,28 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { useResourceOptionsQuery } from '../hooks';
-import { PERMISSIONS, getGrantablePermissions, getResourceTypeLabel } from '../types';
+import { PERMISSIONS, getGrantablePermissions, getResourceTypeLabel, isWildcardOnlyResourceType } from '../types';
 
 // Resource types eligible for per-user direct grants. ``workspace`` is excluded
 // because the backend's ``grant_user_resource_permission`` rejects it (workspace
 // grants are role-only by design — see ``_reject_workspace_resource_type``).
+// ``workspace`` is absent by design: the per-user convenience APIs reject it
+// (``_reject_workspace_resource_type``) and route workspace-wide grants through
+// set_workspace_permission instead. The wildcard-only sub-resource tiers below are
+// accepted by those APIs and are granted across the workspace, never per row.
 export const DIRECT_GRANT_RESOURCE_TYPES = [
   'experiment',
+  'run',
+  'trace',
+  'assessment',
+  'logged_model',
+  'review_queue',
   'registered_model',
+  'registered_model_version',
   'prompt',
+  'prompt_version',
   'scorer',
+  'scorer_version',
   'gateway_secret',
   'gateway_endpoint',
 ] as const;
@@ -64,7 +76,9 @@ export const DIRECT_PERMISSION_DEFAULT: DirectPermissionValue = {
 /** Submit when ``scope === 'all'``, or when ``scope === 'specific'`` and the
  * picker has produced a non-empty resource id. */
 export const isDirectPermissionSubmittable = (value: DirectPermissionValue): boolean =>
-  value.scope === 'all' || (value.scope === 'specific' && Boolean(value.resourceId));
+  isWildcardOnlyResourceType(value.resourceType) ||
+  value.scope === 'all' ||
+  (value.scope === 'specific' && Boolean(value.resourceId));
 
 /**
  * Pick a per-user direct permission. ``resourceId`` only holds the user's
@@ -98,6 +112,7 @@ export const DirectPermissionForm = ({
   const selectedOption = resourceOptions.find((o) => o.id === value.resourceId);
   const renderOption = (o: { id: string; name: string }) => (o.name === o.id ? o.name : `${o.name} (${o.id})`);
   const typeLabel = getResourceTypeLabel(value.resourceType);
+  const wildcardOnly = isWildcardOnlyResourceType(value.resourceType);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -114,6 +129,9 @@ export const DirectPermissionForm = ({
             onChange({
               ...value,
               resourceType: next,
+              // A wildcard-only tier has no per-row grain; the default draft scope is
+              // 'specific', so coerce it or the form would sit on an unreachable scope.
+              scope: isWildcardOnlyResourceType(next) ? 'all' : value.scope,
               resourceId: '',
               permission: nextPermission,
             });
@@ -142,11 +160,18 @@ export const DirectPermissionForm = ({
           }
           layout="vertical"
         >
-          <Radio value="specific">Specific {typeLabel.toLowerCase()}</Radio>
+          <Radio value="specific" disabled={wildcardOnly}>
+            Specific {typeLabel.toLowerCase()}
+          </Radio>
           <Radio value="all">All {typeLabel.toLowerCase()}s</Radio>
         </Radio.Group>
+        {wildcardOnly && (
+          <Typography.Text color="secondary" size="sm">
+            {typeLabel} grants are workspace-wide — they cannot target one {typeLabel.toLowerCase()}.
+          </Typography.Text>
+        )}
       </div>
-      {value.scope === 'specific' && (
+      {value.scope === 'specific' && !wildcardOnly && (
         <div>
           <FieldLabel>{typeLabel}</FieldLabel>
           {showResourceRequiredError && (

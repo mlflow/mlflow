@@ -64,6 +64,15 @@ jobs:
           jq -e 'has("pull_request") | not' <<< "$issue" > /dev/null
           # Compact JSON keeps the untrusted body on one line of $GITHUB_OUTPUT.
           echo "json=$(jq -c '{number, title, body: (.body // ""), html_url, author_association}' <<< "$issue")" >> "$GITHUB_OUTPUT"
+      - name: Print issue snapshot
+        env:
+          TITLE: ${{ fromJSON(steps.issue.outputs.json).title }}
+          BODY: ${{ fromJSON(steps.issue.outputs.json).body }}
+        run: |
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          printf 'Title:\n%s\n\nBody:\n%s\n' "$TITLE" "$BODY"
+          echo "::$token::"
   security_gate:
     needs: issue
     runs-on: ubuntu-slim

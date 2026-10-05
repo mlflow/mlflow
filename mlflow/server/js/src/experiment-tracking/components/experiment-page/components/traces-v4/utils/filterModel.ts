@@ -18,9 +18,9 @@ import { escapeFilterValue } from './buildTracesV4SearchParams';
  * Scope: the trace-attribute fields available on the V4 API (State, Duration, Trace name, Service
  * name, User, Session, Run name, Source, Input, Output, Span name/type/status), the arbitrary Tag /
  * Metadata key fields (free-text key + value, mirroring v1's `handleTagKey` / `handleMetadataKey`),
- * plus "Assessment" and "Expectation" fields whose keys are rendered as comboboxes that suggest
+ * plus "Feedback" and "Expectation" fields whose keys are rendered as comboboxes that suggest
  * the current page's candidate names and also accept a freeform-typed name (the v3 pattern). Null
- * (IS_NULL/IS_NOT_NULL) assessment and expectation filters stay out of scope (backend-unsupported).
+ * (IS_NULL/IS_NOT_NULL) feedback and expectation filters stay out of scope (backend-unsupported).
  */
 
 const NUMERIC_OPERATORS: FilterOp[] = [
@@ -51,8 +51,8 @@ const stateLabel = (intl: IntlShape, value: string): string => {
 /**
  * The MLflow trace filter fields, in dropdown order, with localized labels — fed to the shared
  * `TraceFilterButton`. Operators per field mirror v1's `getAvailableOperators` for the V4 path; the
- * first operator is the default when a field is selected. A single "Assessment" field is appended
- * whose key (the assessment name) is a freeform-capable combobox suggesting the candidate names.
+ * first operator is the default when a field is selected. A single "Feedback" field is appended
+ * whose key (the feedback name) is a freeform-capable combobox suggesting the candidate names.
  */
 export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): FilterFieldDef[] => {
   const intl = useIntl();
@@ -162,20 +162,23 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
           description: 'Placeholder for the metadata-key input in the traces filter',
         }),
       },
-      // "Assessment" and "Expectation" fields: their keys are names (combobox suggesting the
+      // "Feedback" and "Expectation" fields: their keys are names (combobox suggesting the
       // candidate names, freeform-typing allowed), free-text values, and equality-only because the
       // managed V4 backend does not support null filters and their values are opaque.
       {
-        id: 'assessment',
-        label: intl.formatMessage({ defaultMessage: 'Assessment', description: 'Trace filter field: assessment name' }),
+        id: 'assessment', // Stable for persisted filter models and v3 view compatibility.
+        label: intl.formatMessage({
+          defaultMessage: 'Feedback',
+          description: 'Trace filter field: feedback assessment',
+        }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
         valueInput: 'text',
         requiresKey: true,
         keyInput: 'combobox',
         keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
         keyPlaceholder: intl.formatMessage({
-          defaultMessage: 'Assessment name',
-          description: 'Placeholder for the assessment-name key input in the traces filter',
+          defaultMessage: 'Feedback name',
+          description: 'Placeholder for the feedback-name key input in the traces filter',
         }),
       },
       {
