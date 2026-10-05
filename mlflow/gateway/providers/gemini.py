@@ -197,7 +197,15 @@ class GeminiAdapter(ProviderAdapter):
                     system_message = {"parts": []}
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
-                call_id = message["tool_call_id"]
+                call_id = message.get("tool_call_id")
+                if call_id not in call_id_to_function_name_map:
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            f"Invalid tool message: tool_call_id={call_id} does not match "
+                            "any tool call in a preceding assistant message."
+                        ),
+                    )
                 function_response = {
                     "functionResponse": {
                         "id": call_id,
@@ -261,6 +269,16 @@ class GeminiAdapter(ProviderAdapter):
                 })
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
+
+            match payload.pop("tool_choice", None):
+                case "none":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
+                case "required":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "ANY"}}
+                case {"type": "function", "function": {"name": name}}:
+                    gemini_payload["toolConfig"] = {
+                        "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}
+                    }
 
         return gemini_payload
 
@@ -336,6 +354,9 @@ class GeminiAdapter(ProviderAdapter):
                     )
                 )
         content = "".join(text_parts) or None
+        # Gemini reports STOP for a turn that ends in a function call.
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_calls"
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
@@ -486,6 +507,10 @@ class GeminiAdapter(ProviderAdapter):
                     continue
 
             delta_text = parts[0].get("text", "") if parts else ""
+            # Gemini ends a tool-call stream with a STOP chunk that carries no functionCall,
+            # so the calls seen in earlier chunks decide the finish reason.
+            if finish_reason == "stop" and (tool_call_offsets or {}).get(idx, 0):
+                finish_reason = "tool_calls"
             choices.append(
                 chat_schema.StreamChoice(
                     index=idx,
