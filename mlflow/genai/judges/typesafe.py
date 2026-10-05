@@ -166,7 +166,14 @@ def _validate_options(
     if base_url is not None:
         if not base_url.strip().strip("/"):
             raise MlflowException.invalid_parameter_value("base_url must be a non-empty string.")
-        parsed_base_url = urlparse(base_url)
+        try:
+            parsed_base_url = urlparse(base_url)
+            if not parsed_base_url.scheme or not parsed_base_url.hostname:
+                raise ValueError
+        except ValueError:
+            raise MlflowException.invalid_parameter_value(
+                "base_url must be an absolute URL with a scheme and host."
+            ) from None
         if parsed_base_url.username is not None or parsed_base_url.password is not None:
             raise MlflowException.invalid_parameter_value(
                 "Credentials in base_url are not supported. Pass an Authorization header in "
@@ -204,7 +211,9 @@ def _send_request(
     authorization_headers = [
         value for name, value in headers.items() if name.lower() == "authorization"
     ]
-    if authorization_headers and any(not value.strip() for value in authorization_headers):
+    if authorization_headers and any(
+        not isinstance(value, str) or not value.strip() for value in authorization_headers
+    ):
         raise MlflowException.invalid_parameter_value(
             "Authorization header in extra_headers must be non-empty."
         )

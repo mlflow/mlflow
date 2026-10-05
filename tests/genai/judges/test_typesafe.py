@@ -112,6 +112,10 @@ def test_direct_bool_invocation_uses_native_evaluation(monkeypatch):
             "https://system-one.example.com/v1?region=us",
             "https://system-one.example.com/v1/systemone?region=us",
         ),
+        (
+            "http://127.0.0.1:8080/v1",
+            "http://127.0.0.1:8080/v1/systemone",
+        ),
     ],
 )
 def test_direct_invocation_supports_custom_base_url_and_headers(
@@ -146,7 +150,7 @@ def test_direct_invocation_supports_authorization_header(monkeypatch, api_key):
     assert request.call_args.kwargs["headers"] == {"authorization": "Bearer custom-token"}
 
 
-@pytest.mark.parametrize("authorization", ["", " \t "])
+@pytest.mark.parametrize("authorization", ["", " \t ", None])
 def test_direct_invocation_rejects_empty_authorization_header(monkeypatch, authorization):
     monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
     with (
@@ -323,6 +327,17 @@ def test_direct_invocation_rejects_empty_base_url(monkeypatch):
         pytest.raises(MlflowException, match="base_url must be a non-empty string"),
     ):
         _invoke(base_url="  ///  ")
+    request.assert_not_called()
+
+
+@pytest.mark.parametrize("base_url", ["http://", "://", "/v1", "v1"])
+def test_direct_invocation_rejects_base_url_without_scheme_or_host(monkeypatch, base_url):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
+    with (
+        mock.patch(_REQUEST_TARGET) as request,
+        pytest.raises(MlflowException, match="absolute URL with a scheme and host"),
+    ):
+        _invoke(base_url=base_url)
     request.assert_not_called()
 
 
