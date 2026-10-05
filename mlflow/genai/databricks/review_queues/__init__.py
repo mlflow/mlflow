@@ -91,7 +91,7 @@ def _require_update(mask: list[str]) -> None:
 # ---- Review questions ----
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def create_review_question(
     experiment_id: str,
     *,
@@ -133,13 +133,13 @@ def create_review_question(
     return ReviewQuestion.from_dict(resp)
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def get_review_question(experiment_id: str, question_id: str) -> ReviewQuestion:
     """Get a review question by ID."""
     return ReviewQuestion.from_dict(_client.call("GET", _question(experiment_id, question_id)))
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def list_review_questions(
     experiment_id: str,
     *,
@@ -165,7 +165,7 @@ def list_review_questions(
     )
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def update_review_question(
     experiment_id: str,
     question_id: str,
@@ -191,7 +191,7 @@ def update_review_question(
     return ReviewQuestion.from_dict(resp)
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def delete_review_question(experiment_id: str, question_id: str) -> None:
     """Delete a review question."""
     _client.call("DELETE", _question(experiment_id, question_id))
@@ -200,7 +200,7 @@ def delete_review_question(experiment_id: str, question_id: str) -> None:
 # ---- Review queues ----
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def create_review_queue(
     experiment_id: str,
     display_name: str,
@@ -245,13 +245,13 @@ def create_review_queue(
     return ReviewQueue.from_dict(resp)
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def get_review_queue(experiment_id: str, queue_id: str) -> ReviewQueue:
     """Get a review queue by ID."""
     return ReviewQueue.from_dict(_client.call("GET", _queue(experiment_id, queue_id)))
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def list_review_queues(
     experiment_id: str,
     *,
@@ -279,7 +279,7 @@ def list_review_queues(
     )
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def update_review_queue(
     experiment_id: str,
     queue_id: str,
@@ -310,7 +310,7 @@ def update_review_queue(
     return ReviewQueue.from_dict(resp)
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def delete_review_queue(experiment_id: str, queue_id: str) -> None:
     """Delete a review queue. Answers already recorded on its items are unaffected."""
     _client.call("DELETE", _queue(experiment_id, queue_id))
@@ -319,14 +319,14 @@ def delete_review_queue(experiment_id: str, queue_id: str) -> None:
 # ---- Members ----
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def add_review_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember:
     """Assign a reviewer to a queue."""
     resp = _client.call("POST", f"{_queue(experiment_id, queue_id)}/members", json={"user": user})
     return ReviewQueueMember.from_dict(resp)
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def remove_review_queue_member(experiment_id: str, queue_id: str, user: str) -> None:
     """Unassign a reviewer from a queue."""
     _client.call(
@@ -336,7 +336,7 @@ def remove_review_queue_member(experiment_id: str, queue_id: str, user: str) -> 
     )
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def list_review_queue_members(
     experiment_id: str,
     queue_id: str,
@@ -367,7 +367,7 @@ def _trace_item(trace_id: str) -> dict[str, Any]:
     return {"kind": ItemKind.V4_TRACE.value, "v4_trace": address}
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def add_review_queue_items(
     experiment_id: str,
     queue_id: str,
@@ -417,7 +417,7 @@ def add_review_queue_items(
     return [ReviewQueueItem.from_dict(i) for i in resp.get("review_queue_items", [])]
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def remove_review_queue_items(experiment_id: str, queue_id: str, item_ids: list[str]) -> None:
     """Detach items from a queue by item ID. Items that are not attached are ignored."""
     parent = _queue(experiment_id, queue_id)
@@ -428,7 +428,7 @@ def remove_review_queue_items(experiment_id: str, queue_id: str, item_ids: list[
     )
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def list_review_queue_items(
     experiment_id: str,
     queue_id: str,
@@ -462,7 +462,7 @@ def list_review_queue_items(
     )
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def set_review_queue_item_status(
     experiment_id: str,
     queue_id: str,
@@ -485,7 +485,7 @@ def set_review_queue_item_status(
     return ReviewQueueItem.from_dict(resp)
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def resolve_effective_review_questions(
     experiment_id: str,
     queue_id: str,
