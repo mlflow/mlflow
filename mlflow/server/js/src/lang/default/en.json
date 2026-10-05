@@ -2391,6 +2391,10 @@
     "defaultMessage": "Display name and description could not be saved",
     "description": "Error notification when updating MCP server display name fails"
   },
+  "7NvyO+": {
+    "defaultMessage": "Registering every skill under this folder? Run this instead:",
+    "description": "Pointer from single-skill registration to importing every skill under a repository folder"
+  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"

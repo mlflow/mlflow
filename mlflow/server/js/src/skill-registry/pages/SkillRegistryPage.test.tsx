@@ -462,7 +462,8 @@ describe('SkillRegistryPage', () => {
     expect(
       screen.getByText('Registers Git https://github.com/acme/skills · branch main · path network-policy-architect'),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Registering every skill in this repository/)).not.toBeInTheDocument();
+    expect(screen.getByText('Registering every skill under this folder? Run this instead:')).toBeInTheDocument();
+    expect(document.body.textContent).toContain("--subpath 'network-policy-architect'");
     await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
     const snippet = document.body.textContent ?? '';
     expect(snippet).toContain('mlflow skills register git');

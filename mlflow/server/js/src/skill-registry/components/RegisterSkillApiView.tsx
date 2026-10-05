@@ -18,16 +18,31 @@ import {
 } from '../snippets';
 import { CopyableSnippet, type SnippetFormat } from './CopyableSnippet';
 
-export const RepositoryImportHint = ({ code, format }: { code: string; format: SnippetFormat }) => {
+export const RepositoryImportHint = ({
+  code,
+  format,
+  underFolder,
+}: {
+  code: string;
+  format: SnippetFormat;
+  underFolder: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
       <Typography.Text size="sm" color="secondary">
-        <FormattedMessage
-          defaultMessage="Registering every skill in this repository? Run this instead:"
-          description="Pointer from single-skill registration to the repository import command"
-        />
+        {underFolder ? (
+          <FormattedMessage
+            defaultMessage="Registering every skill under this folder? Run this instead:"
+            description="Pointer from single-skill registration to importing every skill under a repository folder"
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Registering every skill in this repository? Run this instead:"
+            description="Pointer from single-skill registration to the repository import command"
+          />
+        )}
       </Typography.Text>
       <CopyableSnippet
         componentId="mlflow.skill_registry.register_modal.repository_import.copy"
@@ -103,6 +118,7 @@ export const RegisterSkillApiView = ({
       {repositoryImport && (
         <RepositoryImportHint
           format={format}
+          underFolder={Boolean(repositoryImport.subpath)}
           code={format === 'cli' ? formatSkillImportCli(repositoryImport) : formatSkillImportPython(repositoryImport)}
         />
       )}

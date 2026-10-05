@@ -353,10 +353,16 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     status: form.status,
     ...snippetIdentity,
   };
-  // A Git source with no subpath points at a whole repository, which usually holds many skills.
+  // The UI cannot see whether a Git location is one skill or a folder of skills, so it always offers the
+  // repository import, which discovers every SKILL.md under the path (RFC-0008 `mlflow skills import --subpath`).
   const repositoryImport: SkillImportSnippetOptions | undefined =
-    !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl && !subpath
-      ? { source: parsed.repositoryUrl, ref: ref || undefined, organization: snippetIdentity.organization || undefined }
+    !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl
+      ? {
+          source: parsed.repositoryUrl,
+          ref: ref || undefined,
+          subpath: subpath || undefined,
+          organization: snippetIdentity.organization || undefined,
+        }
       : undefined;
   const locationSummary = parsed
     ? [
@@ -512,7 +518,11 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                       )}
                       {repositoryImport && (
                         <div css={{ marginTop: theme.spacing.sm }}>
-                          <RepositoryImportHint format="cli" code={formatSkillImportCli(repositoryImport)} />
+                          <RepositoryImportHint
+                            format="cli"
+                            code={formatSkillImportCli(repositoryImport)}
+                            underFolder={Boolean(repositoryImport.subpath)}
+                          />
                         </div>
                       )}
                     </div>

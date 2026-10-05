@@ -85,24 +85,27 @@ export const formatSkillRegisterPython = ({
 export interface SkillImportSnippetOptions {
   source: string;
   ref?: string;
+  /** Discovery root; RFC-0008 imports every SKILL.md found beneath it. */
+  subpath?: string;
   organization?: string;
 }
 
-export const formatSkillImportCli = ({ source, ref, organization }: SkillImportSnippetOptions) => {
+export const formatSkillImportCli = ({ source, ref, subpath, organization }: SkillImportSnippetOptions) => {
   const lines = [`mlflow skills import --source ${quoteShellArg(source)}`];
   if (ref) lines.push(`--ref ${quoteShellArg(ref)}`);
+  if (subpath) lines.push(`--subpath ${quoteShellArg(subpath)}`);
   if (organization) lines.push(`--organization ${quoteShellArg(organization)}`);
   return cliCommand(lines);
 };
 
-export const formatSkillImportPython = ({ source, ref, organization }: SkillImportSnippetOptions) => {
-  const args = [
-    ref
-      ? `source=GitSource(url=${quotePythonString(source)}, ref=${quotePythonString(ref)})`
-      : `source=${quotePythonString(source)}`,
-  ];
+export const formatSkillImportPython = ({ source, ref, subpath, organization }: SkillImportSnippetOptions) => {
+  const sourceArgs = [`url=${quotePythonString(source)}`];
+  if (ref) sourceArgs.push(`ref=${quotePythonString(ref)}`);
+  if (subpath) sourceArgs.push(`subpath=${quotePythonString(subpath)}`);
+  const typed = Boolean(ref || subpath);
+  const args = [typed ? `source=GitSource(${sourceArgs.join(', ')})` : `source=${quotePythonString(source)}`];
   if (organization) args.push(`organization=${quotePythonString(organization)}`);
-  const imports = ref ? ['import mlflow', 'from mlflow.genai import GitSource'] : ['import mlflow'];
+  const imports = typed ? ['import mlflow', 'from mlflow.genai import GitSource'] : ['import mlflow'];
   return [...imports, '', pythonCall('mlflow.genai.import_skills', args)].join('\n');
 };
 

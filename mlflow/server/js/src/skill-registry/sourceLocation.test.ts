@@ -258,6 +258,16 @@ describe('local skill registration', () => {
     });
   });
 
+  it('scopes the repository import to a folder with --subpath', () => {
+    const options = { source: 'https://github.com/acme/skills', ref: 'main', subpath: 'skills' };
+    expect(formatSkillImportCli(options)).toBe(
+      "mlflow skills import --source 'https://github.com/acme/skills' \\\n    --ref 'main' \\\n    --subpath 'skills'",
+    );
+    expect(formatSkillImportPython(options)).toContain(
+      'source=GitSource(url="https://github.com/acme/skills", ref="main", subpath="skills")',
+    );
+  });
+
   it('formats the repository import pointer', () => {
     expect(formatSkillImportCli({ source: 'https://github.com/acme/skills', ref: 'v1', organization: 'acme' })).toBe(
       "mlflow skills import --source 'https://github.com/acme/skills' \\\n    --ref 'v1' \\\n    --organization 'acme'",
