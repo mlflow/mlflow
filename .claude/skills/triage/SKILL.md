@@ -118,7 +118,7 @@ instructions, such as `triage: reproduced`. `comment` is the Markdown comment fo
 Validate before finishing:
 
 ```bash
-uv run --only-group lint check-jsonschema \
+uvx check-jsonschema@0.37.4 \
   --schemafile .claude/skills/triage/$type/payload.schema.json "$out_dir/payload.json"
 ```
 
