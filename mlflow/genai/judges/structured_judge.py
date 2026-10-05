@@ -10,7 +10,6 @@ fallback, keeping ``typesafe.py`` a pure System One client.
 from __future__ import annotations
 
 import json
-import time
 from typing import Any, Literal
 
 from mlflow.entities.assessment import Feedback
@@ -26,15 +25,15 @@ from mlflow.genai.judges.typesafe import (
 from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
 
 # Remember which gateway endpoints serve System One models so jev judges skip the chat
-# attempt on every row after the first detection. The TTL lets endpoint reconfiguration
-# self-heal quickly.
+# attempt on every row after the first detection. Membership is permanent for the life of the
+# process -- an endpoint essentially never changes its model type mid-run -- so no TTL is
+# needed. If one is reconfigured away from System One, the entry is dropped lazily when the
+# System One route rejects it (see ``_invoke_gateway_judge``), so the cache still self-heals.
 #
-# No lock is used. Under a thread-pool evaluation, several threads can race between the TTL
-# check and the write, so a few of them may each make the chat-first probe before the cache
-# is populated. That is harmless: the probe is idempotent and the worst case is a handful of
-# extra rejected chat calls on the first batch of rows before the entry lands.
-_GATEWAY_SYSTEM_ONE_CACHE_TTL_SECONDS = 300
-_gateway_system_one_cache: dict[tuple[str, str], float] = {}
+# No lock is used. Under a thread-pool evaluation several threads can race before the entry
+# lands, so a few may each make the chat-first probe. That is harmless: the probe is idempotent
+# and the worst case is a handful of extra rejected chat calls on the first batch of rows.
+_gateway_system_one_cache: set[tuple[str, str]] = set()
 
 
 def _is_gateway_model(model_uri: str) -> bool:
@@ -44,20 +43,6 @@ def _is_gateway_model(model_uri: str) -> bool:
 
 def _gateway_system_one_cache_key(model_uri: str) -> tuple[str, str]:
     return (_resolve_gateway_uri(), model_uri)
-
-
-def _is_gateway_system_one_cached(cache_key: tuple[str, str]) -> bool:
-    expires_at = _gateway_system_one_cache.get(cache_key)
-    if expires_at is None:
-        return False
-    if expires_at <= time.monotonic():
-        _gateway_system_one_cache.pop(cache_key, None)
-        return False
-    return True
-
-
-def _cache_gateway_system_one(cache_key: tuple[str, str]) -> None:
-    _gateway_system_one_cache[cache_key] = time.monotonic() + _GATEWAY_SYSTEM_ONE_CACHE_TTL_SECONDS
 
 
 def _is_gateway_system_one_rejection(exc: BaseException) -> bool:
@@ -88,18 +73,18 @@ def _invoke_gateway_judge(model_uri: str, *, chat_invoker, **kwargs) -> Feedback
     the System One route and remembers the endpoint so later rows skip the chat attempt.
     """
     cache_key = _gateway_system_one_cache_key(model_uri)
-    if _is_gateway_system_one_cached(cache_key):
+    if cache_key in _gateway_system_one_cache:
         try:
             return _invoke_typesafe_judge(model_uri, **kwargs)
         except _GatewayEndpointNotSystemOne:
-            # Endpoint was reconfigured away from System One within the TTL; drop and use chat.
-            _gateway_system_one_cache.pop(cache_key, None)
+            # Endpoint was reconfigured away from System One; drop the entry and fall back to chat.
+            _gateway_system_one_cache.discard(cache_key)
     try:
         return chat_invoker()
     except MlflowException as e:
         if not _is_gateway_system_one_rejection(e):
             raise
-    _cache_gateway_system_one(cache_key)
+    _gateway_system_one_cache.add(cache_key)
     return _invoke_typesafe_judge(model_uri, **kwargs)
 
 
@@ -107,41 +92,22 @@ def _invoke_structured_builtin_judge(
     model_uri: str,
     *,
     chat_invoker,
-    instructions: str,
-    state: dict[str, Any],
-    assessment_name: str,
-    feedback_value_type: Any = Literal["yes", "no"],
-    inference_params: dict[str, Any] | None = None,
-    extra_headers: dict[str, str] | None = None,
+    decision_invoke_params: dict[str, Any],
 ) -> Feedback:
     """Route a built-in judge across TypeSafe-compatible and ordinary chat models.
 
-    Direct ``typesafe:/`` goes to System One. ``gateway:/`` prefers chat and falls back to
-    System One only on the specific rejection (chat-first, so chat endpoints are unchanged).
-    Every other model uses ``chat_invoker`` unchanged. The System One format mirrors the
-    direct ``typesafe:/`` branch each judge already defines (``instructions``/``state``).
+    ``chat_invoker`` runs the judge as a plain chat completion; ``decision_invoke_params`` holds
+    the System One inputs (``instructions``/``state`` and friends) that mirror the direct
+    ``typesafe:/`` branch each judge already defines. Direct ``typesafe:/`` goes straight to
+    System One. ``gateway:/`` prefers chat and falls back to System One only on the specific
+    rejection (chat-first, so chat endpoints are unchanged). Every other model uses
+    ``chat_invoker`` unchanged.
     """
+    params = {"feedback_value_type": Literal["yes", "no"], **decision_invoke_params}
     if _is_typesafe_model(model_uri):
-        return _invoke_typesafe_judge(
-            model_uri,
-            instructions=instructions,
-            state=state,
-            feedback_value_type=feedback_value_type,
-            assessment_name=assessment_name,
-            inference_params=inference_params,
-            extra_headers=extra_headers,
-        )
+        return _invoke_typesafe_judge(model_uri, **params)
     if _is_gateway_model(model_uri):
-        return _invoke_gateway_judge(
-            model_uri,
-            chat_invoker=chat_invoker,
-            instructions=instructions,
-            state=state,
-            feedback_value_type=feedback_value_type,
-            assessment_name=assessment_name,
-            inference_params=inference_params,
-            extra_headers=extra_headers,
-        )
+        return _invoke_gateway_judge(model_uri, chat_invoker=chat_invoker, **params)
     return chat_invoker()
 
 

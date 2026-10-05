@@ -114,7 +114,7 @@ TypeSafe judge models in MLflow currently have these limits:
 
 ## Relationship to AI Gateway
 
-Use `model="typesafe:/..."` directly, or `model="gateway:/<endpoint-name>"` when every model mapping on the Gateway endpoint supports System One. TypeSafe provider models and OpenRouter Jev decision models (`typesafe/jev-1.13` and `~typesafe/jev-latest`) are supported. OpenRouter `typesafe/jev-router` remains a chat model.
+Use `model="typesafe:/..."` directly, or `model="gateway:/<endpoint-name>"` when every model mapping on the Gateway endpoint supports System One. TypeSafe provider models and OpenRouter Jev decision models (such as `typesafe/jev-1.13`) are supported. OpenRouter `typesafe/jev-router` remains a chat model.
 
 MLflow AI Gateway also provides the typed System One route at `POST /gateway/typesafe/v1/systemone`. Do not send Jev decision models to chat-completion APIs; the Gateway rejects those requests with a clear error.
 

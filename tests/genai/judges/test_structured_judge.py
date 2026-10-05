@@ -87,7 +87,7 @@ def test_gateway_chat_endpoint_uses_chat_without_system_one_attempt():
     assert feedback is chat_feedback
     chat_invoker.assert_called_once()
     request.assert_not_called()
-    assert _gateway_system_one_cache == {}
+    assert _gateway_system_one_cache == set()
 
 
 def test_gateway_system_one_endpoint_falls_back_from_chat_rejection():
@@ -121,7 +121,7 @@ def test_gateway_non_system_one_chat_error_propagates():
             )
 
     request.assert_not_called()
-    assert _gateway_system_one_cache == {}
+    assert _gateway_system_one_cache == set()
 
 
 def test_gateway_unrelated_400_chat_error_propagates():
@@ -143,7 +143,7 @@ def test_gateway_unrelated_400_chat_error_propagates():
             )
 
     request.assert_not_called()
-    assert _gateway_system_one_cache == {}
+    assert _gateway_system_one_cache == set()
 
 
 def test_gateway_system_one_endpoint_is_cached_after_detection():
@@ -202,7 +202,9 @@ def test_structured_builtin_judge_direct_typesafe_skips_chat():
         return_value=Feedback(name="safety", value="yes"),
     ) as mock_ts:
         _invoke_structured_builtin_judge(
-            "typesafe:/jev-latest", chat_invoker=chat_invoker, **_BUILTIN_JUDGE_KWARGS
+            "typesafe:/jev-latest",
+            chat_invoker=chat_invoker,
+            decision_invoke_params=_BUILTIN_JUDGE_KWARGS,
         )
 
     mock_ts.assert_called_once()
@@ -215,7 +217,9 @@ def test_structured_builtin_judge_non_gateway_uses_chat():
     chat_feedback = Feedback(name="safety", value="yes")
     chat_invoker = mock.Mock(return_value=chat_feedback)
     result = _invoke_structured_builtin_judge(
-        "openai:/gpt-4o-mini", chat_invoker=chat_invoker, **_BUILTIN_JUDGE_KWARGS
+        "openai:/gpt-4o-mini",
+        chat_invoker=chat_invoker,
+        decision_invoke_params=_BUILTIN_JUDGE_KWARGS,
     )
 
     chat_invoker.assert_called_once()
@@ -232,7 +236,9 @@ def test_structured_builtin_judge_gateway_falls_back_to_system_one():
         ) as mock_ts,
     ):
         feedback = _invoke_structured_builtin_judge(
-            "gateway:/jev-endpoint", chat_invoker=chat_invoker, **_BUILTIN_JUDGE_KWARGS
+            "gateway:/jev-endpoint",
+            chat_invoker=chat_invoker,
+            decision_invoke_params=_BUILTIN_JUDGE_KWARGS,
         )
 
     chat_invoker.assert_called_once()  # chat-first
@@ -257,8 +263,7 @@ def test_structured_builtin_judge_threads_inference_params_through_gateway_fallb
         _invoke_structured_builtin_judge(
             "gateway:/jev-endpoint",
             chat_invoker=chat_invoker,
-            inference_params=inference_params,
-            **_BUILTIN_JUDGE_KWARGS,
+            decision_invoke_params={**_BUILTIN_JUDGE_KWARGS, "inference_params": inference_params},
         )
 
     assert mock_ts.call_args.kwargs["inference_params"] == inference_params

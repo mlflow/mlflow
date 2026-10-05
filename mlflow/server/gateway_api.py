@@ -10,6 +10,7 @@ import functools
 import io
 import json
 import logging
+import re
 import sys
 import time
 from collections.abc import AsyncIterable, Callable
@@ -99,7 +100,10 @@ from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
-_OPENROUTER_SYSTEM_ONE_MODELS = frozenset({"typesafe/jev-1.13", "~typesafe/jev-latest"})
+# OpenRouter Jev decision models route to System One. Matches an optional ``~`` prefix, the
+# ``typesafe/jev-`` namespace, and either ``latest`` or a dotted version (e.g. ``jev-1.13``),
+# while excluding chat models such as ``typesafe/jev-router``.
+_OPENROUTER_SYSTEM_ONE_MODEL_PATTERN = re.compile(r"^~?typesafe/jev-(?:latest|\d+(?:\.\d+)*)$")
 
 
 async def _ensure_gateway_enabled():
@@ -734,7 +738,8 @@ def _get_guardrails_and_auth(
 
 def _supports_system_one(provider: str, model_name: str) -> bool:
     return provider == Provider.TYPESAFE or (
-        provider == Provider.OPENROUTER and model_name in _OPENROUTER_SYSTEM_ONE_MODELS
+        provider == Provider.OPENROUTER
+        and _OPENROUTER_SYSTEM_ONE_MODEL_PATTERN.match(model_name) is not None
     )
 
 

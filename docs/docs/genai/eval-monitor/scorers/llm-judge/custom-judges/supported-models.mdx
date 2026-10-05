@@ -45,7 +45,7 @@ Judges configured with direct model providers require credentials to be availabl
 
 TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use `typesafe:/` model URIs only with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe).
 
-Gateway endpoints backed by TypeSafe provider models or OpenRouter Jev decision models (`typesafe/jev-1.13` and `~typesafe/jev-latest`) can also back structured MLflow judges. OpenRouter `typesafe/jev-router` is a chat model and remains on normal chat routes. Do not send Jev decision models to chat-completion APIs.
+Gateway endpoints backed by TypeSafe provider models or OpenRouter Jev decision models (such as `typesafe/jev-1.13`) can also back structured MLflow judges. OpenRouter `typesafe/jev-router` is a chat model and remains on normal chat routes. Do not send Jev decision models to chat-completion APIs.
 
 ### Using TypeSafe and Jev in the UI
 
@@ -64,6 +64,7 @@ Use a direct model or a Gateway endpoint:
 ```python
 from mlflow.genai.judges import make_judge
 
+# Direct TypeSafe model: resolved client-side, needs TYPESAFE_API_KEY locally, cannot run from the UI.
 direct_judge = make_judge(
     name="direct_jev_judge",
     instructions="Answer yes or no: Does {{ outputs }} answer {{ inputs }}?",
@@ -71,6 +72,7 @@ direct_judge = make_judge(
     feedback_value_type=bool,
 )
 
+# Gateway endpoint: resolved by the Gateway using its stored credentials, and can run from the UI.
 gateway_judge = make_judge(
     name="gateway_jev_judge",
     instructions="Answer yes or no: Does {{ outputs }} answer {{ inputs }}?",

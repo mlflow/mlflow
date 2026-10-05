@@ -7,10 +7,11 @@ from fastapi.testclient import TestClient
 
 import mlflow
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
-from mlflow.gateway.config import EndpointType, GatewayRequestType
+from mlflow.gateway.config import EndpointType, GatewayRequestType, Provider
 from mlflow.gateway.guardrails import GuardrailViolation
 from mlflow.server.gateway_api import (
     _create_provider_from_endpoint_name,
+    _supports_system_one,
     gateway_router,
     typesafe_passthrough_system_one,
 )
@@ -197,6 +198,24 @@ async def test_system_one_stops_before_upstream_on_policy_failure(endpoint, fail
                     await typesafe_passthrough_system_one(request)
             assert exc.value.status_code == 400
         send.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("provider", "model_name", "expected"),
+    [
+        (Provider.TYPESAFE, "jev-latest", True),
+        (Provider.TYPESAFE, "anything", True),
+        (Provider.OPENROUTER, "typesafe/jev-1.13", True),
+        (Provider.OPENROUTER, "~typesafe/jev-latest", True),
+        (Provider.OPENROUTER, "typesafe/jev-2.0.1", True),
+        (Provider.OPENROUTER, "typesafe/jev-router", False),
+        (Provider.OPENROUTER, "typesafe/jev-latest-preview", False),
+        (Provider.OPENROUTER, "openai/gpt-4o", False),
+        (Provider.OPENAI, "typesafe/jev-1.13", False),
+    ],
+)
+def test_supports_system_one(provider, model_name, expected):
+    assert _supports_system_one(provider, model_name) is expected
 
 
 @pytest.mark.parametrize(

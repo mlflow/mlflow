@@ -143,10 +143,12 @@ def is_context_relevant(
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),
-            instructions=RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"input": request, "output": context},
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
+            decision_invoke_params={
+                "instructions": RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"input": request, "output": context},
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -241,14 +243,16 @@ def is_context_sufficient(
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),
-            instructions=CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
-                "input": request,
-                "ground_truth": expected_response or expected_facts or "",
-                "retrieval_context": context,
+            decision_invoke_params={
+                "instructions": CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "ground_truth": expected_response or expected_facts or "",
+                    "retrieval_context": context,
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
             },
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -352,14 +356,16 @@ def is_correct(
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),
-            instructions=CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
-                "input": request,
-                "output": response,
-                "ground_truth": expected_response or expected_facts or "",
+            decision_invoke_params={
+                "instructions": CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "output": response,
+                    "ground_truth": expected_response or expected_facts or "",
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
             },
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -453,14 +459,16 @@ def is_grounded(
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),
-            instructions=GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
-                "input": request,
-                "output": response,
-                "retrieval_context": context,
+            decision_invoke_params={
+                "instructions": GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "output": response,
+                    "retrieval_context": context,
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
             },
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -578,14 +586,16 @@ def is_tool_call_efficient(
             use_case=USE_CASE_BUILTIN_JUDGE,
             extra_headers=extra_headers,
         ),
-        instructions=TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
-        state={
-            "request": request,
-            "available_tools": available_tools,
-            "tools_called": tools_called,
+        decision_invoke_params={
+            "instructions": TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+            "state": {
+                "request": request,
+                "available_tools": available_tools,
+                "tools_called": tools_called,
+            },
+            "assessment_name": assessment_name,
+            "extra_headers": extra_headers,
         },
-        assessment_name=assessment_name,
-        extra_headers=extra_headers,
     )
 
     return _sanitize_feedback(feedback)
@@ -697,32 +707,34 @@ def is_tool_call_correct(
             use_case=USE_CASE_BUILTIN_JUDGE,
             extra_headers=extra_headers,
         ),
-        instructions=get_typesafe_prompt_instructions(
-            has_expected_calls=expected_tool_calls is not None,
-            include_arguments=include_arguments,
-            check_order=check_order,
-        ),
-        state={
-            "request": request,
-            "available_tools": available_tools,
-            "tools_called": tools_called,
-            **(
-                {
-                    "expected_calls": (
-                        [
-                            {"name": call.name, "arguments": call.arguments}
-                            for call in expected_tool_calls
-                        ]
-                        if include_arguments
-                        else [call.name for call in expected_tool_calls]
-                    )
-                }
-                if expected_tool_calls is not None
-                else {}
+        decision_invoke_params={
+            "instructions": get_typesafe_prompt_instructions(
+                has_expected_calls=expected_tool_calls is not None,
+                include_arguments=include_arguments,
+                check_order=check_order,
             ),
+            "state": {
+                "request": request,
+                "available_tools": available_tools,
+                "tools_called": tools_called,
+                **(
+                    {
+                        "expected_calls": (
+                            [
+                                {"name": call.name, "arguments": call.arguments}
+                                for call in expected_tool_calls
+                            ]
+                            if include_arguments
+                            else [call.name for call in expected_tool_calls]
+                        )
+                    }
+                    if expected_tool_calls is not None
+                    else {}
+                ),
+            },
+            "assessment_name": assessment_name,
+            "extra_headers": extra_headers,
         },
-        assessment_name=assessment_name,
-        extra_headers=extra_headers,
     )
 
     return _sanitize_feedback(feedback)
@@ -783,10 +795,12 @@ def is_safe(
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),
-            instructions=SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"content": content},
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
+            decision_invoke_params={
+                "instructions": SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"content": content},
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -866,10 +880,12 @@ def meets_guidelines(
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),
-            instructions=GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"guidelines": guidelines, "guidelines_context": context},
-            assessment_name=name or GUIDELINES_FEEDBACK_NAME,
-            extra_headers=extra_headers,
+            decision_invoke_params={
+                "instructions": GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"guidelines": guidelines, "guidelines_context": context},
+                "assessment_name": name or GUIDELINES_FEEDBACK_NAME,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)

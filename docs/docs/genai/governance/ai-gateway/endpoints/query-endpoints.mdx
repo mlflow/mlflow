@@ -242,7 +242,7 @@ For detailed information on passthrough APIs for each provider, see [Model Provi
 
 ### TypeSafe Passthrough
 
-System One passthrough endpoints accept requests at `POST /gateway/typesafe/v1/systemone`. These endpoints support TypeSafe provider models and OpenRouter Jev decision models (`typesafe/jev-1.13` and `~typesafe/jev-latest`). They do not support chat completions, embeddings, mixed System One/chat routing, or streaming. OpenRouter `typesafe/jev-router` remains a chat model.
+System One passthrough endpoints accept requests at `POST /gateway/typesafe/v1/systemone`. These endpoints support TypeSafe provider models and OpenRouter Jev decision models (such as `typesafe/jev-1.13`). They do not support chat completions, embeddings, mixed System One/chat routing, or streaming. OpenRouter `typesafe/jev-router` remains a chat model.
 
 ```bash
 curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \

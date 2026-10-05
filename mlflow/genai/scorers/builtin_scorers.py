@@ -535,11 +535,13 @@ class RetrievalRelevance(BuiltInScorer):
                         inference_params=self.inference_params,
                         extra_headers=self.extra_headers,
                     ),
-                    instructions=RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
-                    state={"input": request, "doc": chunk["content"]},
-                    assessment_name=self.name,
-                    inference_params=self.inference_params,
-                    extra_headers=self.extra_headers,
+                    decision_invoke_params={
+                        "instructions": RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        "state": {"input": request, "doc": chunk["content"]},
+                        "assessment_name": self.name,
+                        "inference_params": self.inference_params,
+                        "extra_headers": self.extra_headers,
+                    },
                 )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
@@ -2202,11 +2204,13 @@ class Equivalence(BuiltInScorer):
                 inference_params=self.inference_params,
                 extra_headers=self.extra_headers,
             ),
-            instructions=EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"output": actual_output, "expected_output": expected_output},
-            assessment_name=assessment_name,
-            inference_params=self.inference_params,
-            extra_headers=self.extra_headers,
+            decision_invoke_params={
+                "instructions": EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"output": actual_output, "expected_output": expected_output},
+                "assessment_name": assessment_name,
+                "inference_params": self.inference_params,
+                "extra_headers": self.extra_headers,
+            },
         )
 
         return _sanitize_feedback(feedback)
