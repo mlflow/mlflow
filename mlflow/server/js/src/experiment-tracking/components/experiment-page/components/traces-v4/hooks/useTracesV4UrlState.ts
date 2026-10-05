@@ -10,7 +10,7 @@ import {
   isSortableTraceColumn,
   type PageSize,
   type SortDirection,
-  type TraceColumnId,
+  type TraceSortColumnId,
 } from '@databricks/web-shared/traces-table';
 
 const Q_PARAM = 'q';
@@ -50,7 +50,7 @@ const decodeTagFilter = (raw: string): TagFilter | undefined => {
 
 const sameTagFilter = (a: TagFilter, b: TagFilter): boolean => a.key === b.key && a.value === b.value;
 
-const isSortableColumnId = (value: string | null): value is TraceColumnId =>
+const isSortableColumnId = (value: string | null): value is TraceSortColumnId =>
   value !== null && isSortableTraceColumn(value);
 
 const PAGE_SIZE_SET = new Set<number>(PAGE_SIZE_OPTIONS);
@@ -67,10 +67,10 @@ export interface TracesV4UrlState {
   setPageIndex: (next: number) => void;
   pageSize: PageSize;
   setPageSize: (next: PageSize) => void;
-  /** Active sort column. Only `start_time`/`duration` are honored; anything else → default. */
-  sort: TraceColumnId;
+  /** Active sort column. Unsupported values degrade to the default. */
+  sort: TraceSortColumnId;
   dir: SortDirection;
-  setSort: (column: TraceColumnId, direction: SortDirection) => void;
+  setSort: (column: TraceSortColumnId, direction: SortDirection) => void;
   /** Trace id whose detail drawer is open, or undefined. */
   traceId: string | undefined;
   setTraceId: (next: string | undefined) => void;
@@ -127,7 +127,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   );
 
   const pageSize = toValidPageSize(pageSizeRaw);
-  const sort: TraceColumnId = isSortableColumnId(sortRaw) ? sortRaw : DEFAULT_SORT_COLUMN;
+  const sort: TraceSortColumnId = isSortableColumnId(sortRaw) ? sortRaw : DEFAULT_SORT_COLUMN;
   const dir: SortDirection = dirRaw === 'asc' ? 'asc' : dirRaw === 'desc' ? 'desc' : DEFAULT_SORT_DIR;
 
   const setSearch = useCallback(
@@ -162,7 +162,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   );
 
   const setSort = useCallback(
-    (column: TraceColumnId, direction: SortDirection) => {
+    (column: TraceSortColumnId, direction: SortDirection) => {
       setSearchParams((params) => {
         if (column === DEFAULT_SORT_COLUMN && direction === DEFAULT_SORT_DIR) {
           params.delete(SORT_PARAM);

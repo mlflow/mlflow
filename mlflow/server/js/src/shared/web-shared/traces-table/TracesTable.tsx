@@ -36,7 +36,6 @@ import { type ColumnSizingState, flexRender, getCoreRowModel, type Row } from '@
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPath } from 'react-router';
 import { createPortal } from 'react-dom';
-import { isSortableTraceColumn } from './constants';
 import type {
   SessionHrefGetter,
   SessionSelectionHandler,
@@ -44,6 +43,7 @@ import type {
   TraceColumnId,
   TraceColumnHeaderAction,
   TraceHrefGetter,
+  TraceSortColumnId,
   TraceTableColumn,
 } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
@@ -275,9 +275,11 @@ export interface TracesTableProps {
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
-  sort: TraceColumnId;
+  /** Exact columns whose backend supports global ordering, including consumer-owned dynamic columns. */
+  sortableColumnIds: readonly TraceSortColumnId[];
+  sort: TraceSortColumnId;
   dir: SortDirection;
-  onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  onSort: (column: TraceSortColumnId, direction: SortDirection) => void;
   /** Resolves trace-cell links; when absent trace cells open through onTraceSelected. */
   getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
@@ -318,7 +320,7 @@ const rowIdFor = (trace: ModelTraceInfoV3) =>
 /**
  * Presentational, fully-controlled TanStack-backed `Table` for traces: fixed-width, user-resizable
  * columns (widths persisted by the consumer), single-line truncation, row selection persisted across
- * pages, and sort affordances on the only two server-sortable columns (start time, duration). The
+ * pages, and sort affordances on the exact server-sortable columns supplied by the consumer. The
  * leading select column is a fixed cell outside the resizable column set, so header, data, and
  * skeleton rows share an identical leading cell and stay column-aligned. First load renders exactly
  * `skeletonRowCount` skeleton rows under the real header so swapping in real rows causes no layout shift.
@@ -348,6 +350,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     onToggleBulkRow,
     onToggleBulkRows,
     onToggleBulkAll,
+    sortableColumnIds,
     sort,
     dir,
     onSort,
@@ -369,6 +372,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     const selectCellCss = {
       '.table-row-select-cell': { alignItems: 'center', paddingRight: theme.spacing.sm },
     } as const;
+    const sortableColumnIdSet = useMemo(() => new Set<string>(sortableColumnIds), [sortableColumnIds]);
 
     // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
     // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
@@ -790,10 +794,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                     const columnId = header.column.id;
                     const labelNode = flexRender(header.column.columnDef.header, header.getContext());
                     // Sort lives in the menu, so no DuBois `sortable` (its button wrapper can't nest the trigger).
-                    const sortHandlers = isSortableTraceColumn(columnId)
+                    const isColumnSortable = sortableColumnIdSet.has(columnId);
+                    const sortHandlers = isColumnSortable
                       ? {
-                          onSortAscending: () => onSort(columnId, 'asc'),
-                          onSortDescending: () => onSort(columnId, 'desc'),
+                          onSortAscending: () => onSort(columnId as TraceSortColumnId, 'asc'),
+                          onSortDescending: () => onSort(columnId as TraceSortColumnId, 'desc'),
                         }
                       : { onSortAscending: noop, onSortDescending: noop };
                     // Prefer explicit labelText on the column def (for a11y on JSX headers), fall back to string headers.
@@ -814,7 +819,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                           columnId={columnId}
                           label={labelNode}
                           labelText={labelText}
-                          sortable={isSortableTraceColumn(columnId)}
+                          sortable={isColumnSortable}
                           sortDirection={sort === columnId ? dir : 'none'}
                           onHide={() => onHideColumn(columnId)}
                           action={columnHeaderActions?.[columnId]}
@@ -993,10 +998,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 const columnId = header.column.id;
                 const labelNode = flexRender(header.column.columnDef.header, header.getContext());
                 // Sort lives in the menu, so no DuBois `sortable` (its button wrapper can't nest the trigger).
-                const sortHandlers = isSortableTraceColumn(columnId)
+                const isColumnSortable = sortableColumnIdSet.has(columnId);
+                const sortHandlers = isColumnSortable
                   ? {
-                      onSortAscending: () => onSort(columnId, 'asc'),
-                      onSortDescending: () => onSort(columnId, 'desc'),
+                      onSortAscending: () => onSort(columnId as TraceSortColumnId, 'asc'),
+                      onSortDescending: () => onSort(columnId as TraceSortColumnId, 'desc'),
                     }
                   : { onSortAscending: noop, onSortDescending: noop };
                 // Prefer explicit labelText on the column def (for a11y on JSX headers), fall back to string headers.
@@ -1016,7 +1022,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       columnId={columnId}
                       label={labelNode}
                       labelText={labelText}
-                      sortable={isSortableTraceColumn(columnId)}
+                      sortable={isColumnSortable}
                       sortDirection={sort === columnId ? dir : 'none'}
                       onHide={() => onHideColumn(columnId)}
                       action={columnHeaderActions?.[columnId]}

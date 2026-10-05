@@ -37,6 +37,7 @@ from mlflow.tracing.constant import (
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
+from mlflow.utils.trace_analytics import finite_float_or_none, token_count_or_none
 
 if TYPE_CHECKING:
     from sqlalchemy.sql.elements import ClauseElement, ColumnElement
@@ -331,6 +332,21 @@ class SearchUtils:
             MSSQL: mssql_comparison_func,
             MYSQL: mysql_comparison_func,
         }[dialect]
+
+    @staticmethod
+    def get_sql_case_sensitive_string_expression(expression, dialect):
+        """Return a string expression with case-sensitive ordering and equality semantics."""
+        import sqlalchemy as sa
+
+        if dialect == MSSQL:
+            return expression.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
+        if dialect == MYSQL:
+            return sa.func.binary(expression)
+        if dialect == SQLITE:
+            return sa.cast(expression, sa.LargeBinary)
+        if dialect == POSTGRES:
+            return expression.collate("C")
+        return expression
 
     @staticmethod
     def translate_key_alias(key):
@@ -1686,6 +1702,9 @@ class SearchModelVersionUtils(SearchUtils):
 class SearchTraceUtils(SearchUtils):
     """
     Utility class for searching traces.
+
+    The `state`, `total_tokens`, and `total_cost` aliases are order-by-only. Trace filters use
+    `status` for lifecycle state and request-metadata clauses for token usage and cost.
     """
 
     VALID_SEARCH_ATTRIBUTE_KEYS = {
@@ -1714,6 +1733,9 @@ class SearchTraceUtils(SearchUtils):
         "end_time",
         "end_time_ms",
         "status",
+        "state",
+        "total_tokens",
+        "total_cost",
         "request_id",
         # The following keys are mapped to tags or metadata
         "name",
@@ -1868,13 +1890,36 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def sort(cls, traces, order_by_list):
-        return sorted(traces, key=cls._get_sort_key(order_by_list))
+        traces = list(traces)
+        return sorted(traces, key=cls._get_sort_key(order_by_list, traces))
 
     @classmethod
     def parse_order_by_for_search_traces(cls, order_by):
-        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        token_value = cls._validate_order_by_and_generate_token(order_by).strip()
+        quoted_feedback = re.fullmatch(
+            rf"{cls._FEEDBACK_IDENTIFIER}\.(?P<key>`(?:``|[^`])*`)"
+            rf"(?:\s+(?P<direction>{cls.ASC_OPERATOR}|{cls.DESC_OPERATOR}))?",
+            token_value,
+            flags=re.IGNORECASE,
+        )
+        if quoted_feedback:
+            key = quoted_feedback.group("key")[1:-1].replace("``", "`")
+            direction = quoted_feedback.group("direction")
+            return (
+                cls._FEEDBACK_IDENTIFIER,
+                key,
+                direction is None or direction.lower() == cls.ASC_OPERATOR,
+            )
+
+        escaped_backtick = "\ue000"
+        token_value, is_ascending = cls._parse_order_by_string(
+            order_by.replace("``", escaped_backtick)
+        )
         identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
-        identifier = cls._replace_key_to_tag_or_metadata(identifier)
+        # An explicit feedback namespace wins over trace aliases such as `name` and `run_id`.
+        if identifier["type"] != cls._FEEDBACK_IDENTIFIER:
+            identifier = cls._replace_key_to_tag_or_metadata(identifier)
+        identifier["key"] = identifier["key"].replace(escaped_backtick, "`")
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
@@ -2089,24 +2134,136 @@ class SearchTraceUtils(SearchUtils):
             return entity_type
 
     @classmethod
-    def _get_sort_key(cls, order_by_list):
+    def _get_sort_key(cls, order_by_list, traces):
         order_by = []
-        parsed_order_by = map(cls.parse_order_by_for_search_traces, order_by_list or [])
-        for type_, key, ascending in parsed_order_by:
-            if type_ == "attribute":
-                order_by.append((key, ascending))
-            else:
+        observed = set()
+        for type_, key, ascending in map(cls.parse_order_by_for_search_traces, order_by_list or []):
+            if type_ == cls._REQUEST_METADATA_IDENTIFIER and key in (
+                TraceMetadataKey.TOKEN_USAGE,
+                TraceMetadataKey.COST,
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Ordering by reserved metadata '{key}' is not supported because it is "
+                    "represented by multiple fields."
+                )
+            if type_ not in (
+                cls._ATTRIBUTE_IDENTIFIER,
+                cls._TAG_IDENTIFIER,
+                cls._REQUEST_METADATA_IDENTIFIER,
+                cls._FEEDBACK_IDENTIFIER,
+            ):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid order_by entity `{type_}` with key `{key}`"
                 )
+            if (type_, key) in observed:
+                raise MlflowException.invalid_parameter_value(
+                    f"`order_by` contains duplicate fields: {order_by_list}"
+                )
+            observed.add((type_, key))
+            order_by.append((type_, key, ascending))
 
-        # Add a tie-breaker
-        if not any(key == "timestamp_ms" for key, _ in order_by):
-            order_by.append(("timestamp_ms", False))
-        if not any(key == "request_id" for key, _ in order_by):
-            order_by.append(("request_id", True))
+        for key, ascending in (("timestamp_ms", False), ("request_id", True)):
+            field = (cls._ATTRIBUTE_IDENTIFIER, key)
+            if field not in observed:
+                order_by.append((*field, ascending))
 
-        return lambda trace: tuple(_apply_reversor(trace, k, asc) for (k, asc) in order_by)
+        feedback_values = {
+            key: [cls._latest_feedback_value(trace, key) for trace in traces]
+            for type_, key, _ in order_by
+            if type_ == cls._FEEDBACK_IDENTIFIER
+        }
+        numeric_feedback = {
+            key: all(cls._is_finite_number(value) for value in values if value is not None)
+            for key, values in feedback_values.items()
+        }
+
+        def value_for(trace, type_, key):
+            if type_ == cls._FEEDBACK_IDENTIFIER:
+                value = cls._latest_feedback_value(trace, key)
+                if value is not None and not numeric_feedback[key]:
+                    return cls._categorical_assessment_value(value)
+                # SQL stores and Databricks orders this numeric aggregate as a double. Coerce the
+                # FileStore value to the same representation so values that round to the same double
+                # use the shared timestamp/request-id tie-breakers in every store.
+                return finite_float_or_none(value)
+            if type_ == cls._TAG_IDENTIFIER:
+                return trace.tags.get(key)
+            if type_ == cls._REQUEST_METADATA_IDENTIFIER:
+                return trace.trace_metadata.get(key)
+            if key == "state":
+                if trace.state is None:
+                    return None
+                state = getattr(trace.state, "value", str(trace.state))
+                return 1 if state == "ERROR" else 0
+            if key == "total_tokens":
+                return cls._trace_analytics_value(
+                    trace,
+                    TraceMetadataKey.TOKEN_USAGE,
+                    "total_tokens",
+                    token_count_or_none,
+                )
+            if key == "total_cost":
+                return cls._trace_analytics_value(
+                    trace,
+                    TraceMetadataKey.COST,
+                    "total_cost",
+                    finite_float_or_none,
+                )
+            return getattr(trace, key)
+
+        def sort_component(value, ascending):
+            # Missing values always sort last, matching the SQL store in both directions.
+            return value is None, value if ascending else _Reversor(value)
+
+        return lambda trace: tuple(
+            sort_component(value_for(trace, type_, key), ascending)
+            for type_, key, ascending in order_by
+        )
+
+    @staticmethod
+    def _trace_analytics_value(trace, metadata_key, item_key, converter):
+        raw_value = trace.trace_metadata.get(metadata_key)
+        if raw_value is None:
+            return None
+        try:
+            parsed_value = json.loads(raw_value)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(parsed_value, dict):
+            return None
+        return converter(parsed_value.get(item_key))
+
+    @staticmethod
+    def _is_finite_number(value):
+        return isinstance(value, (int, float)) and finite_float_or_none(value) is not None
+
+    @staticmethod
+    def _categorical_assessment_value(value):
+        # SQL stores assessment values with json.dumps(). Use the same representation so mixed
+        # numeric/string/object columns have identical ordering in FileStore and SQL stores.
+        return json.dumps(value)
+
+    @classmethod
+    def _latest_feedback_value(cls, trace, name):
+        candidates = [
+            assessment
+            for assessment in trace.assessments
+            if assessment.name == name
+            and assessment.feedback is not None
+            and assessment.valid is not False
+            and assessment.span_id is None
+            and not (assessment.metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
+        ]
+        if not candidates:
+            return None
+        latest = max(
+            candidates,
+            key=lambda assessment: (
+                assessment.create_time_ms or -1,
+                assessment.assessment_id or "",
+            ),
+        )
+        return latest.value
 
     @classmethod
     def _get_value(cls, identifier_type, key, token):

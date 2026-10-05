@@ -8,6 +8,7 @@ import {
   computeAssessmentColumns,
   extractTraceIssues,
   getAssessmentColumnType,
+  getSortableAssessmentNames,
 } from '../utils/assessmentColumns';
 import { buildAssessmentColumnDefs, type AssessmentColumn } from '../utils/buildAssessmentColumnDefs';
 import { buildIssuesColumnDef } from '../utils/buildIssuesColumnDef';
@@ -26,6 +27,8 @@ export interface TracesV4AssessmentColumns {
   columnDefs: TraceTableColumn[];
   /** Every candidate assessment name (visible or not); one filter field is offered per name. */
   candidateNames: string[];
+  /** Assessment names supported by the backend's trace-level feedback sort. */
+  sortableNames: string[];
   /** Column-selector options for every candidate assessment (visible or not). */
   selectorOptions: GenericColumnOption[];
   /** Namespaced ids of the currently-visible assessment columns. */
@@ -65,6 +68,9 @@ export const useTracesV4AssessmentColumns = (
   // don't churn when a recompute yields the same names.
   const candidateNames = useArrayMemo(selection.candidateNames);
   const visibleNames = useArrayMemo(selection.visibleNames);
+  const sortableNames = useArrayMemo(
+    useMemo(() => getSortableAssessmentNames(traces, candidateNames), [traces, candidateNames]),
+  );
 
   // The dedicated Issues column shows only when the current page carries detected issues (data-driven,
   // like the Session column) and renders ahead of the assessment columns, matching the prior tab.
@@ -139,6 +145,7 @@ export const useTracesV4AssessmentColumns = (
   return {
     columnDefs,
     candidateNames,
+    sortableNames,
     selectorOptions,
     visibleIds,
     visibilityByName,

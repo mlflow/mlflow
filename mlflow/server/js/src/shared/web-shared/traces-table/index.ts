@@ -5,6 +5,7 @@
 // Types
 export type {
   TraceColumnId,
+  TraceSortColumnId,
   SortDirection,
   PageSize,
   TraceTableColumn,

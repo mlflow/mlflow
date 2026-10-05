@@ -10,6 +10,7 @@ import type {
   TraceColumnId,
   TraceColumnHeaderAction,
   TraceHrefGetter,
+  TraceSortColumnId,
   TraceTableColumn,
 } from './types';
 import { TracesTable } from './TracesTable';
@@ -57,9 +58,10 @@ export interface TracesTableViewProps {
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
-  sort: TraceColumnId;
+  sortableColumnIds: readonly TraceSortColumnId[];
+  sort: TraceSortColumnId;
   dir: SortDirection;
-  onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  onSort: (column: TraceSortColumnId, direction: SortDirection) => void;
   getTraceHref?: TraceHrefGetter;
   getSessionHref?: SessionHrefGetter;
   /** Handles clicks on a grouped session summary row — forwarded to the table. */
@@ -202,6 +204,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onToggleBulkRow={props.onToggleBulkRow}
       onToggleBulkRows={props.onToggleBulkRows}
       onToggleBulkAll={props.onToggleBulkAll}
+      sortableColumnIds={props.sortableColumnIds}
       sort={props.sort}
       dir={props.dir}
       onSort={props.onSort}

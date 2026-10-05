@@ -52,7 +52,7 @@ export const getContentColumnMaxSizes = (traces: ModelTraceInfoV3[], intl: IntlS
       trace.execution_duration ? (formatTraceDuration(trace.execution_duration) ?? trace.execution_duration) : '-',
     ),
     state: traces.map((trace) => getTraceStateLabel(trace.state, intl)),
-    tokens: traces.map((trace) => String(getTraceTokenUsage(trace)?.total_tokens || '-')),
+    tokens: traces.map((trace) => String(getTraceTokenUsage(trace)?.total_tokens ?? '-')),
     cost: traces.map((trace) => {
       const total = getTraceCost(trace)?.total_cost;
       return total === undefined || total === null ? '-' : formatCostUSD(total);

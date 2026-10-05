@@ -1,6 +1,5 @@
 import json
 import math
-from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from sqlalchemy import and_, false, or_
@@ -14,12 +13,10 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.utils.trace_analytics import finite_float_or_none, token_count_or_none
 from mlflow.utils.validation import _validate_length_limit
 
 MODEL_DIMENSION_MAX_LENGTH = 500
-_BIGINT_MIN = -(2**63)
-_BIGINT_MAX = 2**63 - 1
-
 TOKEN_COLUMN_BY_KEY = {
     TokenUsageKey.INPUT_TOKENS: "input_tokens",
     TokenUsageKey.OUTPUT_TOKENS: "output_tokens",
@@ -102,34 +99,6 @@ def validate_session_id(value: str | None) -> str | None:
 
 def validate_trace_name(value: str | None) -> str | None:
     return _validate_length_limit("Trace name", MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, value)
-
-
-def finite_float_or_none(value: Any) -> float | None:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        value = float(value)
-    except (TypeError, ValueError, OverflowError):
-        # A magnitude too large for a float (e.g. a huge integer in cost metadata) is treated like
-        # inf: non-finite, so it stores as NULL rather than crashing the batch and every rerun.
-        return None
-    return value if math.isfinite(value) else None
-
-
-def token_count_or_none(value: Any) -> int | None:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        value = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError):
-        return None
-    if (
-        not value.is_finite()
-        or value != value.to_integral_value()
-        or not _BIGINT_MIN <= value <= _BIGINT_MAX
-    ):
-        return None
-    return int(value)
 
 
 def _json_object(value: Any) -> dict[str, Any]:

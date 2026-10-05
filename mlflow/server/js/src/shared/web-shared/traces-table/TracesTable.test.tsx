@@ -68,6 +68,7 @@ const baseProps = (over: Partial<TracesTableProps> = {}): TracesTableProps => ({
   isSomeOnPageSelected: false,
   onToggleBulkRow: jest.fn(),
   onToggleBulkAll: jest.fn(),
+  sortableColumnIds: ['start_time', 'duration', 'state', 'tokens', 'cost'],
   sort: 'start_time',
   dir: 'desc',
   onSort: jest.fn(),
@@ -154,6 +155,42 @@ describe('TracesTable', () => {
     await openColumnMenu(/Time/); // start_time is server-sortable
     expect(screen.getByText('Sort ascending')).toBeInTheDocument();
     expect(screen.getByText('Sort descending')).toBeInTheDocument();
+  });
+
+  test('State column options expose sorting actions', async () => {
+    await renderWithProviders(<TracesTable {...baseProps()} />);
+    await openColumnMenu(/State/);
+    expect(screen.getByText('Sort ascending')).toBeInTheDocument();
+    expect(screen.getByText('Sort descending')).toBeInTheDocument();
+  });
+
+  test('dynamic assessment column options expose sorting actions', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          visibleColumns: [],
+          extraColumns: [{ id: 'assessment:quality', header: () => 'Quality', cell: () => null }],
+          sortableColumnIds: ['start_time', 'duration', 'state', 'tokens', 'cost', 'assessment:quality'],
+        })}
+      />,
+    );
+    await openColumnMenu(/Quality/);
+    expect(screen.getByText('Sort ascending')).toBeInTheDocument();
+    expect(screen.getByText('Sort descending')).toBeInTheDocument();
+  });
+
+  test('dynamic columns omitted by the consumer do not expose sorting actions', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          visibleColumns: [],
+          extraColumns: [{ id: 'assessment:expectation', header: () => 'Expectation', cell: () => null }],
+        })}
+      />,
+    );
+    await openColumnMenu(/Expectation/);
+    expect(screen.queryByText('Sort ascending')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sort descending')).not.toBeInTheDocument();
   });
 
   test("a non-sortable column's options menu offers only Hide column, no sort items", async () => {

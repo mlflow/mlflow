@@ -615,7 +615,7 @@ type TokenUsage = {
 
 const TokenUsageCell = ({ usage }: { usage: TokenUsage }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  if (!usage.total_tokens) {
+  if (usage.total_tokens === undefined || usage.total_tokens === null) {
     return <EmptyValue />;
   }
   const parts = [

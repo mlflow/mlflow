@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { rest } from 'msw';
-import { makeTrace, makeTraces } from '../test-utils/mockTraces';
+import { makeFeedbackAssessment, makeTrace, makeTraces } from '../test-utils/mockTraces';
 import { TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
 import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
@@ -540,6 +540,57 @@ describe('TracesV4PageContent (interactions)', () => {
         await screen.findByRole('menuitemradio', { name: 'Time (descending)', checked: true }),
       ).toBeInTheDocument();
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('keeps an active assessment sort selectable when the current page has no matching values', async () => {
+      const user = userEvent.setup();
+      renderPage({ initialUrl: `${URL}?sort=assessment%3Aquality&dir=desc` });
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      expect(
+        await screen.findByRole('menuitemradio', { name: 'quality (descending)', checked: true }),
+      ).toBeInTheDocument();
+    }, 20000);
+
+    test('keeps an active assessment sort selectable when the current page value is span feedback', async () => {
+      const user = userEvent.setup();
+      state.pages = {
+        '': {
+          traces: [
+            makeTrace('tr-000', {
+              assessments: [makeFeedbackAssessment('quality', 0.8, { span_id: 'span-1' })],
+            }),
+          ],
+          next_page_token: undefined,
+        },
+      };
+      renderPage({ initialUrl: `${URL}?sort=assessment%3Aquality&dir=desc` });
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      expect(
+        await screen.findByRole('menuitemradio', { name: 'quality (descending)', checked: true }),
+      ).toBeInTheDocument();
+    }, 20000);
+
+    test('choosing an assessment preserves its namespaced id in order_by', async () => {
+      const user = userEvent.setup();
+      state.pages = {
+        '': {
+          traces: [makeTrace('tr-000', { assessments: [makeFeedbackAssessment('quality', 0.8)] })],
+          next_page_token: undefined,
+        },
+      };
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      await selectSubmenuItem('menuitemradio', 'quality (descending)');
+
+      await waitFor(() =>
+        expect(state.searchCalls.some((c) => c.order_by?.[0] === 'feedback.`quality` DESC')).toBe(true),
+      );
+    }, 20000);
   });
 
   describe('Display popover: row height', () => {

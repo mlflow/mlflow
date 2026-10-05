@@ -4,6 +4,8 @@ import { SEARCH_MLFLOW_TRACES_QUERY_KEY, shouldEnableSessionGrouping } from '@da
 import { SESSION_ID_METADATA_KEY, type ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
   EMPTY_FILTER_MODEL,
+  DEFAULT_SORT_COLUMN,
+  DEFAULT_SORT_DIR,
   countActiveFilters,
   useBulkTraceSelection,
   useTracesPageQuery,
@@ -121,7 +123,10 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     [url.search, timeRange, filterModel, url.tagFilters],
   );
 
-  const orderBy = useMemo(() => buildOrderBy(url.sort, url.dir), [url.sort, url.dir]);
+  const orderBy = useMemo(
+    () => (isGroupedBySession ? buildOrderBy(DEFAULT_SORT_COLUMN, DEFAULT_SORT_DIR) : buildOrderBy(url.sort, url.dir)),
+    [isGroupedBySession, url.sort, url.dir],
+  );
 
   const queryPageSize = isGroupedBySession ? GROUPED_TRACES_LIMIT : url.pageSize;
   const identity = useMemo<TracesQueryIdentity>(

@@ -5,6 +5,7 @@ import {
   computeAssessmentColumns,
   extractTraceIssues,
   getAssessmentColumnType,
+  getSortableAssessmentNames,
   pickCellAssessment,
 } from './assessmentColumns';
 import { makeFeedbackAssessment, makeIssueAssessment, makeTrace } from '../test-utils/mockTraces';
@@ -96,6 +97,29 @@ describe('pickCellAssessment', () => {
     expect(pickCellAssessment(trace, 'relevance')).toBe(newer);
   });
 
+  test('breaks equal-timestamp ties by assessment id', () => {
+    const timestamp = '2025-06-01T00:00:00.000Z';
+    const lowerId = makeFeedbackAssessment('relevance', 'no', {
+      assessment_id: 'assessment-a',
+      create_time: timestamp,
+    });
+    const higherId = makeFeedbackAssessment('relevance', 'yes', {
+      assessment_id: 'assessment-z',
+      create_time: timestamp,
+    });
+    const trace = traceWith('t1', [higherId, lowerId]);
+
+    expect(pickCellAssessment(trace, 'relevance')).toBe(higherId);
+  });
+
+  test('compares timestamps by instant when fractional-second precision differs', () => {
+    const older = makeFeedbackAssessment('relevance', 'no', { create_time: '2025-06-01T00:00:00Z' });
+    const newer = makeFeedbackAssessment('relevance', 'yes', { create_time: '2025-06-01T00:00:00.100Z' });
+    const trace = traceWith('t1', [newer, older]);
+
+    expect(pickCellAssessment(trace, 'relevance')).toBe(newer);
+  });
+
   test('ignores other names and returns undefined when none match', () => {
     const trace = traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')]);
     expect(pickCellAssessment(trace, 'safety')).toBeUndefined();
@@ -110,6 +134,70 @@ describe('pickCellAssessment', () => {
     const issue = makeIssueAssessment('hallucination');
     const trace = traceWith('t1', [issue]);
     expect(pickCellAssessment(trace, issue.assessment_name)).toBeUndefined();
+  });
+});
+
+describe('getSortableAssessmentNames', () => {
+  test('keeps trace-level feedback and off-page names for backend-global sorting', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('quality', 0.8)])];
+
+    expect(getSortableAssessmentNames(traces, ['off-page', 'quality'])).toEqual(['off-page', 'quality']);
+  });
+
+  test('excludes a blank assessment name', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('', 0.8)])];
+
+    expect(getSortableAssessmentNames(traces, ['', 'off-page'])).toEqual(['off-page']);
+  });
+
+  test('excludes expectation-only and span-feedback-only columns', () => {
+    const expectation: Assessment = {
+      assessment_id: 'expectation-1',
+      assessment_name: 'expected-answer',
+      trace_id: 't1',
+      source: { source_type: 'HUMAN', source_id: 'user@example.com' },
+      create_time: '2025-01-01T00:00:00.000Z',
+      last_update_time: '2025-01-01T00:00:00.000Z',
+      expectation: { value: 'answer' },
+    };
+    const traces = [
+      traceWith('t1', [
+        expectation,
+        makeFeedbackAssessment('span-quality', 0.8, { span_id: 'span-1' }),
+        makeFeedbackAssessment('trace-quality', 0.9),
+      ]),
+    ];
+
+    expect(getSortableAssessmentNames(traces, ['expected-answer', 'span-quality', 'trace-quality'])).toEqual([
+      'trace-quality',
+    ]);
+  });
+
+  test('excludes a mixed column when its displayed assessment is not trace-level feedback', () => {
+    const newerExpectation: Assessment = {
+      assessment_id: 'expectation-1',
+      assessment_name: 'quality',
+      trace_id: 't1',
+      source: { source_type: 'HUMAN', source_id: 'user@example.com' },
+      create_time: '2025-06-01T00:00:00.000Z',
+      last_update_time: '2025-06-01T00:00:00.000Z',
+      expectation: { value: 'answer' },
+    };
+    const traces = [
+      traceWith('t1', [
+        makeFeedbackAssessment('quality', 0.8, { create_time: '2025-01-01T00:00:00.000Z' }),
+        newerExpectation,
+      ]),
+      traceWith('t2', [
+        makeFeedbackAssessment('span-quality', 0.7, { create_time: '2025-01-01T00:00:00.000Z' }),
+        makeFeedbackAssessment('span-quality', 0.9, {
+          create_time: '2025-06-01T00:00:00.000Z',
+          span_id: 'span-1',
+        }),
+      ]),
+    ];
+
+    expect(getSortableAssessmentNames(traces, ['quality', 'span-quality'])).toEqual([]);
   });
 });
 

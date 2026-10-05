@@ -55,22 +55,50 @@ describe('translateV3ViewState — columns', () => {
 });
 
 describe('translateV3ViewState — sort', () => {
-  test('maps a V3 sort key to its V4 column and splits key::type::asc into sort + dir', () => {
-    // execution_duration → duration; the middle `type` segment is dropped.
-    const out = translateV3ViewState({ single: { sort: 'execution_duration::number::true' } });
+  test.each(['TRACE_INFO', 'number'])('maps an execution-duration sort using the %s type encoding', (type) => {
+    const out = translateV3ViewState({ single: { sort: `execution_duration::${type}::true` } });
     expect(out.single.sort).toBe('duration');
     expect(out.single.dir).toBe('asc');
   });
 
-  test('maps request_time → start_time and asc=false to descending', () => {
-    const out = translateV3ViewState({ single: { sort: 'request_time::date::false' } });
+  test.each(['TRACE_INFO', 'date'])('maps a request-time sort using the %s type encoding', (type) => {
+    const out = translateV3ViewState({ single: { sort: `request_time::${type}::false` } });
     expect(out.single.sort).toBe('start_time');
+    expect(out.single.dir).toBe('desc');
+  });
+
+  test.each(['state', 'tokens', 'cost'])('preserves the shared sortable column id %s', (column) => {
+    const out = translateV3ViewState({ single: { sort: `${column}::TRACE_INFO::true` } });
+    expect(out.single.sort).toBe(column);
+    expect(out.single.dir).toBe('asc');
+  });
+
+  test('maps a V3 assessment column id to the V4 assessment namespace', () => {
+    const out = translateV3ViewState({ single: { sort: 'quality score_assessment_column::ASSESSMENT::false' } });
+    expect(out.single.sort).toBe('assessment:quality score');
     expect(out.single.dir).toBe('desc');
   });
 
   test('drops a sort whose V3 key has no V4-sortable column', () => {
     // `session` is client-sortable in V3 but not a V4-sortable column, so the sort is dropped.
     const out = translateV3ViewState({ single: { sort: 'session::string::true' } });
+    expect(out.single.sort).toBeUndefined();
+    expect(out.single.dir).toBeUndefined();
+  });
+
+  test.each(['state', 'tokens', 'cost'])('does not reinterpret an INPUT sort named %s', (column) => {
+    const out = translateV3ViewState({ single: { sort: `${column}::INPUT::true` } });
+    expect(out.single.sort).toBeUndefined();
+    expect(out.single.dir).toBeUndefined();
+  });
+
+  test.each([
+    'state::ASSESSMENT::true',
+    'quality_assessment_column::TRACE_INFO::true',
+    'state::string::true',
+    'state::TRACE_INFO::not-a-boolean',
+  ])('drops a sort whose V3 type or direction does not match its key: %s', (sort) => {
+    const out = translateV3ViewState({ single: { sort } });
     expect(out.single.sort).toBeUndefined();
     expect(out.single.dir).toBeUndefined();
   });
@@ -158,7 +186,7 @@ describe('translateV3ViewState — end to end', () => {
     const v3State = {
       single: {
         selectedColumns: 'request_time,request,execution_duration',
-        sort: 'execution_duration::number::false',
+        sort: 'execution_duration::TRACE_INFO::false',
         viewState: 'internal-v3-only',
         startTimeLabel: 'LAST_7_DAYS',
       },

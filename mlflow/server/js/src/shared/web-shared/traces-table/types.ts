@@ -7,6 +7,9 @@ import type { PAGE_SIZE_OPTIONS, TRACE_COLUMN_IDS } from './constants';
 /** One of the fixed, known trace columns (canonical render order lives in `TRACE_COLUMN_IDS`). */
 export type TraceColumnId = (typeof TRACE_COLUMN_IDS)[number];
 
+/** A server-sortable standard column or a dynamic trace-level assessment column. */
+export type TraceSortColumnId = TraceColumnId | `assessment:${string}`;
+
 export type SortDirection = 'asc' | 'desc';
 
 /** A page-size the pagination bar offers. */

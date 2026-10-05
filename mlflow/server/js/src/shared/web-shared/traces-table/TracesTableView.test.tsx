@@ -21,6 +21,7 @@ const baseProps = (over: Partial<TracesTableViewProps> = {}): TracesTableViewPro
   isSomeOnPageSelected: false,
   onToggleBulkRow: jest.fn(),
   onToggleBulkAll: jest.fn(),
+  sortableColumnIds: ['start_time', 'duration', 'state', 'tokens', 'cost'],
   sort: 'start_time',
   dir: 'desc',
   onSort: jest.fn(),

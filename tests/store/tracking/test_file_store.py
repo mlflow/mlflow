@@ -3530,6 +3530,26 @@ def test_search_traces_order(generate_trace_infos):
     expected_trace_infos = sorted(trace_infos, key=lambda x: x.request_id, reverse=True)
     _validate_search_traces(store, [exp_id], "", expected_trace_infos, order_by=["request_id DESC"])
 
+    # order by trace name tag
+    _validate_search_traces(store, [exp_id], "", trace_infos, order_by=["name ASC"])
+    _validate_search_traces(store, [exp_id], "", trace_infos[::-1], order_by=["name DESC"])
+
+    # order by source run metadata; missing values sort last in both directions
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "",
+        trace_infos[5:] + trace_infos[:5][::-1],
+        order_by=["run_id ASC"],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "",
+        trace_infos[5:][::-1] + trace_infos[:5][::-1],
+        order_by=["run_id DESC"],
+    )
+
     # order by experiment_id
     exp_id2 = store.create_experiment("test2")
     trace_info = store.start_trace(
@@ -3566,15 +3586,20 @@ def test_search_traces_raise_errors(generate_trace_infos):
     # unsupported order_by keys
     with pytest.raises(
         MlflowException,
-        match=r"Invalid order_by entity `tag` with key `mlflow.traceName`",
+        match=r"Invalid order_by entity `span` with key `name`",
     ):
-        store.search_traces([exp_id], "", order_by=["name DESC"])
-    with pytest.raises(
-        MlflowException,
-        match=r"Invalid order_by entity `request_metadata` "
-        rf"with key `{TraceMetadataKey.SOURCE_RUN}`",
-    ):
-        store.search_traces([exp_id], "", order_by=["run_id ASC"])
+        store.search_traces([exp_id], "", order_by=["span.name ASC"])
+
+    for metadata_key in (TraceMetadataKey.TOKEN_USAGE, TraceMetadataKey.COST):
+        with pytest.raises(
+            MlflowException,
+            match=rf"Ordering by reserved metadata '{re.escape(metadata_key)}' is not supported",
+        ):
+            store.search_traces(
+                [exp_id],
+                "",
+                order_by=[f"request_metadata.`{metadata_key}` ASC"],
+            )
 
 
 def test_search_traces_pagination(generate_trace_infos):
