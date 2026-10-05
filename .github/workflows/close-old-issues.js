@@ -172,6 +172,7 @@ module.exports = async ({ context, github }) => {
   const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security reactions:0`;
   const linkedPullRequestUrls = new Map();
   const closedIssueNumbers = [];
+  const closedPullRequestNumbers = [];
   let cursor = null;
   let hasNextPage = true;
   const eligibleIssues = [];
@@ -229,6 +230,7 @@ module.exports = async ({ context, github }) => {
       if (dryRun) {
         const linked = `linked issue${urls.length > 1 ? "s" : ""}: ${urls.join(", ")}`;
         console.log(`[dry run] Would close PR #${pullRequestNumber} (${linked})`);
+        closedPullRequestNumbers.push(pullRequestNumber);
         continue;
       }
 
@@ -251,11 +253,13 @@ module.exports = async ({ context, github }) => {
           urls.length > 1 ? "s" : ""
         }.`
       );
+      closedPullRequestNumbers.push(pullRequestNumber);
     }
 
     for (const issue of eligibleIssues) {
       if (dryRun) {
         console.log(`[dry run] Would close issue #${issue.number}`);
+        closedIssueNumbers.push(issue.number);
         continue;
       }
 
@@ -287,7 +291,7 @@ module.exports = async ({ context, github }) => {
       failed,
       rateLimited,
       issueNumbers: closedIssueNumbers,
-      pullRequestNumbers: [...linkedPullRequestUrls.keys()],
+      pullRequestNumbers: closedPullRequestNumbers,
     });
   }
 
@@ -295,7 +299,7 @@ module.exports = async ({ context, github }) => {
   const suffix = rateLimited ? " (stopped early by the rate limit; the next run resumes)" : "";
   console.log(
     `${verb} ${closedIssueNumbers.length} issues and ${
-      linkedPullRequestUrls.size
+      closedPullRequestNumbers.length
     } linked pull requests${dryRun ? " in a dry run" : ""}${suffix}.`
   );
 };
