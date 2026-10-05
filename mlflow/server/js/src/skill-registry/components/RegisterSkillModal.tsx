@@ -43,7 +43,10 @@ interface RegisterSkillModalProps {
   onClose: () => void;
   /** Set when adding a version to an existing skill. Identity stays fixed. */
   skill?: { name: string; organization: string };
-  /** Version whose source is copied into the form. Status stays Active. */
+  /**
+   * Version whose source is copied into the form when it can be submitted again. An uploaded version opens the
+   * folder picker instead, since its MLflow artifact location is not a source a client can register.
+   */
   sourceVersion?: SkillVersion;
   onRegistered: (version: SkillVersion) => void;
 }
@@ -117,16 +120,20 @@ const REGISTRATION_ERROR_MESSAGES: Record<SkillRegistrationErrorCode, { defaultM
 const clientSourceType = (sourceType: string | null | undefined): '' | SkillRegistrationSourceType =>
   sourceType === 'git' || sourceType === 'oci' || sourceType === 'zip' ? sourceType : '';
 
-const initialForm = (sourceVersion?: SkillVersion): SkillRegistrationFields =>
-  sourceVersion
-    ? {
-        ...EMPTY_FORM,
-        location: sourceVersion.source ?? '',
-        sourceTypeOverride: clientSourceType(sourceVersion.source_type),
-        ref: sourceVersion.ref ?? '',
-        subpath: sourceVersion.subpath ?? '',
-      }
-    : EMPTY_FORM;
+// Returns the version's source as form fields only when that source would pass validation as is.
+const formFromVersion = (sourceVersion: SkillVersion | undefined, identity: string) => {
+  if (!sourceVersion) return undefined;
+  const sourceTypeOverride = clientSourceType(sourceVersion.source_type);
+  if (!sourceTypeOverride) return undefined;
+  const fields: SkillRegistrationFields = {
+    ...EMPTY_FORM,
+    location: sourceVersion.source ?? '',
+    sourceTypeOverride,
+    ref: sourceVersion.ref ?? '',
+    subpath: sourceVersion.subpath ?? '',
+  };
+  return buildExternalSkillVersionRequest({ ...fields, identity }).ok ? fields : undefined;
+};
 
 // The dialog is only mounted while visible, so every open starts from fresh state.
 export const RegisterSkillModal = (props: RegisterSkillModalProps) =>
@@ -138,9 +145,10 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const isVersion = Boolean(skill);
   const fixedIdentity = skill ? formatSkillIdentity(skill.name, skill.organization) : '';
   const [view, setView] = useState<'form' | 'api'>('form');
-  const [mode, setMode] = useState<RegistrationMode>('pointer');
-  const [advancedOpen, setAdvancedOpen] = useState(Boolean(sourceVersion));
-  const [form, setForm] = useState(() => initialForm(sourceVersion));
+  const [seededForm] = useState(() => formFromVersion(sourceVersion, fixedIdentity));
+  const [mode, setMode] = useState<RegistrationMode>(sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer');
+  const [advancedOpen, setAdvancedOpen] = useState(Boolean(seededForm));
+  const [form, setForm] = useState(seededForm ?? EMPTY_FORM);
   const [description, setDescription] = useState('');
   const [icons, setIcons] = useState<RegistryIcon[]>([]);
   const [tags, setTags] = useState<Record<string, string>>({});

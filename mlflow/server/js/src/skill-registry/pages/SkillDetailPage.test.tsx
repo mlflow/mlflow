@@ -317,6 +317,28 @@ describe('SkillDetailPage', () => {
     expect(screen.getByText('code-review')).toBeInTheDocument();
   });
 
+  it('opens the folder picker instead of copying an uploaded version source', async () => {
+    const uploaded = createMockSkillVersion({
+      version: 2,
+      status: SkillStatus.ACTIVE,
+      source_type: 'mlflow',
+      source: 'mlflow-artifacts:/skills/@acme/code-review/0123456789abcdef0123456789abcdef',
+      ref: null,
+      subpath: null,
+    });
+    server.use(...getMockedSkillDetailHandlers(mockSkill, [uploaded, mockVersion1]));
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill version' }));
+    expect(screen.getByRole('radio', { name: /Upload a folder/ })).toBeChecked();
+    expect(screen.queryByLabelText('Location')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: /Import from existing source/ }));
+    expect(screen.getByLabelText('Location')).toHaveValue('');
+  });
+
   it('adds an external version without changing the skill identity', async () => {
     const created = createMockSkillVersion({
       version: 3,
