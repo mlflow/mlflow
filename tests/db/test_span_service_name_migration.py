@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from unittest import mock
 
@@ -16,6 +17,35 @@ REVISION = "e8f9a0b1c2d3"
 PREVIOUS_REVISION = "dc11669786a5"
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+@pytest.mark.parametrize(
+    ("supports_sane_rowcount", "rowcount", "warning"),
+    [
+        (True, 2, None),
+        (
+            True,
+            1,
+            "Span service-name backfill updated 1 of 2 rows; unmatched rows will keep a NULL "
+            "service_name",
+        ),
+        (False, -1, None),
+    ],
+)
+def test_execute_backfill_updates_warns_on_supported_rowcount_mismatch(
+    caplog, supports_sane_rowcount, rowcount, warning
+):
+    result = mock.Mock(rowcount=rowcount)
+    result.supports_sane_multi_rowcount.return_value = supports_sane_rowcount
+    bind = mock.Mock()
+    bind.execute.return_value = result
+    updates = [{"id": 1}, {"id": 2}]
+
+    with caplog.at_level(logging.WARNING, logger=service_name_migration.__name__):
+        service_name_migration._execute_backfill_updates(bind, "update", updates)
+
+    bind.execute.assert_called_once_with("update", updates)
+    assert [record.getMessage() for record in caplog.records] == ([warning] if warning else [])
 
 
 def test_span_service_name_migration(tmp_path: Path):

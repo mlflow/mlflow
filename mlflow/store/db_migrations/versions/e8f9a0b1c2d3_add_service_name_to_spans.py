@@ -11,6 +11,7 @@ NULL.
 """
 
 import json
+import logging
 
 import sqlalchemy as sa
 from alembic import op
@@ -20,6 +21,8 @@ revision = "e8f9a0b1c2d3"
 down_revision = "dc11669786a5"
 branch_labels = None
 depends_on = None
+
+_logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 250
 _SERVICE_NAME_KEY = "service.name"
@@ -95,12 +98,19 @@ def _backfill_service_names():
                     "service_name_param": service_name,
                 })
         if updates:
-            result = bind.execute(update_stmt, updates)
-            if result.supports_sane_multi_rowcount() and result.rowcount != len(updates):
-                raise RuntimeError(
-                    f"Span service-name backfill updated {result.rowcount} of {len(updates)} rows"
-                )
+            _execute_backfill_updates(bind, update_stmt, updates)
         last_span_key = (batch[-1].trace_id, batch[-1].span_id)
+
+
+def _execute_backfill_updates(bind, update_stmt, updates):
+    result = bind.execute(update_stmt, updates)
+    if result.supports_sane_multi_rowcount() and result.rowcount != len(updates):
+        _logger.warning(
+            "Span service-name backfill updated %s of %s rows; unmatched rows will keep a NULL "
+            "service_name",
+            result.rowcount,
+            len(updates),
+        )
 
 
 def upgrade():
