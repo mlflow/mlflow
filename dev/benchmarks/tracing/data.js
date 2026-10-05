@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791163798479,
+  "lastUpdate": 1791170336113,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "198982749+Copilot@users.noreply.github.com",
-            "name": "Copilot",
-            "username": "Copilot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f98657fe99167454d24f919a9f97d6cc03a36920",
-          "message": "Change `serialization_format` default to `\"pt2\"` for `mlflow.pytorch.log_model` and `mlflow.pytorch.save_model` (#23988)\n\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: WeichenXu123 <19235986+WeichenXu123@users.noreply.github.com>\nCo-authored-by: Weichen Xu <weichen.xu@databricks.com>",
-          "timestamp": "2026-06-15T09:59:53Z",
-          "tree_id": "1f63859afa7ec24105bc261ac188ac4b22cd9ebe",
-          "url": "https://github.com/mlflow/mlflow/commit/f98657fe99167454d24f919a9f97d6cc03a36920"
-        },
-        "date": 1781517823712,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 51.57456320000193,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 28.66755703333534,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 25.71266423076925,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 24.755294255320244,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 26.787977057692338,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.855649599998628,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 29.763690999999426,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "joshua.wong@databricks.com",
+            "name": "joshuawong-db",
+            "username": "joshuawong-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d4eb31c90580da1ba67e7205fa815bf61ef3c6a3",
+          "message": "Support TypeSafe and OpenRouter Jev judges through Gateway System One (#26243)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-05T03:15:25Z",
+          "tree_id": "84f690d42b4ca0e79aaa1053e701769b630a858a",
+          "url": "https://github.com/mlflow/mlflow/commit/d4eb31c90580da1ba67e7205fa815bf61ef3c6a3"
+        },
+        "date": 1791170333674,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.69238545000039,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 9.886643999999531,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.720632693548666,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.582924512195417,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.884645128441791,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.28906440000037,
             "unit": "ms"
           }
         ]
