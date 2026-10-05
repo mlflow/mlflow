@@ -4774,6 +4774,7 @@ class SqlSkill(Base):
     last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
 
     resolved_latest_version = query_expression()
+    resolved_source_type = query_expression()
     resolved_status = query_expression()
 
     __table_args__ = (PrimaryKeyConstraint("workspace", "organization", "name", name="skills_pk"),)
@@ -4846,6 +4847,7 @@ class SqlSkill(Base):
             ),
         ).options(
             with_expression(cls.resolved_latest_version, latest_candidates.c.version),
+            with_expression(cls.resolved_source_type, latest_candidates.c.source_type),
             with_expression(cls.resolved_status, latest_candidates.c.status),
         )
         return query, {
@@ -4863,6 +4865,7 @@ class SqlSkill(Base):
         self,
         *,
         resolved_latest_version: int | None = None,
+        resolved_source_type: str | None = None,
         resolved_status: str | None = None,
     ):
         tags = {t.key: t.value for t in self.tags}
@@ -4872,7 +4875,13 @@ class SqlSkill(Base):
             if resolved_latest_version is None
             else resolved_latest_version
         )
+        resolved_source_type = (
+            self.resolved_source_type if resolved_source_type is None else resolved_source_type
+        )
         resolved_status = self.resolved_status if resolved_status is None else resolved_status
+        source_type = (
+            SkillSourceType(resolved_source_type) if resolved_source_type is not None else None
+        )
         status = SkillStatus(resolved_status) if resolved_status is not None else None
         return Skill(
             name=self.name,
@@ -4884,6 +4893,7 @@ class SqlSkill(Base):
             tags=tags,
             aliases=aliases,
             latest_version=resolved_latest_version,
+            source_type=source_type,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             creation_timestamp=self.created_at,
