@@ -38,6 +38,12 @@ describe('SkillRegistryPage', () => {
     setActiveWorkspace(null);
   });
 
+  // An empty catalog shows Create skill in its empty state once the list has loaded.
+  const openCreateSkillDialog = async () => {
+    await screen.findByText('Register and catalog skills for your organization.');
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+  };
+
   const renderPage = (initialEntries = ['/skills']) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -61,11 +67,8 @@ describe('SkillRegistryPage', () => {
 
   it('renders the catalog title and empty-registry state', async () => {
     renderPage();
-    await waitFor(() => {
-      expect(screen.getByText('No skills yet')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Register and catalog skills for your organization.')).toBeInTheDocument();
     expect(screen.getByText('Skills')).toBeInTheDocument();
-    expect(screen.getByText('Skills you can read will appear here once they are registered.')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Tag key')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Tag value')).not.toBeInTheDocument();
   });
@@ -118,6 +121,43 @@ describe('SkillRegistryPage', () => {
     });
     expect(screen.getByText('Not allowed to search skills')).toBeInTheDocument();
     expect(screen.queryByText('Retry')).not.toBeInTheDocument();
+  });
+
+  it('moves Create skill from the header into the empty state when the catalog is empty', async () => {
+    renderPage();
+
+    expect(await screen.findByText('Register and catalog skills for your organization.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Create skill' })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    expect(screen.getByRole('dialog', { name: 'Create skill' })).toBeInTheDocument();
+  });
+
+  it('drops a Git ref when the location changes to another source type', async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    server.use(
+      rest.get(/skills\/@acme\/oci-skill$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
+        requestBody = await req.json();
+        return res(ctx.status(500), ctx.json({ message: 'stop here' }));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/dev/code-review');
+    await userEvent.click(screen.getByRole('button', { name: 'Advanced settings (optional)' }));
+    expect(screen.getByLabelText('Branch, tag or commit')).toHaveValue('dev');
+
+    await userEvent.clear(screen.getByLabelText('Location'));
+    await userEvent.type(screen.getByLabelText('Location'), 'oci://ghcr.io/acme/oci-skill:1');
+    expect(screen.queryByLabelText('Branch, tag or commit')).not.toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), '@acme/oci-skill');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(requestBody).toBeDefined());
+    expect(requestBody).toMatchObject({ source_type: 'oci', source: 'ghcr.io/acme/oci-skill:1' });
+    expect(requestBody).not.toHaveProperty('ref');
   });
 
   it('shows empty-search copy when filters return no results', async () => {
@@ -438,7 +478,7 @@ describe('SkillRegistryPage', () => {
     const queryClient = renderPage();
     const invalidateQueries = jest.spyOn(queryClient, 'invalidateQueries');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await openCreateSkillDialog();
     expect(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ })).toBeChecked();
     expect(
       screen.getByLabelText('Location').compareDocumentPosition(screen.getByLabelText('Name')) &
@@ -508,7 +548,7 @@ describe('SkillRegistryPage', () => {
     );
     renderPage();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await openCreateSkillDialog();
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
     await userEvent.click(screen.getByLabelText('Name'));
     await userEvent.tab();
@@ -530,7 +570,7 @@ describe('SkillRegistryPage', () => {
   it('points a whole-repository location at the repository import command', async () => {
     renderPage();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await openCreateSkillDialog();
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
 
     expect(screen.getByText('Registers Git https://github.com/redhat-ai/skills-developer')).toBeInTheDocument();
@@ -555,7 +595,7 @@ describe('SkillRegistryPage', () => {
     );
     renderPage();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await openCreateSkillDialog();
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
     expect(screen.getByText('Enter a source location.')).toBeInTheDocument();
 

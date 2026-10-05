@@ -2108,6 +2108,7 @@ module.exports = {
   "mlflow.skill_registry.edit_skill_modal": "",
   "mlflow.skill_registry.edit_skill_modal.description": "",
   "mlflow.skill_registry.edit_skill_modal.error": "",
+  "mlflow.skill_registry.empty_state.create": "",
   "mlflow.skill_registry.error": "",
   "mlflow.skill_registry.error.retry": "",
   "mlflow.skill_registry.filter.active": "",

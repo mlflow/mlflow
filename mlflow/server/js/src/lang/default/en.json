@@ -1819,10 +1819,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5GYNxI": {
-    "defaultMessage": "No skills yet",
-    "description": "Empty state title for the Skill Registry"
-  },
   "5K6npM": {
     "defaultMessage": "Analyze with Assistant",
     "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
@@ -3730,6 +3726,10 @@
   "CE32Hw": {
     "defaultMessage": "Skill not found",
     "description": "Title when a Skill cannot be loaded"
+  },
+  "CEhtNe": {
+    "defaultMessage": "Skills you can read will appear here once they are registered.",
+    "description": "Empty state description for a Skill Registry page without skills"
   },
   "CHQQ0K": {
     "defaultMessage": "Find",
@@ -6167,6 +6167,10 @@
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
   },
+  "MC4CQr": {
+    "defaultMessage": "Create skill",
+    "description": "Empty state title for the Skill Registry"
+  },
   "MEbk2j": {
     "defaultMessage": "Source",
     "description": "Trace filter field: source name"
@@ -8046,6 +8050,10 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
+  },
+  "T7b0ai": {
+    "defaultMessage": "Register and catalog skills for your organization.",
+    "description": "Empty state description for an empty Skill Registry"
   },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
@@ -13859,6 +13867,10 @@
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to a dataset"
   },
+  "oLcvO7": {
+    "defaultMessage": "Create skill",
+    "description": "Skill Registry empty state call to action"
+  },
   "oM+XmM": {
     "defaultMessage": "Column options for {column}",
     "description": "Accessible label for the per-column options menu button in the traces table header"
@@ -15227,10 +15239,6 @@
     "defaultMessage": "Prompt",
     "description": "Label for the prompt picker on the playground prompt-registry modal"
   },
-  "tY4NFM": {
-    "defaultMessage": "Skills you can read will appear here once they are registered.",
-    "description": "Empty state description for an empty Skill Registry"
-  },
   "ta42Qe": {
     "defaultMessage": "Active",
     "description": "Webhook status field label"
@@ -15682,6 +15690,10 @@
   "vcK5wo": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip to explain how to search MCP servers in the registry"
+  },
+  "ve0pd3": {
+    "defaultMessage": "No skills yet",
+    "description": "Empty state title for a Skill Registry page"
   },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",

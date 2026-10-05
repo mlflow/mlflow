@@ -182,8 +182,14 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     onClose();
   };
 
+  // A ref only applies to Git; the field is hidden for other types, so a leftover value must not linger.
+  const leavesGit = (sourceType: SkillRegistrationSourceType | '' | undefined) =>
+    Boolean(sourceType) && sourceType !== 'git';
+
   const applyLocation = (location: string) => {
     const nextParsed = parseSkillLocation(location);
+    const dropRef = leavesGit(form.sourceTypeOverride || nextParsed?.sourceType);
+    if (dropRef) setRefTouched(false);
     setForm((current) => ({
       ...current,
       location,
@@ -191,7 +197,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
         !isVersion && !identityTouched && nextParsed?.suggestedName
           ? formatSkillIdentity(nextParsed.suggestedName, nextParsed.suggestedOrganization)
           : current.identity,
-      ref: refTouched ? current.ref : (nextParsed?.ref ?? ''),
+      ref: dropRef ? '' : refTouched ? current.ref : (nextParsed?.ref ?? ''),
       subpath: subpathTouched ? current.subpath : (nextParsed?.subpath ?? ''),
     }));
     setValidationError(undefined);
@@ -657,12 +663,15 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                           defaultMessage: 'Select a source type',
                           description: 'Placeholder for the skill source type override',
                         })}
-                        onChange={({ target }) =>
+                        onChange={({ target }) => {
+                          const sourceTypeOverride = target.value as SkillRegistrationSourceType;
+                          if (leavesGit(sourceTypeOverride)) setRefTouched(false);
                           setForm((current) => ({
                             ...current,
-                            sourceTypeOverride: target.value as SkillRegistrationSourceType,
-                          }))
-                        }
+                            sourceTypeOverride,
+                            ref: leavesGit(sourceTypeOverride) ? '' : current.ref,
+                          }));
+                        }}
                       >
                         <SimpleSelectOption value="git">Git</SimpleSelectOption>
                         <SimpleSelectOption value="oci">OCI</SimpleSelectOption>

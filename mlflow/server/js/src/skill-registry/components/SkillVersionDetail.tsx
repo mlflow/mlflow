@@ -437,10 +437,15 @@ export const SkillVersionDetail = ({
           />
         </span>
 
-        <MetadataLabel>
-          <FormattedMessage defaultMessage="Created by:" description="Skill version creator label" />
-        </MetadataLabel>
-        <MetadataValue>{version.created_by || '—'}</MetadataValue>
+        {/* Without auth the server records no user, so an empty creator is hidden rather than shown as "—". */}
+        {version.created_by && (
+          <>
+            <MetadataLabel>
+              <FormattedMessage defaultMessage="Created by:" description="Skill version creator label" />
+            </MetadataLabel>
+            <MetadataValue>{version.created_by}</MetadataValue>
+          </>
+        )}
 
         <MetadataLabel>
           <FormattedMessage defaultMessage="Aliases:" description="Skill version aliases label" />

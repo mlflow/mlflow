@@ -73,6 +73,9 @@ const SkillRegistryPage = () => {
 
   const hasActiveFilters = hasSkillCatalogFilters(catalogFilters);
   const isPermissionDenied = isPermissionDeniedError(error);
+  // Like the MCP registry, an empty catalog moves the create button from the header into the empty state.
+  const isCatalogEmpty = !isLoading && !error && !skills?.length && !hasActiveFilters && !hasPreviousPage;
+  const openRegister = () => setRegisterOpen(true);
 
   useEffect(() => {
     let added = false;
@@ -101,14 +104,16 @@ const SkillRegistryPage = () => {
           </span>
         }
         buttons={
-          <Button
-            componentId="mlflow.skill_registry.create"
-            type="primary"
-            icon={<PlusIcon />}
-            onClick={() => setRegisterOpen(true)}
-          >
-            <FormattedMessage defaultMessage="Create skill" description="Button that opens skill registration" />
-          </Button>
+          isCatalogEmpty ? undefined : (
+            <Button
+              componentId="mlflow.skill_registry.create"
+              type="primary"
+              icon={<PlusIcon />}
+              onClick={openRegister}
+            >
+              <FormattedMessage defaultMessage="Create skill" description="Button that opens skill registration" />
+            </Button>
+          )
         }
       />
       <Spacer shrinks={false} />
@@ -208,6 +213,7 @@ const SkillRegistryPage = () => {
                   skills={skills}
                   isLoading={isLoading}
                   isFiltered={hasActiveFilters}
+                  onCreateSkill={isCatalogEmpty ? openRegister : undefined}
                   hasNextPage={hasNextPage}
                   hasPreviousPage={hasPreviousPage}
                   onNextPage={onNextPage}
@@ -221,6 +227,7 @@ const SkillRegistryPage = () => {
                   hasPreviousPage={hasPreviousPage}
                   isLoading={isLoading}
                   isFiltered={hasActiveFilters}
+                  onCreateSkill={isCatalogEmpty ? openRegister : undefined}
                   onNextPage={onNextPage}
                   onPreviousPage={onPreviousPage}
                   pageSizeSelect={pageSizeSelect}

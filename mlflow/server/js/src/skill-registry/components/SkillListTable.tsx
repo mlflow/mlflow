@@ -201,6 +201,7 @@ export const SkillListTable = ({
   hasPreviousPage,
   isLoading,
   isFiltered,
+  onCreateSkill,
   onNextPage,
   onPreviousPage,
   pageSizeSelect,
@@ -210,6 +211,7 @@ export const SkillListTable = ({
   hasPreviousPage: boolean;
   isLoading?: boolean;
   isFiltered?: boolean;
+  onCreateSkill?: () => void;
   onNextPage: () => void;
   onPreviousPage: () => void;
   pageSizeSelect?: CursorPaginationProps['pageSizeSelect'];
@@ -225,7 +227,7 @@ export const SkillListTable = ({
   });
 
   const isEmptyList = !isLoading && (!skills || skills.length === 0);
-  const emptyState = isEmptyList ? <SkillsEmptyState isFiltered={isFiltered} /> : null;
+  const emptyState = isEmptyList ? <SkillsEmptyState isFiltered={isFiltered} onCreateSkill={onCreateSkill} /> : null;
 
   return (
     <Table

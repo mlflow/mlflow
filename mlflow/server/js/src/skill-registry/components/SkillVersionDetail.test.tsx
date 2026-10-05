@@ -90,6 +90,11 @@ describe('SkillVersionDetail', () => {
     expect(await screen.findAllByText(expected)).not.toHaveLength(0);
   });
 
+  it('hides the creator row when no user was recorded', () => {
+    renderDetail({ version: createMockSkillVersion({ created_by: null }) });
+    expect(screen.queryByText('Created by:')).not.toBeInTheDocument();
+  });
+
   it('does not link unsafe sources', () => {
     renderDetail({
       version: createMockSkillVersion({ source: 'mlflow-artifacts:/skills/@acme/code-review/2' }),
