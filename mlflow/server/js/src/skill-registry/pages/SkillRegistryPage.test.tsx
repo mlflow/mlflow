@@ -555,9 +555,11 @@ describe('SkillRegistryPage', () => {
     expect(
       await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
 
     await userEvent.type(screen.getByLabelText('Name'), '-v2');
     expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
     await userEvent.clear(screen.getByLabelText('Name'));
     await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/skills-developer');
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));

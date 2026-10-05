@@ -442,7 +442,9 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
             componentId="mlflow.skill_registry.register_modal.submit"
             type="primary"
             loading={submitting}
-            disabled={view === 'api' || submitting || (mode === 'upload' && !hasSkillManifest)}
+            disabled={
+              view === 'api' || submitting || Boolean(takenIdentity) || (mode === 'upload' && !hasSkillManifest)
+            }
             onClick={() => void submit()}
           >
             <FormattedMessage defaultMessage="Create" description="Submit button for skill registration" />
