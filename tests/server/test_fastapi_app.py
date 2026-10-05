@@ -1,12 +1,12 @@
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER
-from mlflow.server.fastapi_app import add_mcp_exception_handlers, create_fastapi_app
+from mlflow.server.fastapi_app import add_registry_exception_handlers, create_fastapi_app
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 
@@ -37,7 +37,7 @@ def test_mcp_exception_handler_delegates_for_non_mcp_routes():
     async def existing_mlflow_exception_handler(request, exc):
         return JSONResponse(status_code=418, content={"detail": "delegated"})
 
-    add_mcp_exception_handlers(app)
+    add_registry_exception_handlers(app)
 
     @app.get("/non-mcp")
     async def non_mcp():
@@ -50,12 +50,28 @@ def test_mcp_exception_handler_delegates_for_non_mcp_routes():
     assert response.json() == {"detail": "delegated"}
 
 
+def test_registry_http_exception_handler_delegates_for_non_registry_routes():
+    app = FastAPI()
+    add_registry_exception_handlers(app)
+
+    @app.get("/non-registry")
+    async def non_registry():
+        raise HTTPException(status_code=418, detail="delegated")
+
+    client = TestClient(app)
+    response = client.get("/non-registry")
+
+    assert response.status_code == 418
+    assert response.json() == {"detail": "delegated"}
+
+
 # One probe per prefix-aware router; any non-404 response proves the route is registered.
 _NATIVE_ROUTER_PROBES = (
     ("POST", OTLP_TRACES_PATH),
     ("POST", "/ajax-api/3.0/jobs/search"),
     ("POST", "/gateway/mlflow/v1/chat/completions"),
     ("GET", "/ajax-api/3.0/mlflow/assistant/config"),
+    ("POST", "/ajax-api/3.0/mlflow/skills"),
 )
 
 

@@ -50,7 +50,7 @@ from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _strip_mcp_icon_response_fields,
-    _validate_mcp_icon_payloads,
+    _validate_icon_payloads,
     _validate_mcp_initial_status,
     _validate_mcp_tool_payloads,
 )
@@ -63,7 +63,7 @@ _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "
 def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
     # Keep validation aligned with schema-defined icon locations only. Extra free-form
     # metadata (for example under ``_meta``) must continue to round-trip untouched.
-    _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+    _validate_icon_payloads(server_json.get("icons"), "server_json.icons")
 
 
 def _strip_server_json_icon_response_fields(server_json: dict[str, Any]) -> dict[str, Any]:
@@ -93,7 +93,7 @@ def _validate_tool_icons(tools: list[MCPTool] | None, field_name: str = "tools")
 
     _validate_mcp_tool_payloads(tools, field_name)
     for idx, tool in enumerate(tools):
-        _validate_mcp_icon_payloads(tool.icons, f"{field_name}[{idx}].icons")
+        _validate_icon_payloads(tool.icons, f"{field_name}[{idx}].icons")
 
 
 class SqlAlchemyMCPServerRegistryMixin:
@@ -117,7 +117,7 @@ class SqlAlchemyMCPServerRegistryMixin:
     ) -> MCPServer:
         validate_mcp_server_name(name)
         icons = _strip_mcp_icon_response_fields(icons)
-        _validate_mcp_icon_payloads(icons, "icons")
+        _validate_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
             try:
@@ -229,7 +229,7 @@ class SqlAlchemyMCPServerRegistryMixin:
     ) -> MCPServer:
         if icons is not NOT_SET:
             icons = _strip_mcp_icon_response_fields(icons)
-            _validate_mcp_icon_payloads(icons, "icons")
+            _validate_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
             if description is not NOT_SET:

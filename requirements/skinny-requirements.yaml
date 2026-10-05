@@ -109,6 +109,11 @@ fastapi:
   pip_release: fastapi
   max_major_version: 0
 
+python-multipart:
+  pip_release: python-multipart
+  minimum: "0.0.18"
+  max_major_version: 0
+
 starlette:
   pip_release: starlette
   max_major_version: 1
