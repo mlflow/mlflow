@@ -119,8 +119,9 @@ export const TracesV4TraceDrawer = ({
   const currentIndex = traces.findIndex((trace) => idOf(trace) === traceId);
   const currentInfo = currentIndex >= 0 ? traces[currentIndex] : undefined;
 
-  // `useGetTrace` parses the `trace:/…` long id itself, so it also serves deep-links where the row
-  // isn't on the current page. Passing the row's info lets it derive BatchGetTraces time hints.
+  // Keep this hook unconditional for session-only drawers: an empty id disables its query without
+  // changing hook order. Long ids also support deep-links whose row is not on the current page, and
+  // passing the row's info lets it derive BatchGetTraces time hints.
   const { data: traceData, isLoading, error } = useGetTrace(traceId ?? '', undefined, currentInfo);
   const sessionFilters = useMemo(() => (sessionId ? getChatSessionsFilter({ sessionId }) : []), [sessionId]);
   const fetchedTraceInfo = traceData?.info;
