@@ -61,7 +61,7 @@ export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean
         icon={<McpIcon />}
         collapsed={collapsed}
       >
-        <FormattedMessage defaultMessage="MCP" description="Sidebar link for MCP registry page" />
+        <FormattedMessage defaultMessage="MCP" description="Sidebar link for MCP tab" />
         <span css={{ marginLeft: 'auto' }}>
           <MCPRegistryBetaTag />
         </span>
@@ -74,7 +74,7 @@ export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean
         icon={<PuzzleIcon />}
         collapsed={collapsed}
       >
-        <FormattedMessage defaultMessage="Skills" description="Sidebar link for Skill Registry page" />
+        <FormattedMessage defaultMessage="Skills" description="Sidebar link for skills tab" />
         <span css={{ marginLeft: 'auto' }}>
           <SkillRegistryBetaTag />
         </span>

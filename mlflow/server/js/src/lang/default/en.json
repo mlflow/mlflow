@@ -3695,6 +3695,10 @@
     "defaultMessage": "New question",
     "description": "Review queue: create new question link in dropdown"
   },
+  "C7sCoZ": {
+    "defaultMessage": "Model Context Protocol",
+    "description": "MCP Registry page title"
+  },
   "C83vFj": {
     "defaultMessage": "Latency",
     "description": "Title for the latency chart"
@@ -4883,6 +4887,10 @@
     "defaultMessage": "Edit tags for version {version}",
     "description": "Title for editing tags on a skill version"
   },
+  "H4ue/m": {
+    "defaultMessage": "Image failed to load",
+    "description": "Error message when a skill icon URL fails to load in the preview"
+  },
   "H6aarx": {
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
@@ -5214,6 +5222,10 @@
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Create review queue: questions dropdown selected-count summary"
+  },
+  "IG9BAn": {
+    "defaultMessage": "GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings.",
+    "description": "Warning that a GitHub link's branch and path split is a guess"
   },
   "IHyeUr": {
     "defaultMessage": "Stage",
@@ -5870,10 +5882,6 @@
   "KwJRcV": {
     "defaultMessage": "API key details",
     "description": "Header for API key details section"
-  },
-  "KwiSSx": {
-    "defaultMessage": "MCP",
-    "description": "MCP Registry page title"
   },
   "Kwz1fc": {
     "defaultMessage": "Artifacts",
@@ -6690,10 +6698,6 @@
   "NqqMPs": {
     "defaultMessage": "No evaluation tables logged",
     "description": "Run page > Evaluations tab > No evaluation tables logged"
-  },
-  "Nrc6Hr": {
-    "defaultMessage": "MCP",
-    "description": "Sidebar link for MCP registry page"
   },
   "NsY2mp": {
     "defaultMessage": "Optional secret key",
@@ -8818,6 +8822,10 @@
   "VtJXih": {
     "defaultMessage": "Select at least one question. A queue with no questions can't be reviewed.",
     "description": "Queue settings: validation shown when no questions are selected"
+  },
+  "VuCIj8": {
+    "defaultMessage": "Couldn't check whether this name is already registered: {reason} Try again.",
+    "description": "Error when the skill name availability check fails before registration"
   },
   "VuoTZe": {
     "defaultMessage": "Cancel run",
@@ -11763,10 +11771,6 @@
     "defaultMessage": "Link copied to clipboard.",
     "description": "Review queue: toast after copying a shareable queue link"
   },
-  "ghH+7l": {
-    "defaultMessage": "Skills",
-    "description": "Sidebar link for Skill Registry page"
-  },
   "ghgW69": {
     "defaultMessage": "Select traces",
     "description": "Button to open the trace selection modal from the run evaluation modal"
@@ -12226,6 +12230,10 @@
   "i7fiTI": {
     "defaultMessage": "Delete",
     "description": "Confirm button for deleting a saved experiment view"
+  },
+  "i82Hjx": {
+    "defaultMessage": "Skills",
+    "description": "Sidebar link for skills tab"
   },
   "i9OADf": {
     "defaultMessage": "Params",
@@ -13806,6 +13814,10 @@
   "ny+fBZ": {
     "defaultMessage": "Columns",
     "description": "Dropdown text to display columns names that could to be rendered for the experiment runs table"
+  },
+  "nyBqWG": {
+    "defaultMessage": "MCP",
+    "description": "Sidebar link for MCP tab"
   },
   "nyHcAz": {
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",

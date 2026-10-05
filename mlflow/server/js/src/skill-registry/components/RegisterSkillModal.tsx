@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -34,7 +34,13 @@ import {
 } from '../sourceLocation';
 import { formatSkillImportCli, type SkillImportSnippetOptions, type SkillRegisterSnippetOptions } from '../snippets';
 import { SkillStatus, type RegistryIcon, type SkillVersion } from '../types';
-import { formatSkillIdentity, formatSkillSourceLabel, isCommitSha, isPermissionDeniedError } from '../utils';
+import {
+  formatSkillIdentity,
+  formatSkillSourceLabel,
+  isCommitSha,
+  isNotFoundError,
+  isPermissionDeniedError,
+} from '../utils';
 
 type RegistrationMode = 'pointer' | 'upload';
 
@@ -158,7 +164,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const [refTouched, setRefTouched] = useState(false);
   const [subpathTouched, setSubpathTouched] = useState(false);
   const [validationError, setValidationError] = useState<SkillRegistrationErrorCode>();
-  const [packageError, setPackageError] = useState<string>();
+  const [buildError, setBuildError] = useState<string>();
   const [takenIdentity, setTakenIdentity] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const submitErrorRef = useRef<HTMLDivElement>(null);
@@ -167,15 +173,18 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const { mutateAsync, error } = useRegisterSkillMutation();
 
   useEffect(() => {
-    if (!validationError && !packageError && !error) return;
+    if (!validationError && !buildError && !error) return;
     submitErrorRef.current?.scrollIntoView?.({ block: 'nearest' });
-  }, [validationError, packageError, error]);
+  }, [validationError, buildError, error]);
 
   const parsed = parseSkillLocation(form.location);
   const effectiveSourceType = form.sourceTypeOverride || parsed?.sourceType;
-  const hasSkillManifest = Boolean(findSkillManifest(folderFiles));
+  const hasSkillManifest = useMemo(() => Boolean(findSkillManifest(folderFiles)), [folderFiles]);
   const ref = form.ref.trim();
   const subpath = form.subpath.trim();
+
+  const showRefSplitWarning =
+    effectiveSourceType === 'git' && Boolean(parsed?.refMayIncludePath) && !refTouched && !subpathTouched;
 
   const close = () => {
     closedRef.current = true;
@@ -204,15 +213,27 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     if (!identityTouched) setTakenIdentity(undefined);
   };
 
-  // POST /register reuses an existing skill and silently adds a version to it, so a new skill's
-  // name must be checked first. A 403 still means the skill exists; other failures are left to the server.
+  // POST /register reuses an existing skill and silently adds a version to it, so a new skill's name must be
+  // confirmed free first. Only a 404 confirms that; a 403 still means the skill exists, and any other failure
+  // throws so the create waits until the check succeeds.
   const findTakenIdentity = async (identityInput: string) => {
     const identity = parseSkillIdentityInput(identityInput);
     if ('error' in identity) return undefined;
     try {
       await SkillRegistryApi.getSkill(identity.name, identity.organization);
     } catch (lookupError) {
-      if (!isPermissionDeniedError(lookupError as Error)) return undefined;
+      if (isNotFoundError(lookupError as Error)) return undefined;
+      if (!isPermissionDeniedError(lookupError as Error)) {
+        throw new Error(
+          intl.formatMessage(
+            {
+              defaultMessage: "Couldn't check whether this name is already registered: {reason} Try again.",
+              description: 'Error when the skill name availability check fails before registration',
+            },
+            { reason: (lookupError as Error).message },
+          ),
+        );
+      }
     }
     return formatSkillIdentity(identity.name, identity.organization);
   };
@@ -292,15 +313,15 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const submit = async () => {
     if (view !== 'form' || submitting) return;
     setValidationError(undefined);
-    setPackageError(undefined);
+    setBuildError(undefined);
     setSubmitting(true);
     let input: RegisterSkillMutationInput | undefined;
     try {
       input = await buildMutationInput();
-    } catch (packagingFailure) {
-      setPackageError(
-        packagingFailure instanceof Error
-          ? packagingFailure.message
+    } catch (buildFailure) {
+      setBuildError(
+        buildFailure instanceof Error
+          ? buildFailure.message
           : intl.formatMessage({
               defaultMessage: 'Could not package the folder.',
               description: 'Error when a skill folder cannot be packaged for upload',
@@ -397,7 +418,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   );
   const submitError = validationError
     ? intl.formatMessage(REGISTRATION_ERROR_MESSAGES[validationError])
-    : packageError || error?.message;
+    : buildError || error?.message;
 
   return (
     <Modal
@@ -485,7 +506,12 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                 '& label': { width: '100%', alignItems: 'flex-start' },
                 '& label > span:last-child': { flex: '1 1 auto', minWidth: 0 },
               }}
-              onChange={(event) => setMode(event.target.value as RegistrationMode)}
+              onChange={(event) => {
+                // The folder picker remounts empty, so a folder chosen before switching away must not upload.
+                setMode(event.target.value as RegistrationMode);
+                setFolderFiles([]);
+                setValidationError(undefined);
+              }}
             >
               <Radio value="pointer" css={{ alignItems: 'flex-start', width: '100%' }}>
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, width: '100%' }}>
@@ -519,6 +545,15 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                             defaultMessage="Registers {summary}"
                             description="Summary of what a skill location registers"
                             values={{ summary: locationSummary }}
+                          />
+                        </Typography.Hint>
+                      )}
+                      {showRefSplitWarning && (
+                        <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                          <FormattedMessage
+                            defaultMessage="GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings."
+                            description="Warning that a GitHub link's branch and path split is a guess"
+                            values={{ ref: <code>{ref}</code> }}
                           />
                         </Typography.Hint>
                       )}
@@ -590,9 +625,13 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                   setForm((current) => ({ ...current, identity: event.target.value }));
                 }}
                 onBlur={() => {
-                  void findTakenIdentity(form.identity).then((taken) => {
-                    if (!closedRef.current) setTakenIdentity(taken);
-                  });
+                  // A failed check is retried on submit, which reports it.
+                  findTakenIdentity(form.identity).then(
+                    (taken) => {
+                      if (!closedRef.current) setTakenIdentity(taken);
+                    },
+                    () => undefined,
+                  );
                 }}
                 validationState={takenIdentity ? 'error' : undefined}
                 css={{ width: '100%' }}

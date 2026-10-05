@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Breadcrumb,
@@ -43,7 +43,7 @@ import { RegisterSkillModal } from '../components/RegisterSkillModal';
 import { useEditSkillModal } from '../hooks/useEditSkillModal';
 import { useDeleteSkillModal } from '../hooks/useDeleteSkillModal';
 import { useDeleteSkillVersionModal } from '../hooks/useDeleteSkillVersionModal';
-import { useSkillGovernanceModals } from '../hooks/useSkillGovernanceModals';
+import { useSkillMetadataEditors } from '../hooks/useSkillMetadataEditors';
 import { SkillRegistryEmptyState } from '../components/SkillRegistryEmptyState';
 import type { Skill } from '../types';
 
@@ -206,9 +206,14 @@ const SkillDetailPage = () => {
   } = useSkillVersionSelection(name, organization, skill);
 
   const permissions = getSkillPermissions(skill);
-  const aliases = (skill?.aliases ?? [])
-    .filter((alias) => alias.alias !== 'latest')
-    .map((alias) => ({ alias: alias.alias, version: String(alias.version) }));
+  // Kept stable so the shared alias editor's memoization survives unrelated page renders.
+  const aliases = useMemo(
+    () =>
+      (skill?.aliases ?? [])
+        .filter((alias) => alias.alias !== 'latest')
+        .map((alias) => ({ alias: alias.alias, version: String(alias.version) })),
+    [skill?.aliases],
+  );
   const { EditSkillModal, openEditSkill } = useEditSkillModal({ name, organization });
   const { DeleteSkillModal, openDeleteSkill } = useDeleteSkillModal({
     name,
@@ -223,7 +228,7 @@ const SkillDetailPage = () => {
       setSelectedVersion(next?.version);
     },
   });
-  const governance = useSkillGovernanceModals({
+  const governance = useSkillMetadataEditors({
     name,
     organization,
     aliases,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Button,
   CloseIcon,
@@ -44,9 +44,22 @@ const ThemeOptions = () => (
   </>
 );
 
-const PreviewItem = ({ isDark, icon }: { isDark: boolean; icon: RegistryIcon | undefined }) => {
+let lastRowId = 0;
+const newRowId = () => `skill-icon-row-${(lastRowId += 1)}`;
+
+const PreviewItem = ({
+  isDark,
+  icon,
+  failed,
+  onLoadError,
+}: {
+  isDark: boolean;
+  icon: RegistryIcon | undefined;
+  failed: boolean;
+  onLoadError: (src: string) => void;
+}) => {
   const { theme } = useDesignSystemTheme();
-  const src = sanitizeHref(icon?.src);
+  const src = failed ? undefined : sanitizeHref(icon?.src);
   return (
     <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
       <div
@@ -67,6 +80,7 @@ const PreviewItem = ({ isDark, icon }: { isDark: boolean; icon: RegistryIcon | u
             src={src}
             alt=""
             referrerPolicy="no-referrer"
+            onError={() => icon && onLoadError(icon.src)}
             css={{ width: PREVIEW_ICON_SIZE, height: PREVIEW_ICON_SIZE, objectFit: 'contain' }}
           />
         ) : (
@@ -95,6 +109,7 @@ const IconRow = ({
   index,
   placeholder,
   selectWidth,
+  loadFailed,
   onChangeSrc,
   onChangeTheme,
   onRemove,
@@ -103,14 +118,19 @@ const IconRow = ({
   index: number;
   placeholder: string;
   selectWidth: number;
+  loadFailed: boolean;
   onChangeSrc: (index: number, value: string) => void;
   onChangeTheme: (index: number, value: string) => void;
   onRemove: (index: number) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  // Rows are keyed by src, so a committed change remounts the row with the new value.
   const [localSrc, setLocalSrc] = useState(icon.src);
+  const [syncedSrc, setSyncedSrc] = useState(icon.src);
+  if (icon.src !== syncedSrc) {
+    setSyncedSrc(icon.src);
+    setLocalSrc(icon.src);
+  }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -175,6 +195,17 @@ const IconRow = ({
           }
         />
       )}
+      {localSrc.trim() && loadFailed && (
+        <FormUI.Message
+          type="error"
+          message={
+            <FormattedMessage
+              defaultMessage="Image failed to load"
+              description="Error message when a skill icon URL fails to load in the preview"
+            />
+          }
+        />
+      )}
     </div>
   );
 };
@@ -190,6 +221,14 @@ export const SkillIconEditor = ({
   const intl = useIntl();
   const [draftUrl, setDraftUrl] = useState('');
   const [draftTheme, setDraftTheme] = useState<IconTheme>('Any');
+  const [failedSrcs, setFailedSrcs] = useState<ReadonlySet<string>>(new Set());
+  // Rows need an identity that survives URL edits: keyed by URL, a row remounted when its edit committed on blur,
+  // swallowing a click on its Remove button.
+  const rowIds = useRef<string[]>([]);
+  while (rowIds.current.length < icons.length) rowIds.current.push(newRowId());
+  rowIds.current.length = icons.length;
+  const markFailed = (src: string) =>
+    setFailedSrcs((current) => (current.has(src) ? current : new Set(current).add(src)));
   const selectWidth = theme.spacing.xl * 4;
   const placeholder = intl.formatMessage({
     defaultMessage: 'https://example.com/icon.svg',
@@ -251,14 +290,18 @@ export const SkillIconEditor = ({
         </div>
         {icons.map((icon, index) => (
           <IconRow
-            key={`${icon.src}-${icon.theme ?? 'any'}-${index}`}
+            key={rowIds.current[index]}
             icon={icon}
             index={index}
             placeholder={placeholder}
             selectWidth={selectWidth}
+            loadFailed={failedSrcs.has(icon.src)}
             onChangeSrc={changeSrc}
             onChangeTheme={changeTheme}
-            onRemove={(iconIndex) => onChange(icons.filter((_, current) => current !== iconIndex))}
+            onRemove={(iconIndex) => {
+              rowIds.current.splice(iconIndex, 1);
+              onChange(icons.filter((_, current) => current !== iconIndex));
+            }}
           />
         ))}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -322,8 +365,18 @@ export const SkillIconEditor = ({
               borderRadius: theme.general.borderRadiusBase,
             }}
           >
-            <PreviewItem isDark={false} icon={resolveIcon(icons, false)} />
-            <PreviewItem isDark icon={resolveIcon(icons, true)} />
+            {[false, true].map((isDark) => {
+              const icon = resolveIcon(icons, isDark);
+              return (
+                <PreviewItem
+                  key={String(isDark)}
+                  isDark={isDark}
+                  icon={icon}
+                  failed={Boolean(icon && failedSrcs.has(icon.src))}
+                  onLoadError={markFailed}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

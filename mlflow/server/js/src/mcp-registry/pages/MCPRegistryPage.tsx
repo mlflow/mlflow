@@ -77,7 +77,7 @@ const MCPRegistryPage = () => {
               <span css={headerIconStyles(theme)}>
                 <McpIcon />
               </span>
-              <FormattedMessage defaultMessage="MCP" description="MCP Registry page title" />
+              <FormattedMessage defaultMessage="Model Context Protocol" description="MCP Registry page title" />
               <MCPRegistryBetaTag />
             </span>
           }

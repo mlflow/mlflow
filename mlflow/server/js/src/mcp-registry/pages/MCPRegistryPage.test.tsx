@@ -45,7 +45,7 @@ describe('MCPRegistryPage', () => {
   it('renders page title', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^MCP\b/ })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Model Context Protocol\b/ })).toBeInTheDocument();
     });
   });
 
@@ -98,7 +98,7 @@ describe('MCPRegistryPage', () => {
   it('shows empty state in list view when no servers exist', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^MCP\b/ })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Model Context Protocol\b/ })).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByLabelText('List view'));
@@ -232,7 +232,7 @@ describe('MCPRegistryPage', () => {
       server.use(getMockedSearchMCPServersResponse([]), getMockedCurrentUserResponse({ isAdmin: false }));
       renderPage();
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /^MCP\b/ })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /^Model Context Protocol\b/ })).toBeInTheDocument();
       });
 
       await userEvent.click(screen.getByText('Active'));

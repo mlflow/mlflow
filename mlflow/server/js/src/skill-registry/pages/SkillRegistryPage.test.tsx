@@ -567,6 +567,63 @@ describe('SkillRegistryPage', () => {
     expect(registerCalled).toBe(false);
   });
 
+  it('forgets a selected folder when switching away from Upload', async () => {
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    const content = '---\nname: demo\n---\n# Demo\n';
+    const manifest = new File([content], 'SKILL.md');
+    // jsdom's File has no text().
+    Object.defineProperties(manifest, {
+      webkitRelativePath: { value: 'demo/SKILL.md' },
+      text: { value: async () => content },
+    });
+    await userEvent.upload(screen.getByLabelText('Skill folder'), manifest);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled());
+
+    await userEvent.click(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('warns that a GitHub link may split a branch name containing a slash', async () => {
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(
+      screen.getByLabelText('Location'),
+      'https://github.com/acme/skills/tree/feature/review/skills/code-review',
+    );
+    expect(screen.getByText(/GitHub links don't show where a branch name ends/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    await userEvent.clear(screen.getByLabelText('Branch, tag or commit'));
+    await userEvent.type(screen.getByLabelText('Branch, tag or commit'), 'feature/review');
+    expect(screen.queryByText(/GitHub links don't show where a branch name ends/)).not.toBeInTheDocument();
+  });
+
+  it('does not register until the name check succeeds', async () => {
+    let registerCalled = false;
+    server.use(
+      rest.get(/skills\/@redhat-ai\/skills-developer$/, (_req, res, ctx) =>
+        res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'Database unavailable' })),
+      ),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText(/Couldn't check whether this name is already registered/)).toBeInTheDocument();
+    expect(registerCalled).toBe(false);
+  });
+
   it('points a whole-repository location at the repository import command', async () => {
     renderPage();
 
@@ -589,6 +646,7 @@ describe('SkillRegistryPage', () => {
 
   it('keeps the form and shows the server error when registration is denied', async () => {
     server.use(
+      rest.get(/skills\/@redhat-ai\/skills-developer$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
       rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) =>
         res(ctx.status(403), ctx.json({ error_code: 'PERMISSION_DENIED', message: 'Not allowed to create skills' })),
       ),

@@ -47,6 +47,20 @@ describe('parseSkillLocation', () => {
     });
   });
 
+  it('flags a GitHub link whose branch may continue into the path', () => {
+    // The URL alone can't tell branch `feature/review` from branch `feature` with path `review/...`.
+    expect(parseSkillLocation('https://github.com/acme/skills/tree/feature/review/skills/code-review')).toMatchObject({
+      ref: 'feature',
+      subpath: 'review/skills/code-review',
+      refMayIncludePath: true,
+    });
+    expect(parseSkillLocation('https://github.com/acme/skills/tree/main')).toMatchObject({
+      ref: 'main',
+      subpath: null,
+      refMayIncludePath: false,
+    });
+  });
+
   it('treats a repository clone URL as a whole repository', () => {
     expect(parseSkillLocation('https://github.com/redhat-ai/skills-developer.git')).toMatchObject({
       sourceType: 'git',

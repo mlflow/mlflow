@@ -17,7 +17,7 @@ type SkillTagEntity = { tags?: KeyValueEntity[] };
 const tagsToList = (tags: Record<string, string> = {}): KeyValueEntity[] =>
   Object.entries(tags).map(([key, value]) => ({ key, value }));
 
-export const useSkillGovernanceModals = ({
+export const useSkillMetadataEditors = ({
   name,
   organization,
   aliases,

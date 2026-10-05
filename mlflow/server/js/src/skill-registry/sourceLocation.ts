@@ -27,6 +27,11 @@ export interface ParsedSkillLocation {
   wholeRepository: boolean;
   /** Clone or repository URL used by the bulk-import hint. */
   repositoryUrl: string | null;
+  /**
+   * A GitHub tree or blob link doesn't mark where the branch name ends, so `ref` is only the first segment after
+   * `tree/` and a branch containing `/` spills into `subpath`. Set when a path follows the ref.
+   */
+  refMayIncludePath?: boolean;
 }
 
 export type SkillRegistrationErrorCode =
@@ -122,6 +127,7 @@ const parseGitHubLocation = (value: string): ParsedSkillLocation | undefined => 
     suggestedOrganization,
     wholeRepository: !subpath,
     repositoryUrl,
+    refMayIncludePath: Boolean(ref && subpath),
   };
 };
 
