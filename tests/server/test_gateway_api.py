@@ -3777,6 +3777,33 @@ async def test_real_db_pre_llm_guardrail_blocks(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
+async def test_real_db_custom_scorer_guardrail_fails_request(store: SqlAlchemyStore):
+    # A guardrail whose stored scorer is a custom @scorer cannot run in the server. The request
+    # must fail with a server error naming the guardrail, rather than reaching the provider
+    # without the guardrail.
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-custom-scorer")
+    _setup_db_guardrail(store, "real-ep-custom-scorer", "BEFORE", "VALIDATION")
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    with (
+        patch("mlflow.genai.scorers.base._serialized_scorer_is_custom_code", return_value=True),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="500") as exc_info:
+            await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 500
+    assert "uses a custom scorer" in exc_info.value.detail["message"]
+    assert not mock_chat.called
+
+
+@pytest.mark.asyncio
 async def test_real_db_post_llm_guardrail_blocks(store: SqlAlchemyStore):
     endpoint = _setup_guardrail_endpoint(store, "real-ep-post-llm-block")
     _setup_db_guardrail(store, "real-ep-post-llm-block", "AFTER", "VALIDATION")

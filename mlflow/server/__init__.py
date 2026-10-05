@@ -19,6 +19,7 @@ from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
@@ -407,6 +408,11 @@ def _run_server(
     # A per-boot id shared by all worker processes, used to distinguish sandbox containers of
     # this server generation from orphans left by a previous one during startup cleanup.
     env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
+
+    # This marker permits reconstructing custom scorer code, which the server process must never
+    # do. It is meant to be set only inside job-executor subprocesses, so force it off for the
+    # server workers in case it is present in the ambient environment.
+    env_map[_MLFLOW_IN_JOB_EXECUTOR.name] = "false"
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
