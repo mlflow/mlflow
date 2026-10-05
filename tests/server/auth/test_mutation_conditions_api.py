@@ -228,6 +228,68 @@ def test_reserved_tag_key_rejected_in_target_condition_too(client, monkeypatch, 
 # ---- Authorization ---------------------------------------------------------
 
 
+def test_a_non_admin_can_read_their_own_conditions(client, monkeypatch, role):
+    """The self path is reachable by an ordinary user; the role-keyed one is not for them.
+
+    This is the whole point of the endpoint. A user whose write was refused needs to see
+    what restricts them, and they cannot get that from ``roles/mutation-conditions/list``
+    -- they do not know which of their roles carries the condition, and asking about a
+    role is asking about a policy that is not theirs.
+
+    Driven over raw HTTP because the client has no method for it and because what is
+    being tested is the route wiring and the open gate, not a store call.
+    """
+    import requests
+
+    username, password = _non_admin(client, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'bob'")
+        client.assign_role(username, role.id)
+
+    url = f"{client.tracking_uri}/api/3.0/mlflow/users/current/mutation-conditions"
+
+    anonymous = requests.get(url, timeout=30)
+    assert anonymous.status_code == 401, (
+        f"authentication is still required -- the gate is open, not absent: {anonymous.text}"
+    )
+
+    response = requests.get(url, auth=(username, password), timeout=30)
+    assert response.status_code == 200, response.text
+    rows = response.json()["mutation_conditions"]
+    assert [r["value_condition"] for r in rows] == ["tag_key != 'bob'"]
+    assert rows[0]["role_name"] == role.name, (
+        "the row must name the role it came from, since that is the only way a user can "
+        "tell which of their roles is restricting them"
+    )
+    assert rows[0]["resource_type"] == "run"
+
+
+def test_the_self_path_shows_nothing_of_a_role_the_user_does_not_hold(client, monkeypatch, role):
+    """Scoping is to roles HELD, not to roles that exist.
+
+    The fail-open direction here is disclosure rather than access: a flat listing of
+    every role's conditions would hand any authenticated user the whole policy, which is
+    precisely the over-broad read the role-keyed endpoint already allows and this one
+    exists to avoid.
+    """
+    import requests
+
+    username, password = _non_admin(client, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.add_mutation_condition(role.id, "run", value_condition="tag_key != 'carol'")
+        # deliberately NOT assigned to the user
+
+    response = requests.get(
+        f"{client.tracking_uri}/api/3.0/mlflow/users/current/mutation-conditions",
+        auth=(username, password),
+        timeout=30,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["mutation_conditions"] == [], (
+        "a user holding no roles must see no conditions, however many exist"
+    )
+
+
 def test_writes_require_role_management(client, monkeypatch, role):
     username, password = _non_admin(client, monkeypatch)
 

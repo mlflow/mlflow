@@ -376,6 +376,7 @@ from mlflow.server.auth.routes import (
     AJAX_GET_USER,
     AJAX_GET_USER_PERMISSION,
     AJAX_GRANT_USER_PERMISSION,
+    AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS,
     AJAX_LIST_CURRENT_USER_PERMISSIONS,
     AJAX_LIST_MUTATION_CONDITIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
@@ -428,6 +429,7 @@ from mlflow.server.auth.routes import (
     INVOKE_SCORER,
     JOB_CANCEL,
     JOB_GET,
+    LIST_CURRENT_USER_MUTATION_CONDITIONS,
     LIST_CURRENT_USER_PERMISSIONS,
     LIST_MUTATION_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
@@ -6148,6 +6150,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     # Same goes for /current/permissions.
     (LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
     (AJAX_LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
+    # Open for the same reason: the handler reads the subject from the authenticated
+    # caller rather than a parameter, so it can only ever return the caller's own
+    # conditions. There is nothing to authorize beyond being logged in.
+    (LIST_CURRENT_USER_MUTATION_CONDITIONS, "GET"): lambda: True,
+    (AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
@@ -8975,6 +8982,75 @@ def _list_user_role_permissions(username: str) -> tuple[bool, list[_UserRolePerm
     return user.is_admin, rows
 
 
+@dataclass(frozen=True)
+class _UserRoleConditionRow:
+    """One row of ``GET /users/current/mutation-conditions``: a single condition on one
+    of the user's roles, enriched with role identity so the frontend can render the
+    source -- a role name, or "Direct" for the synthetic ``__user_<id>__`` role a
+    per-user condition lives on (D10).
+    """
+
+    role_id: int
+    role_name: str
+    workspace: str
+    resource_type: str
+    resource_pattern: str
+    container_resource_type: str
+    container_resource_pattern: str
+    value_condition: "str | None"
+    target_condition: "str | None"
+    condition_slot: "int | None"
+
+
+def _list_user_role_conditions(username: str) -> "list[_UserRoleConditionRow]":
+    """Every condition on every role the user holds, flattened.
+
+    Mirrors ``_list_user_role_permissions`` deliberately, including returning rows for
+    every workspace rather than only the active one: a user asking what restricts them
+    is not asking per workspace, and the row carries its workspace so the caller can
+    group.
+
+    Flat and unordered by design. Conditions AND -- every applicable one must pass -- so
+    there is no precedence to express and nothing to fold.
+    """
+    user = store.get_user(username)
+    return [
+        _UserRoleConditionRow(
+            role_id=role.id,
+            role_name=role.name,
+            workspace=role.workspace,
+            resource_type=condition.resource_type,
+            resource_pattern=condition.resource_pattern,
+            container_resource_type=condition.container_resource_type,
+            container_resource_pattern=condition.container_resource_pattern,
+            value_condition=condition.value_condition,
+            target_condition=condition.target_condition,
+            condition_slot=condition.condition_slot,
+        )
+        for role in store.list_user_roles(user.id)
+        for condition in store.list_mutation_conditions(role.id)
+    ]
+
+
+@catch_mlflow_exception
+def list_current_user_mutation_conditions():
+    """The conditions that apply to the caller, across every role they hold.
+
+    Sender == target, with no parameter to name anyone else, which is why this is the
+    endpoint a non-admin can be given: the role-keyed ``roles/mutation-conditions/list``
+    answers about a role the caller may have no business reading.
+
+    INFORMATIONAL ONLY, and more strictly so than the permissions equivalent. A grant
+    can be pre-evaluated, so the UI can grey out a control it knows will be refused. A
+    **value** condition cannot: its verdict depends on the values in the request, and
+    ``tag_key != 'bob'`` says nothing until the user has typed a tag. So this answers
+    "what restricts me", never "may I do this".
+    """
+    username = authenticate_request().username
+    rows = _list_user_role_conditions(username)
+    return jsonify({"mutation_conditions": [asdict(r) for r in rows]})
+
+
 @catch_mlflow_exception
 def list_current_user_permissions():
     # Sender == target. Returns every permission grant across every role the
@@ -10754,6 +10830,15 @@ def create_app(app: Flask = app):
         app.add_url_rule(
             rule=rule,
             view_func=get_current_user,
+            methods=["GET"],
+        )
+    for rule in [
+        LIST_CURRENT_USER_MUTATION_CONDITIONS,
+        AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS,
+    ]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_current_user_mutation_conditions,
             methods=["GET"],
         )
     for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:

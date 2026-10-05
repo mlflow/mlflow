@@ -23,7 +23,14 @@ import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks'
 import { useWorkspacesEnabled } from '../experiment-tracking/hooks/useServerInfo';
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { performLogout } from './auth-utils';
-import { useCurrentUserQuery, useIsBasicAuth, useUpdatePassword, useUserRolesQuery } from './hooks';
+import {
+  useCurrentUserQuery,
+  useIsBasicAuth,
+  useMyMutationConditionsQuery,
+  useUpdatePassword,
+  useUserRolesQuery,
+} from './hooks';
+import { MutationConditionsSection } from './MutationConditionsSection';
 import { PermissionsSection } from './PermissionsSection';
 import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole, isWorkspaceAdminRole } from './types';
 import type { Role } from './types';
@@ -60,13 +67,14 @@ const AccountPage = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = tabFromUrl === 'permissions' ? 'permissions' : 'roles';
+  const activeTab = tabFromUrl === 'permissions' || tabFromUrl === 'conditions' ? tabFromUrl : 'roles';
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const updatePassword = useUpdatePassword();
+  const conditionsQuery = useMyMutationConditionsQuery();
   const { data: currentUserData, isLoading: currentUserLoading } = useCurrentUserQuery();
   const username = currentUserData?.user?.username ?? '';
   const { workspacesEnabled } = useWorkspacesEnabled();
@@ -341,6 +349,12 @@ const AccountPage = () => {
               <Tabs.Trigger value="permissions">
                 <FormattedMessage defaultMessage="Permissions" description="Tab trigger for the user's permissions" />
               </Tabs.Trigger>
+              <Tabs.Trigger value="conditions">
+                <FormattedMessage
+                  defaultMessage="Conditions"
+                  description="Tab trigger for the conditions restricting the user"
+                />
+              </Tabs.Trigger>
             </Tabs.List>
             <Tabs.Content value="roles" css={{ paddingTop: theme.spacing.md }}>
               {rolesLoading ? (
@@ -431,6 +445,23 @@ const AccountPage = () => {
                 roles={roles}
                 isLoading={rolesLoading}
                 rolesError={rolesError}
+                componentId="account"
+                workspacesEnabled={workspacesEnabled}
+              />
+            </Tabs.Content>
+            <Tabs.Content
+              value="conditions"
+              css={{
+                paddingTop: theme.spacing.md,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.md,
+              }}
+            >
+              <MutationConditionsSection
+                conditions={conditionsQuery.data?.mutation_conditions ?? []}
+                isLoading={conditionsQuery.isLoading}
+                error={conditionsQuery.error}
                 componentId="account"
                 workspacesEnabled={workspacesEnabled}
               />
