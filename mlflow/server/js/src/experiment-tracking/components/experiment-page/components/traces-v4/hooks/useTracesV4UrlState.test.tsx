@@ -139,6 +139,24 @@ describe('useTracesV4UrlState', () => {
       ]);
     });
 
+    test.each(['assessment', 'expectation'])(
+      'round-trips a freeform %s key without candidate options',
+      async (field) => {
+        const { result } = await mountHook('/p');
+        const filter = {
+          field,
+          key: 'custom.judge',
+          operator: FilterOp.EQUALS,
+          value: 'yes',
+        };
+
+        act(() => result.current.setFilterModel([filter]));
+
+        expect(JSON.parse(param('filters') ?? '')).toEqual([filter]);
+        expect(result.current.filterModel).toEqual([filter]);
+      },
+    );
+
     test('keeps valid clauses when another draft clause is incomplete', async () => {
       const { result } = await mountHook('/p?page=4');
       const valid = { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' };

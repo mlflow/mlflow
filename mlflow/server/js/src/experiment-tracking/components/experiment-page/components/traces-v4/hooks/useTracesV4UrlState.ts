@@ -155,6 +155,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   // and has no read-selector overload (unlike the Databricks variant), so read each param off the
   // `searchParams` object directly.
   const intl = useIntl();
+  // Assessment and expectation key options are freeform-combobox suggestions, not an allowlist.
+  // URL validation only needs the static field definitions and accepts any nonblank key.
   const filterFields = useMemo(() => getMlflowTraceFilterFields(intl), [intl]);
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get(Q_PARAM) ?? '';
