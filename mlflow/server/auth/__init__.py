@@ -460,6 +460,9 @@ from mlflow.server.mcp_server_api import (
     search_all_access_endpoints as _search_all_access_endpoints_endpoint,
 )
 from mlflow.server.mcp_server_api import (
+    search_mcp_servers as _search_mcp_servers_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     search_server_access_endpoints as _search_server_access_endpoints_endpoint,
 )
 from mlflow.server.mcp_server_api import (
@@ -9009,6 +9012,12 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
     return json.dumps(data).encode()
 
 
+def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    _withhold_denied_mcp_version_passengers_on_servers(data.get("mcp_servers", []), username)
+    return json.dumps(data).encode()
+
+
 def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     """
     Get a validator that requires authentication but grants access to any authenticated user.
@@ -9288,6 +9297,7 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _skill_registry_api.update_skill: _filter_get_skill,
     _skill_registry_api.update_organization_skill: _filter_get_skill,
     _skill_registry_api.search_skills: _filter_search_skills,
+    _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
     _update_mcp_server_endpoint: _filter_get_mcp_server,
