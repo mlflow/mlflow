@@ -8990,6 +8990,10 @@ class _UserRoleConditionRow:
     per-user condition lives on (D10).
     """
 
+    # ``id`` and the fields below it are exactly the shape the admin UI's shared
+    # conditions table consumes, so the account view renders through the same component
+    # rather than a parallel one that could drift from it.
+    id: int
     role_id: int
     role_name: str
     workspace: str
@@ -9016,6 +9020,7 @@ def _list_user_role_conditions(username: str) -> "list[_UserRoleConditionRow]":
     user = store.get_user(username)
     return [
         _UserRoleConditionRow(
+            id=condition.id,
             role_id=role.id,
             role_name=role.name,
             workspace=role.workspace,

@@ -85,6 +85,7 @@ export interface ListMyPermissionsResponse {
  * directly to the user, which renders as ``Direct`` exactly as a direct grant does.
  */
 export interface UserRoleConditionRow {
+  id: number;
   role_id: number;
   role_name: string;
   workspace: string;
@@ -94,7 +95,7 @@ export interface UserRoleConditionRow {
   container_resource_pattern: string;
   value_condition: string | null;
   target_condition: string | null;
-  condition_slot: number | null;
+  condition_slot: number;
 }
 
 export interface ListMyMutationConditionsResponse {

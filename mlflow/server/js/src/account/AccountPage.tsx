@@ -351,8 +351,8 @@ const AccountPage = () => {
               </Tabs.Trigger>
               <Tabs.Trigger value="conditions">
                 <FormattedMessage
-                  defaultMessage="Conditions"
-                  description="Tab trigger for the conditions restricting the user"
+                  defaultMessage="Mutation Conditions"
+                  description="Tab trigger for the mutation conditions restricting the user"
                 />
               </Tabs.Trigger>
             </Tabs.List>
@@ -462,8 +462,6 @@ const AccountPage = () => {
                 conditions={conditionsQuery.data?.mutation_conditions ?? []}
                 isLoading={conditionsQuery.isLoading}
                 error={conditionsQuery.error}
-                componentId="account"
-                workspacesEnabled={workspacesEnabled}
               />
             </Tabs.Content>
           </Tabs.Root>
