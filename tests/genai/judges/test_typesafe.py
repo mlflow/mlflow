@@ -101,6 +101,61 @@ def test_direct_bool_invocation_uses_native_evaluation(monkeypatch):
     }
 
 
+@pytest.mark.parametrize(
+    ("base_url", "expected_url"),
+    [
+        (
+            "https://system-one.example.com/v1/",
+            "https://system-one.example.com/v1/systemone",
+        ),
+        (
+            "https://system-one.example.com/v1?region=us",
+            "https://system-one.example.com/v1/systemone?region=us",
+        ),
+    ],
+)
+def test_direct_invocation_supports_custom_base_url_and_headers(
+    monkeypatch, base_url, expected_url
+):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
+    response = _response({"type": "noul", "noul": 0.8})
+    with mock.patch(_REQUEST_TARGET, return_value=response) as request:
+        _invoke(
+            base_url=base_url,
+            extra_headers={"X-Request-ID": "request-123"},
+        )
+
+    call = request.call_args.kwargs
+    assert call["url"] == expected_url
+    assert call["headers"] == {
+        "Authorization": "Bearer typesafe-secret",
+        "X-Request-ID": "request-123",
+    }
+
+
+@pytest.mark.parametrize("api_key", [None, "typesafe-secret"])
+def test_direct_invocation_supports_authorization_header(monkeypatch, api_key):
+    if api_key:
+        monkeypatch.setenv("TYPESAFE_API_KEY", api_key)
+    else:
+        monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    response = _response({"type": "noul", "noul": 0.8})
+    with mock.patch(_REQUEST_TARGET, return_value=response) as request:
+        _invoke(extra_headers={"authorization": "Bearer custom-token"})
+
+    assert request.call_args.kwargs["headers"] == {"authorization": "Bearer custom-token"}
+
+
+def test_direct_invocation_rejects_empty_authorization_header(monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
+    with (
+        mock.patch(_REQUEST_TARGET) as request,
+        pytest.raises(MlflowException, match="Authorization header.*non-empty"),
+    ):
+        _invoke(extra_headers={"Authorization": ""})
+    request.assert_not_called()
+
+
 def test_bool_noul_probability_below_half_is_false(monkeypatch):
     monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
     with mock.patch(
@@ -234,21 +289,39 @@ def test_missing_api_key(monkeypatch):
     request.assert_not_called()
 
 
+def test_rejects_inference_params(monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
+    with (
+        mock.patch(_REQUEST_TARGET) as request,
+        pytest.raises(MlflowException, match="inference_params"),
+    ):
+        _invoke(inference_params={"temperature": 0})
+    request.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("option", "value"),
     [
-        ("inference_params", {"temperature": 0}),
         ("base_url", "https://example.com"),
         ("extra_headers", {"X-Test": "value"}),
     ],
 )
-def test_rejects_unsupported_options(monkeypatch, option, value):
+def test_gateway_invocation_rejects_direct_connection_options(monkeypatch, option, value):
+    with (
+        mock.patch("mlflow.genai.judges.typesafe._send_gateway_request") as request,
+        pytest.raises(MlflowException, match=option),
+    ):
+        _invoke(model_uri="gateway:/jev-evaluator", **{option: value})
+    request.assert_not_called()
+
+
+def test_direct_invocation_rejects_empty_base_url(monkeypatch):
     monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
     with (
         mock.patch(_REQUEST_TARGET) as request,
-        pytest.raises(MlflowException, match=option),
+        pytest.raises(MlflowException, match="base_url must be a non-empty string"),
     ):
-        _invoke(**{option: value})
+        _invoke(base_url="  ///  ")
     request.assert_not_called()
 
 
@@ -319,10 +392,17 @@ def test_make_judge_invokes_typesafe_through_public_api(monkeypatch):
             instructions="Does {{ outputs }} answer {{ inputs }}?",
             model="typesafe:/jev-latest",
             feedback_value_type=Literal["pass", "fail"],
+            base_url="https://system-one.example.com/v1",
+            extra_headers={"X-Request-ID": "request-123"},
         )(inputs={"question": "Why?"}, outputs={"answer": "Because."})
 
     assert feedback.value == "pass"
     request.assert_called_once()
+    assert request.call_args.kwargs["url"] == "https://system-one.example.com/v1/systemone"
+    assert request.call_args.kwargs["headers"] == {
+        "Authorization": "Bearer typesafe-secret",
+        "X-Request-ID": "request-123",
+    }
     assert request.call_args.kwargs["json"]["state"] == {
         "inputs": {"question": "Why?"},
         "outputs": {"answer": "Because."},
