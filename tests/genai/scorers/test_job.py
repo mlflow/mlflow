@@ -5,14 +5,16 @@ import pytest
 
 import mlflow
 from mlflow.entities import AssessmentSource, AssessmentSourceType
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
 from mlflow.genai.scorers.job import _plan_invoke_scorer_job_for_docker, invoke_scorer_job
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.utils import _load_function
-from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.workspace_context import WorkspaceContext
 
 
 def test_invoke_scorer_job_restores_registered_version():
@@ -48,10 +50,9 @@ def _custom_scorer_json() -> str:
 
 
 @pytest.fixture
-def sqlite_tracking(tmp_path, monkeypatch):
-    uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-    mlflow.set_tracking_uri(uri)
-    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, uri)
+def sqlite_tracking(db_uri, monkeypatch):
+    mlflow.set_tracking_uri(db_uri)
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, db_uri)
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     experiment_id = mlflow.set_experiment("docker-plan").experiment_id
     trace_ids = []
@@ -162,7 +163,7 @@ def test_docker_plan_rejects_scorers_that_need_network_access(serialized, tmp_pa
         )
 
 
-def _docker_plan(sqlite_tracking, tmp_path, log_assessments=True):
+def _docker_plan(sqlite_tracking, tmp_path, log_assessments=True, scorer_version=None):
     experiment_id, trace_ids = sqlite_tracking
     return _plan_invoke_scorer_job_for_docker(
         params={
@@ -170,6 +171,7 @@ def _docker_plan(sqlite_tracking, tmp_path, log_assessments=True):
             "serialized_scorer": _custom_scorer_json(),
             "trace_ids": trace_ids,
             "log_assessments": log_assessments,
+            "scorer_version": scorer_version,
         },
         input_dir=tmp_path,
         container_input_dir=str(tmp_path),
@@ -184,7 +186,7 @@ def test_docker_plan_cannot_override_or_spoof_existing_feedback(sqlite_tracking,
         value="good",
         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer"),
     )
-    plan = _docker_plan(sqlite_tracking, tmp_path)
+    plan = _docker_plan(sqlite_tracking, tmp_path, scorer_version=3)
     forged = {
         "assessment_name": "quality",
         "assessment_id": "a-forged",
@@ -194,7 +196,8 @@ def test_docker_plan_cannot_override_or_spoof_existing_feedback(sqlite_tracking,
         "valid": False,
         "metadata": {
             AssessmentMetadataKey.SOURCE_RUN_ID: "some-run",
-            AssessmentMetadataKey.SCORER_NAME: "output_length",
+            AssessmentMetadataKey.SCORER_NAME: "spoofed",
+            AssessmentMetadataKey.SCORER_VERSION: "99",
             "user_key": "kept",
         },
     }
@@ -207,8 +210,10 @@ def test_docker_plan_cannot_override_or_spoof_existing_feedback(sqlite_tracking,
     (logged,) = [a for a in assessments.values() if a.assessment_id != human.assessment_id]
     assert logged.source.source_type == AssessmentSourceType.CODE
     assert logged.overrides is None
+    # Reserved metadata comes from the host: the submitted scorer and its registered version.
     assert logged.metadata == {
         AssessmentMetadataKey.SCORER_NAME: "output_length",
+        AssessmentMetadataKey.SCORER_VERSION: "3",
         "user_key": "kept",
     }
     assert final[trace_ids[0]]["assessments"][0]["source"]["source_type"] == "CODE"
@@ -244,3 +249,75 @@ def test_docker_plan_rejects_malformed_trace_results(sqlite_tracking, tmp_path, 
 
     with pytest.raises(MlflowException, match="malformed"):
         plan.finalize({trace_ids[0]: trace_result})
+
+
+def test_docker_plan_session_scorer_keeps_trusted_session_marker(sqlite_tracking, tmp_path):
+    experiment_id, _ = sqlite_tracking
+
+    @scorer
+    def turns(session) -> int:
+        return len(session)
+
+    session_ids = []
+    for turn in range(2):
+        with mlflow.start_span(name=f"turn_{turn}") as span:
+            span.set_inputs({"turn": turn})
+            span.set_outputs({"reply": turn})
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: "session-1"})
+        session_ids.append(span.trace_id)
+    plan = _plan_invoke_scorer_job_for_docker(
+        params={
+            "experiment_id": experiment_id,
+            "serialized_scorer": json.dumps(turns.model_dump()),
+            "trace_ids": session_ids,
+        },
+        input_dir=tmp_path,
+        container_input_dir=str(tmp_path),
+    )
+    container_output = _run_container_step(plan)
+    # The container's own copy of the session marker is not trusted.
+    for result in container_output.values():
+        for assessment in result["assessments"]:
+            assessment["metadata"][TraceMetadataKey.TRACE_SESSION] = "forged-session"
+
+    plan.finalize(container_output)
+
+    (logged,) = mlflow.get_trace(session_ids[0]).info.assessments
+    assert logged.value == 2
+    assert logged.metadata[TraceMetadataKey.TRACE_SESSION] == "session-1"
+
+
+def test_docker_plan_logs_assessments_in_the_job_workspace(db_uri, tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, db_uri)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    mlflow.set_tracking_uri(db_uri)
+    store = _get_store()
+    with WorkspaceContext("team-a"):
+        experiment_id = mlflow.set_experiment("docker-plan-team-a").experiment_id
+        with mlflow.start_span(name="span") as span:
+            span.set_inputs({"question": "q"})
+            span.set_outputs({"answer": "a"})
+        trace_id = span.trace_id
+
+    def plan_and_finalize():
+        plan = _plan_invoke_scorer_job_for_docker(
+            params={
+                "experiment_id": experiment_id,
+                "serialized_scorer": _custom_scorer_json(),
+                "trace_ids": [trace_id],
+            },
+            input_dir=tmp_path,
+            container_input_dir=str(tmp_path),
+        )
+        return plan.finalize(_run_container_step(plan))
+
+    with mock.patch("mlflow.genai.scorers.job._get_tracking_store", return_value=store):
+        with WorkspaceContext("team-a"):
+            plan_and_finalize()
+            (logged,) = store.get_trace_info(trace_id).assessments
+            assert logged.name == "output_length"
+        # Another workspace cannot read the job's traces, so its job fails before scoring.
+        with WorkspaceContext("team-b"):
+            with pytest.raises(MlflowException, match=trace_id):
+                plan_and_finalize()

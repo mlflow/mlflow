@@ -187,6 +187,12 @@ def test_container_is_hardened_and_has_no_network(executor, client):
     assert not any(key in env for key in ("MLFLOW_TRACKING_URI", "MLFLOW_GATEWAY_URI"))
     assert MLFLOW_SERVER_JOB_ID_ENV_VAR not in env
     assert kwargs["log_config"] == de._LOG_CONFIG
+    (fsize,) = kwargs["ulimits"]
+    assert (fsize.name, fsize.soft, fsize.hard) == (
+        "fsize",
+        de._MAX_RESULT_BYTES,
+        de._MAX_RESULT_BYTES,
+    )
 
 
 def test_successful_run_returns_the_finalized_result(executor, client):

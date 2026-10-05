@@ -476,6 +476,8 @@ class DockerJobExecutor(AbstractJobExecutor):
         output_dir: Path,
         environment: dict[str, str],
     ):
+        import docker.types
+
         memory, nano_cpus = _resource_limits(job_name)
         return self._get_client().containers.run(
             self._image(),
@@ -492,6 +494,11 @@ class DockerJobExecutor(AbstractJobExecutor):
             security_opt=["no-new-privileges:true"],
             tmpfs={"/tmp": ""},
             log_config=_LOG_CONFIG,
+            # Caps every file the job writes, including in the bind-mounted output directory,
+            # which has no quota of its own.
+            ulimits=[
+                docker.types.Ulimit(name="fsize", soft=_MAX_RESULT_BYTES, hard=_MAX_RESULT_BYTES)
+            ],
             # Run as the server's user so the result file is owned by the server, not root. If the
             # server runs as root the container does too (``start_executor`` warns about it).
             user=f"{os.getuid()}:{os.getgid()}",

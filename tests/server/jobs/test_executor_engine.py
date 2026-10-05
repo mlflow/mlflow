@@ -1517,3 +1517,23 @@ def test_long_running_job_lease_is_renewed_with_workspaces(registered_jobs, tmp_
     assert created.job_id in renewed_ok
     with WorkspaceContext("workspace-b"):
         assert store.get_job(created.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_main_stops_a_backend_whose_start_failed(monkeypatch):
+    ok = mock.Mock()
+    broken = mock.Mock()
+    broken.start_executor.side_effect = MlflowException("cannot reach the Docker daemon")
+    monkeypatch.setattr(runner, "_select_executors", lambda: {"local": ok, "docker": broken})
+    monkeypatch.setattr("mlflow.server.jobs.logging_utils.configure_logging_for_jobs", lambda: None)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils._start_watcher_to_kill_job_runner_if_mlflow_server_dies",
+        lambda: None,
+    )
+    monkeypatch.setattr("mlflow.server.jobs.utils._launch_periodic_tasks_consumer", lambda: None)
+
+    with mock.patch.object(runner.os, "kill") as kill:
+        runner.main()
+
+    ok.stop_executor.assert_called_once()
+    broken.stop_executor.assert_called_once()
+    kill.assert_called_once_with(runner.os.getpid(), runner.signal.SIGTERM)

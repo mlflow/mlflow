@@ -1043,8 +1043,9 @@ def main() -> None:
     try:
         executors = _select_executors()
         for name, executor in executors.items():
-            executor.start_executor()
+            # Recorded before starting so a backend whose start fails part way is still stopped.
             started.append((name, executor))
+            executor.start_executor()
         default_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
         _logger.info(
             "Started executor-backed job runner "
@@ -1060,7 +1061,7 @@ def main() -> None:
         # Guard each stop_executor so a failure (e.g. a half-initialized backend when
         # start_executor raised) cannot skip the others or the SIGTERM below: that signal is the
         # only thing that tears the process down, since the periodic-tasks consumer thread is
-        # non-daemon. Only executors that started are stopped.
+        # non-daemon. Backends that were never started are not stopped.
         for name, executor in started:
             try:
                 executor.stop_executor()

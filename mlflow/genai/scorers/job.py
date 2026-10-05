@@ -222,13 +222,6 @@ def invoke_scorer_job(
 
 _DOCKER_TRACES_FILE = "traces.json"
 
-# Reserved assessment metadata a scorer sets itself, so a scorer run in a job container may report
-# it. Other reserved keys are only ever recorded by MLflow and are dropped from container output.
-_CONTAINER_REPORTED_METADATA_KEYS = {
-    AssessmentMetadataKey.SCORER_NAME,
-    AssessmentMetadataKey.SCORER_VERSION,
-}
-
 
 def _is_custom_code_only(scorer_data: dict[str, Any]) -> bool:
     """Whether a serialized scorer is a custom @scorer, or an ensemble made only of them."""
@@ -264,6 +257,8 @@ def _feedback_from_container(raw: Any) -> Feedback:
     Only the fields a scorer produces are kept. The source is always code, and fields that act on
     other assessments or on the stored row (``overrides``, ``valid``, ``assessment_id``,
     timestamps) are dropped, so a scorer cannot hide or replace existing feedback on its traces.
+    Reserved ``mlflow.*`` metadata is dropped too; the host adds the trusted values itself (see
+    ``_add_host_metadata``).
     """
     if not isinstance(raw, dict):
         raise MlflowException("The job container returned a malformed assessment.")
@@ -306,13 +301,33 @@ def _feedback_from_container(raw: Any) -> Feedback:
             source_type=AssessmentSourceType.CODE,
             source_id=source_id if isinstance(source_id, str) and source_id else name,
         ),
-        metadata={
-            key: val
-            for key, val in metadata.items()
-            if not key.startswith("mlflow.") or key in _CONTAINER_REPORTED_METADATA_KEYS
-        }
+        metadata={key: val for key, val in metadata.items() if not key.startswith("mlflow.")}
         or None,
     )
+
+
+def _add_host_metadata(
+    feedbacks: list[Feedback],
+    trace: Trace,
+    scorer_data: dict[str, Any],
+    scorer_version: int | None,
+) -> None:
+    """Add the reserved metadata that local scoring records, from values the host trusts.
+
+    Mirrors the session ID that session-level scoring adds and the registered scorer provenance
+    from ``add_scorer_metadata``, without trusting the job container's copy of either.
+    """
+    host_metadata = {}
+    if scorer_data.get("is_session_level_scorer") and (
+        session_id := trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+    ):
+        host_metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+    if scorer_version is not None:
+        host_metadata[AssessmentMetadataKey.SCORER_NAME] = scorer_data.get("name")
+        host_metadata[AssessmentMetadataKey.SCORER_VERSION] = str(scorer_version)
+    if host_metadata:
+        for feedback in feedbacks:
+            feedback.metadata = {**(feedback.metadata or {}), **host_metadata}
 
 
 def _scorer_failure_from_container(raw: Any) -> ScorerFailure:
@@ -365,6 +380,8 @@ def _plan_invoke_scorer_job_for_docker(
         json.dumps([trace_map[trace_id].to_dict() for trace_id in trace_ids])
     )
     log_assessments = params.get("log_assessments", True)
+    scorer_data = _parse_serialized_scorer(serialized_scorer)
+    scorer_version = params.get("scorer_version")
 
     def finalize(value: Any) -> dict[str, Any]:
         if not isinstance(value, dict) or not set(value) <= set(trace_map):
@@ -372,6 +389,8 @@ def _plan_invoke_scorer_job_for_docker(
         # Check every entry before logging any, so a malformed entry cannot leave the job partly
         # logged.
         parsed = {trace_id: _trace_result_from_container(raw) for trace_id, raw in value.items()}
+        for trace_id, (feedbacks, _) in parsed.items():
+            _add_host_metadata(feedbacks, trace_map[trace_id], scorer_data, scorer_version)
         if log_assessments:
             # Log to the backend store the traces were fetched from, whatever the job runner
             # process's own tracking URI is.
