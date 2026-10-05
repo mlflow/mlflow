@@ -669,7 +669,7 @@ jobs:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
           uvx check-jsonschema@0.37.4 \
-            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.json" "$PAYLOAD_PATH"
+            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
           jq -j '.comment' "$PAYLOAD_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
         env:

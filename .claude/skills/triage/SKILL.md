@@ -19,7 +19,7 @@ issue type the workflow's `label` job assigned (e.g. `bug`).
 Each type has a subdirectory here, named after the type, holding:
 
 - `README.md`: the steps, verdicts, and comment template.
-- `payload.schema.json`: the payload's schema, including the labels the type may use.
+- `payload.schema.yml`: the payload's schema, including the labels the type may use.
 
 Read `$type/README.md` and follow it. If `$type/` does not exist, the type is not supported
 yet: stop without writing a payload.
@@ -100,7 +100,7 @@ Create `$out_dir` first, then write `$out_dir/payload.json`:
 { "label": "<label from the type schema>", "comment": "<Markdown>" }
 ```
 
-Read `$type/payload.schema.json` before writing the payload; it defines the required fields and
+Read `$type/payload.schema.yml` before writing the payload; it defines the required fields and
 their constraints. Choose `label` from its allowed values. `comment` is the Markdown comment for
 the issue. It:
 
@@ -115,7 +115,7 @@ Validate before finishing:
 
 ```bash
 uvx check-jsonschema@0.37.4 \
-  --schemafile .claude/skills/triage/$type/payload.schema.json "$out_dir/payload.json"
+  --schemafile .claude/skills/triage/$type/payload.schema.yml "$out_dir/payload.json"
 ```
 
 Fix any errors and rerun until it passes.

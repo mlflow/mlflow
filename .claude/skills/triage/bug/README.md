@@ -49,16 +49,8 @@ picking one.
 
 ## 4. Decide the verdict
 
-Pick exactly one verdict, then use its matching label from `payload.schema.json` as the payload's
-`label`:
-
-| Verdict        | When                                                                  |
-| -------------- | --------------------------------------------------------------------- |
-| Reproduced     | The bug exists at the current checkout.                               |
-| Already fixed  | The reported version reproduces it and the current checkout does not. |
-| Not reproduced | Neither reproduces it with the information given.                     |
-| Needs info     | The issue is too incomplete to attempt a reproduction.                |
-| Skipped        | It needs resources the sandbox lacks.                                 |
+Pick exactly one verdict using the when-to-use comments in `payload.schema.yml`, and set the
+payload's `label` to that exact enum value.
 
 ## 5. Comment
 
