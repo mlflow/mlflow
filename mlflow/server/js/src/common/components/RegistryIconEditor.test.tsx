@@ -3,10 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { IntlProvider } from 'react-intl';
-import { DesignSystemProvider } from '@databricks/design-system';
+import { DesignSystemProvider, PuzzleIcon } from '@databricks/design-system';
 
-import type { RegistryIcon } from '../types';
-import { SkillIconEditor } from './SkillIconEditor';
+import type { RegistryIconImage } from '../utils/registryIcons';
+import { RegistryIconEditor } from './RegistryIconEditor';
 
 const LIGHT = { src: 'https://example.com/light.svg', theme: 'light' };
 const DARK = { src: 'https://example.com/dark.svg' };
@@ -15,15 +15,17 @@ const ControlledEditor = ({
   initial,
   onChange,
 }: {
-  initial: RegistryIcon[];
-  onChange: (icons: RegistryIcon[]) => void;
+  initial: RegistryIconImage[];
+  onChange: (icons: RegistryIconImage[]) => void;
 }) => {
   const [icons, setIcons] = useState(initial);
   return (
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <SkillIconEditor
+        <RegistryIconEditor
           icons={icons}
+          defaultIcon={<PuzzleIcon />}
+          componentId="test.icon_editor"
           onChange={(next) => {
             onChange(next);
             setIcons(next);
@@ -34,25 +36,16 @@ const ControlledEditor = ({
   );
 };
 
-describe('SkillIconEditor', () => {
+describe('RegistryIconEditor', () => {
   it('gives each existing icon URL input its own accessible name', () => {
-    render(
-      <IntlProvider locale="en">
-        <DesignSystemProvider>
-          <SkillIconEditor
-            icons={[{ src: 'https://example.com/light.svg', theme: 'light' }, { src: 'https://example.com/dark.svg' }]}
-            onChange={jest.fn()}
-          />
-        </DesignSystemProvider>
-      </IntlProvider>,
-    );
+    render(<ControlledEditor initial={[LIGHT, DARK]} onChange={jest.fn()} />);
 
     expect(screen.getByRole('textbox', { name: 'Icon URL 1' })).toHaveValue('https://example.com/light.svg');
     expect(screen.getByRole('textbox', { name: 'Icon URL 2' })).toHaveValue('https://example.com/dark.svg');
   });
 
   it('removes an icon whose URL was just edited', async () => {
-    const onChange = jest.fn<(icons: RegistryIcon[]) => void>();
+    const onChange = jest.fn<(icons: RegistryIconImage[]) => void>();
     render(<ControlledEditor initial={[LIGHT, DARK]} onChange={onChange} />);
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Icon URL 1' }), '?v=2');

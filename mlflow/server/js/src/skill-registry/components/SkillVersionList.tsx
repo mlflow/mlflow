@@ -1,27 +1,13 @@
-import { useMemo } from 'react';
-import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
-import {
-  ChevronRightIcon,
-  Empty,
-  Table,
-  TableCell,
-  TableHeader,
-  TableRow,
-  TableSkeletonRows,
-  Tag,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import type { ColumnDef } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { Empty, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { SkillStatus, type SkillVersion } from '../types';
-import { formatSkillStatusLabel, STATUS_TAG_COLOR } from '../utils';
-import { flexColumnGapStyles, flexRowWrapStyles, selectedRowIndicatorStyles, spaceBetweenRowStyles } from '../styles';
+import { RegistryVersionList } from '../../common/components/RegistryVersionList';
 import Utils from '../../common/utils/Utils';
+import type { SkillVersion } from '../types';
+import { formatSkillStatusLabel, STATUS_TAG_COLOR } from '../utils';
+import { flexColumnGapStyles, flexRowWrapStyles } from '../styles';
 
-const SkillVersionCell: ColumnDef<SkillVersion>['cell'] = ({ row: { original } }) => {
+const SkillVersionSummary = ({ version }: { version: SkillVersion }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -32,21 +18,24 @@ const SkillVersionCell: ColumnDef<SkillVersion>['cell'] = ({ row: { original } }
           <FormattedMessage
             defaultMessage="Version {version}"
             description="Skill version list item label"
-            values={{ version: original.version }}
+            values={{ version: version.version }}
           />
         </Typography.Text>
-        <Tag componentId="mlflow.skill_registry.detail.version_status_tag" color={STATUS_TAG_COLOR[original.status]}>
-          {formatSkillStatusLabel(original.status)}
+        <Tag componentId="mlflow.skill_registry.detail.version_status_tag" color={STATUS_TAG_COLOR[version.status]}>
+          {formatSkillStatusLabel(version.status)}
         </Tag>
       </div>
-      {original.creation_timestamp && (
+      {version.creation_timestamp && (
         <Typography.Text size="sm" color="secondary">
-          {Utils.formatTimestamp(original.creation_timestamp, intl)}
+          {Utils.formatTimestamp(version.creation_timestamp, intl)}
         </Typography.Text>
       )}
     </div>
   );
 };
+
+const getVersionKey = (version: SkillVersion) => String(version.version);
+const renderVersion = (version: SkillVersion) => <SkillVersionSummary version={version} />;
 
 export const SkillVersionList = ({
   versions,
@@ -61,103 +50,34 @@ export const SkillVersionList = ({
   isLoading?: boolean;
   hasMoreVersions?: boolean;
 }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-
-  const columns = useMemo<ColumnDef<SkillVersion>[]>(
-    () => [
-      {
-        id: 'version',
-        header: intl.formatMessage({
-          defaultMessage: 'Versions',
-          description: 'Header for the version column in the Skill versions table',
-        }),
-        accessorKey: 'version',
-        cell: SkillVersionCell,
-      },
-    ],
-    [intl],
-  );
-
-  const table = useReactTable('mlflow/server/js/src/skill-registry/components/SkillVersionList.tsx', {
-    data: versions ?? [],
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => String(row.version),
-  });
-
-  const emptyState =
-    !isLoading && (!versions || versions.length === 0) ? (
-      <Empty
-        title={<FormattedMessage defaultMessage="No versions" description="Empty state when a Skill has no versions" />}
-        description={
-          <FormattedMessage
-            defaultMessage="This skill does not have any versions yet."
-            description="Description for an empty Skill version list"
-          />
-        }
-      />
-    ) : null;
-
   return (
-    <div css={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Table scrollable empty={emptyState}>
-        <TableRow isHeader>
-          {table.getLeafHeaders().map((header) => (
-            <TableHeader componentId="mlflow.skill_registry.detail.versions.header" key={header.id}>
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </TableHeader>
-          ))}
-        </TableRow>
-        {isLoading ? (
-          <TableSkeletonRows table={table} />
-        ) : (
-          table.getRowModel().rows.map((row) => {
-            const version = row.original.version;
-            const isSelected = selectedVersion === version;
-            const content = (
-              <div css={spaceBetweenRowStyles}>
-                {row.getAllCells().map((cell) => (
-                  <span key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>
-                ))}
-                {isSelected && (
-                  <div css={selectedRowIndicatorStyles(theme)}>
-                    <ChevronRightIcon />
-                  </div>
-                )}
-              </div>
-            );
-            return (
-              <TableRow
-                key={row.id}
-                tabIndex={0}
-                aria-selected={isSelected}
-                css={{
-                  backgroundColor: isSelected ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-                  cursor: 'pointer',
-                }}
-                onClick={() => onSelectVersion(version)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onSelectVersion(version);
-                  }
-                }}
-              >
-                <TableCell css={{ alignItems: 'center' }}>{content}</TableCell>
-              </TableRow>
-            );
-          })
-        )}
-      </Table>
-      {hasMoreVersions && (
-        <Typography.Hint css={{ padding: theme.spacing.sm, textAlign: 'center' }}>
-          <FormattedMessage
-            defaultMessage="Only the most recent 100 versions are shown."
-            description="Warning shown when a skill has more versions than the detail page displays"
-          />
-        </Typography.Hint>
-      )}
-    </div>
+    <RegistryVersionList
+      versions={versions}
+      getVersionKey={getVersionKey}
+      renderVersion={renderVersion}
+      selectedKey={selectedVersion == null ? undefined : String(selectedVersion)}
+      onSelect={(key) => onSelectVersion(Number(key))}
+      header={intl.formatMessage({
+        defaultMessage: 'Versions',
+        description: 'Header for the version column in the Skill versions table',
+      })}
+      componentId="mlflow.skill_registry.detail.versions"
+      emptyState={
+        <Empty
+          title={
+            <FormattedMessage defaultMessage="No versions" description="Empty state when a Skill has no versions" />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="This skill does not have any versions yet."
+              description="Description for an empty Skill version list"
+            />
+          }
+        />
+      }
+      isLoading={isLoading}
+      hasMoreVersions={hasMoreVersions}
+    />
   );
 };

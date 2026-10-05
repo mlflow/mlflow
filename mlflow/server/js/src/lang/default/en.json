@@ -979,10 +979,6 @@
     "defaultMessage": "Presence penalty",
     "description": "Label for the presence-penalty input on the playground parameters panel"
   },
-  "1zC79B": {
-    "defaultMessage": "{label} theme",
-    "description": "Skill icon preview theme label"
-  },
   "2+EUFB": {
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
@@ -1475,10 +1471,6 @@
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
   },
-  "4/bsMk": {
-    "defaultMessage": "Add icon",
-    "description": "Tooltip for add icon button in MCP server icon editor"
-  },
   "40TLJk": {
     "defaultMessage": "Structured output:",
     "description": "Label for structured output schema in the prompt details page"
@@ -1671,6 +1663,10 @@
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
   },
+  "4aFOn8": {
+    "defaultMessage": "Theme",
+    "description": "Registry icon editor label for an icon theme"
+  },
   "4aoazH": {
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
@@ -1694,10 +1690,6 @@
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
-  },
-  "4hE4IF": {
-    "defaultMessage": "default",
-    "description": "Tooltip for default fallback icon"
   },
   "4iVjvu": {
     "defaultMessage": "Create a user to get started.",
@@ -1938,10 +1930,6 @@
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
-  },
-  "5eAD8n": {
-    "defaultMessage": "https://example.com/icon.svg",
-    "description": "Placeholder for icon URL input in MCP server icon editor"
   },
   "5gnjlc": {
     "defaultMessage": "{value} tokens",
@@ -2303,10 +2291,6 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
   },
-  "75hhZl": {
-    "defaultMessage": "Dark",
-    "description": "Dark mode skill icon option"
-  },
   "78/HiZ": {
     "defaultMessage": "Expand tag columns",
     "description": "Column header action for expanding tag columns"
@@ -2346,6 +2330,10 @@
   "7GU2wd": {
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
+  },
+  "7IgbLz": {
+    "defaultMessage": "light theme",
+    "description": "Registry icon editor label for the light preview"
   },
   "7KKvmS": {
     "defaultMessage": "Created by",
@@ -2626,10 +2614,6 @@
   "8ALhnh": {
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
-  },
-  "8B5Toz": {
-    "defaultMessage": "Icon URL",
-    "description": "Aria label for a skill icon URL"
   },
   "8CgyA/": {
     "defaultMessage": "Tags",
@@ -3167,10 +3151,6 @@
     "defaultMessage": "Failed",
     "description": "Fail status pill in the regression-test detail"
   },
-  "A8PsVy": {
-    "defaultMessage": "Remove icon",
-    "description": "Aria label for remove icon button in MCP server icon editor"
-  },
   "AAdQxU": {
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
@@ -3331,6 +3311,10 @@
     "defaultMessage": "This view is too large to save. Try hiding some columns or charts, then save again.",
     "description": "Error shown when a saved experiment view exceeds the experiment-tag size limit"
   },
+  "Aj02Lg": {
+    "defaultMessage": "Remove icon",
+    "description": "Registry icon editor label for removing an icon"
+  },
   "Aj5dMu": {
     "defaultMessage": "Icons",
     "description": "Label for icons field in create MCP server modal"
@@ -3390,6 +3374,10 @@
   "AyceYA": {
     "defaultMessage": "Served LLM model",
     "description": "Experiment page > new run modal > served LLM model endpoint label"
+  },
+  "AypH5H": {
+    "defaultMessage": "dark theme",
+    "description": "Registry icon editor label for the dark preview"
   },
   "AzOnmT": {
     "defaultMessage": "Automatically log traces for Anthropic API calls by calling the {code} function. For example:",
@@ -3466,10 +3454,6 @@
   "BEXAt0": {
     "defaultMessage": "(empty)",
     "description": "Placeholder for an empty JSON cell"
-  },
-  "BEYEg8": {
-    "defaultMessage": "Theme",
-    "description": "Aria label for a skill icon theme"
   },
   "BEugM0": {
     "defaultMessage": "Loading files...",
@@ -4047,10 +4031,6 @@
     "defaultMessage": "Expand assertion text",
     "description": "Aria label for the chevron that expands a long assertion text"
   },
-  "DXmrwz": {
-    "defaultMessage": "Theme",
-    "description": "Column header for a skill icon theme"
-  },
   "DXxTNn": {
     "defaultMessage": "Used for HMAC signature verification of incoming webhook requests.",
     "description": "Webhook secret field description"
@@ -4158,10 +4138,6 @@
   "E1nBWS": {
     "defaultMessage": "Overwrite \"{name}\"",
     "description": "Menu item that overwrites the active saved view with the current, edited state"
-  },
-  "E2V1sV": {
-    "defaultMessage": "Light",
-    "description": "Light mode icon option"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -4555,6 +4531,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
   },
+  "FiPeGT": {
+    "defaultMessage": "https://example.com/icon.svg",
+    "description": "Registry icon editor placeholder for an icon URL"
+  },
   "FijsAB": {
     "defaultMessage": "Endpoint URL:",
     "description": "MCP registry endpoint modal endpoint label"
@@ -4603,13 +4583,13 @@
     "defaultMessage": "No custom views",
     "description": "Empty state title shown to read-only users when an experiment has no custom views"
   },
-  "FqR5Xf": {
-    "defaultMessage": "Enter a valid URL",
-    "description": "Error message when a skill icon URL is empty"
-  },
   "Fs6pF+": {
     "defaultMessage": "Create Role",
     "description": "Button to create a new role"
+  },
+  "FslHqc": {
+    "defaultMessage": "Icon URL {number}",
+    "description": "Registry icon editor label for an icon URL"
   },
   "Ft2NsS": {
     "defaultMessage": "High",
@@ -4887,10 +4867,6 @@
     "defaultMessage": "Edit tags for version {version}",
     "description": "Title for editing tags on a skill version"
   },
-  "H4ue/m": {
-    "defaultMessage": "Image failed to load",
-    "description": "Error message when a skill icon URL fails to load in the preview"
-  },
   "H6aarx": {
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
@@ -4902,6 +4878,10 @@
   "H9MulE": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
+  },
+  "HB+3ip": {
+    "defaultMessage": "Any",
+    "description": "Registry icon editor option for a theme-agnostic icon"
   },
   "HCAsed": {
     "defaultMessage": "Aliases:",
@@ -5122,10 +5102,6 @@
   "HrQbGZ": {
     "defaultMessage": "Format",
     "description": "Button that pretty-prints the tool parameters JSON in the playground"
-  },
-  "HstzaX": {
-    "defaultMessage": "Only the most recent 100 versions are shown.",
-    "description": "Warning shown when the MCP server has more versions than can be displayed"
   },
   "Ht3zGx": {
     "defaultMessage": "Hide column",
@@ -6091,10 +6067,6 @@
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
   },
-  "LtU5Qc": {
-    "defaultMessage": "Add icon",
-    "description": "Tooltip for adding a skill icon"
-  },
   "LuOEnE": {
     "defaultMessage": "Add",
     "description": "Categorical add-option button"
@@ -6246,6 +6218,10 @@
   "ML7TiJ": {
     "defaultMessage": "Could not save your review: {error}",
     "description": "Review focused view: error toast when saving a review fails"
+  },
+  "MN6Mz+": {
+    "defaultMessage": "Icon URL",
+    "description": "Registry icon editor column header for icon URLs"
   },
   "MNCAQh": {
     "defaultMessage": "Calls",
@@ -6911,6 +6887,10 @@
     "defaultMessage": "Expectations added for a trace",
     "description": "Description for expectations variable"
   },
+  "OePzrg": {
+    "defaultMessage": "Only the most recent 100 versions are shown.",
+    "description": "Hint when a registry entity has more versions than its detail page lists"
+  },
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
@@ -7390,10 +7370,6 @@
   "QR5jwv": {
     "defaultMessage": "Add an option",
     "description": "Categorical options: add-option input placeholder"
-  },
-  "QRBRG1": {
-    "defaultMessage": "Preview",
-    "description": "Preview label in MCP server icon editor"
   },
   "QRnRh3": {
     "defaultMessage": "No experiments found",
@@ -7930,10 +7906,6 @@
   "SVXXp4": {
     "defaultMessage": "Input type",
     "description": "Review question input variant selector"
-  },
-  "SW4qfw": {
-    "defaultMessage": "{label} theme",
-    "description": "Preview item theme label"
   },
   "SYa+JC": {
     "defaultMessage": "Select a prompt",
@@ -8551,6 +8523,10 @@
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
   },
+  "V+wWQJ": {
+    "defaultMessage": "New icon URL",
+    "description": "Registry icon editor label for the URL of an icon being added"
+  },
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
@@ -8634,6 +8610,10 @@
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
+  },
+  "VH98/H": {
+    "defaultMessage": "Dark",
+    "description": "Registry icon editor option for a dark mode icon"
   },
   "VHuRTt": {
     "defaultMessage": "Doc",
@@ -8726,10 +8706,6 @@
   "VYEXZx": {
     "defaultMessage": "All sources",
     "description": "Skill catalog source filter option for any source"
-  },
-  "VYEm21": {
-    "defaultMessage": "Any",
-    "description": "Theme-agnostic skill icon option"
   },
   "VYfxMp": {
     "defaultMessage": "{hours}h ago",
@@ -9007,10 +8983,6 @@
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
   },
-  "WWKK2J": {
-    "defaultMessage": "Icon URL",
-    "description": "Column header for a skill icon URL"
-  },
   "WWv3EQ": {
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
@@ -9062,6 +9034,10 @@
   "Wig7z4": {
     "defaultMessage": "Trace ID",
     "description": "Header for the traces table trace-id column"
+  },
+  "Wio9LS": {
+    "defaultMessage": "New icon theme",
+    "description": "Registry icon editor label for the theme of an icon being added"
   },
   "WlZLz9": {
     "defaultMessage": "Expectations Guidelines",
@@ -9362,14 +9338,6 @@
   "XpiGwc": {
     "defaultMessage": "Select a queue to get started",
     "description": "Review queue: empty state title when no queue selected"
-  },
-  "XpksEQ": {
-    "defaultMessage": "Icon URL",
-    "description": "Column header for icon URL"
-  },
-  "Xs1IwH": {
-    "defaultMessage": "Only the most recent 100 versions are shown.",
-    "description": "Warning shown when a skill has more versions than the detail page displays"
   },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
@@ -10099,6 +10067,10 @@
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
   },
+  "acLHXI": {
+    "defaultMessage": "Theme",
+    "description": "Registry icon editor column header for icon themes"
+  },
   "adOmg9": {
     "defaultMessage": "Add more traces for broader coverage",
     "description": "Suggestion to analyze more traces"
@@ -10511,14 +10483,6 @@
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for the pre-built LLM-as-a-judge filter pill in the run evaluation modal"
   },
-  "cCMnlB": {
-    "defaultMessage": "Dark",
-    "description": "Dark mode icon option"
-  },
-  "cCgy82": {
-    "defaultMessage": "Icon URL {number}",
-    "description": "Aria label for an existing skill icon URL"
-  },
   "cEj56l": {
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"
@@ -10714,10 +10678,6 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
-  },
-  "d/dx+q": {
-    "defaultMessage": "Add icon",
-    "description": "Aria label for add icon button in MCP server icon editor"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -11195,10 +11155,6 @@
     "defaultMessage": "You can change this model in advanced settings",
     "description": "Tooltip suggesting users can change the default model in advanced settings"
   },
-  "ekcUog": {
-    "defaultMessage": "Light",
-    "description": "Light mode skill icon option"
-  },
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
@@ -11611,10 +11567,6 @@
     "defaultMessage": "Delete",
     "description": "Manage review questions: confirm delete"
   },
-  "gDwgKT": {
-    "defaultMessage": "Image failed to load",
-    "description": "Error message when icon URL fails to load in preview"
-  },
   "gEKaYI": {
     "defaultMessage": "Use the MLflow Python client to register an MCP server from a URL:",
     "description": "Instruction text for Python-based MCP server registration"
@@ -11622,10 +11574,6 @@
   "gF1WQp": {
     "defaultMessage": "Add message",
     "description": "Label for the button that appends a new chat message on the playground page"
-  },
-  "gFJWo4": {
-    "defaultMessage": "Add icon",
-    "description": "Aria label for adding a skill icon"
   },
   "gFYM0j": {
     "defaultMessage": "Cancel",
@@ -12263,10 +12211,6 @@
     "defaultMessage": "Judges",
     "description": "Section header for judge selection in the run evaluation modal"
   },
-  "iFEO+a": {
-    "defaultMessage": "Remove icon",
-    "description": "Tooltip for removing a skill icon"
-  },
   "iJRv1X": {
     "defaultMessage": "Access endpoint",
     "description": "Header for the access endpoint column in the MCP servers table"
@@ -12635,6 +12579,10 @@
     "defaultMessage": "User",
     "description": "Trace filter field: user"
   },
+  "jW4jRl": {
+    "defaultMessage": "Image failed to load",
+    "description": "Registry icon editor error when an icon URL fails to load in the preview"
+  },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
     "description": "Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
@@ -12919,13 +12867,13 @@
     "defaultMessage": "Choose a source type in Advanced settings. The location is not a Git, OCI, or ZIP URL.",
     "description": "Validation error when a skill source type cannot be inferred"
   },
+  "kSC6Nl": {
+    "defaultMessage": "Enter a valid URL",
+    "description": "Registry icon editor error for an empty icon URL"
+  },
   "kSrJQC": {
     "defaultMessage": "Agent responds within acceptable time bounds",
     "description": "Issue category description for latency"
-  },
-  "kSuq8Q": {
-    "defaultMessage": "Any",
-    "description": "Theme-agnostic icon option"
   },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
@@ -13423,6 +13371,10 @@
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
   },
+  "mZMiwJ": {
+    "defaultMessage": "default",
+    "description": "Registry icon editor tooltip for a preview showing the default icon"
+  },
   "mZeFOg": {
     "defaultMessage": "Add/Edit alias for skill version {version}",
     "description": "Title for editing aliases on a skill version"
@@ -13591,6 +13543,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "n6knMc": {
+    "defaultMessage": "Preview",
+    "description": "Registry icon editor label for the icon previews"
+  },
   "n7MxV7": {
     "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
     "description": "Gateway > Endpoint details > Description for adding more primary models"
@@ -13666,10 +13622,6 @@
   "nPHUYN": {
     "defaultMessage": "https://example.com/webhook",
     "description": "Webhook URL placeholder"
-  },
-  "nPKNLt": {
-    "defaultMessage": "Theme",
-    "description": "Column header for icon theme"
   },
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
@@ -14342,6 +14294,10 @@
   "q1okqz": {
     "defaultMessage": "Registry URL",
     "description": "Package registry URL label"
+  },
+  "q8qLrG": {
+    "defaultMessage": "Add icon",
+    "description": "Registry icon editor label for adding an icon"
   },
   "q8rYCQ": {
     "defaultMessage": "Data Type",
@@ -15815,10 +15771,6 @@
     "defaultMessage": "The run containing the dataset could not be found.",
     "description": "Error message displayed when the run for the dataset is not found"
   },
-  "vwJ0ik": {
-    "defaultMessage": "Preview",
-    "description": "Label for the skill icon preview"
-  },
   "vwXBHk": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an issue assessment"
@@ -15922,6 +15874,10 @@
   "wJX0a/": {
     "defaultMessage": "Provider",
     "description": "Label for model provider input"
+  },
+  "wJddJO": {
+    "defaultMessage": "Light",
+    "description": "Registry icon editor option for a light mode icon"
   },
   "wKE2q+": {
     "defaultMessage": "Direct",
@@ -16058,10 +16014,6 @@
   "wp+LYU": {
     "defaultMessage": "Custom view name",
     "description": "Accessible label for the custom view name input"
-  },
-  "wp5YRi": {
-    "defaultMessage": "Remove icon",
-    "description": "Aria label for removing a skill icon"
   },
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
@@ -16227,10 +16179,6 @@
     "defaultMessage": "Chat",
     "description": "Label for chat prompt type in the prompt creation modal"
   },
-  "xM9Q2O": {
-    "defaultMessage": "https://example.com/icon.svg",
-    "description": "Placeholder for a skill icon URL"
-  },
   "xMNoOG": {
     "defaultMessage": "{version}",
     "description": "MCP server version item label"
@@ -16370,10 +16318,6 @@
   "xmpvlI": {
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
-  },
-  "xnBJe0": {
-    "defaultMessage": "Remove icon",
-    "description": "Tooltip for remove icon button in MCP server icon editor"
   },
   "xnJX7N": {
     "defaultMessage": "Source",
@@ -16530,10 +16474,6 @@
   "ySuIn+": {
     "defaultMessage": "State",
     "description": "Column label for state"
-  },
-  "yTtneR": {
-    "defaultMessage": "Enter a valid URL",
-    "description": "Error message when icon URL is empty"
   },
   "yWRwlk": {
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",

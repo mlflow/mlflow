@@ -93,13 +93,6 @@ export const overlayButtonStyles = (theme: ThemeType) => ({
   zIndex: 1,
 });
 
-export const selectedRowIndicatorStyles = (theme: ThemeType) => ({
-  width: theme.spacing.md * 2,
-  display: 'flex',
-  alignItems: 'center',
-  paddingRight: theme.spacing.sm,
-});
-
 export const tagListStyles = (theme: ThemeType) => ({
   display: 'flex',
   flexWrap: 'wrap' as const,
@@ -119,13 +112,6 @@ export const flexRowWrapStyles = (theme: ThemeType) => ({
   gap: theme.spacing.sm,
   flexWrap: 'wrap' as const,
 });
-
-export const spaceBetweenRowStyles = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  width: '100%',
-};
 
 export const lineClampStyles = (lines = 1) => ({
   display: '-webkit-box' as const,
