@@ -701,6 +701,4 @@ jobs:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
           gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file "$BODY_FILE"
-          # Unlike `gh issue edit --add-label`, this endpoint creates the label if it doesn't exist yet.
-          jq '{labels: [.label]}' "$PAYLOAD_PATH" \
-            | gh api --method POST "repos/$REPO/issues/$ISSUE_NUMBER/labels" --input - > /dev/null
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$(jq -r .label "$PAYLOAD_PATH")"

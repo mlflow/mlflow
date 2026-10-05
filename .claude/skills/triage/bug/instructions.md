@@ -18,8 +18,8 @@ and list the missing details in the comment.
 ## 2. Reproduce
 
 Trigger the bug in whatever form fits it: a CLI command, a short Python snippet, a request to a
-local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite or
-file store, tiny models and datasets, no external services. Put scratch files under
+local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite
+store, tiny models and datasets, no external services. Put scratch files under
 `$out_dir/work`. For UI bugs, seed the data the page needs through the Python client, then
 follow "Running the UI" in `SKILL.md` and capture a screenshot of the symptom.
 
