@@ -21,9 +21,10 @@ export const isAiRegistryActive = (location: Location) =>
 export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean }) => {
   const { theme } = useDesignSystemTheme();
 
+  // Rendered inside the sidebar's <ul>, so every top-level child must be an <li>.
   return (
-    <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <div
+    <>
+      <li
         css={{
           display: 'flex',
           alignItems: 'center',
@@ -41,7 +42,7 @@ export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean
         {!collapsed && (
           <FormattedMessage defaultMessage="AI Registry" description="Sidebar label for the AI Registry section" />
         )}
-      </div>
+      </li>
       <MlflowSidebarLink
         css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
         to={ExperimentTrackingRoutes.promptsPageRoute}
@@ -78,6 +79,6 @@ export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean
           <SkillRegistryBetaTag />
         </span>
       </MlflowSidebarLink>
-    </div>
+    </>
   );
 };

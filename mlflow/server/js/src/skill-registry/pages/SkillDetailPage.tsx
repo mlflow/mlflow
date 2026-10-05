@@ -383,7 +383,6 @@ const SkillDetailPage = () => {
                 onDismissError: statusMutation.reset,
               }
             }
-            isOnlyLiveVersion={!hasMoreVersions && visibleSkillVersions(versions).length <= 1}
           />
         </div>
       </div>

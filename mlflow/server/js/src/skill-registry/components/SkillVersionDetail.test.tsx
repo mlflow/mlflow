@@ -54,16 +54,28 @@ describe('SkillVersionDetail', () => {
     expect(document.body.textContent).toContain('prod');
   });
 
-  it('explains why the delete button is disabled', async () => {
-    renderDetail({
+  it('allows deleting a deprecated version and explains why an active one cannot be deleted', async () => {
+    const { rerender } = renderDetail({
       version: createMockSkillVersion({ status: SkillStatus.DEPRECATED }),
       onDelete: jest.fn(),
-      isOnlyLiveVersion: true,
     });
+    expect(screen.getByRole('button', { name: 'Delete version' })).toBeEnabled();
+
+    rerender(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <SkillVersionDetail
+            skill={createMockSkill()}
+            version={createMockSkillVersion({ status: SkillStatus.ACTIVE })}
+            onDelete={jest.fn()}
+          />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
     const button = screen.getByRole('button', { name: 'Delete version' });
     expect(button).toBeDisabled();
     await userEvent.hover(button.parentElement as HTMLElement);
-    expect(await screen.findAllByText("A skill's only remaining live version can't be deleted.")).not.toHaveLength(0);
+    expect(await screen.findAllByText(/Unpublish or deprecate this version first/)).not.toHaveLength(0);
   });
 
   it('does not link unsafe sources', () => {

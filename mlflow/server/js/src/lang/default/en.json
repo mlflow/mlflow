@@ -14735,10 +14735,6 @@
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
   },
-  "rlzdLv": {
-    "defaultMessage": "A skill's only remaining live version can't be deleted.",
-    "description": "Tooltip when the selected skill version is the last one that is not deleted"
-  },
   "rmAWZX": {
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"

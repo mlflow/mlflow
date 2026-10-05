@@ -217,35 +217,21 @@ const SkillVersionStatusEditor = ({
   );
 };
 
-const DeleteVersionButton = ({
-  status,
-  isOnlyLiveVersion,
-  onDelete,
-}: {
-  status: SkillStatus;
-  isOnlyLiveVersion: boolean;
-  onDelete: () => void;
-}) => {
-  const statusAllowsDelete = canSoftDeleteSkillVersion(status);
-  const canDelete = statusAllowsDelete && !isOnlyLiveVersion;
+const DeleteVersionButton = ({ status, onDelete }: { status: SkillStatus; onDelete: () => void }) => {
+  const canDelete = canSoftDeleteSkillVersion(status);
   return (
     <Tooltip
       componentId="mlflow.skill_registry.detail.version.delete_tooltip"
       content={
-        !statusAllowsDelete ? (
-          <FormattedMessage
-            defaultMessage="Unpublish or deprecate this version first. Deprecating keeps it resolving for anything that pins it."
-            description="Tooltip when an active skill version cannot be deleted yet"
-          />
-        ) : isOnlyLiveVersion ? (
-          <FormattedMessage
-            defaultMessage="A skill's only remaining live version can't be deleted."
-            description="Tooltip when the selected skill version is the last one that is not deleted"
-          />
-        ) : (
+        canDelete ? (
           <FormattedMessage
             defaultMessage="Removes this version from resolution, discovery and pull. Its number is never reused."
             description="Tooltip for deleting a draft or deprecated skill version"
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Unpublish or deprecate this version first. Deprecating keeps it resolving for anything that pins it."
+            description="Tooltip when an active skill version cannot be deleted yet"
           />
         )
       }
@@ -276,7 +262,6 @@ export const SkillVersionDetail = ({
   isLoading,
   isMissing,
   error,
-  isOnlyLiveVersion = false,
   onEditAliases,
   onEditMetadata,
   onDelete,
@@ -287,7 +272,6 @@ export const SkillVersionDetail = ({
   isLoading?: boolean;
   isMissing?: boolean;
   error?: Error | null;
-  isOnlyLiveVersion?: boolean;
   onEditAliases?: () => void;
   onEditMetadata?: () => void;
   onDelete?: () => void;
@@ -350,9 +334,7 @@ export const SkillVersionDetail = ({
           />
         </Typography.Title>
         <span css={{ display: 'inline-flex', gap: theme.spacing.sm }}>
-          {onDelete && (
-            <DeleteVersionButton status={version.status} isOnlyLiveVersion={isOnlyLiveVersion} onDelete={onDelete} />
-          )}
+          {onDelete && <DeleteVersionButton status={version.status} onDelete={onDelete} />}
           <UseSkillButton
             skill={skill}
             version={version.version}
