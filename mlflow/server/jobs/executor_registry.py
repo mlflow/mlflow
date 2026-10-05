@@ -209,7 +209,6 @@ def validate_executor_config() -> None:
     """
     from mlflow.environment_variables import (
         MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND,
-        MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
         MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
     )
     from mlflow.server.jobs.utils import get_job_execution_engine
@@ -217,12 +216,13 @@ def validate_executor_config() -> None:
     custom_scorer_backend = MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get()
     if (
         custom_scorer_backend
-        and custom_scorer_backend != MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+        and custom_scorer_backend != DEFAULT_EXECUTOR_BACKEND
         and get_job_execution_engine() != "executor"
     ):
-        # Only the executor engine routes jobs to backends. Without it, custom scorers would
-        # silently run on the default engine instead of the configured backend (for example
-        # outside the docker sandbox), so refuse to start.
+        # Only the executor engine runs jobs on a backend. Without it, custom scorers would
+        # silently run in the server's local job runner instead of the configured backend (for
+        # example outside the docker sandbox), even when the default backend names the same one,
+        # so refuse to start.
         raise MlflowException.invalid_parameter_value(
             f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND={custom_scorer_backend!r} requires "
             f"{MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name}=executor."
