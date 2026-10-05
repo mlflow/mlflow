@@ -436,7 +436,8 @@ def test_serialized_scorer_is_custom_code():
         _serialized_scorer_is_custom_code({"name": "safety", "builtin_scorer_class": "Safety"})
         is False
     )
-    assert _serialized_scorer_is_custom_code("not valid json") is False
+    with pytest.raises(MlflowException, match="Malformed serialized scorer"):
+        _serialized_scorer_is_custom_code("not valid json")
     # An ensemble embedding a custom @scorer counts as custom code (checked recursively).
     ensemble_with_custom = {
         "ensemble_scorer_data": {

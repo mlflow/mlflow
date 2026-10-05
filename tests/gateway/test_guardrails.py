@@ -9,8 +9,11 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
-from mlflow.exceptions import MlflowException
-from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.gateway.guardrails import (
+    GuardrailViolation,
+    JudgeGuardrail,
+    UnsupportedGuardrailScorerError,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.types.chat import ChatCompletionResponse
 
@@ -514,7 +517,7 @@ def test_from_entity_rejects_custom_code_scorer():
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.VALIDATION
 
-    with pytest.raises(MlflowException, match="do not support custom scorers"):
+    with pytest.raises(UnsupportedGuardrailScorerError, match="gateway guardrails do not support"):
         JudgeGuardrail.from_entity(entity)
 
 

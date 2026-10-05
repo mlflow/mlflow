@@ -20,7 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.metrics.genai.model_utils import _parse_model_uri
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
@@ -63,6 +63,23 @@ class GuardrailViolation(MlflowException):
         super().__init__(
             f"Guardrail '{guardrail_name}' blocked: {rationale}",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+class UnsupportedGuardrailScorerError(MlflowException):
+    """Raised when a guardrail is configured with a custom ``@scorer`` scorer.
+
+    A guardrail runs its scorer in the server process, which never executes custom scorer code.
+    This is a configuration error that must fail the request rather than silently drop the
+    guardrail, so an endpoint never serves traffic without a guardrail it is configured to run.
+    """
+
+    def __init__(self, guardrail_name: str) -> None:
+        super().__init__(
+            f"Guardrail '{guardrail_name}' uses a custom scorer defined with the @scorer "
+            "decorator, which gateway guardrails do not support. Replace it with a built-in "
+            "scorer or a judge created with make_judge, or remove it from this endpoint.",
+            error_code=INVALID_STATE,
         )
 
 
@@ -429,13 +446,9 @@ class JudgeGuardrail(Guardrail):
 
         # A guardrail runs its scorer in the server process. Custom scorers defined with the
         # @scorer decorator would execute their stored source here, so they are not supported as
-        # guardrails (this also fails closed if such a scorer was somehow registered as one).
+        # guardrails (this also covers one registered before guardrail creation rejected them).
         if _serialized_scorer_is_custom_code(entity.scorer.serialized_scorer):
-            raise MlflowException(
-                "Gateway guardrails do not support custom scorers defined with the @scorer "
-                "decorator. Use a built-in scorer or a judge created with make_judge.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+            raise UnsupportedGuardrailScorerError(entity.name)
 
         scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
 

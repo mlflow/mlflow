@@ -495,17 +495,18 @@ def run_online_scoring_scheduler() -> None:
 
                 for scorer in scorers:
                     try:
-                        scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
+                        serialized_data = json.loads(scorer.serialized_scorer)
                         # A custom @scorer whose execution is disabled (flag off) is rejected at
                         # submit time; submitting it would raise and abort the whole scheduling
                         # pass, so skip it here (the server deserializes it as non-executing
                         # metadata, so the rejection no longer surfaces during this classification).
-                        if custom_scorer_execution_blocked(json.loads(scorer.serialized_scorer)):
+                        if custom_scorer_execution_blocked(serialized_data):
                             _logger.warning(
                                 f"Skipping custom scorer '{scorer.name}'; custom scorer execution "
                                 "is disabled (set MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS to enable)."
                             )
                             continue
+                        scorer_obj = Scorer.model_validate(serialized_data)
                         if scorer_obj.is_session_level_scorer:
                             session_level_scorers.append(scorer)
                         else:

@@ -36,6 +36,8 @@ from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     THIRD_PARTY_SCORER_ALLOWED_MODULES,
     THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
+    _obj_has_call_source,
+    _parse_serialized_scorer,
 )
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
@@ -366,27 +368,16 @@ def _serialized_scorer_is_custom_code(
 
     Used to keep such scorers off paths that would execute them in the tracking server process
     (for example, gateway guardrails). Accepts a ``SerializedScorer``, a JSON string, or a dict
-    (callers pass different forms), and never executes the scorer.
+    (callers pass different forms), and never executes the scorer. Raises on a malformed JSON
+    string. Detection recurses, so a custom sub-scorer nested in an ensemble is caught too.
     """
     if isinstance(serialized_scorer, SerializedScorer):
         data = asdict(serialized_scorer)
     elif isinstance(serialized_scorer, str):
-        try:
-            data = json.loads(serialized_scorer)
-        except json.JSONDecodeError:
-            return False
-    elif isinstance(serialized_scorer, dict):
-        data = serialized_scorer
+        data = _parse_serialized_scorer(serialized_scorer)
     else:
-        return False
-    if data.get("call_source") and data.get("call_signature") and data.get("original_func_name"):
-        return True
-    # An ensemble embeds its sub-scorers' serialized dicts, so a custom @scorer can hide one level
-    # down. Recurse so an ensemble containing custom code is treated as custom code too.
-    ensemble = data.get("ensemble_scorer_data")
-    if isinstance(ensemble, dict):
-        return any(_serialized_scorer_is_custom_code(sub) for sub in ensemble.get("scorers", []))
-    return False
+        data = serialized_scorer
+    return _obj_has_call_source(data)
 
 
 class Scorer(BaseModel):
