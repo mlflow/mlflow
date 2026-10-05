@@ -65,7 +65,7 @@ Fill in this template: replace each `<...>` placeholder, and drop a line or sect
 nothing to say, except the verdict.
 
 ```markdown
-### Outcome
+### Summary
 
 **<verdict>**: <one or two sentences on what happens and on which versions>.
 
