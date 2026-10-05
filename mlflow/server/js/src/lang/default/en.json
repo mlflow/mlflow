@@ -7439,6 +7439,10 @@
     "defaultMessage": "Model Training",
     "description": "Feature card title for model training"
   },
+  "QrY8Lb": {
+    "defaultMessage": "Pinned to this commit, so every pull of this version gets the same content.",
+    "description": "Hint when the skill git ref is a commit SHA"
+  },
   "QravWY": {
     "defaultMessage": "Optimize Prompt",
     "description": "Title of the optimize prompt modal"
@@ -11855,6 +11859,10 @@
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
   },
+  "h6q5Al": {
+    "defaultMessage": "If this is a branch, pulls of this version get whatever it points to then. Use a tag or commit SHA to pin the content.",
+    "description": "Hint when the skill git ref may be a moving branch"
+  },
   "h9x9X7": {
     "defaultMessage": "Time range",
     "description": "Label for the time range select dropdown"
@@ -13199,6 +13207,10 @@
     "defaultMessage": "Viewing version {version}",
     "description": "Skill version detail heading"
   },
+  "m/lqp9": {
+    "defaultMessage": "Defaults to the repository's default branch. A branch keeps moving, so pulls of this version get whatever it points to then. Use a tag or commit SHA to pin the content.",
+    "description": "Hint for an empty skill git ref field"
+  },
   "m1Nb7W": {
     "defaultMessage": "Save",
     "description": "Evaluation review > assessments > save button"
@@ -13742,10 +13754,6 @@
   "o0NwZU": {
     "defaultMessage": "Quality metrics computed by scorers.",
     "description": "Description for the scorer insights section"
-  },
-  "o0tc2r": {
-    "defaultMessage": "Defaults to the repository's default branch.",
-    "description": "Hint for the skill git ref field"
   },
   "o1dN9r": {
     "defaultMessage": "Theme preference",

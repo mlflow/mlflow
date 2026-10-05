@@ -367,6 +367,14 @@ describe('SkillDetailPage', () => {
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Location')).toHaveValue('https://github.com/acme/skills');
     expect(screen.getByLabelText('Branch, tag or commit')).toHaveValue('main');
+    expect(
+      screen.getByText(/If this is a branch, pulls of this version get whatever it points to then/),
+    ).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Branch, tag or commit'));
+    await userEvent.type(screen.getByLabelText('Branch, tag or commit'), '0123abcd');
+    expect(screen.getByText(/Pinned to this commit/)).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Branch, tag or commit'));
+    await userEvent.type(screen.getByLabelText('Branch, tag or commit'), 'main');
     expect(screen.getByLabelText('Path within the source')).toHaveValue('code-review');
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
