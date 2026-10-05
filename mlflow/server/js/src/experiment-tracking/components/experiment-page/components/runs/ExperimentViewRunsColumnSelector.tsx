@@ -367,6 +367,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
           width: userPanelSize?.width ?? DEFAULT_PANEL_WIDTH,
           ...(userPanelSize ? { height: userPanelSize.height } : {}),
           minWidth: 320,
+          minHeight: 240,
           maxWidth: 'min(90vw, 800px)',
           maxHeight: 'min(85vh, 800px)',
           boxSizing: 'border-box',

@@ -159,7 +159,7 @@ describe('ExperimentViewRunsColumnSelector', () => {
     await userEvent.click(screen.getByTestId('column-selection-dropdown'));
 
     const panel = await screen.findByTestId('column-selector-panel');
-    expect(panel).toHaveStyle({ resize: 'both', width: '400px' });
+    expect(panel).toHaveStyle({ resize: 'both', width: '400px', minWidth: '320px', minHeight: '240px' });
     // Height stays automatic so the panel shrink-wraps instead of a fixed ~600px.
     expect(panel.style.height).toBe('');
   });
