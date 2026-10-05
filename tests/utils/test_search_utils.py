@@ -1112,6 +1112,41 @@ def test_search_trace_utils_sorts_trace_metrics_state_and_latest_feedback():
     ] == ["error", "high", "low"]
 
 
+def test_search_trace_utils_sorts_missing_state_last():
+    location = trace_location.TraceLocation.from_experiment_id("0")
+    traces = [
+        TraceInfo(
+            trace_id="missing",
+            trace_location=location,
+            request_time=3,
+            state=None,
+        ),
+        TraceInfo(
+            trace_id="ok",
+            trace_location=location,
+            request_time=2,
+            state=TraceState.OK,
+        ),
+        TraceInfo(
+            trace_id="error",
+            trace_location=location,
+            request_time=1,
+            state=TraceState.ERROR,
+        ),
+    ]
+
+    assert [trace.trace_id for trace in SearchTraceUtils.sort(traces, ["state ASC"])] == [
+        "ok",
+        "error",
+        "missing",
+    ]
+    assert [trace.trace_id for trace in SearchTraceUtils.sort(traces, ["state DESC"])] == [
+        "error",
+        "ok",
+        "missing",
+    ]
+
+
 def test_search_trace_utils_treats_malformed_trace_analytics_as_missing():
     location = trace_location.TraceLocation.from_experiment_id("0")
 

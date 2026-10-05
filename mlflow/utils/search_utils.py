@@ -2191,6 +2191,8 @@ class SearchTraceUtils(SearchUtils):
             if type_ == cls._REQUEST_METADATA_IDENTIFIER:
                 return trace.trace_metadata.get(key)
             if key == "state":
+                if trace.state is None:
+                    return None
                 state = getattr(trace.state, "value", str(trace.state))
                 return 1 if state == "ERROR" else 0
             if key == "total_tokens":
