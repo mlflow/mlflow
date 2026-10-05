@@ -344,6 +344,10 @@ class BuiltInScorer(Judge):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            # Mirrors the value already inside `pydantic_model_data` so the top-level
+            # field stays consistent for consumers that read it; on deserialization
+            # the pydantic data wins.
+            session_level=self.session_level,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,

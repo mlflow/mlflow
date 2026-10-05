@@ -933,6 +933,7 @@ class InstructionsJudge(Judge):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            session_level=self.session_level,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             instructions_judge_pydantic_data=pydantic_data,

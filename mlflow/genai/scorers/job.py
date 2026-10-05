@@ -25,7 +25,11 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     get_first_trace_in_session,
 )
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    warn_session_level_unsupported_online,
+)
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
@@ -247,6 +251,9 @@ def _run_session_scorer(
     Returns:
         Dict mapping trace_id to TraceResult.
     """
+    if scorer.session_level is not None:
+        warn_session_level_unsupported_online(scorer.name)
+
     trace_map = _fetch_traces_batch(trace_ids, tracking_store)
 
     # Preserve order of traces as requested

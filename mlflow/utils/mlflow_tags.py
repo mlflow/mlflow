@@ -115,6 +115,10 @@ MLFLOW_CUSTOM_VIEW_TAG_PREFIX = "mlflow.customView.view"
 MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
 MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
 MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"
+# Declares the session hierarchy levels of an experiment as JSON
+# {"version": 1, "levels": [{"name": ...}, ...]}, enabling scorers to group traces
+# by a hierarchy level of a hierarchical session ID.
+MLFLOW_EXPERIMENT_SESSION_HIERARCHY = "mlflow.experiment.sessionHierarchy"
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"

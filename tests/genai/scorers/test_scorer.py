@@ -711,3 +711,62 @@ def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_da
     metrics = results.metrics.keys()
     assert any("fast_scorer" in metric for metric in metrics)
     assert all("slow_scorer" not in metric for metric in metrics)
+
+
+# ==================== Tests for session_level ====================
+
+
+def test_scorer_session_level_set_on_session_scorer():
+    @scorer(session_level="episode")
+    def session_scorer(session):
+        return len(session)
+
+    assert session_scorer.session_level == "episode"
+    assert session_scorer.is_session_level_scorer is True
+
+
+def test_scorer_session_level_defaults_to_none():
+    @scorer
+    def session_scorer(session):
+        return len(session)
+
+    assert session_scorer.session_level is None
+
+
+def test_scorer_session_level_rejected_on_single_turn_scorer():
+    with pytest.raises(MlflowException, match="`session_level` is only supported"):
+
+        @scorer(session_level="episode")
+        def single_turn_scorer(outputs):
+            return True
+
+
+def test_scorer_session_level_rejects_empty_name():
+    with pytest.raises(MlflowException, match="non-empty level name"):
+
+        @scorer(session_level="")
+        def session_scorer(session):
+            return len(session)
+
+
+def test_scorer_session_level_validated_lazily_for_subclasses():
+    # Class-based scorers compute is_session_level_scorer after base init, so the
+    # session-level requirement is validated at registration/evaluation time.
+    class SingleTurnWithLevel(Scorer):
+        def __init__(self):
+            super().__init__(name="single_turn_with_level", session_level="episode")
+
+        def __call__(self, outputs):
+            return True
+
+    s = SingleTurnWithLevel()
+    assert s.session_level == "episode"
+    with pytest.raises(MlflowException, match="not a session-level scorer"):
+        s._validate_session_level()
+
+
+def test_scorer_session_level_rejected_at_registration():
+    # A single-turn builtin scorer with session_level is rejected by the registration
+    # gate before any backend call.
+    with pytest.raises(MlflowException, match="not a session-level scorer"):
+        Correctness(session_level="episode")._check_can_be_registered()

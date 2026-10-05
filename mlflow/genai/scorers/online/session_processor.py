@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from mlflow.entities.assessment import Assessment
 from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, warn_session_level_unsupported_online
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
     MAX_SESSIONS_PER_JOB,
@@ -104,6 +104,10 @@ class OnlineSessionScoringProcessor:
         if not self._sampler._online_scorers:
             _logger.debug("No scorer configs provided, skipping")
             return
+
+        for scorer in self._sampler._scorers.values():
+            if scorer.session_level is not None:
+                warn_session_level_unsupported_online(scorer.name)
 
         time_window = self._checkpoint_manager.calculate_time_window()
         checkpoint = self._checkpoint_manager.get_checkpoint()

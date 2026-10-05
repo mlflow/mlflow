@@ -11,7 +11,7 @@ from mlflow.entities import Feedback
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
-from mlflow.genai.scorers.base import SerializedScorer
+from mlflow.genai.scorers.base import ScorerKind, SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
 from mlflow.genai.scorers.scorer_utils import THIRD_PARTY_SCORER_ALLOWED_MODULES
 
@@ -1119,3 +1119,101 @@ def test_scorer_serialized_before_timeout_existed_deserializes_to_zero():
     deserialized = Scorer.model_validate(serialized)
     # Legacy scorers reload unbounded (timeout disabled), not with the new default.
     assert deserialized.timeout == 0
+
+
+# ==================== session_level serialization ====================
+
+
+def test_session_level_round_trip_decorator():
+    @scorer(session_level="episode")
+    def session_scorer(session):
+        return len(session)
+
+    serialized = session_scorer.model_dump()
+    assert serialized["session_level"] == "episode"
+
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.session_level == "episode"
+    assert deserialized.is_session_level_scorer is True
+
+
+def test_scorer_serialized_before_session_level_existed_deserializes_to_none():
+    @scorer(session_level="episode")
+    def session_scorer(session):
+        return len(session)
+
+    # Emulate a payload written before the `session_level` field existed.
+    serialized = session_scorer.model_dump()
+    del serialized["session_level"]
+
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.session_level is None
+
+
+def test_session_level_round_trip_builtin_session_scorer():
+    from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
+
+    scorer = ConversationCompleteness(session_level="episode")
+
+    serialized = scorer.model_dump()
+    # Both the top-level field and the pydantic data carry the level.
+    assert serialized["session_level"] == "episode"
+    assert serialized["builtin_scorer_pydantic_data"]["session_level"] == "episode"
+
+    deserialized = Scorer.model_validate(serialized)
+    assert isinstance(deserialized, ConversationCompleteness)
+    assert deserialized.session_level == "episode"
+    assert deserialized.is_session_level_scorer is True
+
+
+def test_builtin_scorer_serialized_before_session_level_deserializes_to_none():
+    from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
+
+    serialized = ConversationCompleteness(session_level="episode").model_dump()
+    # Legacy payload: neither the top-level field nor the pydantic data has it.
+    del serialized["session_level"]
+    del serialized["builtin_scorer_pydantic_data"]["session_level"]
+
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.session_level is None
+
+
+def test_third_party_scorer_session_level_round_trip_and_copy():
+    class ConcreteSessionScorer(Scorer):
+        metric_name: ClassVar[str] = "SessionMetric"
+
+        def __init__(self, **kwargs):
+            super().__init__(name=self.metric_name, **kwargs)
+            self._metric_name = self.metric_name
+            self._model = None
+            self._metric_kwargs = {}
+
+        @property
+        def kind(self):
+            return ScorerKind.THIRD_PARTY
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return True
+
+        def __call__(self, *, session=None, **kwargs):
+            return 1.0
+
+    # model_dump records the class's module; make it an allow-listed one so the
+    # validate path exercises the real allow-list check.
+    ConcreteSessionScorer.__module__ = "mlflow.genai.scorers.ragas"
+    scorer = ConcreteSessionScorer(session_level="episode")
+    dumped = scorer.model_dump()
+    assert dumped["session_level"] == "episode"
+
+    fake_module = Mock(ConcreteSessionScorer=ConcreteSessionScorer)
+    with patch("mlflow.genai.scorers.base.importlib.import_module", return_value=fake_module):
+        restored = Scorer.model_validate(dumped)
+    assert isinstance(restored, ConcreteSessionScorer)
+    assert restored.session_level == "episode"
+
+    # The autouse fixture mocks a Databricks URI, where third-party registration
+    # is rejected; restore a plain URI for the copy path.
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=False):
+        copy = scorer._create_copy()
+    assert copy.session_level == "episode"

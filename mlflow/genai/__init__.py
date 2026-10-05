@@ -79,6 +79,7 @@ from mlflow.genai.scorers import (
     scorer,
 )
 from mlflow.genai.simulators import ConversationSimulator
+from mlflow.tracing.utils.session_hierarchy import set_session_hierarchy
 
 __all__ = [
     "datasets",
@@ -94,6 +95,7 @@ __all__ = [
     "judges",
     "make_judge",
     "scorers",
+    "set_session_hierarchy",
     "EvaluationDatasetVersion",
     "create_dataset",
     "delete_dataset",

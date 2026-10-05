@@ -163,3 +163,57 @@ def test_get_traces_in_session_tool_invoke_empty_result() -> None:
 
         assert result == []
         assert len(result) == 0
+
+
+def test_get_traces_in_session_tool_invoke_hierarchical_session_id() -> None:
+    # A hierarchical session ID (compact JSON array of strings) is accepted and
+    # looked up with exact match.
+    hierarchical_id = '["trip-2","ep-2"]'
+
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
+        tool = GetTracesInSession()
+        current_trace = create_mock_trace(hierarchical_id)
+
+        mock_search_tool = MagicMock()
+        mock_search_tool.invoke.return_value = []
+        mock_search_tool_class.return_value = mock_search_tool
+
+        tool.invoke(current_trace)
+
+        mock_search_tool.invoke.assert_called_once_with(
+            trace=current_trace,
+            filter_string=(
+                f"metadata.`{TraceMetadataKey.TRACE_SESSION}` = '{hierarchical_id}' "
+                "AND trace.timestamp < 1234567890"
+            ),
+            order_by=None,
+            max_results=20,
+        )
+
+
+def test_get_traces_in_session_tool_invoke_rejects_session_id_with_quote() -> None:
+    # Quotes are always rejected: the ID is interpolated into a single-quoted filter.
+    for session_id in ["session';drop", '["trip-2","ep\'2"]']:
+        tool = GetTracesInSession()
+        current_trace = create_mock_trace(session_id)
+
+        with pytest.raises(MlflowException, match="Invalid session ID format"):
+            tool.invoke(current_trace)
+
+
+@pytest.mark.parametrize(
+    "session_id",
+    [
+        "[]",  # empty JSON array
+        '["trip-2", 1]',  # non-string element
+        '{"a": 1}',  # JSON but not an array
+    ],
+)
+def test_get_traces_in_session_tool_invoke_rejects_invalid_json_session_id(session_id) -> None:
+    tool = GetTracesInSession()
+    current_trace = create_mock_trace(session_id)
+
+    with pytest.raises(MlflowException, match="Invalid session ID format"):
+        tool.invoke(current_trace)

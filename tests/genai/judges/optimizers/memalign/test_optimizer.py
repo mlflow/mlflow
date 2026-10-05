@@ -1485,3 +1485,23 @@ def test_align_with_partial_no_feedback_traces_raises(sample_judge, sample_trace
         optimizer = MemAlignOptimizer()
         with pytest.raises(MlflowException, match="No valid feedback records found"):
             optimizer.align(sample_judge, [no_feedback_trace, sample_traces[0]])
+
+
+def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
+    # The wrapper itself is single-turn, but the wrapped judge's session_level must
+    # survive a dump/restore cycle through the nested base-judge payload.
+    base_judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate whether the {{ conversation }} addresses the user's requests.",
+        model="openai:/gpt-4",
+        session_level="episode",
+    )
+    aligned = MemoryAugmentedJudge(base_judge=base_judge, _defer_init=True)
+
+    dumped = aligned.model_dump()
+    base_judge_data = dumped["memory_augmented_judge_data"]["base_judge"]
+    assert base_judge_data["session_level"] == "episode"
+
+    restored = Scorer.model_validate(dumped)
+    assert isinstance(restored, MemoryAugmentedJudge)
+    assert restored._base_judge.session_level == "episode"
