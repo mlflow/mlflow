@@ -168,11 +168,12 @@ def _validate_options(
             raise MlflowException.invalid_parameter_value("base_url must be a non-empty string.")
         try:
             parsed_base_url = urlparse(base_url)
-            if not parsed_base_url.scheme or not parsed_base_url.hostname:
+            if parsed_base_url.scheme not in {"http", "https"} or not parsed_base_url.hostname:
                 raise ValueError
+            _ = parsed_base_url.port
         except ValueError:
             raise MlflowException.invalid_parameter_value(
-                "base_url must be an absolute URL with a scheme and host."
+                "base_url must be an absolute HTTP or HTTPS URL with a valid host and port."
             ) from None
         if parsed_base_url.username is not None or parsed_base_url.password is not None:
             raise MlflowException.invalid_parameter_value(

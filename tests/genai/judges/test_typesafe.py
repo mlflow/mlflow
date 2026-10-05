@@ -330,12 +330,23 @@ def test_direct_invocation_rejects_empty_base_url(monkeypatch):
     request.assert_not_called()
 
 
-@pytest.mark.parametrize("base_url", ["http://", "://", "/v1", "v1"])
-def test_direct_invocation_rejects_base_url_without_scheme_or_host(monkeypatch, base_url):
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://",
+        "://",
+        "/v1",
+        "v1",
+        "ftp://system-one.example.com/v1",
+        "https://system-one.example.com:not-a-port/v1",
+        "https://system-one.example.com:99999/v1",
+    ],
+)
+def test_direct_invocation_rejects_invalid_base_url(monkeypatch, base_url):
     monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
     with (
         mock.patch(_REQUEST_TARGET) as request,
-        pytest.raises(MlflowException, match="absolute URL with a scheme and host"),
+        pytest.raises(MlflowException, match="absolute HTTP or HTTPS URL"),
     ):
         _invoke(base_url=base_url)
     request.assert_not_called()
