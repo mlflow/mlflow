@@ -126,10 +126,11 @@ export const TracesV4TraceDrawer = ({
   const sessionFilters = useMemo(() => (sessionId ? getChatSessionsFilter({ sessionId }) : []), [sessionId]);
   const fetchedTraceInfo = traceData?.info;
   useEffect(() => {
-    if (traceId && fetchedTraceInfo && isV3ModelTraceInfo(fetchedTraceInfo)) {
+    // PageContent already owns session metadata for on-page rows; report only off-page fetches.
+    if (!currentInfo && traceId && fetchedTraceInfo && isV3ModelTraceInfo(fetchedTraceInfo)) {
       onTraceInfoLoaded?.(traceId, fetchedTraceInfo);
     }
-  }, [fetchedTraceInfo, onTraceInfoLoaded, traceId]);
+  }, [currentInfo, fetchedTraceInfo, onTraceInfoLoaded, traceId]);
   const fetchedTraceLocation = isV3ModelTraceInfo(fetchedTraceInfo) ? fetchedTraceInfo.trace_location : undefined;
   const sessionTraceLocations = useMemo<ModelTraceSearchLocation[]>(() => {
     const traceLocation = session?.traceLocation ?? fetchedTraceLocation;
