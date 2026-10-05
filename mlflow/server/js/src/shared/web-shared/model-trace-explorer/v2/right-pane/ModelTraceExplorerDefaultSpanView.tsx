@@ -14,13 +14,11 @@ import {
 import { createListFromObject, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { DecisionAnswersRenderer } from '../../decision/DecisionAnswersRenderer';
-import { resolveDecisionViewModel } from '../../decision/resolveDecisionViewModel';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
-import { ModelTraceExplorerDecisionInputs } from './ModelTraceExplorerDecisionInputs';
+import { resolveTypeSafeDecision, TypeSafeDecisionAnswers, TypeSafeDecisionInputs } from './TypeSafeDecisionView';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -135,7 +133,7 @@ export function ModelTraceExplorerDefaultSpanView({
   );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
-  const decisionViewModel = useMemo(() => resolveDecisionViewModel(activeSpan), [activeSpan]);
+  const typeSafeDecision = useMemo(() => resolveTypeSafeDecision(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -226,16 +224,12 @@ export function ModelTraceExplorerDefaultSpanView({
   );
 
   const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
-    if (!searchFilter && decisionViewModel) {
+    if (!searchFilter && typeSafeDecision) {
       if (section === 'outputs') {
-        return <DecisionAnswersRenderer answers={decisionViewModel.answers} />;
+        return <TypeSafeDecisionAnswers decision={typeSafeDecision} />;
       }
       return (
-        <ModelTraceExplorerDecisionInputs
-          fields={fields}
-          viewModels={decisionViewModel.inputs.fields}
-          assessments={activeSpan.assessments}
-        />
+        <TypeSafeDecisionInputs decision={typeSafeDecision} fields={fields} assessments={activeSpan.assessments} />
       );
     }
 
@@ -277,7 +271,7 @@ export function ModelTraceExplorerDefaultSpanView({
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
-      if (decisionViewModel && !searchFilter) {
+      if (typeSafeDecision && !searchFilter) {
         return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
       }
 

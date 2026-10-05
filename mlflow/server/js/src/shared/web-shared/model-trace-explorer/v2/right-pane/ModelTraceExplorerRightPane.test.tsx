@@ -27,7 +27,7 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('ModelTraceExplorerRightPane', () => {
-  it('renders structured Jev inputs and answers with the resolved model', async () => {
+  it('renders TypeSafe decision cards while preserving the full trace in JSON', async () => {
     const inputs = {
       state: 'I was charged twice',
       evaluation_context: { customer_tier: 'enterprise' },
@@ -66,7 +66,6 @@ describe('ModelTraceExplorerRightPane', () => {
           'mlflow.spanOutputs': JSON.stringify(outputs),
           'mlflow.message.format': JSON.stringify('typesafe'),
           'mlflow.llm.model': JSON.stringify('jev-1.13.0'),
-          'mlflow.llm.provider': JSON.stringify('typesafe'),
           'mlflow.chat.tokenUsage': JSON.stringify(tokenUsage),
         },
       },
@@ -82,20 +81,19 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(span.outputs).toEqual(outputs);
     expect(span.chatMessageFormat).toBe('typesafe');
     expect(span.modelName).toBe('jev-1.13.0');
-    expect(span.modelProvider).toBe('typesafe');
     expect(span.tokenUsage).toEqual(tokenUsage);
     expect(span.chatMessages).toBeUndefined();
     expect(getDefaultActiveTab(span)).toBe('content');
 
-    render(
+    const renderTrace = (searchFilter: string) => (
       <>
         <div data-testid="model-badge">
           <SpanModelCostBadge activeSpan={span} />
         </div>
-        <ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />
-      </>,
-      { wrapper: Wrapper },
+        <ModelTraceExplorerContentTab activeSpan={span} searchFilter={searchFilter} activeMatch={null} />
+      </>
     );
+    const { rerender } = render(renderTrace(''), { wrapper: Wrapper });
 
     const modelBadge = within(screen.getByTestId('model-badge'));
     expect(modelBadge.getByText('Model')).toBeInTheDocument();
@@ -118,12 +116,25 @@ describe('ModelTraceExplorerRightPane', () => {
 
     const richAnswers = within(screen.getByTestId('decision-answers'));
     expect(richAnswers.queryByText('Is this about billing?')).not.toBeInTheDocument();
-    const noulAnswer = within(richAnswers.getByRole('button', { name: /^billing\b/ }));
+    const getAnswerSummary = (id: string) => {
+      const summary = richAnswers.getByText(id, { exact: true }).closest('summary');
+      expect(summary).not.toBeNull();
+      return summary as HTMLElement;
+    };
+    const noulSummary = getAnswerSummary('billing');
+    const choiceSummary = getAnswerSummary('tone');
+    const scoreSummary = getAnswerSummary('urgency');
+    const noulAnswer = within(noulSummary);
     expect(noulAnswer.getByText('true')).toBeInTheDocument();
     expect(noulAnswer.getByText('98% probability')).toBeInTheDocument();
     expect(noulAnswer.queryByText(/confidence/i)).not.toBeInTheDocument();
-    expect(richAnswers.getByRole('button', { name: /^tone\b/ })).toHaveTextContent('angry');
-    expect(richAnswers.getByRole('button', { name: /^urgency\b/ })).toHaveTextContent('0.9');
+    const choiceAnswer = within(choiceSummary);
+    expect(choiceAnswer.getByText('angry')).toBeInTheDocument();
+    expect(choiceAnswer.getByText('96% confidence')).toBeInTheDocument();
+    const scoreAnswer = within(scoreSummary);
+    expect(scoreAnswer.getByText('0.9')).toBeInTheDocument();
+    expect(scoreAnswer.getByText('Range 0–1')).toBeInTheDocument();
+    expect(scoreAnswer.getByText('94% confidence')).toBeInTheDocument();
     expect(within(contentTab).queryByText('answers', { exact: true })).not.toBeInTheDocument();
     expect(contentTab).not.toHaveTextContent('jev-1.13.0');
     expect(contentTab).not.toHaveTextContent('usage');
@@ -131,15 +142,58 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(contentTab).not.toHaveTextContent('debug_info');
     expect(contentTab).not.toHaveTextContent('billing-refund');
 
-    await userEvent.click(richAnswers.getByRole('button', { name: /^tone\b/ }));
+    await userEvent.click(noulSummary);
+    expect(noulSummary.closest('details')).toHaveAttribute('open');
+    expect(richAnswers.getByRole('progressbar', { name: 'Probability for true' })).toHaveAttribute(
+      'aria-valuenow',
+      '98',
+    );
+    expect(richAnswers.getByRole('progressbar', { name: 'Probability for false' })).toHaveAttribute(
+      'aria-valuetext',
+      '2%',
+    );
+
+    await userEvent.click(choiceSummary);
+    const choiceDisclosure = choiceSummary.closest('details');
+    expect(choiceDisclosure).toHaveAttribute('open');
+    const choiceDetails = within(choiceDisclosure as HTMLElement);
+    expect(choiceDetails.getByText('Probability distribution')).toBeInTheDocument();
     expect(richAnswers.getByRole('progressbar', { name: 'Probability for angry' })).toHaveAttribute(
       'aria-valuenow',
       '98',
     );
-    expect(richAnswers.getByText('Confidence')).toBeInTheDocument();
+    expect(richAnswers.getByRole('progressbar', { name: 'Probability for calm' })).toHaveAttribute(
+      'aria-valuenow',
+      '2',
+    );
+    expect(choiceDetails.getByText('Confidence')).toBeInTheDocument();
+
+    await userEvent.click(scoreSummary);
+    expect(scoreSummary.closest('details')).toHaveAttribute('open');
+    expect(richAnswers.getByRole('progressbar', { name: 'Probability for score 0' })).toHaveAttribute(
+      'aria-valuenow',
+      '10',
+    );
+    expect(richAnswers.getByRole('progressbar', { name: 'Probability for score 1' })).toHaveAttribute(
+      'aria-valuenow',
+      '90',
+    );
+    expect(richAnswers.getByText('low')).toBeInTheDocument();
+    expect(richAnswers.getByText('high')).toBeInTheDocument();
+
+    rerender(renderTrace('billing-refund'));
+    expect(screen.queryByTestId('decision-questions')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('decision-answers')).not.toBeInTheDocument();
+    expect(contentTab).toHaveTextContent('answers');
+    expect(contentTab).toHaveTextContent('debug_info');
+    expect(contentTab).toHaveTextContent('billing-refund');
+
+    rerender(renderTrace(''));
+    expect(screen.getByTestId('decision-questions')).toBeInTheDocument();
+    expect(screen.getByTestId('decision-answers')).toBeInTheDocument();
 
     await userEvent.click(screen.getAllByText('Pretty')[1]);
-    await userEvent.click(screen.getByText('JSON'));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'JSON' }));
     expect(screen.getByTestId('decision-questions')).toBeInTheDocument();
     expect(screen.queryByTestId('decision-answers')).not.toBeInTheDocument();
     expect(contentTab).toHaveTextContent('answers');
@@ -148,6 +202,14 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(contentTab).toHaveTextContent('jev-1.13.0');
     expect(contentTab).toHaveTextContent('input_tokens');
     expect(contentTab).toHaveTextContent('debug_info');
+
+    await userEvent.click(screen.getByText('Pretty'));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'JSON' }));
+    expect(screen.queryByTestId('decision-questions')).not.toBeInTheDocument();
+    expect(contentTab).toHaveTextContent('evaluation_context');
+    expect(contentTab).toHaveTextContent('customer_tier');
+    expect(contentTab).toHaveTextContent('temperature');
+    expect(contentTab).toHaveTextContent('jev-latest');
   });
 
   it('falls back to generic fields for a TypeSafe custom response without standard answers', () => {
@@ -172,7 +234,6 @@ describe('ModelTraceExplorerRightPane', () => {
           'mlflow.spanOutputs': JSON.stringify(outputs),
           'mlflow.message.format': JSON.stringify('typesafe'),
           'mlflow.llm.model': JSON.stringify('jev-custom-alias'),
-          'mlflow.llm.provider': JSON.stringify('typesafe'),
         },
       },
       0,

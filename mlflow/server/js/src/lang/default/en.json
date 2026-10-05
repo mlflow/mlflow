@@ -3571,10 +3571,6 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
-  "CDR6O6": {
-    "defaultMessage": "Probability for {label}",
-    "description": "Accessible label for a decision choice probability"
-  },
   "CHQQ0K": {
     "defaultMessage": "Find",
     "description": "Visible label for finding content in a trace"
@@ -7550,10 +7546,6 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
-  },
-  "ScCMyR": {
-    "defaultMessage": "Malformed answer",
-    "description": "Malformed decision answer summary"
   },
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
@@ -12443,10 +12435,6 @@
     "defaultMessage": "View starter code",
     "description": "Title for coding agent starter code card on endpoint overview"
   },
-  "kxfJFI": {
-    "defaultMessage": "Probability for false",
-    "description": "Accessible label for the false probability in a decision Noul answer"
-  },
   "kyC8/W": {
     "defaultMessage": "Debug the error in trace {traceId}.",
     "description": "Prompt sent to the assistant for analyzing a failed trace"
@@ -13691,6 +13679,10 @@
     "defaultMessage": "End:",
     "description": "Label for the end time of a span"
   },
+  "q9h7qi": {
+    "defaultMessage": "Raw answer",
+    "description": "Summary for an unrecognized decision answer"
+  },
   "qAdWdK": {
     "defaultMessage": "Error",
     "description": "Title of editor error fallback component"
@@ -14303,6 +14295,10 @@
     "defaultMessage": "Version {version}",
     "description": "Label for the version of a registered prompt in the registered prompts table"
   },
+  "sN09sC": {
+    "defaultMessage": "Probability for {label}",
+    "description": "Accessible label for a decision answer probability"
+  },
   "sNSyZl": {
     "defaultMessage": "Disabled fields are fixed after creation.",
     "description": "Review question edit-mode notice explaining why some fields are disabled"
@@ -14899,10 +14895,6 @@
     "defaultMessage": "Deleted {count, plural, one {# record} other {# records}}",
     "description": "Success toast after bulk-deleting V2 dataset records"
   },
-  "v4LhWJ": {
-    "defaultMessage": "Unsupported answer",
-    "description": "Unsupported decision answer summary"
-  },
   "v5gzhw": {
     "defaultMessage": "Runtime arguments",
     "description": "Package runtime arguments label"
@@ -14962,10 +14954,6 @@
   "vNmXQ2": {
     "defaultMessage": "Loading guardrails...",
     "description": "Loading guardrails"
-  },
-  "vO+s4K": {
-    "defaultMessage": "Probability for true",
-    "description": "Accessible label for the true probability in a decision Noul answer"
   },
   "vO6fuZ": {
     "defaultMessage": "Question preview",

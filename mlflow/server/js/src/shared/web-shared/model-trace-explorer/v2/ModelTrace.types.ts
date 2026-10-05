@@ -366,7 +366,6 @@ export interface ModelTraceSpanNode
   parentId?: string | null;
   traceId: string;
   modelName?: string;
-  modelProvider?: string;
   cost?: SpanCostInfo;
   linkedGatewayTraceId?: string;
   tokenUsage?: SpanTokenUsage;

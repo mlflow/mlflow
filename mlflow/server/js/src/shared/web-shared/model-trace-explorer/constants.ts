@@ -23,7 +23,6 @@ export const SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY = 'databricks.time_to_fir
 
 // Span attribute keys for model and cost info
 export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';
-export const SPAN_ATTRIBUTE_MODEL_PROVIDER_KEY = 'mlflow.llm.provider';
 export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
 
 // Query parameter for selected trace ID in session pages

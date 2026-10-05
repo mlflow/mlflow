@@ -9,10 +9,7 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { createListFromObject, buildAggregatedJsonFromKeyValueList } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { DecisionAnswersRenderer } from '../decision/DecisionAnswersRenderer';
-import { resolveDecisionViewModel } from '../decision/resolveDecisionViewModel';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
-import { ModelTraceExplorerDecisionInputs } from './ModelTraceExplorerDecisionInputs';
 
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
@@ -32,7 +29,6 @@ export function ModelTraceExplorerDefaultSpanView({
   const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
   const aggregatedInputJson = useMemo(() => buildAggregatedJsonFromKeyValueList(inputList), [inputList]);
   const aggregatedOutputJson = useMemo(() => buildAggregatedJsonFromKeyValueList(outputList), [outputList]);
-  const decisionViewModel = useMemo(() => resolveDecisionViewModel(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -42,7 +38,6 @@ export function ModelTraceExplorerDefaultSpanView({
   const containsOutputs = outputList.length > 0;
 
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
-  const useDecisionPrettyMode = Boolean(decisionViewModel && !searchFilter);
 
   return (
     <div data-testid="model-trace-explorer-default-span-view">
@@ -76,25 +71,17 @@ export function ModelTraceExplorerDefaultSpanView({
               hideRenderModeDropdown
             />
           ) : renderMode === 'default' ? (
-            useDecisionPrettyMode && decisionViewModel ? (
-              <ModelTraceExplorerDecisionInputs
-                fields={inputList}
-                viewModels={decisionViewModel.inputs.fields}
-                assessments={activeSpan.assessments}
-              />
-            ) : (
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                {inputList.map(({ key, value }, index) => (
-                  <ModelTraceExplorerFieldRenderer
-                    key={key || index}
-                    title={key}
-                    data={value}
-                    renderMode={renderMode}
-                    assessments={activeSpan.assessments}
-                  />
-                ))}
-              </div>
-            )
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              {inputList.map(({ key, value }, index) => (
+                <ModelTraceExplorerFieldRenderer
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  renderMode={renderMode}
+                  assessments={activeSpan?.assessments}
+                />
+              ))}
+            </div>
           ) : (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
               {inputList.map(({ key, value }, index) => (
@@ -132,10 +119,6 @@ export function ModelTraceExplorerDefaultSpanView({
               initialRenderMode={CodeSnippetRenderMode.TABLE}
               hideRenderModeDropdown
             />
-          ) : renderMode === 'default' && useDecisionPrettyMode && decisionViewModel ? (
-            <div css={{ marginInline: theme.spacing.sm }}>
-              <DecisionAnswersRenderer answers={decisionViewModel.answers} />
-            </div>
           ) : renderMode === 'default' ? (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
               {outputList.map(({ key, value }, index) => (
