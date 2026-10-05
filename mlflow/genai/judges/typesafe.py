@@ -171,7 +171,8 @@ def _validate_options(
             if parsed_base_url.scheme not in {"http", "https"} or not parsed_base_url.hostname:
                 raise ValueError
             _ = parsed_base_url.port
-        except ValueError:
+            _ = parsed_base_url.hostname.encode("idna")
+        except (UnicodeError, ValueError):
             raise MlflowException.invalid_parameter_value(
                 "base_url must be an absolute HTTP or HTTPS URL with a valid host and port."
             ) from None

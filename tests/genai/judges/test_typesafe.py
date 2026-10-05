@@ -340,6 +340,8 @@ def test_direct_invocation_rejects_empty_base_url(monkeypatch):
         "ftp://system-one.example.com/v1",
         "https://system-one.example.com:not-a-port/v1",
         "https://system-one.example.com:99999/v1",
+        "https://system-one..example.com/v1",
+        f"https://{'a' * 64}.example.com/v1",
     ],
 )
 def test_direct_invocation_rejects_invalid_base_url(monkeypatch, base_url):
