@@ -83,6 +83,10 @@ gateway_judge = make_judge(
 
 For a direct TypeSafe model, set `TYPESAFE_API_KEY`. For a Gateway endpoint, MLflow uses the endpoint credentials and requires every model mapping to support System One.
 
+:::note
+A `gateway:/` judge remembers whether an endpoint uses System One for the life of the process; restart the client after switching an endpoint between System One and chat models.
+:::
+
 For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 
 ## Databricks-Hosted Models
