@@ -374,13 +374,18 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   );
   const handleDrawerViewModeChange = useCallback(
     (viewMode: 'trace' | 'session') => {
+      // The view-mode control is only mounted for an open, trace-backed drawer. Keep this guard for
+      // callbacks already queued when the drawer closes instead of restoring a stale session trace.
+      const traceId = url.traceId;
+      if (!traceId) {
+        return;
+      }
       if (viewMode === 'session' && activeTraceSession) {
-        const traceId = url.traceId ?? activeTraceSession.traceId;
         setSelectedTraceSession({ ...activeTraceSession, traceId });
         url.setSessionTraceId(traceId, activeTraceSession.sessionId);
         return;
       }
-      url.setTraceId(url.traceId ?? activeTraceSession?.traceId);
+      url.setTraceId(traceId);
     },
     [activeTraceSession, url],
   );

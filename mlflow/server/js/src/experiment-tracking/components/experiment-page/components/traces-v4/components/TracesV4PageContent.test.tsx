@@ -579,6 +579,36 @@ describe('TracesV4PageContent', () => {
       await waitFor(() => expect(sessionMode).toBeEnabled());
     });
 
+    test('keeps an off-page session deep link loading while resolving its trace location', async () => {
+      const offPageTrace = makeSessionTrace('tr-off-page', 'sess-off-page');
+      state.pages = { '': { traces: [makeTrace('tr-on-page')], next_page_token: undefined } };
+      let releaseTraceInfo!: () => void;
+      const traceInfoGate = new Promise<void>((resolve) => {
+        releaseTraceInfo = resolve;
+      });
+      server.use(
+        rest.get('/ajax-api/3.0/mlflow/traces/:traceId', async (_req, res, ctx) => {
+          await traceInfoGate;
+          return res(ctx.json({ trace: { trace_info: offPageTrace, spans: [] } }));
+        }),
+        rest.get('/ajax-api/3.0/mlflow/get-trace-artifact', (_req, res, ctx) => res(ctx.json({ spans: [] }))),
+      );
+
+      renderPage({
+        initialUrl:
+          `${URL}?traceId=tr-off-page&${TRACE_DRAWER_VIEW_MODE_QUERY_PARAM}=session` +
+          `&${TRACE_DRAWER_SESSION_ID_QUERY_PARAM}=sess-off-page`,
+      });
+
+      const drawer = await screen.findByRole('dialog');
+      expect(within(drawer).getByRole('radio', { name: 'Session' })).toBeChecked();
+      expect(within(drawer).queryByText('No conversation turns found in this session.')).not.toBeInTheDocument();
+
+      const searchCallCountBeforeTraceLoad = state.searchCalls.length;
+      releaseTraceInfo();
+      await waitFor(() => expect(state.searchCalls.length).toBeGreaterThan(searchCallCountBeforeTraceLoad));
+    });
+
     test('session previous and next navigation update the drawer URL as one state', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       state.pages = {

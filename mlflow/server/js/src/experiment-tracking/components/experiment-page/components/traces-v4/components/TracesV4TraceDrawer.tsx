@@ -135,6 +135,8 @@ export const TracesV4TraceDrawer = ({
     const traceLocation = session?.traceLocation ?? fetchedTraceLocation;
     return traceLocation && traceLocation.type !== 'INFERENCE_TABLE' ? [traceLocation] : [];
   }, [fetchedTraceLocation, session?.traceLocation]);
+  const isResolvingSessionTraceLocation =
+    isSessionView && Boolean(traceId) && sessionTraceLocations.length === 0 && isLoading;
   const {
     data: sessionTraceInfos,
     isLoading: isLoadingSessionTraceInfos,
@@ -159,9 +161,10 @@ export const TracesV4TraceDrawer = ({
     (trace) => trace.trace_id === session?.traceId || idOf(trace) === session?.traceId,
   )?.trace_id;
   const sessionTraceInfosHaveSettled =
-    sessionTraceLocations.length === 0 ||
-    Boolean(selectedSessionTraceId) ||
-    (!isLoadingSessionTraceInfos && !isFetchingSessionTraceInfos);
+    !isResolvingSessionTraceLocation &&
+    (sessionTraceLocations.length === 0 ||
+      Boolean(selectedSessionTraceId) ||
+      (!isLoadingSessionTraceInfos && !isFetchingSessionTraceInfos));
   const currentSessionTraceInfos = useMemo(
     () => (sessionTraceInfosHaveSettled ? orderedSessionTraceInfos : []),
     [orderedSessionTraceInfos, sessionTraceInfosHaveSettled],
