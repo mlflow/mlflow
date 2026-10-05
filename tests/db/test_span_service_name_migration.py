@@ -1,11 +1,15 @@
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 import sqlalchemy as sa
 from alembic import command
 
 from mlflow.store.db.utils import _get_alembic_config
+from mlflow.store.db_migrations.versions import (
+    e8f9a0b1c2d3_add_service_name_to_spans as service_name_migration,
+)
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 
 REVISION = "e8f9a0b1c2d3"
@@ -105,6 +109,35 @@ def test_span_service_name_migration(tmp_path: Path):
             ("missing", None),
             ("span-attribute-wins", "span-service"),
             ("tag-only", None),
+        ]
+
+    with engine.begin() as conn:
+        spans = sa.Table("spans", sa.MetaData(), autoload_with=conn)
+        conn.execute(
+            spans
+            .update()
+            .where(spans.c.span_id == "attribute-only")
+            .values(
+                content=json.dumps({
+                    "attributes": {"service.name": json.dumps("replacement-service")}
+                }),
+                service_name="preserved-service",
+            )
+        )
+        conn.execute(
+            spans.update().where(spans.c.span_id == "span-attribute-wins").values(service_name=None)
+        )
+        with mock.patch.object(service_name_migration.op, "get_bind", return_value=conn):
+            service_name_migration._backfill_service_names()
+
+        assert conn.execute(
+            sa
+            .select(spans.c.span_id, spans.c.service_name)
+            .where(spans.c.span_id.in_(["attribute-only", "span-attribute-wins"]))
+            .order_by(spans.c.span_id)
+        ).all() == [
+            ("attribute-only", "preserved-service"),
+            ("span-attribute-wins", "span-service"),
         ]
 
     command.downgrade(config, PREVIOUS_REVISION)

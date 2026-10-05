@@ -60,11 +60,16 @@ def _backfill_service_names():
 
     last_span_key = None
     while True:
-        page_stmt = sa.select(
-            spans.c.trace_id,
-            spans.c.span_id,
-            spans.c.content,
-        ).order_by(spans.c.trace_id, spans.c.span_id)
+        page_stmt = (
+            sa
+            .select(
+                spans.c.trace_id,
+                spans.c.span_id,
+                spans.c.content,
+            )
+            .where(spans.c.service_name.is_(None))
+            .order_by(spans.c.trace_id, spans.c.span_id)
+        )
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
             page_stmt = page_stmt.where(
