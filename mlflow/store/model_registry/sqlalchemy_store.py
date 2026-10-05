@@ -1837,6 +1837,38 @@ class SqlAlchemyStore(AbstractStore):
 
     _PUSHDOWN_ID_CHUNK = 900
 
+    # An entry's versions, for the cascade selector. Both version types resolve to the
+    # same tables: a prompt *is* a registered model (T12.9), so there are no prompt
+    # tables and ``prompt_version`` is the same rows under a different condition type.
+    #
+    # Shape and meaning are documented on ``find_failing_child``. The trailing ``name``
+    # is the parent column on the TAG table, and it is required here rather than
+    # optional: a version's discriminator is ``version``, which repeats across models,
+    # so an unscoped subquery would let a sibling model's satisfying version acquit this
+    # model's failing one.
+    _CASCADE_PUSHDOWN_ENTITIES = {
+        "registered_model_version": (
+            SqlModelVersion,
+            ("name", "version"),
+            "name",
+            SqlModelVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+        "prompt_version": (
+            SqlModelVersion,
+            ("name", "version"),
+            "name",
+            SqlModelVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+    }
+
     def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
         """Push a conjunctive tag/alias predicate into SQL.
 
@@ -1849,10 +1881,9 @@ class SqlAlchemyStore(AbstractStore):
         a ``workspace`` column, because each is keyed by *name* and a name is not
         unique across workspaces.
 
-        The ``parent_id`` selector declines. A registry entry does cascade to its
-        versions, but answering that needs the version table joined to its parent, and
-        no such mapping is declared here yet -- so the caller enumerates, which is
-        correct and only slower.
+        Both selectors are answered. The ``parent_id`` one serves an entry's cascade to
+        its versions, sharing :func:`condition_pushdown.find_failing_child` with the
+        tracking store.
         """
         if (ids is None) == (parent_id is None):
             raise ValueError(
@@ -1860,7 +1891,10 @@ class SqlAlchemyStore(AbstractStore):
                 f"got ids={ids!r} and parent_id={parent_id!r}"
             )
         if parent_id is not None:
-            return condition_pushdown.DECLINED
+            mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+            if mapping is None:
+                return condition_pushdown.DECLINED
+            return condition_pushdown.find_failing_child(self, mapping, parent_id, clauses)
 
         namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
         if namespaces is None:

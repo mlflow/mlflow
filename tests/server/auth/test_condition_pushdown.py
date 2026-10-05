@@ -1411,7 +1411,6 @@ class TestPushdownColumnNamesResolve:
         ids=["tracking", "registry"],
     )
     def test_every_namespace_mapping_names_real_columns(self, store):
-        store = SqlAlchemyStore
         problems = []
         for entity, namespaces in store._PUSHDOWN_NAMESPACES.items():
             for namespace, (model_name, id_names, key_name, value_name) in namespaces.items():
@@ -1425,35 +1424,106 @@ class TestPushdownColumnNamesResolve:
                         )
         assert not problems, "\n".join(problems)
 
-    def test_every_cascade_entity_names_real_columns(self):
+    @pytest.mark.parametrize(
+        "store",
+        [SqlAlchemyStore, RegistrySqlAlchemyStore],
+        ids=["tracking", "registry"],
+    )
+    def test_every_cascade_entity_names_real_columns(self, store):
         """The cascade path does not consult ``_PUSHDOWN_NAMESPACES``.
 
         It has its own table, so fixing the namespace mapping alone left this path still
-        broken for the same entity. Both are checked, independently.
+        broken for the same entity. Both are checked, independently, on both stores.
         """
         problems = []
-        for entity, mapping in SqlAlchemyStore._CASCADE_PUSHDOWN_ENTITIES.items():
+        for entity, mapping in store._CASCADE_PUSHDOWN_ENTITIES.items():
             (
                 child_model,
-                child_id_name,
+                child_id_names,
                 parent_name,
                 tag_model,
-                tag_id_name,
+                tag_id_names,
                 tag_key_name,
                 tag_value_name,
+                tag_parent_name,
             ) = mapping
-            for model, column in (
-                (child_model, child_id_name),
+            columns = [
+                *((child_model, name) for name in child_id_names),
                 (child_model, parent_name),
-                (tag_model, tag_id_name),
+                *((tag_model, name) for name in tag_id_names),
                 (tag_model, tag_key_name),
                 (tag_model, tag_value_name),
-            ):
+            ]
+            if tag_parent_name is not None:
+                columns.append((tag_model, tag_parent_name))
+            for model, column in columns:
                 if not hasattr(model, column):
                     actual = [c.name for c in model.__table__.columns]
                     problems.append(
                         f"{entity}: {model.__name__} has no {column!r} (actual columns: {actual})"
                     )
+        assert not problems, "\n".join(problems)
+
+    @pytest.mark.parametrize(
+        "store",
+        [SqlAlchemyStore, RegistrySqlAlchemyStore],
+        ids=["tracking", "registry"],
+    )
+    def test_every_cascade_discriminator_is_well_formed(self, store):
+        """The id columns minus the parent must leave a usable discriminator.
+
+        ``find_failing_child`` derives the membership test from exactly this
+        subtraction rather than from a declared column, so a mapping that subtracts
+        to nothing -- or to a different width on the two sides -- would build a
+        predicate that compares the wrong things. An empty discriminator is the worse
+        case: it would compare nothing and acquit every child.
+        """
+        problems = []
+        for entity, mapping in store._CASCADE_PUSHDOWN_ENTITIES.items():
+            (_, child_id_names, parent_name, _, tag_id_names, _, _, tag_parent_name) = mapping
+            child = [name for name in child_id_names if name != parent_name]
+            tag = [name for name in tag_id_names if name != tag_parent_name]
+            if not child or not tag:
+                problems.append(
+                    f"{entity}: subtracting the parent leaves no discriminator "
+                    f"(child {child_id_names}-{parent_name!r}, "
+                    f"tag {tag_id_names}-{tag_parent_name!r})"
+                )
+            elif len(child) != len(tag):
+                problems.append(
+                    f"{entity}: discriminator widths differ -- child {child}, tag {tag}"
+                )
+        assert not problems, "\n".join(problems)
+
+    @pytest.mark.parametrize(
+        "store",
+        [SqlAlchemyStore, RegistrySqlAlchemyStore],
+        ids=["tracking", "registry"],
+    )
+    def test_a_composite_keyed_child_scopes_its_tag_subquery(self, store):
+        """A child whose id is not globally unique MUST declare the tag parent column.
+
+        This is the invariant the whole version cascade turns on. Without it the
+        satisfying set holds bare discriminators -- version numbers -- and a sibling
+        parent's satisfying version acquits this parent's failing one, which is the
+        fail-open direction. Derived from the mapping rather than trusted, so a future
+        composite-keyed entity cannot be added without it.
+        """
+        problems = []
+        for entity, mapping in store._CASCADE_PUSHDOWN_ENTITIES.items():
+            (_, child_id_names, parent_name, _, tag_id_names, _, _, tag_parent_name) = mapping
+            composite = len(child_id_names) > 1
+            if composite and tag_parent_name is None:
+                problems.append(
+                    f"{entity}: child id {child_id_names} is composite, so its "
+                    f"discriminator repeats across parents and the tag subquery must be "
+                    f"scoped -- but tag_parent_name is None"
+                )
+            if not composite and parent_name in child_id_names:
+                problems.append(
+                    f"{entity}: single-column child id {child_id_names} must not be the "
+                    f"parent column {parent_name!r}, or the discriminator is empty"
+                )
         assert not problems, "\n".join(problems)
 
 
@@ -1514,18 +1584,164 @@ class TestTheSelectorContract:
         with pytest.raises(ValueError, match="exactly one"):
             registry.find_failing_resource("registered_model", [], ids=["m"], parent_id="p")
 
-    def test_the_registry_declines_a_parent_selector(self, monkeypatch):
-        """A registry entry does cascade to its versions, but no mapping declares that
-        join yet -- so it must decline and let the caller enumerate, never answer.
-        """
-        import tempfile
+
+class TestVersionCascades:
+    """A version tier's cascade is answered in SQL, like every other cascade.
+
+    These three tiers were the last to enumerate instead of pushing down, which is
+    why they alone could hit ``MAX_CASCADE_CHILDREN`` and refuse a delete outright
+    past 2000 versions. What kept them out was not the join but *identity*: the
+    satisfying subquery selects the child id, and one column names a child only
+    when it is globally unique. ``run_uuid``, ``request_id`` and ``model_id`` are;
+    a version is not -- ``name`` matches every version of the model and ``version``
+    matches version 3 of any model.
+
+    Scoping the subquery to the parent restores it, because ``version`` is unique
+    within one ``name``. That makes the parent filter on the *inner* half
+    load-bearing rather than redundant, which is what
+    ``test_the_cascade_judges_only_its_own_parents_versions`` exists to prove.
+    """
+
+    @pytest.fixture
+    def registry(self):
+        from mlflow.entities.model_registry import ModelVersionTag
 
         d = tempfile.mkdtemp()
-        registry = RegistrySqlAlchemyStore(f"sqlite:///{d}/registry.db")
-        answer = registry.find_failing_resource(
-            "registered_model_version", [("tags", TAG_KEY, "=", "x")], parent_id="m-prod"
+        store = RegistrySqlAlchemyStore(f"sqlite:///{d}/registry.db")
+        # Version NUMBERS collide across models on purpose: every model here has a
+        # version 1, and ``m-prod``'s disagrees with the others'. That collision is
+        # what makes the subquery's parent filter observable.
+        for name, tags in (
+            ("m-prod", ["prod"]),
+            ("m-dev", ["dev"]),
+            ("m-mixed", ["dev", "prod"]),
+            ("m-bare", [None]),
+        ):
+            store.create_registered_model(name)
+            for version, tag in enumerate(tags, start=1):
+                store.create_model_version(name, source="s")
+                if tag is not None:
+                    store.set_model_version_tag(name, str(version), ModelVersionTag(TAG_KEY, tag))
+        return store
+
+    # Tag state per parent, for the parity check. ``None`` is an untagged version.
+    PARENTS = {
+        "m-prod": ["prod"],
+        "m-dev": ["dev"],
+        "m-mixed": ["dev", "prod"],
+        "m-bare": [None],
+    }
+
+    SATISFY_DEV = [("tags", TAG_KEY, "=", "dev")]
+
+    @pytest.mark.parametrize("entity", ["registered_model_version", "prompt_version"])
+    def test_a_failing_version_is_named_rather_than_enumerated(self, registry, entity):
+        """The cascade answers, and the answer identifies the version that failed.
+
+        Asked of the two-version model so the failing version is the *second* one --
+        a query that simply returned the parent's first version would pass a
+        single-version fixture by accident.
+
+        A prompt *is* a registered model (T12.9) -- no prompt tables exist -- so both
+        entity names resolve to the same rows and both must be mapped.
+        """
+        failing = registry.find_failing_resource(entity, self.SATISFY_DEV, parent_id="m-mixed")
+        assert failing is not DECLINED, "the version cascade must be pushed down, not declined"
+        assert failing == ("m-mixed", "2"), "version 2 is the prod-tagged one"
+
+    def test_a_wholly_satisfying_parent_permits(self, registry):
+        assert (
+            registry.find_failing_resource(
+                "registered_model_version", self.SATISFY_DEV, parent_id="m-dev"
+            )
+            is None
         )
-        assert answer is DECLINED
+
+    def test_the_cascade_judges_only_its_own_parents_versions(self, registry):
+        """The fail-OPEN test: an unscoped subquery acquits via a sibling model.
+
+        ``m-prod`` holds exactly one version, numbered 1 and tagged ``prod``, so it
+        fails ``= 'dev'`` and the delete must be refused. But ``m-dev`` and
+        ``m-mixed`` each have a *dev-tagged version 1* too. Unscoped, the satisfying
+        set is the bare number ``{1}``, ``m-prod``'s version 1 tests as a member of
+        it, and the cascade permits -- granting a delete the condition forbids on the
+        strength of another model's tag.
+
+        Scoped to the parent the satisfying set is empty, and the refusal is correct.
+        """
+        failing = registry.find_failing_resource(
+            "registered_model_version", self.SATISFY_DEV, parent_id="m-prod"
+        )
+        assert failing is not DECLINED
+        assert failing == ("m-prod", "1"), (
+            "permitting here means the satisfying set leaked other models' version "
+            "numbers across the parent boundary"
+        )
+
+    def test_an_untagged_version_still_fails(self, registry):
+        """D20 on the cascade path: absence satisfies nothing."""
+        failing = registry.find_failing_resource(
+            "registered_model_version", self.SATISFY_DEV, parent_id="m-bare"
+        )
+        assert failing == ("m-bare", "1")
+
+    @pytest.mark.parametrize(("comparator", "value"), REGISTRY_COMPARATORS)
+    def test_every_comparator_agrees_with_in_memory(self, registry, comparator, value):
+        """Parity on the cascade selector, asked per parent.
+
+        Per parent rather than in bulk because a cascade answers one parent's question;
+        and every parent is asked because the comparators differ in how they treat the
+        untagged version.
+        """
+        clauses = [("tags", TAG_KEY, comparator, value)]
+        for parent, versions in self.PARENTS.items():
+            pushed = registry.find_failing_resource(
+                "registered_model_version", clauses, parent_id=parent
+            )
+            assert pushed is not DECLINED, "the version cascade must be pushed down"
+            any_fails = any(not _matches_in_memory(tag, comparator, value) for tag in versions)
+            assert (pushed is not None) is any_fails, (
+                f"{parent}: SQL and the in-memory matcher disagree on {comparator} {value!r}"
+            )
+
+    def test_the_registry_cascade_scopes_the_satisfying_set_too(self, registry, monkeypatch):
+        """The registry twin of the tracking test of the same name.
+
+        Needed separately because the registry's ``_get_query`` scopes by
+        ``workspace`` over tables keyed by *name*, which is not unique across
+        workspaces -- so scoping only the outer half reads children in scope and
+        judges them against another tenant's tag rows.
+        """
+        from mlflow.store.model_registry.dbmodels.models import SqlModelVersionTag
+
+        original = registry._get_query
+
+        def scoped(session, model):
+            query = original(session, model)
+            return query.filter(sql.false()) if model is SqlModelVersionTag else query
+
+        monkeypatch.setattr(registry, "_get_query", scoped)
+        # Honoured: no tag row is visible, so no version satisfies and every version
+        # fails -> deny. Bypassed: the dev tags are read out of scope, every version
+        # satisfies -> permit.
+        failing = registry.find_failing_resource(
+            "registered_model_version", self.SATISFY_DEV, parent_id="m-dev"
+        )
+        assert failing is not None
+        assert failing is not DECLINED
+
+    def test_an_mcp_server_version_cascade_is_answered(self, monkeypatch, tmp_path):
+        """The third tier, on the tracking store, whose version column is a VARCHAR."""
+        store = SqlAlchemyStore(f"sqlite:///{tmp_path}/mcp.db", str(tmp_path))
+        store.create_mcp_server("demo/gateway")
+        for version, tag in (("1.0.0", "prod"), ("2.0.0", "dev")):
+            store.create_mcp_server_version({"name": "demo/gateway", "version": version})
+            store.set_mcp_server_version_tag("demo/gateway", version, TAG_KEY, tag)
+        failing = store.find_failing_resource(
+            "mcp_server_version", self.SATISFY_DEV, parent_id="demo/gateway"
+        )
+        assert failing is not DECLINED, "the MCP version cascade must be pushed down"
+        assert failing == ("demo/gateway", "1.0.0")
 
 
 def test_a_failing_chunk_stops_the_later_chunks(monkeypatch):

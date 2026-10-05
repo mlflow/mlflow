@@ -1128,6 +1128,21 @@ def _condition_pushdown_key(resource_type, resource_id):
     return resource_id
 
 
+def _condition_resource_id(resource_type, key):
+    """Inverse of :func:`_condition_pushdown_key`: a store key as this layer addresses it.
+
+    The store answers in the shape it matches on, which for a version is the decomposed
+    ``(name, version)``. Everything above this line -- the denial message, the resource
+    read that attributes it -- addresses a version by the single opaque
+    ``name/version`` id. Converting through the same helper that composed the id keeps a
+    name containing ``/`` intact; an MCP name is reverse-DNS, so joining by hand would
+    produce an id nothing resolves, costing the attribution silently rather than loudly.
+    """
+    if resource_type in _VERSION_RESOURCE_TYPES and isinstance(key, tuple):
+        return auth_resources.version_resource_id(*key)
+    return key
+
+
 def _clause_display(clause) -> str:
     """How a clause's left-hand side is written in a condition string.
 
@@ -1236,7 +1251,9 @@ def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None)
             if failing is condition_pushdown.DECLINED:
                 return condition_pushdown.DECLINED
             if failing is not None:
-                return (row, failing)
+                # The children were never enumerated, so unlike the named path below there
+                # is no id mapping to invert -- the store's key has to be converted back.
+                return (row, _condition_resource_id(context.resource_type, failing))
             continue
         # Narrow to the ids this row governs rather than abandoning the pushdown for a
         # scoped row. The ids are the query input, so a row naming one resource is just
@@ -1258,7 +1275,12 @@ def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None)
             # The id either failed a clause or does not exist. Both deny, and
             # deliberately indistinguishably -- a 404 here would reveal which ids exist
             # to a caller who may not read them.
-            return (row, by_key.get(failing, failing))
+            mapped = by_key.get(failing)
+            if mapped is None:
+                # The store named something outside the asked set, which should not happen;
+                # convert rather than quote a raw tuple at the caller.
+                mapped = _condition_resource_id(context.resource_type, failing)
+            return (row, mapped)
     return None
 
 

@@ -153,6 +153,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelTag,
     SqlMCPServerAlias,
     SqlMCPServerTag,
+    SqlMCPServerVersion,
     SqlMCPServerVersionTag,
     SqlMetric,
     SqlOnlineScoringConfig,
@@ -10041,33 +10042,64 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         "SqlMCPServerVersionTag": SqlMCPServerVersionTag,
     }
 
-    # Cascade pushdown needs the child's own table too, to scope by parent:
-    # (child model, child id column, parent column, tag model, tag id column,
-    #  tag key column, tag value column).
+    # Cascade pushdown needs the child's own table too:
+    # (child model, child id columns, parent column on the child, tag model,
+    #  tag id columns, tag key column, tag value column, parent column on the TAG
+    #  table or None).
     #
-    # The last two are carried rather than assumed to be ``key``/``value``:
+    # The key/value names are carried rather than assumed to be ``key``/``value``:
     # ``SqlLoggedModelTag`` calls them ``tag_key``/``tag_value``, and hardcoding the
     # common names made every logged-model tag write 500 once a logged-model condition
     # existed.
+    #
+    # The last element is what lets a composite-keyed child be mapped. An experiment
+    # child is identified by one globally unique column, so its subquery needs no
+    # parent filter and the entry is ``None``. A version is identified by
+    # ``(name, version)`` and ``version`` repeats across models, so its tag subquery
+    # must be scoped to the parent as well -- see ``find_failing_child``.
+    #
+    # An entity absent here declines rather than guessing: adding one is opt-in, and a
+    # typo cannot answer for the wrong table.
     _CASCADE_PUSHDOWN_ENTITIES = {
-        "run": (SqlRun, "run_uuid", "experiment_id", SqlTag, "run_uuid", "key", "value"),
-        "trace": (
-            SqlTraceInfo,
-            "request_id",
+        "run": (
+            SqlRun,
+            ("run_uuid",),
             "experiment_id",
-            SqlTraceTag,
-            "request_id",
+            SqlTag,
+            ("run_uuid",),
             "key",
             "value",
+            None,
+        ),
+        "trace": (
+            SqlTraceInfo,
+            ("request_id",),
+            "experiment_id",
+            SqlTraceTag,
+            ("request_id",),
+            "key",
+            "value",
+            None,
         ),
         "logged_model": (
             SqlLoggedModel,
-            "model_id",
+            ("model_id",),
             "experiment_id",
             SqlLoggedModelTag,
-            "model_id",
+            ("model_id",),
             "tag_key",
             "tag_value",
+            None,
+        ),
+        "mcp_server_version": (
+            SqlMCPServerVersion,
+            ("name", "version"),
+            "name",
+            SqlMCPServerVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
         ),
     }
 
@@ -10159,79 +10191,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def _find_failing_child(self, entity, parent_id, clauses):
         """The ``parent_id`` selector: the population is unknown and may be unbounded.
 
-        Answers the question a cascading mutation actually asks -- "may I touch all of
-        them?" -- without enumerating the children or reading any tag value. One
-        ``LIMIT 1`` query suffices, so cost stops scaling with child count and depends
-        only on the number of clauses.
-
-        A child fails if it fails *any* clause, since clauses are conjunctive, so the
-        predicate is a disjunction of ``NOT IN (satisfies)`` subqueries. Note this
-        cannot be done by searching for children that *violate* the filter: with
-        absence failing on the target side, the complement of ``!= 'x'`` is not
-        ``= 'x'`` -- an untagged child satisfies neither, and must still fail. Asking
-        "which children satisfy" and negating that set membership is the only
-        formulation that keeps absence failing.
-
-        The query selects the child id, so naming the offending child in a denial costs
-        nothing extra -- it is already the row being tested for existence.
+        The SQL lives in :func:`condition_pushdown.find_failing_child`, shared with the
+        registry store, because the two stores answer the same question over
+        same-shaped tables and a drift between two copies would be a difference in
+        *who may write what*.
         """
         mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
         if mapping is None:
             return condition_pushdown.DECLINED
-        (
-            child_model,
-            child_id_name,
-            parent_name,
-            tag_model,
-            tag_id_name,
-            tag_key_name,
-            tag_value_name,
-        ) = mapping
-        if not clauses:
-            return None
-
-        child_id = getattr(child_model, child_id_name)
-        parent_column = getattr(child_model, parent_name)
-        tag_id = getattr(tag_model, tag_id_name)
-        dialect = self._get_dialect()
-
-        with self.ManagedSessionMaker() as session:
-            fails_a_clause = []
-            for namespace, key, comparator, value in clauses:
-                # Every cascade entity is an experiment child (run, trace, logged
-                # model) and none of those own aliases (D18), so an alias clause here
-                # has no table to answer from. Decline rather than ignore it: an
-                # ignored clause is a conjunction judged on a subset of itself.
-                if namespace != "tags":
-                    return condition_pushdown.DECLINED
-                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
-                # Built through ``_get_query`` like the outer query, so a
-                # workspace-aware subclass scopes the satisfying set too. Scoping
-                # only the outer half would be the dangerous direction: children
-                # would be read in-scope but judged against out-of-scope tag rows.
-                satisfies = (
-                    self
-                    ._get_query(session, tag_model)
-                    .with_entities(tag_id)
-                    .filter(
-                        getattr(tag_model, tag_key_name) == key,
-                        comparison(
-                            condition_pushdown.comparable(getattr(tag_model, tag_value_name)),
-                            value,
-                        ),
-                    )
-                    .scalar_subquery()
-                )
-                fails_a_clause.append(~child_id.in_(satisfies))
-            found = (
-                self
-                ._get_query(session, child_model)
-                .with_entities(child_id)
-                .filter(parent_column == parent_id, or_(*fails_a_clause))
-                .limit(1)
-                .first()
-            )
-        return None if found is None else condition_pushdown.as_pushdown_key(tuple(found))
+        return condition_pushdown.find_failing_child(self, mapping, parent_id, clauses)
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

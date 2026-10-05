@@ -225,6 +225,107 @@ class TestACascadeNamesTheChildThatBlockedIt:
         assert f"tags.{TAG_KEY}" in message, message
 
 
+class TestAVersionDenialIsAttributableToo:
+    """A version's id is composite, and the two layers spell it differently.
+
+    The authorization layer addresses a version as the single opaque string
+    ``name/version`` with the name percent-encoded; the store is handed the decomposed
+    parts, because that format is the auth layer's invention and a store that split on
+    ``/`` would cut a reverse-DNS name in the wrong place. So the store ANSWERS in parts
+    too -- and attribution reads the resource by auth-layer id. Without converting back,
+    the lookup misses, attribution returns ``None``, and a denial that knows exactly
+    which version refused reports only that something did.
+
+    Both selectors are covered because both receive the store's key shape: the named
+    path converts its ids on the way in, so its answer comes back decomposed as well.
+    """
+
+    ROW = [
+        _row(target_condition=f"tags.{TAG_KEY} = 'dev'", resource_type="registered_model_version")
+    ]
+
+    def test_a_named_version_is_identified_in_the_denial(self, gate):
+        allowed, message = gate(
+            [_mutate(resource_type="registered_model_version", ids=("m-prod/2",))],
+            self.ROW,
+            store_answer=("m-prod", "2"),
+            values={
+                ("registered_model_version", "m-prod/2"): SimpleNamespace(
+                    tags={TAG_KEY: "prod"}, aliases={}
+                )
+            },
+        )
+        assert allowed is False
+        assert f"tags.{TAG_KEY}" in message, message
+        assert "m-prod/2" in message, (
+            f"the denial must name the version in the form the auth layer uses: {message!r}"
+        )
+
+    def test_a_cascaded_version_is_identified_in_the_denial(self, gate):
+        allowed, message = gate(
+            [
+                ConditionContext(
+                    resource_type="registered_model_version",
+                    scope=ConditionScope.MUTATE,
+                    request=RunRequestValues(),
+                    resource_ids=(),
+                    parent_resource_id="m-prod",
+                    # A resolver must be present for the cascade branch to be taken at all;
+                    # it is never called when the store answers, which is the point.
+                    resource_id_resolver=lambda: ["m-prod/1", "m-prod/2"],
+                )
+            ],
+            self.ROW,
+            store_answer=("m-prod", "2"),
+            values={
+                ("registered_model_version", "m-prod/2"): SimpleNamespace(
+                    tags={TAG_KEY: "prod"}, aliases={}
+                )
+            },
+        )
+        assert allowed is False
+        assert "m-prod/2" in message, (
+            f"a cascade denial must name the version that blocked it: {message!r}"
+        )
+
+    def test_a_name_containing_a_slash_round_trips(self, gate):
+        """An MCP name is reverse-DNS, so it always contains ``/``.
+
+        This is why the conversion must go through the same percent-encoding helper
+        rather than joining with ``/``: a naive join produces an id that no lookup
+        matches, silently costing the attribution rather than failing loudly.
+        """
+        allowed, message = gate(
+            [
+                ConditionContext(
+                    resource_type="mcp_server_version",
+                    scope=ConditionScope.MUTATE,
+                    request=RunRequestValues(),
+                    resource_ids=(),
+                    parent_resource_id="demo/gateway",
+                    resource_id_resolver=lambda: ["demo%2Fgateway/1.0.0"],
+                )
+            ],
+            [
+                _row(
+                    target_condition=f"tags.{TAG_KEY} = 'dev'",
+                    resource_type="mcp_server_version",
+                )
+            ],
+            store_answer=("demo/gateway", "1.0.0"),
+            values={
+                ("mcp_server_version", "demo%2Fgateway/1.0.0"): SimpleNamespace(
+                    tags={TAG_KEY: "prod"}, aliases={}
+                )
+            },
+        )
+        assert allowed is False
+        assert "demo%2Fgateway/1.0.0" in message, (
+            f"the name must be percent-encoded exactly as version_resource_id writes it: "
+            f"{message!r}"
+        )
+
+
 class TestTheDetailDoesNotLeakBetweenRequests:
     """Same lifetime and same hazard as the resource memo it lives beside."""
 
