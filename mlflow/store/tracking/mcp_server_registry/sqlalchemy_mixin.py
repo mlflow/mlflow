@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import asdict, replace
 from typing import Any
