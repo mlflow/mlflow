@@ -174,11 +174,22 @@ def _attrs() -> dict[str, Any]:
 
 _CONDITION_DENIAL: ContextVar[bool] = ContextVar("mlflow_auth_condition_denial", default=False)
 
+_CONDITION_DENIAL_DETAIL: ContextVar["str | None"] = ContextVar(
+    "mlflow_auth_condition_denial_detail", default=None
+)
+
 _G_CONDITION_DENIAL_ATTR = "_mlflow_auth_condition_denial"
 
+_G_CONDITION_DETAIL_ATTR = "_mlflow_auth_condition_denial_detail"
 
-def note_condition_denial() -> None:
+
+def note_condition_denial(detail: "str | None" = None) -> None:
     """Record that a mutation condition -- not a missing grant -- refused this request.
+
+    ``detail`` is an optional phrase naming *which* condition refused, shown to the
+    caller so a denial is actionable rather than a dead end. The FIRST detail recorded
+    wins: authorization can refuse several things while evaluating a disjunction, and
+    the first refusal is the one the caller hit, not the last branch tried.
 
     Lives here, beside the resource memo, because it has exactly the same lifetime and the
     same hazard: left set, it would label the NEXT request's grant denial as a condition
@@ -187,10 +198,33 @@ def note_condition_denial() -> None:
     funnel.
     """
     _CONDITION_DENIAL.set(True)
+    if detail is not None and condition_denial_detail() is None:
+        _CONDITION_DENIAL_DETAIL.set(detail)
+        if _in_flask_request():
+            from flask import g
+
+            setattr(g, _G_CONDITION_DETAIL_ATTR, detail)
     if _in_flask_request():
         from flask import g
 
         setattr(g, _G_CONDITION_DENIAL_ATTR, True)
+
+
+def condition_denial_detail() -> "str | None":
+    """The phrase naming which condition refused, if one was recorded.
+
+    Read only to build a 403 body, so it can never widen access. ``None`` means a
+    condition refused but could not be attributed -- a store that declined the
+    pushdown and then found the resource gone, for instance -- in which case the
+    caller sees the generic condition message rather than a wrong one.
+    """
+    if _in_flask_request():
+        from flask import g
+
+        detail = getattr(g, _G_CONDITION_DETAIL_ATTR, None)
+        if detail is not None:
+            return detail
+    return _CONDITION_DENIAL_DETAIL.get()
 
 
 def condition_denied() -> bool:
@@ -222,10 +256,16 @@ def clear_cache() -> None:
     _ENTITY_CACHE.set(None)
     _ATTRS_CACHE.set(None)
     _CONDITION_DENIAL.set(False)
+    _CONDITION_DENIAL_DETAIL.set(None)
     if _in_flask_request():
         from flask import g
 
-        for attr in (_G_ENTITY_ATTR, _G_ATTRS_ATTR, _G_CONDITION_DENIAL_ATTR):
+        for attr in (
+            _G_ENTITY_ATTR,
+            _G_ATTRS_ATTR,
+            _G_CONDITION_DENIAL_ATTR,
+            _G_CONDITION_DETAIL_ATTR,
+        ):
             if hasattr(g, attr):
                 delattr(g, attr)
 

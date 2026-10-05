@@ -26,6 +26,7 @@ from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import MutationConditionSpec
 from mlflow.server.auth.permissions import EDIT, MANAGE, READ
 from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes
+from mlflow.store.condition_pushdown import DECLINED
 
 _PREFIX = get_mcp_server_api_route_prefixes()[1]
 _SERVER = "acme/search"
@@ -50,8 +51,7 @@ def _pushdown_declines(monkeypatch):
     from mlflow.server import auth as auth_module
 
     declining = SimpleNamespace(
-        filter_ids_by_clauses=lambda *a, **k: None,
-        any_child_failing_clauses=lambda *a, **k: None,
+        find_failing_resource=lambda *a, **k: DECLINED,
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)

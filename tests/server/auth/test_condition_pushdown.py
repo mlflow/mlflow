@@ -1,10 +1,10 @@
 """Parity between pushed-down and in-memory evaluation of a target condition.
 
-``AbstractStore.filter_ids_by_clauses`` lets a store answer "which of these
-resources satisfy this tag predicate" without loading the resources. That makes
+``AbstractStore.find_failing_resource`` lets a store answer "is there a resource
+here that fails this tag predicate" without loading the resources. That makes
 **two** implementations of one semantic: the store's SQL predicate and the
 auth layer's :func:`evaluate_resource`. Nothing in the type system forces them
-to agree, and a disagreement is not symmetric -- a pushdown that matches a
+to agree, and a disagreement is not symmetric -- a pushdown that accepts a
 resource the matcher would reject **grants a mutation the condition forbids**.
 
 So every comparator is checked against every tag state here, and the state that
@@ -31,6 +31,7 @@ from mlflow.server.auth.conditions import (
     parse_condition,
 )
 from mlflow.server.auth.resources import version_resource_id
+from mlflow.store.condition_pushdown import DECLINED
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as RegistrySqlAlchemyStore,
 )
@@ -110,18 +111,32 @@ def _in_memory(filter_text, ids):
     return matched
 
 
+def _satisfying(store, entity, ids, clauses):
+    """The subset of ``ids`` satisfying every clause, asked one id at a time.
+
+    ``find_failing_resource`` answers "is there a failure here", which is all the gate
+    ever asks of it. These parity tests are about agreement with
+    :func:`evaluate_resource` *per resource*, so they ask per resource: a batch answer
+    naming one failing id cannot distinguish "this one failed" from "these three
+    failed", and that distinction is what parity means.
+    """
+    return {i for i in ids if store.find_failing_resource(entity, clauses, ids=[i]) is None}
+
+
 @pytest.mark.parametrize(("comparator", "value", "filter_text"), COMPARATORS)
 def test_pushdown_agrees_with_in_memory_evaluation(store_with_runs, comparator, value, filter_text):
     store, _, ids = store_with_runs
     by_id = {run_id: label for label, run_id in ids.items()}
+    clauses = [("tags", TAG_KEY, comparator, value)]
 
-    pushed = store.filter_ids_by_clauses("run", list(by_id), [("tags", TAG_KEY, comparator, value)])
-    assert pushed is not None, (
-        f"SqlAlchemyStore must push {comparator} down; returning None falls back to "
-        "loading every resource, which is the cost this exists to avoid"
+    assert store.find_failing_resource("run", clauses, ids=list(by_id)) is not DECLINED, (
+        f"SqlAlchemyStore must push {comparator} down; DECLINED falls back to loading "
+        "every resource, which is the cost this exists to avoid"
     )
 
-    assert {by_id[i] for i in pushed} == _in_memory(filter_text, ids)
+    assert {by_id[i] for i in _satisfying(store, "run", list(by_id), clauses)} == _in_memory(
+        filter_text, ids
+    )
 
 
 @pytest.mark.parametrize(("comparator", "value", "_filter_text"), COMPARATORS)
@@ -134,12 +149,11 @@ def test_an_untagged_resource_satisfies_no_comparator(
     untagged resource, so the absence rule is asserted on its own.
     """
     store, _, ids = store_with_runs
-    pushed = store.filter_ids_by_clauses(
-        "run", list(ids.values()), [("tags", TAG_KEY, comparator, value)]
+    failing = store.find_failing_resource(
+        "run", [("tags", TAG_KEY, comparator, value)], ids=[ids["untagged"]]
     )
-    assert pushed is not None
-    assert ids["untagged"] not in pushed, (
-        f"{comparator} matched a resource with no {TAG_KEY!r} tag; on the target side "
+    assert failing == ids["untagged"], (
+        f"{comparator} accepted a resource with no {TAG_KEY!r} tag; on the target side "
         "an absent tag must fail every comparator"
     )
 
@@ -147,20 +161,22 @@ def test_an_untagged_resource_satisfies_no_comparator(
 def test_every_clause_must_hold(store_with_runs):
     """Clauses are conjunctive, matching ``combine``'s AND-only semantics."""
     store, _, ids = store_with_runs
-    pushed = store.filter_ids_by_clauses(
-        "run",
-        list(ids.values()),
-        [("tags", TAG_KEY, "=", "prod"), ("tags", TAG_KEY, "=", "dev")],
+    clauses = [("tags", TAG_KEY, "=", "prod"), ("tags", TAG_KEY, "=", "dev")]
+    assert _satisfying(store, "run", list(ids.values()), clauses) == set(), (
+        "no run can hold two different values for one tag key"
     )
-    assert pushed is not None
-    assert pushed == set(), "no run can hold two different values for one tag key"
 
 
-def test_no_clauses_matches_everything_and_no_ids_matches_nothing(store_with_runs):
-    """Neither empty input may be confused with ``None``'s "cannot push down"."""
+def test_neither_empty_input_can_fail(store_with_runs):
+    """Nothing to judge, or nothing to judge it against, both mean nothing failed.
+
+    Neither may be confused with ``DECLINED``: "no clause can fail" and "I cannot
+    evaluate the clauses" look the same to a caller that tests truthiness, and only one
+    of them is safe to treat as a pass.
+    """
     store, _, ids = store_with_runs
-    assert store.filter_ids_by_clauses("run", list(ids.values()), []) == set(ids.values())
-    assert store.filter_ids_by_clauses("run", [], [("tags", TAG_KEY, "=", "prod")]) == set()
+    assert store.find_failing_resource("run", [], ids=list(ids.values())) is None
+    assert store.find_failing_resource("run", [("tags", TAG_KEY, "=", "prod")], ids=[]) is None
 
 
 def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_runs):
@@ -172,11 +188,13 @@ def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_run
     """
     store, _, ids = store_with_runs
     padded = list(ids.values()) + [f"absent-{i}" for i in range(60_000)]
-    pushed = store.filter_ids_by_clauses("run", padded, [("tags", TAG_KEY, "!=", "prod")])
-    assert pushed == {ids["other"]}, (
-        "only the dev-tagged run satisfies != 'prod'; absent ids must not match, and "
-        "the untagged run must not either"
-    )
+    failing = store.find_failing_resource("run", [("tags", TAG_KEY, "!=", "prod")], ids=padded)
+    # Unchunked this builds one statement with 60,003 bind parameters and raises before
+    # returning anything, so the assertion that matters is that a verdict comes back at
+    # all. An absent id fails like any other resource with no such tag, so one is found.
+    assert failing is not None
+    assert failing is not DECLINED
+    assert failing != ids["other"], "the dev-tagged run satisfies != 'prod' and must not fail"
 
 
 class TestPushdownGoesThroughTheWorkspaceHook:
@@ -202,10 +220,10 @@ class TestPushdownGoesThroughTheWorkspaceHook:
         monkeypatch.setattr(
             store, "_get_query", lambda session, model: original(session, model).filter(sql.false())
         )
-        pushed = store.filter_ids_by_clauses(
-            "run", list(ids.values()), [("tags", TAG_KEY, "=", "prod")]
-        )
-        assert pushed == set(), (
+        # With every tag row hidden nothing satisfies ``= 'prod'``, so every id fails.
+        assert store.find_failing_resource(
+            "run", [("tags", TAG_KEY, "=", "prod")], ids=list(ids.values())
+        ) in set(ids.values()), (
             "the pushdown must build its query through _get_query; bypassing it ignores "
             "whatever scoping a workspace-aware subclass applies"
         )
@@ -220,8 +238,10 @@ class TestPushdownGoesThroughTheWorkspaceHook:
         # permitted -- the same answer as a genuinely empty experiment. Asserting
         # False here is asserting the hook was consulted, not that nothing failed.
         assert (
-            store.any_child_failing_clauses("run", experiment_id, [("tags", TAG_KEY, "!=", "prod")])
-            is False
+            store.find_failing_resource(
+                "run", [("tags", TAG_KEY, "!=", "prod")], parent_id=experiment_id
+            )
+            is None
         )
 
     def test_the_cascade_scopes_the_satisfying_set_too(self, monkeypatch):
@@ -243,25 +263,26 @@ class TestPushdownGoesThroughTheWorkspaceHook:
         # Honoured: no tag row is visible, so no child satisfies ``!= 'prod'`` and
         # every child fails -> deny. Bypassed: the dev tags are read out of scope,
         # every child satisfies -> permit, granting a write on another tenant's state.
-        assert (
-            store.any_child_failing_clauses("run", experiment_id, [("tags", TAG_KEY, "!=", "prod")])
-            is True
+        failing = store.find_failing_resource(
+            "run", [("tags", TAG_KEY, "!=", "prod")], parent_id=experiment_id
         )
+        assert failing is not None
+        assert failing is not DECLINED
 
 
-def test_an_unknown_entity_declines_rather_than_matching(store_with_runs):
-    """An unmapped entity must return ``None``, never a wrong or empty answer.
+def test_an_unknown_entity_declines_rather_than_answering(store_with_runs):
+    """An unmapped entity must return ``DECLINED``, never a verdict.
 
-    Returning ``set()`` would read as "nothing matched" and deny every mutation;
-    returning the input would permit every one. Only ``None`` routes the caller
-    to in-memory evaluation.
+    Returning an id would deny a mutation it never judged; returning ``None`` would
+    permit every one. Only ``DECLINED`` routes the caller to in-memory evaluation, and
+    it is a distinct value precisely so neither mistake is expressible.
     """
     store, _, ids = store_with_runs
     assert (
-        store.filter_ids_by_clauses(
-            "not_an_entity", list(ids.values()), [("tags", TAG_KEY, "=", "prod")]
+        store.find_failing_resource(
+            "not_an_entity", [("tags", TAG_KEY, "=", "prod")], ids=list(ids.values())
         )
-        is None
+        is DECLINED
     )
 
 
@@ -305,18 +326,23 @@ class TestCascadePushdown:
     """
 
     def _answer(self, store, experiment_id, comparator="!=", value="prod"):
-        return store.any_child_failing_clauses(
-            "run", experiment_id, [("tags", TAG_KEY, comparator, value)]
+        """The failing child's id, or ``None`` if every child satisfies."""
+        return store.find_failing_resource(
+            "run", [("tags", TAG_KEY, comparator, value)], parent_id=experiment_id
         )
 
     def test_a_failing_child_is_found(self, store_with_runs):
-        """The fixture holds a prod run and an untagged one, both failing."""
-        store, experiment_id, _ = store_with_runs
-        assert self._answer(store, experiment_id) is True
+        """The fixture holds a prod run and an untagged one, both failing.
+
+        The id comes back rather than a bare ``True``, which is what lets a cascade
+        denial say which child blocked it.
+        """
+        store, experiment_id, ids = store_with_runs
+        assert self._answer(store, experiment_id) in {ids["matching"], ids["untagged"]}
 
     def test_all_satisfying_children_pass(self, monkeypatch):
         store, experiment_id = _store_with(monkeypatch, [("a", "dev"), ("b", "dev")])
-        assert self._answer(store, experiment_id) is False
+        assert self._answer(store, experiment_id) is None
 
     def test_an_untagged_child_fails(self, monkeypatch):
         """D20 again, and the case a complement-based query gets wrong.
@@ -326,27 +352,27 @@ class TestCascadePushdown:
         on both. An untagged child satisfies neither and must still deny.
         """
         store, experiment_id = _store_with(monkeypatch, [("a", "dev"), ("b", None)])
-        assert self._answer(store, experiment_id) is True
+        assert self._answer(store, experiment_id) is not None
 
     def test_a_parent_with_no_children_passes(self, monkeypatch):
         """Vacuous, and distinct from "could not enumerate", which denied."""
         store, experiment_id = _store_with(monkeypatch, [])
-        assert self._answer(store, experiment_id) is False
+        assert self._answer(store, experiment_id) is None
 
     def test_no_clauses_cannot_fail(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
-        assert store.any_child_failing_clauses("run", experiment_id, []) is False
+        assert store.find_failing_resource("run", [], parent_id=experiment_id) is None
 
     def test_a_child_failing_only_the_second_clause_is_found(self, monkeypatch):
         """Clauses are conjunctive, so failing any one of them fails the child."""
         store, experiment_id = _store_with(monkeypatch, [("a", "dev")])
         assert (
-            store.any_child_failing_clauses(
+            store.find_failing_resource(
                 "run",
-                experiment_id,
                 [("tags", TAG_KEY, "!=", "prod"), ("tags", TAG_KEY, "=", "prod")],
+                parent_id=experiment_id,
             )
-            is True
+            is not None
         )
 
     def test_a_sibling_parents_children_are_not_considered(self, monkeypatch):
@@ -357,21 +383,30 @@ class TestCascadePushdown:
         other = store.create_experiment("other")
         run_id = store.create_run(other, "u", 0, [], "p").info.run_id
         store.set_tag(run_id, RunTag(TAG_KEY, "prod"))
-        assert self._answer(store, experiment_id) is False
-        assert self._answer(store, other) is True
+        assert self._answer(store, experiment_id) is None
+        assert self._answer(store, other) == run_id
 
     def test_an_unknown_entity_declines(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
         assert (
-            store.any_child_failing_clauses(
-                "not_an_entity", experiment_id, [("tags", TAG_KEY, "=", "prod")]
+            store.find_failing_resource(
+                "not_an_entity", [("tags", TAG_KEY, "=", "prod")], parent_id=experiment_id
             )
-            is None
+            is DECLINED
         )
 
-    def test_the_answer_matches_judging_each_child_individually(self, monkeypatch):
-        """Parity with the enumerate-and-evaluate path this replaces."""
-        filter_text = f"tags.{TAG_KEY} != 'prod'"
+    @pytest.mark.parametrize(("comparator", "value", "filter_text"), COMPARATORS)
+    def test_the_answer_matches_judging_each_child_individually(
+        self, monkeypatch, comparator, value, filter_text
+    ):
+        """Parity with the enumerate-and-evaluate path this replaces.
+
+        Parametrized over every comparator, which it previously was not: the id
+        selector's parity test covered all six while this covered only ``!=``, leaving
+        the cascade's SQL translation of the other five unchecked against the evaluator
+        it must agree with. That asymmetry matters more now, since the cascade is the
+        only selector whose comparator semantics live in SQL at all.
+        """
         clauses = parse_condition(filter_text, NAMESPACE_RESOURCE)
         for runs in (
             [("a", "dev"), ("b", "dev")],
@@ -387,7 +422,9 @@ class TestCascadePushdown:
                 if not evaluate_resource(clauses, auth_resources.attrs_for("run", run_id)):
                     individually = True
                     break
-            assert self._answer(store, experiment_id) is individually, runs
+            pushed = self._answer(store, experiment_id, comparator, value)
+            assert pushed is not DECLINED, f"{comparator} must push down"
+            assert (pushed is not None) is individually, (runs, comparator)
 
 
 class TestTheGateConsultsPushdown:
@@ -430,7 +467,7 @@ class TestTheGateConsultsPushdown:
         monkeypatch.setattr(
             auth_module,
             "_get_tracking_store",
-            lambda: SimpleNamespace(any_child_failing_clauses=lambda *a, **k: pushdown_answer),
+            lambda: SimpleNamespace(find_failing_resource=lambda *a, **k: pushdown_answer),
         )
 
         def _must_not_enumerate(_experiment_id):
@@ -450,15 +487,20 @@ class TestTheGateConsultsPushdown:
         return auth_module.authorize_on_conditions("alice", "w", [context])
 
     def test_a_reported_failure_denies_without_enumerating(self, monkeypatch):
-        assert self._gate(monkeypatch, True) is False
+        assert self._gate(monkeypatch, "child-9") is False
 
     def test_a_reported_pass_permits_without_enumerating(self, monkeypatch):
-        assert self._gate(monkeypatch, False) is True
+        assert self._gate(monkeypatch, None) is True
 
     def test_a_decline_falls_back_to_enumeration(self, monkeypatch):
-        """And the fallback is reached, proving the decline is honoured."""
+        """And the fallback is reached, proving the decline is honoured.
+
+        ``DECLINED`` rather than ``None``: ``None`` now means "nothing failed", so if
+        the two were the same value a store that could not answer would permit every
+        cascade silently.
+        """
         with pytest.raises(AssertionError, match="the gate enumerated children"):
-            self._gate(monkeypatch, None)
+            self._gate(monkeypatch, DECLINED)
 
 
 class TestWhichClausesArePushed:
@@ -553,14 +595,14 @@ class TestTheNewlyCoveredTypes:
     ALL_SERVERS = [PROD_SERVER, DEV_SERVER, BARE_SERVER]
 
     def test_mcp_server_tags_push_down(self, mcp_store):
-        assert mcp_store.filter_ids_by_clauses(
-            "mcp_server", self.ALL_SERVERS, [("tags", TAG_KEY, "=", "prod")]
+        assert _satisfying(
+            mcp_store, "mcp_server", self.ALL_SERVERS, [("tags", TAG_KEY, "=", "prod")]
         ) == {PROD_SERVER}
 
     def test_an_untagged_mcp_server_satisfies_no_negative_comparator(self, mcp_store):
         """D20 again, on a type whose id is a name rather than a uuid."""
-        assert mcp_store.filter_ids_by_clauses(
-            "mcp_server", self.ALL_SERVERS, [("tags", TAG_KEY, "!=", "prod")]
+        assert _satisfying(
+            mcp_store, "mcp_server", self.ALL_SERVERS, [("tags", TAG_KEY, "!=", "prod")]
         ) == {DEV_SERVER}
 
     def test_mcp_server_aliases_push_down(self, mcp_store):
@@ -569,36 +611,37 @@ class TestTheNewlyCoveredTypes:
         An alias row is ``(name, alias, version)``, so the clause key is the alias
         name and the compared value is the version it points at.
         """
-        assert mcp_store.filter_ids_by_clauses(
-            "mcp_server", self.ALL_SERVERS, [("aliases", "champion", "=", "1.0.0")]
+        assert _satisfying(
+            mcp_store, "mcp_server", self.ALL_SERVERS, [("aliases", "champion", "=", "1.0.0")]
         ) == {PROD_SERVER}
 
     def test_an_absent_alias_satisfies_nothing(self, mcp_store):
-        assert mcp_store.filter_ids_by_clauses(
-            "mcp_server", self.ALL_SERVERS, [("aliases", "champion", "!=", "9.9.9")]
+        assert _satisfying(
+            mcp_store, "mcp_server", self.ALL_SERVERS, [("aliases", "champion", "!=", "9.9.9")]
         ) == {PROD_SERVER}
 
     def test_tags_and_aliases_are_conjunctive_in_one_call(self, mcp_store):
         """The reason both namespaces share a call rather than two methods."""
         both_hold = [("tags", TAG_KEY, "=", "prod"), ("aliases", "champion", "=", "1.0.0")]
-        assert mcp_store.filter_ids_by_clauses("mcp_server", self.ALL_SERVERS, both_hold) == {
-            PROD_SERVER
-        }
+        assert _satisfying(mcp_store, "mcp_server", self.ALL_SERVERS, both_hold) == {PROD_SERVER}
         one_fails = [("tags", TAG_KEY, "=", "dev"), ("aliases", "champion", "=", "1.0.0")]
-        assert mcp_store.filter_ids_by_clauses("mcp_server", self.ALL_SERVERS, one_fails) == set()
+        assert _satisfying(mcp_store, "mcp_server", self.ALL_SERVERS, one_fails) == set()
 
     def test_a_version_is_matched_by_its_decomposed_id(self, mcp_store):
         """A composite id arrives as parts, so the store never parses ``name/version``."""
         ids = [(name, "1.0.0") for name in self.ALL_SERVERS]
-        assert mcp_store.filter_ids_by_clauses(
-            "mcp_server_version", ids, [("tags", TAG_KEY, "=", "prod")]
+        assert _satisfying(
+            mcp_store, "mcp_server_version", ids, [("tags", TAG_KEY, "=", "prod")]
         ) == {(PROD_SERVER, "1.0.0")}
 
     def test_a_version_id_must_match_both_parts(self, mcp_store):
         """The half-match a plain ``IN`` on the name column would wrongly accept."""
         assert (
-            mcp_store.filter_ids_by_clauses(
-                "mcp_server_version", [(PROD_SERVER, "2.0.0")], [("tags", TAG_KEY, "=", "prod")]
+            _satisfying(
+                mcp_store,
+                "mcp_server_version",
+                [(PROD_SERVER, "2.0.0")],
+                [("tags", TAG_KEY, "=", "prod")],
             )
             == set()
         )
@@ -606,12 +649,12 @@ class TestTheNewlyCoveredTypes:
     def test_an_alias_clause_on_a_version_declines(self, mcp_store):
         """D18: a version's aliases live on its parent, so it exposes no alias table."""
         assert (
-            mcp_store.filter_ids_by_clauses(
+            mcp_store.find_failing_resource(
                 "mcp_server_version",
-                [(PROD_SERVER, "1.0.0")],
                 [("aliases", "champion", "=", "1.0.0")],
+                ids=[(PROD_SERVER, "1.0.0")],
             )
-            is None
+            is DECLINED
         )
 
 
@@ -632,10 +675,10 @@ class TestTheCascadeDeclinesWhatItCannotExpress:
     def test_an_alias_clause_declines_rather_than_being_dropped(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
         assert (
-            store.any_child_failing_clauses(
-                "run", experiment_id, [("aliases", "champion", "=", "1.0.0")]
+            store.find_failing_resource(
+                "run", [("aliases", "champion", "=", "1.0.0")], parent_id=experiment_id
             )
-            is None
+            is DECLINED
         ), "an unexpressible clause must decline the call, not be skipped"
 
     def test_a_mixed_row_declines_whole_rather_than_pushing_its_tag_half(self, store_with_runs):
@@ -646,12 +689,12 @@ class TestTheCascadeDeclinesWhatItCannotExpress:
         """
         store, experiment_id, _ = store_with_runs
         assert (
-            store.any_child_failing_clauses(
+            store.find_failing_resource(
                 "run",
-                experiment_id,
                 [("tags", TAG_KEY, "!=", "nothing"), ("aliases", "champion", "=", "x")],
+                parent_id=experiment_id,
             )
-            is None
+            is DECLINED
         )
 
 
@@ -706,10 +749,12 @@ class TestRegistryPushdown:
     @pytest.mark.parametrize(("comparator", "value"), REGISTRY_COMPARATORS)
     def test_every_comparator_agrees_with_in_memory(self, registry, comparator, value):
         """The parity contract, re-proved on the registry's own tables."""
-        pushed = registry.filter_ids_by_clauses(
-            "registered_model", self.ALL_MODELS, [("tags", TAG_KEY, comparator, value)]
-        )
-        assert pushed is not None, "the registry store must push the predicate down"
+        clauses = [("tags", TAG_KEY, comparator, value)]
+        assert (
+            registry.find_failing_resource("registered_model", clauses, ids=self.ALL_MODELS)
+            is not DECLINED
+        ), "the registry store must push the predicate down"
+        pushed = _satisfying(registry, "registered_model", self.ALL_MODELS, clauses)
 
         tags = {"m-prod": {TAG_KEY: "prod"}, "m-dev": {TAG_KEY: "dev"}, "m-bare": {}}
         expected = {
@@ -721,45 +766,51 @@ class TestRegistryPushdown:
 
     def test_an_untagged_model_satisfies_no_negative_comparator(self, registry):
         """D20 on the registry side."""
-        assert registry.filter_ids_by_clauses(
-            "registered_model", self.ALL_MODELS, [("tags", TAG_KEY, "!=", "prod")]
+        assert _satisfying(
+            registry, "registered_model", self.ALL_MODELS, [("tags", TAG_KEY, "!=", "prod")]
         ) == {"m-dev"}
 
     def test_an_integer_version_compares_as_the_string_it_was_written_as(self, registry):
         """The cast. Uncast this returns nothing and denies every mutation."""
-        assert registry.filter_ids_by_clauses(
-            "registered_model", self.ALL_MODELS, [("aliases", "champion", "=", "1")]
+        assert _satisfying(
+            registry, "registered_model", self.ALL_MODELS, [("aliases", "champion", "=", "1")]
         ) == {"m-prod"}
 
     def test_an_integer_version_supports_the_text_comparators_too(self, registry):
         """``LIKE`` on an INTEGER column only works because the cast makes it text."""
-        assert registry.filter_ids_by_clauses(
-            "registered_model", self.ALL_MODELS, [("aliases", "champion", "LIKE", "1%")]
+        assert _satisfying(
+            registry, "registered_model", self.ALL_MODELS, [("aliases", "champion", "LIKE", "1%")]
         ) == {"m-prod"}
 
     def test_a_prompt_resolves_to_the_same_rows_as_a_registered_model(self, registry):
-        """T12.9: there are no prompt tables, so both types share storage.
+        """T12.9: there are no prompt tables, so both types read the same rows.
 
-        A consequence worth pinning rather than rediscovering: a ``prompt``-scoped
-        and a ``registered_model``-scoped condition on the same entry BOTH apply,
-        because grants and conditions key on the declared type while the rows are
-        shared.
+        That is a storage fact and nothing more. It does NOT mean both types\' conditions
+        apply to one entry: ``_authorize_registry_entry`` declares exactly ONE resource
+        type per request, chosen by reading ``mlflow.prompt.is_prompt`` off the persisted
+        entity, so only the declared type\'s conditions are ever loaded. A
+        ``registered_model`` condition never governs a request classified as a prompt --
+        verified black-box in the conformance suite, with a positive control. Shared
+        storage is a pushdown-layer detail the gate never lets matter.
         """
         clause = [("tags", TAG_KEY, "=", "prod")]
-        assert registry.filter_ids_by_clauses(
-            "prompt", self.ALL_MODELS, clause
-        ) == registry.filter_ids_by_clauses("registered_model", self.ALL_MODELS, clause)
+        assert _satisfying(registry, "prompt", self.ALL_MODELS, clause) == _satisfying(
+            registry, "registered_model", self.ALL_MODELS, clause
+        )
 
     def test_a_version_is_matched_by_its_decomposed_id(self, registry):
         ids = [(name, "1") for name in self.ALL_MODELS]
-        assert registry.filter_ids_by_clauses(
-            "registered_model_version", ids, [("tags", TAG_KEY, "=", "prod")]
+        assert _satisfying(
+            registry, "registered_model_version", ids, [("tags", TAG_KEY, "=", "prod")]
         ) == {("m-prod", "1")}
 
     def test_a_version_id_must_match_both_parts(self, registry):
         assert (
-            registry.filter_ids_by_clauses(
-                "registered_model_version", [("m-prod", "2")], [("tags", TAG_KEY, "=", "prod")]
+            _satisfying(
+                registry,
+                "registered_model_version",
+                [("m-prod", "2")],
+                [("tags", TAG_KEY, "=", "prod")],
             )
             == set()
         )
@@ -767,17 +818,20 @@ class TestRegistryPushdown:
     def test_an_alias_clause_on_a_version_declines(self, registry):
         """D18: a version's aliases belong to its parent, so it exposes no alias table."""
         assert (
-            registry.filter_ids_by_clauses(
+            registry.find_failing_resource(
                 "registered_model_version",
-                [("m-prod", "1")],
                 [("aliases", "champion", "=", "1")],
+                ids=[("m-prod", "1")],
             )
-            is None
+            is DECLINED
         )
 
     def test_an_unmapped_entity_declines(self, registry):
         """A tracking type must not be answered from registry tables."""
-        assert registry.filter_ids_by_clauses("run", ["r1"], [("tags", TAG_KEY, "=", "x")]) is None
+        assert (
+            registry.find_failing_resource("run", [("tags", TAG_KEY, "=", "x")], ids=["r1"])
+            is DECLINED
+        )
 
 
 class TestTheIntegerCastIsStructural:
@@ -849,7 +903,7 @@ class TestTheGateConsultsPushdownForExplicitIds:
     CONDITION = f"tags.{TAG_KEY} != 'prod'"
 
     @staticmethod
-    def _gate(monkeypatch, *, filter_answer, resource_type="run", ids=("r-1", "r-2"), rows=None):
+    def _gate(monkeypatch, *, fails, resource_type="run", ids=("r-1", "r-2"), rows=None):
         from mlflow.server import auth as auth_module
         from mlflow.server.auth.conditions import ConditionContext, ConditionScope
 
@@ -876,15 +930,13 @@ class TestTheGateConsultsPushdownForExplicitIds:
         monkeypatch.setattr(auth_module, "store", Store())
         seen = {}
 
-        def _filter(entity, pushed_ids, clauses):
+        def _filter(entity, clauses, *, ids=None, parent_id=None):
             seen["entity"] = entity
-            seen["ids"] = list(pushed_ids)
+            seen["ids"] = list(ids or ())
             seen["clauses"] = list(clauses)
-            return filter_answer(set(pushed_ids)) if callable(filter_answer) else filter_answer
+            return fails
 
-        fake = SimpleNamespace(
-            filter_ids_by_clauses=_filter, any_child_failing_clauses=lambda *a, **k: None
-        )
+        fake = SimpleNamespace(find_failing_resource=_filter)
         monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
         monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake, raising=False)
 
@@ -905,17 +957,17 @@ class TestTheGateConsultsPushdownForExplicitIds:
         return auth_module.authorize_on_conditions("alice", "w", [context]), seen
 
     def test_a_fully_satisfied_set_permits_without_loading(self, monkeypatch):
-        allowed, seen = self._gate(monkeypatch, filter_answer=lambda ids: ids)
+        allowed, seen = self._gate(monkeypatch, fails=None)
         assert allowed is True
         assert seen["ids"] == ["r-1", "r-2"]
 
     def test_an_unsatisfied_id_denies_without_loading(self, monkeypatch):
-        allowed, _ = self._gate(monkeypatch, filter_answer={"r-1"})
-        assert allowed is False, "an id the filter excluded must deny"
+        allowed, _ = self._gate(monkeypatch, fails="r-2")
+        assert allowed is False, "an id the store reported as failing must deny"
 
     def test_an_absent_id_denies_like_a_failed_clause(self, monkeypatch):
         """Indistinguishable by design: a 404 would reveal which ids exist."""
-        allowed, _ = self._gate(monkeypatch, filter_answer=set())
+        allowed, _ = self._gate(monkeypatch, fails="r-1")
         assert allowed is False
 
     def test_a_decline_falls_back_to_loading(self, monkeypatch):
@@ -946,8 +998,7 @@ class TestTheGateConsultsPushdownForExplicitIds:
             auth_module,
             "_get_tracking_store",
             lambda: SimpleNamespace(
-                filter_ids_by_clauses=lambda *a, **k: None,
-                any_child_failing_clauses=lambda *a, **k: None,
+                find_failing_resource=lambda *a, **k: DECLINED,
             ),
         )
         loaded = {}
@@ -977,7 +1028,7 @@ class TestTheGateConsultsPushdownForExplicitIds:
         joined = version_resource_id("com.example/svc", "1.0.0")
         allowed, seen = self._gate(
             monkeypatch,
-            filter_answer=lambda ids: ids,
+            fails=None,
             resource_type="registered_model_version",
             ids=(joined,),
         )
@@ -994,14 +1045,12 @@ class TestTheGateConsultsPushdownForExplicitIds:
 
         def _filter(*a, **k):
             pushed["called"] = True
-            return set()
+            return None
 
         monkeypatch.setattr(
             auth_module,
             "_get_tracking_store",
-            lambda: SimpleNamespace(
-                filter_ids_by_clauses=_filter, any_child_failing_clauses=lambda *a, **k: None
-            ),
+            lambda: SimpleNamespace(find_failing_resource=_filter),
         )
         from mlflow.server.auth import _pushable_clauses
         from mlflow.server.auth.conditions import Clause
@@ -1050,8 +1099,7 @@ class TestTheRightStoreAnswers:
 
         def _store(label):
             return SimpleNamespace(
-                filter_ids_by_clauses=lambda entity, ids, clauses: asked.append(label) or set(ids),
-                any_child_failing_clauses=lambda *a, **k: None,
+                find_failing_resource=lambda entity, clauses, **k: asked.append(label),
             )
 
         monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: _store("tracking"))
@@ -1144,8 +1192,7 @@ class TestAnUnpushableRowFallsBackWholesale:
             auth_module,
             "_get_tracking_store",
             lambda: SimpleNamespace(
-                filter_ids_by_clauses=lambda e, i, c: filtered.append(c) or set(i),
-                any_child_failing_clauses=lambda *a, **k: None,
+                find_failing_resource=lambda e, c, **k: filtered.append(c),
             ),
         )
         loaded = []
@@ -1214,8 +1261,11 @@ class TestTheCascadeCapIsFallbackOnly:
             auth_module,
             "_get_tracking_store",
             lambda: SimpleNamespace(
-                any_child_failing_clauses=lambda *a, **k: cascade_answer,
-                filter_ids_by_clauses=lambda *a, **k: None,
+                find_failing_resource=(
+                    lambda e, c, *, ids=None, parent_id=None: (
+                        cascade_answer if parent_id is not None else DECLINED
+                    )
+                ),
             ),
         )
         # The enumerator overflows its bound, which is what `None` means here.
@@ -1231,11 +1281,11 @@ class TestTheCascadeCapIsFallbackOnly:
 
     def test_a_filtering_store_permits_a_delete_the_cap_would_have_refused(self, monkeypatch):
         """The fix: enumeration overflowing is irrelevant once the store answered."""
-        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=False) is True
+        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=None) is True
 
     def test_a_filtering_store_still_denies_a_genuinely_failing_child(self, monkeypatch):
         """Permissiveness must come from the cap going away, not from the gate relaxing."""
-        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=True) is False
+        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer="child-3") is False
 
     def test_a_declining_store_still_refuses_an_overflowing_enumeration(self, monkeypatch):
         """The cap still protects the fallback, so the refusal is backend-dependent.
@@ -1243,7 +1293,7 @@ class TestTheCascadeCapIsFallbackOnly:
         An unevaluable condition must never pass vacuously, so this half must not be
         "fixed" by loosening it.
         """
-        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=None) is False
+        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=DECLINED) is False
 
     def test_the_cap_is_documented_as_fallback_only(self):
         """A behaviour that varies by backend has to say so where it is defined.
@@ -1296,24 +1346,48 @@ class TestResourceScopeMatchingAndPushdown:
         for asked in ("abc", "xyz", None):
             assert auth_module._row_governs(row, asked) is True
 
-    def test_an_id_scoped_row_declines_the_pushdown(self):
-        """Both pushdowns send ONE clause set covering ALL of a context's ids. A row naming
-        a single resource breaks that: its clauses apply to one id and must not be charged
-        against the others. Declining is correct and costs only speed.
-        """
-        assert auth_module._has_resource_scoped([self._row("*")]) is False
-        assert auth_module._has_resource_scoped([self._row("abc")]) is True
-        # One scoped row among unscoped ones still declines -- the clause sets differ.
-        assert auth_module._has_resource_scoped([self._row("*"), self._row("abc")]) is True
+    @staticmethod
+    def _cascade_pushdown(monkeypatch, rows):
+        """Ask the cascade selector with these rows, recording whether the store was asked."""
+        from mlflow.server.auth.conditions import ConditionScope, context_for
 
-    def test_declining_is_keyed_on_the_pattern_not_the_row_count(self):
-        """A regression guard: returning a constant from ``_has_resource_scoped`` passes
-        every behavioural test, because the fallback reaches the same verdict.
+        asked = []
+        fake = SimpleNamespace(
+            find_failing_resource=lambda *a, **k: asked.append(k) or None,
+        )
+        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
+        context = context_for("run", None, ConditionScope.MUTATE, None, parent_resource_id="e-1")
+        return auth_module._target_pushdown(context, rows, parent_id="e-1"), asked
+
+    def test_an_id_scoped_row_declines_the_cascade_pushdown(self, monkeypatch):
+        """The cascade sends ONE clause set covering ALL of a parent\'s children, which a row
+        naming a single resource breaks: its clauses apply to one child and must not be
+        charged against its siblings. Declining is correct and costs only speed -- the
+        fallback judges each child against the rows that govern it.
+
+        Unreachable in practice: every cascade-reachable type (run, trace, logged model, and
+        the three version types) is wildcard-only, so ``normalize_condition_scope`` refuses an
+        id pattern for all six and such a row cannot be stored. Kept because a future tier
+        with id-grain patterns would otherwise fail silently, in the fail-open direction.
         """
-        assert auth_module._has_resource_scoped([]) is False
-        many_unscoped = [self._row("*") for _ in range(5)]
-        assert auth_module._has_resource_scoped(many_unscoped) is False
-        assert auth_module._has_resource_scoped([*many_unscoped, self._row("x")]) is True
+        verdict, asked = self._cascade_pushdown(monkeypatch, [self._row("abc")])
+        assert verdict is DECLINED
+        assert asked == [], "a scoped row must not be pushed at all, not pushed and ignored"
+
+    def test_an_unscoped_cascade_row_is_still_pushed(self, monkeypatch):
+        """The positive control: declining must be keyed on the pattern, not on having rows.
+
+        Without this, returning ``DECLINED`` unconditionally would pass the test above and
+        silently cost every cascade its pushdown.
+        """
+        verdict, asked = self._cascade_pushdown(monkeypatch, [self._row("*")])
+        assert verdict is None
+        assert len(asked) == 1, "an unscoped row must reach the store"
+
+    def test_one_scoped_row_among_unscoped_ones_still_declines(self, monkeypatch):
+        """Rows are conjunctive, so the context falls back as a whole."""
+        verdict, _ = self._cascade_pushdown(monkeypatch, [self._row("*"), self._row("abc")])
+        assert verdict is DECLINED
 
 
 class TestPushdownColumnNamesResolve:
@@ -1381,3 +1455,120 @@ class TestPushdownColumnNamesResolve:
                         f"{entity}: {model.__name__} has no {column!r} (actual columns: {actual})"
                     )
         assert not problems, "\n".join(problems)
+
+
+class TestDeclinedIsNotAVerdict:
+    """``DECLINED`` must never be mistaken for "nothing failed".
+
+    The hazard is one-directional. ``None`` means every resource satisfied every
+    clause, and it is falsy; if a decline were also falsy, ``if failing:`` -- the
+    obvious way to write the check -- would read "I cannot evaluate this predicate" as
+    "this predicate passed" and let every mutation through unjudged. So the sentinel
+    refuses to answer the question at all.
+    """
+
+    def test_truthiness_raises_rather_than_guessing(self):
+        with pytest.raises(TypeError, match="not a verdict"):
+            bool(DECLINED)
+
+    def test_it_is_identity_comparable_and_distinct_from_none(self):
+        assert DECLINED is DECLINED
+        assert DECLINED is not None
+
+    def test_the_abstract_default_declines(self):
+        """A store that implements nothing must decline, not report a pass."""
+        from mlflow.store.model_registry.abstract_store import (
+            AbstractStore as RegistryAbstractStore,
+        )
+        from mlflow.store.tracking.abstract_store import AbstractStore as TrackingAbstractStore
+
+        for cls in (TrackingAbstractStore, RegistryAbstractStore):
+            answer = cls.find_failing_resource(
+                object(), "run", [("tags", TAG_KEY, "=", "x")], ids=["r1"]
+            )
+            assert answer is DECLINED, cls.__name__
+
+
+class TestTheSelectorContract:
+    """Exactly one selector, enforced loudly.
+
+    Neither selector is a safe default. Defaulting to ``ids=[]`` would answer "nothing
+    failed" for a cascade whose parent was never passed, permitting the whole cascade;
+    defaulting to a parent would judge the wrong population. A programming error here
+    is not a runtime condition, so it raises rather than declining.
+    """
+
+    @pytest.mark.parametrize(
+        "kwargs", [{}, {"ids": ["a"], "parent_id": "1"}], ids=["neither", "both"]
+    )
+    def test_exactly_one_selector_is_required(self, store_with_runs, kwargs):
+        store, _, _ = store_with_runs
+        with pytest.raises(ValueError, match="exactly one"):
+            store.find_failing_resource("run", [], **kwargs)
+
+    def test_the_registry_enforces_it_too(self, monkeypatch):
+        import tempfile
+
+        d = tempfile.mkdtemp()
+        registry = RegistrySqlAlchemyStore(f"sqlite:///{d}/registry.db")
+        with pytest.raises(ValueError, match="exactly one"):
+            registry.find_failing_resource("registered_model", [], ids=["m"], parent_id="p")
+
+    def test_the_registry_declines_a_parent_selector(self, monkeypatch):
+        """A registry entry does cascade to its versions, but no mapping declares that
+        join yet -- so it must decline and let the caller enumerate, never answer.
+        """
+        import tempfile
+
+        d = tempfile.mkdtemp()
+        registry = RegistrySqlAlchemyStore(f"sqlite:///{d}/registry.db")
+        answer = registry.find_failing_resource(
+            "registered_model_version", [("tags", TAG_KEY, "=", "x")], parent_id="m-prod"
+        )
+        assert answer is DECLINED
+
+
+def test_a_failing_chunk_stops_the_later_chunks(monkeypatch):
+    """Exit-on-first-failure is per CHUNK, not merely per clause.
+
+    ``DeleteTraces`` caps nothing -- the handler validates only that ``request_ids`` is
+    an array of strings -- so an id list is unbounded and chunked. Querying every chunk
+    after one has already answered the question is wasted round trips on exactly the
+    request shape that motivated the pushdown.
+
+    Every run here fails, so the first chunk settles it whatever order the ids sort in;
+    the test does not depend on where the failing id lands.
+    """
+    store, experiment_id = _store_with(monkeypatch, [("a", "prod"), ("b", "prod"), ("c", "prod")])
+    ids = _run_ids(store, experiment_id)
+    assert len(ids) == 3
+    monkeypatch.setattr(type(store), "_TAG_PUSHDOWN_ID_CHUNK", 3)  # 1 id per chunk after the
+    seen = []  # clause's own 2 parameters
+    original = SqlAlchemyStore._get_query
+
+    def counting(self, session, model):
+        seen.append(model)
+        return original(self, session, model)
+
+    monkeypatch.setattr(SqlAlchemyStore, "_get_query", counting)
+    failing = store.find_failing_resource("run", [("tags", TAG_KEY, "!=", "prod")], ids=ids)
+    assert failing in ids
+    assert len([m for m in seen if m is SqlTag]) == 1, (
+        "the first failing chunk must settle it; later chunks cannot change the verdict"
+    )
+
+
+def test_the_chunk_budget_leaves_room_for_the_clause_parameters(monkeypatch):
+    """An ``IN`` clause binds one parameter per listed value, on top of the key.
+
+    Sizing chunks by the id cap alone overflows the backend's limit once the clause
+    itself is wide -- a 900-id chunk plus a 100-value ``IN`` list is 1001 parameters
+    against SQLite's 999. The cap must stay a property of the statement rather than a
+    limit on what a caller may ask.
+    """
+    store, experiment_id = _store_with(monkeypatch, [("a", "dev")])
+    wide = tuple(f"v{i}" for i in range(200))
+    ids = [f"absent-{i}" for i in range(2_000)]
+    answer = store.find_failing_resource("run", [("tags", TAG_KEY, "IN", wide)], ids=ids)
+    assert answer is not DECLINED, "a wide IN list must still push down"
+    assert answer is not None, "absent ids satisfy nothing, so one must be reported"

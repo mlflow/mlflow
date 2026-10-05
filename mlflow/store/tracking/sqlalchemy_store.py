@@ -10071,31 +10071,113 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         ),
     }
 
-    def any_child_failing_clauses(self, entity, parent_id, clauses):
-        """Whether ``parent_id`` holds a child that fails the tag predicate.
+    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
+        """Push a conjunctive tag/alias predicate into SQL.
 
-        Answers the question a cascading mutation actually asks -- "may I touch
-        all of them?" -- without enumerating the children or reading any tag
-        value. One ``LIMIT 1`` query suffices, so cost stops scaling with child
-        count and depends only on the number of clauses.
+        See :meth:`AbstractStore.find_failing_resource`. Neither selector loads a
+        resource or returns a tag value: the question is answered entirely by set
+        membership over the tag table, so cost depends on the number of clauses rather
+        than on how much the resources contain.
 
-        A child fails if it fails *any* clause, since clauses are conjunctive,
-        so the predicate is a disjunction of ``NOT IN (satisfies)`` subqueries.
-        Note this cannot be done by searching for children that *violate* the
-        filter: with absence failing on the target side, the complement of
-        ``!= 'x'`` is not ``= 'x'`` -- an untagged child satisfies neither, and
-        must still deny. Asking "which children satisfy" and negating that set
-        membership is the only formulation that keeps absence failing.
+        The two selectors need genuinely different SQL, which is why they share an
+        interface rather than a body. With ``ids`` the population is known, so only the
+        satisfying set is queried and the set arithmetic happens here -- the resource
+        table is never touched. With ``parent_id`` it is unknown and possibly
+        unbounded, so the children must be found in SQL.
+        """
+        if (ids is None) == (parent_id is None):
+            raise ValueError(
+                "find_failing_resource needs exactly one of `ids` or `parent_id`, "
+                f"got ids={ids!r} and parent_id={parent_id!r}"
+            )
+        if parent_id is not None:
+            return self._find_failing_child(entity, parent_id, clauses)
+        return self._find_failing_named(entity, ids, clauses)
 
-        Returns:
-            ``True`` if some child fails, ``False`` if every child satisfies
-            (including when there are no children, which is vacuous rather than
-            a refusal), or ``None`` if this store cannot push the predicate
-            down, in which case the caller must enumerate and evaluate itself.
+    def _pushdown_id_chunks(self, ordered, id_columns, value):
+        """Split ids so one statement's bind parameters stay under the backend's cap.
+
+        Ids bind one parameter each -- more for a composite -- and the clause itself
+        binds the key plus one per compared value, which for ``IN`` is the whole list.
+        Every backend caps how many a statement may carry; SQLite raises "too many SQL
+        variables" below the number of children a cascade can reach. Subtracting the
+        clause's own parameters keeps that cap a property of the statement rather than
+        a limit on how many resources a caller may ask about.
+        """
+        clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
+        budget = self._TAG_PUSHDOWN_ID_CHUNK - clause_params
+        size = max(1, budget // len(id_columns))
+        for start in range(0, len(ordered), size):
+            yield ordered[start : start + size]
+
+    def _find_failing_named(self, entity, ids, clauses):
+        """The ``ids`` selector: the caller already knows the population.
+
+        Absence is handled by the shape rather than by a special case -- a clause asks
+        which ids *have* a row with that key whose value compares true, so an id with
+        no such row is simply not in the result, for ``!=`` and ``NOT IN`` exactly as
+        for ``=``.
+        """
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            return condition_pushdown.DECLINED
+        requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
+        if not requested or not clauses:
+            # Nothing to judge, or nothing to judge it against. Either way nothing fails.
+            return None
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            return condition_pushdown.DECLINED
+
+        dialect = self._get_dialect()
+        ordered = sorted(requested)
+        with self.ManagedSessionMaker() as session:
+            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
+                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
+                for chunk in self._pushdown_id_chunks(ordered, id_columns, value):
+                    rows = (
+                        self
+                        ._get_query(session, model)
+                        .with_entities(*id_columns)
+                        .filter(
+                            condition_pushdown.id_predicate(id_columns, chunk),
+                            key_column == key,
+                            comparison(value_column, value),
+                        )
+                        .all()
+                    )
+                    matched = {condition_pushdown.as_pushdown_key(tuple(row)) for row in rows}
+                    for candidate in chunk:
+                        if candidate not in matched:
+                            # Stop at the first failure rather than finishing the
+                            # remaining chunks and clauses: an id list is unbounded
+                            # (``DeleteTraces`` caps nothing) and one failing id is the
+                            # whole answer.
+                            return candidate
+        return None
+
+    def _find_failing_child(self, entity, parent_id, clauses):
+        """The ``parent_id`` selector: the population is unknown and may be unbounded.
+
+        Answers the question a cascading mutation actually asks -- "may I touch all of
+        them?" -- without enumerating the children or reading any tag value. One
+        ``LIMIT 1`` query suffices, so cost stops scaling with child count and depends
+        only on the number of clauses.
+
+        A child fails if it fails *any* clause, since clauses are conjunctive, so the
+        predicate is a disjunction of ``NOT IN (satisfies)`` subqueries. Note this
+        cannot be done by searching for children that *violate* the filter: with
+        absence failing on the target side, the complement of ``!= 'x'`` is not
+        ``= 'x'`` -- an untagged child satisfies neither, and must still fail. Asking
+        "which children satisfy" and negating that set membership is the only
+        formulation that keeps absence failing.
+
+        The query selects the child id, so naming the offending child in a denial costs
+        nothing extra -- it is already the row being tested for existence.
         """
         mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
         if mapping is None:
-            return None
+            return condition_pushdown.DECLINED
         (
             child_model,
             child_id_name,
@@ -10106,7 +10188,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             tag_value_name,
         ) = mapping
         if not clauses:
-            return False
+            return None
 
         child_id = getattr(child_model, child_id_name)
         parent_column = getattr(child_model, parent_name)
@@ -10121,7 +10203,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # has no table to answer from. Decline rather than ignore it: an
                 # ignored clause is a conjunction judged on a subset of itself.
                 if namespace != "tags":
-                    return None
+                    return condition_pushdown.DECLINED
                 comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
                 # Built through ``_get_query`` like the outer query, so a
                 # workspace-aware subclass scopes the satisfying set too. Scoping
@@ -10133,7 +10215,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     .with_entities(tag_id)
                     .filter(
                         getattr(tag_model, tag_key_name) == key,
-                        comparison(getattr(tag_model, tag_value_name), value),
+                        comparison(
+                            condition_pushdown.comparable(getattr(tag_model, tag_value_name)),
+                            value,
+                        ),
                     )
                     .scalar_subquery()
                 )
@@ -10146,65 +10231,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .limit(1)
                 .first()
             )
-        return found is not None
-
-    def filter_ids_by_clauses(self, entity, ids, clauses):
-        """Push a conjunctive tag/alias predicate into SQL.
-
-        See :meth:`AbstractStore.filter_ids_by_clauses`. Each clause narrows the
-        surviving id set with one query, so the work is bounded by the number of
-        clauses rather than by how much the resources contain -- no values are
-        returned and the resources themselves are never loaded.
-
-        Absence is handled by the shape rather than by a special case: a clause
-        asks which ids *have* a row with that key whose value compares true, so an
-        id with no such row is simply not in the result, for ``!=`` and ``NOT IN``
-        exactly as for ``=``.
-        """
-        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
-        if namespaces is None:
-            return None
-
-        surviving = {condition_pushdown.as_pushdown_key(i) for i in ids}
-        if not surviving:
-            return set()
-        if not clauses:
-            return surviving
-
-        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
-        if resolved is None:
-            return None
-
-        dialect = self._get_dialect()
-        with self.ManagedSessionMaker() as session:
-            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
-                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
-                matched = set()
-                # Ids bind one parameter each -- two for a composite -- and every
-                # backend caps how many a statement may carry; SQLite raises "too many
-                # SQL variables" well below the 2000 children a cascade can reach.
-                # Chunk so that cap stays a property of the statement rather than a
-                # limit on how many resources a caller may ask about.
-                ordered = sorted(surviving)
-                chunk_size = max(1, self._TAG_PUSHDOWN_ID_CHUNK // len(id_columns))
-                for start in range(0, len(ordered), chunk_size):
-                    chunk = ordered[start : start + chunk_size]
-                    rows = (
-                        self
-                        ._get_query(session, model)
-                        .with_entities(*id_columns)
-                        .filter(
-                            condition_pushdown.id_predicate(id_columns, chunk),
-                            key_column == key,
-                            comparison(value_column, value),
-                        )
-                        .all()
-                    )
-                    matched.update(condition_pushdown.as_pushdown_key(tuple(row)) for row in rows)
-                surviving = matched
-                if not surviving:
-                    break
-        return surviving
+        return None if found is None else condition_pushdown.as_pushdown_key(tuple(found))
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

@@ -512,6 +512,7 @@ from mlflow.server.workspace_helpers import (
     _get_workspace_store,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
@@ -668,14 +669,29 @@ _CONDITION_DENIAL_MESSAGE = (
 
 
 def denial_message() -> str:
-    """The 403 body: whether a grant or a condition refused the request.
+    """The 403 body: whether a grant or a condition refused the request, and which one.
 
     A caller holding EDIT who is refused cannot otherwise tell which of the two happened,
     and they are fixed in completely different places -- a grant is changed on the
-    permission, a condition on the role. The message names the CLASS of refusal and never
-    the condition itself, which is policy the caller is not entitled to read.
+    permission, a condition on the role.
+
+    When the refusing clause could be identified, it is named. That is safe rather than
+    generous: conditions are only consulted after a grant has already passed, and every
+    grant permitting a mutation also permits a read (``EDIT`` and ``MANAGE`` both carry
+    ``can_read``), so a caller who reaches a condition check can already fetch the state
+    being quoted. The condition rows themselves are readable too -- ``roles/list`` and
+    the condition listing are not scoped to the caller -- so withholding the clause would
+    hide nothing while leaving a denial with no stated cause.
+
+    A detail is best-effort. Attribution needs one extra read, and a resource that
+    vanished between the two leaves the class of refusal stated without the clause.
     """
-    return _CONDITION_DENIAL_MESSAGE if auth_resources.condition_denied() else _GENERIC_DENIAL
+    if not auth_resources.condition_denied():
+        return _GENERIC_DENIAL
+    detail = auth_resources.condition_denial_detail()
+    if detail is None:
+        return _CONDITION_DENIAL_MESSAGE
+    return f"{_CONDITION_DENIAL_MESSAGE} The condition that refused: {detail}."
 
 
 def make_forbidden_response() -> Response:
@@ -1112,91 +1128,138 @@ def _condition_pushdown_key(resource_type, resource_id):
     return resource_id
 
 
-def _explicit_target_pushdown(context, target_rows, resource_ids):
-    """Ask the store which of ``resource_ids`` satisfy every target row.
+def _clause_display(clause) -> str:
+    """How a clause's left-hand side is written in a condition string.
 
-    The batch counterpart to :func:`_cascade_target_pushdown`, for the usual case
-    where the request names the resources it will touch. One query per row replaces
-    loading every resource's tags and matching them here.
+    A resource clause splits into a namespace prefix and a key (``tags`` + ``stage``);
+    a request clause is a single flat identifier (``tag_key``). Rejoining them is what
+    lets a denial quote the condition back in the form the admin wrote it.
+    """
+    return f"{clause.identifier}.{clause.key}" if clause.key is not None else clause.identifier
 
-    A row scoped to one resource is pushed too, carrying only the ids it governs --
-    unlike the cascade, where the children are unknown at query time and a scoped row
-    therefore cannot be pushed at all.
 
-    Each row is a separate condition and all of them must hold, so each is pushed
-    and the results ANDed. A row whose clauses the store cannot express declines
-    the whole context: pushing the rows it understood and loading for the rest
-    would work, but a partial answer is the kind of thing that silently becomes
-    wrong, and the fallback already evaluates everything correctly.
+def _value_denial_detail(clauses, values) -> "str | None":
+    """Name the value clause this request broke, for the 403 body.
+
+    Pure -- the request's own values are already in hand -- so unlike the target side
+    this costs nothing and cannot fail.
+    """
+    for clause in clauses:
+        if not evaluate_request([clause], values):
+            return f"the value set for '{_clause_display(clause)}' is not permitted"
+    return None
+
+
+def _target_denial_detail(context, row, resource_id) -> "str | None":
+    """Name the target clause the failing resource broke, for the 403 body.
+
+    The store says *which resource* failed; which *clause* takes one more read, so it
+    happens only on the deny path and only for that one resource -- a batch naming
+    10,000 traces costs exactly the same single fetch as one naming one. Evaluating
+    through the same :func:`evaluate_resource` the fallback uses is what keeps the
+    reason shown from disagreeing with the reason denied.
+
+    Disclosing this leaks nothing: conditions are only consulted after a grant has
+    already passed, and every grant that permits a mutation also permits a read, so a
+    caller reaching here can already fetch the state being quoted.
+
+    Returns ``None`` if the clause cannot be pinned -- the resource vanished between
+    the two reads, say -- so the caller gets the generic condition message rather than
+    a wrong one.
+    """
+    try:
+        values = auth_resources.attrs_for(context.resource_type, resource_id)
+    except Exception:
+        # Attribution is a courtesy on a path that has already decided to deny. It must
+        # never turn a clean 403 into a 500.
+        return None
+    if values is None:
+        return None
+    for clause in _parsed_condition(row.target_condition, NAMESPACE_RESOURCE):
+        if not evaluate_resource([clause], values):
+            return (
+                f"'{_clause_display(clause)}' on {context.resource_type} "
+                f"'{resource_id}' does not satisfy it"
+            )
+    return None
+
+
+def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None):
+    """Ask the store for a resource that fails one of this context's target rows.
+
+    One question with two ways of naming the population, which is why this is one
+    function over one store method rather than a batch path and a cascade path. With
+    ``resource_ids`` the request names what it will touch; with ``parent_id`` it names
+    a parent whose children a cascade reaches, and which the caller cannot enumerate
+    cheaply or at all. Either way the store returns an id and never a tag value.
+
+    Each row is a separate condition and all must hold, so each is asked separately
+    and the first failure settles it. A row whose clauses the store cannot express
+    declines the whole context: asking only the rows it understood would judge the
+    conjunction against a subset of itself, and the fallback already evaluates
+    everything correctly.
 
     Returns:
-        ``True`` if every id satisfies every row, ``False`` if any does not, and
-        ``None`` if the predicate could not be pushed and the caller should load
-        the resources instead.
+        ``None`` if every resource satisfies every row, ``DECLINED`` if the predicate
+        could not be pushed and the caller must load the resources itself, or a
+        ``(row, resource_id)`` pair naming the condition that refused and the resource
+        that broke it. That pair is the whole reason this returns more than a boolean:
+        it is what lets the denial say which.
     """
+    if resource_ids is None and parent_id is None:
+        # Neither the resources nor their parent is known, so there is nothing to ask
+        # about -- a cascade whose parent did not resolve. Decline so the caller falls
+        # back rather than treating an unasked question as a pass.
+        return condition_pushdown.DECLINED
+
     pushed_rows = []
     for row in target_rows:
         clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
         if clauses is None:
-            return None
+            return condition_pushdown.DECLINED
         pushed_rows.append((row, clauses))
 
-    store = _condition_store(context.resource_type)
+    store_ = _condition_store(context.resource_type)
     for row, clauses in pushed_rows:
+        if parent_id is not None:
+            # A row naming one resource cannot be pushed over a cascade: its clauses
+            # apply to that one child, and a query over "any child" would charge them
+            # against every sibling. Unreachable today -- every cascade-reachable type
+            # (run, trace, logged model, and the three version types) is wildcard-only,
+            # so such a row cannot be authored -- but a future tier with id-grain
+            # patterns would otherwise fail silently and in the fail-open direction.
+            if row.resource_pattern != WILDCARD_PATTERN:
+                return condition_pushdown.DECLINED
+            failing = store_.find_failing_resource(
+                context.resource_type, clauses, parent_id=parent_id
+            )
+            if failing is condition_pushdown.DECLINED:
+                return condition_pushdown.DECLINED
+            if failing is not None:
+                return (row, failing)
+            continue
         # Narrow to the ids this row governs rather than abandoning the pushdown for a
-        # scoped row. The ids are the query input, so a row naming one resource is just a
-        # shorter id list -- and charging it against a sibling would deny a mutation on a
-        # resource the admin never pointed the condition at, which is what `_row_governs`
-        # enforces on the in-memory path too.
+        # scoped row. The ids are the query input, so a row naming one resource is just
+        # a shorter id list -- and charging it against a sibling would deny a mutation
+        # on a resource the admin never pointed the condition at, which is what
+        # `_row_governs` enforces on the in-memory path too.
         governed = [rid for rid in resource_ids if _row_governs(row, rid)]
         if not governed:
             # This row governs none of the ids in play, so it has nothing to say here.
             continue
-        keys = [_condition_pushdown_key(context.resource_type, rid) for rid in governed]
-        matched = store.filter_ids_by_clauses(context.resource_type, keys, clauses)
-        if matched is None:
-            # Declined after another row answered. Fall back rather than keep a
-            # partial verdict: the loader re-evaluates every row from scratch.
-            return None
-        if matched != set(keys):
-            # An id the filter excluded either failed a clause or does not exist.
-            # Both deny, and deliberately indistinguishably -- a 404 here would
-            # reveal which ids exist to a caller who may not read them.
-            return False
-    return True
-
-
-def _cascade_target_pushdown(context, target_rows):
-    """Whether any child of the context's parent fails a target condition.
-
-    Returns ``True`` if one does, ``False`` if none does, or ``None`` if the
-    question could not be pushed down -- because the parent is unknown, a row
-    names something other than tags, or the store declines the entity. The
-    caller then enumerates, so a decline costs only this attempt.
-
-    Each row is asked separately. Rows are conjunctive, so a child failing any
-    row's clauses fails overall, and the first row reporting a failure settles
-    it. A row that cannot be pushed makes the whole context fall back, since
-    skipping it would judge the cascade against a subset of its conditions.
-    """
-    parent_id = context.parent_resource_id
-    if parent_id is None:
-        return None
-    store_ = _get_tracking_store()
-    per_row = []
-    for row in target_rows:
-        clauses = _parsed_condition(row.target_condition, NAMESPACE_RESOURCE)
-        triples = _pushable_clauses(clauses)
-        if triples is None:
-            return None
-        per_row.append(triples)
-    found_failure = False
-    for triples in per_row:
-        answer = store_.any_child_failing_clauses(context.resource_type, parent_id, triples)
-        if answer is None:
-            return None
-        found_failure = found_failure or answer
-    return found_failure
+        # The store matches on decomposed keys; keeping the mapping back means a denial
+        # names the resource the way this layer and the caller address it, rather than
+        # as the tuple the tables are keyed by.
+        by_key = {_condition_pushdown_key(context.resource_type, rid): rid for rid in governed}
+        failing = store_.find_failing_resource(context.resource_type, clauses, ids=list(by_key))
+        if failing is condition_pushdown.DECLINED:
+            return condition_pushdown.DECLINED
+        if failing is not None:
+            # The id either failed a clause or does not exist. Both deny, and
+            # deliberately indistinguishably -- a 404 here would reveal which ids exist
+            # to a caller who may not read them.
+            return (row, by_key.get(failing, failing))
+    return None
 
 
 def _row_governs(row, resource_id: "str | None") -> bool:
@@ -1217,21 +1280,6 @@ def _row_governs(row, resource_id: "str | None") -> bool:
     if row.resource_pattern == WILDCARD_PATTERN:
         return True
     return resource_id is not None and row.resource_pattern == resource_id
-
-
-def _has_resource_scoped(rows) -> bool:
-    """Whether any row narrows to a single resource rather than the wildcard.
-
-    Gates the pushdowns. Both push ONE clause set covering ALL the context's ids, which is
-    exactly what a resource-scoped row breaks: its clauses apply to one id and must not be
-    charged against the others. Declining is correct and only costs speed -- the in-memory
-    path below judges each id against the rows that actually govern it.
-
-    Only the presence of a scoped row declines; a context whose rows are all unscoped --
-    every condition written before this feature, and most written after -- keeps the
-    pushdown unchanged.
-    """
-    return any(row.resource_pattern != WILDCARD_PATTERN for row in rows)
 
 
 def _authorize_on_conditions(
@@ -1309,7 +1357,12 @@ def _authorize_on_conditions(
             ):
                 continue
             clauses = _parsed_condition(row.value_condition, NAMESPACE_REQUEST)
-            results.append(evaluate_request(clauses, context.request))
+            permitted = evaluate_request(clauses, context.request)
+            if not permitted:
+                # Attribute before recording the verdict, so the 403 can name the
+                # clause. Free here: the request's values are already in hand.
+                auth_resources.note_condition_denial(_value_denial_detail(clauses, context.request))
+            results.append(permitted)
     if not combine(results):
         return False
 
@@ -1337,16 +1390,18 @@ def _authorize_on_conditions(
             # query, where enumerating and judging each child is one search page per 500
             # plus a fetch per child. Only the store can answer it, and only for a
             # predicate it can express, so a decline falls through to enumeration below.
-            pushed = (
-                None
-                if _has_resource_scoped(target_rows)
-                else _cascade_target_pushdown(context, target_rows)
-            )
-            if pushed is not None:
-                if pushed:
-                    # Some child fails. Deny directly rather than appending to `results`:
-                    # the store reports that one exists, not which, and `combine` has no
-                    # per-child result to record.
+            pushed = _target_pushdown(context, target_rows, parent_id=context.parent_resource_id)
+            if pushed is not condition_pushdown.DECLINED:
+                if pushed is not None:
+                    # Some child fails, and the store named which. Deny directly rather
+                    # than appending to `results` -- there is no per-child result for
+                    # `combine` to weigh -- but record the clause it broke first, so the
+                    # caller is told which child blocked the cascade instead of only
+                    # that one did.
+                    row, failing_id = pushed
+                    auth_resources.note_condition_denial(
+                        _target_denial_detail(context, row, failing_id)
+                    )
                     return False
                 # Every child satisfies every pushed clause, so this context is settled
                 # without ever learning the children's ids.
@@ -1380,11 +1435,15 @@ def _authorize_on_conditions(
         # answers the predicate without the resources' tags ever crossing the wire.
         # A decline falls through to the bulk load below, which is still the path for
         # every non-SQL backend.
-        pushed = _explicit_target_pushdown(context, target_rows, resource_ids)
-        if pushed is not None:
-            if not pushed:
-                # The store reports which ids satisfy the clauses, not why one did
-                # not, so there is no per-id result for `combine` to weigh.
+        pushed = _target_pushdown(context, target_rows, resource_ids=resource_ids)
+        if pushed is not condition_pushdown.DECLINED:
+            if pushed is not None:
+                # There is no per-id result for `combine` to weigh, so deny directly --
+                # after naming the clause the offending resource broke.
+                row, failing_id = pushed
+                auth_resources.note_condition_denial(
+                    _target_denial_detail(context, row, failing_id)
+                )
                 return False
             continue
         # One bulk call for the context's ids rather than one read each. A bulk delete

@@ -37,6 +37,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.condition_pushdown import DECLINED
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
@@ -1312,22 +1313,26 @@ class AbstractStore:
         """Return whether this model registry store supports workspace-aware operations."""
         return False
 
-    def filter_ids_by_clauses(self, entity, ids, clauses):
-        """Return which of ``ids`` satisfy **every** clause.
+    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
+        """Find a resource that fails a conjunctive tag/alias predicate.
 
         The registry's half of the authorization pushdown hook; see
-        :meth:`mlflow.store.tracking.abstract_store.AbstractStore.filter_ids_by_clauses`
+        :meth:`mlflow.store.tracking.abstract_store.AbstractStore.find_failing_resource`
         for the full contract. In short: a clause is a
-        ``(namespace, key, comparator, value)`` tuple; an absent tag or alias
-        satisfies nothing, including ``!=`` and ``NOT IN``; a composite-keyed
-        entity such as a version is addressed by its decomposed parts; an empty
-        ``ids`` or ``clauses`` returns an empty set or the full set respectively.
+        ``(namespace, key, comparator, value)`` tuple; clauses are conjunctive and a
+        store that cannot express one declines the whole call; an absent tag or alias
+        satisfies nothing, including ``!=`` and ``NOT IN``; a composite-keyed entity
+        such as a version is addressed by its decomposed parts; exactly one selector
+        must be given.
 
         Returns:
-            The matching subset of ``ids``, or ``None`` if this store cannot push
-            the predicate down, in which case the caller loads each resource and
-            evaluates the clauses itself. Only *cost* varies by backend this way,
-            never the outcome -- an implementation that returns a set MUST agree
-            with that in-memory evaluation on every comparator and on absence.
+            The first failing resource's id, ``None`` if every resource satisfies
+            every clause (including when there is nothing to judge), or
+            :data:`~mlflow.store.condition_pushdown.DECLINED` if this store cannot
+            push the predicate down, in which case the caller loads each resource and
+            evaluates the clauses itself. ``DECLINED`` is deliberately not ``None``:
+            see the tracking contract. Only *cost* varies by backend this way, never
+            the outcome -- an implementation that answers MUST agree with that
+            in-memory evaluation on every comparator and on absence.
         """
-        return None
+        return DECLINED

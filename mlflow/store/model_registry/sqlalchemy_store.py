@@ -1837,42 +1837,54 @@ class SqlAlchemyStore(AbstractStore):
 
     _PUSHDOWN_ID_CHUNK = 900
 
-    def filter_ids_by_clauses(self, entity, ids, clauses):
+    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
         """Push a conjunctive tag/alias predicate into SQL.
 
-        See :meth:`AbstractStore.filter_ids_by_clauses`. Each clause narrows the
-        surviving id set with one query, so the work is bounded by the number of
-        clauses rather than by how much the resources contain -- no values are
-        returned and the resources themselves are never loaded.
+        See :meth:`AbstractStore.find_failing_resource`. Only the satisfying set is
+        queried -- no values are returned and the resources themselves are never
+        loaded -- and the first id missing from it is the answer.
 
-        Every query goes through :meth:`_get_query`, which is where workspace
-        scoping is applied. That is not optional here: every table this method
-        touches carries a ``workspace`` column, because each is keyed by *name*
-        and a name is not unique across workspaces.
+        Every query goes through :meth:`_get_query`, which is where workspace scoping
+        is applied. That is not optional here: every table this method touches carries
+        a ``workspace`` column, because each is keyed by *name* and a name is not
+        unique across workspaces.
+
+        The ``parent_id`` selector declines. A registry entry does cascade to its
+        versions, but answering that needs the version table joined to its parent, and
+        no such mapping is declared here yet -- so the caller enumerates, which is
+        correct and only slower.
         """
+        if (ids is None) == (parent_id is None):
+            raise ValueError(
+                "find_failing_resource needs exactly one of `ids` or `parent_id`, "
+                f"got ids={ids!r} and parent_id={parent_id!r}"
+            )
+        if parent_id is not None:
+            return condition_pushdown.DECLINED
+
         namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
         if namespaces is None:
+            return condition_pushdown.DECLINED
+        requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
+        if not requested or not clauses:
+            # Nothing to judge, or nothing to judge it against. Either way nothing fails.
             return None
-
-        surviving = {condition_pushdown.as_pushdown_key(i) for i in ids}
-        if not surviving:
-            return set()
-        if not clauses:
-            return surviving
-
         resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
         if resolved is None:
-            return None
+            return condition_pushdown.DECLINED
 
         dialect = self._get_dialect()
+        ordered = sorted(requested)
         with self.ManagedSessionMaker() as session:
             for model, id_columns, key_column, value_column, key, comparator, value in resolved:
                 comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
-                matched = set()
-                # Ids bind one parameter each -- two for a composite -- and every
-                # backend caps how many a statement may carry.
-                ordered = sorted(surviving)
-                chunk_size = max(1, self._PUSHDOWN_ID_CHUNK // len(id_columns))
+                # Ids bind one parameter each -- more for a composite -- and the clause
+                # binds the key plus one per compared value, which for ``IN`` is the
+                # whole list. Subtract those so the backend's cap stays a property of
+                # the statement rather than a limit on how many ids a caller may ask
+                # about.
+                clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
+                chunk_size = max(1, (self._PUSHDOWN_ID_CHUNK - clause_params) // len(id_columns))
                 for start in range(0, len(ordered), chunk_size):
                     chunk = ordered[start : start + chunk_size]
                     rows = (
@@ -1886,8 +1898,10 @@ class SqlAlchemyStore(AbstractStore):
                         )
                         .all()
                     )
-                    matched.update(condition_pushdown.as_pushdown_key(tuple(r)) for r in rows)
-                surviving = matched
-                if not surviving:
-                    break
-        return surviving
+                    matched = {condition_pushdown.as_pushdown_key(tuple(r)) for r in rows}
+                    for candidate in chunk:
+                        if candidate not in matched:
+                            # First failure settles it; the remaining chunks and
+                            # clauses cannot change the verdict.
+                            return candidate
+        return None

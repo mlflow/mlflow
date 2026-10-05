@@ -31,6 +31,7 @@ from mlflow.server.auth.conditions import (
     TraceRequestValues,
     TraceResourceValues,
 )
+from mlflow.store.condition_pushdown import DECLINED
 
 _WORKSPACE = "team-a"
 
@@ -54,8 +55,7 @@ def _pushdown_declines(monkeypatch):
     from mlflow.server import auth as auth_module
 
     declining = SimpleNamespace(
-        filter_ids_by_clauses=lambda *a, **k: None,
-        any_child_failing_clauses=lambda *a, **k: None,
+        find_failing_resource=lambda *a, **k: DECLINED,
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)
@@ -541,24 +541,30 @@ def test_the_workspace_admin_check_is_skipped_when_nothing_is_configured(gate):
 
 
 class CountingPushdown:
-    """A store that answers predicates and counts how often it was asked."""
+    """A store that answers predicates and counts how often it was asked.
 
-    def __init__(self, *, filter_answer=None, cascade_answer=None):
-        self._filter_answer = filter_answer
-        self._cascade_answer = cascade_answer
+    ``named_fails`` and ``child_fails`` are what ``find_failing_resource`` returns for
+    each selector, stated in that method's own vocabulary: ``None`` for "every resource
+    satisfies every clause", a resource id for "this one failed", and ``DECLINED`` for
+    "I cannot answer, load them yourself". The three are not interchangeable --
+    ``DECLINED`` read as ``None`` would pass every mutation unjudged -- which is why the
+    default is the harmless one.
+    """
+
+    def __init__(self, *, named_fails=None, child_fails=None):
+        self._named_fails = named_fails
+        self._child_fails = child_fails
         self.filter_calls = []
         self.cascade_calls = []
 
-    def filter_ids_by_clauses(self, entity, ids, clauses):
-        ids = list(ids)
-        self.filter_calls.append((entity, ids, list(clauses)))
-        if callable(self._filter_answer):
-            return self._filter_answer(set(ids))
-        return self._filter_answer
-
-    def any_child_failing_clauses(self, entity, parent_id, clauses):
-        self.cascade_calls.append((entity, parent_id, list(clauses)))
-        return self._cascade_answer
+    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
+        # One method, two selectors -- so the counters split on which selector was used
+        # rather than on which method was called.
+        if parent_id is not None:
+            self.cascade_calls.append((entity, parent_id, list(clauses)))
+            return self._child_fails
+        self.filter_calls.append((entity, list(ids), list(clauses)))
+        return self._named_fails
 
 
 @pytest.fixture
@@ -601,7 +607,7 @@ def test_a_cascade_costs_one_pushdown_call_and_no_enumeration(gate, pushdown):
     enumeration is what must be zero -- not merely small.
     """
     run, state = gate
-    store = pushdown(CountingPushdown(cascade_answer=False))
+    store = pushdown(CountingPushdown(child_fails=None))
     enumerated = []
     allowed = run(
         [_cascade("run", "exp-1", enumerated)],
@@ -614,10 +620,16 @@ def test_a_cascade_costs_one_pushdown_call_and_no_enumeration(gate, pushdown):
     assert state["resources"].single_reads == []
 
 
-def test_a_denying_cascade_also_enumerates_nothing(gate, pushdown):
-    """A refusal must not pay to find out which child caused it."""
+def test_a_denying_cascade_reads_only_the_child_it_names(gate, pushdown):
+    """A refusal pays ONE read to say which child caused it, and never enumerates.
+
+    The store answers "this child failed" without enumerating anything, and naming the
+    *clause* it broke then costs a single fetch of that one child. That is the whole
+    attribution budget: no enumeration, no bulk read, and one single read regardless of
+    how many children the parent holds.
+    """
     run, state = gate
-    store = pushdown(CountingPushdown(cascade_answer=True))
+    store = pushdown(CountingPushdown(child_fails="child-7"))
     enumerated = []
     allowed = run(
         [_cascade("run", "exp-1", enumerated)],
@@ -625,14 +637,17 @@ def test_a_denying_cascade_also_enumerates_nothing(gate, pushdown):
     )
     assert allowed is False
     assert len(store.cascade_calls) == 1
-    assert enumerated == []
+    assert enumerated == [], "the children must never be enumerated when the store answered"
     assert state["resources"].bulk_reads == []
+    assert state["resources"].single_reads == [("run", "child-7")], (
+        "exactly the child the store named, and only that one"
+    )
 
 
 def test_cost_scales_with_conditions_not_with_children(gate, pushdown):
     """Two conditions is two queries, independent of how many children exist."""
     run, _ = gate
-    store = pushdown(CountingPushdown(cascade_answer=False))
+    store = pushdown(CountingPushdown(child_fails=None))
     enumerated = []
     allowed = run(
         [_cascade("run", "exp-1", enumerated)],
@@ -654,7 +669,7 @@ def test_a_declining_store_costs_exactly_what_it_did_before(gate, pushdown):
     store twice, or read per child again, this is what notices.
     """
     run, state = gate
-    store = pushdown(CountingPushdown(cascade_answer=None, filter_answer=None))
+    store = pushdown(CountingPushdown(child_fails=DECLINED, named_fails=DECLINED))
     enumerated = []
     allowed = run(
         [_cascade("run", "exp-1", enumerated)],
@@ -674,7 +689,7 @@ def test_a_declining_store_costs_exactly_what_it_did_before(gate, pushdown):
 def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
     """The common case: the request names its ids, so nothing is loaded."""
     run, state = gate
-    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids))
+    store = pushdown(CountingPushdown(named_fails=None))
     allowed = run(
         [
             ConditionContext(
@@ -696,7 +711,7 @@ def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
 def test_many_ids_are_still_one_call(gate, pushdown):
     """The bulk-delete shape (D11), where per-id cost was the original complaint."""
     run, state = gate
-    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids))
+    store = pushdown(CountingPushdown(named_fails=None))
     ids = tuple(f"r-{i}" for i in range(500))
     allowed = run(
         [
@@ -717,7 +732,7 @@ def test_many_ids_are_still_one_call(gate, pushdown):
 def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
     """Admin bypass precedes everything, including the pushdown."""
     run, _ = gate
-    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids, cascade_answer=False))
+    store = pushdown(CountingPushdown(named_fails=None, child_fails=None))
     enumerated = []
     allowed = run(
         [_cascade("run", "exp-1", enumerated)],
@@ -732,7 +747,7 @@ def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
 def test_a_request_only_condition_asks_the_store_no_predicate(gate, pushdown):
     """No target condition means no resource question, so nothing is pushed."""
     run, _ = gate
-    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids, cascade_answer=False))
+    store = pushdown(CountingPushdown(named_fails=None, child_fails=None))
     allowed = run(
         [_mutate("run", "r-1", RunRequestValues(tags=(("lifecycle", "dev"),)))],
         rows=[MutationConditionSpec("run", value_condition="tag_value != 'prod'")],
@@ -745,7 +760,7 @@ def test_a_request_only_condition_asks_the_store_no_predicate(gate, pushdown):
 def test_a_request_denial_short_circuits_before_any_predicate(gate, pushdown):
     """Request conditions are pure, so a denial there must not reach the database."""
     run, _ = gate
-    store = pushdown(CountingPushdown(filter_answer=lambda ids: ids))
+    store = pushdown(CountingPushdown(named_fails=None))
     allowed = run(
         [_mutate("run", "r-1", RunRequestValues(tags=(("lifecycle", "prod"),)))],
         rows=[
@@ -774,13 +789,14 @@ def _recording_pushdown_store(monkeypatch, answer=None):
 
     calls = []
 
-    def filter_ids_by_clauses(entity, ids, clauses):
+    def find_failing_resource(entity, clauses, *, ids=None, parent_id=None):
         calls.append((entity, list(ids), list(clauses)))
-        return set(ids) if answer is None else answer
+        # ``None`` is the new "nothing failed", so a caller asking for the default
+        # answer gets a pass rather than an echo of the ids.
+        return answer
 
     pushing = SimpleNamespace(
-        filter_ids_by_clauses=filter_ids_by_clauses,
-        any_child_failing_clauses=lambda *a, **k: None,
+        find_failing_resource=find_failing_resource,
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: pushing)
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: pushing, raising=False)

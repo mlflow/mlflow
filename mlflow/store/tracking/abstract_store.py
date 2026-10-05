@@ -28,6 +28,7 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
+from mlflow.store.condition_pushdown import DECLINED, Declined
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -2177,72 +2178,84 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def filter_ids_by_clauses(
+    def find_failing_resource(
         self,
         entity: str,
-        ids: Sequence[str | tuple[str, ...]],
         clauses: Sequence[tuple[str, str, str, str | tuple[str, ...]]],
-    ) -> set[str | tuple[str, ...]] | None:
-        """Return which of ``ids`` satisfy **every** clause.
+        *,
+        ids: "Sequence[str | tuple[str, ...]] | None" = None,
+        parent_id: "str | None" = None,
+    ) -> "str | tuple[str, ...] | None | Declined":
+        """Find a resource that fails a conjunctive tag/alias predicate.
 
-        An optional pushdown hook for callers that must decide whether a set of
-        resources satisfies a predicate without loading the resources. A clause is
-        a ``(namespace, key, comparator, value)`` tuple, where ``namespace`` is
-        ``"tags"`` or ``"aliases"``, ``comparator`` is one of ``=``, ``!=``,
-        ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN``, and ``value`` is a string, or a
-        tuple for the two list comparators.
+        An optional pushdown hook for a caller that must decide whether it may mutate
+        a set of resources without loading them. It answers the only question such a
+        caller asks -- "is there one here that fails?" -- so the two ways of naming
+        the set are two selectors on one method rather than two methods:
 
-        Both namespaces are asked in one call deliberately. The clauses are
-        conjunctive, so answering only the part a store can express would judge a
-        conjunction against a subset of itself -- and the dropped clause is the one
-        that would have denied. A store that cannot express any clause in the list
-        must decline the whole call.
+        ``ids``
+            The resources are enumerated by the caller. This is the usual case: a
+            request names what it will touch.
+        ``parent_id``
+            The resources are every child of that parent, and the caller does not
+            know them. A cascading delete or restore reaches rows the request never
+            mentions, and the population may be unbounded, so only the store can
+            answer without enumerating it.
 
-        A resource satisfies a clause only if it **has** an entry under that key
-        whose value compares true. An absent tag or alias therefore satisfies
-        nothing, including ``!=`` and ``NOT IN`` -- a resource with no such entry
-        is excluded rather than vacuously included.
+        Exactly one selector must be given; both or neither is a programming error
+        and raises. ``ids`` may be arbitrarily long -- ``DeleteTraces`` caps nothing
+        -- so an implementation must chunk rather than assume a statement can carry
+        the whole list.
 
-        An id is normally a string. For an entity whose identity is composite --
-        a model or prompt version, addressed by name *and* version -- the caller
-        passes the parts as a tuple and gets tuples back. The composite id
-        *format* belongs to the caller, so a store matches parts and never parses
-        a joined id.
+        A clause is a ``(namespace, key, comparator, value)`` tuple, where
+        ``namespace`` is ``"tags"`` or ``"aliases"``, ``comparator`` is one of ``=``,
+        ``!=``, ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN``, and ``value`` is a string,
+        or a tuple for the two list comparators. Clauses are conjunctive: a resource
+        fails if it fails **any** of them.
+
+        Both namespaces are asked in one call deliberately. Answering only the part a
+        store can express would judge a conjunction against a subset of itself -- and
+        the dropped clause is the one that would have denied. A store that cannot
+        express any clause in the list must decline the whole call.
+
+        A resource satisfies a clause only if it **has** an entry under that key whose
+        value compares true. An absent tag or alias therefore satisfies nothing,
+        including ``!=`` and ``NOT IN`` -- such a resource *fails* rather than being
+        vacuously permitted. Note this cannot be implemented by inverting the
+        comparator: with absence failing, the complement of ``!= 'x'`` is not
+        ``= 'x'``, since an untagged resource satisfies neither and must still fail.
+        Asking which resources *satisfy* and negating that set membership is the only
+        formulation that keeps absence failing.
+
+        An id is normally a string. For an entity whose identity is composite -- a
+        model or prompt version, addressed by name *and* version -- the caller passes
+        the parts as a tuple and gets a tuple back. The composite id *format* belongs
+        to the caller, so a store matches parts and never parses a joined id.
 
         Returns:
-            The matching subset of ``ids``, or ``None`` if this store cannot push
-            the predicate down. ``None`` is a contract, not a failure: the caller
-            must then load each resource and evaluate the clauses itself. Only
-            *cost* varies by backend this way, never the outcome -- an
-            implementation that returns a set MUST agree with that in-memory
-            evaluation on every comparator and on absence.
+            The first failing resource's id, ``None`` if every resource satisfies
+            every clause, or :data:`~mlflow.store.condition_pushdown.DECLINED` if this
+            store cannot push the predicate down.
 
-            An empty ``ids`` or ``clauses`` returns an empty set and the full set
-            respectively, so neither is confused with ``None``.
+            Only ONE id is returned even when several fail. The caller needs a denial
+            and a reason, not an inventory, and stopping at the first lets an
+            implementation skip the rest of an unbounded population.
+
+            ``DECLINED`` is a contract, not a failure: the caller must then load each
+            resource and evaluate the clauses itself. It is deliberately **not**
+            ``None`` -- ``None`` means nothing failed, and conflating the two would
+            let an unanswerable predicate read as a pass, which is the one direction
+            this hook must never fail in. ``DECLINED`` raises on ``bool()`` so the
+            conflation cannot be written accidentally.
+
+            Only *cost* varies by backend this way, never the outcome: an
+            implementation that answers MUST agree with that in-memory evaluation on
+            every comparator and on absence.
+
+            An empty ``ids``, an empty ``clauses``, or a parent with no children all
+            return ``None``: nothing can fail. For the parent selector that is
+            vacuous permission rather than a refusal, and it differs from a *failure*
+            to enumerate, which a caller must treat as a refusal -- this method says
+            ``DECLINED`` for that, never ``None``.
         """
-        return None
-
-    def any_child_failing_clauses(
-        self,
-        entity: str,
-        parent_id: str,
-        clauses: Sequence[tuple[str, str, str, str | tuple[str, ...]]],
-    ) -> bool | None:
-        """Whether ``parent_id`` holds a child of ``entity`` failing the clauses.
-
-        The cascading counterpart to :meth:`filter_ids_by_clauses`, for a
-        caller that must decide whether it may touch *all* children of a parent
-        without enumerating them. Clause semantics are identical, including
-        absence failing every comparator; a child fails if it fails any clause.
-
-        Returns:
-            ``True`` if some child fails, ``False`` if every child satisfies, or
-            ``None`` if this store cannot push the predicate down, in which case
-            the caller must enumerate the children and evaluate them itself.
-
-            No children is ``False``, not ``True`` -- a parent with nothing to
-            cascade over is vacuously permitted. That differs from a *failure*
-            to enumerate, which a caller must treat as a refusal; this method
-            says ``None`` for that, never ``False``.
-        """
-        return None
+        return DECLINED

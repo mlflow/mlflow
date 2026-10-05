@@ -31,6 +31,32 @@ such a column to text so SQL and memory agree.
 import sqlalchemy
 
 
+class Declined:
+    """The sentinel a store returns when it cannot answer a predicate.
+
+    Kept distinct from ``None`` because the two outcomes are not interchangeable and
+    confusing them is one-directional: ``None`` means every resource satisfied every
+    clause, so reading "I cannot answer" as ``None`` lets every mutation through
+    unjudged. A boolean test is how that mistake gets written -- ``if failing:`` looks
+    reasonable and would treat a decline as a pass -- so this refuses to be one.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self):
+        return "DECLINED"
+
+    def __bool__(self):
+        raise TypeError(
+            "DECLINED is not a verdict: compare it with `is DECLINED` rather than "
+            "testing it for truth. Treated as falsy it would read as 'nothing failed', "
+            "which is the one direction this predicate must never fail in."
+        )
+
+
+DECLINED = Declined()
+
+
 def as_pushdown_key(value):
     """Normalise an id to the key the predicate compares on.
 
