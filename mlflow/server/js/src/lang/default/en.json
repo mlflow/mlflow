@@ -2051,6 +2051,10 @@
     "defaultMessage": "Run judge on {isTraces, select, true {traces} other {sessions}}",
     "description": "Title for running judge on traces or sessions"
   },
+  "6BOMtf": {
+    "defaultMessage": "SHA-256 of the skill's files, recorded at registration. Pulling this version fails if the fetched content no longer matches.",
+    "description": "Tooltip for a recorded skill version content digest"
+  },
   "6BRlPU": {
     "defaultMessage": "Rationale",
     "description": "Field label for assessment rationale in an edit form"
@@ -3298,6 +3302,10 @@
   "AhfXyS": {
     "defaultMessage": "Previous",
     "description": "Button text for previous trace"
+  },
+  "Ahh9Q+": {
+    "defaultMessage": "No digest was recorded, so pulls aren't checked. This version points at {ref}; if that is a branch, a pull returns whatever it holds at the time.",
+    "description": "Tooltip for a missing digest on a skill version that points at a Git branch or tag"
   },
   "Ai/ANo": {
     "defaultMessage": "Usage",
@@ -6318,6 +6326,10 @@
   "MhtxHm": {
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
+  },
+  "MiMryr": {
+    "defaultMessage": "No digest was recorded, so pulls aren't checked. This version points at the repository's default branch, so a pull returns whatever it holds at the time.",
+    "description": "Tooltip for a missing digest on a skill version that points at the default Git branch"
   },
   "Mib3VA": {
     "defaultMessage": "Override saved view",
@@ -14311,6 +14323,10 @@
     "defaultMessage": "Settings",
     "description": "Title of the playground settings drawer"
   },
+  "qGal7m": {
+    "defaultMessage": "About the content digest",
+    "description": "Aria label for the skill version content digest info icon"
+  },
   "qGqURi": {
     "defaultMessage": "Manage",
     "description": "Sidebar account dropdown item linking to admin pages"
@@ -14406,6 +14422,10 @@
   "qbtNJS": {
     "defaultMessage": "Block",
     "description": "Block action title"
+  },
+  "qc+sQc": {
+    "defaultMessage": "No digest was recorded. This version's files are stored in MLflow, so its content does not change.",
+    "description": "Tooltip for a missing digest on an uploaded skill version"
   },
   "qcO5RW": {
     "defaultMessage": "Select an owner",
@@ -16598,6 +16618,10 @@
   "z94r4F": {
     "defaultMessage": "This assessment is produced by a human judge.",
     "description": "Human judge assessment description"
+  },
+  "z9F4ZT": {
+    "defaultMessage": "No digest was recorded, so pulls aren't checked against the content that was registered.",
+    "description": "Tooltip for a missing digest on a skill version"
   },
   "z9UqPZ": {
     "defaultMessage": "Description",

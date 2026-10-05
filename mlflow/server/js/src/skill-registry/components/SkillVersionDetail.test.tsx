@@ -78,6 +78,18 @@ describe('SkillVersionDetail', () => {
     expect(await screen.findAllByText(/Unpublish or deprecate this version first/)).not.toHaveLength(0);
   });
 
+  it.each([
+    [{ digest: 'a'.repeat(64) }, /Pulling this version fails if the fetched content no longer matches/],
+    [{ digest: null, source_type: 'git' as const, ref: 'main' }, /This version points at main; if that is a branch/],
+    [{ digest: null, source_type: 'git' as const, ref: null }, /points at the repository's default branch/],
+    [{ digest: null, source_type: 'git' as const, ref: '0123abcd' }, /pulls aren't checked against the content/],
+    [{ digest: null, source_type: 'mlflow' as const }, /files are stored in MLflow/],
+  ])('explains the content digest for %p', async (overrides, expected) => {
+    renderDetail({ version: createMockSkillVersion(overrides) });
+    await userEvent.hover(screen.getByLabelText('About the content digest'));
+    expect(await screen.findAllByText(expected)).not.toHaveLength(0);
+  });
+
   it('does not link unsafe sources', () => {
     renderDetail({
       version: createMockSkillVersion({ source: 'mlflow-artifacts:/skills/@acme/code-review/2' }),

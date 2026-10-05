@@ -2093,6 +2093,7 @@ module.exports = {
   "mlflow.skill_registry.detail.version.delete": "",
   "mlflow.skill_registry.detail.version.delete_tooltip": "",
   "mlflow.skill_registry.detail.version.digest.copy": "",
+  "mlflow.skill_registry.detail.version.digest_info": "",
   "mlflow.skill_registry.detail.version.metadata.edit": "",
   "mlflow.skill_registry.detail.version.source": "",
   "mlflow.skill_registry.detail.version.source_browse": "",

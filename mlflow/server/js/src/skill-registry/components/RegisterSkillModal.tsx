@@ -34,7 +34,7 @@ import {
 } from '../sourceLocation';
 import { formatSkillImportCli, type SkillImportSnippetOptions, type SkillRegisterSnippetOptions } from '../snippets';
 import { SkillStatus, type RegistryIcon, type SkillVersion } from '../types';
-import { formatSkillIdentity, formatSkillSourceLabel, isPermissionDeniedError } from '../utils';
+import { formatSkillIdentity, formatSkillSourceLabel, isCommitSha, isPermissionDeniedError } from '../utils';
 
 type RegistrationMode = 'pointer' | 'upload';
 
@@ -116,9 +116,6 @@ const REGISTRATION_ERROR_MESSAGES: Record<SkillRegistrationErrorCode, { defaultM
       description: 'Validation error when a skill folder upload has no SKILL.md',
     },
   });
-
-// A version stores the ref, not the commit it resolved to, so only a commit SHA pins the content.
-const COMMIT_SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 
 const clientSourceType = (sourceType: string | null | undefined): '' | SkillRegistrationSourceType =>
   sourceType === 'git' || sourceType === 'oci' || sourceType === 'zip' ? sourceType : '';
@@ -690,7 +687,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                                 defaultMessage="Defaults to the repository's default branch. A branch keeps moving, so pulls of this version get whatever it points to then. Use a tag or commit SHA to pin the content."
                                 description="Hint for an empty skill git ref field"
                               />
-                            ) : COMMIT_SHA_PATTERN.test(ref) ? (
+                            ) : isCommitSha(ref) ? (
                               <FormattedMessage
                                 defaultMessage="Pinned to this commit, so every pull of this version gets the same content."
                                 description="Hint when the skill git ref is a commit SHA"

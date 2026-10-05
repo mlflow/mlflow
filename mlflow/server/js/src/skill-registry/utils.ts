@@ -239,6 +239,9 @@ export const skillVersionStatusTransitions = (status: SkillStatus): SkillStatus[
 export const canSoftDeleteSkillVersion = (status: SkillStatus) =>
   status === SkillStatus.DRAFT || status === SkillStatus.DEPRECATED;
 
+// A version stores the Git ref, not the commit it resolved to, so only a commit SHA pins the content.
+export const isCommitSha = (ref: string | null | undefined) => Boolean(ref && /^[0-9a-f]{7,40}$/i.test(ref));
+
 export const resolveDefaultSkillVersion = (
   skill?: Pick<Skill, 'latest_version'> | null,
   versions?: SkillVersion[],

@@ -8,6 +8,7 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
+  InfoSmallIcon,
   NewWindowIcon,
   Spacer,
   Tag,
@@ -25,6 +26,7 @@ import {
   describeSkillSource,
   formatSkillReferenceUris,
   formatSkillStatusLabel,
+  isCommitSha,
   skillVersionStatusTransitions,
   STATUS_TAG_COLOR,
 } from '../utils';
@@ -54,6 +56,57 @@ const MetadataValue = ({ children }: { children: ReactNode }) => (
 const InlineCode = ({ children }: { children: string }) => {
   const { theme } = useDesignSystemTheme();
   return <code css={inlineCodeStyles(theme)}>{children}</code>;
+};
+
+// Explains what the digest guarantees, since a missing one means pulls of the version are not checked.
+const ContentDigestInfo = ({ version }: { version: SkillVersion }) => {
+  const intl = useIntl();
+  let content: ReactNode;
+  if (version.digest) {
+    content = (
+      <FormattedMessage
+        defaultMessage="SHA-256 of the skill's files, recorded at registration. Pulling this version fails if the fetched content no longer matches."
+        description="Tooltip for a recorded skill version content digest"
+      />
+    );
+  } else if (version.source_type === 'mlflow') {
+    content = (
+      <FormattedMessage
+        defaultMessage="No digest was recorded. This version's files are stored in MLflow, so its content does not change."
+        description="Tooltip for a missing digest on an uploaded skill version"
+      />
+    );
+  } else if (version.source_type === 'git' && !isCommitSha(version.ref)) {
+    content = version.ref ? (
+      <FormattedMessage
+        defaultMessage="No digest was recorded, so pulls aren't checked. This version points at {ref}; if that is a branch, a pull returns whatever it holds at the time."
+        description="Tooltip for a missing digest on a skill version that points at a Git branch or tag"
+        values={{ ref: version.ref }}
+      />
+    ) : (
+      <FormattedMessage
+        defaultMessage="No digest was recorded, so pulls aren't checked. This version points at the repository's default branch, so a pull returns whatever it holds at the time."
+        description="Tooltip for a missing digest on a skill version that points at the default Git branch"
+      />
+    );
+  } else {
+    content = (
+      <FormattedMessage
+        defaultMessage="No digest was recorded, so pulls aren't checked against the content that was registered."
+        description="Tooltip for a missing digest on a skill version"
+      />
+    );
+  }
+  return (
+    <Tooltip componentId="mlflow.skill_registry.detail.version.digest_info" content={content} side="bottom">
+      <InfoSmallIcon
+        aria-label={intl.formatMessage({
+          defaultMessage: 'About the content digest',
+          description: 'Aria label for the skill version content digest info icon',
+        })}
+      />
+    </Tooltip>
+  );
 };
 
 const PaneMessage = ({ children, centered = false }: { children: ReactNode; centered?: boolean }) => {
@@ -417,7 +470,10 @@ export const SkillVersionDetail = ({
         <SkillSourceDetails version={version} />
 
         <MetadataLabel>
-          <FormattedMessage defaultMessage="Content digest:" description="Skill version content digest label" />
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <FormattedMessage defaultMessage="Content digest:" description="Skill version content digest label" />
+            <ContentDigestInfo version={version} />
+          </span>
         </MetadataLabel>
         <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, maxWidth: '100%' }}>
           {version.digest ? <InlineCode>{version.digest}</InlineCode> : <MetadataValue>—</MetadataValue>}
