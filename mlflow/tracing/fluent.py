@@ -51,6 +51,7 @@ from mlflow.tracing.utils import (
     exclude_immutable_tags,
     get_otel_attribute,
     parse_trace_id_v4,
+    serialize_session_id,
 )
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
@@ -1511,7 +1512,7 @@ def update_current_trace(
     response_preview: str | None = None,
     state: TraceState | str | None = None,
     model_id: str | None = None,
-    session_id: str | None = None,
+    session_id: str | list[str] | None = None,
     user: str | None = None,
 ):
     """
@@ -1538,7 +1539,10 @@ def update_current_trace(
         model_id: The ID of the model to associate with the trace. If not set, the active
             model ID is associated with the trace.
         session_id: Session ID to associate with the trace. Stored as metadata under the
-            ``mlflow.trace.session`` key.
+            ``mlflow.trace.session`` key. Pass a list of strings to identify the session at
+            multiple hierarchy levels, outermost first, e.g.
+            ``mlflow.update_current_trace(session_id=["trip-2", "ep-2"])``; it is stored as a
+            JSON array string, which counts toward the 250-character session ID limit.
         user: User identifier to associate with the trace. Stored as metadata under the
             ``mlflow.trace.user`` key.
 
@@ -1635,7 +1639,7 @@ def update_current_trace(
     metadata = dict(metadata) if metadata else {}
 
     if session_id is not None:
-        metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+        metadata[TraceMetadataKey.TRACE_SESSION] = serialize_session_id(session_id)
     if user is not None:
         metadata[TraceMetadataKey.TRACE_USER] = user
     if model_id:
