@@ -166,8 +166,7 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
       // candidate names, freeform-typing allowed), free-text values, and equality-only because the
       // managed V4 backend does not support null filters and their values are opaque.
       {
-        // Keep the internal ID stable for persisted filter models and v3 view compatibility.
-        id: 'assessment',
+        id: 'assessment', // Stable for persisted filter models and v3 view compatibility.
         label: intl.formatMessage({
           defaultMessage: 'Feedback',
           description: 'Trace filter field: feedback assessment',
