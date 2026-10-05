@@ -18,10 +18,10 @@ issue type the workflow's `label` job assigned (e.g. `bug`).
 
 Each type has a subdirectory here, named after the type, holding:
 
-- `instructions.md`: the steps, labels, and comment template.
+- `README.md`: the steps, verdicts, and comment template.
 - `payload.schema.json`: the payload's schema, including the labels the type may use.
 
-Read `$type/instructions.md` and follow it. If `$type/` does not exist, the type is not supported
+Read `$type/README.md` and follow it. If `$type/` does not exist, the type is not supported
 yet: stop without writing a payload.
 
 To support a new type, add its subdirectory and let the workflow pass that type. Keep anything
