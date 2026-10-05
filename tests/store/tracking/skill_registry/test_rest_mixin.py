@@ -1107,7 +1107,7 @@ def test_import_rejects_nested_skill_under_discovery_root(
     with (
         mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
         mock.patch("mlflow.genai.skills.MlflowClient") as client,
-        pytest.raises(MlflowException, match="'skills/a-review/SKILL.md'"),
+        pytest.raises(MlflowException, match="Nested skill roots"),
     ):
         import_skills(source="https://example.com/skills.git", skill_names=["root-skill"])
     digest.assert_not_called()
