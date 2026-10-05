@@ -95,4 +95,4 @@ change, what changes in each file and why, with permalinks>
 ```
 
 Prefer code to prose: give commands and code a reader can paste and run, not steps
-to follow by hand. Keep the body tight.
+to follow by hand. Keep the comment tight.

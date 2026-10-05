@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Triage Payload",
-  "description": "Payload written by the triage skill to <out_dir>/report.json.",
+  "description": "Payload written by the triage skill to <out_dir>/payload.json.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["label", "body"],
+  "required": ["label", "comment"],
   "properties": {
     "label": {
       "description": "Outcome label from the issue type's instructions.",
@@ -17,7 +17,7 @@
         "triage: skipped"
       ]
     },
-    "body": {
+    "comment": {
       "description": "Markdown comment for the issue, following the template in the instructions.",
       "type": "string",
       "minLength": 1,

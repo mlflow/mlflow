@@ -631,7 +631,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: /tmp/triage-out/report.json
+          path: /tmp/triage-out/payload.json
           if-no-files-found: ignore
           retention-days: 1
       # Paths and status codes only; nginx doesn't log request headers.
@@ -643,29 +643,34 @@ jobs:
         if: always()
         run: docker rm -f gw-proxy 2>/dev/null || true
   post_triage:
-    needs: [issue, triage]
+    needs: [issue, label, triage]
     if: needs.issue.result == 'success' && needs.triage.result == 'success'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       issues: write
     steps:
+      # A fresh checkout, so the schema is the committed one, not one the agent could have edited.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/triage-report
       - name: Validate and prepare triage comment
         env:
-          REPORT_PATH: ${{ runner.temp }}/triage-report/report.json
+          ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
-          jq -e -s '
-            length == 1 and
-            (.[0] | type == "object" and (keys == ["body", "label"]) and
-             (.label | IN("triage: reproduced", "triage: fixed", "triage: not-reproduced", "triage: needs-info", "triage: skipped")) and
-             (.body | type == "string" and length > 0 and length < 10000))
-          ' "$REPORT_PATH" > /dev/null
-          jq -j '.body' "$REPORT_PATH" > "$BODY_FILE"
+          uv run --only-group lint check-jsonschema \
+            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.json" "$PAYLOAD_PATH"
+          jq -j '.comment' "$PAYLOAD_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
         env:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md

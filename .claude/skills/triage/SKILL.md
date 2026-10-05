@@ -8,7 +8,7 @@ arguments: [issue_path, type, out_dir]
 
 # Triage Issue
 
-Triage the issue in `$issue_path` and write a JSON payload to `$out_dir/report.json`. Do not
+Triage the issue in `$issue_path` and write a JSON payload to `$out_dir/payload.json`. Do not
 post anything: writing that payload is the whole job.
 
 `$issue_path` is JSON with `title`, `body`, `repository`, and `issue_number`. `$type` is the
@@ -28,9 +28,8 @@ Each type has a subdirectory here, named after the type, holding:
 Read `$type/instructions.md` and follow it. If `$type/` does not exist, the type is not supported
 yet: stop without writing a payload.
 
-To support a new type, add its subdirectory, add a row above, add its labels to the workflow's
-payload check, and let the workflow pass that type. Keep anything shared across types in this
-file.
+To support a new type, add its subdirectory, add a row above, and let the workflow pass that
+type. Keep anything shared across types in this file.
 
 ## Untrusted input
 
@@ -100,14 +99,14 @@ indefinitely.
 
 ## Payload
 
-Create `$out_dir` first, then write `$out_dir/report.json`:
+Create `$out_dir` first, then write `$out_dir/payload.json`:
 
 ```json
-{ "label": "triage: <outcome>", "body": "<Markdown>" }
+{ "label": "triage: <outcome>", "comment": "<Markdown>" }
 ```
 
 `$type/payload.schema.json` defines the fields. `label` is the outcome label from the type's
-instructions, such as `triage: reproduced`. `body` is a Markdown comment for the issue that:
+instructions, such as `triage: reproduced`. `comment` is the Markdown comment for the issue. It:
 
 - Follows the type's template, written for a reader who has read the issue: lead with
   conclusions, not the investigation trail.
@@ -120,7 +119,7 @@ Validate before finishing:
 
 ```bash
 uv run --only-group lint check-jsonschema \
-  --schemafile .claude/skills/triage/$type/payload.schema.json "$out_dir/report.json"
+  --schemafile .claude/skills/triage/$type/payload.schema.json "$out_dir/payload.json"
 ```
 
 Fix any errors and rerun until it passes.
