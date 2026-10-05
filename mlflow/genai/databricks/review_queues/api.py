@@ -98,7 +98,16 @@ def create_review_question(
 
 @experimental(version="3.18.0")
 def get_review_question(experiment_id: str, question_id: str) -> ReviewQuestion:
-    """Get a review question by ID."""
+    """
+    Get a review question by ID.
+
+    Args:
+        experiment_id: The experiment that owns the question.
+        question_id: The question to get.
+
+    Returns:
+        The :py:class:`ReviewQuestion`.
+    """
     return ReviewQuestion.from_dict(_client.call("GET", _question(experiment_id, question_id)))
 
 
@@ -116,6 +125,9 @@ def list_review_questions(
         experiment_id: The experiment to list.
         max_results: Page size.
         page_token: Continuation token from a previous call.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQuestion`.
     """
     resp = _client.call(
         "GET",
@@ -139,7 +151,21 @@ def update_review_question(
     enable_comment: bool | None = None,
     is_default: bool | None = None,
 ) -> ReviewQuestion:
-    """Update a review question. Only the fields that are passed are changed."""
+    """
+    Update a review question. Only the fields that are passed are changed.
+
+    Args:
+        experiment_id: The experiment that owns the question.
+        question_id: The question to update.
+        title: New short prompt shown to reviewers.
+        instruction: New guidance shown alongside the question.
+        input: New answer input. Replaces the existing input.
+        enable_comment: Whether reviewers may add a free-text comment.
+        is_default: Whether this is the experiment's default question.
+
+    Returns:
+        The updated :py:class:`ReviewQuestion`.
+    """
     name = _question(experiment_id, question_id)
     body: dict[str, Any] = {"name": name}
     mask: list[str] = []
@@ -156,7 +182,13 @@ def update_review_question(
 
 @experimental(version="3.18.0")
 def delete_review_question(experiment_id: str, question_id: str) -> None:
-    """Delete a review question."""
+    """
+    Delete a review question.
+
+    Args:
+        experiment_id: The experiment that owns the question.
+        question_id: The question to delete.
+    """
     _client.call("DELETE", _question(experiment_id, question_id))
 
 
@@ -210,7 +242,16 @@ def create_review_queue(
 
 @experimental(version="3.18.0")
 def get_review_queue(experiment_id: str, queue_id: str) -> ReviewQueue:
-    """Get a review queue by ID."""
+    """
+    Get a review queue by ID.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to get.
+
+    Returns:
+        The :py:class:`ReviewQueue`.
+    """
     return ReviewQueue.from_dict(_client.call("GET", _queue(experiment_id, queue_id)))
 
 
@@ -230,6 +271,9 @@ def list_review_queues(
         filter_string: Optional filter, e.g. ``"queue_type=USER"``.
         max_results: Page size.
         page_token: Continuation token from a previous call.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQueue`.
     """
     resp = _client.call(
         "GET",
@@ -254,7 +298,16 @@ def update_review_queue(
     """
     Update a review queue. Only the fields that are passed are changed.
 
-    Reassigning ``owner`` requires MANAGE permission on the experiment.
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to update.
+        display_name: New human-readable name.
+        owner: New owner. Requires MANAGE permission on the experiment.
+        question_ids: For a ``CUSTOM`` queue, the questions to pin. Replaces the
+            current set.
+
+    Returns:
+        The updated :py:class:`ReviewQueue`.
     """
     name = _queue(experiment_id, queue_id)
     body: dict[str, Any] = {"name": name}
@@ -275,7 +328,13 @@ def update_review_queue(
 
 @experimental(version="3.18.0")
 def delete_review_queue(experiment_id: str, queue_id: str) -> None:
-    """Delete a review queue. Answers already recorded on its items are unaffected."""
+    """
+    Delete a review queue. Answers already recorded on its items are unaffected.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to delete.
+    """
     _client.call("DELETE", _queue(experiment_id, queue_id))
 
 
@@ -284,14 +343,31 @@ def delete_review_queue(experiment_id: str, queue_id: str) -> None:
 
 @experimental(version="3.18.0")
 def add_review_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember:
-    """Assign a reviewer to a queue."""
+    """
+    Assign a reviewer to a queue.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to assign the reviewer to.
+        user: The reviewer, e.g. an email address.
+
+    Returns:
+        The added :py:class:`ReviewQueueMember`.
+    """
     resp = _client.call("POST", f"{_queue(experiment_id, queue_id)}/members", json={"user": user})
     return ReviewQueueMember.from_dict(resp)
 
 
 @experimental(version="3.18.0")
 def remove_review_queue_member(experiment_id: str, queue_id: str, user: str) -> None:
-    """Unassign a reviewer from a queue."""
+    """
+    Unassign a reviewer from a queue.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to unassign the reviewer from.
+        user: The reviewer to unassign.
+    """
     _client.call(
         "DELETE",
         f"{_queue(experiment_id, queue_id)}/members/{quote(user, safe='@')}",
@@ -307,7 +383,18 @@ def list_review_queue_members(
     max_results: int | None = None,
     page_token: str | None = None,
 ) -> PagedList[ReviewQueueMember]:
-    """List the reviewers assigned to a queue."""
+    """
+    List the reviewers assigned to a queue.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to list.
+        max_results: Page size.
+        page_token: Continuation token from a previous call.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQueueMember`.
+    """
     resp = _client.call(
         "GET",
         f"{_queue(experiment_id, queue_id)}/members",
@@ -353,7 +440,7 @@ def add_review_queue_items(
         dataset_record_ids: Dataset record IDs to attach. Requires ``dataset_id``.
 
     Returns:
-        The resulting queue items.
+        The resulting list of :py:class:`ReviewQueueItem`.
     """
     if dataset_record_ids and dataset_id is None:
         raise MlflowException.invalid_parameter_value(
@@ -382,7 +469,14 @@ def add_review_queue_items(
 
 @experimental(version="3.18.0")
 def remove_review_queue_items(experiment_id: str, queue_id: str, item_ids: list[str]) -> None:
-    """Detach items from a queue by item ID. Items that are not attached are ignored."""
+    """
+    Detach items from a queue. Items that are not attached are ignored.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to detach from.
+        item_ids: The item IDs (``ReviewQueueItem.item_id``) to detach.
+    """
     parent = _queue(experiment_id, queue_id)
     _client.call(
         "POST",
@@ -409,6 +503,9 @@ def list_review_queue_items(
         status: Optional status filter.
         max_results: Page size.
         page_token: Continuation token from a previous call. Reuse the same ``status``.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQueueItem`.
     """
     resp = _client.call(
         "GET",
@@ -437,6 +534,15 @@ def set_review_queue_item_status(
 
     ``completed_by`` is recorded by the server from the caller when moving to
     ``COMPLETE`` or ``DECLINED``, and cleared when moving back to ``PENDING``.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue that contains the item.
+        item_id: The item to update.
+        status: ``"PENDING"``, ``"COMPLETE"``, or ``"DECLINED"``.
+
+    Returns:
+        The updated :py:class:`ReviewQueueItem`.
     """
     name = f"{_queue(experiment_id, queue_id)}/items/{item_id}"
     resp = _client.call(
@@ -459,8 +565,16 @@ def resolve_effective_review_questions(
     Return the questions reviewers answer in a queue.
 
     A ``USER`` queue uses all of the experiment's questions; a ``CUSTOM`` queue uses its
-    pinned questions. ``item_kind`` narrows the result to questions that apply to that
-    kind of item.
+    pinned questions.
+
+    Args:
+        experiment_id: The experiment that owns the queue.
+        queue_id: The queue to resolve.
+        item_kind: Optional item kind. Narrows the result to questions that apply to
+            that kind of item.
+
+    Returns:
+        A list of :py:class:`ReviewQuestion`.
     """
     resp = _client.call(
         "GET",
