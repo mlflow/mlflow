@@ -57,6 +57,7 @@ class Provider(str, Enum):
     MISTRAL = "mistral"
     TOGETHERAI = "togetherai"
     LITELLM = "litellm"
+    LITELLM_PROXY = "litellm_proxy"
     AZURE = "azure"
     GROQ = "groq"
     DEEPSEEK = "deepseek"

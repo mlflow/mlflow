@@ -42,12 +42,28 @@ For a complete list of supported providers, view the provider dropdown when crea
 
 ### Evaluation Providers
 
-| Provider       | Model family        | Passthrough API                  |
-| -------------- | ------------------- | -------------------------------- |
-| **TypeSafe**   | Jev                 | `/gateway/typesafe/v1/systemone` |
-| **OpenRouter** | Jev decision models | `/gateway/typesafe/v1/systemone` |
+| Provider          | Model family        | Passthrough API                  |
+| ----------------- | ------------------- | -------------------------------- |
+| **TypeSafe**      | Jev                 | `/gateway/typesafe/v1/systemone` |
+| **OpenRouter**    | Jev decision models | `/gateway/typesafe/v1/systemone` |
+| **LiteLLM Proxy** | Jev decision models | `/gateway/typesafe/v1/systemone` |
 
-TypeSafe and OpenRouter Jev decision endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs. OpenRouter `typesafe/jev-router` is a chat model and uses normal chat routes.
+TypeSafe, OpenRouter, and LiteLLM Proxy Jev decision endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs. OpenRouter `typesafe/jev-router` is a chat model and uses normal chat routes.
+
+#### Jev through a self-hosted LiteLLM Proxy
+
+If you run a [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/user_keys) with TypeSafe configured (its `/typesafe/v1/systemone` route), create a gateway endpoint with the **LiteLLM Proxy** provider to route Jev System One requests through it:
+
+- **Provider:** `litellm_proxy`
+- **Model:** a plain Jev decision name &mdash; `jev-latest`, `jev-preview`, or a pinned version such as `jev-1.13.0` (not the `typesafe/`-prefixed form).
+- **API key:** your LiteLLM Proxy virtual key.
+- **API base:** the proxy **root** URL (for example `http://my-proxy:4000`), **without** a `/v1` suffix. The System One route is served at the proxy root (`/typesafe/v1/systemone`), so a `/v1` suffix would produce the wrong path.
+
+The endpoint can then back a `gateway:/` judge (see [Supported Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models)). The gateway forwards the request to the proxy using the endpoint credentials; the proxy forwards to TypeSafe using its own `TYPESAFE_API_KEY`.
+
+:::note
+A LiteLLM Proxy endpoint reaches Jev through the proxy's **HTTP** System One route, not the `litellm` Python SDK. The SDK-based `litellm` provider has no System One support; use `litellm_proxy` for Jev.
+:::
 
 ## Provider-Specific Passthrough APIs
 

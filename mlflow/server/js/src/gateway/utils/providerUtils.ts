@@ -15,6 +15,7 @@ export const COMMON_PROVIDERS = [
   'ollama',
   'together_ai',
   'typesafe',
+  'litellm_proxy',
 ] as const;
 
 const PROVIDER_DISPLAY_NAMES = {
@@ -43,6 +44,7 @@ const PROVIDER_DISPLAY_NAMES = {
   openrouter: 'OpenRouter',
   ollama: 'Ollama',
   typesafe: 'TypeSafe',
+  litellm_proxy: 'LiteLLM Proxy',
 } satisfies Record<string, string>;
 
 export function formatProviderName(provider: string): string {

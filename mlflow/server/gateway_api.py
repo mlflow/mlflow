@@ -104,6 +104,11 @@ _logger = logging.getLogger(__name__)
 # ``typesafe/jev-`` namespace, and either ``latest`` or a dotted version (e.g. ``jev-1.13``),
 # while excluding chat models such as ``typesafe/jev-router``.
 _OPENROUTER_SYSTEM_ONE_MODEL_PATTERN = re.compile(r"^~?typesafe/jev-(?:latest|\d+(?:\.\d+)*)$")
+# LiteLLM Proxy Jev decision models route to System One. The proxy's /typesafe/v1/systemone
+# body uses the plain Jev names (``jev-latest``, ``jev-preview``, or a dotted version such as
+# ``jev-1.13.0``), without the ``typesafe/`` prefix used by OpenRouter. Chat models such as
+# ``jev-router`` are excluded.
+_LITELLM_PROXY_SYSTEM_ONE_MODEL_PATTERN = re.compile(r"^jev-(?:latest|preview|\d+(?:\.\d+)*)$")
 
 
 async def _ensure_gateway_enabled():
@@ -438,6 +443,7 @@ def _build_endpoint_config(
         Provider.XAI,
         Provider.OPENROUTER,
         Provider.OLLAMA,
+        Provider.LITELLM_PROXY,
     }:
         provider_config = _build_openai_compatible_config(model_config)
     elif model_config.provider == Provider.PORTKEY:
@@ -737,10 +743,13 @@ def _get_guardrails_and_auth(
 
 
 def _supports_system_one(provider: str, model_name: str) -> bool:
-    return provider == Provider.TYPESAFE or (
-        provider == Provider.OPENROUTER
-        and _OPENROUTER_SYSTEM_ONE_MODEL_PATTERN.match(model_name) is not None
-    )
+    if provider == Provider.TYPESAFE:
+        return True
+    if provider == Provider.OPENROUTER:
+        return _OPENROUTER_SYSTEM_ONE_MODEL_PATTERN.match(model_name) is not None
+    if provider == Provider.LITELLM_PROXY:
+        return _LITELLM_PROXY_SYSTEM_ONE_MODEL_PATTERN.match(model_name) is not None
+    return False
 
 
 def _validate_system_one_endpoint(

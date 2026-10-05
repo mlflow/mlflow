@@ -212,6 +212,13 @@ async def test_system_one_stops_before_upstream_on_policy_failure(endpoint, fail
         (Provider.OPENROUTER, "typesafe/jev-latest-preview", False),
         (Provider.OPENROUTER, "openai/gpt-4o", False),
         (Provider.OPENAI, "typesafe/jev-1.13", False),
+        (Provider.LITELLM_PROXY, "jev-latest", True),
+        (Provider.LITELLM_PROXY, "jev-preview", True),
+        (Provider.LITELLM_PROXY, "jev-1.13.0", True),
+        (Provider.LITELLM_PROXY, "jev-router", False),
+        (Provider.LITELLM_PROXY, "jev-latest-preview", False),
+        (Provider.LITELLM_PROXY, "typesafe/jev-1.13", False),
+        (Provider.LITELLM_PROXY, "gpt-4o", False),
     ],
 )
 def test_supports_system_one(provider, model_name, expected):
