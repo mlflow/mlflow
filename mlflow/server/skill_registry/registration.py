@@ -68,6 +68,11 @@ _DEFINITE_REJECTIONS = frozenset(
 )
 
 
+def get_max_upload_size() -> int:
+    """Return the maximum number of bytes accepted for an uploaded archive."""
+    return get_max_decompressed_size() + _UPLOAD_SIZE_SLACK
+
+
 @dataclass(frozen=True)
 class SkillVersionRegistration:
     """
@@ -319,7 +324,7 @@ def _register_uploaded(registration: SkillVersionRegistration, content: BinaryIO
     with tempfile.TemporaryDirectory(prefix="mlflow-skill-upload-") as tmp:
         archive = Path(tmp) / "content.tar.gz"
         tree = Path(tmp) / "tree"
-        _spool(content, archive, max_bytes=limit + _UPLOAD_SIZE_SLACK)
+        _spool(content, archive, max_bytes=get_max_upload_size())
         # Rejects unsafe paths, links and special files, and oversize or malformed archives;
         # nothing has been written to artifact storage yet.
         extract_skill_archive(archive, tree, max_bytes=limit)

@@ -1,6 +1,7 @@
 import pytest
 
 from mlflow.entities.skill import Skill, SkillStatus
+from mlflow.entities.skill_source import SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
@@ -17,6 +18,7 @@ def test_skill_defaults_and_workspace_resolution():
     assert skill.tags == {}
     assert skill.aliases == {}
     assert skill.latest_version is None
+    assert skill.source_type is None
     assert skill.icons is None
     assert skill.workspace == resolve_entity_workspace_name(None)
 
@@ -30,6 +32,7 @@ def test_skill_from_dict():
         "tags": {"team": "platform"},
         "aliases": {"production": 1},
         "latest_version": 2,
+        "source_type": "git",
     }
     restored = Skill.from_dict(data)
     assert restored.name == "code-review"
@@ -37,6 +40,7 @@ def test_skill_from_dict():
     assert restored.status == SkillStatus.ACTIVE
     assert restored.aliases == {"production": 1}
     assert restored.latest_version == 2
+    assert restored.source_type == SkillSourceType.GIT
 
 
 def test_skill_from_dict_converts_alias_list_to_dict():

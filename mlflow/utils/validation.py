@@ -35,7 +35,7 @@ from mlflow.utils.string_utils import is_string_type
 
 _logger = logging.getLogger(__name__)
 
-_MAX_MCP_ICONS_PER_LIST = 100
+_MAX_REGISTRY_ICONS_PER_LIST = 100
 _MAX_MCP_TOOLS_PER_LIST = 1000
 _HOSTNAME_RESOLUTION_TIMEOUT_SECONDS = 5.0
 _MAX_CONCURRENT_HOSTNAME_RESOLUTIONS = 8
@@ -1313,8 +1313,8 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
             )
 
 
-def _validate_mcp_icon_url(url: str) -> None:
-    """Validate an MCP icon URL on write/update requests.
+def _validate_icon_url(url: str) -> None:
+    """Validate a registry icon URL on write/update requests.
 
     Default behavior accepts only public HTTPS targets. This follows the
     existing webhook pattern for scheme and private-IP controls, with an
@@ -1352,7 +1352,7 @@ def _validate_mcp_icon_url(url: str) -> None:
         )
 
 
-def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
+def _validate_icon_mime_type(mime_type: str | None) -> None:
     if mime_type is None:
         return
 
@@ -1370,7 +1370,7 @@ def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
         )
 
 
-def _validate_mcp_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
+def _validate_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
     if len(items) > max_length:
         raise MlflowException.invalid_parameter_value(
             f"Invalid {field_name}. It must contain at most {max_length} items."
@@ -1385,14 +1385,14 @@ def _validate_mcp_initial_status(status: Any, field_name: str = "status") -> Non
         )
 
 
-def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
+def _validate_icon_payloads(icons: Any, field_name: str = "icons") -> None:
     if icons is None:
         return
 
     if not isinstance(icons, list):
         raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
 
-    _validate_mcp_list_max_length(icons, field_name, _MAX_MCP_ICONS_PER_LIST)
+    _validate_list_max_length(icons, field_name, _MAX_REGISTRY_ICONS_PER_LIST)
 
     for idx, icon in enumerate(icons):
         icon_field_name = f"{field_name}[{idx}]"
@@ -1405,8 +1405,8 @@ def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
                 f"Invalid {icon_field_name}. Missing required key 'src'."
             )
 
-        _validate_mcp_icon_url(icon["src"])
-        _validate_mcp_icon_mime_type(icon.get("mimeType"))
+        _validate_icon_url(icon["src"])
+        _validate_icon_mime_type(icon.get("mimeType"))
 
 
 def _strip_mcp_icon_response_fields(
@@ -1449,7 +1449,7 @@ def _validate_mcp_tool_payloads(tools: Any, field_name: str = "tools") -> None:
     if not isinstance(tools, list):
         raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
 
-    _validate_mcp_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
+    _validate_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
 
 
 def _validate_webhook_url(url: str) -> None:
