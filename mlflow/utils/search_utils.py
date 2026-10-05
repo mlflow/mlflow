@@ -2435,6 +2435,16 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name"})
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        comp = super()._get_comparison(comparison)
+        if isinstance(comp["value"], tuple) and comp["comparator"] != "IN":
+            raise MlflowException.invalid_parameter_value(
+                "List values for 'name' are only supported with the IN comparator."
+            )
+        return comp
 
     @classmethod
     def _invalid_statement_token(cls, token):

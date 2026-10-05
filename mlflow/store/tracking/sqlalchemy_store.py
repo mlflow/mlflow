@@ -10775,9 +10775,11 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
         value = f["value"]
 
         if type_ == "attribute":
-            if SearchEvaluationDatasetsUtils.is_string_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if (
+                SearchEvaluationDatasetsUtils.is_string_attribute(type_, key, comparator)
+                and comparator not in ("=", "!=", "LIKE", "ILIKE")
+                and not (key == "name" and comparator == "IN")
+            ):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}"
                 )

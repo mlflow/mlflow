@@ -168,6 +168,36 @@ def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_st
     assert isinstance(condition["value"], int)
 
 
+def test_evaluation_dataset_name_in_filter():
+    assert SearchEvaluationDatasetsUtils.parse_search_filter(
+        "name IN ('dataset-a', 'dataset-b')"
+    ) == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": ("dataset-a", "dataset-b"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_evaluation_dataset_name_list_requires_in(comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+    ):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"name {comparator} {names}")
+
+
+@pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
+def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
+    with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"{key} IN ('user-a', 'user-b')")
+
+
 @pytest.mark.parametrize(
     ("filter_string", "expected"),
     [
