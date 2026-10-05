@@ -14,6 +14,7 @@ import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import {
   createMockSkill,
   createMockSkillVersion,
+  getMockedGetSkillResponse,
   getMockedSearchSkillsErrorResponse,
   getMockedSearchSkillsPermissionDeniedResponse,
   getMockedSearchSkillsResponse,
@@ -421,9 +422,15 @@ describe('SkillRegistryPage', () => {
       subpath: 'network-policy-architect',
     });
     let requestBody: unknown;
+    let registered = false;
     server.use(
+      // The skill does not exist until it is registered, so the name check passes.
+      rest.get(/skills\/@acme\/network-policy-architect$/, (_req, res, ctx) =>
+        registered ? undefined : res(ctx.status(404), ctx.json({ error_code: 'RESOURCE_DOES_NOT_EXIST' })),
+      ),
       rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
         requestBody = await req.json();
+        registered = true;
         return res(ctx.json(version));
       }),
       ...getMockedSkillDetailHandlers(skill, [version]),
@@ -487,6 +494,36 @@ describe('SkillRegistryPage', () => {
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL]);
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSIONS]);
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSION]);
+  });
+
+  it('refuses to register a new skill under a name that is already taken', async () => {
+    let registerCalled = false;
+    server.use(
+      getMockedGetSkillResponse(createMockSkill({ name: 'skills-developer', organization: 'redhat-ai' })),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByLabelText('Name'));
+    await userEvent.tab();
+    expect(
+      await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
+    ).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Name'), '-v2');
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/skills-developer');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(
+      await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
+    ).toBeInTheDocument();
+    expect(registerCalled).toBe(false);
   });
 
   it('points a whole-repository location at the repository import command', async () => {

@@ -34,7 +34,7 @@ import {
 } from '../sourceLocation';
 import { formatSkillImportCli, type SkillImportSnippetOptions, type SkillRegisterSnippetOptions } from '../snippets';
 import { SkillStatus, type RegistryIcon, type SkillVersion } from '../types';
-import { formatSkillIdentity, formatSkillSourceLabel } from '../utils';
+import { formatSkillIdentity, formatSkillSourceLabel, isPermissionDeniedError } from '../utils';
 
 type RegistrationMode = 'pointer' | 'upload';
 
@@ -151,6 +151,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const [subpathTouched, setSubpathTouched] = useState(false);
   const [validationError, setValidationError] = useState<SkillRegistrationErrorCode>();
   const [packageError, setPackageError] = useState<string>();
+  const [takenIdentity, setTakenIdentity] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const submitErrorRef = useRef<HTMLDivElement>(null);
   // Async work outliving a cancel must not close or navigate a dialog the user already left.
@@ -186,6 +187,20 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       subpath: subpathTouched ? current.subpath : (nextParsed?.subpath ?? ''),
     }));
     setValidationError(undefined);
+    if (!identityTouched) setTakenIdentity(undefined);
+  };
+
+  // POST /register reuses an existing skill and silently adds a version to it, so a new skill's
+  // name must be checked first. A 403 still means the skill exists; other failures are left to the server.
+  const findTakenIdentity = async (identityInput: string) => {
+    const identity = parseSkillIdentityInput(identityInput);
+    if ('error' in identity) return undefined;
+    try {
+      await SkillRegistryApi.getSkill(identity.name, identity.organization);
+    } catch (lookupError) {
+      if (!isPermissionDeniedError(lookupError as Error)) return undefined;
+    }
+    return formatSkillIdentity(identity.name, identity.organization);
   };
 
   const onFolderSelected = async (files: File[]) => {
@@ -196,6 +211,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     const manifest = readSkillManifest(await manifestFile.text());
     if (manifest.name && !identityTouched) {
       setForm((current) => ({ ...current, identity: manifest.name ?? current.identity }));
+      setTakenIdentity(undefined);
     }
     if (manifest.description && !descriptionTouched) {
       setDescription(manifest.description);
@@ -223,6 +239,12 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     );
   };
 
+  const rejectTakenIdentity = async () => {
+    const taken = await findTakenIdentity(form.identity);
+    setTakenIdentity(taken);
+    return Boolean(taken);
+  };
+
   const buildMutationInput = async (): Promise<RegisterSkillMutationInput | undefined> => {
     const fields: SkillRegistrationFields = { ...form, identity: isVersion ? fixedIdentity : form.identity };
     if (mode === 'pointer') {
@@ -231,9 +253,11 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
         setValidationError(built.error);
         return undefined;
       }
-      return skill
-        ? { kind: 'version', name: skill.name, organization: skill.organization, request: built.request }
-        : { kind: 'register', request: toRegisterSkillRequest(built.request, built.identity) };
+      if (skill) {
+        return { kind: 'version', name: skill.name, organization: skill.organization, request: built.request };
+      }
+      if (await rejectTakenIdentity()) return undefined;
+      return { kind: 'register', request: toRegisterSkillRequest(built.request, built.identity) };
     }
     if (!hasSkillManifest) {
       setValidationError('skill_md_required');
@@ -244,6 +268,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       setValidationError(built.error);
       return undefined;
     }
+    if (!skill && (await rejectTakenIdentity())) return undefined;
     const content = await packageSkillFolder(folderFiles);
     return skill
       ? { kind: 'version-upload', name: skill.name, organization: skill.organization, request: built.request, content }
@@ -537,23 +562,43 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                 value={form.identity}
                 onChange={(event) => {
                   setIdentityTouched(true);
+                  setTakenIdentity(undefined);
                   setForm((current) => ({ ...current, identity: event.target.value }));
                 }}
+                onBlur={() => {
+                  void findTakenIdentity(form.identity).then((taken) => {
+                    if (!closedRef.current) setTakenIdentity(taken);
+                  });
+                }}
+                validationState={takenIdentity ? 'error' : undefined}
                 css={{ width: '100%' }}
               />
-              <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                {!identityTouched && form.identity.trim() ? (
-                  <FormattedMessage
-                    defaultMessage="Filled in from the source. Edit it to rename the skill or change its organization."
-                    description="Hint when the skill registration name was suggested from the source"
-                  />
-                ) : (
-                  <FormattedMessage
-                    defaultMessage="Group skills with an organization by adding it to the name, e.g. @my-org/my-skill-name."
-                    description="Hint for the skill registration name field"
-                  />
-                )}
-              </Typography.Hint>
+              {takenIdentity ? (
+                <FormUI.Message
+                  type="error"
+                  message={
+                    <FormattedMessage
+                      defaultMessage='A skill named "{name}" is already registered.'
+                      description="Error when a new skill's name belongs to an existing skill"
+                      values={{ name: takenIdentity }}
+                    />
+                  }
+                />
+              ) : (
+                <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                  {!identityTouched && form.identity.trim() ? (
+                    <FormattedMessage
+                      defaultMessage="Filled in from the source. Edit it to rename the skill or change its organization."
+                      description="Hint when the skill registration name was suggested from the source"
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Group skills with an organization by adding it to the name, e.g. @my-org/my-skill-name."
+                      description="Hint for the skill registration name field"
+                    />
+                  )}
+                </Typography.Hint>
+              )}
             </div>
           )}
 

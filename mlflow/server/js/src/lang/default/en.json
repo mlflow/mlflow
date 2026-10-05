@@ -1627,6 +1627,10 @@
     "defaultMessage": "Add a message to send to the endpoint.",
     "description": "Empty-state hint for the playground messages panel"
   },
+  "4Q1r/g": {
+    "defaultMessage": "A skill named \"{name}\" is already registered.",
+    "description": "Error when a new skill's name belongs to an existing skill"
+  },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
     "description": "Count of selected nodes displayed in the node level metric charts node selector"
