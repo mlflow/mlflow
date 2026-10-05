@@ -5,7 +5,8 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { CodeSnippetRenderMode } from '../ModelTrace.types';
+import { CodeSnippetRenderMode, ModelSpanType } from '../ModelTrace.types';
+import { EvaluatorFeedbackField, getEvaluatorOutputFields } from '../EvaluatorSpanOutputs';
 import { createListFromObject, buildAggregatedJsonFromKeyValueList } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
@@ -26,7 +27,13 @@ export function ModelTraceExplorerDefaultSpanView({
 }) {
   const { theme } = useDesignSystemTheme();
   const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const outputList = useMemo(
+    () =>
+      activeSpan?.type === ModelSpanType.EVALUATOR
+        ? getEvaluatorOutputFields(activeSpan.outputs)
+        : createListFromObject(activeSpan?.outputs),
+    [activeSpan],
+  );
   const aggregatedInputJson = useMemo(() => buildAggregatedJsonFromKeyValueList(inputList), [inputList]);
   const aggregatedOutputJson = useMemo(() => buildAggregatedJsonFromKeyValueList(outputList), [outputList]);
 
@@ -122,13 +129,17 @@ export function ModelTraceExplorerDefaultSpanView({
           ) : renderMode === 'default' ? (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
               {outputList.map(({ key, value }, index) => (
-                <ModelTraceExplorerFieldRenderer
-                  key={key || index}
-                  title={key}
-                  data={value}
-                  renderMode={renderMode}
-                  assessments={activeSpan?.assessments}
-                />
+                activeSpan.type === ModelSpanType.EVALUATOR && key === 'feedback' ? (
+                  <EvaluatorFeedbackField key={key} value={value} assessmentName={activeSpan.title} />
+                ) : (
+                  <ModelTraceExplorerFieldRenderer
+                    key={key || index}
+                    title={key}
+                    data={value}
+                    renderMode={renderMode}
+                    assessments={activeSpan?.assessments}
+                  />
+                )
               ))}
             </div>
           ) : (

@@ -85,6 +85,7 @@ import {
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_EVALUATION_COST_KEY,
   SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
@@ -123,6 +124,8 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
       return ModelIconType.SORT;
     case ModelSpanType.MEMORY:
       return ModelIconType.SAVE;
+    case ModelSpanType.EVALUATOR:
+      return ModelIconType.JUDGE;
     case ModelSpanType.FUNCTION:
       return ModelIconType.FUNCTION;
     case ModelSpanType.UNKNOWN:
@@ -154,6 +157,8 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
       return 'Reranker';
     case ModelSpanType.MEMORY:
       return 'Memory';
+    case ModelSpanType.EVALUATOR:
+      return 'Evaluator';
     case ModelSpanType.FUNCTION:
       return 'Function';
     case ModelSpanType.UNKNOWN:
@@ -568,7 +573,10 @@ export const normalizeNewSpanData = (
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
   const cost = getCostFromSpan(
-    tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
+    tryDeserializeAttribute(
+      (getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) ??
+        getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_EVALUATION_COST_KEY)) as string,
+    ),
   );
   const linkedGatewayTraceId = tryDeserializeAttribute(
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,

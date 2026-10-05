@@ -6,6 +6,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import {
   CodeSnippetRenderMode,
+  ModelSpanType,
   type ModelTraceChatMessage,
   type ModelTraceExplorerRenderMode,
   type ModelTraceSpanNode,
@@ -15,6 +16,7 @@ import { createListFromObject, normalizeConversation } from '../ModelTraceExplor
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { EvaluatorFeedbackField, getEvaluatorOutputFields } from '../../EvaluatorSpanOutputs';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
@@ -122,7 +124,13 @@ export function ModelTraceExplorerDefaultSpanView({
   });
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
   const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const outputList = useMemo(
+    () =>
+      activeSpan?.type === ModelSpanType.EVALUATOR
+        ? getEvaluatorOutputFields(activeSpan.outputs)
+        : createListFromObject(activeSpan?.outputs),
+    [activeSpan],
+  );
   const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
   const inputChatMessages = inputChatMessagesResult.messages;
   const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
@@ -224,16 +232,20 @@ export function ModelTraceExplorerDefaultSpanView({
   const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       {fields.map(({ key, value }, index) => (
-        <ModelTraceExplorerFieldRenderer
-          key={key || index}
-          title={key}
-          data={value}
-          renderMode="default"
-          assessments={activeSpan?.assessments}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-          containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
-        />
+        section === 'outputs' && activeSpan?.type === ModelSpanType.EVALUATOR && key === 'feedback' ? (
+          <EvaluatorFeedbackField key={key} value={value} assessmentName={activeSpan.title} />
+        ) : (
+          <ModelTraceExplorerFieldRenderer
+            key={key || index}
+            title={key}
+            data={value}
+            renderMode="default"
+            assessments={activeSpan?.assessments}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
+          />
+        )
       ))}
     </div>
   );

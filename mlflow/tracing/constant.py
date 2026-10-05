@@ -110,6 +110,9 @@ class SpanAttributeKey:
     INPUTS = "mlflow.spanInputs"
     OUTPUTS = "mlflow.spanOutputs"
     SPAN_TYPE = "mlflow.spanType"
+    EVALUATION_SCORER = "mlflow.evaluation.scorer"
+    EVALUATION_TOKEN_USAGE = "mlflow.evaluation.tokenUsage"
+    EVALUATION_COST = "mlflow.evaluation.cost"
     # Severity level of the span (one of the SpanLogLevel members). Absent
     # means the span was not classified.
     LOG_LEVEL = "mlflow.spanLogLevel"
@@ -177,6 +180,7 @@ class AssessmentMetadataKey:
     JUDGE_OUTPUT_TOKENS = "mlflow.assessment.judgeOutputTokens"
     # When the scorer generates a trace for assessment scoring, log the trace ID here.
     SCORER_TRACE_ID = "mlflow.assessment.scorerTraceId"
+    SCORER_SPAN_ID = "mlflow.assessment.scorerSpanId"
     # The registered scorer name and version that generated the assessment.
     SCORER_NAME = "mlflow.assessment.scorerName"
     SCORER_VERSION = "mlflow.assessment.scorerVersion"

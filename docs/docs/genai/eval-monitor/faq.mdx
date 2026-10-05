@@ -172,17 +172,9 @@ The available inference parameters depend on the model provider being used. Comm
 
 ## How do I debug my scorers?
 
-To debug your scorers, you can enable tracing for the scorer functions by setting the `MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING` environment variable to `true`.
+During evaluation, MLflow appends an `EVALUATOR` span for each scorer to the evaluated trace by default. Instrumented calls made by the scorer, including LLM judge calls, appear beneath that span. Scorer results are also recorded as assessments on the trace.
 
-```bash
-export MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING=true
-```
-
-When this is set to `true`, MLflow will trace scorer executions during the evaluation and allow
-you to inspect the input, output, and internal steps during the scorer execution.
-
-To view the scorer trace, you can open the assessment pane of the trace details page and click the
-"View trace" link.
+For traces stored in a tracking store that supports span ingestion, inspect the scorer spans in the evaluated trace's span tree. Stores without span ingestion still record assessments but cannot append the scorer spans. Scorer token usage and cost are stored under evaluation-specific span attributes, leaving the original agent's trace-level totals unchanged. Set `MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING=false` to disable scorer tracing.
 
 ## How do I programmatically access evaluation results?
 

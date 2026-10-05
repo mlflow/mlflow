@@ -78,13 +78,14 @@ import {
   isRawModelTraceChatMessage,
 } from '../modelTraceChatMessageTypes';
 import { getSpanExceptionCount, getSpanExceptionEvents } from '../spanExceptionEvents';
-import { getSpanTokenUsage } from './ModelTraceTokenUsage.utils';
+import { getJudgeMetadata, getSpanTokenUsage } from './ModelTraceTokenUsage.utils';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
   CHUNK_INDEX_KEY,
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_EVALUATION_COST_KEY,
   SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY,
@@ -133,6 +134,8 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
       return ModelIconType.SORT;
     case ModelSpanType.MEMORY:
       return ModelIconType.SAVE;
+    case ModelSpanType.EVALUATOR:
+      return ModelIconType.JUDGE;
     case ModelSpanType.FUNCTION:
       return ModelIconType.FUNCTION;
     case ModelSpanType.UNKNOWN:
@@ -164,6 +167,8 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
       return 'Reranker';
     case ModelSpanType.MEMORY:
       return 'Memory';
+    case ModelSpanType.EVALUATOR:
+      return 'Evaluator';
     case ModelSpanType.FUNCTION:
       return 'Function';
     case ModelSpanType.UNKNOWN:
@@ -505,13 +510,18 @@ const getCostFromSpan = (costAttributeValue: any): SpanCostInfo | undefined => {
   if (
     costAttributeValue &&
     typeof costAttributeValue === 'object' &&
-    'input_cost' in costAttributeValue &&
-    'output_cost' in costAttributeValue &&
-    'total_cost' in costAttributeValue
+    typeof costAttributeValue.total_cost === 'number' &&
+    Number.isFinite(costAttributeValue.total_cost)
   ) {
     return costAttributeValue as SpanCostInfo;
   }
   return undefined;
+};
+
+const getJudgeCostFromOutputs = (outputs: unknown): SpanCostInfo | undefined => {
+  const cost = getJudgeMetadata(outputs)?.['mlflow.assessment.judgeCost'];
+  const totalCost = typeof cost === 'number' || (typeof cost === 'string' && cost.trim()) ? Number(cost) : NaN;
+  return Number.isFinite(totalCost) ? { total_cost: totalCost } : undefined;
 };
 
 export const normalizeNewSpanData = (
@@ -549,8 +559,11 @@ export const normalizeNewSpanData = (
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
   const cost = getCostFromSpan(
-    tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
-  );
+    tryDeserializeAttribute(
+      (getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) ??
+        getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_EVALUATION_COST_KEY)) as string,
+    ),
+  ) ?? (spanType === ModelSpanType.EVALUATOR ? getJudgeCostFromOutputs(outputs) : undefined);
   const linkedGatewayTraceId = tryDeserializeAttribute(
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
@@ -593,7 +606,10 @@ export const normalizeNewSpanData = (
     modelName,
     cost,
     linkedGatewayTraceId,
-    tokenUsage: getSpanTokenUsage({ attributes: span.attributes }),
+    tokenUsage: getSpanTokenUsage({
+      attributes: span.attributes,
+      outputs: spanType === ModelSpanType.EVALUATOR ? outputs : undefined,
+    }),
   };
 };
 

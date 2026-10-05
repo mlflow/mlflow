@@ -1,8 +1,52 @@
 import logging
 
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage, dump_span_attribute_value
 
 _logger = logging.getLogger(__name__)
+
+
+def preserve_evaluation_span_metrics(otel_span, live_span):
+    if live_span.get_attribute(SpanAttributeKey.EVALUATION_SCORER) is not True:
+        return
+
+    from mlflow.tracing.otel.translation import (
+        _get_model_name,
+        _get_model_provider,
+        _get_token_usage,
+    )
+
+    attributes = dict(otel_span.attributes or {})
+    for original, evaluation in (
+        (SpanAttributeKey.CHAT_USAGE, SpanAttributeKey.EVALUATION_TOKEN_USAGE),
+        (SpanAttributeKey.LLM_COST, SpanAttributeKey.EVALUATION_COST),
+    ):
+        if original in attributes:
+            attributes[evaluation] = attributes.pop(original)
+
+    if SpanAttributeKey.EVALUATION_TOKEN_USAGE not in attributes:
+        if usage := _get_token_usage(attributes):
+            attributes[SpanAttributeKey.EVALUATION_TOKEN_USAGE] = dump_span_attribute_value(usage)
+
+    if (
+        SpanAttributeKey.EVALUATION_COST not in attributes
+        and SpanAttributeKey.EVALUATION_TOKEN_USAGE in attributes
+    ):
+        usage = live_span.get_attribute(SpanAttributeKey.CHAT_USAGE) or _get_token_usage(attributes)
+        model = live_span.get_attribute(SpanAttributeKey.MODEL) or _get_model_name(attributes)
+        provider = live_span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) or _get_model_provider(
+            attributes
+        )
+        if cost := calculate_cost_by_model_and_token_usage(model, usage, provider):
+            attributes[SpanAttributeKey.EVALUATION_COST] = dump_span_attribute_value(cost)
+
+    for key in list(attributes):
+        if key.startswith(("gen_ai.usage.", "llm.token_count.", "llm.usage.")):
+            attributes[f"mlflow.evaluation.original.{key}"] = attributes.pop(key)
+
+    otel_span._attributes = attributes
+    live_span._span._attributes = attributes
 
 
 def apply_span_processors(span):

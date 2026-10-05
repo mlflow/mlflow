@@ -35,7 +35,7 @@ from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, SpanAttributeKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -294,8 +294,9 @@ def test_evaluate_with_static_dataset(server_config):
     traces = sorted(traces, key=lambda t: t.data.spans[0].inputs["question"])
 
     for i in range(len(traces)):
-        assert len(traces[i].data.spans) == 1
-        span = traces[i].data.spans[0]
+        root_spans = [span for span in traces[i].data.spans if span.parent_id is None]
+        assert len(root_spans) == 1
+        span = root_spans[0]
         assert span.name == "root_span"
         assert span.inputs == data[i]["inputs"]
         assert span.outputs == data[i]["outputs"]
@@ -509,8 +510,9 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
 
     # Validate assessments are added to the traces
     for i in range(len(traces)):
-        assert len(traces[i].data.spans) == 1
-        span = traces[i].data.spans[0]
+        root_spans = [span for span in traces[i].data.spans if span.parent_id is None]
+        assert len(root_spans) == 1
+        span = root_spans[0]
         assert span.name == "predict"
         assert span.inputs == data[i]["inputs"]
         assert span.outputs == "I don't know"
@@ -797,11 +799,12 @@ def test_model_from_deployment_endpoint(is_in_databricks):
 
         assert len(traces) == 2
         spans = traces[0].data.spans
-        assert len(spans) == 1
-        assert spans[0].name == "predict"
+        prediction_spans = [span for span in spans if span.parent_id is None]
+        assert len(prediction_spans) == 1
+        assert prediction_spans[0].name == "predict"
         # Eval harness runs prediction in parallel, so the order is not deterministic
-        assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
-        assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
+        assert prediction_spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
+        assert prediction_spans[0].outputs == _DUMMY_CHAT_RESPONSE
 
 
 def test_missing_scorers_argument():
@@ -1184,9 +1187,12 @@ def test_evaluate_with_only_trace_in_eval_dataset():
     assert result.metrics["has_trace/mean"] == 1.0
 
 
-@pytest.mark.parametrize("is_enabled", [True, False])
+@pytest.mark.parametrize("is_enabled", [True, False, None])
 def test_evaluate_with_scorer_tracing(server_config, monkeypatch, is_enabled):
-    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", str(is_enabled).lower())
+    if is_enabled is None:
+        monkeypatch.delenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", str(is_enabled).lower())
 
     data = [
         {
@@ -1218,10 +1224,7 @@ def test_evaluate_with_scorer_tracing(server_config, monkeypatch, is_enabled):
     assert metrics["has_trace/mean"] == 1.0
 
     traces = get_traces()
-    if is_enabled:
-        assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
-    else:
-        assert len(traces) == len(data)
+    assert len(traces) == len(data)
 
     # Traces should be associated with the eval run
     traces = mlflow.search_traces(
@@ -1231,18 +1234,23 @@ def test_evaluate_with_scorer_tracing(server_config, monkeypatch, is_enabled):
     )
     assert len(traces) == len(data)
 
-    # Each assessment should have a source trace ID
+    # Each scorer span is attached to the evaluated trace, rather than a separate trace.
     for trace in traces:
+        scorer_spans = [span for span in trace.data.spans if span.span_type == SpanType.EVALUATOR]
+        if is_enabled is not False and server_config.backend_type == "sqlalchemy":
+            assert len(scorer_spans) == 5  # has_trace also traces itself
+            assert sum(span.parent_id == trace.data.spans[0].span_id for span in scorer_spans) == 4
         for a in trace.info.assessments:
-            if isinstance(a, Feedback) and is_enabled:
-                assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] is not None
-                assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
-            else:
+            if isinstance(a, Feedback) and is_enabled is not False:
+                assert a.metadata[AssessmentMetadataKey.SCORER_SPAN_ID] is not None
                 assert AssessmentMetadataKey.SCORER_TRACE_ID not in a.metadata
+            else:
+                assert AssessmentMetadataKey.SCORER_SPAN_ID not in a.metadata
 
 
 @pytest.mark.parametrize("diff_experiment_id", [True, False])
-def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
+def test_eval_with_traces_log_spans_correctly(diff_experiment_id, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", "true")
     exp_id = mlflow.set_experiment("traces exp").experiment_id
     with mlflow.start_span() as span:
         span.set_inputs({"question": "What is MLflow?"})
@@ -1267,14 +1275,97 @@ def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
 
     traces = get_traces()
     assert len(traces) == 1
-    # copied trace should contain all spans
-    assert len(traces[0].data.spans) == 2
+    # The copied trace keeps its original spans and receives the scorer spans.
+    assert len(traces[0].data.spans) == 4
     span = traces[0].data.spans[0]
     assert span.get_attribute("key") == "value"
     assert span.inputs == {"question": "What is MLflow?"}
     assert span.outputs == {"answer": "MLflow is a tool for ML"}
     child_span = traces[0].data.spans[1]
     assert child_span.inputs == "test"
+    scorer_span = traces[0].data.spans[2]
+    assert scorer_span.name == "has_trace"
+    assert scorer_span.parent_id == traces[0].data.spans[0].span_id
+
+
+def test_evaluate_appends_judge_call_to_existing_trace(server_config, monkeypatch):
+    if server_config.backend_type != "sqlalchemy":
+        pytest.skip("Requires span ingestion")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", "true")
+
+    @scorer
+    def judge(trace):
+        with mlflow.start_span("judge_model_call", span_type=SpanType.LLM) as span:
+            span.set_outputs("The answer is supported by the trace")
+            span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {"input_tokens": 100, "output_tokens": 20, "total_tokens": 120},
+            )
+            span.set_attribute(
+                SpanAttributeKey.LLM_COST,
+                {"input_cost": 0.01, "output_cost": 0.02, "total_cost": 0.03},
+            )
+            span.set_attribute("gen_ai.usage.input_tokens", 100)
+            span.set_attribute("gen_ai.usage.output_tokens", 20)
+        with mlflow.start_span("raw_judge_model_call", span_type=SpanType.LLM) as span:
+            span.set_attribute("gen_ai.usage.input_tokens", 7)
+            span.set_attribute("gen_ai.usage.output_tokens", 3)
+            span.set_attribute("gen_ai.response.model", "gpt-4o-mini")
+        return Feedback(value=True, rationale="Supported by the trace")
+
+    with mlflow.start_span("agent") as agent_span:
+        agent_span.set_outputs("Original answer")
+        agent_span.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        )
+        agent_span.set_attribute(
+            SpanAttributeKey.LLM_COST,
+            {"input_cost": 0.001, "output_cost": 0.002, "total_cost": 0.003},
+        )
+
+    original_trace = mlflow.get_trace(agent_span.trace_id)
+    result = mlflow.genai.evaluate(data=[original_trace], scorers=[judge])
+    assert result.metrics["judge/mean"] == 1.0
+
+    evaluated_trace = mlflow.get_trace(agent_span.trace_id)
+    scorer_span = next(span for span in evaluated_trace.data.spans if span.name == "judge")
+    judge_call = next(
+        span for span in evaluated_trace.data.spans if span.name == "judge_model_call"
+    )
+    raw_judge_call = next(
+        span for span in evaluated_trace.data.spans if span.name == "raw_judge_model_call"
+    )
+    assert scorer_span.parent_id == evaluated_trace.data.spans[0].span_id
+    assert judge_call.parent_id == scorer_span.span_id
+    assert judge_call.outputs == "The answer is supported by the trace"
+    assert judge_call.get_attribute(SpanAttributeKey.CHAT_USAGE) is None
+    assert judge_call.get_attribute(SpanAttributeKey.LLM_COST) is None
+    assert judge_call.get_attribute(SpanAttributeKey.EVALUATION_TOKEN_USAGE) == {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "total_tokens": 120,
+    }
+    assert judge_call.get_attribute(SpanAttributeKey.EVALUATION_COST) == {
+        "input_cost": 0.01,
+        "output_cost": 0.02,
+        "total_cost": 0.03,
+    }
+    assert judge_call.get_attribute("gen_ai.usage.input_tokens") is None
+    assert judge_call.get_attribute("mlflow.evaluation.original.gen_ai.usage.input_tokens") == 100
+    assert raw_judge_call.get_attribute(SpanAttributeKey.CHAT_USAGE) is None
+    assert raw_judge_call.get_attribute(SpanAttributeKey.EVALUATION_TOKEN_USAGE) == {
+        "input_tokens": 7,
+        "output_tokens": 3,
+        "total_tokens": 10,
+    }
+    assert raw_judge_call.get_attribute(SpanAttributeKey.EVALUATION_COST)["total_cost"] > 0
+    assert evaluated_trace.info.token_usage == original_trace.info.token_usage
+    assert evaluated_trace.info.cost == original_trace.info.cost
+    assert evaluated_trace.info.request_time == original_trace.info.request_time
+    assert evaluated_trace.info.execution_duration == original_trace.info.execution_duration
+    assert evaluated_trace.data.spans[0].outputs == "Original answer"
+    assert evaluated_trace.info.assessments[0].rationale == "Supported by the trace"
 
 
 def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
