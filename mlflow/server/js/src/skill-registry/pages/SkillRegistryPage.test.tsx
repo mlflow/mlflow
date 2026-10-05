@@ -629,6 +629,35 @@ describe('SkillRegistryPage', () => {
     expect(screen.queryByText(/GitHub links don't show where a branch name ends/)).not.toBeInTheDocument();
   });
 
+  it('ignores a name check that answers after the name changed', async () => {
+    let answerOldName = () => {};
+    const oldNameAnswered = new Promise<void>((resolve) => {
+      answerOldName = resolve;
+    });
+    server.use(
+      rest.get(/skills\/@redhat-ai\/skills-developer$/, async (_req, res, ctx) => {
+        await oldNameAnswered;
+        return res(ctx.json(createMockSkill({ name: 'skills-developer', organization: 'redhat-ai' })));
+      }),
+      rest.get(/skills\/@redhat-ai\/fresh-name$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/skills-developer');
+    await userEvent.tab();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/fresh-name');
+
+    // The check for the old name answers only now, after the name changed.
+    await act(async () => {
+      answerOldName();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+  });
+
   it('does not register until the name check succeeds', async () => {
     let registerCalled = false;
     server.use(

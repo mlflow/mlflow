@@ -376,6 +376,12 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     description: 'Label for the skill registration name',
   });
   const formIdentity = form.identity.trim() ? parseSkillIdentityInput(form.identity) : undefined;
+  // A name check can answer after the name changed again, so only a result for the current name counts.
+  const nameTaken =
+    takenIdentity !== undefined &&
+    formIdentity !== undefined &&
+    !('error' in formIdentity) &&
+    takenIdentity === formatSkillIdentity(formIdentity.name, formIdentity.organization);
   const snippetIdentity: { name?: string; organization?: string } = skill
     ? { name: skill.name, organization: skill.organization }
     : formIdentity && !('error' in formIdentity)
@@ -452,9 +458,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
             componentId="mlflow.skill_registry.register_modal.submit"
             type="primary"
             loading={submitting}
-            disabled={
-              view === 'api' || submitting || Boolean(takenIdentity) || (mode === 'upload' && !hasSkillManifest)
-            }
+            disabled={view === 'api' || submitting || nameTaken || (mode === 'upload' && !hasSkillManifest)}
             onClick={() => void submit()}
           >
             <FormattedMessage defaultMessage="Create" description="Submit button for skill registration" />
@@ -653,10 +657,10 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                     () => undefined,
                   );
                 }}
-                validationState={takenIdentity ? 'error' : undefined}
+                validationState={nameTaken ? 'error' : undefined}
                 css={{ width: '100%' }}
               />
-              {takenIdentity ? (
+              {nameTaken ? (
                 <FormUI.Message
                   type="error"
                   message={

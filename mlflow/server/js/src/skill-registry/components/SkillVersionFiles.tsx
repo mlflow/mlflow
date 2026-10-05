@@ -297,5 +297,10 @@ const StoredSkillFiles = ({ artifactPath }: { artifactPath: string }) => {
 /** Files of a skill version: browsable when MLflow stores them, otherwise a pointer to the remote source. */
 export const SkillVersionFiles = ({ version }: { version: SkillVersion }) => {
   const artifactPath = getSkillArtifactPath(version);
-  return artifactPath ? <StoredSkillFiles artifactPath={artifactPath} /> : <RemoteSourceNotice version={version} />;
+  // Keyed so switching versions drops an open preview, whose size check belongs to the old version's file.
+  return artifactPath ? (
+    <StoredSkillFiles key={artifactPath} artifactPath={artifactPath} />
+  ) : (
+    <RemoteSourceNotice version={version} />
+  );
 };

@@ -11,6 +11,7 @@ import { createMockSkillVersion } from '../test-utils';
 import { SkillVersionFiles } from './SkillVersionFiles';
 
 const ROOT = 'skills/@acme/code-review/0123456789abcdef0123456789abcdef';
+const OTHER_ROOT = 'skills/@acme/code-review/fedcba9876543210fedcba9876543210';
 const LISTINGS: Partial<Record<string, { path: string; is_dir?: boolean; file_size?: number }[]>> = {
   [ROOT]: [
     { path: 'scripts', is_dir: true },
@@ -19,6 +20,9 @@ const LISTINGS: Partial<Record<string, { path: string; is_dir?: boolean; file_si
     { path: 'huge.bin', is_dir: false, file_size: 10 * 1024 * 1024 },
   ],
   [`${ROOT}/scripts`]: [{ path: 'run.py', is_dir: false, file_size: 12 }],
+  [OTHER_ROOT]: [{ path: 'scripts', is_dir: true }],
+  // The same file path, now too large to preview.
+  [`${OTHER_ROOT}/scripts`]: [{ path: 'run.py', is_dir: false, file_size: 10 * 1024 * 1024 }],
 };
 const CONTENTS: Partial<Record<string, string>> = {
   [`${ROOT}/SKILL.md`]: '---\nname: code-review\n---\n# Code review\n',
@@ -54,16 +58,20 @@ describe('SkillVersionFiles', () => {
     ),
   );
 
-  const renderFiles = (version = uploaded) =>
-    render(
+  const renderFiles = (version = uploaded) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const ui = (shown: typeof version) => (
       <IntlProvider locale="en">
         <DesignSystemProvider>
-          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-            <SkillVersionFiles version={version} />
+          <QueryClientProvider client={client}>
+            <SkillVersionFiles version={shown} />
           </QueryClientProvider>
         </DesignSystemProvider>
-      </IntlProvider>,
+      </IntlProvider>
     );
+    const result = render(ui(version));
+    return { ...result, showVersion: (next: typeof version) => result.rerender(ui(next)) };
+  };
 
   it('lists stored files with SKILL.md first and folders after files', async () => {
     renderFiles();
@@ -82,6 +90,25 @@ describe('SkillVersionFiles', () => {
     await userEvent.click(await screen.findByText('run.py'));
     const dialog = await screen.findByRole('dialog', { name: 'scripts/run.py' });
     await waitFor(() => expect(within(dialog).getByText(/print/)).toBeInTheDocument());
+  });
+
+  it('closes an open preview when another version is shown', async () => {
+    const { showVersion } = renderFiles();
+
+    await userEvent.click(await screen.findByText('run.py'));
+    expect(await screen.findByRole('dialog', { name: 'scripts/run.py' })).toBeInTheDocument();
+
+    showVersion(
+      createMockSkillVersion({
+        version: 2,
+        source_type: 'mlflow',
+        source: `mlflow-artifacts:/${OTHER_ROOT}`,
+        ref: null,
+        subpath: null,
+      }),
+    );
+    expect(await screen.findByText('10.0 MB')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('does not download a file too large to preview', async () => {
