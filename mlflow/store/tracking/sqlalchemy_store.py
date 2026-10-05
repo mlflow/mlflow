@@ -10519,51 +10519,41 @@ def _get_orderby_clauses_for_search_traces(
                 feedback_value, dialect_name
             )
             order_value = feedback_value
+            has_categorical_value_expression = sql.case(
+                (
+                    and_(
+                        feedback_value.isnot(None),
+                        latest_feedback.c.is_numeric_value == sqlalchemy.false(),
+                    ),
+                    1,
+                ),
+                else_=0,
+            )
             if supports_window_functions:
                 # If every latest value in the filtered result set is numeric, sort numerically.
                 # The materialized aggregate is a double, matching Databricks feedback ordering;
                 # values represented by the same double intentionally fall through to the standard
                 # timestamp and trace-id tie-breakers. Otherwise sort all values categorically. The
                 # window is evaluated after trace filters, so unrelated traces cannot change mode.
-                has_categorical_value = func.max(
-                    sql.case(
-                        (
-                            and_(
-                                feedback_value.isnot(None),
-                                latest_feedback.c.is_numeric_value == sqlalchemy.false(),
-                            ),
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ).over()
-                numeric_order_value = sql.case(
-                    (has_categorical_value == 0, latest_feedback.c.aggregate_value),
-                    else_=None,
-                ).label(f"clause_{clause_id}_numeric")
-                categorical_order_value = sql.case(
-                    (has_categorical_value != 0, categorical_feedback_order_value),
-                    else_=None,
-                ).label(f"clause_{clause_id}_categorical")
-                order_values = [numeric_order_value, categorical_order_value]
-                reverse_order_value_directions = [False, False]
+                has_categorical_value = func.max(has_categorical_value_expression).over()
             else:
+                # Keep the MySQL 5.7 fallback in the main statement instead of issuing a pre-query
+                # for each feedback sort column on every paginated request.
                 has_categorical_value = (
-                    session
-                    .query(latest_feedback.c.trace_id)
-                    .filter(
-                        latest_feedback.c.value != "null",
-                        latest_feedback.c.is_numeric_value == sqlalchemy.false(),
-                    )
-                    .first()
-                    is not None
+                    select(func.coalesce(func.max(has_categorical_value_expression), 0))
+                    .select_from(latest_feedback)
+                    .scalar_subquery()
                 )
-                if has_categorical_value:
-                    order_values = [categorical_feedback_order_value]
-                    reverse_order_value_directions = [False]
-                else:
-                    order_values = [latest_feedback.c.aggregate_value]
-                    reverse_order_value_directions = [False]
+            numeric_order_value = sql.case(
+                (has_categorical_value == 0, latest_feedback.c.aggregate_value),
+                else_=None,
+            ).label(f"clause_{clause_id}_numeric")
+            categorical_order_value = sql.case(
+                (has_categorical_value != 0, categorical_feedback_order_value),
+                else_=None,
+            ).label(f"clause_{clause_id}_categorical")
+            order_values = [numeric_order_value, categorical_order_value]
+            reverse_order_value_directions = [False, False]
         else:
             if SearchTraceUtils.is_tag(key_type, "="):
                 entity = SqlTraceTag

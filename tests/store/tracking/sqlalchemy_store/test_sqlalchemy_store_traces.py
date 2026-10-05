@@ -552,11 +552,21 @@ def test_search_traces_order_by_metrics_state_and_latest_feedback(
         traces, _ = store.search_traces(locations=[experiment_id], order_by=list(order_by))
         return [trace.trace_id for trace in traces]
 
+    if supports_window_functions:
+        assert ordered_ids("feedback.quality ASC") == ["low", "high", "error"]
+    else:
+
+        def fail_on_query_first(*_args, **_kwargs):
+            pytest.fail("feedback sorting must not issue a separate pre-query")
+
+        with monkeypatch.context() as context:
+            context.setattr(sqlalchemy_store_module.Query, "first", fail_on_query_first)
+            assert ordered_ids("feedback.quality ASC") == ["low", "high", "error"]
+
     assert ordered_ids("total_tokens ASC") == ["low", "high", "error"]
     assert ordered_ids("total_cost DESC") == ["high", "low", "error"]
     assert ordered_ids("state ASC") == ["high", "low", "error"]
     assert ordered_ids("state DESC") == ["error", "high", "low"]
-    assert ordered_ids("feedback.quality ASC") == ["low", "high", "error"]
     assert ordered_ids("feedback.quality DESC") == ["high", "low", "error"]
     assert ordered_ids("feedback.category ASC") == ["high", "low", "error"]
     assert ordered_ids("feedback.category DESC") == ["low", "high", "error"]

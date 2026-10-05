@@ -1702,6 +1702,9 @@ class SearchModelVersionUtils(SearchUtils):
 class SearchTraceUtils(SearchUtils):
     """
     Utility class for searching traces.
+
+    The `state`, `total_tokens`, and `total_cost` aliases are order-by-only. Trace filters use
+    `status` for lifecycle state and request-metadata clauses for token usage and cost.
     """
 
     VALID_SEARCH_ATTRIBUTE_KEYS = {
