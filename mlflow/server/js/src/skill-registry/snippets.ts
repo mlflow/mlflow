@@ -85,7 +85,7 @@ export const formatSkillRegisterPython = ({
 export interface SkillImportSnippetOptions {
   source: string;
   ref?: string;
-  /** Discovery root; RFC-0008 imports every SKILL.md found beneath it. */
+  /** Discovery root; the import registers every SKILL.md found beneath it. */
   subpath?: string;
   organization?: string;
 }

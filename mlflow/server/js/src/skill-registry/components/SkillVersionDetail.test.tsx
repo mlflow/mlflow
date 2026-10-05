@@ -39,7 +39,7 @@ describe('SkillVersionDetail', () => {
     );
     expect(screen.getByText('Path: code-review')).toBeInTheDocument();
     expect(screen.getByText('Ref: main')).toBeInTheDocument();
-    // The source row and the Files notice both point at the browse URL, as in the prototype.
+    // The source row and the Files notice both point at the browse URL.
     expect(screen.getAllByRole('link', { name: 'https://github.com/acme/skills/tree/main/code-review' })).toHaveLength(
       2,
     );

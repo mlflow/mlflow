@@ -86,7 +86,7 @@ describe('Skill Registry API', () => {
   });
 
   describe('query serialization', () => {
-    it('serializes RFC search parameters without reinterpreting them', async () => {
+    it('serializes search parameters without reinterpreting them', async () => {
       const params = {
         filter_string: "search_text LIKE '%review%' AND status = 'active'",
         max_results: 25,
@@ -171,7 +171,7 @@ describe('Skill Registry API', () => {
       },
     ];
 
-    it.each(endpointCases)('uses the RFC request for $name', async ({ invoke, url, method, body }) => {
+    it.each(endpointCases)('sends the expected request for $name', async ({ invoke, url, method, body }) => {
       await invoke();
 
       const [actualUrl, options] = fetchMock.mock.calls[0];

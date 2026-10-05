@@ -23,7 +23,7 @@ export interface SkillFileTreeNode {
 }
 
 /**
- * Artifact path of a version whose content MLflow stores (RFC-0008 `source_type="mlflow"`), relative to the
+ * Artifact path of a version whose content MLflow stores (`source_type="mlflow"`), relative to the
  * artifact root. Remote sources return undefined: the registry never fetches them.
  */
 export const getSkillArtifactPath = (version: Pick<SkillVersion, 'source_type' | 'source' | 'subpath'>) => {

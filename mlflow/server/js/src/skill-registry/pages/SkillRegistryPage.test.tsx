@@ -83,7 +83,7 @@ describe('SkillRegistryPage', () => {
     expect(screen.getByRole('dialog', { name: 'Create skill' })).toBeInTheDocument();
   });
 
-  it('orders catalog filters like the prototype', async () => {
+  it('orders the catalog filters as search, active, organization, then source', async () => {
     renderPage();
 
     const search = screen.getByPlaceholderText('Search skills');

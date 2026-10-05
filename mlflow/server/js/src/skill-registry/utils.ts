@@ -273,7 +273,7 @@ const hasAction = (actions: SkillAction[] | undefined, action: SkillAction) =>
   actions === undefined || actions.includes(action);
 
 /**
- * RFC-0008 gives skills READ, EDIT (UPDATE) and MANAGE (DELETE). Anyone who can see a skill can read and
+ * Skills grant READ, EDIT (UPDATE) and MANAGE (DELETE). Anyone who can see a skill can read and
  * pull it, so there is no separate use check. `allowed_actions` is optional (basic-auth adds it, other
  * auth modes may not), and a missing list leaves enforcement to the server.
  */
@@ -321,7 +321,7 @@ export const buildSkillCatalogFilterString = ({
     tagKey?.trim() && tagValue?.trim()
       ? `${formatTagFilterIdentifier(tagKey.trim())} = '${escapeFilterLiteral(tagValue.trim())}'`
       : undefined,
-    // Parent source_type is the latest-resolved version's source_type (RFC UI contract).
+    // Parent source_type is the latest-resolved version's source_type.
     sourceType ? `source_type = '${sourceType}'` : undefined,
   ].filter(Boolean);
 

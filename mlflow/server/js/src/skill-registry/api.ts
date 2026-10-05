@@ -56,8 +56,8 @@ export const buildSkillMultipartBody = (
   content: Blob,
 ) => {
   const body = new FormData();
-  // A Blob is required to preserve the RFC's application/json part type. The backend
-  // must therefore receive metadata as an UploadFile rather than a string Form field.
+  // A Blob keeps the metadata part's application/json type. The backend therefore
+  // receives metadata as an UploadFile rather than a string Form field.
   body.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
   const gzipContent =
     content.type === 'application/gzip' ? content : content.slice(0, content.size, 'application/gzip');

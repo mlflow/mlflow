@@ -153,7 +153,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const fixedIdentity = skill ? formatSkillIdentity(skill.name, skill.organization) : '';
   const [view, setView] = useState<'form' | 'api'>('form');
   const [seededForm] = useState(() => formFromVersion(sourceVersion, fixedIdentity));
-  // RFC-0008 limits MLflow-stored content to servers that serve artifacts; others can only import.
+  // Content MLflow stores itself needs a server that serves artifacts; other servers can only import.
   const uploadEnabled = useArtifactServingEnabled();
   const [mode, setMode] = useState<RegistrationMode>(
     uploadEnabled && sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer',
@@ -391,7 +391,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     ...snippetIdentity,
   };
   // The UI cannot see whether a Git location is one skill or a folder of skills, so it always offers the
-  // repository import, which discovers every SKILL.md under the path (RFC-0008 `mlflow skills import --subpath`).
+  // repository import, which discovers every SKILL.md under the path (`mlflow skills import --subpath`).
   const repositoryImport: SkillImportSnippetOptions | undefined =
     !isVersion && mode === 'pointer' && effectiveSourceType === 'git' && parsed?.repositoryUrl
       ? {

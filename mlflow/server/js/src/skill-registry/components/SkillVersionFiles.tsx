@@ -36,7 +36,7 @@ const onActivate = (action: () => void) => (event: KeyboardEvent) => {
   }
 };
 
-// The registry never fetches remote content (RFC-0008), so only a Git version can point the user at its files.
+// The registry never fetches remote content, so only a Git version can point the user at its files.
 const RemoteSourceNotice = ({ version }: { version: SkillVersion }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();

@@ -14,7 +14,7 @@ export class SkillRegistryRoutePaths {
 
   static get skillDetailPage() {
     // One encoded identity segment so `@` and `/` cannot split the path
-    // (`%40acme%2Fcode-review`). Matches the Skill Registry prototype.
+    // (`%40acme%2Fcode-review`).
     return createMLflowRoutePath('/skills/:skillKey');
   }
 
