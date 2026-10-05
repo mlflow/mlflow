@@ -309,7 +309,9 @@ def submit_job(
     if engine == "executor":
         # The runner runs each job on the backend recorded here, so custom scorer jobs can be
         # routed to a separate backend (MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND).
-        executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
+        executor_backend = select_executor_backend(
+            is_custom_scorer=is_custom_scorer, job_name=fn_meta.name, params=params
+        )
         # Remote executor backends are refused at startup today (see
         # JobExecutorRegistry.validate_backends), so this check does not fire yet. It is kept as
         # the model-resolution policy that becomes live once remote execution is supported: a

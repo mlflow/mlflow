@@ -158,6 +158,7 @@ def test_custom_config_propagated():
 
 
 def test_register_default_executors():
+    from mlflow.server.jobs.docker_executor import DockerJobExecutor
     from mlflow.server.jobs.local_executor import LocalJobExecutor
 
     registry = JobExecutorRegistry()
@@ -165,6 +166,7 @@ def test_register_default_executors():
 
     assert "local" in registry.get_registered_names()
     assert isinstance(registry.get("local"), LocalJobExecutor)
+    assert isinstance(registry.get("docker"), DockerJobExecutor)
 
 
 # ---------------------------------------------------------------------------
@@ -356,3 +358,16 @@ def test_executor_remote_execution_defaults_to_false():
 def test_executor_check_requirements_default_is_noop():
     executor = StubExecutor(JobExecutorConfig())
     executor.check_requirements()
+
+
+def test_validate_executor_config_rejects_custom_scorer_backend_without_executor_engine(
+    monkeypatch,
+):
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    with pytest.raises(
+        MlflowException, match="requires MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor"
+    ):
+        validate_executor_config()

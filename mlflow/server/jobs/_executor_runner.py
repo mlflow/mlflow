@@ -149,15 +149,6 @@ class _LeaseRenewer:
             )
 
 
-def _select_executor() -> AbstractJobExecutor:
-    """Resolve the default executor backend named by ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``.
-
-    Defaults to ``local`` (``LocalJobExecutor``); a configured plugin backend is honored too.
-    """
-    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-    return get_executor_registry().get(backend)
-
-
 def _select_executors() -> dict[str, AbstractJobExecutor]:
     """Resolve every configured executor backend, keyed by backend name.
 
@@ -1067,7 +1058,7 @@ def main() -> None:
         fatal_exit = True
     finally:
         # Guard each stop_executor so a failure (e.g. a half-initialized backend when
-        # start_executor raised) cannot skip the others or the SIGTERM below — that signal is the
+        # start_executor raised) cannot skip the others or the SIGTERM below: that signal is the
         # only thing that tears the process down, since the periodic-tasks consumer thread is
         # non-daemon. Only executors that started are stopped.
         for name, executor in started:

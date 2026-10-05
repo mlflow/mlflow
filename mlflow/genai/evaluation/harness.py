@@ -88,6 +88,7 @@ from mlflow.genai.utils.trace_utils import (
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
@@ -1027,9 +1028,13 @@ def _log_assessments(
     run_id: str | None,
     trace: Trace,
     assessments: list[Assessment],
+    client: TracingClient | None = None,
 ) -> None:
     """
     Log assessments to a trace.
+
+    Uses ``client`` when given (for example one bound to a specific tracking store), otherwise the
+    active tracking URI.
     """
     for assessment in assessments:
         # Ensure that if we created a new trace, that the updated trace_id is reflected in
@@ -1047,7 +1052,10 @@ def _log_assessments(
         else:
             _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
-        mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
+        if client is None:
+            mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
+        else:
+            client.log_assessment(assessment.trace_id, assessment)
 
 
 def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:

@@ -156,7 +156,7 @@ def _backend_store_uri(tmp_path, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _reset_executor_registry():
-    # _select_executor() builds the process-global executor registry singleton; tear it
+    # _select_executors() builds the process-global executor registry singleton; tear it
     # down after each test so it does not leak into later tests.
     yield
     shutdown_executor_registry()
@@ -260,10 +260,6 @@ class _BlockingExecutor:
 
     def release(self):
         self._release.set()
-
-
-def test_select_executor_defaults_to_local():
-    assert isinstance(runner._select_executor(), LocalJobExecutor)
 
 
 def test_loop_runs_pending_job_to_success(registered_jobs, job_store, executor):

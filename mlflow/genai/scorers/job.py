@@ -8,9 +8,10 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from mlflow.entities import Trace
+from mlflow.entities import AssessmentError, AssessmentSource, AssessmentSourceType, Feedback, Trace
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_ENABLE_WORKSPACES,
@@ -38,12 +39,20 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
-from mlflow.genai.scorers.scorer_utils import custom_scorer_execution_blocked
+from mlflow.genai.scorers.scorer_utils import (
+    _parse_serialized_scorer,
+    custom_scorer_execution_blocked,
+)
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
+
+if TYPE_CHECKING:
+    from mlflow.server.jobs.docker_executor import DockerJobPlan
 
 _logger = logging.getLogger(__name__)
 
@@ -211,6 +220,218 @@ def invoke_scorer_job(
     return {trace_id: asdict(trace_result) for trace_id, trace_result in result.items()}
 
 
+_DOCKER_TRACES_FILE = "traces.json"
+
+# Reserved assessment metadata a scorer sets itself, so a scorer run in a job container may report
+# it. Other reserved keys are only ever recorded by MLflow and are dropped from container output.
+_CONTAINER_REPORTED_METADATA_KEYS = {
+    AssessmentMetadataKey.SCORER_NAME,
+    AssessmentMetadataKey.SCORER_VERSION,
+}
+
+
+def _is_custom_code_only(scorer_data: dict[str, Any]) -> bool:
+    """Whether a serialized scorer is a custom @scorer, or an ensemble made only of them."""
+    ensemble = scorer_data.get("ensemble_scorer_data")
+    if isinstance(ensemble, dict):
+        subs = ensemble.get("scorers") or []
+        return bool(subs) and all(
+            isinstance(sub, dict) and _is_custom_code_only(sub) for sub in subs
+        )
+    return scorer_data.get("call_source") is not None
+
+
+def _docker_supports_invoke_scorer_params(params: dict[str, Any]) -> bool:
+    """Whether the docker job executor can run an on-demand scorer job with these parameters.
+
+    Job containers have no network access, so only custom @scorer scorers (or ensembles made only
+    of them) can run there.
+    """
+    try:
+        scorer_data = _parse_serialized_scorer(params["serialized_scorer"])
+    except (KeyError, TypeError, MlflowException):
+        return False
+    return isinstance(scorer_data, dict) and _is_custom_code_only(scorer_data)
+
+
+def _is_optional_str(value: Any) -> bool:
+    return value is None or isinstance(value, str)
+
+
+def _feedback_from_container(raw: Any) -> Feedback:
+    """Rebuild a ``Feedback`` from a job container's untrusted output.
+
+    Only the fields a scorer produces are kept. The source is always code, and fields that act on
+    other assessments or on the stored row (``overrides``, ``valid``, ``assessment_id``,
+    timestamps) are dropped, so a scorer cannot hide or replace existing feedback on its traces.
+    """
+    if not isinstance(raw, dict):
+        raise MlflowException("The job container returned a malformed assessment.")
+    name = raw.get("assessment_name")
+    value = raw.get("feedback")
+    metadata = raw.get("metadata") or {}
+    if not (
+        isinstance(name, str)
+        and name
+        and isinstance(value, dict)
+        and _is_optional_str(raw.get("rationale"))
+        and isinstance(metadata, dict)
+        and all(isinstance(key, str) for key in metadata)
+    ):
+        raise MlflowException("The job container returned a malformed assessment.")
+
+    error = value.get("error")
+    if error is not None:
+        if not (
+            isinstance(error, dict)
+            and isinstance(error.get("error_code"), str)
+            and _is_optional_str(error.get("error_message"))
+            and _is_optional_str(error.get("stack_trace"))
+        ):
+            raise MlflowException("The job container returned a malformed assessment error.")
+        error = AssessmentError(
+            error_code=error["error_code"],
+            error_message=error.get("error_message"),
+            stack_trace=error.get("stack_trace"),
+        )
+
+    source = raw.get("source")
+    source_id = source.get("source_id") if isinstance(source, dict) else None
+    return Feedback(
+        name=name,
+        value=value.get("value"),
+        error=error,
+        rationale=raw.get("rationale"),
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id=source_id if isinstance(source_id, str) and source_id else name,
+        ),
+        metadata={
+            key: val
+            for key, val in metadata.items()
+            if not key.startswith("mlflow.") or key in _CONTAINER_REPORTED_METADATA_KEYS
+        }
+        or None,
+    )
+
+
+def _scorer_failure_from_container(raw: Any) -> ScorerFailure:
+    if not (
+        isinstance(raw, dict)
+        and isinstance(raw.get("error_code"), str)
+        and isinstance(raw.get("error_message"), str)
+    ):
+        raise MlflowException("The job container returned a malformed scorer failure.")
+    return ScorerFailure(error_code=raw["error_code"], error_message=raw["error_message"])
+
+
+def _trace_result_from_container(raw: Any) -> tuple[list[Feedback], list[ScorerFailure]]:
+    if not isinstance(raw, dict):
+        raise MlflowException("The job container returned a malformed trace result.")
+    assessments = raw.get("assessments") or []
+    failures = raw.get("failures") or []
+    if not (isinstance(assessments, list) and isinstance(failures, list)):
+        raise MlflowException("The job container returned a malformed trace result.")
+    return (
+        [_feedback_from_container(a) for a in assessments],
+        [_scorer_failure_from_container(f) for f in failures],
+    )
+
+
+def _plan_invoke_scorer_job_for_docker(
+    params: dict[str, Any], input_dir: Path, container_input_dir: str
+) -> "DockerJobPlan":
+    """Plan an on-demand scorer run for a job container that has no network access.
+
+    Runs on the host. It fetches the job's traces into ``input_dir`` for the container, which only
+    scores them (see ``_score_traces_from_file``). Afterwards ``finalize`` checks the container's
+    untrusted output and logs the assessments, only on this job's own traces, using the traces
+    fetched here rather than anything the container could have changed.
+    """
+    # Lazy import: the docker executor module imports the server package, which loads this module.
+    from mlflow.server.jobs.docker_executor import DockerJobPlan
+
+    serialized_scorer = params["serialized_scorer"]
+    if not _docker_supports_invoke_scorer_params(params):
+        raise MlflowException.invalid_parameter_value(
+            "The docker job executor runs scorers without network access, so it supports only "
+            "custom @scorer scorers and ensembles made only of them. This scorer includes a "
+            "built-in or judge scorer, which needs network access."
+        )
+
+    trace_ids = list(params["trace_ids"])
+    trace_map = _fetch_traces_batch(trace_ids, _get_tracking_store())
+    (input_dir / _DOCKER_TRACES_FILE).write_text(
+        json.dumps([trace_map[trace_id].to_dict() for trace_id in trace_ids])
+    )
+    log_assessments = params.get("log_assessments", True)
+
+    def finalize(value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict) or not set(value) <= set(trace_map):
+            raise MlflowException("The job container returned results for traces outside this job.")
+        # Check every entry before logging any, so a malformed entry cannot leave the job partly
+        # logged.
+        parsed = {trace_id: _trace_result_from_container(raw) for trace_id, raw in value.items()}
+        if log_assessments:
+            # Log to the backend store the traces were fetched from, whatever the job runner
+            # process's own tracking URI is.
+            client = TracingClient(tracking_uri=os.environ[BACKEND_STORE_URI_ENV_VAR])
+            for trace_id, (feedbacks, _) in parsed.items():
+                if feedbacks:
+                    _log_assessments(
+                        run_id=None,
+                        trace=trace_map[trace_id],
+                        assessments=feedbacks,
+                        client=client,
+                    )
+        return {
+            trace_id: asdict(
+                TraceResult(assessments=[f.to_dictionary() for f in feedbacks], failures=failures)
+            )
+            for trace_id, (feedbacks, failures) in parsed.items()
+        }
+
+    return DockerJobPlan(
+        fn_fullname=f"{__name__}._score_traces_from_file",
+        params={
+            "serialized_scorer": serialized_scorer,
+            "traces_path": f"{container_input_dir}/{_DOCKER_TRACES_FILE}",
+            "experiment_id": params["experiment_id"],
+            "scorer_version": params.get("scorer_version"),
+        },
+        finalize=finalize,
+    )
+
+
+def _score_traces_from_file(
+    serialized_scorer: str,
+    traces_path: str,
+    experiment_id: str,
+    scorer_version: int | None = None,
+) -> dict[str, Any]:
+    """Score traces read from a file, without touching the tracking store.
+
+    Runs inside a job container that has no network access (see
+    ``_plan_invoke_scorer_job_for_docker``), so it returns the results instead of logging them.
+    """
+    with _job_executor_scorer_context():
+        scorer = Scorer.model_validate_json(serialized_scorer)
+    if scorer_version is not None:
+        scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=experiment_id,
+            sampling_config=None,
+            scorer_version=scorer_version,
+        )
+    traces = [Trace.from_dict(d) for d in json.loads(Path(traces_path).read_text())]
+    if scorer.is_session_level_scorer:
+        result = _score_session_traces(scorer, traces, log_assessments=False)
+    else:
+        trace_map = {trace.info.trace_id: trace for trace in traces}
+        result = _score_single_turn_traces(scorer, trace_map, log_assessments=False)
+    return {trace_id: asdict(trace_result) for trace_id, trace_result in result.items()}
+
+
 def _fetch_traces_batch(
     trace_ids: list[str],
     tracking_store: AbstractStore,
@@ -267,7 +488,15 @@ def _run_session_scorer(
 
     # Preserve order of traces as requested
     traces = [trace_map[tid] for tid in trace_ids]
+    return _score_session_traces(scorer, traces, log_assessments)
 
+
+def _score_session_traces(
+    scorer: Any,
+    traces: list[Trace],
+    log_assessments: bool,
+) -> dict[str, TraceResult]:
+    """Run a session-level scorer on already-fetched traces, in conversation order."""
     session_items = [EvalItem.from_trace(t) for t in traces]
 
     # Get session_id from the first trace's metadata
@@ -336,6 +565,15 @@ def _run_single_turn_scorer_batch(
         Dict mapping trace_id to TraceResult.
     """
     trace_map = _fetch_traces_batch(trace_ids, tracking_store)
+    return _score_single_turn_traces(scorer, trace_map, log_assessments)
+
+
+def _score_single_turn_traces(
+    scorer: Any,
+    trace_map: dict[str, Trace],
+    log_assessments: bool,
+) -> dict[str, TraceResult]:
+    """Run a single-turn scorer on each already-fetched trace in parallel."""
 
     def process_trace(trace_id: str, trace: Trace) -> tuple[str, TraceResult]:
         eval_item = EvalItem.from_trace(trace)
