@@ -202,6 +202,8 @@ def import_skills(
             ref and a discovery subpath. Without a subpath, search the repository root.
         organization: Registry organization, or the empty string for unscoped skills.
         skill_names: Declared names to select, or ``None`` to import all discovered skills.
+            All discovered manifests within the discovery root are validated before filtering.
+            An invalid manifest causes import to fail even if its skill is not selected.
             An empty list or discovery with no skills is rejected. Selection preserves
             discovery order (sorted manifest paths), regardless of this list's order.
             A batch may contain at most 500 selected skills.
