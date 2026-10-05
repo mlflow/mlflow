@@ -858,6 +858,12 @@ def test_search_traces_with_service_name_filter(store: SqlAlchemyStore):
         [create_test_span("checkout-only", span_id=333, service_name="checkout-service")],
     )
 
+    _create_trace(store, "missing-service", exp_id)
+    store.log_spans(
+        exp_id,
+        [create_test_span("missing-service", span_id=444)],
+    )
+
     # A trace tag with the same spelling is not a substitute for a per-span resource attribute.
     _create_trace(store, "tag-only", exp_id, tags={"service.name": "payments-service"})
 
@@ -869,6 +875,7 @@ def test_search_traces_with_service_name_filter(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='span.service_name LIKE "checkout-%"')
     assert {trace.trace_id for trace in traces} == {"distributed", "checkout-only"}
 
+    # NULL service names do not satisfy SQL's != comparator.
     traces, _ = store.search_traces(
         [exp_id], filter_string='span.service_name != "checkout-service"'
     )
