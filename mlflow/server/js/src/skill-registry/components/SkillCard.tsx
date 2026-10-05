@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Card, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import type { Skill } from '../types';
@@ -15,6 +16,10 @@ export const SkillCard = ({ skill }: { skill: Skill }) => {
   const isDimmed = isSkillDimmed(skill);
   const hasTags = Object.keys(skill.tags || {}).length > 0;
   const organizationLabel = formatSkillOrganization(skill.organization);
+  // The full name is only worth a tooltip when the ellipsis cut it off; it is measured on hover,
+  // well before the tooltip's open delay ends.
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const [nameTruncated, setNameTruncated] = useState(false);
 
   return (
     <Card
@@ -40,10 +45,20 @@ export const SkillCard = ({ skill }: { skill: Skill }) => {
       <div css={{ ...cardBodyStyles(theme), opacity: isDimmed ? 0.5 : 1 }}>
         <div css={{ ...cardHeaderRowStyles(theme), minWidth: 0 }}>
           <SkillIcon icons={skill.icons} name={skill.name} />
-          <Tooltip content={skill.name} componentId="mlflow.skill_registry.card.name_tooltip">
-            <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1, minWidth: 0 }}>
-              {skill.name}
-            </Typography.Text>
+          <Tooltip
+            content={nameTruncated ? skill.name : undefined}
+            componentId="mlflow.skill_registry.card.name_tooltip"
+          >
+            {/* A plain element, since the tooltip needs a ref on its trigger. */}
+            <span
+              ref={nameRef}
+              onMouseEnter={() =>
+                setNameTruncated(Boolean(nameRef.current && nameRef.current.scrollWidth > nameRef.current.clientWidth))
+              }
+              css={{ ...textEllipsisStyles, flex: 1, minWidth: 0 }}
+            >
+              <Typography.Text bold>{skill.name}</Typography.Text>
+            </span>
           </Tooltip>
           {skill.latest_version != null && (
             <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>

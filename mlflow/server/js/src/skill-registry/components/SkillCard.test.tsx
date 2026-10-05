@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { afterEach, describe, it, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -30,6 +30,16 @@ const renderCard = (skill: Skill) => {
 };
 
 describe('SkillCard', () => {
+  // First in the file: React logs this warning once per test file, so a later test would never see it.
+  it('gives the name tooltip a trigger that accepts a ref', () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    renderCard(createMockSkill({ name: 'code-review' }));
+
+    const refWarnings = consoleError.mock.calls.filter((args) => String(args[0]).includes('cannot be given refs'));
+    expect(refWarnings).toHaveLength(0);
+    consoleError.mockRestore();
+  });
+
   it('renders the skill name, organization footer, description, version, and tags', () => {
     renderCard(
       createMockSkill({
@@ -80,5 +90,35 @@ describe('SkillCard', () => {
 
     expect(screen.queryByText('Use @ocp-admin/cluster-inventory')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
+  });
+
+  describe('name tooltip', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const hoverName = async (
+      name: string,
+      { scrollWidth, clientWidth }: { scrollWidth: number; clientWidth: number },
+    ) => {
+      const nameElement = screen.getByText(name).parentElement as HTMLElement;
+      Object.defineProperty(nameElement, 'scrollWidth', { configurable: true, value: scrollWidth });
+      Object.defineProperty(nameElement, 'clientWidth', { configurable: true, value: clientWidth });
+      await userEvent.hover(nameElement);
+    };
+
+    it('shows no tooltip for a name that fits', async () => {
+      renderCard(createMockSkill({ name: 'short' }));
+      await hoverName('short', { scrollWidth: 50, clientWidth: 100 });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    });
+
+    it('shows the full name when the ellipsis cuts it off', async () => {
+      const name = 'a-very-long-skill-name-that-does-not-fit-on-the-card';
+      renderCard(createMockSkill({ name }));
+      await hoverName(name, { scrollWidth: 400, clientWidth: 100 });
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(name);
+    });
   });
 });
