@@ -4,7 +4,7 @@ from werkzeug.datastructures import Authorization
 
 from mlflow.server import auth, handlers
 from mlflow.server.auth.db.models import SqlRolePermission
-from mlflow.server.auth.permissions import NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.permissions import NO_PERMISSIONS, READ
 from mlflow.server.auth.routes import ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
@@ -36,7 +36,6 @@ def large_scope_search_setup(tmp_path, db_uri, monkeypatch, request):
     username = "large-scope-reader"
     password = "supersecurepassword"
     user = auth_store.create_user(username, password)
-    auth_store.set_workspace_permission("team-a", username, USE.name)
     role = auth_store.create_role(name="large-scope", workspace="team-a")
     auth_store.assign_role_to_user(user.id, role.id)
     with workspace_context.WorkspaceContext("team-a"):

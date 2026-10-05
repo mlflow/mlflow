@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import threading
+import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
@@ -3108,6 +3109,8 @@ def _role_based_read_predicate(
         if not gate.retains(requirement.resource_type, requirement.resource_id):
             return lambda _resource_id: False
     return lambda resource_id: gate.retains(resource_type, resource_id)
+
+
 def _get_readable_resource_ids(username: str, resource_type: str) -> set[str] | None:
     """Return readable IDs, or ``None`` when no ID filter is needed."""
     workspace_name = (
@@ -5015,8 +5018,6 @@ LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     SetLoggedModelTags: validate_can_update_logged_model,
     ListLoggedModelArtifacts: validate_can_read_logged_model,
     LogLoggedModelParamsRequest: validate_can_update_logged_model,
-    # Basic auth injects collection scope before the handler reaches storage.
-    SearchLoggedModels: _allow_authenticated,
 }
 
 
@@ -5954,6 +5955,23 @@ def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
             withheld = True
             del registered_model.latest_versions[:]
     return withheld
+
+
+def filter_search_logged_models(resp: Response) -> None:
+    """Redact denied run references from logged models already scoped by the request."""
+    if sender_is_admin():
+        return
+
+    response_proto = SearchLoggedModels.Response()
+    parse_dict(resp.json, response_proto)
+    username = authenticate_request().username
+    _withhold_denied_metric_references(
+        [metric for model in response_proto.models for metric in model.data.metrics],
+        username,
+        RESOURCE_TYPE_RUN,
+    )
+    _withhold_denied_model_source_runs(response_proto.models, username)
+    resp.data = message_to_json(response_proto)
 
 
 def _redact_registered_model_response(resp: Response, response_message) -> None:
@@ -6899,6 +6917,7 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
+    SearchLoggedModels: filter_search_logged_models,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     GetModelVersion: redact_model_version_siblings,
     GetModelVersionByAlias: redact_model_version_by_alias_siblings,

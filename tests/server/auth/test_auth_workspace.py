@@ -14,6 +14,7 @@ from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import SearchExperiments
 from mlflow.server import auth as auth_module
+from mlflow.server.auth.db.models import SqlRolePermission
 from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
@@ -1433,7 +1434,9 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
         workspace_context._WORKSPACE.reset(token)
 
 
-@pytest.mark.parametrize(("permission", "expected_ids"), [(USE, []), (MANAGE, ["exp-1", "exp-2"])])
+@pytest.mark.parametrize(
+    ("permission", "expected_ids"), [(USE, ["exp-1", "exp-2"]), (MANAGE, ["exp-1", "exp-2"])]
+)
 def test_filter_experiment_ids_workspace_scope_role(
     workspace_permission_setup, monkeypatch, permission, expected_ids
 ):
@@ -5007,7 +5010,20 @@ def _grant(store, username, workspace, rows):
     """
     role = store.create_role(f"role-{random_str(10)}", workspace)
     for resource_type, resource_pattern, permission in rows:
-        store.add_role_permission(role.id, resource_type, resource_pattern, permission)
+        if resource_type == "experiment" and not resource_pattern.lstrip("-").isdigit():
+            # Existing deployments can contain nonnumeric experiment grants created before
+            # request-side scope validation. Seed those rows directly for compatibility tests.
+            with store.ManagedSessionMaker(read_only=False) as session:
+                session.add(
+                    SqlRolePermission(
+                        role_id=role.id,
+                        resource_type=resource_type,
+                        resource_pattern=resource_pattern,
+                        permission=permission,
+                    )
+                )
+        else:
+            store.add_role_permission(role.id, resource_type, resource_pattern, permission)
     store.assign_role_to_user(store.get_user(username).id, role.id)
     return role
 
