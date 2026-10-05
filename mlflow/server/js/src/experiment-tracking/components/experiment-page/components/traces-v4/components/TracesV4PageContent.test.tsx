@@ -604,6 +604,7 @@ describe('TracesV4PageContent', () => {
       await waitFor(() => {
         const searchParams = new URLSearchParams(env.lastSearch);
         expect(searchParams.get('traceId')).toBe('trace:/cat.sch/tr-000');
+        expect(searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM)).toBe('session');
         expect(searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM)).toBe('sess-1');
       });
     });

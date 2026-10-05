@@ -131,9 +131,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       ? { sessionId: requestedSessionId, traceId: url.traceId }
       : undefined,
   );
-  const [drawerViewMode, setDrawerViewMode] = useState<'trace' | 'session'>(() =>
-    controller.isGroupedBySession || sessionDrawerViewRequested ? 'session' : 'trace',
-  );
+  const drawerViewMode =
+    sessionDrawerEnabled && sessionDrawerViewRequested && requestedSessionId && url.traceId ? 'session' : 'trace';
   const sessionsOnPage = useMemo(() => {
     const seen = new Set<string>();
     return page.traces.flatMap((trace) => {
@@ -167,7 +166,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   useEffect(() => {
     if (!url.traceId) {
       setSelectedTraceSession(undefined);
-      setDrawerViewMode('trace');
       return;
     }
     if (sessionDrawerEnabled && sessionDrawerViewRequested && requestedSessionId) {
@@ -177,10 +175,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
           ? traceSession
           : { sessionId: requestedSessionId, traceId: url.traceId },
       );
-      setDrawerViewMode('session');
       return;
     }
-    setDrawerViewMode('trace');
     if (traceFromUrl) {
       setSelectedTraceSession(getSelectedTraceSession(traceFromUrl));
     }
@@ -195,7 +191,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         return;
       }
       setSelectedTraceSession(session);
-      setDrawerViewMode('session');
       url.setSessionTraceId(session.traceId, session.sessionId);
     },
     [sessionsOnPage, url],
@@ -350,7 +345,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     (trace: ModelTraceInfoV3) => {
       const traceSession = sessionDrawerEnabled ? getSelectedTraceSession(trace) : undefined;
       setSelectedTraceSession(traceSession);
-      setDrawerViewMode('trace');
       url.setTraceId(getTraceDrawerId(trace));
     },
     [sessionDrawerEnabled, url],
@@ -364,7 +358,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       if (traceInfo) {
         setSelectedTraceSession(sessionDrawerEnabled ? getSelectedTraceSession(traceInfo) : undefined);
       }
-      setDrawerViewMode('trace');
       url.setTraceId(traceId);
     },
     [sessionDrawerEnabled, url],
@@ -384,11 +377,9 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       if (viewMode === 'session' && activeTraceSession) {
         const traceId = url.traceId ?? activeTraceSession.traceId;
         setSelectedTraceSession({ ...activeTraceSession, traceId });
-        setDrawerViewMode('session');
         url.setSessionTraceId(traceId, activeTraceSession.sessionId);
         return;
       }
-      setDrawerViewMode('trace');
       url.setTraceId(url.traceId ?? activeTraceSession?.traceId);
     },
     [activeTraceSession, url],
@@ -439,7 +430,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         traceId: getTraceDrawerId(trace),
         traceLocation: traceSession?.traceLocation,
       });
-      setDrawerViewMode('session');
       url.setSessionTraceId(getTraceDrawerId(trace), sessionId);
     },
     [url],
