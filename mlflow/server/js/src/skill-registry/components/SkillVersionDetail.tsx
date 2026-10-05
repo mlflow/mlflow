@@ -9,7 +9,6 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   InfoSmallIcon,
-  NewWindowIcon,
   Spacer,
   Tag,
   Tooltip,
@@ -31,6 +30,8 @@ import {
   STATUS_TAG_COLOR,
 } from '../utils';
 import { SkillAliases } from './SkillAliases';
+import { SkillExternalLink } from './SkillExternalLink';
+import { SkillVersionFiles } from './SkillVersionFiles';
 import { SkillPencilButton } from './SkillPencilButton';
 import { SkillTags } from './SkillTags';
 import { UseSkillButton } from './UseSkillButton';
@@ -124,17 +125,6 @@ const PaneMessage = ({ children, centered = false }: { children: ReactNode; cent
   );
 };
 
-const ExternalLink = ({ componentId, href }: { componentId: string; href: string }) => (
-  <Typography.Link componentId={componentId} href={href} target="_blank" rel="noopener noreferrer">
-    <span css={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {href}
-      <span aria-hidden>
-        <NewWindowIcon css={{ fontSize: 12 }} />
-      </span>
-    </span>
-  </Typography.Link>
-);
-
 const SkillSourceDetails = ({ version }: { version: SkillVersion }) => {
   const { theme } = useDesignSystemTheme();
   const source = describeSkillSource(version);
@@ -154,7 +144,7 @@ const SkillSourceDetails = ({ version }: { version: SkillVersion }) => {
         )}
         {source.locator &&
           (source.locatorHref ? (
-            <ExternalLink componentId="mlflow.skill_registry.detail.version.source" href={source.locatorHref} />
+            <SkillExternalLink componentId="mlflow.skill_registry.detail.version.source" href={source.locatorHref} />
           ) : (
             <InlineCode>{source.locator}</InlineCode>
           ))}
@@ -178,7 +168,7 @@ const SkillSourceDetails = ({ version }: { version: SkillVersion }) => {
         </Typography.Text>
       )}
       {source.browseHref && (
-        <ExternalLink componentId="mlflow.skill_registry.detail.version.source_browse" href={source.browseHref} />
+        <SkillExternalLink componentId="mlflow.skill_registry.detail.version.source_browse" href={source.browseHref} />
       )}
       {source.showExternalWarning && (
         <Typography.Text color="secondary" size="sm">
@@ -509,6 +499,11 @@ export const SkillVersionDetail = ({
             <InlineCode key={referenceUri}>{referenceUri}</InlineCode>
           ))}
         </div>
+
+        <MetadataLabel>
+          <FormattedMessage defaultMessage="Files:" description="Skill version files label" />
+        </MetadataLabel>
+        <SkillVersionFiles version={version} />
       </div>
     </div>
   );

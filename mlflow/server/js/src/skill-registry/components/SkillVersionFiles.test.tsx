@@ -1,0 +1,109 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { rest } from 'msw';
+import { IntlProvider } from 'react-intl';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+
+import { setupServer } from '../../common/utils/setup-msw';
+import { createMockSkillVersion } from '../test-utils';
+import { SkillVersionFiles } from './SkillVersionFiles';
+
+const ROOT = 'skills/@acme/code-review/0123456789abcdef0123456789abcdef';
+const LISTINGS: Partial<Record<string, { path: string; is_dir?: boolean; file_size?: number }[]>> = {
+  [ROOT]: [
+    { path: 'scripts', is_dir: true },
+    { path: 'README.md', is_dir: false, file_size: 40 },
+    { path: 'SKILL.md', is_dir: false, file_size: 2048 },
+    { path: 'huge.bin', is_dir: false, file_size: 10 * 1024 * 1024 },
+  ],
+  [`${ROOT}/scripts`]: [{ path: 'run.py', is_dir: false, file_size: 12 }],
+};
+const CONTENTS: Partial<Record<string, string>> = {
+  [`${ROOT}/SKILL.md`]: '---\nname: code-review\n---\n# Code review\n',
+  [`${ROOT}/scripts/run.py`]: 'print("hi")\n',
+};
+
+// jsdom's fetch has no streaming body, so serve file content directly as other artifact tests do.
+const mockGetArtifactChunkedText = jest.fn<(url: string) => Promise<string>>();
+jest.mock('../../common/utils/ArtifactUtils', () => ({
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
+  getArtifactChunkedText: (url: string) => mockGetArtifactChunkedText(url),
+}));
+
+const uploaded = createMockSkillVersion({
+  source_type: 'mlflow',
+  source: `mlflow-artifacts:/${ROOT}`,
+  ref: null,
+  subpath: null,
+});
+
+describe('SkillVersionFiles', () => {
+  beforeEach(() => {
+    mockGetArtifactChunkedText.mockImplementation(async (url) => {
+      const content = CONTENTS[decodeURIComponent(url.split('/mlflow-artifacts/artifacts/')[1])];
+      if (content === undefined) throw new Error('missing');
+      return content;
+    });
+  });
+
+  setupServer(
+    rest.get(/mlflow-artifacts\/artifacts$/, (req, res, ctx) =>
+      res(ctx.json({ files: LISTINGS[req.url.searchParams.get('path') ?? ''] ?? [] })),
+    ),
+  );
+
+  const renderFiles = (version = uploaded) =>
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <SkillVersionFiles version={version} />
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+  it('lists stored files with SKILL.md first and folders after files', async () => {
+    renderFiles();
+
+    await screen.findByText('SKILL.md');
+    const rows = screen.getAllByRole('button').map((row) => row.textContent);
+    expect(rows).toEqual(['SKILL.md2.0 KB', 'huge.bin10.0 MB', 'README.md40 B', 'scripts', 'run.py12 B']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'scripts' }));
+    expect(screen.queryByText('run.py')).not.toBeInTheDocument();
+  });
+
+  it('previews a stored file with line numbers', async () => {
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('run.py'));
+    const dialog = await screen.findByRole('dialog', { name: 'scripts/run.py' });
+    await waitFor(() => expect(within(dialog).getByText(/print/)).toBeInTheDocument());
+  });
+
+  it('does not download a file too large to preview', async () => {
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('huge.bin'));
+    expect(await screen.findByText(/too large to preview here/)).toBeInTheDocument();
+  });
+
+  it('points a remote Git version at its source instead of listing files', () => {
+    renderFiles(createMockSkillVersion({ source_type: 'git', source: 'https://github.com/acme/skills', ref: 'main' }));
+
+    expect(screen.getByText('Content is read from a remote source.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /github\.com\/acme\/skills\/tree\/main/ })).toBeInTheDocument();
+  });
+
+  it('shows only the notice for an OCI version', () => {
+    renderFiles(
+      createMockSkillVersion({ source_type: 'oci', source: 'ghcr.io/acme/skill:1', ref: null, subpath: null }),
+    );
+
+    expect(screen.getByText('Content is read from a remote source.')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+});

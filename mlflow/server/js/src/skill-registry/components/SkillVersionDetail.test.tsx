@@ -39,10 +39,12 @@ describe('SkillVersionDetail', () => {
     );
     expect(screen.getByText('Path: code-review')).toBeInTheDocument();
     expect(screen.getByText('Ref: main')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'https://github.com/acme/skills/tree/main/code-review' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Opens a third-party site/)).toBeInTheDocument();
+    // The source row and the Files notice both point at the browse URL, as in the prototype.
+    expect(screen.getAllByRole('link', { name: 'https://github.com/acme/skills/tree/main/code-review' })).toHaveLength(
+      2,
+    );
+    expect(screen.getAllByText(/Opens a third-party site/)).toHaveLength(2);
+    expect(screen.getByText('Content is read from a remote source.')).toBeInTheDocument();
     expect(screen.getByText('sha256:abc123')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy content digest' })).toBeInTheDocument();
     expect(screen.getByText('skills:/@acme/code-review/2')).toBeInTheDocument();

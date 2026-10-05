@@ -16,6 +16,8 @@ export const SKILL_QUERY_KEYS = {
   SKILL: 'skill',
   SKILL_VERSIONS: 'skill_versions',
   SKILL_VERSION: 'skill_version',
+  SKILL_VERSION_FILES: 'skill_version_files',
+  SKILL_FILE_CONTENT: 'skill_file_content',
 } as const;
 
 // Destinations are provisional until MLflow CLI confirms whether --destination

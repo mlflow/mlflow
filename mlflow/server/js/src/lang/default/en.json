@@ -359,6 +359,10 @@
     "defaultMessage": "Use existing API key",
     "description": "Option to use existing API key"
   },
+  "/NI9qg": {
+    "defaultMessage": "Showing the first {count} files. Pull the skill to see the rest.",
+    "description": "Hint when a skill version has more files than the file list shows"
+  },
   "/Ni371": {
     "defaultMessage": "Fix the response format schema: {error}",
     "description": "Reason shown when the playground Submit button is disabled because the response format schema is invalid"
@@ -578,6 +582,10 @@
   "0BguZN": {
     "defaultMessage": "State",
     "description": "Gateway endpoint usage > metrics filter > state column option label"
+  },
+  "0EFU+8": {
+    "defaultMessage": "Couldn't load this file.",
+    "description": "Skill file preview load error"
   },
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
@@ -1818,6 +1826,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5JJwul": {
+    "defaultMessage": "This file can't be previewed as text. Pull the skill to read it.",
+    "description": "Skill file preview message for a binary file"
   },
   "5K6npM": {
     "defaultMessage": "Analyze with Assistant",
@@ -3459,6 +3471,10 @@
     "defaultMessage": "Theme",
     "description": "Aria label for a skill icon theme"
   },
+  "BEugM0": {
+    "defaultMessage": "Loading files...",
+    "description": "Loading state for a skill version file list"
+  },
   "BF9qQD": {
     "defaultMessage": "Use \"Create API key\" button to create a new API key",
     "description": "Empty state message for API keys list explaining how to create"
@@ -4675,6 +4691,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
+  "GENO9m": {
+    "defaultMessage": "Loading file...",
+    "description": "Loading state for a skill file preview"
+  },
   "GEVu99": {
     "defaultMessage": "Identifier",
     "description": "Package identifier label"
@@ -5230,6 +5250,10 @@
   "IMkDgM": {
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
+  },
+  "INEEmz": {
+    "defaultMessage": "Couldn't load the files for this version.",
+    "description": "Skill version file list load error"
   },
   "INrdWe": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -7347,6 +7371,10 @@
     "defaultMessage": "Select all rows on this page",
     "description": "Aria label for the select-all checkbox in the V2 dataset records table header"
   },
+  "QLqmF5": {
+    "defaultMessage": "Content is read from a remote source.",
+    "description": "Notice that a skill version stored outside MLflow has no file listing"
+  },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
@@ -7570,6 +7598,10 @@
   "REOeCT": {
     "defaultMessage": "Select a custom view",
     "description": "Placeholder label on the custom view switcher when no view is selected"
+  },
+  "REQGLS": {
+    "defaultMessage": "Files:",
+    "description": "Skill version files label"
   },
   "REfKpP": {
     "defaultMessage": "Question for reviewer",
@@ -12695,6 +12727,10 @@
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
   },
+  "jueuhC": {
+    "defaultMessage": "This file is stored but too large to preview here. Pull the skill to read it.",
+    "description": "Skill file preview message for a large file"
+  },
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
@@ -14922,6 +14958,10 @@
   "sIC5K3": {
     "defaultMessage": "Time (relative)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use relative time axis in all charts"
+  },
+  "sIEZEN": {
+    "defaultMessage": "No files are stored for this version.",
+    "description": "Empty state for a skill version file list"
   },
   "sIe4Ds": {
     "defaultMessage": "Created:",
