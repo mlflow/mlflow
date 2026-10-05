@@ -503,25 +503,25 @@ export const useTracesV4SavedViews = ({
         return;
       }
       setActiveStoredState(state);
-      // Current share links carry filters in the URL. Older V4 and V3 links do not, so migrate their
-      // stored filters only when the URL has no filter marker. An explicit `filters=[]` means the
-      // user intentionally cleared them and must remain authoritative.
-      const filters = supportedFilters(state.filters);
-      if (!searchParams.has(TRACE_V4_FILTERS_PARAM_KEY) && filters.length > 0) {
-        setSearchParams(
-          (params) => {
-            if (!params.has(TRACE_V4_FILTERS_PARAM_KEY)) {
-              params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(filters));
-            }
-            return params;
-          },
-          { replace: true },
-        );
-      }
-      // Restore only the local-storage-backed state once per view id, so hydration cannot overwrite
-      // URL edits.
+      // Hydrate once per active-view session so later URL edits do not re-decode the stored tag or
+      // overwrite live state.
       if (hydratedViewIdRef.current !== activeViewId) {
         hydratedViewIdRef.current = activeViewId;
+        // Current share links carry filters in the URL. Older V4 and V3 links do not, so migrate
+        // stored filters only when the latest URL still has no marker. An explicit `filters=[]`
+        // means the user intentionally cleared them and must remain authoritative.
+        const filters = supportedFilters(state.filters);
+        if (filters.length > 0) {
+          setSearchParams(
+            (params) => {
+              if (!params.has(TRACE_V4_FILTERS_PARAM_KEY)) {
+                params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(filters));
+              }
+              return params;
+            },
+            { replace: true },
+          );
+        }
         const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
         if (columns) {
           setColumns(columns);
@@ -537,7 +537,6 @@ export const useTracesV4SavedViews = ({
   }, [
     activeViewId,
     decodeViewState,
-    searchParams,
     setSearchParams,
     setColumns,
     setColumnOrder,
