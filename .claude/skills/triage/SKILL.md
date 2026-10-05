@@ -104,8 +104,9 @@ Create `$out_dir` first, then write `$out_dir/payload.json`:
 { "label": "triage: <outcome>", "comment": "<Markdown>" }
 ```
 
-`$type/payload.schema.json` defines the fields. `label` is the outcome label from the type's
-instructions, such as `triage: reproduced`. `comment` is the Markdown comment for the issue. It:
+Read `$type/payload.schema.json` before writing the payload; it defines the required fields and
+their constraints. `label` is the outcome label from the type's instructions, such as
+`triage: reproduced`. `comment` is the Markdown comment for the issue. It:
 
 - Follows the type's template, written for a reader who has read the issue: lead with
   conclusions, not the investigation trail.
