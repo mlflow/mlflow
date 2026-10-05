@@ -668,7 +668,7 @@ jobs:
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
-          uv run --only-group lint check-jsonschema \
+          uvx check-jsonschema@0.37.4 \
             --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.json" "$PAYLOAD_PATH"
           jq -j '.comment' "$PAYLOAD_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
