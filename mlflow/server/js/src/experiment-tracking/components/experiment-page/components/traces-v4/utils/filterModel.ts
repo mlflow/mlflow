@@ -54,165 +54,197 @@ const stateLabel = (intl: IntlShape, value: string): string => {
  * first operator is the default when a field is selected. A single "Assessment" field is appended
  * whose key (the assessment name) is a freeform-capable combobox suggesting the candidate names.
  */
+export const getMlflowTraceFilterFields = (intl: IntlShape, assessmentNames: string[] = []): FilterFieldDef[] => [
+  {
+    id: 'state',
+    label: intl.formatMessage({ defaultMessage: 'State', description: 'Trace filter field: run state' }),
+    operators: [FilterOp.EQUALS],
+    valueInput: 'select',
+    options: STATE_VALUES.map((value) => ({ value, label: stateLabel(intl, value) })),
+  },
+  {
+    id: 'duration',
+    label: intl.formatMessage({ defaultMessage: 'Duration', description: 'Trace filter field: execution time' }),
+    operators: NUMERIC_OPERATORS,
+    valueInput: 'number',
+    valuePlaceholder: intl.formatMessage({
+      defaultMessage: 'Time in milliseconds',
+      description: 'Placeholder for the duration filter value input',
+    }),
+  },
+  {
+    id: 'trace_name',
+    label: intl.formatMessage({ defaultMessage: 'Trace name', description: 'Trace filter field: trace name' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'user',
+    label: intl.formatMessage({ defaultMessage: 'User', description: 'Trace filter field: user' }),
+    operators: [FilterOp.EQUALS],
+    valueInput: 'text',
+  },
+  {
+    id: 'session',
+    label: intl.formatMessage({ defaultMessage: 'Session', description: 'Trace filter field: session id' }),
+    operators: [FilterOp.EQUALS, FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'run_name',
+    label: intl.formatMessage({ defaultMessage: 'Run name', description: 'Trace filter field: run' }),
+    operators: [FilterOp.EQUALS],
+    valueInput: 'text',
+  },
+  {
+    id: 'source',
+    label: intl.formatMessage({ defaultMessage: 'Source', description: 'Trace filter field: source name' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'input',
+    label: intl.formatMessage({ defaultMessage: 'Input', description: 'Trace filter field: request/input' }),
+    operators: [FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'output',
+    label: intl.formatMessage({ defaultMessage: 'Output', description: 'Trace filter field: response/output' }),
+    operators: [FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'span_name',
+    label: intl.formatMessage({ defaultMessage: 'Span name', description: 'Trace filter field: span name' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'span_type',
+    label: intl.formatMessage({ defaultMessage: 'Span type', description: 'Trace filter field: span type' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
+    valueInput: 'text',
+  },
+  {
+    id: 'span_status',
+    label: intl.formatMessage({ defaultMessage: 'Span status', description: 'Trace filter field: span status' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+    valueInput: 'text',
+  },
+  // Arbitrary tag / trace-metadata key filters (v1's `handleTagKey` / `handleMetadataKey`): the
+  // user types the key and value, so these carry a free-text key sub-input (`requiresKey`).
+  {
+    id: 'tag',
+    label: intl.formatMessage({ defaultMessage: 'Tag', description: 'Trace filter field: arbitrary tag key' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+    valueInput: 'text',
+    requiresKey: true,
+    keyPlaceholder: intl.formatMessage({
+      defaultMessage: 'Tag key',
+      description: 'Placeholder for the tag-key input in the traces filter',
+    }),
+  },
+  {
+    id: 'metadata',
+    label: intl.formatMessage({
+      defaultMessage: 'Metadata',
+      description: 'Trace filter field: trace metadata key',
+    }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
+    valueInput: 'text',
+    requiresKey: true,
+    keyPlaceholder: intl.formatMessage({
+      defaultMessage: 'Metadata key',
+      description: 'Placeholder for the metadata-key input in the traces filter',
+    }),
+  },
+  // "Assessment" and "Expectation" fields: their keys are names (combobox suggesting the
+  // candidate names, freeform-typing allowed), free-text values, and equality-only because the
+  // managed V4 backend does not support null filters and their values are opaque.
+  {
+    id: 'assessment',
+    label: intl.formatMessage({ defaultMessage: 'Assessment', description: 'Trace filter field: assessment name' }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+    valueInput: 'text',
+    requiresKey: true,
+    keyInput: 'combobox',
+    keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
+    keyPlaceholder: intl.formatMessage({
+      defaultMessage: 'Assessment name',
+      description: 'Placeholder for the assessment-name key input in the traces filter',
+    }),
+  },
+  {
+    id: 'expectation',
+    label: intl.formatMessage({
+      defaultMessage: 'Expectation',
+      description: 'Trace filter field: expectation name',
+    }),
+    operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+    valueInput: 'text',
+    requiresKey: true,
+    keyInput: 'combobox',
+    keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
+    keyPlaceholder: intl.formatMessage({
+      defaultMessage: 'Expectation name',
+      description: 'Placeholder for the expectation-name key input in the traces filter',
+    }),
+  },
+];
+
 export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): FilterFieldDef[] => {
   const intl = useIntl();
-  return useMemo(
-    () => [
-      {
-        id: 'state',
-        label: intl.formatMessage({ defaultMessage: 'State', description: 'Trace filter field: run state' }),
-        operators: [FilterOp.EQUALS],
-        valueInput: 'select',
-        options: STATE_VALUES.map((value) => ({ value, label: stateLabel(intl, value) })),
-      },
-      {
-        id: 'duration',
-        label: intl.formatMessage({ defaultMessage: 'Duration', description: 'Trace filter field: execution time' }),
-        operators: NUMERIC_OPERATORS,
-        valueInput: 'number',
-        valuePlaceholder: intl.formatMessage({
-          defaultMessage: 'Time in milliseconds',
-          description: 'Placeholder for the duration filter value input',
-        }),
-      },
-      {
-        id: 'trace_name',
-        label: intl.formatMessage({ defaultMessage: 'Trace name', description: 'Trace filter field: trace name' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'user',
-        label: intl.formatMessage({ defaultMessage: 'User', description: 'Trace filter field: user' }),
-        operators: [FilterOp.EQUALS],
-        valueInput: 'text',
-      },
-      {
-        id: 'session',
-        label: intl.formatMessage({ defaultMessage: 'Session', description: 'Trace filter field: session id' }),
-        operators: [FilterOp.EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'run_name',
-        label: intl.formatMessage({ defaultMessage: 'Run name', description: 'Trace filter field: run' }),
-        operators: [FilterOp.EQUALS],
-        valueInput: 'text',
-      },
-      {
-        id: 'source',
-        label: intl.formatMessage({ defaultMessage: 'Source', description: 'Trace filter field: source name' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'input',
-        label: intl.formatMessage({ defaultMessage: 'Input', description: 'Trace filter field: request/input' }),
-        operators: [FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'output',
-        label: intl.formatMessage({ defaultMessage: 'Output', description: 'Trace filter field: response/output' }),
-        operators: [FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'span_name',
-        label: intl.formatMessage({ defaultMessage: 'Span name', description: 'Trace filter field: span name' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'span_type',
-        label: intl.formatMessage({ defaultMessage: 'Span type', description: 'Trace filter field: span type' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
-      },
-      {
-        id: 'span_status',
-        label: intl.formatMessage({ defaultMessage: 'Span status', description: 'Trace filter field: span status' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
-      },
-      // Arbitrary tag / trace-metadata key filters (v1's `handleTagKey` / `handleMetadataKey`): the
-      // user types the key and value, so these carry a free-text key sub-input (`requiresKey`).
-      {
-        id: 'tag',
-        label: intl.formatMessage({ defaultMessage: 'Tag', description: 'Trace filter field: arbitrary tag key' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
-        requiresKey: true,
-        keyPlaceholder: intl.formatMessage({
-          defaultMessage: 'Tag key',
-          description: 'Placeholder for the tag-key input in the traces filter',
-        }),
-      },
-      {
-        id: 'metadata',
-        label: intl.formatMessage({
-          defaultMessage: 'Metadata',
-          description: 'Trace filter field: trace metadata key',
-        }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
-        requiresKey: true,
-        keyPlaceholder: intl.formatMessage({
-          defaultMessage: 'Metadata key',
-          description: 'Placeholder for the metadata-key input in the traces filter',
-        }),
-      },
-      // "Assessment" and "Expectation" fields: their keys are names (combobox suggesting the
-      // candidate names, freeform-typing allowed), free-text values, and equality-only because the
-      // managed V4 backend does not support null filters and their values are opaque.
-      {
-        id: 'assessment',
-        label: intl.formatMessage({ defaultMessage: 'Assessment', description: 'Trace filter field: assessment name' }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
-        requiresKey: true,
-        keyInput: 'combobox',
-        keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
-        keyPlaceholder: intl.formatMessage({
-          defaultMessage: 'Assessment name',
-          description: 'Placeholder for the assessment-name key input in the traces filter',
-        }),
-      },
-      {
-        id: 'expectation',
-        label: intl.formatMessage({
-          defaultMessage: 'Expectation',
-          description: 'Trace filter field: expectation name',
-        }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
-        requiresKey: true,
-        keyInput: 'combobox',
-        keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
-        keyPlaceholder: intl.formatMessage({
-          defaultMessage: 'Expectation name',
-          description: 'Placeholder for the expectation-name key input in the traces filter',
-        }),
-      },
-    ],
-    [intl, assessmentNames],
-  );
+  return useMemo(() => getMlflowTraceFilterFields(intl, assessmentNames), [intl, assessmentNames]);
 };
 
 /**
- * Validate a persisted filter clause against the current field set: the field still exists, still
- * offers the clause's operator, and (for a `requiresKey` field) carries a non-blank key. Used when
- * restoring a saved view so a clause referencing a field/operator that no longer exists is dropped
- * rather than silently producing wrong results — and, symmetrically, so the dirty diff normalizes
- * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
+ * Validate an untrusted filter clause against the current field set. Besides checking the field and
+ * operator, this enforces the field's key/value shape so URL and saved-view state cannot compile an
+ * incomplete or impossible clause.
  */
-export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
-  fields.some(
-    (field) =>
-      field.id === clause.field &&
-      field.operators.includes(clause.operator) &&
-      (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
+export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: unknown): clause is FilterClause => {
+  if (typeof clause !== 'object' || clause === null) {
+    return false;
+  }
+
+  const record = clause as Record<string, unknown>;
+  if (
+    typeof record['field'] !== 'string' ||
+    typeof record['operator'] !== 'string' ||
+    typeof record['value'] !== 'string'
+  ) {
+    return false;
+  }
+
+  const field = fields.find(({ id }) => id === record['field']);
+  if (!field || !field.operators.includes(record['operator'] as FilterOp)) {
+    return false;
+  }
+
+  const expectedKeys = field.requiresKey ? ['field', 'operator', 'value', 'key'] : ['field', 'operator', 'value'];
+  const actualKeys = Object.keys(record).filter(
+    (key) => !(key === 'key' && !field.requiresKey && record[key] === undefined),
   );
+  if (actualKeys.some((key) => !expectedKeys.includes(key)) || actualKeys.length !== expectedKeys.length) {
+    return false;
+  }
+
+  if (field.requiresKey && (typeof record['key'] !== 'string' || record['key'].trim() === '')) {
+    return false;
+  }
+
+  const typedClause = record as unknown as FilterClause;
+  if (!isClauseComplete(typedClause)) {
+    return false;
+  }
+
+  if (field.valueInput === 'number' && !Number.isFinite(Number(typedClause.value))) {
+    return false;
+  }
+
+  return field.valueInput !== 'select' || Boolean(field.options?.some(({ value }) => value === typedClause.value));
+};
 
 /**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the

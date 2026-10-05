@@ -181,6 +181,7 @@ describe('TracesV4PageContent (interactions)', () => {
 
   describe('URL preservation (v3-compatible params)', () => {
     test('a full deep-link drives the correct initial request and the params survive on the URL', async () => {
+      const filters = JSON.stringify([{ field: 'duration', operator: '>', value: '100' }]);
       state.pages = {
         // page=2 needs a reachable cursor; but the token cache is memory-only, so on a fresh load the
         // stale-page recovery resets to page 1 (documented behavior). The request assertions below
@@ -188,7 +189,9 @@ describe('TracesV4PageContent (interactions)', () => {
         '': { traces: makeTraces(3), next_page_token: undefined },
       };
       renderPage({
-        initialUrl: `${URL}?q=hello&pageSize=100&sort=duration&dir=asc&startTimeLabel=LAST_7_DAYS&tag=env%3Dprod`,
+        initialUrl: `${URL}?q=hello&pageSize=100&sort=duration&dir=asc&startTimeLabel=LAST_7_DAYS&tag=env%3Dprod&filters=${encodeURIComponent(
+          filters,
+        )}`,
       });
       await findTraceRow('tr-000');
 
@@ -196,6 +199,7 @@ describe('TracesV4PageContent (interactions)', () => {
       // Search → ILIKE; tag → compiled tags clause; time-range label → ms bounds on timestamp_ms.
       expect(firstCall.filter).toContain("trace.text ILIKE '%hello%'");
       expect(firstCall.filter).toContain("tags.env = 'prod'");
+      expect(firstCall.filter).toContain('attributes.execution_time_ms > 100');
       expect(firstCall.filter).toContain('attributes.timestamp_ms >');
       expect(firstCall.filter).toContain('attributes.timestamp_ms <');
       // Sort → order_by; pageSize → max_results.
@@ -210,6 +214,7 @@ describe('TracesV4PageContent (interactions)', () => {
       expect(search.get('dir')).toBe('asc');
       expect(search.get('startTimeLabel')).toBe('LAST_7_DAYS');
       expect(search.getAll('tag')).toContain('env=prod');
+      expect(search.get('filters')).toBe(filters);
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
     test('the shared v3 CUSTOM time bounds are honored on mount and preserved across an in-tab action', async () => {

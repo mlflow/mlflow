@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
 import { act, renderHook } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
+import { FilterOp } from '@databricks/web-shared/traces-table';
 import { useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import {
   setupTestRouter,
@@ -27,18 +29,20 @@ describe('useTracesV4UrlState', () => {
     lastSearch = '';
     const result = renderHook(() => useTracesV4UrlState(), {
       wrapper: ({ children }) => (
-        <TestRouter
-          history={history}
-          initialEntries={[initialUrl]}
-          routes={[
-            testRoute(
-              <>
-                <LocationSpy />
-                <div>{children}</div>
-              </>,
-            ),
-          ]}
-        />
+        <IntlProvider locale="en">
+          <TestRouter
+            history={history}
+            initialEntries={[initialUrl]}
+            routes={[
+              testRoute(
+                <>
+                  <LocationSpy />
+                  <div>{children}</div>
+                </>,
+              ),
+            ]}
+          />
+        </IntlProvider>
       ),
     });
     await waitForRoutesToBeRendered();
@@ -69,6 +73,146 @@ describe('useTracesV4UrlState', () => {
     expect(result.current.dir).toBe('desc');
     expect(result.current.traceId).toBeUndefined();
     expect(result.current.isGroupedBySession).toBe(false);
+    expect(result.current.filterModel).toEqual([]);
+  });
+
+  describe('structured filters', () => {
+    test('reads a valid JSON filter model from the URL', async () => {
+      const filters = encodeURIComponent(
+        JSON.stringify([
+          { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+          { field: 'metadata', key: 'region', operator: FilterOp.CONTAINS, value: 'west' },
+        ]),
+      );
+      const { result } = await mountHook(`/p?filters=${filters}`);
+
+      expect(result.current.filterModel).toEqual([
+        { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+        { field: 'metadata', key: 'region', operator: FilterOp.CONTAINS, value: 'west' },
+      ]);
+    });
+
+    test.each([
+      ['malformed JSON', '{'],
+      ['non-array JSON', JSON.stringify({ field: 'state' })],
+      ['unknown field', JSON.stringify([{ field: 'unknown', operator: '=', value: 'x' }])],
+      ['unknown operator', JSON.stringify([{ field: 'state', operator: 'BETWEEN', value: 'ERROR' }])],
+      ['operator unsupported by the field', JSON.stringify([{ field: 'state', operator: '!=', value: 'ERROR' }])],
+      ['non-string value', JSON.stringify([{ field: 'duration', operator: '=', value: 100 }])],
+      ['blank value', JSON.stringify([{ field: 'state', operator: '=', value: ' ' }])],
+      ['non-finite numeric value', JSON.stringify([{ field: 'duration', operator: '=', value: 'Infinity' }])],
+      ['unknown select value', JSON.stringify([{ field: 'state', operator: '=', value: 'UNKNOWN' }])],
+      ['missing required key', JSON.stringify([{ field: 'metadata', operator: '=', value: 'west' }])],
+      ['blank required key', JSON.stringify([{ field: 'metadata', key: ' ', operator: '=', value: 'west' }])],
+      ['key on a keyless field', JSON.stringify([{ field: 'state', key: 'status', operator: '=', value: 'ERROR' }])],
+      ['unknown clause property', JSON.stringify([{ field: 'state', operator: '=', value: 'ERROR', extra: true }])],
+    ])('ignores %s', async (_name, raw) => {
+      const { result } = await mountHook(`/p?filters=${encodeURIComponent(raw)}`);
+      expect(result.current.filterModel).toEqual([]);
+    });
+
+    test('writes filters, resets pagination, and removes the param when cleared', async () => {
+      const { result } = await mountHook('/p?page=4');
+      const filters = [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }];
+
+      act(() => result.current.setFilterModel(filters));
+      expect(JSON.parse(param('filters') ?? '')).toEqual(filters);
+      expect(param('page')).toBeNull();
+
+      act(() => result.current.setFilterModel([]));
+      expect(param('filters')).toBeNull();
+    });
+
+    test('writes a keyless filter emitted by the filter popover', async () => {
+      const { result } = await mountHook('/p');
+      const filter = {
+        field: 'duration',
+        operator: FilterOp.GREATER_THAN,
+        value: '100',
+        key: undefined,
+      };
+
+      act(() => result.current.setFilterModel([filter]));
+
+      expect(JSON.parse(param('filters') ?? '')).toEqual([
+        { field: 'duration', operator: FilterOp.GREATER_THAN, value: '100' },
+      ]);
+    });
+
+    test.each(['assessment', 'expectation'])(
+      'round-trips a freeform %s key without candidate options',
+      async (field) => {
+        const { result } = await mountHook('/p');
+        const filter = {
+          field,
+          key: 'custom.judge',
+          operator: FilterOp.EQUALS,
+          value: 'yes',
+        };
+
+        act(() => result.current.setFilterModel([filter]));
+
+        expect(JSON.parse(param('filters') ?? '')).toEqual([filter]);
+        expect(result.current.filterModel).toEqual([filter]);
+      },
+    );
+
+    test('keeps valid clauses when another draft clause is incomplete', async () => {
+      const { result } = await mountHook('/p?page=4');
+      const valid = { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' };
+
+      act(() =>
+        result.current.setFilterModel([valid, { field: 'duration', operator: FilterOp.GREATER_THAN, value: '' }]),
+      );
+
+      expect(JSON.parse(param('filters') ?? '')).toEqual([valid]);
+      expect(param('page')).toBeNull();
+    });
+
+    test('writes an explicit empty marker when filters are cleared from an active view', async () => {
+      const filters = encodeURIComponent(
+        JSON.stringify([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]),
+      );
+      const { result } = await mountHook(`/p?traceViewShareKey=v1&filters=${filters}`);
+
+      act(() => result.current.setFilterModel([]));
+
+      expect(param('filters')).toBe('[]');
+      expect(param('traceViewShareKey')).toBe('v1');
+    });
+
+    test('atomically replaces structured and tag filters', async () => {
+      const { result } = await mountHook('/p?page=3&tag=env%3Dprod');
+      const filters = [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }];
+
+      act(() => result.current.setFilterState(filters, [{ key: 'team', value: 'ml' }]));
+      expect(JSON.parse(param('filters') ?? '')).toEqual(filters);
+      expect(new URLSearchParams(lastSearch).getAll('tag')).toEqual(['team=ml']);
+      expect(param('page')).toBeNull();
+    });
+
+    test('keeps the parsed model referentially stable while the URL is unchanged', async () => {
+      const filters = encodeURIComponent(
+        JSON.stringify([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]),
+      );
+      const { result, rerender } = await mountHook(`/p?filters=${filters}`);
+      const first = result.current.filterModel;
+
+      rerender();
+
+      expect(result.current.filterModel).toBe(first);
+    });
+
+    test('survives opening and closing the trace drawer', async () => {
+      const filters = [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }];
+      const { result } = await mountHook(`/p?filters=${encodeURIComponent(JSON.stringify(filters))}`);
+
+      act(() => result.current.setTraceId('tr-1'));
+      expect(JSON.parse(param('filters') ?? '')).toEqual(filters);
+
+      act(() => result.current.setTraceId(undefined));
+      expect(JSON.parse(param('filters') ?? '')).toEqual(filters);
+    });
   });
 
   test('reads and writes session grouping while resetting pagination', async () => {

@@ -5,7 +5,7 @@ import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/co
 /**
  * Pure serialization for V4 saved views.
  *
- * Most V4 view state is URL-first: search, sort, page size, tag filters and the time range all live
+ * Most V4 view state is URL-first: search, sort, page size, filters and the time range all live
  * in the URL, so a view is largely a snapshot of the URL search string (minus the transient
  * page/traceId/share-key params). The one piece that ISN'T in the URL — column visibility — is
  * stored in the envelope under the `cols` key and, on open, restored into the user's column store
@@ -19,6 +19,7 @@ import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/co
 // separate `sort`+`dir` params, so a V4 list must never show a V3 or runs view (and vice-versa).
 export const TRACE_V4_SAVED_VIEW_TAG_PREFIX = 'mlflow.tracesV4ViewState.';
 export const TRACE_V4_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
+export const TRACE_V4_FILTERS_PARAM_KEY = 'filters';
 
 // The `cols` param carries column visibility AND order (the only view state not otherwise in the
 // URL). The captured list is the visible columns — standard AND assessment (`assessment:*`) ids — in
@@ -48,8 +49,8 @@ const MULTI_VALUE_KEYS = ['tag'] as const;
 export interface CapturedV4ViewState {
   single: Partial<Record<(typeof SINGLE_VALUE_KEYS)[number] | typeof TRACE_V4_COLS_PARAM_KEY, string>>;
   multi: Partial<Record<(typeof MULTI_VALUE_KEYS)[number], string[]>>;
-  // The popover filter clauses (React state, not URL-backed), captured so a saved view restores the
-  // exact filter model the user had applied. Absent in older stored views; restored through a
+  // The popover filter clauses, captured so a saved view restores the exact filter model the user
+  // had applied. Absent in older stored views; restored through a
   // validation pass (see `isSupportedFilterClause`) so a clause referencing a since-removed
   // field/operator is dropped rather than silently producing wrong results.
   filters?: TraceFilterModel;
@@ -74,20 +75,19 @@ export const getTraceV4SavedViewIdFromTagKey = (key: string): string | null => {
 };
 
 /**
- * Whether the URL carries any serialized view state. A genuine share link built by
- * {@link buildV4ViewQuery} always includes at least one of these; a bare or garbage share key has
- * none. Derived from the same key lists as the capture/build path so the two can't drift — callers
- * use this to decide whether a share key is actually previewing a view. Presence is `!== null`, not
- * truthiness, so an empty-string value (e.g. `q=`) still counts as a captured value.
+ * Whether the URL carries serialized view state beyond the share key. Presence is `!== null`, not
+ * truthiness, so an empty-string value (e.g. `q=`) and an explicit empty filter model both count.
+ * The latter is meaningful: it records that filters were cleared instead of omitted by a legacy URL.
  */
 export const urlHasCapturedV4ViewState = (params: URLSearchParams): boolean =>
   SINGLE_VALUE_KEYS.some((key) => params.get(key) !== null) ||
-  MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0);
+  MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0) ||
+  params.get(TRACE_V4_FILTERS_PARAM_KEY) !== null;
 
 /**
  * Capture the current view: the whitelisted URL params, the live visible columns (which live in
  * localStorage, not the URL, so they're passed in rather than read from `params`), and the live
- * popover filter model (also React state, not URL-backed). The incoming URL's own `cols` / share
+ * popover filter model. The incoming URL's own `cols` / share
  * key are intentionally ignored so opening view A then saving view B never leaks A's columns or id
  * into B. An empty filter model is omitted so a filter-less view stays byte-identical to a legacy
  * one (and never spuriously reads as dirty against `filters ?? []`).
@@ -149,6 +149,11 @@ export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): st
   Object.entries(state.multi ?? {}).forEach(([key, values]) => {
     (values ?? []).forEach((value) => params.append(key, value));
   });
+  // Absence identifies legacy links whose filters may still need hydration. Preserve an explicitly
+  // captured empty model, but do not invent one when validation dropped every stored clause.
+  if (state.filters !== undefined) {
+    params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(state.filters));
+  }
   params.set(TRACE_V4_SHARE_URL_PARAM_KEY, viewId);
   return params.toString();
 };

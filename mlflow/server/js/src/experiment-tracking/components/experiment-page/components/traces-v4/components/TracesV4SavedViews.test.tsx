@@ -12,7 +12,12 @@ import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/ho
 import { encodeSavedViewEnvelope } from '../../../utils/savedViewEnvelope';
 import { textCompressDeflate, textDecompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
-import { TRACE_V4_SHARE_URL_PARAM_KEY, buildV4ViewQuery, captureV4ViewState } from '../utils/tracesV4SavedViewState';
+import {
+  TRACE_V4_FILTERS_PARAM_KEY,
+  TRACE_V4_SHARE_URL_PARAM_KEY,
+  buildV4ViewQuery,
+  captureV4ViewState,
+} from '../utils/tracesV4SavedViewState';
 import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () => ({
@@ -87,7 +92,6 @@ const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => 
     filterModel: [],
     setColumns: buttonSetColumns,
     resetColumns: jest.fn(),
-    setFilterModel: jest.fn(),
     customVisibility: {},
     setCustomVisibility: buttonSetCustomVisibility,
   });
@@ -317,6 +321,26 @@ describe('TracesV4SavedViewsButton', () => {
     infoSpy.mockRestore();
   });
 
+  test('copy-link omits the filter marker when every stored clause is unsupported', async () => {
+    mockExperiment([
+      await makeV4ViewTag(
+        'invalid-filters',
+        'Invalid filters',
+        1000,
+        'q=x',
+        ['start_time'],
+        [{ field: 'state', operator: FilterOp.CONTAINS, value: 'ERROR' }],
+      ),
+    ]);
+    renderButtonAt();
+    await openDropdown();
+    await userEvent.click(screen.getByTestId('trace-v4-saved-views-copy-link-invalid-filters'));
+    await waitFor(() => expect(mockCopyToClipboard).toHaveBeenCalled());
+
+    const copied = mockCopyToClipboard.mock.calls[0][0];
+    expect(new URLSearchParams(copied.split('?')[1]).get(TRACE_V4_FILTERS_PARAM_KEY)).toBeNull();
+  });
+
   test('save→open round-trips the full captured state (all whitelisted params + cols)', async () => {
     // Save from a rich URL, then decode the written tag and confirm every whitelisted param survives
     // the compress→decompress round trip (not just q/sort).
@@ -347,7 +371,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
   const setColumnOrder = jest.fn();
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
   // router's state (TestRouter never touches window.location.hash) after a param rewrite.
-  const setFilterModel = jest.fn();
   const setAssessmentVisibility = jest.fn();
   const DirtyProbe = ({
     onRender,
@@ -364,7 +387,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       filterModel,
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel,
       assessmentVisibility,
       setAssessmentVisibility,
       setColumnOrder,
@@ -506,7 +528,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
         filterModel: [],
         setColumns,
         resetColumns: jest.fn(),
-        setFilterModel,
         setColumnOrder,
       });
       onRender(savedViews);
@@ -535,7 +556,7 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
   });
 
   test('opening a view restores its stored popover filter model', async () => {
-    // v1 stored with a state filter; opening it must push that clause into the live filter model.
+    // v1 stored with a state filter; opening it must serialize that clause into the URL.
     mockExperiment([
       await makeV4ViewTag(
         'v1',
@@ -547,11 +568,19 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       ),
     ]);
     let state: any;
-    renderProbeAt('/', (s) => (state = s));
+    let search = '';
+    renderProbeAt('/', (s, sp) => {
+      state = s;
+      search = sp;
+    });
     await act(async () => {
       await state.openView('v1');
     });
-    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
+    await waitFor(() =>
+      expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '')).toEqual([
+        { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+      ]),
+    );
   });
 
   test('a filter-model divergence from the stored view reads as dirty', async () => {
@@ -561,6 +590,57 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
     ]);
     await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
+  });
+
+  test('cold-load hydration preserves filters already present in the URL', async () => {
+    mockExperiment([
+      await makeV4ViewTag(
+        'v1',
+        'Known',
+        1000,
+        'q=x',
+        ['start_time'],
+        [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }],
+      ),
+    ]);
+    const liveFilters: TraceFilterModel = [{ field: 'duration', operator: FilterOp.GREATER_THAN, value: '100' }];
+    let state: any;
+    let search = '';
+    renderProbeAt(
+      `/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&filters=${encodeURIComponent(JSON.stringify(liveFilters))}`,
+      (s, sp) => {
+        state = s;
+        search = sp;
+      },
+      liveFilters,
+    );
+
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
+    expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '')).toEqual(liveFilters);
+  });
+
+  test('cold-load hydration migrates stored filters for a legacy link without a URL marker', async () => {
+    const storedFilters: TraceFilterModel = [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }];
+    mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'], storedFilters)]);
+    let search = '';
+
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (_state, sp) => {
+      search = sp;
+    });
+
+    await waitFor(() => expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '')).toEqual(storedFilters));
+  });
+
+  test('cold-load hydration respects an explicit empty filter marker', async () => {
+    const storedFilters: TraceFilterModel = [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }];
+    mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'], storedFilters)]);
+    let search = '';
+
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&filters=%5B%5D`, (_state, sp) => {
+      search = sp;
+    });
+
+    await waitFor(() => expect(new URLSearchParams(search).get('filters')).toBe('[]'));
   });
 
   test('overwriteView captures the live filter model into the rewritten tag', async () => {
@@ -592,11 +672,19 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       ),
     ]);
     let state: any;
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), []);
+    let search = '';
+    renderProbeAt(
+      `/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`,
+      (s, sp) => {
+        state = s;
+        search = sp;
+      },
+      [],
+    );
     await act(async () => {
       await state.openView('v1');
     });
-    expect(setFilterModel).toHaveBeenLastCalledWith([]);
+    await waitFor(() => expect(new URLSearchParams(search).get('filters')).toBeNull());
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
   });
 
@@ -624,7 +712,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
 
 describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
   const setColumns = jest.fn();
-  const setFilterModel = jest.fn();
   const V3Probe = ({ onRender }: { onRender: (s: any, search: string) => void }) => {
     const savedViews = useTracesV4SavedViews({
       experimentId: 'exp-1',
@@ -632,7 +719,6 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
       filterModel: [],
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel,
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
@@ -701,8 +787,10 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
     });
     // Columns restored into the user's store (V3 ids → V4 ids: request_time→start_time, request→input).
     expect(setColumns).toHaveBeenCalledWith(['start_time', 'input']);
-    // V3 filter[] → V4's in-memory popover model (not the URL-backed tag[]).
-    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: '=', value: 'ERROR' }]);
+    // V3 filter[] → V4's URL-backed structured filter model.
+    expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '')).toEqual([
+      { field: 'state', operator: '=', value: 'ERROR' },
+    ]);
   });
 
   test('overwriting a V3 view migrates it: writes a V4 tag (same id) and deletes the V3 tag', async () => {
@@ -777,7 +865,6 @@ describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
       filterModel: [],
       setColumns: jest.fn(),
       resetColumns: jest.fn(),
-      setFilterModel: jest.fn(),
     });
     return null;
   };
