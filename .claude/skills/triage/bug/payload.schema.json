@@ -7,7 +7,7 @@
   "required": ["label", "comment"],
   "properties": {
     "label": {
-      "description": "Outcome label from the issue type's instructions.",
+      "description": "Bug triage outcome label.",
       "type": "string",
       "enum": [
         "triage: reproduced",

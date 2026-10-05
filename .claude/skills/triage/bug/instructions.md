@@ -49,15 +49,16 @@ picking one.
 
 ## 4. Decide the verdict
 
-Pick exactly one, and use its label as the payload's `label`:
+Pick exactly one verdict, then use its matching label from `payload.schema.json` as the payload's
+`label`:
 
-| Verdict        | Label                    | When                                                                  |
-| -------------- | ------------------------ | --------------------------------------------------------------------- |
-| Reproduced     | `triage: reproduced`     | The bug exists at the current checkout.                               |
-| Already fixed  | `triage: already-fixed`  | The reported version reproduces it and the current checkout does not. |
-| Not reproduced | `triage: not-reproduced` | Neither reproduces it with the information given.                     |
-| Needs info     | `triage: needs-info`     | The issue is too incomplete to attempt a reproduction.                |
-| Skipped        | `triage: skipped`        | It needs resources the sandbox lacks.                                 |
+| Verdict        | When                                                                  |
+| -------------- | --------------------------------------------------------------------- |
+| Reproduced     | The bug exists at the current checkout.                               |
+| Already fixed  | The reported version reproduces it and the current checkout does not. |
+| Not reproduced | Neither reproduces it with the information given.                     |
+| Needs info     | The issue is too incomplete to attempt a reproduction.                |
+| Skipped        | It needs resources the sandbox lacks.                                 |
 
 ## 5. Comment
 

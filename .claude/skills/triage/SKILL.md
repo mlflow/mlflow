@@ -21,15 +21,11 @@ Each type has a subdirectory here, named after the type, holding:
 - `instructions.md`: the steps, labels, and comment template.
 - `payload.schema.json`: the payload's schema, including the labels the type may use.
 
-| Type  | Instructions                                 | Schema                                               |
-| ----- | -------------------------------------------- | ---------------------------------------------------- |
-| `bug` | [bug/instructions.md](./bug/instructions.md) | [bug/payload.schema.json](./bug/payload.schema.json) |
-
 Read `$type/instructions.md` and follow it. If `$type/` does not exist, the type is not supported
 yet: stop without writing a payload.
 
-To support a new type, add its subdirectory, add a row above, and let the workflow pass that
-type. Keep anything shared across types in this file.
+To support a new type, add its subdirectory and let the workflow pass that type. Keep anything
+shared across types in this file.
 
 ## Untrusted input
 
@@ -101,12 +97,12 @@ indefinitely.
 Create `$out_dir` first, then write `$out_dir/payload.json`:
 
 ```json
-{ "label": "triage: <outcome>", "comment": "<Markdown>" }
+{ "label": "<label from the type schema>", "comment": "<Markdown>" }
 ```
 
 Read `$type/payload.schema.json` before writing the payload; it defines the required fields and
-their constraints. `label` is the outcome label from the type's instructions, such as
-`triage: reproduced`. `comment` is the Markdown comment for the issue. It:
+their constraints. Choose `label` from its allowed values. `comment` is the Markdown comment for
+the issue. It:
 
 - Follows the type's template, written for a reader who has read the issue: lead with
   conclusions, not the investigation trail.
