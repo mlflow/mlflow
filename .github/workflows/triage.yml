@@ -236,8 +236,52 @@ jobs:
           fi
           # Templates apply these labels already; adding them again is a no-op.
           gh issue edit "$ISSUE_URL" --add-label "$labels"
+  rate_limit:
+    needs: [issue, label]
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    concurrency:
+      group: triage-rate-limit-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.actor }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          WORKFLOW_FILE: ${{ job.workflow_file_path }}
+          AUTHOR_ASSOCIATION: ${{ needs.issue.outputs.author_association }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo 'allowed=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          limit=5
+          case "$AUTHOR_ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) limit=30 ;;
+          esac
+          since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          workflow=${WORKFLOW_FILE##*/}
+          # Check the newest 100 issue runs by this actor.
+          count=$(
+            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100" \
+              | jq -er --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" \
+                '[.workflow_runs[] | select(.run_number < $current and .created_at >= $since)] | length'
+          )
+          if [ "$count" -ge "$limit" ]; then
+            echo 'allowed=false' >> "$GITHUB_OUTPUT"
+            echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes (limit: $limit)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'allowed=true' >> "$GITHUB_OUTPUT"
+          fi
   safety:
-    needs: issue
+    needs: [issue, rate_limit]
+    if: needs.rate_limit.outputs.allowed == 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -393,55 +437,13 @@ jobs:
           path: ${{ runner.temp }}/sanitized_issue.json
           if-no-files-found: error
           retention-days: 1
-  triage_gate:
+  triage:
     needs: [issue, label, safety]
-    # Triage any safety-approved issue from maintainers, regardless of type.
-    # Manual runs skip the author check since only users with write access can dispatch.
     if: >-
       needs.safety.outputs.decision == 'safe' &&
+      needs.label.outputs.type == 'bug' &&
       (github.event_name == 'workflow_dispatch' ||
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    permissions:
-      actions: read
-    concurrency:
-      group: triage-rate-limit-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.actor }}
-      cancel-in-progress: false
-      queue: max
-    outputs:
-      allowed: ${{ steps.check.outputs.allowed }}
-    steps:
-      - id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          WORKFLOW_FILE: ${{ job.workflow_file_path }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            echo 'allowed=true' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
-          workflow=${WORKFLOW_FILE##*/}
-          # The first page is enough: runs are newest first, and five matches block triage.
-          count=$(
-            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&per_page=100" \
-              | jq --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" \
-                '[.workflow_runs[] | select(.run_number < $current and .created_at >= $since)] | length'
-          )
-          if [ "$count" -ge 5 ]; then
-            echo 'allowed=false' >> "$GITHUB_OUTPUT"
-            echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'allowed=true' >> "$GITHUB_OUTPUT"
-          fi
-  triage:
-    needs: [label, triage_gate]
-    if: >-
-      needs.triage_gate.outputs.allowed == 'true' &&
-      needs.label.outputs.type == 'bug'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -485,13 +487,6 @@ jobs:
             run: |
               .claude/scripts/install-agent-browser.sh
               agent-browser --version
-          - id: gateway
-            uses: ./.github/actions/setup-gateway
-            with:
-              task: issue-triage
-              host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
-              client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
-              client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
       - id: build-cache-key
         uses: ./.github/actions/js-build-cache-key
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -504,6 +499,13 @@ jobs:
         run: |
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
           npm install -g @anthropic-ai/sandbox-runtime@0.0.77
+      - id: gateway
+        uses: ./.github/actions/setup-gateway
+        with:
+          task: issue-triage
+          host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
+          client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
       - name: Start gateway proxy
         env:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}

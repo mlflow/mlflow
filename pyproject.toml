@@ -504,6 +504,7 @@ tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/
 TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 indx = "indx"                      # intentional shorthand for index
 Tru = "Tru"                        # TruLens library name prefix
+Ded = "Ded"                        # "ANDed", i.e. combined with a logical AND
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]

@@ -265,6 +265,21 @@ async def test_chat_tool_calling_omits_function_call_id():
     assert function_call["args"] == {"location": "Singapore"}
 
 
+@pytest.mark.parametrize("tool_call_id", ["call_002", None])
+@pytest.mark.asyncio
+async def test_chat_tool_message_with_unmatched_tool_call_id_returns_422(tool_call_id):
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    if tool_call_id is None:
+        del payload["messages"][2]["tool_call_id"]
+    else:
+        payload["messages"][2]["tool_call_id"] = tool_call_id
+
+    with pytest.raises(AIGatewayException, match="does not match any tool call") as exc_info:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert exc_info.value.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_chat_tool_calling_preserves_thought_signature():
     provider = _make_provider()
