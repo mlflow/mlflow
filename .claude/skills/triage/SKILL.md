@@ -90,9 +90,8 @@ Only start the UI when the issue involves it.
      frontend dependencies and uses a temporary store) and use the frontend URL it prints.
 
 2. Wait until the UI responds to `curl --noproxy '*'`.
-3. Drive it with `agent-browser`: `open <url>`, `snapshot -i` for structure, and
-   `screenshot --full` with no filename. Screenshots land in `$out_dir/media`; embed one in the
-   comment as `![<what it shows>](<printed absolute path>)`. Only navigate to local MLflow URLs.
+3. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
+   interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs.
 
 If the server or browser fails to start, report the specific error instead of retrying
 indefinitely.

@@ -21,7 +21,7 @@ Trigger the bug in whatever form fits it: a CLI command, a short Python snippet,
 local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite
 store, tiny models and datasets, no external services. Put scratch files under
 `$out_dir/work`. For UI bugs, seed the data the page needs through the Python client, then
-follow "Running the UI" in `SKILL.md` and capture a screenshot of the symptom.
+follow "Running the UI" in `SKILL.md` and record the observed behavior.
 
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
@@ -79,7 +79,7 @@ nothing to say, except the verdict.
 Tested on MLflow <version and commit>, Python <version from `python --version`>, <OS>.
 
 <whatever a reader needs to see the bug themselves: the commands, scripts, or UI steps to
-run and the output or screenshot that shows the bug. Shape it to fit the bug, putting anything
+run and the output or observed behavior that shows the bug. Shape it to fit the bug, putting anything
 to run in code blocks.>
 
 ### Suggested fix
