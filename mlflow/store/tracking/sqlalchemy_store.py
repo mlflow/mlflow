@@ -10375,8 +10375,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 f"Ordering by reserved metadata '{key}' is not supported because it is "
                 "represented by multiple columns."
             )
+        needs_null_ordering = True
         if SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
+            needs_null_ordering = order_value.nullable
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
             order_value = SqlTraceInfo.trace_name
         elif (
@@ -10399,9 +10401,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             ordering_joins.append(subquery)
             order_value = subquery.c.value
 
-        case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
-        clauses.append(case.name)
-        select_clauses.append(case)
+        if needs_null_ordering:
+            case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
+            clauses.append(case.name)
+            select_clauses.append(case)
         select_clauses.append(order_value)
 
         if (key_type, key) in observed_order_by_clauses:
