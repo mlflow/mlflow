@@ -25,7 +25,7 @@ import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Literal
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -437,11 +437,6 @@ from mlflow.server.handlers import (
 from mlflow.server.job_api import search_jobs as _search_jobs_endpoint
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
-    MCPAccessEndpointResponse,
-    get_mcp_server_api_route_prefixes,
-    is_mcp_server_api_path,
-)
-from mlflow.server.mcp_server_api import (
     create_mcp_access_endpoint as _create_mcp_access_endpoint_endpoint,
 )
 from mlflow.server.mcp_server_api import (
@@ -450,6 +445,7 @@ from mlflow.server.mcp_server_api import (
 from mlflow.server.mcp_server_api import (
     get_mcp_server as _get_mcp_server_endpoint,
 )
+from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, is_mcp_server_api_path
 from mlflow.server.mcp_server_api import (
     search_all_access_endpoints as _search_all_access_endpoints_endpoint,
 )
@@ -3293,14 +3289,50 @@ def _scope_request(request_scoper: Callable[[dict[str, Any], str], None], userna
         request_scoper(request_json, username)
 
 
-def _scope_mcp_server_search_query(request: StarletteRequest, username: str) -> None:
+def _get_mcp_server_wildcard_search_scope(
+    username: str,
+) -> tuple[set[str], Literal["IN", "NOT IN"]]:
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return {""}, "IN"
+    user = store.get_user(username)
+    names_with_grants = {
+        name
+        for name, _permission in store.list_role_grants_for_user_in_workspace(
+            user.id, workspace_name, "mcp_server"
+        )
+        if name != "*"
+    }
+    can_read = _role_based_read_predicate(username, "mcp_server")
+    if can_read("*"):
+        return {name for name in names_with_grants if not can_read(name)}, "NOT IN"
+    return {name for name in names_with_grants if can_read(name)} or {""}, "IN"
+
+
+def _scope_mcp_server_search_query(
+    request: StarletteRequest,
+    username: str,
+    scope_key: str = "name",
+    state_key: str = "mlflow_scoped_mcp_server_filter",
+) -> None:
     readable_names = get_readable_resource_ids_for_user(username, "mcp_server")
     if readable_names is None:
-        return
+        scope_values, scope_comparator = _get_mcp_server_wildcard_search_scope(username)
+        if scope_comparator == "NOT IN" and not scope_values:
+            return
+    else:
+        can_read = _role_based_read_predicate(username, "mcp_server")
+        scope_values = {name for name in readable_names if can_read(name)} or {""}
+        scope_comparator = "IN"
     filter_string = request.query_params.get("filter_string")
-    names = readable_names or {""}
-    request.state.mlflow_scoped_mcp_server_filter = SearchFilterWithScope(
-        filter_string or "", "name", names
+    setattr(
+        request.state,
+        state_key,
+        SearchFilterWithScope(filter_string or "", scope_key, scope_values, scope_comparator),
     )
 
 
@@ -8288,36 +8320,6 @@ def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
         )
 
 
-def _backfill_readable_mcp_results(
-    can_read: Callable[[str], bool],
-    readable: list[dict[str, Any]],
-    max_results: int,
-    next_token: str | None,
-    fetch_page: Callable[[str | None], PagedList],
-    get_name: Callable[[Any], str],
-    to_dict: Callable[[Any], dict[str, Any]],
-) -> str | None:
-    while len(readable) < max_results and next_token:
-        start_offset = SearchUtils.parse_start_offset_from_page_token(next_token)
-        page = fetch_page(next_token)
-        if not page:
-            return None
-        consumed = 0
-        for item in page:
-            if len(readable) >= max_results:
-                break
-            consumed += 1
-            if can_read(get_name(item)):
-                readable.append(to_dict(item))
-        if consumed < len(page):
-            next_token = SearchUtils.create_page_token(start_offset + consumed)
-        else:
-            next_token = page.token
-        if isinstance(next_token, bytes):
-            next_token = next_token.decode("utf-8")
-    return next_token
-
-
 _MCP_VERSION_PASSENGER_FIELDS = ("resolved_version", "tools", "server_version", "server_alias")
 
 
@@ -8345,42 +8347,15 @@ def _withhold_denied_mcp_version_passengers_on_servers(
         _withhold_denied_mcp_version_passengers(server.get("access_endpoints", []), username)
 
 
-def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
-    data = json.loads(body)
-    can_read = _role_based_read_predicate(username, "mcp_server")
-    readable = [e for e in data.get("mcp_access_endpoints", []) if can_read(e["server_name"])]
-
-    params = request.query_params
-    max_results = int(params.get("max_results", 100))
-    filter_string = params.get("filter_string")
-    order_by = params.getlist("order_by") or None
-    server_version = params.get("server_version")
-    server_alias = params.get("server_alias")
-
-    data["next_page_token"] = _backfill_readable_mcp_results(
-        can_read=can_read,
-        readable=readable,
-        max_results=max_results,
-        next_token=data.get("next_page_token"),
-        fetch_page=lambda token: _get_tracking_store().search_mcp_access_endpoints(
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=token,
-            server_version=server_version,
-            server_alias=server_alias,
-        ),
-        get_name=lambda e: e.server_name,
-        to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
-    )
-    data["mcp_access_endpoints"] = readable[:max_results]
-    _withhold_denied_mcp_version_passengers(data["mcp_access_endpoints"], username)
-    return json.dumps(data).encode()
-
-
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     _withhold_denied_mcp_version_passengers_on_servers(data.get("mcp_servers", []), username)
+    return json.dumps(data).encode()
+
+
+def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    _withhold_denied_mcp_version_passengers(data.get("mcp_access_endpoints", []), username)
     return json.dumps(data).encode()
 
 
@@ -8844,12 +8819,23 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 _get_mcp_server_permission(name, user.username)
             )
 
-        if (
-            not user.is_admin
-            and request.method == "GET"
-            and path in get_mcp_server_api_route_prefixes()
-        ):
-            _scope_mcp_server_search_query(request, user.username)
+        if not user.is_admin and request.method == "GET":
+            if path in get_mcp_server_api_route_prefixes():
+                _scope_mcp_server_search_query(
+                    request,
+                    user.username,
+                    scope_key="name",
+                    state_key="mlflow_scoped_mcp_server_filter",
+                )
+            elif any(
+                path == f"{prefix}/endpoints" for prefix in get_mcp_server_api_route_prefixes()
+            ):
+                _scope_mcp_server_search_query(
+                    request,
+                    user.username,
+                    scope_key="server_name",
+                    state_key="mlflow_scoped_mcp_access_endpoint_filter",
+                )
 
         # Pre-read request body for after-request handlers that need it (the
         # body is cached by Starlette so the route handler can still read it).

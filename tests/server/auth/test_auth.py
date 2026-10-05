@@ -8345,6 +8345,127 @@ def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatc
     indirect=True,
 )
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_server_specific_deny(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    visible = "com.test/wildcard-visible"
+    denied = "com.test/wildcard-denied"
+
+    for name in (visible, denied):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": name},
+            auth=admin_auth,
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json=_version_create_body(name),
+            auth=admin_auth,
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+            auth=admin_auth,
+        ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", denied, "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert {endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]} == {
+        visible
+    }
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_wildcard_deny(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    name = "com.test/wildcard-denied"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": name},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+        json=_version_create_body(name),
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+        json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_access_endpoints"] == []
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_conflicting_exact_grants(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    name = "com.test/exact-denied"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": name},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+        json=_version_create_body(name),
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+        json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_access_endpoints"] == []
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_search_paginates_over_request_scoped_results(
     fastapi_client, monkeypatch, prefix
 ):

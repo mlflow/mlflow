@@ -619,6 +619,7 @@ def search_mcp_servers(
 # Static route — must be registered before /{name:path} routes
 @mcp_server_router.get("/endpoints", response_model=SearchMCPAccessEndpointsResponse)
 def search_all_access_endpoints(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
@@ -630,7 +631,9 @@ def search_all_access_endpoints(
 
     store = _get_tracking_store()
     results = store.search_mcp_access_endpoints(
-        filter_string=filter_string,
+        filter_string=getattr(
+            request.state, "mlflow_scoped_mcp_access_endpoint_filter", filter_string
+        ),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,

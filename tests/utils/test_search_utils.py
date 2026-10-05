@@ -87,6 +87,17 @@ def test_search_filter_with_scope_rejects_invalid_caller_filter(parser, scope_ke
         parser.parse_search_filter(SearchFilterWithScope(caller_filter, scope_key, {"1"}))
 
 
+def test_search_filter_with_scope_supports_not_in():
+    scoped_filter = SearchFilterWithScope(
+        "server_name = 'visible'", "server_name", {"denied"}, "NOT IN"
+    )
+
+    assert SearchMCPAccessEndpointUtils.parse_search_filter(scoped_filter) == [
+        {"type": "attribute", "key": "server_name", "comparator": "=", "value": "visible"},
+        {"type": "attribute", "key": "server_name", "comparator": "NOT IN", "value": ("denied",)},
+    ]
+
+
 @pytest.mark.parametrize(
     ("filter_string", "parsed_filter"),
     [

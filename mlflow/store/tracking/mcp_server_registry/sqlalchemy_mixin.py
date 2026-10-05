@@ -764,10 +764,19 @@ class SqlAlchemyMCPServerRegistryMixin:
                 server_alias=server_alias,
             )
             if filter_string:
-                query = _apply_mcp_access_endpoint_filter(query, filter_string, self._get_dialect())
+                query = _apply_mcp_access_endpoint_filter(
+                    query, filter_string, self._get_dialect(), session
+                )
             order_clauses = _parse_search_mcp_access_endpoints_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            endpoints = [e.to_mlflow_entity() for e in query.all()]
+            endpoints = [
+                endpoint.to_mlflow_entity()
+                for endpoint in session
+                .execute(_get_sqlite_safe_statement(query.statement, session))
+                .unique()
+                .scalars()
+                .all()
+            ]
             next_token = None
             if len(endpoints) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
@@ -1351,7 +1360,7 @@ def _apply_mcp_server_filter(query, filter_string, dialect, session):
     return query
 
 
-def _apply_mcp_access_endpoint_filter(query, filter_string, dialect):
+def _apply_mcp_access_endpoint_filter(query, filter_string, dialect, session):
     parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
     for f in parsed:
         type_ = f["type"]
@@ -1369,7 +1378,19 @@ def _apply_mcp_access_endpoint_filter(query, filter_string, dialect):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         attr = SqlMCPServerVersion.status if key == "status" else getattr(SqlMCPAccessEndpoint, key)
-        query = query.filter(SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value))
+        if (
+            dialect == SQLITE
+            and comparator in ("IN", "NOT IN")
+            and isinstance(value, tuple)
+            and len(value) > _SQLITE_LARGE_IN_THRESHOLD
+        ):
+            # Bind the values as one JSON array to avoid SQLite's host-parameter limit.
+            in_filter = attr.in_(_get_large_sqlite_in_subquery(session, value))
+            query = query.filter(~in_filter if comparator == "NOT IN" else in_filter)
+        else:
+            query = query.filter(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            )
     return query
 
 
