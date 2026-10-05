@@ -494,6 +494,21 @@ def test_search_evaluation_datasets_name_in_is_workspace_scoped(workspace_tracki
             assert results.token is None
 
 
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_search_evaluation_datasets_name_list_requires_in(
+    workspace_tracking_store, comparator, names
+):
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            with pytest.raises(
+                MlflowException,
+                match="List values for 'name' are only supported with the IN comparator",
+                check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+            ):
+                workspace_tracking_store.search_datasets(filter_string=f"name {comparator} {names}")
+
+
 def test_search_datasets_public_api_is_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         exp_a_id = workspace_tracking_store.create_experiment("search-exp-a")

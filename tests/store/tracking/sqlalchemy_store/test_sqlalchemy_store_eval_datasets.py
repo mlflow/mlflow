@@ -290,6 +290,17 @@ def test_dataset_search_name_in(store, filter_string, expected_names):
     assert [dataset.name for dataset in results] == expected_names
 
 
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_dataset_search_name_list_requires_in(store, comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_datasets(filter_string=f"name {comparator} {names}")
+
+
 def test_dataset_search_name_in_with_experiment_filter_and_pagination(store):
     exp_a, exp_b = _create_experiments(store, ["exp-a", "exp-b"])
     for name, experiment_id in [

@@ -181,6 +181,17 @@ def test_evaluation_dataset_name_in_filter():
     ]
 
 
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_evaluation_dataset_name_list_requires_in(comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+    ):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"name {comparator} {names}")
+
+
 @pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
 def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
     with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):

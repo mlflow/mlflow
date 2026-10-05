@@ -2438,6 +2438,15 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     LIST_SUPPORTED_KEYS = frozenset({"name"})
 
     @classmethod
+    def _get_comparison(cls, comparison):
+        comp = super()._get_comparison(comparison)
+        if isinstance(comp["value"], tuple) and comp["comparator"] != "IN":
+            raise MlflowException.invalid_parameter_value(
+                "List values for 'name' are only supported with the IN comparator."
+            )
+        return comp
+
+    @classmethod
     def _invalid_statement_token(cls, token):
         if (
             isinstance(token, Comparison)
