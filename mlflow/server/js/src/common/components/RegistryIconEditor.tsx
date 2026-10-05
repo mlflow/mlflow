@@ -163,14 +163,10 @@ const IconRow = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  // Edits stay local until blur. Prop changes are picked up here rather than by remounting the row,
-  // so a pending edit can't swallow a click on its Remove button.
-  const [localSrc, setLocalSrc] = useState(icon.src);
-  const [syncedSrc, setSyncedSrc] = useState(icon.src);
-  if (icon.src !== syncedSrc) {
-    setSyncedSrc(icon.src);
-    setLocalSrc(icon.src);
-  }
+  // An edit stays a draft until blur commits it; otherwise the input shows the committed URL, so prop
+  // changes need no syncing and the row never remounts under a pending click on Remove.
+  const [draftSrc, setDraftSrc] = useState<string>();
+  const src = draftSrc ?? icon.src;
   const removeLabel = intl.formatMessage({
     defaultMessage: 'Remove icon',
     description: 'Registry icon editor label for removing an icon',
@@ -182,17 +178,19 @@ const IconRow = ({
         <div css={{ flex: 1 }}>
           <Input
             componentId={`${componentId}.url`}
-            value={localSrc}
-            onChange={(event) => setLocalSrc(event.target.value)}
+            value={src}
+            onChange={(event) => setDraftSrc(event.target.value)}
             onBlur={() => {
-              if (localSrc !== icon.src) onChangeSrc(index, localSrc);
+              if (draftSrc === undefined) return;
+              if (draftSrc !== icon.src) onChangeSrc(index, draftSrc);
+              setDraftSrc(undefined);
             }}
             placeholder={placeholder}
             aria-label={intl.formatMessage(
               { defaultMessage: 'Icon URL {number}', description: 'Registry icon editor label for an icon URL' },
               { number: index + 1 },
             )}
-            validationState={localSrc.trim() ? undefined : 'error'}
+            validationState={src.trim() ? undefined : 'error'}
           />
         </div>
         <SimpleSelect
@@ -219,7 +217,7 @@ const IconRow = ({
           </Button>
         </Tooltip>
       </div>
-      {!localSrc.trim() ? (
+      {!src.trim() ? (
         <FormUI.Message
           type="error"
           message={
