@@ -225,8 +225,8 @@ jobs:
             type="${CLASSIFIED_TYPE:-unknown}"
           fi
           case "$type" in
-            ui_bug) labels="bug,area/uiux" ;;
-            bug | setup_bug) labels="bug" ;;
+            ui_bug) labels="bug,area/uiux"; type=bug ;;
+            bug | setup_bug) labels="bug"; type=bug ;;
             feature_request) labels="enhancement" ;;
             doc_fix) labels="bug,area/docs" ;;
             *) type=unknown ;;
