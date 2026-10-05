@@ -4,9 +4,11 @@ import sys
 from unittest import mock
 
 import pytest
+import requests
 from requests.adapters import HTTPAdapter
 
-from mlflow.utils import request_utils
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
+from mlflow.utils import file_utils, request_utils
 from mlflow.utils.request_utils import (
     TCPKeepAliveHTTPAdapter,
     _build_socket_options,
@@ -96,6 +98,87 @@ def test_download_chunk_verify(tmp_path, verify):
             assert mock_http_request.call_args.kwargs.get("verify") is verify
         else:
             assert "verify" not in mock_http_request.call_args.kwargs
+
+
+@pytest.mark.parametrize("range_start", [0, 4])
+@pytest.mark.parametrize("content", [b"ab", b"abcdefgh"])
+def test_download_chunk_rejects_wrong_length(tmp_path, range_start, content):
+    response = requests.Response()
+    response.status_code = 200
+    response._content = content
+    download_path = tmp_path / "artifact"
+    download_path.write_bytes(b"01234567")
+    with mock.patch.object(request_utils, "cloud_storage_http_request", return_value=response):
+        with pytest.raises(OSError, match="Unexpected chunk length"):
+            request_utils.download_chunk(
+                range_start=range_start,
+                range_end=range_start + 3,
+                headers={},
+                download_path=download_path,
+                http_uri="https://example.com/artifact",
+            )
+    assert download_path.read_bytes() == b"01234567"
+
+
+def test_download_chunk_writes_requested_range(tmp_path):
+    response = requests.Response()
+    response.status_code = 206
+    response._content = b"abcd"
+    download_path = tmp_path / "artifact"
+    download_path.write_bytes(b"01234567")
+    with mock.patch.object(request_utils, "cloud_storage_http_request", return_value=response):
+        request_utils.download_chunk(
+            range_start=4,
+            range_end=7,
+            headers={},
+            download_path=download_path,
+            http_uri="https://example.com/artifact",
+        )
+    assert download_path.read_bytes() == b"0123abcd"
+
+
+@pytest.mark.parametrize("uri_type", [None, ArtifactCredentialType.GCP_SIGNED_URL])
+def test_parallelized_download_preserves_full_response_fallback(tmp_path, uri_type):
+    response = requests.Response()
+    response.status_code = 200
+    response.headers = {"Content-Type": "text/plain"}
+    response._content = b"abcdefgh"
+    download_path = tmp_path / "artifact"
+    executor = mock.MagicMock()
+    with mock.patch.object(request_utils, "cloud_storage_http_request", return_value=response):
+        failed_downloads = file_utils.parallelized_download_file_using_http_uri(
+            thread_pool_executor=executor,
+            http_uri="https://example.com/artifact",
+            download_path=download_path,
+            remote_file_path="artifact",
+            file_size=8,
+            uri_type=uri_type,
+            chunk_size=4,
+            env={},
+            headers={},
+        )
+    assert failed_downloads == {}
+    assert download_path.read_bytes() == b"abcdefgh"
+    executor.submit.assert_not_called()
+
+
+def test_download_chunk_full_response_not_allowed_after_first_chunk(tmp_path):
+    response = requests.Response()
+    response.status_code = 200
+    response._content = b"abcdefgh"
+    download_path = tmp_path / "artifact"
+    download_path.write_bytes(b"01234567")
+    with mock.patch.object(request_utils, "cloud_storage_http_request", return_value=response):
+        with pytest.raises(OSError, match="Unexpected chunk length"):
+            request_utils.download_chunk(
+                range_start=4,
+                range_end=7,
+                headers={},
+                download_path=download_path,
+                http_uri="https://example.com/artifact",
+                allow_full_response=True,
+            )
+    assert download_path.read_bytes() == b"01234567"
 
 
 @pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])

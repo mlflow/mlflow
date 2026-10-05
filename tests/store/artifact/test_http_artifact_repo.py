@@ -4,7 +4,7 @@ import shutil
 from unittest import mock
 
 import pytest
-from requests import HTTPError
+from requests import HTTPError, Response
 
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
@@ -766,6 +766,34 @@ def test_multipart_download_creates_chunks(http_artifact_repo, tmp_path, monkeyp
     assert sorted_calls[0] == (0, 99)
     assert sorted_calls[1] == (100, 199)
     assert sorted_calls[2] == (200, 249)
+
+
+def test_multipart_download_rejects_ignored_range(http_artifact_repo, tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
+    payload = b"0123456789abcdef"
+    presigned_response = PresignedDownloadUrlResponse(
+        url="https://example.com/artifact", headers={}, file_size=len(payload)
+    )
+
+    def full_response(*args, **kwargs):
+        response = Response()
+        response.status_code = 200
+        response._content = payload
+        return response
+
+    file_path = tmp_path / "artifact"
+    with mock.patch(
+        "mlflow.utils.request_utils.cloud_storage_http_request", side_effect=full_response
+    ):
+        with pytest.raises(MlflowException, match="all retries exhausted"):
+            http_artifact_repo._multipart_download(
+                presigned_response=presigned_response,
+                remote_file_path="artifact",
+                local_path=str(file_path),
+                file_size=len(payload),
+                chunk_size=8,
+            )
+    assert not file_path.exists()
 
 
 @pytest.mark.parametrize(

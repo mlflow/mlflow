@@ -115,7 +115,16 @@ def augmented_raise_for_status(response):
             raise e
 
 
-def download_chunk(*, range_start, range_end, headers, download_path, http_uri, verify=None):
+def download_chunk(
+    *,
+    range_start,
+    range_end,
+    headers,
+    download_path,
+    http_uri,
+    verify=None,
+    allow_full_response=False,
+):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
 
     request_kwargs = {}
@@ -140,9 +149,18 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri, 
                         actual_length, expected_length - actual_length
                     )
                 )
+        augmented_raise_for_status(response)
+        expected_chunk_length = range_end - range_start + 1
+        actual_chunk_length = len(response.content)
+        if actual_chunk_length != expected_chunk_length and not (
+            allow_full_response and range_start == 0 and actual_chunk_length > expected_chunk_length
+        ):
+            raise OSError(
+                f"Unexpected chunk length for bytes {range_start}-{range_end}: "
+                f"expected {expected_chunk_length}, received {actual_chunk_length}"
+            )
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
-        augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
             f.write(response.content)

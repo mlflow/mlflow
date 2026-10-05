@@ -578,6 +578,7 @@ def parallelized_download_file_using_http_uri(
             headers=headers,
             download_path=download_path,
             http_uri=http_uri,
+            allow_full_response=True,
         )
         downloaded_size = os.path.getsize(download_path)
         # If downloaded size was equal to the chunk size it would have been downloaded serially,
