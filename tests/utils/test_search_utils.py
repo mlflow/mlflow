@@ -1132,16 +1132,19 @@ def test_search_trace_utils_treats_malformed_trace_analytics_as_missing():
         trace("invalid-json", 3, "{", "{"),
         trace("array", 2, "[]", "[]"),
         trace("scalar", 1, "1", "null"),
+        trace("zero-scalar", 4, "0", "0"),
     ]
 
     assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["total_tokens ASC"])] == [
         "valid",
+        "zero-scalar",
         "invalid-json",
         "array",
         "scalar",
     ]
     assert [t.trace_id for t in SearchTraceUtils.sort(traces, ["total_cost DESC"])] == [
         "valid",
+        "zero-scalar",
         "invalid-json",
         "array",
         "scalar",

@@ -10540,11 +10540,11 @@ def _get_orderby_clauses_for_search_traces(
                 numeric_order_value = sql.case(
                     (has_categorical_value == 0, latest_feedback.c.aggregate_value),
                     else_=None,
-                )
+                ).label(f"clause_{clause_id}_numeric")
                 categorical_order_value = sql.case(
                     (has_categorical_value != 0, categorical_feedback_order_value),
                     else_=None,
-                )
+                ).label(f"clause_{clause_id}_categorical")
                 order_values = [numeric_order_value, categorical_order_value]
                 reverse_order_value_directions = [False, False]
             else:

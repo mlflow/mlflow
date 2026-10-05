@@ -2218,7 +2218,7 @@ class SearchTraceUtils(SearchUtils):
     @staticmethod
     def _trace_analytics_value(trace, metadata_key, item_key, converter):
         raw_value = trace.trace_metadata.get(metadata_key)
-        if not raw_value:
+        if raw_value is None:
             return None
         try:
             parsed_value = json.loads(raw_value)

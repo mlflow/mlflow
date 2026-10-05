@@ -1,5 +1,6 @@
 import { type SortDirection, type TraceSortColumnId } from '@databricks/web-shared/traces-table';
 import { isV4TraceId, parseV4TraceId } from '@databricks/web-shared/model-trace-explorer';
+import { ASSESSMENT_COLUMN_ID_PREFIX } from './assessmentColumns';
 
 /** A canonical trace-id token, e.g. `tr-1234…`. Matched case-insensitively for the indexed fast path. */
 const TRACE_ID_PATTERN = /^tr-[0-9a-f]{32}$/i;
@@ -121,8 +122,8 @@ export const buildFilter = ({ searchQuery, timeRange, extraClauses }: BuildFilte
  */
 export const buildOrderBy = (sort: TraceSortColumnId, dir: SortDirection): string[] | undefined => {
   const direction = dir === 'asc' ? 'ASC' : 'DESC';
-  if (sort.startsWith('assessment:')) {
-    const name = sort.slice('assessment:'.length).replaceAll('`', '``');
+  if (sort.startsWith(ASSESSMENT_COLUMN_ID_PREFIX)) {
+    const name = sort.slice(ASSESSMENT_COLUMN_ID_PREFIX.length).replaceAll('`', '``');
     return name ? [`feedback.\`${name}\` ${direction}`] : undefined;
   }
   switch (sort) {
