@@ -11,7 +11,7 @@
       "type": "string",
       "enum": [
         "triage: reproduced",
-        "triage: fixed",
+        "triage: already-fixed",
         "triage: not-reproduced",
         "triage: needs-info",
         "triage: skipped"
