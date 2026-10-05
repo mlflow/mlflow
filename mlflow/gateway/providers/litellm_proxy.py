@@ -12,14 +12,15 @@ class LiteLLMProxyProvider(OpenAICompatibleProvider):
     A LiteLLM Proxy exposes an OpenAI-compatible chat API plus a TypeSafe Jev decisions
     route at ``/typesafe/v1/systemone``. Unlike the SDK-based ``litellm`` provider, this
     one HTTP-forwards to the proxy, so it can reach the System One route that the SDK
-    cannot. ``api_base`` must point at the proxy (e.g. ``http://my-proxy:4000/v1``); there
-    is no public default.
+    cannot. This provider is System One only -- chat through a LiteLLM Proxy is served by
+    the SDK-based ``litellm`` provider. ``api_base`` must point at the proxy root (e.g.
+    ``http://my-proxy:4000``, without a ``/v1`` suffix, since the System One route is
+    served at the proxy root); there is no public default.
     """
 
     DISPLAY_NAME = "LiteLLM Proxy"
     CONFIG_TYPE = _OpenAICompatibleConfig
     PASSTHROUGH_PROVIDER_PATHS = {
-        **OpenAICompatibleProvider.PASSTHROUGH_PROVIDER_PATHS,
         PassthroughAction.TYPESAFE_SYSTEM_ONE: "typesafe/v1/systemone",
     }
 
@@ -46,8 +47,10 @@ class LiteLLMProxyProvider(OpenAICompatibleProvider):
                 detail="TypeSafe System One does not support streaming.",
             )
 
-        # System One is a typed route, not a raw proxy. Do not forward caller headers.
-        return await super()._passthrough(action, payload, headers=None)
+        # Strip ``stream`` so it is never forwarded to the typed System One route, and do not
+        # forward caller headers -- System One is a typed route, not a raw proxy.
+        request_payload = {k: v for k, v in payload.items() if k != "stream"}
+        return await super()._passthrough(action, request_payload, headers=None)
 
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]

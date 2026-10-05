@@ -1,4 +1,3 @@
-import json
 from typing import Any
 from unittest import mock
 
@@ -8,28 +7,6 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm_proxy import LiteLLMProxyProvider
-
-
-class MockAsyncResponse:
-    def __init__(self, data: dict[str, Any], status: int = 200):
-        self.status = status
-        self.headers = data.pop("headers", {"Content-Type": "application/json"})
-        self._content = data
-
-    def raise_for_status(self) -> None:
-        pass
-
-    async def json(self) -> dict[str, Any]:
-        return self._content
-
-    async def text(self) -> str:
-        return json.dumps(self._content)
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, traceback):
-        pass
 
 
 def _make_provider(
@@ -92,6 +69,22 @@ async def test_system_one_passthrough_uses_endpoint_credentials_only():
         path="typesafe/v1/systemone",
         payload={"model": "jev-1.13.0", **payload},
     )
+
+
+@pytest.mark.asyncio
+async def test_system_one_passthrough_strips_stream_key():
+    provider = _make_provider()
+    payload = {"stream": False, "state": {"inputs": "x"}, "questions": {}}
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai_compatible.send_request",
+        return_value=_system_one_response(),
+    ) as send:
+        await provider.passthrough(PassthroughAction.TYPESAFE_SYSTEM_ONE, payload)
+
+    forwarded = send.await_args.kwargs["payload"]
+    assert "stream" not in forwarded
+    assert forwarded == {"model": "jev-1.13.0", "state": {"inputs": "x"}, "questions": {}}
 
 
 @pytest.mark.asyncio
