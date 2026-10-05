@@ -168,6 +168,42 @@ def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_st
     assert isinstance(condition["value"], int)
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("server_name = 'Com.Example/MyServer'", [("server_name", "=", "Com.Example/MyServer")]),
+        (
+            "server_name IN ('Com.Example/MyServer', 'com.example/other')",
+            [("server_name", "IN", ("Com.Example/MyServer", "com.example/other"))],
+        ),
+        (
+            "server_name NOT IN ('Com.Example/MyServer')",
+            [("server_name", "NOT IN", ("Com.Example/MyServer",))],
+        ),
+        (
+            "transport_type = 'sse' AND server_name = 'Com.Example/MyServer'",
+            [("transport_type", "=", "sse"), ("server_name", "=", "Com.Example/MyServer")],
+        ),
+        (
+            "server_name = 'Com.Example/MyServer' AND transport_type = 'sse'",
+            [("server_name", "=", "Com.Example/MyServer"), ("transport_type", "=", "sse")],
+        ),
+    ],
+)
+def test_mcp_access_endpoint_server_name_filter(filter_string, expected):
+    parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    assert [
+        (condition["key"], condition["comparator"], condition["value"]) for condition in parsed
+    ] == expected
+
+
+def test_mcp_access_endpoint_server_name_rejects_or():
+    with pytest.raises(MlflowException, match="Invalid clause"):
+        SearchMCPAccessEndpointUtils.parse_search_filter(
+            "server_name = 'com.example/one' OR transport_type = 'sse'"
+        )
+
+
 def test_float_numeric_attribute_value_is_parsed_as_float():
     [condition] = SearchUtils.parse_search_filter("attributes.start_time > 1234.5")
 

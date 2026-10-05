@@ -1572,7 +1572,9 @@ class SqlAlchemyStore(AbstractStore):
 
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
             if versions := self.get_latest_versions(name):
-                return versions[0]
+                # `get_latest_versions` returns the latest version of each stage, so the
+                # highest version must be selected explicitly.
+                return max(versions, key=lambda mv: int(mv.version))
             else:
                 raise MlflowException(
                     f"Latest version not found for model {name}.", RESOURCE_DOES_NOT_EXIST

@@ -117,7 +117,7 @@
       "last_updated_at": "2026-04-24"
     },
     "eu/codex-mini": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.65,
         "output_per_million_tokens": 6.6,
@@ -131,7 +131,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-11-15",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/computer-use-preview": {
       "mode": "chat",
@@ -486,7 +486,7 @@
       "last_updated_at": "2026-09-23"
     },
     "eu/gpt-5-codex": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.375,
         "output_per_million_tokens": 11.0,
@@ -500,7 +500,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-03-17",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5-mini": {
       "mode": "chat",
@@ -619,7 +619,7 @@
       "last_updated_at": "2026-09-23"
     },
     "eu/gpt-5-pro": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 16.5,
         "output_per_million_tokens": 132.0,
@@ -638,7 +638,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-04-07",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5.1": {
       "mode": "chat",
@@ -718,7 +718,7 @@
       "last_updated_at": "2026-09-23"
     },
     "eu/gpt-5.1-codex-max": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.375,
         "output_per_million_tokens": 11.0,
@@ -732,7 +732,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-05-18",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5.1-codex-mini": {
       "mode": "responses",
@@ -802,7 +802,7 @@
       "last_updated_at": "2026-09-17"
     },
     "eu/gpt-5.2-codex": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.925,
         "output_per_million_tokens": 15.4,
@@ -816,10 +816,10 @@
         "response_schema": false
       },
       "deprecation_date": "2027-07-13",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5.2-pro": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 23.1,
         "output_per_million_tokens": 184.8,
@@ -837,7 +837,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5.3-chat": {
       "mode": "chat",
@@ -856,7 +856,7 @@
       "last_updated_at": "2026-09-17"
     },
     "eu/gpt-5.3-codex": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.925,
         "output_per_million_tokens": 15.4,
@@ -877,7 +877,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-08-24",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5.4": {
       "mode": "chat",
@@ -1017,7 +1017,7 @@
       "last_updated_at": "2026-09-23"
     },
     "eu/gpt-5.4-pro": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 33.0,
         "output_per_million_tokens": 198.0,
@@ -1043,7 +1043,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-09-07",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "eu/gpt-5.5": {
       "mode": "chat",
@@ -4807,7 +4807,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "deprecation_date": "2028-03-11",
+      "last_updated_at": "2026-10-02"
     },
     "gpt-6.1-sol-2026-09-29": {
       "mode": "chat",
@@ -4845,7 +4846,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "deprecation_date": "2028-03-11",
+      "last_updated_at": "2026-10-02"
     },
     "gpt-audio": {
       "mode": "chat",
@@ -6080,8 +6082,8 @@
     "text-embedding-3-large": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.13,
@@ -6095,13 +6097,13 @@
         "response_schema": false
       },
       "deprecation_date": "2028-02-09",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-05"
     },
     "text-embedding-3-small": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.02,
@@ -6115,13 +6117,13 @@
         "response_schema": false
       },
       "deprecation_date": "2028-02-09",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-05"
     },
     "text-embedding-ada-002": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -6135,7 +6137,7 @@
         "response_schema": false
       },
       "deprecation_date": "2028-02-09",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-05"
     },
     "us-gov/gpt-5.1": {
       "mode": "chat",
@@ -6218,7 +6220,7 @@
       "last_updated_at": "2026-09-04"
     },
     "us/codex-mini": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.65,
         "output_per_million_tokens": 6.6,
@@ -6232,7 +6234,7 @@
         "response_schema": false
       },
       "deprecation_date": "2026-11-15",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/computer-use-preview": {
       "mode": "chat",
@@ -6681,7 +6683,7 @@
       "last_updated_at": "2026-09-23"
     },
     "us/gpt-5-codex": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.375,
         "output_per_million_tokens": 11.0,
@@ -6695,7 +6697,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-03-17",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5-mini": {
       "mode": "chat",
@@ -6814,7 +6816,7 @@
       "last_updated_at": "2026-09-23"
     },
     "us/gpt-5-pro": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 16.5,
         "output_per_million_tokens": 132.0,
@@ -6833,7 +6835,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-04-07",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5.1": {
       "mode": "chat",
@@ -6913,7 +6915,7 @@
       "last_updated_at": "2026-09-23"
     },
     "us/gpt-5.1-codex-max": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.375,
         "output_per_million_tokens": 11.0,
@@ -6927,7 +6929,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-05-18",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5.1-codex-mini": {
       "mode": "responses",
@@ -6997,7 +6999,7 @@
       "last_updated_at": "2026-09-17"
     },
     "us/gpt-5.2-codex": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.925,
         "output_per_million_tokens": 15.4,
@@ -7011,10 +7013,10 @@
         "response_schema": false
       },
       "deprecation_date": "2027-07-13",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5.2-pro": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 23.1,
         "output_per_million_tokens": 184.8,
@@ -7032,7 +7034,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5.3-chat": {
       "mode": "chat",
@@ -7051,7 +7053,7 @@
       "last_updated_at": "2026-09-17"
     },
     "us/gpt-5.3-codex": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 1.925,
         "output_per_million_tokens": 15.4,
@@ -7072,7 +7074,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-08-24",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5.4": {
       "mode": "chat",
@@ -7212,7 +7214,7 @@
       "last_updated_at": "2026-09-23"
     },
     "us/gpt-5.4-pro": {
-      "mode": "chat",
+      "mode": "responses",
       "pricing": {
         "input_per_million_tokens": 33.0,
         "output_per_million_tokens": 198.0,
@@ -7238,7 +7240,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-09-07",
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-05"
     },
     "us/gpt-5.5": {
       "mode": "chat",

@@ -96,6 +96,7 @@ TRACING_INCLUDE_FILES = [
     "mlflow.mistral*",
     "mlflow.openai*",
     "mlflow.strands*",
+    "mlflow.typesafe*",
     "mlflow.haystack*",
     # Other necessary modules
     "mlflow.azure*",
