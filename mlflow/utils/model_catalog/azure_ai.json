@@ -777,6 +777,9 @@
     },
     "MAI-Image-2.6": {
       "mode": "image_generation",
+      "context_window": {
+        "max_input": 32000
+      },
       "pricing": {
         "input_per_million_tokens": 5.0,
         "modality": {
@@ -793,10 +796,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-05"
     },
     "MAI-Image-2.6-Flash": {
       "mode": "image_generation",
+      "context_window": {
+        "max_input": 32000
+      },
       "pricing": {
         "input_per_million_tokens": 1.75,
         "modality": {
@@ -813,7 +819,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-05"
     },
     "MAI-Image-2e": {
       "mode": "image_generation",
@@ -1891,6 +1897,10 @@
     },
     "flux.2-pro": {
       "mode": "image_generation",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -1898,7 +1908,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-10-05"
     },
     "global/grok-3": {
       "mode": "chat",
