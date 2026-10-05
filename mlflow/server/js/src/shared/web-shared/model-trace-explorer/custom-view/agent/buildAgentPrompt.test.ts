@@ -50,6 +50,13 @@ describe('buildCustomViewAuthoringGuide', () => {
     expect(guide).toContain('before/after image requests');
   });
 
+  test('documents trace audio attachments with a reusable binding', () => {
+    const guide = buildCustomViewAuthoringGuide();
+    expect(guide).toContain('"TraceAudio"');
+    expect(guide).toContain('"inline_data", "data"');
+    expect(guide).toContain('TraceImage/TraceAudio "uri"');
+  });
+
   // A StatCard's `icon`/`tone` are static enums the host never re-resolves, while
   // its `value` is always a bound marker. An example that asserts a verdict —
   // a success check on a status, a warning tint on a latency — teaches the model
