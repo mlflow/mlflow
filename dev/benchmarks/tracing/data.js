@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791163148245,
+  "lastUpdate": 1791163798479,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "198982749+Copilot@users.noreply.github.com",
-            "name": "Copilot",
-            "username": "Copilot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9ceee891aeca4ed4e336db7796a1c11e7bc77da3",
-          "message": "Change `serialization_format` default to `\"skops\"` in `mlflow.lightgbm` `log_model`/`save_model` (#23986)\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: WeichenXu123 <19235986+WeichenXu123@users.noreply.github.com>",
-          "timestamp": "2026-06-15T08:52:34Z",
-          "tree_id": "51f9ef052acd169edd00b22dda526631b5392663",
-          "url": "https://github.com/mlflow/mlflow/commit/9ceee891aeca4ed4e336db7796a1c11e7bc77da3"
-        },
-        "date": 1781513787276,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 114.66535809999812,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 26.866373062501836,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 24.695918472727126,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 27.231286320000265,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 25.498846796295467,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 29.117412200000103,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 28.836762200000976,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "91350438+rrrkharse@users.noreply.github.com",
+            "name": "rrrkharse",
+            "username": "rrrkharse"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d91c4f6b5db945d24aacf20fa3dd4bfaac874173",
+          "message": "Add sub-resource permissions for runs, traces, versions and other contained resources (#26157)\n\nSigned-off-by: Rahul Kharse <rkharse@amazon.com>",
+          "timestamp": "2026-10-05T01:26:06Z",
+          "tree_id": "3593bb1aa2a85186d29d29452fc7594c926ece65",
+          "url": "https://github.com/mlflow/mlflow/commit/d91c4f6b5db945d24aacf20fa3dd4bfaac874173"
+        },
+        "date": 1791163794700,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 51.885263149998906,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.486521803922606,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.56649887704988,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.692471827586094,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.058617588786552,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 29.763690999999426,
             "unit": "ms"
           }
         ]
