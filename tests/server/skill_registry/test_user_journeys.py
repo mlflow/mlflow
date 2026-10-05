@@ -5,10 +5,10 @@
 # SQLite store and local artifact storage. Nothing in MLflow is mocked.
 #
 # What belongs here is only what no lower layer can show: state written by one step and observed
-# by the next, over the wire, through the app as deployed (both route prefixes, the artifact
-# routes beside the registry routes). Single-endpoint rules such as validation and error codes
-# belong to `tests/server/test_skill_registry_api.py`, the store, and the registration service
-# tests, and are not repeated here.
+# by the next, over the wire, through the app as deployed (both route prefixes, the workspace
+# middleware, the artifact routes beside the registry routes). Single-endpoint rules such as
+# validation and error codes belong to `tests/server/test_skill_registry_api.py`, the store, and
+# the registration service tests, and are not repeated here.
 #
 # Steps call the REST API directly for now. When the SDK, CLI and pull land, steps move to
 # those surfaces; the stories stay the same.
@@ -19,9 +19,15 @@ from typing import Any
 import pytest
 import requests
 
-from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
+from mlflow.server import (
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
+    handlers,
+    workspace_helpers,
+)
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests.helper_functions import get_safe_port
 from tests.server.skill_registry.conftest import SKILL_FILES, skill_archive
@@ -31,21 +37,40 @@ from tests.tracking.integration_test_utils import ServerThread
 API = "/api/3.0/mlflow/skills"
 UI = "/ajax-api/3.0/mlflow/skills"
 ARTIFACTS = "/api/2.0/mlflow-artifacts/artifacts"
+WORKSPACES = "/api/3.0/mlflow/workspaces"
 
 GIT_SOURCE = "https://github.com/acme/skills.git"
 
 
-@pytest.fixture
-def server(tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    # The same setup `mlflow server --serve-artifacts` performs, applied to the in-process app.
+def _serve(
+    tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch, *, workspaces: bool
+) -> Iterator[str]:
+    # The same setup `mlflow server --serve-artifacts [--enable-workspaces]` performs, applied
+    # to the in-process app.
     monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(tmp_path / "artifacts"))
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(workspaces).lower())
     monkeypatch.setattr(handlers, "_tracking_store", None)
     monkeypatch.setattr(handlers, "_model_registry_store", None)
     monkeypatch.setattr(handlers, "_artifact_repo", None)
-    initialize_backend_stores(db_uri, default_artifact_root="mlflow-artifacts:/")
+    monkeypatch.setattr(workspace_helpers, "_workspace_store", None)
+    initialize_backend_stores(
+        db_uri,
+        default_artifact_root="mlflow-artifacts:/",
+        workspace_store_uri=db_uri if workspaces else None,
+    )
     with ServerThread(app, get_safe_port()) as url:
         yield url
+
+
+@pytest.fixture
+def server(tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
+    yield from _serve(tmp_path, db_uri, monkeypatch, workspaces=False)
+
+
+@pytest.fixture
+def workspace_server(tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
+    yield from _serve(tmp_path, db_uri, monkeypatch, workspaces=True)
 
 
 def _ok(response: requests.Response) -> dict[str, Any]:
@@ -58,8 +83,28 @@ def _not_found(response: requests.Response) -> None:
     assert response.json()["error_code"] == "RESOURCE_DOES_NOT_EXIST"
 
 
-def _register_remote(server: str, name: str, **fields: Any) -> dict[str, Any]:
-    return _ok(requests.post(f"{server}{API}/register", json={"name": name, **fields}))
+def _register_remote(
+    server: str, name: str, headers: dict[str, str] | None = None, **fields: Any
+) -> dict[str, Any]:
+    return _ok(
+        requests.post(f"{server}{API}/register", json={"name": name, **fields}, headers=headers)
+    )
+
+
+def _upload(server: str, name: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
+    response = requests.post(
+        f"{server}{API}/register",
+        files={
+            "metadata": ("metadata.json", f'{{"name": "{name}"}}', "application/json"),
+            "content": ("content.tar.gz", skill_archive(), "application/gzip"),
+        },
+        headers=headers,
+    )
+    return _ok(response)
+
+
+def _content_path(version: dict[str, Any]) -> str:
+    return version["source"].removeprefix("mlflow-artifacts:/")
 
 
 def test_teams_in_different_organizations_publish_the_same_skill_name(server):
@@ -70,6 +115,15 @@ def test_teams_in_different_organizations_publish_the_same_skill_name(server):
     _register_remote(
         server, "code-review", organization="globex", source=GIT_SOURCE, ref="globex-v1"
     )
+
+    # globex is the bystander: nothing acme does below may change it.
+    def globex_state():
+        return (
+            _ok(requests.get(f"{server}{API}/@globex/code-review")),
+            _ok(requests.get(f"{server}{API}/@globex/code-review/versions")),
+        )
+
+    globex_before = globex_state()
 
     search = _ok(requests.get(f"{server}{API}", params={"filter_string": "organization = 'acme'"}))
     assert [(s["organization"], s["name"]) for s in search["skills"]] == [("acme", "code-review")]
@@ -98,11 +152,12 @@ def test_teams_in_different_organizations_publish_the_same_skill_name(server):
     _not_found(requests.get(f"{server}{API}/@globex/code-review/aliases/stable"))
     _not_found(requests.get(f"{server}{API}/code-review/aliases/stable"))
 
-    # Deleting acme's skill leaves the other two untouched.
+    # Deleting acme's skill leaves the other two in place, and globex exactly as it was.
     _ok(requests.delete(f"{server}{API}/@acme/code-review"))
     _not_found(requests.get(f"{server}{API}/@acme/code-review"))
     remaining = _ok(requests.get(f"{server}{API}"))["skills"]
     assert sorted(s["organization"] for s in remaining) == ["", "globex"]
+    assert globex_state() == globex_before
 
 
 def test_publish_promote_and_retire_versions(server):
@@ -137,18 +192,11 @@ def test_publish_promote_and_retire_versions(server):
 def test_uploaded_skill_content_is_served_back_and_reclaimed_on_delete(server):
     # A user uploads a skill from their machine; an agent then resolves it and downloads its
     # files through the same server's artifact API. Deleting the skill removes the content.
-    response = requests.post(
-        f"{server}{API}/register",
-        files={
-            "metadata": ("metadata.json", '{"name": "reviewer"}', "application/json"),
-            "content": ("content.tar.gz", skill_archive(), "application/gzip"),
-        },
-    )
-    version = _ok(response)
+    version = _upload(server, "reviewer")
     assert version["source_type"] == "mlflow"
 
     resolved = _ok(requests.get(f"{server}{API}/reviewer/aliases/latest"))
-    content_path = resolved["source"].removeprefix("mlflow-artifacts:/")
+    content_path = _content_path(resolved)
     for name, expected in SKILL_FILES.items():
         download = requests.get(f"{server}{ARTIFACTS}/{content_path}/{name}")
         assert download.status_code == 200, download.text
@@ -158,3 +206,40 @@ def test_uploaded_skill_content_is_served_back_and_reclaimed_on_delete(server):
     _not_found(requests.get(f"{server}{UI}/reviewer"))
     gone = requests.get(f"{server}{ARTIFACTS}/{content_path}/SKILL.md")
     assert gone.status_code == 404
+
+
+def test_teams_in_separate_workspaces_never_see_each_others_skills(workspace_server):
+    # Workspaces split one server between tenants, selected per request by a header. Two teams
+    # publish `reviewer` in their own workspace: one uploads content, the other points at git.
+    # Each sees, resolves and deletes only its own, and uploaded content stays in its workspace.
+    server = workspace_server
+    team_a = {WORKSPACE_HEADER_NAME: "team-a"}
+    team_b = {WORKSPACE_HEADER_NAME: "team-b"}
+    for name in ("team-a", "team-b"):
+        created = requests.post(f"{server}{WORKSPACES}", json={"name": name})
+        assert created.status_code == 201, created.text
+
+    uploaded = _upload(server, "reviewer", headers=team_a)
+    _register_remote(server, "reviewer", headers=team_b, source=GIT_SOURCE)
+
+    for headers, workspace, source_type in (
+        (team_a, "team-a", "mlflow"),
+        (team_b, "team-b", "git"),
+    ):
+        found = _ok(requests.get(f"{server}{UI}", headers=headers))["skills"]
+        assert [(s["workspace"], s["source_type"]) for s in found] == [(workspace, source_type)]
+        latest = _ok(requests.get(f"{server}{API}/reviewer/aliases/latest", headers=headers))
+        assert latest["source_type"] == source_type
+
+    # The content's path is visible to anyone who sees the version, so isolation must hold at
+    # the artifact API too: the same path resolves only inside the uploading workspace.
+    content_url = f"{server}{ARTIFACTS}/{_content_path(uploaded)}/SKILL.md"
+    download = requests.get(content_url, headers=team_a)
+    assert download.status_code == 200, download.text
+    assert download.content == SKILL_FILES["SKILL.md"]
+    assert requests.get(content_url, headers=team_b).status_code == 404
+
+    _ok(requests.delete(f"{server}{API}/reviewer", headers=team_b))
+    _not_found(requests.get(f"{server}{API}/reviewer", headers=team_b))
+    assert _ok(requests.get(f"{server}{API}/reviewer", headers=team_a))["source_type"] == "mlflow"
+    assert requests.get(content_url, headers=team_a).status_code == 200
