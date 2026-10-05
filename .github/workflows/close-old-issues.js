@@ -3,7 +3,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const CUTOFF_DAYS = 180;
 const EXCLUDED_LABELS = new Set(["security"]);
 
-const QUERY = `
+const SEARCH_QUERY = `
   query($searchQuery: String!, $cursor: String) {
     rateLimit { remaining resetAt }
     search(query: $searchQuery, type: ISSUE, first: 100, after: $cursor) {
@@ -20,6 +20,7 @@ const QUERY = `
           labels(first: 100) { nodes { name } }
           reactions { totalCount }
           timelineItems(itemTypes: [CROSS_REFERENCED_EVENT], first: 100) {
+            pageInfo { hasNextPage endCursor }
             nodes {
               ... on CrossReferencedEvent {
                 willCloseTarget
@@ -40,12 +41,58 @@ const QUERY = `
   }
 `;
 
+const TIMELINE_QUERY = `
+  query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+    repository(owner: $owner, name: $repo) {
+      issue(number: $number) {
+        timelineItems(itemTypes: [CROSS_REFERENCED_EVENT], first: 100, after: $cursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            ... on CrossReferencedEvent {
+              willCloseTarget
+              source {
+                __typename
+                ... on PullRequest {
+                  number
+                  state
+                  url
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 function getLabels(issue) {
   return issue.labels?.nodes?.map((label) => label.name) ?? [];
 }
 
-function getClosingPullRequests(issue) {
-  return (issue.timelineItems?.nodes ?? [])
+// Widely-linked issues can have more than 100 cross-reference events, so the
+// first page fetched with the search may be truncated; paginate the tail.
+async function getClosingPullRequests(github, owner, repo, issue) {
+  const timeline = issue.timelineItems ?? { nodes: [] };
+  let nodes = timeline.nodes ?? [];
+  let cursor = timeline.pageInfo?.hasNextPage ? timeline.pageInfo.endCursor : null;
+
+  if (cursor) {
+    console.log(`Issue #${issue.number} has more than 100 cross-references; fetching the rest.`);
+  }
+  while (cursor) {
+    const response = await github.graphql(TIMELINE_QUERY, {
+      owner,
+      repo,
+      number: issue.number,
+      cursor,
+    });
+    const page = response.repository.issue.timelineItems;
+    nodes = nodes.concat(page.nodes);
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  }
+
+  return nodes
     .filter(
       (event) =>
         event.willCloseTarget &&
@@ -67,7 +114,7 @@ function isRateLimitError(error) {
   return error.status === 429 || error.message?.includes("rate limit");
 }
 
-function writeSummary({ dryRun, rateLimited, issueNumbers, pullRequestNumbers }) {
+function writeSummary({ dryRun, failed, rateLimited, issueNumbers, pullRequestNumbers }) {
   if (!process.env.GITHUB_STEP_SUMMARY) {
     return;
   }
@@ -76,6 +123,10 @@ function writeSummary({ dryRun, rateLimited, issueNumbers, pullRequestNumbers })
   if (rateLimited) {
     lines.push(
       `Stopped early on the GitHub API rate limit after processing ${issueNumbers.length} issues and ${pullRequestNumbers.length} pull requests; the next run resumes.`
+    );
+  } else if (failed) {
+    lines.push(
+      `Stopped early on an error after processing ${issueNumbers.length} issues and ${pullRequestNumbers.length} pull requests; check the run logs.`
     );
   } else if (dryRun) {
     lines.push(
@@ -117,25 +168,26 @@ module.exports = async ({ context, github }) => {
   const cutoffTime = Date.now() - CUTOFF_DAYS * MS_PER_DAY;
   const cutoffDate = new Date(cutoffTime).toISOString().slice(0, 10);
   // Label and reaction exclusions live in the search query so every result
-  // page holds only eligible issues; the GraphQL search API still caps any
-  // single query at 1000 results, but closing those makes progress for the
-  // next run.
+  // page holds only eligible issues.
   const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security reactions:0`;
-  const processedPullRequests = new Set();
+  const processedPullRequests = new Map();
   const closedIssueNumbers = [];
-  const closedPullRequestNumbers = [];
   let cursor = null;
   let hasNextPage = true;
   const eligibleIssues = [];
+  let matchedCount = 0;
+  let collectedCount = 0;
 
   // Collect everything before closing: closing issues mid-pagination would
   // remove them from the open-issues result set and shift the cursor.
   while (hasNextPage) {
-    const response = await github.graphql(QUERY, { searchQuery, cursor });
+    const response = await github.graphql(SEARCH_QUERY, { searchQuery, cursor });
     const { remaining, resetAt } = response.rateLimit;
     console.log(`Rate limit: ${remaining} remaining, resets at ${resetAt}`);
 
     const { issueCount, pageInfo, nodes } = response.search;
+    matchedCount = issueCount;
+    collectedCount += nodes.length;
     console.log(
       `Search matched ${issueCount} open issues older than ${CUTOFF_DAYS} days without reactions.`
     );
@@ -150,73 +202,107 @@ module.exports = async ({ context, github }) => {
     cursor = pageInfo.endCursor;
   }
 
+  if (collectedCount < matchedCount) {
+    console.log(
+      `Collected ${collectedCount} of ${matchedCount} matched issues; the GraphQL search API caps a single query at 1000 results. Closing these makes progress and the next run continues.`
+    );
+  }
+
   console.log(`Found ${eligibleIssues.length} eligible issues to close.`);
 
   let rateLimited = false;
+  let failed = false;
 
   try {
+    // Close each linked PR once, accumulating every eligible issue that links
+    // it so the closure comment can mention them all.
     for (const issue of eligibleIssues) {
-      for (const pullRequest of getClosingPullRequests(issue)) {
-        if (processedPullRequests.has(pullRequest.number)) {
+      for (const pullRequest of await getClosingPullRequests(github, owner, repo, issue)) {
+        const urls = processedPullRequests.get(pullRequest.number);
+        if (urls) {
+          urls.push(issue.url);
           continue;
         }
-        processedPullRequests.add(pullRequest.number);
+        processedPullRequests.set(pullRequest.number, [issue.url]);
 
-        if (!dryRun) {
-          await github.rest.pulls.update({
-            owner,
-            repo,
-            pull_number: pullRequest.number,
-            state: "closed",
-          });
-          await github.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: pullRequest.number,
-            body: `${pullRequestMessage}\n\nLinked issue: ${issue.url}`,
-          });
-          console.log(`Closed PR #${pullRequest.number} linked to issue #${issue.number}.`);
+        if (dryRun) {
+          console.log(`[dry run] Would close PR #${pullRequest.number} for issue #${issue.number}`);
+          continue;
         }
-        closedPullRequestNumbers.push(pullRequest.number);
+
+        await github.rest.pulls.update({
+          owner,
+          repo,
+          pull_number: pullRequest.number,
+          state: "closed",
+        });
+        console.log(`Closed PR #${pullRequest.number} linked to issue #${issue.number}.`);
+      }
+    }
+
+    for (const [pullRequestNumber, urls] of processedPullRequests) {
+      if (dryRun) {
+        console.log(
+          `[dry run] Would comment on PR #${pullRequestNumber} (linked issue${
+            urls.length > 1 ? "s" : ""
+          }: ${urls.join(", ")})`
+        );
+        continue;
       }
 
-      if (!dryRun) {
-        await github.rest.issues.createComment({
-          owner,
-          repo,
-          issue_number: issue.number,
-          body: issueMessage,
-        });
-        await github.rest.issues.update({
-          owner,
-          repo,
-          issue_number: issue.number,
-          state: "closed",
-          state_reason: "not_planned",
-        });
-        console.log(`Closed issue #${issue.number}.`);
+      await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: pullRequestNumber,
+        body: `${pullRequestMessage}\n\nLinked issue${urls.length > 1 ? "s" : ""}: ${urls.join(
+          ", "
+        )}`,
+      });
+    }
+
+    for (const issue of eligibleIssues) {
+      if (dryRun) {
+        console.log(`[dry run] Would close issue #${issue.number}`);
+        continue;
       }
+
+      await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: issue.number,
+        body: issueMessage,
+      });
+      await github.rest.issues.update({
+        owner,
+        repo,
+        issue_number: issue.number,
+        state: "closed",
+        state_reason: "not_planned",
+      });
       closedIssueNumbers.push(issue.number);
+      console.log(`Closed issue #${issue.number}.`);
     }
   } catch (error) {
+    failed = true;
     if (!isRateLimitError(error)) {
       throw error;
     }
     rateLimited = true;
+  } finally {
+    writeSummary({
+      dryRun,
+      failed,
+      rateLimited,
+      issueNumbers: closedIssueNumbers,
+      pullRequestNumbers: [...processedPullRequests.keys()],
+    });
   }
-
-  writeSummary({
-    dryRun,
-    rateLimited,
-    issueNumbers: closedIssueNumbers,
-    pullRequestNumbers: closedPullRequestNumbers,
-  });
 
   const verb = dryRun ? "Would close" : "Closed";
   const suffix = rateLimited ? " (stopped early by the rate limit; the next run resumes)" : "";
   console.log(
     `${verb} ${closedIssueNumbers.length} issues and ${
-      closedPullRequestNumbers.length
+      processedPullRequests.size
     } linked pull requests${dryRun ? " in a dry run" : ""}${suffix}.`
   );
 };

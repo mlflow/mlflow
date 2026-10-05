@@ -54,7 +54,7 @@ jobs:
 
   close:
     if: >-
-      github.event_name != 'pull_request' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
       github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     timeout-minutes: 10
@@ -70,7 +70,7 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          DRY_RUN: ${{ github.event_name != 'schedule' && inputs.dry_run == true }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
           ISSUE_CLOSE_MESSAGE: |
             Hey, thank you for your contribution to MLflow! We sincerely appreciate the time and thought you put into creating this. However, as part of the process to ensure that issues with recent versions get triaged promptly, we will be closing older issues. We still value your contribution, and we would like to trouble you to reopen this issue if it is still relevant to recent releases of MLflow. Thank you for understanding!
           PR_CLOSE_MESSAGE: |
