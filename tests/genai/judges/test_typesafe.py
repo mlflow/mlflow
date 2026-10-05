@@ -146,13 +146,14 @@ def test_direct_invocation_supports_authorization_header(monkeypatch, api_key):
     assert request.call_args.kwargs["headers"] == {"authorization": "Bearer custom-token"}
 
 
-def test_direct_invocation_rejects_empty_authorization_header(monkeypatch):
+@pytest.mark.parametrize("authorization", ["", " \t "])
+def test_direct_invocation_rejects_empty_authorization_header(monkeypatch, authorization):
     monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
     with (
         mock.patch(_REQUEST_TARGET) as request,
         pytest.raises(MlflowException, match="Authorization header.*non-empty"),
     ):
-        _invoke(extra_headers={"Authorization": ""})
+        _invoke(extra_headers={"Authorization": authorization})
     request.assert_not_called()
 
 
@@ -323,6 +324,54 @@ def test_direct_invocation_rejects_empty_base_url(monkeypatch):
     ):
         _invoke(base_url="  ///  ")
     request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "extra_headers",
+    [None, {"Authorization": "Bearer custom-token"}],
+)
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://user@system-one.example.com/v1",
+        "https://user:password@system-one.example.com/v1",
+        "https://:password@system-one.example.com/v1",
+        "https://us%65r:p%40ss@system-one.example.com/v1",
+    ],
+)
+def test_direct_invocation_rejects_credentials_in_base_url(monkeypatch, extra_headers, base_url):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-secret")
+    with (
+        mock.patch(_REQUEST_TARGET) as request,
+        pytest.raises(MlflowException, match="Credentials in base_url are not supported"),
+    ):
+        _invoke(base_url=base_url, extra_headers=extra_headers)
+    request.assert_not_called()
+
+
+def test_authorization_header_takes_precedence_over_netrc(monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    response = _response({"type": "noul", "noul": 0.8})
+    with (
+        mock.patch(
+            "requests.sessions.get_netrc_auth",
+            return_value=("netrc-user", "netrc-password"),
+        ),
+        mock.patch.object(
+            requests.Session,
+            "send",
+            autospec=True,
+            return_value=response,
+        ) as send,
+    ):
+        _invoke(
+            base_url="https://system-one.example.com/v1",
+            extra_headers={"Authorization": "Bearer custom-token"},
+            num_retries=0,
+        )
+
+    prepared_request = send.call_args.args[1]
+    assert prepared_request.headers["Authorization"] == "Bearer custom-token"
 
 
 @pytest.mark.parametrize("status_code", [302, 401, 403, 422, 429, 529])

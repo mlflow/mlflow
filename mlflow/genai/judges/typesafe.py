@@ -8,6 +8,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any, Literal, get_args, get_origin
+from urllib.parse import urlparse
 
 import requests
 
@@ -56,6 +57,16 @@ _NON_TYPESAFE_GATEWAY_DETAILS = {
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
+
+
+class _PreserveAuthorizationHeaderAuth(requests.auth.AuthBase):
+    """Prevent Requests from replacing the selected Authorization header with .netrc auth."""
+
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
+        return request
+
+
+_PRESERVE_AUTHORIZATION_HEADER_AUTH = _PreserveAuthorizationHeaderAuth()
 
 
 @dataclass
@@ -152,8 +163,15 @@ def _validate_options(
         raise MlflowException.invalid_parameter_value(
             "TypeSafe judge models do not support " + ", ".join(unsupported_options) + "."
         )
-    if base_url is not None and not base_url.strip().strip("/"):
-        raise MlflowException.invalid_parameter_value("base_url must be a non-empty string.")
+    if base_url is not None:
+        if not base_url.strip().strip("/"):
+            raise MlflowException.invalid_parameter_value("base_url must be a non-empty string.")
+        parsed_base_url = urlparse(base_url)
+        if parsed_base_url.username is not None or parsed_base_url.password is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Credentials in base_url are not supported. Pass an Authorization header in "
+                "extra_headers instead."
+            )
 
 
 def _validate_input(instructions: str, state: dict[str, Any]) -> None:
@@ -186,7 +204,7 @@ def _send_request(
     authorization_headers = [
         value for name, value in headers.items() if name.lower() == "authorization"
     ]
-    if authorization_headers and not all(authorization_headers):
+    if authorization_headers and any(not value.strip() for value in authorization_headers):
         raise MlflowException.invalid_parameter_value(
             "Authorization header in extra_headers must be non-empty."
         )
@@ -204,6 +222,7 @@ def _send_request(
             method="POST",
             url=endpoint,
             headers=headers,
+            auth=_PRESERVE_AUTHORIZATION_HEADER_AUTH,
             json=payload,
             max_retries=num_retries,
             backoff_factor=1,
