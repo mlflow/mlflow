@@ -1,5 +1,6 @@
 """Huey job functions for async scorer invocation."""
 
+import json
 import logging
 import os
 import random
@@ -25,7 +26,11 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     get_first_trace_in_session,
 )
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    _job_executor_scorer_context,
+)
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
@@ -33,6 +38,7 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
+from mlflow.genai.scorers.scorer_utils import custom_scorer_execution_blocked
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -101,8 +107,12 @@ def run_online_trace_scorer_job(
     ]
 
     tracking_store = _get_tracking_store()
-    processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
-    processor.process_traces()
+    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
+    with _job_executor_scorer_context():
+        processor = OnlineTraceScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store
+        )
+        processor.process_traces()
 
 
 @job(
@@ -136,8 +146,12 @@ def run_online_session_scorer_job(
     ]
 
     tracking_store = _get_tracking_store()
-    processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
-    processor.process_sessions()
+    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
+    with _job_executor_scorer_context():
+        processor = OnlineSessionScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store
+        )
+        processor.process_sessions()
 
 
 @job(name=INVOKE_SCORER_JOB_NAME, max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
@@ -175,8 +189,10 @@ def invoke_scorer_job(
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
-    # Deserialize scorer
-    scorer = Scorer.model_validate_json(serialized_scorer)
+    # Deserialize scorer. Reconstructing a custom scorer executes its code, which is permitted
+    # only in the executor (never in the tracking server process).
+    with _job_executor_scorer_context():
+        scorer = Scorer.model_validate_json(serialized_scorer)
     if scorer_version is not None:
         scorer._set_registration_metadata(
             backend=SCORER_BACKEND_TRACKING,
@@ -479,7 +495,18 @@ def run_online_scoring_scheduler() -> None:
 
                 for scorer in scorers:
                     try:
-                        scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
+                        serialized_data = json.loads(scorer.serialized_scorer)
+                        # A custom @scorer whose execution is disabled (flag off) is rejected at
+                        # submit time; submitting it would raise and abort the whole scheduling
+                        # pass, so skip it here (the server deserializes it as non-executing
+                        # metadata, so the rejection no longer surfaces during this classification).
+                        if custom_scorer_execution_blocked(serialized_data):
+                            _logger.warning(
+                                f"Skipping custom scorer '{scorer.name}'; custom scorer execution "
+                                "is disabled (set MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS to enable)."
+                            )
+                            continue
+                        scorer_obj = Scorer.model_validate(serialized_data)
                         if scorer_obj.is_session_level_scorer:
                             session_level_scorers.append(scorer)
                         else:

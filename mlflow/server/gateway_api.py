@@ -10,6 +10,7 @@ import functools
 import io
 import json
 import logging
+import re
 import sys
 import time
 from collections.abc import AsyncIterable, Callable
@@ -46,6 +47,7 @@ from mlflow.gateway.config import (
 from mlflow.gateway.constants import (
     GATEWAY_DISABLED_MESSAGE,
     MLFLOW_GATEWAY_CALLER_HEADER,
+    SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL,
     GatewayCaller,
 )
 from mlflow.gateway.guardrail_utils import (
@@ -98,6 +100,10 @@ from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
+# OpenRouter Jev decision models route to System One. Matches an optional ``~`` prefix, the
+# ``typesafe/jev-`` namespace, and either ``latest`` or a dotted version (e.g. ``jev-1.13``),
+# while excluding chat models such as ``typesafe/jev-router``.
+_OPENROUTER_SYSTEM_ONE_MODEL_PATTERN = re.compile(r"^~?typesafe/jev-(?:latest|\d+(?:\.\d+)*)$")
 
 
 async def _ensure_gateway_enabled():
@@ -419,9 +425,12 @@ def _build_endpoint_config(
             mistral_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
     elif model_config.provider == Provider.TYPESAFE:
-        provider_config = TypeSafeConfig(
-            typesafe_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
-        )
+        typesafe_config = {
+            "typesafe_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        }
+        if model_config.auth_config and _AuthConfigKey.API_BASE in model_config.auth_config:
+            typesafe_config["typesafe_api_base"] = model_config.auth_config[_AuthConfigKey.API_BASE]
+        provider_config = TypeSafeConfig(**typesafe_config)
     elif model_config.provider == Provider.GEMINI:
         provider_config = GeminiConfig(
             gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
@@ -665,6 +674,8 @@ def _create_provider_from_endpoint_name(
     endpoint_name: str,
     endpoint_type: EndpointType,
     enable_tracing: bool = True,
+    *,
+    system_one_route: bool = False,
 ) -> tuple[BaseProvider, GatewayEndpointConfig]:
     """
     Create a provider from an endpoint name.
@@ -674,11 +685,13 @@ def _create_provider_from_endpoint_name(
         endpoint_name: The endpoint name.
         endpoint_type: Endpoint type (chat or embeddings).
         enable_tracing: If True, enables MLflow tracing for provider calls.
+        system_one_route: Whether the provider is being created for the System One route.
 
     Returns:
         Tuple of (provider instance, endpoint config)
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    _validate_system_one_endpoint(endpoint_config, system_one_route=system_one_route)
     _enable_upstream_ssrf_protection(endpoint_config)
     return _create_provider(
         endpoint_config, endpoint_type, enable_tracing=enable_tracing
@@ -724,6 +737,46 @@ def _get_guardrails_and_auth(
     bypass = headers.get(_SANITIZE_BYPASS_HEADER) == "1"
     guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
     return guardrails, extract_auth_headers(headers)
+
+
+def _supports_system_one(provider: str, model_name: str) -> bool:
+    return provider == Provider.TYPESAFE or (
+        provider == Provider.OPENROUTER
+        and _OPENROUTER_SYSTEM_ONE_MODEL_PATTERN.match(model_name) is not None
+    )
+
+
+def _validate_system_one_endpoint(
+    endpoint_config: GatewayEndpointConfig, *, system_one_route: bool
+) -> None:
+    # Covers every mapping on the endpoint -- primary and fallbacks alike -- so the checks
+    # below reason about all of them, not just the primary.
+    supported = [
+        _supports_system_one(model.provider, model.model_name) for model in endpoint_config.models
+    ]
+
+    if system_one_route:
+        if not any(supported):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Gateway endpoint does not use a System One model. Use a TypeSafe or "
+                    "OpenRouter Jev decision model."
+                ),
+            )
+        if not all(supported):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "System One endpoints cannot mix System One and chat models. Every "
+                    "primary and fallback model must support System One."
+                ),
+            )
+    elif any(supported):
+        raise HTTPException(
+            status_code=400,
+            detail=SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL,
+        )
 
 
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
@@ -1217,14 +1270,8 @@ async def typesafe_passthrough_system_one(request: Request):
     # DB-backed endpoints have no task type. This placeholder only constructs the
     # provider configuration; System One bypasses the unified chat schema.
     provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
+        store, endpoint_name, EndpointType.LLM_V1_CHAT, system_one_route=True
     )
-    if any(model.provider != Provider.TYPESAFE for model in endpoint_config.models):
-        raise HTTPException(
-            status_code=400,
-            detail="TypeSafe System One requires all endpoint models, including fallbacks, "
-            "to use the TypeSafe provider.",
-        )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)

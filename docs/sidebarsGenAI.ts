@@ -109,6 +109,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/custom-views',
+                  label: 'Custom Trace Views',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/search-traces',
                   label: 'Search Traces',
                 },
@@ -502,6 +507,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/togetherai',
                   label: 'Together AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/typesafe',
+                  label: 'TypeSafe AI',
                 },
                 {
                   type: 'doc',

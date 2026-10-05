@@ -116,6 +116,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.1.0"
         }
     },
+    "typesafe": {
+        "package_info": {
+            "pip_release": "typesafe-sdk",
+            "module_name": "typesafe_sdk"
+        },
+        "autologging": {
+            "minimum": "0.7.0",
+            "maximum": "0.7.1"
+        }
+    },
     "crewai": {
         "package_info": {
             "pip_release": "crewai",
@@ -458,6 +468,7 @@ GENAI_FLAVOR_TO_MODULE_NAME = {
     "autogen": "autogen_agentchat",
     "gemini": "google.genai",
     "anthropic": "anthropic",
+    "typesafe": "typesafe_sdk",
     "crewai": "crewai",
     "agno": "agno",
     "pydantic_ai": "pydantic_ai",
