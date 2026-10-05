@@ -31,13 +31,14 @@ describe('AssessmentDisplayValue', () => {
   });
 
   test.each([
-    ['true', 'Pass'],
-    ['"true"', 'Pass'],
-    ['false', 'Fail'],
-    ['"false"', 'Fail'],
-  ])('renders %s as %s when pass/fail semantics are explicit', (jsonValue, expectedLabel) => {
+    ['true', 'Pass', 'True'],
+    ['"true"', 'Pass', 'True'],
+    ['false', 'Fail', 'False'],
+    ['"false"', 'Fail', 'False'],
+  ])('renders %s as %s when pass/fail semantics are explicit', (jsonValue, expectedLabel, unexpectedLabel) => {
     renderValue(jsonValue, 'pass-fail');
 
     expect(screen.getByText(expectedLabel)).toBeInTheDocument();
+    expect(screen.queryByText(unexpectedLabel)).not.toBeInTheDocument();
   });
 });
