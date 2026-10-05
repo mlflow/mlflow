@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791205524007,
+  "lastUpdate": 1791207040453,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "42427560+Incheonkirin@users.noreply.github.com",
-            "name": "Mingi Jeong",
-            "username": "Incheonkirin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b635b742a06f979d7d443306af27a271ad77c99c",
-          "message": "Fix genai.evaluate() dropping dataset expectations and tags with scorers=[] (#23957)\n\nSigned-off-by: Mingi Jeong <incheonkirin@users.noreply.github.com>\nSigned-off-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: Mingi Jeong <incheonkirin@users.noreply.github.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
-          "timestamp": "2026-06-16T04:59:00Z",
-          "tree_id": "68b4600dcd34aaf37c0dbcc4efcec1074baa932a",
-          "url": "https://github.com/mlflow/mlflow/commit/b635b742a06f979d7d443306af27a271ad77c99c"
-        },
-        "date": 1781586151600,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 46.786124000001195,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 25.818097500000192,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 23.20445013114776,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 25.69633073214282,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 29.15075730909083,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 50.90212040000495,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.7994897142843747,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "2194553866@qq.com",
+            "name": "Ryan-amazinghorse",
+            "username": "Amazinghorseli"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "657f113a0802d65442060a5fb7fe5d9cad36cd2c",
+          "message": "Fix MCP server `version` filters rewriting quoted values (#26423)\n\nSigned-off-by: LI YAN <188025880+Amazinghorseli@users.noreply.github.com>\nCo-authored-by: LI YAN <188025880+Amazinghorseli@users.noreply.github.com>",
+          "timestamp": "2026-10-05T13:25:19Z",
+          "tree_id": "d6fb97e723f20433f875dd9d5d2a12a68d71a5e2",
+          "url": "https://github.com/mlflow/mlflow/commit/657f113a0802d65442060a5fb7fe5d9cad36cd2c"
+        },
+        "date": 1791207036769,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 61.62328770000016,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.801437647886369,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.9925908750003245,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.911985411393755,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.168841387321952,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.059733000000733,
             "unit": "ms"
           }
         ]
