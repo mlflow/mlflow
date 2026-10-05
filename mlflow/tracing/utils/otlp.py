@@ -226,6 +226,30 @@ def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
         return getattr(pb_any_value, value_type)
 
 
+def normalize_otel_resource_attributes(
+    resource: OTelResource | None,
+) -> tuple[tuple[str, Any], ...]:
+    """Convert resource attributes into an order-insensitive comparable representation."""
+    if resource is None:
+        return ()
+
+    return tuple(
+        (str(key), _normalize_otel_resource_attribute_value(value))
+        for key, value in sorted(resource.attributes.items(), key=lambda item: str(item[0]))
+    )
+
+
+def _normalize_otel_resource_attribute_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return tuple(
+            (str(key), _normalize_otel_resource_attribute_value(nested_value))
+            for key, nested_value in sorted(value.items(), key=lambda item: str(item[0]))
+        )
+    if isinstance(value, (list, tuple)):
+        return tuple(_normalize_otel_resource_attribute_value(item) for item in value)
+    return value
+
+
 def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
     """
     Decompress OTLP request body according to Content-Encoding.
@@ -288,11 +312,11 @@ def resource_to_otel_proto(resource: OTelResource | None) -> OTelProtoResource:
 
 def build_otel_export_trace_service_request(spans: list[Any]) -> ExportTraceServiceRequest:
     """Build an OTLP request while preserving each span's resource."""
-    grouped_spans: dict[bytes, tuple[OTelProtoResource, list[Any]]] = {}
+    grouped_spans: dict[tuple[tuple[str, Any], ...], tuple[OTelProtoResource, list[Any]]] = {}
     for span in spans:
         resource = getattr(span._span, "resource", None)
         resource_proto = resource_to_otel_proto(resource)
-        resource_key = resource_proto.SerializeToString(deterministic=True)
+        resource_key = normalize_otel_resource_attributes(resource)
         _, span_group = grouped_spans.setdefault(resource_key, (resource_proto, []))
         span_group.append(span)
 

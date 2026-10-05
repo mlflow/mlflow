@@ -5757,6 +5757,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
+                # Resource attributes are native values; stored span attributes are JSON-encoded.
                 resource = getattr(span._span, "resource", None)
                 service_name = (
                     resource.attributes.get("service.name")

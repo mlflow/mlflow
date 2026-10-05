@@ -3134,7 +3134,12 @@ def _create_test_spans() -> list[LiveSpan]:
 
 def test_log_spans_preserves_each_resource_group():
     spans = []
-    for span_id, service_name in [(1, "checkout-service"), (2, "payments-service")]:
+    resources = [
+        Resource({"service.name": "checkout-service", "deployment.environment": "prod"}),
+        Resource({"service.name": "payments-service"}),
+        Resource({"deployment.environment": "prod", "service.name": "checkout-service"}),
+    ]
+    for span_id, resource in enumerate(resources, start=1):
         otel_span = create_mock_otel_span(
             trace_id=123,
             span_id=span_id,
@@ -3142,7 +3147,7 @@ def test_log_spans_preserves_each_resource_group():
             start_time=1000000,
             end_time=2000000,
         )
-        otel_span._resource = Resource({"service.name": service_name})
+        otel_span._resource = resource
         spans.append(LiveSpan(otel_span, trace_id="tr-123"))
 
     store = RestStore(lambda: MlflowHostCreds("https://resource-grouping-host"))
@@ -3165,7 +3170,7 @@ def test_log_spans_preserves_each_resource_group():
         for resource_spans in request.resource_spans
     }
     assert spans_by_service == {
-        "checkout-service": ["span-1"],
+        "checkout-service": ["span-1", "span-3"],
         "payments-service": ["span-2"],
     }
 

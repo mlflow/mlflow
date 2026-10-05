@@ -4,6 +4,10 @@ Revision ID: e8f9a0b1c2d3
 Revises: dc11669786a5
 Create Date: 2026-10-04 00:00:00.000000
 
+Historical span content does not include OTLP resource attributes, so the backfill can only
+recover service.name when it was also recorded as a span attribute. Resource-only values remain
+NULL.
+
 """
 
 import json
