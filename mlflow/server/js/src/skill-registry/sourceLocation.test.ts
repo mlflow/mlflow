@@ -256,6 +256,34 @@ describe('local skill registration', () => {
     ).toBe("mlflow skills register oci \\\n    --image 'quay.io/acme/skill:1.0'");
   });
 
+  it('scopes register and import examples to the active workspace', () => {
+    const register = {
+      sourceType: 'git' as const,
+      location: 'https://github.com/acme/skills',
+      local: false,
+      name: 'code-review',
+      workspace: 'team-a',
+    };
+    expect(formatSkillRegisterCli(register).split('\n')[0]).toBe(
+      "MLFLOW_WORKSPACE='team-a' mlflow skills register git \\",
+    );
+    expect(formatSkillRegisterPython(register)).toContain(
+      '\n\nmlflow.set_workspace("team-a")\nmlflow.genai.register_skill(',
+    );
+
+    const repositoryImport = { source: 'https://github.com/acme/skills', workspace: 'team-a' };
+    expect(formatSkillImportCli(repositoryImport)).toBe(
+      "MLFLOW_WORKSPACE='team-a' mlflow skills import --source 'https://github.com/acme/skills'",
+    );
+    expect(formatSkillImportPython(repositoryImport)).toContain(
+      'mlflow.set_workspace("team-a")\nmlflow.genai.import_skills(',
+    );
+
+    // Without workspaces, nothing changes.
+    expect(formatSkillRegisterCli({ ...register, workspace: null })).not.toContain('MLFLOW_WORKSPACE');
+    expect(formatSkillRegisterPython({ ...register, workspace: null })).not.toContain('set_workspace');
+  });
+
   it('quotes the local directory placeholder', () => {
     expect(formatSkillRegisterCli({ location: '', local: true })).toBe("mlflow skills register '<directory>'");
   });

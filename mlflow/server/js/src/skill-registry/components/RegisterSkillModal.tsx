@@ -17,6 +17,7 @@ import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 
 import Utils from '../../common/utils/Utils';
 import { useArtifactServingEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { SkillIconEditor } from './SkillIconEditor';
 import { SkillTagsInput } from './SkillTagsInput';
 import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiView';
@@ -155,6 +156,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const [seededForm] = useState(() => formFromVersion(sourceVersion, fixedIdentity));
   // Content MLflow stores itself needs a server that serves artifacts; other servers can only import.
   const uploadEnabled = useArtifactServingEnabled();
+  const workspace = useActiveWorkspace();
   const [mode, setMode] = useState<RegistrationMode>(
     uploadEnabled && sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer',
   );
@@ -394,6 +396,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     ref: ref || undefined,
     subpath: subpath || undefined,
     status: form.status,
+    workspace,
     ...snippetIdentity,
   };
   // The UI cannot see whether a Git location is one skill or a folder of skills, so it always offers the
@@ -405,6 +408,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
           ref: ref || undefined,
           subpath: subpath || undefined,
           organization: snippetIdentity.organization || undefined,
+          workspace,
         }
       : undefined;
   const locationSummary = parsed

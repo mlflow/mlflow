@@ -315,6 +315,15 @@ describe('skill URI and pull snippets', () => {
       'import mlflow.genai\n\nmlflow.genai.pull(\n    name="code-review",\n    organization="acme",\n    version=2,\n    destination=".cursor/skills",\n)',
     );
   });
+
+  it('scopes pull examples to the active workspace', () => {
+    expect(formatSkillPullCli('skills:/code-review', './skills', "team's-a")).toBe(
+      "MLFLOW_WORKSPACE='team'\\''s-a' mlflow skills pull skills:/code-review \\\n    --destination ./skills",
+    );
+    expect(formatSkillPullPython({ name: 'code-review', destination: './skills', workspace: 'team-a' })).toBe(
+      'import mlflow.genai\n\nmlflow.set_workspace("team-a")\nmlflow.genai.pull(\n    name="code-review",\n    destination="./skills",\n)',
+    );
+  });
 });
 
 describe('version helpers', () => {

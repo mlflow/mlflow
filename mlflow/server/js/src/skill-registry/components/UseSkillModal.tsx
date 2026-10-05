@@ -20,6 +20,7 @@ import {
   STATUS_TAG_COLOR,
   type SkillInstallTargetId,
 } from '../utils';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { formatSkillPullCli, formatSkillPullPython } from '../snippets';
 import { CopyableSnippet, type SnippetFormat } from './CopyableSnippet';
 
@@ -38,16 +39,18 @@ export const UseSkillModal = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const workspace = useActiveWorkspace();
   const [format, setFormat] = useState<SnippetFormat>('cli');
   const [targetId, setTargetId] = useState<SkillInstallTargetId>('claude-code');
   const destination = SKILL_INSTALL_TARGETS.find((target) => target.id === targetId)?.destination ?? './skills';
   const uri = formatSkillUri(skill.name, skill.organization, version);
-  const cliSnippet = formatSkillPullCli(uri, destination);
+  const cliSnippet = formatSkillPullCli(uri, destination, workspace);
   const pythonSnippet = formatSkillPullPython({
     name: skill.name,
     organization: skill.organization || undefined,
     version,
     destination,
+    workspace,
   });
   const snippet = format === 'cli' ? cliSnippet : pythonSnippet;
   const identity = formatSkillIdentity(skill.name, skill.organization);

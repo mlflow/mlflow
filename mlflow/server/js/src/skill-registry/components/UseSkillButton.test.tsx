@@ -1,9 +1,10 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 
+import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { createMockSkill } from '../test-utils';
 import { SkillAction } from '../types';
 import { UseSkillButton } from './UseSkillButton';
@@ -52,5 +53,27 @@ describe('UseSkillButton', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'GitHub Copilot' }));
     expect(document.body.textContent).toContain('--destination .github/skills');
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
+  });
+
+  describe('with workspaces enabled', () => {
+    afterEach(() => setActiveWorkspace(null));
+
+    it('scopes the pull examples to the active workspace', async () => {
+      setActiveWorkspace('team-a');
+      render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <UseSkillButton skill={createMockSkill({ organization: 'acme', name: 'code-review' })} version={2} />
+          </DesignSystemProvider>
+        </IntlProvider>,
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Use' }));
+      expect(await screen.findByText('Use @acme/code-review')).toBeInTheDocument();
+      expect(document.body.textContent).toContain("MLFLOW_WORKSPACE='team-a' mlflow skills pull");
+
+      await userEvent.click(screen.getByRole('radio', { name: 'Python' }));
+      expect(document.body.textContent).toContain('mlflow.set_workspace("team-a")');
+    });
   });
 });
