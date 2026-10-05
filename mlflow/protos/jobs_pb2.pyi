@@ -36,6 +36,8 @@ class _JobStatusEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_JobStatus.V
     """Job failed with an error."""
     JOB_STATUS_CANCELED: _JobStatus.ValueType  # 5
     """Job was canceled by user."""
+    JOB_STATUS_NEEDS_RECOVERY: _JobStatus.ValueType  # 6
+    """Job backend work may still exist, but the current watcher is unresponsive."""
 
 class JobStatus(_JobStatus, metaclass=_JobStatusEnumTypeWrapper):
     """Generic status enum for MLflow jobs.
@@ -53,7 +55,43 @@ JOB_STATUS_FAILED: JobStatus.ValueType  # 4
 """Job failed with an error."""
 JOB_STATUS_CANCELED: JobStatus.ValueType  # 5
 """Job was canceled by user."""
+JOB_STATUS_NEEDS_RECOVERY: JobStatus.ValueType  # 6
+"""Job backend work may still exist, but the current watcher is unresponsive."""
 Global___JobStatus: _TypeAlias = JobStatus  # noqa: Y015
+
+@_typing.final
+class JobProgress(_message.Message):
+    """Structured best-effort progress payload for a running job."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    PHASE_FIELD_NUMBER: _builtins.int
+    COMPLETED_FIELD_NUMBER: _builtins.int
+    TOTAL_FIELD_NUMBER: _builtins.int
+    UNIT_FIELD_NUMBER: _builtins.int
+    phase: _builtins.str
+    """Current phase or stage of the job, e.g. ``"scoring traces"``."""
+    completed: _builtins.int
+    """Amount of work completed so far, e.g. ``42``."""
+    total: _builtins.int
+    """Total amount of work, if known, e.g. ``100``."""
+    unit: _builtins.str
+    """Unit for the ``completed`` and ``total`` values, e.g. ``"trace"`` or ``"file"``."""
+    def __init__(
+        self,
+        *,
+        phase: _builtins.str | None = ...,
+        completed: _builtins.int | None = ...,
+        total: _builtins.int | None = ...,
+        unit: _builtins.str | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["completed", b"completed", "phase", b"phase", "total", b"total", "unit", b"unit"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["completed", b"completed", "phase", b"phase", "total", b"total", "unit", b"unit"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___JobProgress: _TypeAlias = JobProgress  # noqa: Y015
 
 @_typing.final
 class JobState(_message.Message):
@@ -86,17 +124,26 @@ class JobState(_message.Message):
     STATUS_FIELD_NUMBER: _builtins.int
     ERROR_MESSAGE_FIELD_NUMBER: _builtins.int
     METADATA_FIELD_NUMBER: _builtins.int
+    STATUS_MESSAGE_FIELD_NUMBER: _builtins.int
+    PROGRESS_FIELD_NUMBER: _builtins.int
+    PROGRESS_UPDATED_AT_FIELD_NUMBER: _builtins.int
     status: Global___JobStatus.ValueType
     """Current status of the job."""
     error_message: _builtins.str
-    """Error message if the job failed.
-    Only set when status is JOB_STATUS_FAILED.
-    """
+    """Error message for a terminal failure or timeout outcome, when available."""
+    status_message: _builtins.str
+    """Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``."""
+    progress_updated_at: _builtins.int
+    """Timestamp of the latest progress update in milliseconds since epoch."""
     @_builtins.property
     def metadata(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
         """Additional metadata as key-value pairs.
         Can be used to store job-specific state information.
         """
+
+    @_builtins.property
+    def progress(self) -> Global___JobProgress:
+        """Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``."""
 
     def __init__(
         self,
@@ -104,10 +151,13 @@ class JobState(_message.Message):
         status: Global___JobStatus.ValueType | None = ...,
         error_message: _builtins.str | None = ...,
         metadata: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
+        status_message: _builtins.str | None = ...,
+        progress: Global___JobProgress | None = ...,
+        progress_updated_at: _builtins.int | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["error_message", b"error_message", "status", b"status"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["error_message", b"error_message", "progress", b"progress", "progress_updated_at", b"progress_updated_at", "status", b"status", "status_message", b"status_message"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["error_message", b"error_message", "metadata", b"metadata", "status", b"status"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["error_message", b"error_message", "metadata", b"metadata", "progress", b"progress", "progress_updated_at", b"progress_updated_at", "status", b"status", "status_message", b"status_message"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

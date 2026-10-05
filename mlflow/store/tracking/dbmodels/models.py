@@ -25,7 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.mssql import NVARCHAR
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
     backref,
@@ -137,8 +137,9 @@ RunStatusTypes = [
 ]
 
 
-# Create MutableJSON type for tracking mutations in JSON columns
+# Create mutable JSON types for tracking mutations in JSON columns.
 MutableJSON = MutableDict.as_mutable(JSON)
+MutableJSONArray = MutableList.as_mutable(JSON)
 
 
 def _resolve_mcp_server_icons(
@@ -2675,6 +2676,41 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
+    executor_backend = Column(String(255), nullable=True)
+    """
+    Persisted executor backend name for retry, cancellation, and recovery: `String` (limit 255).
+    """
+
+    lease_expires_at = Column(BigInteger(), nullable=True)
+    """
+    Lease expiration timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    status_message = Column(Text, nullable=True)
+    """
+    Latest best-effort in-flight status message: `Text`.
+    """
+
+    progress = Column(MutableJSON, nullable=True)
+    """
+    Latest best-effort structured progress: `JSON`.
+    """
+
+    progress_updated_at = Column(BigInteger(), nullable=True)
+    """
+    Progress update timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    token_hash = Column(String(64), nullable=True)
+    """
+    SHA-256 hex digest of the remote execution token: `String` (limit 64).
+    """
+
+    scoped_permissions = Column(MutableJSONArray, nullable=True)
+    """
+    Persisted remote-execution scoped permissions list: `JSON`.
+    """
+
     status_details = Column(MutableJSON, nullable=True)
     """
     Job status details: `JSON`.
@@ -2689,6 +2725,14 @@ class SqlJob(Base):
     an anonymous submitter.
     """
 
+    next_attempt_at = Column(BigInteger(), nullable=True)
+    """
+    Earliest time (Unix epoch milliseconds) at which a PENDING job may be claimed: `BigInteger`.
+    Set when a job is re-pended after a transient failure to enforce an exponential backoff, using
+    the database clock so the deadline is comparable across replicas regardless of host clock skew.
+    ``NULL`` means the job is claimable immediately (never retried, or reset/requeued).
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2697,6 +2741,11 @@ class SqlJob(Base):
             "workspace",
             "status",
             "creation_time",
+        ),
+        Index(
+            "index_jobs_status_lease_expires_at",
+            "status",
+            "lease_expires_at",
         ),
     )
 
@@ -2724,9 +2773,78 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            executor_backend=self.executor_backend,
+            lease_expires_at=self.lease_expires_at,
+            status_message=self.status_message,
+            progress=self.progress,
+            progress_updated_at=self.progress_updated_at,
+            token_hash=self.token_hash,
+            scoped_permissions=self.scoped_permissions,
             status_details=self.status_details,
             creator=self.creator,
         )
+
+
+class SqlJobLock(Base):
+    """
+    DB model for framework-managed exclusive job locks.
+
+    These are recorded in the ``job_locks`` table.
+    """
+
+    __tablename__ = "job_locks"
+
+    lock_key = Column(String(255), nullable=False)
+    """
+    Framework-computed exclusive lock key: `String` (limit 255). Primary key.
+    """
+
+    job_id = Column(String(36), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
+    """
+    Holding job ID: `String` (limit 36). Foreign key into ``jobs`` table.
+    """
+
+    acquired_at = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Lock acquisition timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("lock_key", name="job_locks_pk"),
+        Index("index_job_locks_job_id", "job_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlJobLock ({self.lock_key}, {self.job_id})>"
+
+
+class SqlSchedulerLease(Base):
+    """
+    DB model for framework-managed scheduler leases. These are recorded in the
+    ``scheduler_leases`` table.
+    """
+
+    __tablename__ = "scheduler_leases"
+
+    lease_key = Column(String(255), nullable=False)
+    """
+    Scheduler lease key: `String` (limit 255). Primary key.
+    """
+
+    acquired_at = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Lease acquisition / renewal timestamp in milliseconds since the UNIX epoch: `BigInteger`.
+    """
+
+    ttl_seconds = Column(Integer, nullable=False)
+    """
+    Lease time-to-live in seconds: `Integer`.
+    """
+
+    __table_args__ = (PrimaryKeyConstraint("lease_key", name="scheduler_leases_pk"),)
+
+    def __repr__(self):
+        return f"<SqlSchedulerLease ({self.lease_key}, {self.acquired_at})>"
 
 
 class SqlGatewaySecret(Base):

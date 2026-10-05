@@ -1850,26 +1850,28 @@ def test_search_mcp_servers_filter_by_name_in(store):
     assert {s.name for s in result} == {"io.github.test/server2"}
 
 
-def test_search_mcp_access_endpoints_filter_by_server_name_in_is_currently_broken(store):
-    # Known bug (https://github.com/mlflow/mlflow/issues/25203): sqlparse's
-    # builtin keyword table includes the literal string "server_name" (matching
-    # a T-SQL/ODBC reserved word), so it tokenizes as a Keyword rather than an
-    # Identifier. `_join_in_comparison_tokens` in search_utils.py only joins
-    # `key IN (...)` when `key` is an Identifier, so this fails for *any*
-    # comparator, not just IN/NOT IN. This test pins the current (broken)
-    # behavior until that issue is fixed.
-    _setup_server(store, "io.github.test/server1")
-    store.create_mcp_access_endpoint(
-        "io.github.test/server1", "https://a.com", server_version="1.0.0"
+def test_search_mcp_access_endpoints_filter_by_server_name(store):
+    first_name = "Com.Example/MyServer"
+    second_name = "com.example/other"
+    for name, url, transport in (
+        (first_name, "https://a.com", MCPRemoteTransportType.SSE),
+        (second_name, "https://b.com", MCPRemoteTransportType.STREAMABLE_HTTP),
+    ):
+        _setup_server(store, name)
+        store.create_mcp_access_endpoint(
+            name, url, server_version="1.0.0", transport_type=transport
+        )
+
+    filters_and_urls = (
+        (f"server_name = '{first_name}'", {"https://a.com"}),
+        (f"server_name IN ('{first_name}')", {"https://a.com"}),
+        (f"server_name NOT IN ('{first_name}')", {"https://b.com"}),
+        (f"transport_type = 'sse' AND server_name = '{first_name}'", {"https://a.com"}),
+        (f"server_name = '{first_name}' AND transport_type = 'sse'", {"https://a.com"}),
     )
-
-    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string") as exc:
-        store.search_mcp_access_endpoints(filter_string="server_name IN ('io.github.test/server1')")
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-
-    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string") as exc:
-        store.search_mcp_access_endpoints(filter_string="server_name = 'io.github.test/server1'")
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    for filter_string, expected_urls in filters_and_urls:
+        result = store.search_mcp_access_endpoints(filter_string=filter_string)
+        assert {endpoint.url for endpoint in result} == expected_urls
 
 
 def test_search_mcp_servers_filter_by_status(store):
@@ -2219,6 +2221,25 @@ def test_search_mcp_server_versions_order_by_version_ignores_build_metadata_prec
     versions = [v.version for v in result]
     assert versions[0] == "1.0.1"
     assert set(versions[1:]) == {"1.0.0+aaa", "1.0.0+zzz"}
+
+
+@pytest.mark.parametrize("name", ["com.example/versionLIKE", "com.example/versionILIKE"])
+@pytest.mark.parametrize(
+    ("filter_template", "expected_versions"),
+    [
+        ("name = '{name}'", {"1.0.0", "2.0.0"}),
+        ("name = '{name}' AND version = '1.0.0'", {"1.0.0"}),
+        ("version = '1.0.0' AND name = '{name}'", {"1.0.0"}),
+    ],
+)
+def test_search_mcp_server_versions_preserves_name_filter_values(
+    store, name, filter_template, expected_versions
+):
+    _setup_server(store, name, versions=("1.0.0", "2.0.0"))
+
+    result = store.search_mcp_server_versions(name, filter_string=filter_template.format(name=name))
+
+    assert {version.version for version in result} == expected_versions
 
 
 def test_search_mcp_server_versions_filter_by_version_equality_uses_exact_string_match(store):

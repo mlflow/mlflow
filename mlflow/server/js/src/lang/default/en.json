@@ -2327,10 +2327,6 @@
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for displaying the experiment trace archival retention"
   },
-  "7h+cXW": {
-    "defaultMessage": "Assessment name",
-    "description": "Placeholder for the assessment-name key input in the traces filter"
-  },
   "7hHw+R": {
     "defaultMessage": "Instructions",
     "description": "Section header for judge instructions"
@@ -11015,6 +11011,10 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of MCP server search syntax"
   },
+  "g9oNOg": {
+    "defaultMessage": "Feedback",
+    "description": "Trace filter field: feedback assessment"
+  },
   "gBORqQ": {
     "defaultMessage": "MLflow Assistant is not available from this client. Ask your MLflow server administrator to enable remote access if you need to use it remotely.",
     "description": "Message explaining that the Assistant is blocked by the server's remote-access settings"
@@ -11858,6 +11858,10 @@
   "itlAT2": {
     "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
     "description": "Error toast shown when saving a traces view once the experiment is at the saved-view cap"
+  },
+  "ityxuF": {
+    "defaultMessage": "Image unavailable",
+    "description": "Fallback shown when a custom trace view image binding is missing or invalid"
   },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
@@ -12803,6 +12807,10 @@
     "defaultMessage": "Parameters",
     "description": "Header title for the parameters section of the logged model list table"
   },
+  "mmpvrK": {
+    "defaultMessage": "Feedback name",
+    "description": "Placeholder for the feedback-name key input in the traces filter"
+  },
   "mmz4aA": {
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
@@ -13666,10 +13674,6 @@
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
-  },
-  "qHm9KS": {
-    "defaultMessage": "Assessment",
-    "description": "Trace filter field: assessment name"
   },
   "qHqhov": {
     "defaultMessage": "Select as baseline version",

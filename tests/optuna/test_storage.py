@@ -507,6 +507,43 @@ def test_set_trial_state_values_for_state(setup_storage):
             assert storage.get_trial(trial_id).datetime_complete is None
 
 
+def test_set_trial_state_values_transitions_waiting_trial_to_running(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+
+    assert storage.set_trial_state_values(trial_id, state=TrialState.WAITING)
+    assert storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+    assert storage.get_trial(trial_id).state == TrialState.RUNNING
+    assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+
+def test_set_trial_state_values_uses_existing_run_state_for_waiting_trial(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+    assert storage.set_trial_state_values(trial_id, state=TrialState.WAITING)
+
+    with (
+        patch.object(
+            storage._mlflow_client,
+            "get_run",
+            return_value=MagicMock(info=MagicMock(status="SCHEDULED")),
+        ) as get_run,
+        patch.object(storage._mlflow_client, "update_run") as update_run,
+    ):
+        assert storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+    get_run.assert_called_once_with(trial_id)
+    update_run.assert_called_once_with(trial_id, status="RUNNING")
+
+    with patch.object(storage._mlflow_client, "get_run") as get_run:
+        get_run.return_value.info.status = "RUNNING"
+        assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+    get_run.assert_called_once_with(trial_id)
+
+
 def test_get_trial_param_and_get_trial_params(setup_storage):
     storage = setup_storage
     _, study_to_trials = _setup_studies(storage, n_study=2, n_trial=5, seed=1)
