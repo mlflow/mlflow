@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Callable, ClassVar
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal
 
 import sqlparse
 from packaging.version import Version
@@ -53,19 +53,26 @@ class SearchFilterWithScope(str):
     the scope as a comparison without tokenizing its potentially large set of values.
     """
 
-    def __new__(cls, filter_string: str, scope_key: str, scope_values: set[str]):
+    def __new__(
+        cls,
+        filter_string: str,
+        scope_key: str,
+        scope_values: set[str],
+        scope_comparator: Literal["IN", "NOT IN"] = "IN",
+    ):
         values = tuple(sorted(scope_values))
-        scope = f"{scope_key} IN ({', '.join(repr(value) for value in values)})"
+        scope = f"{scope_key} {scope_comparator} ({', '.join(repr(value) for value in values)})"
         obj = super().__new__(cls, f"{filter_string} AND {scope}" if filter_string else scope)
         obj.filter_string = filter_string
         obj.scope_key = scope_key
         obj.scope_values = values
+        obj.scope_comparator = scope_comparator
         return obj
 
     def parse(self, parser):
         comparisons = parser.parse_search_filter(self.filter_string)
         # Validate the scope key and comparator using the same parser as the caller's filter.
-        scope = parser.parse_search_filter(f"{self.scope_key} IN ('')")[0]
+        scope = parser.parse_search_filter(f"{self.scope_key} {self.scope_comparator} ('')")[0]
         scope["value"] = self.scope_values
         return [*comparisons, scope]
 
