@@ -42,11 +42,12 @@ For a complete list of supported providers, view the provider dropdown when crea
 
 ### Evaluation Providers
 
-| Provider     | Model family | Passthrough API                  |
-| ------------ | ------------ | -------------------------------- |
-| **TypeSafe** | Jev          | `/gateway/typesafe/v1/systemone` |
+| Provider       | Model family        | Passthrough API                  |
+| -------------- | ------------------- | -------------------------------- |
+| **TypeSafe**   | Jev                 | `/gateway/typesafe/v1/systemone` |
+| **OpenRouter** | Jev decision models | `/gateway/typesafe/v1/systemone` |
 
-TypeSafe endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs.
+TypeSafe and OpenRouter Jev decision endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs. OpenRouter `typesafe/jev-router` is a chat model and uses normal chat routes.
 
 ## Provider-Specific Passthrough APIs
 

@@ -561,7 +561,7 @@ def _assert_typesafe_call(invoke, expected_state) -> None:
 )
 def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judge_fn(model="typesafe:/jev-latest", **judge_kwargs)
@@ -572,7 +572,7 @@ def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
 def test_builtin_judge_forwards_typesafe_extra_headers():
     extra_headers = {"X-Test": "value"}
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judges.is_safe(
@@ -602,7 +602,7 @@ def test_tool_call_efficiency_invokes_typesafe():
         )
     ]
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judges.is_tool_call_efficient(
@@ -661,7 +661,7 @@ def test_tool_call_correctness_invokes_typesafe(
         else None
     )
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judges.is_tool_call_correct(
