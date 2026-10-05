@@ -239,48 +239,6 @@ export const skillVersionStatusTransitions = (status: SkillStatus): SkillStatus[
 export const canSoftDeleteSkillVersion = (status: SkillStatus) =>
   status === SkillStatus.DRAFT || status === SkillStatus.DEPRECATED;
 
-/**
- * Keep deleted rows the server returned, and fill holes the server omitted. Holes below the oldest returned
- * version are only known to be deleted when the server returned the complete history. Never yields more than
- * `maxRows` rows, so a long run of deleted numbers cannot blow up the list.
- */
-export const withDeletedVersionPlaceholders = (
-  versions: SkillVersion[] | undefined,
-  { completeHistory = false, maxRows = Number.POSITIVE_INFINITY } = {},
-): SkillVersion[] => {
-  const returned = versions ?? [];
-  if (returned.length === 0) return [];
-  const byVersion = new Map(returned.map((version) => [version.version, version]));
-  const numbers = [...byVersion.keys()];
-  const newest = Math.max(...numbers);
-  const oldest = completeHistory ? 1 : Math.min(...numbers);
-  const sample = returned[0];
-  const rows: SkillVersion[] = [];
-  for (let version = newest; version >= oldest && rows.length < maxRows; version -= 1) {
-    const existing = byVersion.get(version);
-    rows.push(
-      existing ?? {
-        name: sample.name,
-        version,
-        organization: sample.organization,
-        source_type: null,
-        source: null,
-        ref: null,
-        subpath: null,
-        digest: null,
-        status: SkillStatus.DELETED,
-        aliases: [],
-        tags: {},
-        created_by: null,
-        last_updated_by: null,
-        creation_timestamp: null,
-        last_updated_timestamp: null,
-      },
-    );
-  }
-  return rows;
-};
-
 export const resolveDefaultSkillVersion = (
   skill?: Pick<Skill, 'latest_version'> | null,
   versions?: SkillVersion[],

@@ -943,10 +943,6 @@
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
   },
-  "1qo/8I": {
-    "defaultMessage": "Deleted, number not reused",
-    "description": "Subtitle for a deleted skill version in the version list"
-  },
   "1rqKJk": {
     "defaultMessage": "View details",
     "description": "Link to the issue detection run overview from the completion notification"
@@ -2402,10 +2398,6 @@
   "7PqwjP": {
     "defaultMessage": "Grid view",
     "description": "Aria label for grid view toggle"
-  },
-  "7R8a6F": {
-    "defaultMessage": "Deleted. The number is never reused, and the registry no longer returns this version.",
-    "description": "Tooltip for a deleted skill version row"
   },
   "7RNlsx": {
     "defaultMessage": "MLflow API documentation",

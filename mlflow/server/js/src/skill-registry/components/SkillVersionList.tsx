@@ -4,7 +4,6 @@ import {
   ChevronRightIcon,
   Empty,
   Table,
-  Tooltip,
   TableCell,
   TableHeader,
   TableRow,
@@ -25,26 +24,6 @@ import Utils from '../../common/utils/Utils';
 const SkillVersionCell: ColumnDef<SkillVersion>['cell'] = ({ row: { original } }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-
-  if (original.status === SkillStatus.DELETED) {
-    return (
-      <div css={flexColumnGapStyles(theme)}>
-        <Typography.Text color="secondary">
-          <FormattedMessage
-            defaultMessage="Version {version}"
-            description="Skill version list item label"
-            values={{ version: original.version }}
-          />
-        </Typography.Text>
-        <Typography.Text size="sm" color="secondary">
-          <FormattedMessage
-            defaultMessage="Deleted, number not reused"
-            description="Subtitle for a deleted skill version in the version list"
-          />
-        </Typography.Text>
-      </div>
-    );
-  }
 
   return (
     <div css={flexColumnGapStyles(theme)}>
@@ -135,8 +114,7 @@ export const SkillVersionList = ({
         ) : (
           table.getRowModel().rows.map((row) => {
             const version = row.original.version;
-            const isDeleted = row.original.status === SkillStatus.DELETED;
-            const isSelected = !isDeleted && selectedVersion === version;
+            const isSelected = selectedVersion === version;
             const content = (
               <div css={spaceBetweenRowStyles}>
                 {row.getAllCells().map((cell) => (
@@ -152,42 +130,21 @@ export const SkillVersionList = ({
             return (
               <TableRow
                 key={row.id}
-                tabIndex={isDeleted ? -1 : 0}
+                tabIndex={0}
                 aria-selected={isSelected}
-                aria-disabled={isDeleted}
                 css={{
                   backgroundColor: isSelected ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-                  cursor: isDeleted ? 'default' : 'pointer',
+                  cursor: 'pointer',
                 }}
-                onClick={isDeleted ? undefined : () => onSelectVersion(version)}
-                onKeyDown={
-                  isDeleted
-                    ? undefined
-                    : (event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          onSelectVersion(version);
-                        }
-                      }
-                }
+                onClick={() => onSelectVersion(version)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelectVersion(version);
+                  }
+                }}
               >
-                <TableCell css={{ alignItems: 'center' }}>
-                  {isDeleted ? (
-                    <Tooltip
-                      componentId="mlflow.skill_registry.detail.version_deleted_tooltip"
-                      content={
-                        <FormattedMessage
-                          defaultMessage="Deleted. The number is never reused, and the registry no longer returns this version."
-                          description="Tooltip for a deleted skill version row"
-                        />
-                      }
-                    >
-                      <span css={{ display: 'block' }}>{content}</span>
-                    </Tooltip>
-                  ) : (
-                    content
-                  )}
-                </TableCell>
+                <TableCell css={{ alignItems: 'center' }}>{content}</TableCell>
               </TableRow>
             );
           })

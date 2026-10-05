@@ -2101,7 +2101,6 @@ module.exports = {
   "mlflow.skill_registry.detail.version.status_edit": "",
   "mlflow.skill_registry.detail.version.status_select": "",
   "mlflow.skill_registry.detail.version.status_update_error": "",
-  "mlflow.skill_registry.detail.version_deleted_tooltip": "",
   "mlflow.skill_registry.detail.version_status_tag": "",
   "mlflow.skill_registry.detail.versions.header": "",
   "mlflow.skill_registry.detail.versions_error": "",

@@ -167,7 +167,7 @@ describe('SkillDetailPage', () => {
     expect(screen.getByRole('row', { selected: true })).toHaveTextContent('Version 1');
   });
 
-  it('shows a deleted version as a disabled row and does not open it', async () => {
+  it('hides deleted versions from the version list', async () => {
     server.use(
       getMockedSearchSkillVersionsResponse([
         mockVersion2,
@@ -179,10 +179,7 @@ describe('SkillDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Version 2')).toBeInTheDocument();
     });
-    expect(screen.getByText('Version 1')).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: /Version 1/ })).toHaveAttribute('aria-disabled', 'true');
-    await userEvent.click(screen.getByText('Version 1'));
-    expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+    expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
   });
 
   it('pins the selected version in the Use modal and updates the install destination', async () => {

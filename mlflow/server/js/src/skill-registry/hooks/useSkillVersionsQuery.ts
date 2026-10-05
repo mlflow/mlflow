@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { SkillRegistryApi } from '../api';
 import type { SearchSkillVersionsResponse, SkillVersion } from '../types';
-import { SKILL_QUERY_KEYS, withDeletedVersionPlaceholders } from '../utils';
+import { SKILL_QUERY_KEYS, visibleSkillVersions } from '../utils';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 export const SKILL_VERSION_LIST_LIMIT = 100;
@@ -24,21 +24,13 @@ export const useSkillVersionsQuery = (name: string, organization = '') => {
   );
 
   const returned = queryResult.data?.skill_versions;
-  const hasNextPage = Boolean(queryResult.data?.next_page_token);
-  const data = useMemo(
-    () =>
-      withDeletedVersionPlaceholders(returned, {
-        completeHistory: !hasNextPage,
-        maxRows: SKILL_VERSION_LIST_LIMIT,
-      }),
-    [returned, hasNextPage],
-  );
-  const lowestShown = data[data.length - 1]?.version;
+  // The server already omits deleted versions; filtering keeps them hidden if one is ever returned.
+  const data = useMemo(() => visibleSkillVersions(returned), [returned]);
 
   return {
     ...queryResult,
     data,
-    hasMoreVersions: hasNextPage || (lowestShown != null && lowestShown > 1 && data.length >= SKILL_VERSION_LIST_LIMIT),
+    hasMoreVersions: Boolean(queryResult.data?.next_page_token),
   };
 };
 

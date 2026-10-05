@@ -29,7 +29,6 @@ import {
   isPermissionDeniedError,
   isSkillDimmed,
   parseSkillRouteParams,
-  visibleSkillVersions,
 } from '../utils';
 import { headerIconStyles } from '../styles';
 import { useSkillQuery } from '../hooks/useSkillQuery';
@@ -220,7 +219,7 @@ const SkillDetailPage = () => {
     name,
     organization,
     onDeleted: (version) => {
-      const next = visibleSkillVersions(versions).find((candidate) => candidate.version !== version);
+      const next = versions?.find((candidate) => candidate.version !== version);
       setSelectedVersion(next?.version);
     },
   });

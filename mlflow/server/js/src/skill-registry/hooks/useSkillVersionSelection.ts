@@ -19,9 +19,7 @@ export const useSkillVersionSelection = (name: string, organization: string, ski
   const fetched = useSkillVersionQuery(name, organization, selectedVersion, shouldFetch);
   const fetchSettled = shouldFetch && !fetched.isLoading;
 
-  const isMissing =
-    fromList?.status === SkillStatus.DELETED ||
-    (fetchSettled && (isNotFoundError(fetched.error) || fetched.data?.status === SkillStatus.DELETED));
+  const isMissing = fetchSettled && (isNotFoundError(fetched.error) || fetched.data?.status === SkillStatus.DELETED);
   const currentVersion = isMissing ? undefined : (fromList ?? fetched.data);
   const error = fetchSettled && !isMissing ? (fetched.error ?? undefined) : undefined;
   const isLoading =

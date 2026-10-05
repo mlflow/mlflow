@@ -22,7 +22,6 @@ import {
   skillVersionStatusTransitions,
   SKILL_CATALOG_SOURCE_TYPE_OPTIONS,
   visibleSkillVersions,
-  withDeletedVersionPlaceholders,
 } from './utils';
 import { formatSkillPullCli, formatSkillPullPython } from './snippets';
 import { createMockSkill, createMockSkillVersion } from './test-utils';
@@ -319,46 +318,6 @@ describe('skill URI and pull snippets', () => {
 });
 
 describe('version helpers', () => {
-  it('fills missing version numbers with deleted placeholders', () => {
-    expect(
-      withDeletedVersionPlaceholders([
-        createMockSkillVersion({ version: 3, status: SkillStatus.ACTIVE }),
-        createMockSkillVersion({ version: 1, status: SkillStatus.DEPRECATED }),
-      ]).map((version) => [version.version, version.status]),
-    ).toEqual([
-      [3, SkillStatus.ACTIVE],
-      [2, SkillStatus.DELETED],
-      [1, SkillStatus.DEPRECATED],
-    ]);
-  });
-
-  it('fills deleted numbers below the oldest returned version only for a complete history', () => {
-    const versions = [createMockSkillVersion({ version: 3, status: SkillStatus.ACTIVE })];
-    expect(withDeletedVersionPlaceholders(versions).map((version) => version.version)).toEqual([3]);
-    expect(
-      withDeletedVersionPlaceholders(versions, { completeHistory: true }).map((version) => [
-        version.version,
-        version.status,
-      ]),
-    ).toEqual([
-      [3, SkillStatus.ACTIVE],
-      [2, SkillStatus.DELETED],
-      [1, SkillStatus.DELETED],
-    ]);
-  });
-
-  it('caps the rows produced for a long run of deleted numbers', () => {
-    const rows = withDeletedVersionPlaceholders(
-      [
-        createMockSkillVersion({ version: 100000, status: SkillStatus.ACTIVE }),
-        createMockSkillVersion({ version: 1, status: SkillStatus.ACTIVE }),
-      ],
-      { maxRows: 100 },
-    );
-    expect(rows).toHaveLength(100);
-    expect(rows[0].version).toBe(100000);
-  });
-
   it('omits deleted versions from ordinary results', () => {
     expect(
       visibleSkillVersions([
