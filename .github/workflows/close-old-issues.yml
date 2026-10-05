@@ -26,6 +26,12 @@ permissions: {}
 cache-mode: none
 
 jobs:
+  # Runs the PR's own copy of the script so the preview exercises the proposed
+  # changes. This is safe because the token is read-only: pull_request events
+  # from forks always receive a read-only GITHUB_TOKEN, this job requests only
+  # `contents: read`, and `persist-credentials: false` keeps the checkout
+  # unauthenticated. A preview can therefore never close anything, however the
+  # script is edited. (Same pattern as stale-branches.yml.)
   preview:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-slim

@@ -170,7 +170,7 @@ module.exports = async ({ context, github }) => {
   // Label and reaction exclusions live in the search query so every result
   // page holds only eligible issues.
   const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security reactions:0`;
-  const processedPullRequests = new Map();
+  const linkedPullRequestUrls = new Map();
   const closedIssueNumbers = [];
   let cursor = null;
   let hasNextPage = true;
@@ -214,42 +214,30 @@ module.exports = async ({ context, github }) => {
   let failed = false;
 
   try {
-    // Close each linked PR once, accumulating every eligible issue that links
-    // it so the closure comment can mention them all.
+    // Map every linked PR to all eligible issues that reference it before any
+    // mutation, so each PR can be closed and commented back-to-back while the
+    // comment still lists every linked issue.
     for (const issue of eligibleIssues) {
       for (const pullRequest of await getClosingPullRequests(github, owner, repo, issue)) {
-        const urls = processedPullRequests.get(pullRequest.number);
-        if (urls) {
-          urls.push(issue.url);
-          continue;
-        }
-        processedPullRequests.set(pullRequest.number, [issue.url]);
-
-        if (dryRun) {
-          console.log(`[dry run] Would close PR #${pullRequest.number} for issue #${issue.number}`);
-          continue;
-        }
-
-        await github.rest.pulls.update({
-          owner,
-          repo,
-          pull_number: pullRequest.number,
-          state: "closed",
-        });
-        console.log(`Closed PR #${pullRequest.number} linked to issue #${issue.number}.`);
+        const urls = linkedPullRequestUrls.get(pullRequest.number) ?? [];
+        urls.push(issue.url);
+        linkedPullRequestUrls.set(pullRequest.number, urls);
       }
     }
 
-    for (const [pullRequestNumber, urls] of processedPullRequests) {
+    for (const [pullRequestNumber, urls] of linkedPullRequestUrls) {
       if (dryRun) {
-        console.log(
-          `[dry run] Would comment on PR #${pullRequestNumber} (linked issue${
-            urls.length > 1 ? "s" : ""
-          }: ${urls.join(", ")})`
-        );
+        const linked = `linked issue${urls.length > 1 ? "s" : ""}: ${urls.join(", ")}`;
+        console.log(`[dry run] Would close PR #${pullRequestNumber} (${linked})`);
         continue;
       }
 
+      await github.rest.pulls.update({
+        owner,
+        repo,
+        pull_number: pullRequestNumber,
+        state: "closed",
+      });
       await github.rest.issues.createComment({
         owner,
         repo,
@@ -258,6 +246,11 @@ module.exports = async ({ context, github }) => {
           ", "
         )}`,
       });
+      console.log(
+        `Closed PR #${pullRequestNumber} linked to ${urls.length} issue${
+          urls.length > 1 ? "s" : ""
+        }.`
+      );
     }
 
     for (const issue of eligibleIssues) {
@@ -294,7 +287,7 @@ module.exports = async ({ context, github }) => {
       failed,
       rateLimited,
       issueNumbers: closedIssueNumbers,
-      pullRequestNumbers: [...processedPullRequests.keys()],
+      pullRequestNumbers: [...linkedPullRequestUrls.keys()],
     });
   }
 
@@ -302,7 +295,7 @@ module.exports = async ({ context, github }) => {
   const suffix = rateLimited ? " (stopped early by the rate limit; the next run resumes)" : "";
   console.log(
     `${verb} ${closedIssueNumbers.length} issues and ${
-      processedPullRequests.size
+      linkedPullRequestUrls.size
     } linked pull requests${dryRun ? " in a dry run" : ""}${suffix}.`
   );
 };
