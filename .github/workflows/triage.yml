@@ -632,7 +632,7 @@ jobs:
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: /tmp/triage-out/payload.json
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 1
       # Paths and status codes only; nginx doesn't log request headers.
       - name: Gateway proxy log
