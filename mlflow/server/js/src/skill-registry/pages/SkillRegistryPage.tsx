@@ -73,8 +73,10 @@ const SkillRegistryPage = () => {
 
   const hasActiveFilters = hasSkillCatalogFilters(catalogFilters);
   const isPermissionDenied = isPermissionDeniedError(error);
-  // Like the MCP registry, an empty catalog moves the create button from the header into the empty state.
   const isCatalogEmpty = !isLoading && !error && !skills?.length && !hasActiveFilters && !hasPreviousPage;
+  // Like the MCP registry, an empty catalog offers Create in its empty state instead. The header button waits
+  // until the list shows there is something to add to, so it doesn't flash while the first page loads.
+  const showHeaderCreate = Boolean(error) || hasActiveFilters || hasPreviousPage || Boolean(skills?.length);
   const openRegister = () => setRegisterOpen(true);
 
   useEffect(() => {
@@ -104,7 +106,7 @@ const SkillRegistryPage = () => {
           </span>
         }
         buttons={
-          isCatalogEmpty ? undefined : (
+          showHeaderCreate ? (
             <Button
               componentId="mlflow.skill_registry.create"
               type="primary"
@@ -113,7 +115,7 @@ const SkillRegistryPage = () => {
             >
               <FormattedMessage defaultMessage="Create skill" description="Button that opens skill registration" />
             </Button>
-          )
+          ) : undefined
         }
       />
       <Spacer shrinks={false} />

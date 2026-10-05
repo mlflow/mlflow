@@ -73,6 +73,16 @@ describe('SkillRegistryPage', () => {
     expect(screen.queryByPlaceholderText('Tag value')).not.toBeInTheDocument();
   });
 
+  it('keeps the header create button hidden while the first page loads', async () => {
+    server.use(rest.get(getAjaxUrl(BASE_URL), (_req, res, ctx) => res(ctx.delay(300), ctx.json({ skills: [] }))));
+    renderPage();
+
+    expect(await screen.findByText('Loading skills...')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create skill' })).not.toBeInTheDocument();
+    await openCreateSkillDialog();
+    expect(screen.getByRole('dialog', { name: 'Create skill' })).toBeInTheDocument();
+  });
+
   it('orders catalog filters like the prototype', async () => {
     renderPage();
 

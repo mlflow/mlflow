@@ -48,7 +48,6 @@ const MCPRegistryPage = () => {
     onNextPage,
     onPreviousPage,
     pageSizeSelect,
-    isFetching,
   } = useMCPServersListQuery({
     searchFilter: debouncedSearchFilter,
     filterActive,
@@ -60,8 +59,10 @@ const MCPRegistryPage = () => {
   });
 
   const hasActiveFilters = Boolean(debouncedSearchFilter) || filterActive || filterHasEndpoints;
-  const isServersEmpty = !isLoading && !isFetching && !error && !servers?.length && !hasActiveFilters;
-  const createButton = !isServersEmpty ? (
+  // An empty catalog offers Create in its empty state instead. The header button waits until the list shows
+  // there is something to add to, so it doesn't flash while the first page loads and then vanish.
+  const showHeaderCreate = Boolean(error) || hasActiveFilters || hasPreviousPage || Boolean(servers?.length);
+  const createButton = showHeaderCreate ? (
     <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" onClick={openModal}>
       <FormattedMessage defaultMessage="Create MCP server" description="Button to create a new MCP server" />
     </Button>
