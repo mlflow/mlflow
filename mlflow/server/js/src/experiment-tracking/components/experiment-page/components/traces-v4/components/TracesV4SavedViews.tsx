@@ -149,9 +149,9 @@ export const useTracesV4SavedViews = ({
   const { data: experiment, refetch } = useGetExperimentQuery({ experimentId });
 
   // Validate a stored filter model against the live field set: drop clauses whose field/operator no
-  // longer exists (a since-removed field, or an assessment name not on this page) so a restored view
-  // can't silently produce wrong results. Applied both on restore and when normalizing the dirty
-  // baseline, so an unsupported clause reads as "already dropped" rather than stranding the view dirty.
+  // longer exists or whose shape is invalid so a restored view can't silently produce wrong results.
+  // Applied both on restore and when normalizing the dirty baseline, so an unsupported clause reads
+  // as "already dropped" rather than stranding the view dirty.
   // Stabilize the names by content so a fresh `[]`/array identity doesn't churn `filterFields` →
   // `supportedFilters` → the effects that depend on it every render.
   const stableAssessmentNames = useArrayMemo(assessmentNames);
@@ -394,9 +394,17 @@ export const useTracesV4SavedViews = ({
   const buildShareUrl = useCallback(
     async (id: string): Promise<string | null> => {
       const state = await decodeViewState(id);
-      return state ? getTraceV4SavedViewShareUrl(experimentId, state, id) : null;
+      if (!state) {
+        return null;
+      }
+      const filters = supportedFilters(state.filters);
+      return getTraceV4SavedViewShareUrl(
+        experimentId,
+        { ...state, filters: filters.length > 0 ? filters : undefined },
+        id,
+      );
     },
-    [decodeViewState, experimentId],
+    [decodeViewState, experimentId, supportedFilters],
   );
 
   const activeShareKey = searchParams.get(TRACE_V4_SHARE_URL_PARAM_KEY);

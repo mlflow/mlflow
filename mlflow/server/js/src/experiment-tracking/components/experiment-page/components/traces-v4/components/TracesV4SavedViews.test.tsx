@@ -12,7 +12,12 @@ import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/ho
 import { encodeSavedViewEnvelope } from '../../../utils/savedViewEnvelope';
 import { textCompressDeflate, textDecompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
-import { TRACE_V4_SHARE_URL_PARAM_KEY, buildV4ViewQuery, captureV4ViewState } from '../utils/tracesV4SavedViewState';
+import {
+  TRACE_V4_FILTERS_PARAM_KEY,
+  TRACE_V4_SHARE_URL_PARAM_KEY,
+  buildV4ViewQuery,
+  captureV4ViewState,
+} from '../utils/tracesV4SavedViewState';
 import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () => ({
@@ -314,6 +319,26 @@ describe('TracesV4SavedViewsButton', () => {
     expect(copiedQuery.get('q')).toBe('x');
     await waitFor(() => expect(infoSpy).toHaveBeenCalled());
     infoSpy.mockRestore();
+  });
+
+  test('copy-link omits the filter marker when every stored clause is unsupported', async () => {
+    mockExperiment([
+      await makeV4ViewTag(
+        'invalid-filters',
+        'Invalid filters',
+        1000,
+        'q=x',
+        ['start_time'],
+        [{ field: 'state', operator: FilterOp.CONTAINS, value: 'ERROR' }],
+      ),
+    ]);
+    renderButtonAt();
+    await openDropdown();
+    await userEvent.click(screen.getByTestId('trace-v4-saved-views-copy-link-invalid-filters'));
+    await waitFor(() => expect(mockCopyToClipboard).toHaveBeenCalled());
+
+    const copied = mockCopyToClipboard.mock.calls[0][0];
+    expect(new URLSearchParams(copied.split('?')[1]).get(TRACE_V4_FILTERS_PARAM_KEY)).toBeNull();
   });
 
   test('save→open round-trips the full captured state (all whitelisted params + cols)', async () => {
@@ -659,7 +684,7 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     await act(async () => {
       await state.openView('v1');
     });
-    await waitFor(() => expect(new URLSearchParams(search).get('filters')).toBe('[]'));
+    await waitFor(() => expect(new URLSearchParams(search).get('filters')).toBeNull());
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
   });
 

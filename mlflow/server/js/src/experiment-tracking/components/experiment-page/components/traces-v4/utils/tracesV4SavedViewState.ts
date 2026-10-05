@@ -75,11 +75,9 @@ export const getTraceV4SavedViewIdFromTagKey = (key: string): string | null => {
 };
 
 /**
- * Whether the URL carries any serialized view state. A genuine share link built by
- * {@link buildV4ViewQuery} always includes at least one of these; a bare or garbage share key has
- * none. Derived from the same key lists as the capture/build path so the two can't drift — callers
- * use this to decide whether a share key is actually previewing a view. Presence is `!== null`, not
- * truthiness, so an empty-string value (e.g. `q=`) still counts as a captured value.
+ * Whether the URL carries serialized view state beyond the share key. Presence is `!== null`, not
+ * truthiness, so an empty-string value (e.g. `q=`) and an explicit empty filter model both count.
+ * The latter is meaningful: it records that filters were cleared instead of omitted by a legacy URL.
  */
 export const urlHasCapturedV4ViewState = (params: URLSearchParams): boolean =>
   SINGLE_VALUE_KEYS.some((key) => params.get(key) !== null) ||
@@ -151,9 +149,11 @@ export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): st
   Object.entries(state.multi ?? {}).forEach(([key, values]) => {
     (values ?? []).forEach((value) => params.append(key, value));
   });
-  // Keep an explicit empty marker in new share URLs. Its absence identifies legacy links whose
-  // filters still need to be hydrated from the stored view.
-  params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(state.filters ?? []));
+  // Absence identifies legacy links whose filters may still need hydration. Preserve an explicitly
+  // captured empty model, but do not invent one when validation dropped every stored clause.
+  if (state.filters !== undefined) {
+    params.set(TRACE_V4_FILTERS_PARAM_KEY, JSON.stringify(state.filters));
+  }
   params.set(TRACE_V4_SHARE_URL_PARAM_KEY, viewId);
   return params.toString();
 };

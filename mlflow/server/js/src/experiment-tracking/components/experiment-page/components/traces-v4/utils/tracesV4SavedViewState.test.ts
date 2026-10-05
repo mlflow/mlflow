@@ -96,7 +96,10 @@ describe('captureV4ViewState', () => {
 
     const noFilters = captureV4ViewState(params('q=x'), ['start_time'], []);
     expect(noFilters.filters).toBeUndefined();
-    expect(params(buildV4ViewQuery(noFilters, 'view-1')).get(TRACE_V4_FILTERS_PARAM_KEY)).toBe('[]');
+    expect(params(buildV4ViewQuery(noFilters, 'view-1')).get(TRACE_V4_FILTERS_PARAM_KEY)).toBeNull();
+
+    const explicitlyEmpty = { ...noFilters, filters: [] };
+    expect(params(buildV4ViewQuery(explicitlyEmpty, 'view-1')).get(TRACE_V4_FILTERS_PARAM_KEY)).toBe('[]');
   });
 
   test('captures assessment-column visibility, omitting an empty map', () => {
@@ -155,7 +158,10 @@ describe('urlHasCapturedV4ViewState', () => {
   test('true when the URL carries any serialized view state', () => {
     expect(urlHasCapturedV4ViewState(params('sort=duration'))).toBe(true);
     expect(urlHasCapturedV4ViewState(params('tag=env%3Dprod'))).toBe(true);
-    expect(urlHasCapturedV4ViewState(params('filters=%5B%5D'))).toBe(true);
+    // An explicit empty model on an active view records a user-authored clear, not a bare share key.
+    expect(
+      urlHasCapturedV4ViewState(params(`${TRACE_V4_SHARE_URL_PARAM_KEY}=x&${TRACE_V4_FILTERS_PARAM_KEY}=%5B%5D`)),
+    ).toBe(true);
   });
 
   test('false for a bare share key with no view state (a garbage/stale link)', () => {
