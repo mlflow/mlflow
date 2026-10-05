@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791207040453,
+  "lastUpdate": 1791212278519,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84737625+kriscon-db@users.noreply.github.com",
-            "name": "Kris Concepcion",
-            "username": "kriscon-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4e160914862d779ad147e6ef4c9ff7e229e93de",
-          "message": "Normalize review-queue add-items ids before the trace-existence check (#24029)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-16T08:42:59Z",
-          "tree_id": "6e0eb0bad6a791f80565593fdbd3989f5ee69b86",
-          "url": "https://github.com/mlflow/mlflow/commit/a4e160914862d779ad147e6ef4c9ff7e229e93de"
-        },
-        "date": 1781599609043,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 47.67857680000134,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 22.839823235291924,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.60402559016275,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.67494682456198,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 24.295064749999774,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.528095199999598,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.059733000000733,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "147509942+LE0-Lin@users.noreply.github.com",
+            "name": "Zhibo Lin",
+            "username": "LE0-Lin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "28859c92ff5c17cdd9b381e541b20fd8a19effa1",
+          "message": "Fix `EvaluationDataset` hashing for list-valued targets and predictions (#26433)\n\nSigned-off-by: Zhibo Lin <147509942+LE0-Lin@users.noreply.github.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-05T14:54:19Z",
+          "tree_id": "3b87f158ae6f32e7d2c8cb123944242b0a9a1449",
+          "url": "https://github.com/mlflow/mlflow/commit/28859c92ff5c17cdd9b381e541b20fd8a19effa1"
+        },
+        "date": 1791212275519,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 53.58358689999818,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.842404647056737,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.524694403226715,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.519085335999989,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.759884669641788,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.048544599999332,
             "unit": "ms"
           }
         ]
