@@ -589,8 +589,11 @@ describe('SkillRegistryPage', () => {
     renderPage();
 
     await openCreateSkillDialog();
+    // Server info can answer after the dialog opens.
+    await waitFor(() => {
+      expect(screen.queryByRole('radio', { name: /Upload a folder/ })).not.toBeInTheDocument();
+    });
     expect(screen.getByRole('radio', { name: /Import from existing source/ })).toBeChecked();
-    expect(screen.queryByRole('radio', { name: /Upload a folder/ })).not.toBeInTheDocument();
   });
 
   it('forgets a selected folder when switching away from Upload', async () => {
