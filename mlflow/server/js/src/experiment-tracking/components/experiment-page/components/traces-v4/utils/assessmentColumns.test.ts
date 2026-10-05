@@ -138,7 +138,7 @@ describe('pickCellAssessment', () => {
 });
 
 describe('getSortableAssessmentNames', () => {
-  test('keeps trace-level feedback and off-page opted-in names', () => {
+  test('keeps trace-level feedback and off-page names for backend-global sorting', () => {
     const traces = [traceWith('t1', [makeFeedbackAssessment('quality', 0.8)])];
 
     expect(getSortableAssessmentNames(traces, ['off-page', 'quality'])).toEqual(['off-page', 'quality']);

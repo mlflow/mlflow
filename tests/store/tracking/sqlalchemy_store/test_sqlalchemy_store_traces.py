@@ -560,6 +560,11 @@ def test_search_traces_order_by_metrics_state_and_latest_feedback(
     assert ordered_ids("feedback.quality DESC") == ["high", "low", "error"]
     assert ordered_ids("feedback.category ASC") == ["high", "low", "error"]
     assert ordered_ids("feedback.category DESC") == ["low", "high", "error"]
+    assert ordered_ids("feedback.quality ASC", "feedback.category ASC") == [
+        "low",
+        "high",
+        "error",
+    ]
     assert ordered_ids("feedback.mixed ASC") == ["high", "low", "error"]
     assert ordered_ids("feedback.mixed DESC") == ["low", "high", "error"]
     assert ordered_ids("feedback.empty_session_marker ASC") == ["low", "high", "error"]

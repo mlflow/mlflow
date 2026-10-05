@@ -10412,16 +10412,16 @@ def _get_orderby_clauses_for_search_traces(
             empty_session_assessment_marker = f'"{TraceMetadataKey.TRACE_SESSION}": ""'
             null_session_assessment_marker = f'"{TraceMetadataKey.TRACE_SESSION}": null'
 
-            def feedback_filters(assessment):
+            def feedback_filters(assessment, feedback_name=key):
                 case_sensitive_name = SearchUtils.get_sql_case_sensitive_string_expression(
                     assessment.name, dialect_name
                 )
                 case_sensitive_key = SearchUtils.get_sql_case_sensitive_string_expression(
-                    sql.literal(key), dialect_name
+                    sql.literal(feedback_name), dialect_name
                 )
                 return (
                     # Keep the plain predicate so case-insensitive indexes can narrow candidates.
-                    assessment.name == key,
+                    assessment.name == feedback_name,
                     case_sensitive_name == case_sensitive_key,
                     assessment.assessment_type == "feedback",
                     assessment.valid == sqlalchemy.true(),

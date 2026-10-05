@@ -97,6 +97,7 @@ export const getSortableAssessmentNames = (traces: ModelTraceInfoV3[], candidate
       name.length > 0 &&
       traces.every((trace) => {
         const assessment = pickCellAssessment(trace, name);
+        // Missing current-page cells are allowed because the backend applies this sort globally.
         return !assessment || (isFeedbackAssessment(assessment) && !assessment.span_id);
       }),
   );
