@@ -11067,6 +11067,10 @@
     "defaultMessage": "Last 7 days",
     "description": "Option for the start select dropdown to filter runs from the last 7 days"
   },
+  "eSDaY2": {
+    "defaultMessage": "Up to 25 MB of files, unless your server sets a different limit.",
+    "description": "Hint for the default size limit of an uploaded skill folder"
+  },
   "eSVff7": {
     "defaultMessage": "Span name",
     "description": "Trace filter field: span name"

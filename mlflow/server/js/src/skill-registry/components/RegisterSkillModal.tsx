@@ -616,6 +616,12 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                             description="Hint for the skill directory picker"
                           />
                         </Typography.Text>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage
+                            defaultMessage="Up to 25 MB of files, unless your server sets a different limit."
+                            description="Hint for the default size limit of an uploaded skill folder"
+                          />
+                        </Typography.Text>
                       </>
                     )}
                   </div>

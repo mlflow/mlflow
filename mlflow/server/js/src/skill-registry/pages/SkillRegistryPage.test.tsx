@@ -497,6 +497,7 @@ describe('SkillRegistryPage', () => {
 
     await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
     expect(screen.getByText('Select the directory containing SKILL.md.')).toBeInTheDocument();
+    expect(screen.getByText('Up to 25 MB of files, unless your server sets a different limit.')).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Advanced settings (optional)' })).toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).toBeInTheDocument();
