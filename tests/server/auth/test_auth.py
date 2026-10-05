@@ -63,6 +63,7 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_version,
     search_all_access_endpoints,
     search_mcp_server_versions,
+    search_mcp_servers,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.utils import workspace_context
@@ -7430,16 +7431,16 @@ def test_read_predicate_honors_grant_default_workspace_access(
 
 @pytest.mark.parametrize(
     "endpoint_fn",
-    [search_all_access_endpoints],
+    [search_mcp_servers, search_all_access_endpoints],
 )
 def test_response_filter_matches_endpoint_functions(endpoint_fn):
     request = SimpleNamespace(scope={"endpoint": endpoint_fn})
     assert _find_fastapi_response_filter(request) is not None
 
 
-def test_server_detail_does_not_require_a_response_filter():
+def test_server_detail_uses_a_response_filter():
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
-    assert _find_fastapi_response_filter(request) is None
+    assert _find_fastapi_response_filter(request) is not None
 
 
 def test_response_filter_skips_sub_resource_endpoints():
