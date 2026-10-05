@@ -1,3 +1,4 @@
+const fs = require("fs");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const CUTOFF_DAYS = 180;
 const EXCLUDED_LABELS = new Set(["security"]);
@@ -66,6 +67,43 @@ function isRateLimitError(error) {
   return error.status === 429 || error.message?.includes("rate limit");
 }
 
+function writeSummary({ dryRun, rateLimited, issueNumbers, pullRequestNumbers }) {
+  if (!process.env.GITHUB_STEP_SUMMARY) {
+    return;
+  }
+
+  const lines = ["## Old issue cleanup", ""];
+  if (rateLimited) {
+    lines.push(
+      `Stopped early on the GitHub API rate limit after processing ${issueNumbers.length} issues and ${pullRequestNumbers.length} pull requests; the next run resumes.`
+    );
+  } else if (dryRun) {
+    lines.push(
+      `Dry run: found ${issueNumbers.length} eligible issues and ${pullRequestNumbers.length} linked pull requests. Nothing was closed.`
+    );
+  } else {
+    lines.push(
+      `Closed ${issueNumbers.length} issues and ${pullRequestNumbers.length} linked pull requests.`
+    );
+  }
+
+  if (pullRequestNumbers.length > 0) {
+    lines.push("", "### Pull requests", "");
+    for (const number of pullRequestNumbers) {
+      lines.push(`- #${number}`);
+    }
+  }
+
+  if (issueNumbers.length > 0) {
+    lines.push("", "### Issues", "");
+    for (const number of issueNumbers) {
+      lines.push(`- #${number}`);
+    }
+  }
+
+  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join("\n")}\n`);
+}
+
 module.exports = async ({ context, github }) => {
   const { owner, repo } = context.repo;
   const dryRun = process.env.DRY_RUN !== "false";
@@ -84,6 +122,8 @@ module.exports = async ({ context, github }) => {
   // next run.
   const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security reactions:0`;
   const processedPullRequests = new Set();
+  const closedIssueNumbers = [];
+  const closedPullRequestNumbers = [];
   let cursor = null;
   let hasNextPage = true;
   const eligibleIssues = [];
@@ -112,8 +152,7 @@ module.exports = async ({ context, github }) => {
 
   console.log(`Found ${eligibleIssues.length} eligible issues to close.`);
 
-  let closedIssues = 0;
-  let closedPullRequests = 0;
+  let rateLimited = false;
 
   try {
     for (const issue of eligibleIssues) {
@@ -123,61 +162,61 @@ module.exports = async ({ context, github }) => {
         }
         processedPullRequests.add(pullRequest.number);
 
-        if (dryRun) {
-          console.log(`[dry run] Would close PR #${pullRequest.number} for issue #${issue.number}`);
-          continue;
+        if (!dryRun) {
+          await github.rest.pulls.update({
+            owner,
+            repo,
+            pull_number: pullRequest.number,
+            state: "closed",
+          });
+          await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: pullRequest.number,
+            body: `${pullRequestMessage}\n\nLinked issue: ${issue.url}`,
+          });
+          console.log(`Closed PR #${pullRequest.number} linked to issue #${issue.number}.`);
         }
+        closedPullRequestNumbers.push(pullRequest.number);
+      }
 
-        await github.rest.pulls.update({
-          owner,
-          repo,
-          pull_number: pullRequest.number,
-          state: "closed",
-        });
+      if (!dryRun) {
         await github.rest.issues.createComment({
           owner,
           repo,
-          issue_number: pullRequest.number,
-          body: `${pullRequestMessage}\n\nLinked issue: ${issue.url}`,
+          issue_number: issue.number,
+          body: issueMessage,
         });
-        closedPullRequests++;
-        console.log(`Closed PR #${pullRequest.number} linked to issue #${issue.number}.`);
+        await github.rest.issues.update({
+          owner,
+          repo,
+          issue_number: issue.number,
+          state: "closed",
+          state_reason: "not_planned",
+        });
+        console.log(`Closed issue #${issue.number}.`);
       }
-
-      if (dryRun) {
-        console.log(`[dry run] Would close issue #${issue.number}`);
-        continue;
-      }
-
-      await github.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: issue.number,
-        body: issueMessage,
-      });
-      await github.rest.issues.update({
-        owner,
-        repo,
-        issue_number: issue.number,
-        state: "closed",
-        state_reason: "not_planned",
-      });
-      closedIssues++;
-      console.log(`Closed issue #${issue.number}.`);
+      closedIssueNumbers.push(issue.number);
     }
   } catch (error) {
-    if (isRateLimitError(error)) {
-      console.log(
-        `Rate limit hit after closing ${closedIssues} issues and ${closedPullRequests} pull requests. Exiting gracefully; the next run resumes.`
-      );
-      return;
+    if (!isRateLimitError(error)) {
+      throw error;
     }
-    throw error;
+    rateLimited = true;
   }
 
+  writeSummary({
+    dryRun,
+    rateLimited,
+    issueNumbers: closedIssueNumbers,
+    pullRequestNumbers: closedPullRequestNumbers,
+  });
+
+  const verb = dryRun ? "Would close" : "Closed";
+  const suffix = rateLimited ? " (stopped early by the rate limit; the next run resumes)" : "";
   console.log(
-    dryRun
-      ? "Dry run completed without closing issues or pull requests."
-      : `Closed ${closedIssues} issues and ${closedPullRequests} linked pull requests.`
+    `${verb} ${closedIssueNumbers.length} issues and ${
+      closedPullRequestNumbers.length
+    } linked pull requests${dryRun ? " in a dry run" : ""}${suffix}.`
   );
 };
