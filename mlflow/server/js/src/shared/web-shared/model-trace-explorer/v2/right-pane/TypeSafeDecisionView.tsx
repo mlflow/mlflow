@@ -57,16 +57,20 @@ const getScoreLevels = (legendValue: unknown, probabilitiesValue: unknown): Scor
   const probabilities = asRecord(probabilitiesValue);
   if (!legend || !probabilities) return null;
 
+  const keys = Object.keys(legend);
+  if (keys.length === 0 || keys.length !== Object.keys(probabilities).length) return null;
+
   const levels: ScoreLevel[] = [];
-  for (const key of new Set([...Object.keys(legend), ...Object.keys(probabilities)])) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(probabilities, key)) return null;
     const score = Number(key);
     const probability = probabilities[key];
-    if (!Number.isSafeInteger(score) || score < 0 || (probability !== undefined && !isProbability(probability))) {
+    if (!Number.isSafeInteger(score) || score < 0 || !isProbability(probability)) {
       return null;
     }
     levels.push({ score, description: legend[key], probability });
   }
-  return levels.length ? levels.sort((left, right) => left.score - right.score) : null;
+  return levels.sort((left, right) => left.score - right.score);
 };
 
 const parseAnswer = ({ id, value }: Entry): Answer => {

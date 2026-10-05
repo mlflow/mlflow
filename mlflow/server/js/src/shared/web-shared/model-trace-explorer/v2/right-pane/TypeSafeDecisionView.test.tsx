@@ -117,7 +117,7 @@ describe('TypeSafe decision view', () => {
     expect(answers.queryByText('Legend')).not.toBeInTheDocument();
   });
 
-  it('shows malformed answers raw and does not pair mismatched score labels with probabilities', async () => {
+  it('shows malformed answers raw when score legend and probability keys differ', async () => {
     const decision = resolve(
       {},
       {
@@ -141,12 +141,13 @@ describe('TypeSafe decision view', () => {
     const summary = (id: string) => answers.getByText(id).closest('summary') as HTMLElement;
     expect(summary('brokenChoice')).toHaveTextContent('Raw answer');
     expect(summary('future')).toHaveTextContent('Raw answer');
-    expect(summary('brokenScore')).toHaveTextContent('Range 0–2');
-    expect(summary('brokenScore')).toHaveTextContent('80% confidence');
+    expect(summary('brokenScore')).toHaveTextContent('Raw answer');
     await userEvent.click(summary('brokenScore'));
-    expect(answers.getByText('90%')).toBeInTheDocument();
-    expect(within(summary('brokenScore').closest('details') as HTMLElement).getByText('High')).toBeInTheDocument();
-    expect(answers.queryByText('2 · High')).not.toBeInTheDocument();
+    const brokenScoreDetails = within(summary('brokenScore').closest('details') as HTMLElement);
+    expect(brokenScoreDetails.getByText(/"type": "score"/)).toBeInTheDocument();
+    expect(brokenScoreDetails.getByText(/"legend"/)).toBeInTheDocument();
+    expect(brokenScoreDetails.getByText(/"probabilities"/)).toBeInTheDocument();
+    expect(answers.queryByRole('progressbar')).not.toBeInTheDocument();
     await userEvent.click(summary('brokenChoice'));
     expect(
       within(summary('brokenChoice').closest('details') as HTMLElement).getByText(/"type": "choice"/),
