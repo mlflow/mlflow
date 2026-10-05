@@ -20,6 +20,7 @@ from mlflow.entities.skill_source import (
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.server import skill_registry_api
+from mlflow.server.constants import ARTIFACTS_ONLY_ENV_VAR
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import (
     _MAX_BULK_REGISTER_SKILLS,
@@ -122,6 +123,22 @@ def test_skill_registry_route_prefixes_and_path_detection():
     assert is_skill_registry_api_path("/ajax-api/3.0/mlflow/skills")
     assert is_skill_registry_api_path("/api/3.0/mlflow/skills/code-review")
     assert not is_skill_registry_api_path("/ajax-api/3.0/mlflow/assistant/skills/install")
+
+
+@pytest.mark.parametrize("prefix", get_skill_registry_api_route_prefixes())
+def test_skill_registry_is_disabled_in_artifacts_only_mode(
+    prefix: str, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
+    client = TestClient(_create_registry_fastapi_app())
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store:
+        response = client.post(f"{prefix}", json={"name": "code-review"})
+
+    assert response.status_code == 503
+    assert response.json()["error_code"] == "TEMPORARILY_UNAVAILABLE"
+    assert "artifacts-only" in response.json()["message"]
+    get_tracking_store.assert_not_called()
 
 
 def test_skill_name_path_parameters_reserve_leading_at_sign(tmp_path: Path, db_uri: str):
@@ -398,6 +415,33 @@ def test_skill_response_icon_serialization_does_not_validate_url():
     assert response.model_dump()["icons"] == [
         {"src": "https://example.com/icon.svg", "mimeType": "image/svg+xml"}
     ]
+
+
+@pytest.mark.parametrize(
+    ("path", "entity", "store_method"),
+    [
+        (
+            f"{PREFIX}/code-review",
+            Skill(name="code-review", workspace="team-a"),
+            "get_skill",
+        ),
+        (
+            f"{PREFIX}/code-review/versions/1",
+            SkillVersion(name="code-review", version=1, workspace="team-a"),
+            "get_skill_version",
+        ),
+    ],
+)
+def test_skill_registry_responses_preserve_workspace(path, entity, store_method):
+    client = TestClient(_create_registry_fastapi_app())
+    store = mock.Mock()
+    getattr(store, store_method).return_value = entity
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        response = client.get(path)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["workspace"] == "team-a"
 
 
 def test_create_and_get_organization_skill(tmp_path: Path, db_uri: str):
@@ -888,6 +932,7 @@ def test_multipart_registration_rejects_oversized_content_length_before_parsing(
         )
 
     assert response.status_code == 413, response.text
+    assert response.json()["error_code"] == "BAD_REQUEST"
     assert "maximum allowed size" in response.json()["message"]
     form.assert_not_called()
     register.assert_not_called()
@@ -948,6 +993,7 @@ def test_multipart_registration_rejects_oversized_metadata(
         )
 
     assert response.status_code == 413, response.text
+    assert response.json()["error_code"] == "BAD_REQUEST"
     assert "registration metadata" in response.json()["message"]
     register.assert_not_called()
 
@@ -966,6 +1012,7 @@ def test_multipart_registration_rejects_extra_file_parts(tmp_path: Path, db_uri:
         )
 
     assert response.status_code == 400, response.text
+    assert response.json()["error_code"] == "BAD_REQUEST"
     assert "maximum number of files" in response.json()["message"].lower()
     register.assert_not_called()
 

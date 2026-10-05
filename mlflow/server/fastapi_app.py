@@ -29,6 +29,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.server import app as flask_app
 from mlflow.server.artifact_router import artifact_router
 from mlflow.server.asgi_utils import get_routed_asgi_path
@@ -218,7 +219,10 @@ def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
         if is_skill_registry_api_path(path):
             return JSONResponse(
                 status_code=exc.status_code,
-                content={"message": exc.detail},
+                content={
+                    "error_code": ErrorCode.Name(BAD_REQUEST),
+                    "message": exc.detail,
+                },
                 headers=exc.headers,
             )
         if original_http_exception_handler is not None:

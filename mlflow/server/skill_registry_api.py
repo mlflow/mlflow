@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 from starlette.datastructures import UploadFile
 from starlette.types import Message, Receive
@@ -20,6 +21,8 @@ from mlflow.entities.skill_source import (
 )
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
+from mlflow.server.constants import ARTIFACTS_ONLY_ENV_VAR
 from mlflow.server.skill_registry.registration import (
     SkillVersionRegistration,
     bulk_register_skill_versions,
@@ -137,6 +140,7 @@ class SkillAliasResponse(BaseModel):
 class SkillResponse(BaseModel):
     name: str
     organization: str = ""
+    workspace: str | None = None
     description: str | None = None
     icons: list[SkillIconResponsePayload] | None = None
     status: str | None = None
@@ -154,6 +158,7 @@ class SkillResponse(BaseModel):
         return cls(
             name=entity.name,
             organization=entity.organization,
+            workspace=entity.workspace,
             description=entity.description,
             icons=(
                 None
@@ -256,6 +261,7 @@ class SkillVersionResponse(BaseModel):
     name: str
     version: int
     organization: str = ""
+    workspace: str | None = None
     source_type: str | None = None
     source: str | None = None
     ref: str | None = None
@@ -277,6 +283,7 @@ class SkillVersionResponse(BaseModel):
             name=entity.name,
             version=entity.version,
             organization=entity.organization,
+            workspace=entity.workspace,
             source_type=str(entity.source_type) if entity.source_type else None,
             source=source_value,
             ref=ref,
@@ -345,6 +352,16 @@ def _icons_to_entities(icons: list[SkillIconRequestPayload] | None) -> list[Regi
 def _validate_skill_path_identity(organization: str, name: str) -> None:
     _validate_organization_name(organization)
     _validate_skill_name(name)
+
+
+def _ensure_tracking_server_enabled() -> None:
+    if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
+        raise MlflowException(
+            "Skill Registry endpoints are disabled when the MLflow server is running in "
+            "`--artifacts-only` mode. To enable tracking server functionality, run "
+            "`mlflow server` without `--artifacts-only`.",
+            error_code=TEMPORARILY_UNAVAILABLE,
+        )
 
 
 async def _create_skill_version(
@@ -731,7 +748,10 @@ async def _parse_registration_request(
         )
 
 
-skill_registry_router = APIRouter(tags=["Skill Registry"])
+skill_registry_router = APIRouter(
+    tags=["Skill Registry"],
+    dependencies=[Depends(_ensure_tracking_server_enabled)],
+)
 
 
 @skill_registry_router.post("", response_model=SkillResponse)
