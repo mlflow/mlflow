@@ -758,3 +758,105 @@ def test_a_request_denial_short_circuits_before_any_predicate(gate, pushdown):
     )
     assert allowed is False
     assert store.filter_calls == [], "a pure denial must not pay for a query"
+
+
+# ---- A resource-scoped row is still pushable -------------------------------
+
+
+def _recording_pushdown_store(monkeypatch, answer=None):
+    """A store that records every pushdown call and reports total satisfaction.
+
+    Overrides the autouse declining store, whose own docstring invites exactly this.
+    """
+    from types import SimpleNamespace
+
+    from mlflow.server import auth as auth_module
+
+    calls = []
+
+    def filter_ids_by_clauses(entity, ids, clauses):
+        calls.append((entity, list(ids), list(clauses)))
+        return set(ids) if answer is None else answer
+
+    pushing = SimpleNamespace(
+        filter_ids_by_clauses=filter_ids_by_clauses,
+        any_child_failing_clauses=lambda *a, **k: None,
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: pushing)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: pushing, raising=False)
+    return calls
+
+
+def test_a_resource_scoped_row_is_pushed_with_only_the_ids_it_governs(gate, monkeypatch):
+    """A scoped row must not force the whole context in-memory.
+
+    The ids ARE the query input, so a row naming one resource is pushable -- it just
+    narrows which ids go down with it. Charging a scoped row against ids it does not
+    govern would be wrong, which is why the ids are narrowed PER ROW rather than the
+    pushdown being abandoned.
+
+    Asserted by cost, not by outcome: a fallback would answer identically and only a
+    read count distinguishes them.
+    """
+    run, state = gate
+    calls = _recording_pushdown_store(monkeypatch)
+    allowed = run(
+        [
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(),
+                resource_ids=("r1", "r2"),
+            )
+        ],
+        rows=[
+            MutationConditionSpec(
+                "run", target_condition="tags.stage = 'prod'", resource_pattern="r1"
+            ),
+            MutationConditionSpec("run", target_condition="tags.team = 'ml'"),
+        ],
+        values={
+            ("run", "r1"): RunResourceValues("r1", tags={"stage": "prod", "team": "ml"}),
+            ("run", "r2"): RunResourceValues("r2", tags={"stage": "dev", "team": "ml"}),
+        },
+    )
+    assert allowed is True
+    assert state["resources"].bulk_reads == [], (
+        f"a scoped row must still push down, not load resources: {state['resources'].bulk_reads}"
+    )
+    pushed_ids = [ids for _entity, ids, _clauses in calls]
+    assert pushed_ids == [["r1"], ["r1", "r2"]], (
+        f"the scoped row should carry only the id it governs and the wildcard row both; "
+        f"got {pushed_ids}"
+    )
+
+
+def test_a_row_governing_none_of_the_ids_costs_no_query(gate, monkeypatch):
+    """A row scoped to a resource not in play is skipped before the store is asked.
+
+    This is a saved query, not a correctness guard, and the distinction is worth pinning:
+    pushing an empty id list would be harmless -- the store contract says empty ids return
+    an empty set, which compares equal to the empty expectation and denies nothing -- so
+    removing the skip changes cost and not outcome. Hence a cost assertion.
+    """
+    run, state = gate
+    calls = _recording_pushdown_store(monkeypatch)
+    allowed = run(
+        [
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(),
+                resource_ids=("r1",),
+            )
+        ],
+        rows=[
+            MutationConditionSpec(
+                "run", target_condition="tags.stage = 'prod'", resource_pattern="other-run"
+            ),
+        ],
+        values={("run", "r1"): RunResourceValues("r1", tags={})},
+    )
+    assert allowed is True
+    assert calls == [], f"a row governing no id in play must not reach the store: {calls}"
+    assert state["resources"].bulk_reads == []

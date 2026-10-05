@@ -1116,8 +1116,12 @@ def _explicit_target_pushdown(context, target_rows, resource_ids):
     """Ask the store which of ``resource_ids`` satisfy every target row.
 
     The batch counterpart to :func:`_cascade_target_pushdown`, for the usual case
-    where the request names the resources it will touch. One query per clause
-    replaces loading every resource's tags and matching them here.
+    where the request names the resources it will touch. One query per row replaces
+    loading every resource's tags and matching them here.
+
+    A row scoped to one resource is pushed too, carrying only the ids it governs --
+    unlike the cascade, where the children are unknown at query time and a scoped row
+    therefore cannot be pushed at all.
 
     Each row is a separate condition and all of them must hold, so each is pushed
     and the results ANDed. A row whose clauses the store cannot express declines
@@ -1135,18 +1139,26 @@ def _explicit_target_pushdown(context, target_rows, resource_ids):
         clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
         if clauses is None:
             return None
-        pushed_rows.append(clauses)
+        pushed_rows.append((row, clauses))
 
-    keys = [_condition_pushdown_key(context.resource_type, rid) for rid in resource_ids]
-    expected = set(keys)
     store = _condition_store(context.resource_type)
-    for clauses in pushed_rows:
+    for row, clauses in pushed_rows:
+        # Narrow to the ids this row governs rather than abandoning the pushdown for a
+        # scoped row. The ids are the query input, so a row naming one resource is just a
+        # shorter id list -- and charging it against a sibling would deny a mutation on a
+        # resource the admin never pointed the condition at, which is what `_row_governs`
+        # enforces on the in-memory path too.
+        governed = [rid for rid in resource_ids if _row_governs(row, rid)]
+        if not governed:
+            # This row governs none of the ids in play, so it has nothing to say here.
+            continue
+        keys = [_condition_pushdown_key(context.resource_type, rid) for rid in governed]
         matched = store.filter_ids_by_clauses(context.resource_type, keys, clauses)
         if matched is None:
             # Declined after another row answered. Fall back rather than keep a
             # partial verdict: the loader re-evaluates every row from scratch.
             return None
-        if matched != expected:
+        if matched != set(keys):
             # An id the filter excluded either failed a clause or does not exist.
             # Both deny, and deliberately indistinguishably -- a 404 here would
             # reveal which ids exist to a caller who may not read them.
@@ -1368,11 +1380,7 @@ def _authorize_on_conditions(
         # answers the predicate without the resources' tags ever crossing the wire.
         # A decline falls through to the bulk load below, which is still the path for
         # every non-SQL backend.
-        pushed = (
-            None
-            if _has_resource_scoped(target_rows)
-            else _explicit_target_pushdown(context, target_rows, resource_ids)
-        )
+        pushed = _explicit_target_pushdown(context, target_rows, resource_ids)
         if pushed is not None:
             if not pushed:
                 # The store reports which ids satisfy the clauses, not why one did
@@ -9620,11 +9628,11 @@ async def _mcp_condition_context(
         else:
             return None
         return context_for(
-                RESOURCE_TYPE_MCP_SERVER,
-                name,
-                ConditionScope.MUTATE,
+            RESOURCE_TYPE_MCP_SERVER,
+            name,
+            ConditionScope.MUTATE,
             McpServerRequestValues(tags=tags),
-            )
+        )
 
     # `aliases` on the server: an alias names a version but is stored on the server, so it is
     # conditioned on the server (D18) -- exactly as a registry alias is conditioned on the
