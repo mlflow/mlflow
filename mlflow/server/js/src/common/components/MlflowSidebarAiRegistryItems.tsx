@@ -61,7 +61,7 @@ export const MlflowSidebarAiRegistryItems = ({ collapsed }: { collapsed: boolean
         icon={<McpIcon />}
         collapsed={collapsed}
       >
-        <FormattedMessage defaultMessage="MCP registry" description="Sidebar link for MCP registry page" />
+        <FormattedMessage defaultMessage="MCP" description="Sidebar link for MCP registry page" />
         <span css={{ marginLeft: 'auto' }}>
           <MCPRegistryBetaTag />
         </span>

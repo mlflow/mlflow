@@ -3943,10 +3943,6 @@
     "defaultMessage": "Cancel",
     "description": "Button to cancel editing"
   },
-  "DAnoyO": {
-    "defaultMessage": "MCP registry",
-    "description": "Sidebar link for MCP registry page"
-  },
   "DCC164": {
     "defaultMessage": "GenAI",
     "description": "Label for GenAI workflow type option"
@@ -5683,10 +5679,6 @@
     "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the genai logged models list page"
   },
-  "KD4sAs": {
-    "defaultMessage": "MCP Registry",
-    "description": "MCP Registry breadcrumb link"
-  },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
@@ -5850,6 +5842,10 @@
   "KwJRcV": {
     "defaultMessage": "API key details",
     "description": "Header for API key details section"
+  },
+  "KwiSSx": {
+    "defaultMessage": "MCP",
+    "description": "MCP Registry page title"
   },
   "Kwz1fc": {
     "defaultMessage": "Artifacts",
@@ -6658,6 +6654,10 @@
   "NqqMPs": {
     "defaultMessage": "No evaluation tables logged",
     "description": "Run page > Evaluations tab > No evaluation tables logged"
+  },
+  "Nrc6Hr": {
+    "defaultMessage": "MCP",
+    "description": "Sidebar link for MCP registry page"
   },
   "NsY2mp": {
     "defaultMessage": "Optional secret key",
@@ -8534,10 +8534,6 @@
   "V5cjvM": {
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
-  },
-  "V5hAI0": {
-    "defaultMessage": "MCP Registry",
-    "description": "MCP Registry page title"
   },
   "V6AwxC": {
     "defaultMessage": "Run judges",
@@ -13858,6 +13854,10 @@
   "oMP6X7": {
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
+  },
+  "oPNOOz": {
+    "defaultMessage": "MCP",
+    "description": "MCP Registry breadcrumb link"
   },
   "oQO1tC": {
     "defaultMessage": "Enter workspace name",

@@ -173,7 +173,7 @@ const MCPServerDetailPage = () => {
     <Breadcrumb>
       <Breadcrumb.Item>
         <Link componentId="mlflow.mcp_registry.detail.breadcrumb_back" to={MCPRegistryRoutes.mcpRegistryPageRoute}>
-          <FormattedMessage defaultMessage="MCP Registry" description="MCP Registry breadcrumb link" />
+          <FormattedMessage defaultMessage="MCP" description="MCP Registry breadcrumb link" />
         </Link>
       </Breadcrumb.Item>
     </Breadcrumb>

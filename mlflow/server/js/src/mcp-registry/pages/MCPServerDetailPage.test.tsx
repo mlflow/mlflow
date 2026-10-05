@@ -116,7 +116,7 @@ describe('MCPServerDetailPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Mainline').length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getAllByText('MCP Registry').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('MCP').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders version list with status badge', async () => {
