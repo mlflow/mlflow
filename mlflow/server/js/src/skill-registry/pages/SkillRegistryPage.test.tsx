@@ -579,6 +579,19 @@ describe('SkillRegistryPage', () => {
     expect(registerCalled).toBe(false);
   });
 
+  it('offers only Import when the server cannot store uploads', async () => {
+    server.use(
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', artifact_serving_enabled: false })),
+      ),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    expect(screen.getByRole('radio', { name: /Import from existing source/ })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: /Upload a folder/ })).not.toBeInTheDocument();
+  });
+
   it('forgets a selected folder when switching away from Upload', async () => {
     renderPage();
 

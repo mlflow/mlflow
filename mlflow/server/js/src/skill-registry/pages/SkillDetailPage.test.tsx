@@ -336,6 +336,34 @@ describe('SkillDetailPage', () => {
     expect(screen.getByLabelText('Location')).toHaveValue('');
   });
 
+  it('starts a version from an uploaded one in Import mode when the server cannot store uploads', async () => {
+    const uploaded = createMockSkillVersion({
+      version: 2,
+      status: SkillStatus.ACTIVE,
+      source_type: 'mlflow',
+      source: 'mlflow-artifacts:/skills/@acme/code-review/0123456789abcdef0123456789abcdef',
+      ref: null,
+      subpath: null,
+    });
+    server.use(
+      ...getMockedSkillDetailHandlers(mockSkill, [uploaded, mockVersion1]),
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', artifact_serving_enabled: false })),
+      ),
+    );
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill version' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('radio', { name: /Upload a folder/ })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('radio', { name: /Import from existing source/ })).toBeChecked();
+    expect(screen.getByLabelText('Location')).toHaveValue('');
+  });
+
   it('adds an external version without changing the skill identity', async () => {
     const created = createMockSkillVersion({
       version: 3,

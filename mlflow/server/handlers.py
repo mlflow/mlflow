@@ -407,6 +407,7 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
@@ -7507,6 +7508,10 @@ def _get_server_info():
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        # Whether the server proxies artifact storage (`--serve-artifacts`), which content the
+        # server stores itself, such as uploaded skills, requires. Unlike the multipart flags, it
+        # doesn't depend on the artifact repository's capabilities.
+        SERVER_INFO_ARTIFACT_SERVING_ENABLED: _is_serving_proxied_artifacts(),
         # These advertise request-contract support; repository support is checked per resource.
         SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
         SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,

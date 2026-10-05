@@ -12,6 +12,8 @@ interface ServerInfoResponse {
   trace_archival_enabled: boolean;
   multipart_uploads_enabled: boolean;
   multipart_downloads_enabled: boolean;
+  /** Absent on servers that predate it. */
+  artifact_serving_enabled?: boolean;
   features_enabled?: Record<FeatureKey, boolean>;
 }
 
@@ -112,6 +114,16 @@ export function useTraceArchivalEnabled(): boolean {
 export function useMultipartDownloadsEnabled(): boolean {
   const { data } = useServerInfo();
   return data?.multipart_downloads_enabled ?? false;
+}
+
+/**
+ * Whether the server stores content itself (`mlflow server --serve-artifacts`), as uploaded skills need.
+ * Unknown (an older server, or server-info failed) counts as enabled: the server still refuses content
+ * it can't store, and an option shouldn't disappear because a capability check didn't answer.
+ */
+export function useArtifactServingEnabled(): boolean {
+  const { data } = useServerInfo();
+  return data?.artifact_serving_enabled !== false;
 }
 
 interface ServerInfoProviderProps {

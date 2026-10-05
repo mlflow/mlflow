@@ -16,6 +16,7 @@ import {
 import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 
 import Utils from '../../common/utils/Utils';
+import { useArtifactServingEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { SkillIconEditor } from './SkillIconEditor';
 import { SkillTagsInput } from './SkillTagsInput';
 import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiView';
@@ -152,13 +153,22 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const fixedIdentity = skill ? formatSkillIdentity(skill.name, skill.organization) : '';
   const [view, setView] = useState<'form' | 'api'>('form');
   const [seededForm] = useState(() => formFromVersion(sourceVersion, fixedIdentity));
-  const [mode, setMode] = useState<RegistrationMode>(sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer');
+  // RFC-0008 limits MLflow-stored content to servers that serve artifacts; others can only import.
+  const uploadEnabled = useArtifactServingEnabled();
+  const [mode, setMode] = useState<RegistrationMode>(
+    uploadEnabled && sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer',
+  );
   const [advancedOpen, setAdvancedOpen] = useState(Boolean(seededForm));
   const [form, setForm] = useState(seededForm ?? EMPTY_FORM);
   const [description, setDescription] = useState('');
   const [icons, setIcons] = useState<RegistryIcon[]>([]);
   const [tags, setTags] = useState<Record<string, string>>({});
   const [folderFiles, setFolderFiles] = useState<File[]>([]);
+  // Server info can answer after the dialog opened in Upload mode; fall back once uploads turn out unsupported.
+  if (!uploadEnabled && mode === 'upload') {
+    setMode('pointer');
+    setFolderFiles([]);
+  }
   const [identityTouched, setIdentityTouched] = useState(false);
   const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [refTouched, setRefTouched] = useState(false);
@@ -572,43 +582,45 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                   )}
                 </div>
               </Radio>
-              <Radio value="upload" css={{ alignItems: 'flex-start', width: '100%' }}>
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, width: '100%' }}>
-                  <FormattedMessage
-                    defaultMessage="Upload a folder"
-                    description="Skill registration option that uploads a local skill folder"
-                  />
-                  <Typography.Text color="secondary">
+              {uploadEnabled && (
+                <Radio value="upload" css={{ alignItems: 'flex-start', width: '100%' }}>
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, width: '100%' }}>
                     <FormattedMessage
-                      defaultMessage="Your browser reads the folder and uploads it. MLflow stores the content."
-                      description="Explanation of the local skill folder upload flow"
+                      defaultMessage="Upload a folder"
+                      description="Skill registration option that uploads a local skill folder"
                     />
-                  </Typography.Text>
-                  {mode === 'upload' && (
-                    <>
-                      <input
-                        id="mlflow.skill_registry.register_modal.folder"
-                        aria-label={intl.formatMessage({
-                          defaultMessage: 'Skill folder',
-                          description: 'Aria label for the skill directory picker',
-                        })}
-                        type="file"
-                        multiple
-                        {...{ webkitdirectory: '', directory: '' }}
-                        onChange={(event) => {
-                          void onFolderSelected(event.target.files ? Array.from(event.target.files) : []);
-                        }}
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="Your browser reads the folder and uploads it. MLflow stores the content."
+                        description="Explanation of the local skill folder upload flow"
                       />
-                      <Typography.Text color="secondary">
-                        <FormattedMessage
-                          defaultMessage="Select the directory containing SKILL.md."
-                          description="Hint for the skill directory picker"
+                    </Typography.Text>
+                    {mode === 'upload' && (
+                      <>
+                        <input
+                          id="mlflow.skill_registry.register_modal.folder"
+                          aria-label={intl.formatMessage({
+                            defaultMessage: 'Skill folder',
+                            description: 'Aria label for the skill directory picker',
+                          })}
+                          type="file"
+                          multiple
+                          {...{ webkitdirectory: '', directory: '' }}
+                          onChange={(event) => {
+                            void onFolderSelected(event.target.files ? Array.from(event.target.files) : []);
+                          }}
                         />
-                      </Typography.Text>
-                    </>
-                  )}
-                </div>
-              </Radio>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage
+                            defaultMessage="Select the directory containing SKILL.md."
+                            description="Hint for the skill directory picker"
+                          />
+                        </Typography.Text>
+                      </>
+                    )}
+                  </div>
+                </Radio>
+              )}
             </Radio.Group>
           </div>
 
