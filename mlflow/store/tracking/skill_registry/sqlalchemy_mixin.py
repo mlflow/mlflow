@@ -52,6 +52,7 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _validate_alias_name,
     _validate_alias_name_reserved,
+    _validate_icon_payloads,
     _validate_organization_name,
     _validate_skill_name,
     _validate_skill_tag,
@@ -217,6 +218,7 @@ class SqlAlchemySkillRegistryMixin:
         created_by: str | None = None,
     ) -> Skill:
         self._validate_skill_identity(name, organization)
+        _validate_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
             self._assert_name_not_a_packaged_member(session, name, organization)
@@ -257,6 +259,8 @@ class SqlAlchemySkillRegistryMixin:
         last_updated_by: str | None = None,
     ) -> Skill:
         self._validate_skill_identity(name, organization)
+        if icons is not NOT_SET:
+            _validate_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             skill = self._get_skill_or_raise(session, name, organization)
             if description is not NOT_SET:

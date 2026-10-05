@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from functools import partial
 from threading import Barrier, Event
 from types import SimpleNamespace
 from unittest import mock
@@ -43,6 +44,22 @@ from mlflow.utils.validation import (
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+@pytest.fixture
+def mock_icon_hostname_resolution():
+    with mock.patch(
+        "mlflow.utils.validation._resolve_hostname_with_timeout",
+        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+    ):
+        yield
+
+
+@pytest.fixture(params=["parent", "version"])
+def skill_search(request, store):
+    if request.param == "parent":
+        return store.search_skills
+    return partial(store.search_skill_versions, "reviewer", organization="acme")
 
 
 def test_create_and_get_skill(store):
@@ -100,7 +117,58 @@ def test_update_skill_distinguishes_omitted_and_null_values(store):
     assert cleared.last_updated_by == "bob"
 
 
-def test_update_skill_preserves_resolved_fields(store):
+def test_update_missing_skill_does_not_create_parent_or_modify_other_organization(store):
+    original = store.create_skill("reviewer", organization="acme", description="Original")
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.update_skill(
+            "reviewer", organization="other", description="Changed", last_updated_by="bob"
+        )
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert store.get_skill("reviewer", organization="acme") == original
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 1
+
+
+@pytest.mark.parametrize("parent_exists", [False, True])
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("get_skill_version", {}),
+        ("update_skill_version", {"status": SkillStatus.ACTIVE, "last_updated_by": "bob"}),
+        ("delete_skill_version", {"last_updated_by": "bob"}),
+    ],
+)
+def test_missing_skill_version_operations_leave_existing_records_unchanged(
+    store, parent_exists, method, kwargs
+):
+    store.create_skill_version(
+        "reviewer",
+        organization="acme",
+        status=SkillStatus.DRAFT,
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.set_skill_alias("reviewer", "preview", 1, organization="acme")
+    store.set_skill_version_tag("reviewer", 1, "team", "platform", organization="acme")
+    parent = store.get_skill("reviewer", organization="acme")
+    version = store.get_skill_version("reviewer", 1, organization="acme")
+    assert parent.source_type == SkillSourceType.GIT
+    organization, missing_version = ("acme", 2) if parent_exists else ("other", 1)
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        getattr(store, method)("reviewer", missing_version, organization=organization, **kwargs)
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert store.get_skill("reviewer", organization="acme") == parent
+    assert store.get_skill_version("reviewer", 1, organization="acme") == version
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 1
+        assert store._get_query(session, SqlSkillVersion).count() == 1
+
+
+def test_update_skill_preserves_resolved_fields(store, mock_icon_hostname_resolution):
     store.create_skill_version("reviewer")
     store.create_skill_version("reviewer", status=SkillStatus.DRAFT.value)
 
@@ -113,7 +181,40 @@ def test_update_skill_preserves_resolved_fields(store):
     assert updated.status == SkillStatus.ACTIVE
 
 
-def test_skill_icons_round_trip_and_can_be_cleared(store):
+def test_skill_source_type_is_resolved_from_latest_live_version(store):
+    store.create_skill_version(
+        "reviewer",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/reviewer.git",
+    )
+    store.create_skill_version(
+        "reviewer",
+        source_type=SkillSourceType.ZIP,
+        source="https://example.com/reviewer.zip",
+        status=SkillStatus.DRAFT.value,
+    )
+
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version == 1
+    assert skill.source_type == SkillSourceType.GIT
+
+    store.update_skill_version("reviewer", 1, status=SkillStatus.DEPRECATED.value)
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version == 2
+    assert skill.source_type == SkillSourceType.ZIP
+
+    store.delete_skill_version("reviewer", 2)
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version == 1
+    assert skill.source_type == SkillSourceType.GIT
+
+    store.delete_skill_version("reviewer", 1)
+    skill = store.get_skill("reviewer")
+    assert skill.latest_version is None
+    assert skill.source_type is None
+
+
+def test_skill_icons_round_trip_and_can_be_cleared(store, mock_icon_hostname_resolution):
     icons = [{"src": "https://example.com/reviewer.svg", "sizes": ["any"]}]
     created = store.create_skill("reviewer", icons=icons)
     assert created.icons == icons
@@ -123,6 +224,36 @@ def test_skill_icons_round_trip_and_can_be_cleared(store):
 
     unchanged = store.update_skill("reviewer", description="Updated")
     assert unchanged.icons is None
+
+
+@pytest.mark.parametrize(
+    ("icons", "message"),
+    [
+        ([{"src": "javascript:alert(1)"}], "Invalid Icon URL scheme"),
+        (
+            [{"src": "https://8.8.8.8/icon.png", "mimeType": "text/plain"}],
+            "Invalid icon mimeType",
+        ),
+        ([{"src": "https://8.8.8.8/icon.png"}] * 101, "at most 100 items"),
+    ],
+)
+def test_skill_icons_are_validated_on_create(store, icons, message, mock_icon_hostname_resolution):
+    with pytest.raises(MlflowException, match=message) as exc:
+        store.create_skill("reviewer", icons=icons)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("reviewer")
+
+
+def test_skill_icons_are_validated_on_update(store, mock_icon_hostname_resolution):
+    original_icons = [{"src": "https://8.8.8.8/original.png"}]
+    store.create_skill("reviewer", icons=original_icons)
+
+    with pytest.raises(MlflowException, match="Invalid Icon URL scheme"):
+        store.update_skill("reviewer", icons=[{"src": "javascript:alert(1)"}])
+
+    assert store.get_skill("reviewer").icons == original_icons
 
 
 def _get_skill_search_text(store, name="reviewer", organization="acme"):
@@ -136,7 +267,9 @@ def _get_skill_search_text(store, name="reviewer", organization="acme"):
         )
 
 
-def test_skill_search_text_is_persisted_and_recomputed_for_description_only(store):
+def test_skill_search_text_is_persisted_and_recomputed_for_description_only(
+    store, mock_icon_hostname_resolution
+):
     store.create_skill(
         "reviewer",
         organization="acme",
@@ -144,6 +277,9 @@ def test_skill_search_text_is_persisted_and_recomputed_for_description_only(stor
         icons=[{"src": "https://example.com/reviewer.svg"}],
     )
     assert _get_skill_search_text(store, organization="acme") == "reviewer Reviews code"
+    assert [s.name for s in store.search_skills(filter_string="search_text LIKE '%Reviews%'")] == [
+        "reviewer"
+    ]
 
     store.update_skill(
         "reviewer",
@@ -151,9 +287,28 @@ def test_skill_search_text_is_persisted_and_recomputed_for_description_only(stor
         icons=[{"src": "https://example.com/reviewer-dark.svg"}],
     )
     assert _get_skill_search_text(store, organization="acme") == "reviewer Reviews code"
+    assert store.search_skills(filter_string="search_text LIKE '%dark%'") == []
 
     store.update_skill("reviewer", organization="acme", description="Audits pull requests")
     assert _get_skill_search_text(store, organization="acme") == "reviewer Audits pull requests"
+    assert store.search_skills(filter_string="search_text LIKE '%Reviews%'") == []
+    assert [s.name for s in store.search_skills(filter_string="search_text LIKE '%Audits%'")] == [
+        "reviewer"
+    ]
+
+
+@pytest.mark.parametrize("description", [None, "", " \t\n "])
+def test_clearing_skill_description_removes_old_search_terms(store, description):
+    store.create_skill("reviewer", organization="acme", description="Reviews code")
+
+    store.update_skill("reviewer", organization="acme", description=description)
+
+    assert store.get_skill("reviewer", organization="acme").description == description
+    assert _get_skill_search_text(store) == "reviewer"
+    assert store.search_skills(filter_string="search_text LIKE '%Reviews%'") == []
+    assert [s.name for s in store.search_skills(filter_string="search_text LIKE '%reviewer%'")] == [
+        "reviewer"
+    ]
 
 
 def test_auto_created_skill_version_parent_gets_search_text(store):
@@ -173,6 +328,105 @@ def test_search_skills_returns_stable_paginated_results(store):
     second_page = store.search_skills(max_results=1, page_token=first_page.token)
     assert [skill.name for skill in second_page] == ["writer"]
     assert second_page.token is None
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"filter_string": "unsupported_field = 'value'"}, "Invalid attribute"),
+        ({"filter_string": "tags.team > 'platform'"}, "Invalid comparator"),
+        ({"filter_string": "status = 'active' OR status = 'draft'"}, "Invalid clause"),
+        ({"order_by": ["unsupported_field ASC"]}, "Invalid order_by key"),
+        ({"order_by": ["created_at ASC", "created_at DESC"]}, "Duplicate order_by field"),
+        ({"page_token": "not-a-token"}, "Invalid page token: could not decode"),
+        ({"page_token": "e30="}, "Invalid page token: missing or malformed fields"),
+        (
+            {"page_token": SkillRegistryPaginationToken(None, None, -1, "skills").encode()},
+            "Invalid page token: offset must be a non-negative integer",
+        ),
+    ],
+)
+def test_skill_search_rejects_invalid_requests(skill_search, kwargs, message):
+    with pytest.raises(MlflowException, match=message) as exc:
+        skill_search(**kwargs)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("state", ["empty", "no-match", "all-deleted"])
+def test_skill_search_empty_results_have_no_token(store, skill_search, state):
+    if state != "empty":
+        store.create_skill_version("reviewer", organization="acme", status=SkillStatus.DRAFT)
+    if state == "all-deleted":
+        store.delete_skill_version("reviewer", 1, organization="acme")
+
+    results = skill_search(filter_string="status = 'active'", max_results=1)
+
+    assert results == []
+    assert results.token is None
+
+
+@pytest.mark.parametrize("changed_field", ["filter_string", "order_by"])
+def test_skill_search_rejects_tokens_after_query_changes(store, skill_search, changed_field):
+    store.create_skill_version("reviewer", organization="acme")
+    store.create_skill_version("reviewer", organization="acme")
+    store.create_skill_version("writer", organization="acme")
+    query = {"filter_string": "status = 'active'", "order_by": ["created_at ASC"]}
+    first_page = skill_search(max_results=1, **query)
+    assert len(first_page) == 1
+    assert first_page.token is not None
+    query[changed_field] = (
+        "status = 'draft'" if changed_field == "filter_string" else ["created_at DESC"]
+    )
+
+    with pytest.raises(MlflowException, match=f"different {changed_field}") as exc:
+        skill_search(page_token=first_page.token, **query)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("from_parent", [False, True])
+def test_skill_search_tokens_cannot_cross_parent_and_version_searches(store, from_parent):
+    store.create_skill_version("reviewer", organization="acme")
+    store.create_skill_version("reviewer", organization="acme")
+    store.create_skill_version("writer", organization="acme")
+    parent_search = store.search_skills
+    version_search = partial(store.search_skill_versions, "reviewer", organization="acme")
+    source, target = (
+        (parent_search, version_search) if from_parent else (version_search, parent_search)
+    )
+    first_page = source(max_results=1)
+    assert first_page.token is not None
+
+    with pytest.raises(MlflowException, match="different query scope") as exc:
+        target(page_token=first_page.token)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("page_size", [1, 2, 3, 4])
+def test_search_skills_paginates_ties_by_organization_and_name(store, page_size):
+    identities = [
+        ("beta", "writer"),
+        ("acme", "writer"),
+        ("beta", "reviewer"),
+        ("acme", "reviewer"),
+    ]
+    for organization, name in identities:
+        store.create_skill_version(name, organization=organization)
+
+    results = []
+    token = None
+    for offset in range(0, len(identities), page_size):
+        page = store.search_skills(
+            order_by=["status DESC"], max_results=page_size, page_token=token
+        )
+        assert len(page) == min(page_size, len(identities) - offset)
+        results.extend((skill.organization, skill.name) for skill in page)
+        token = page.token
+        assert (token is not None) == (offset + page_size < len(identities))
+
+    assert results == sorted(identities)
 
 
 def test_search_skills_token_is_bound_to_query(store):
@@ -677,7 +931,9 @@ def test_skill_version_source_round_trip(store, source_type, source, expected_so
     assert retrieved.digest == digest
 
 
-def test_skill_version_auto_creates_parent_and_preserves_existing_parent(store):
+def test_skill_version_auto_creates_parent_and_preserves_existing_parent(
+    store, mock_icon_hostname_resolution
+):
     created = _persist_skill_version(store, status=SkillStatus.DRAFT.value)
     assert created.status == SkillStatus.DRAFT
 
@@ -1383,6 +1639,29 @@ def test_search_skill_versions_orders_and_paginates_with_query_bound_tokens(stor
             order_by=["version DESC"],
             page_token=first_page.token,
         )
+
+
+@pytest.mark.parametrize("page_size", [1, 2, 3, 4])
+def test_search_skill_versions_paginates_ties_by_numeric_version(store, page_size):
+    for version in [10, 2, 9, 1]:
+        _persist_skill_version(store, version=version)
+
+    results = []
+    token = None
+    for offset in range(0, 4, page_size):
+        page = store.search_skill_versions(
+            "reviewer",
+            organization="acme",
+            order_by=["status DESC"],
+            max_results=page_size,
+            page_token=token,
+        )
+        assert len(page) == min(page_size, 4 - offset)
+        results.extend(version.version for version in page)
+        token = page.token
+        assert (token is not None) == (offset + page_size < 4)
+
+    assert results == [1, 2, 9, 10]
 
 
 @pytest.mark.parametrize(

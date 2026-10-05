@@ -27,11 +27,11 @@ from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerV
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.validation import (
-    _MAX_MCP_ICONS_PER_LIST,
     _MAX_MCP_TOOLS_PER_LIST,
+    _MAX_REGISTRY_ICONS_PER_LIST,
     _strip_mcp_icon_response_fields,
-    _validate_mcp_icon_mime_type,
-    _validate_mcp_icon_url,
+    _validate_icon_mime_type,
+    _validate_icon_url,
 )
 
 if TYPE_CHECKING:
@@ -84,13 +84,13 @@ class MCPIconRequestPayload(_BaseMCPIconPayload):
     @field_validator("src")
     @classmethod
     def _validate_src(cls, value: str) -> str:
-        _validate_mcp_icon_url(value)
+        _validate_icon_url(value)
         return value
 
     @field_validator("mimeType")
     @classmethod
     def _validate_mime_type(cls, value: str | None) -> str | None:
-        _validate_mcp_icon_mime_type(value)
+        _validate_icon_mime_type(value)
         return None if value is None else value.strip().lower()
 
 
@@ -121,7 +121,7 @@ class ServerJSONPayload(BaseModel):
     title: str | None = None
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
     packages: list[ServerJSONPackagePayload] | None = None
     remotes: list[ServerJSONRemotePayload] | None = None
@@ -165,7 +165,7 @@ class MCPToolRequestPayload(BaseModel):
     outputSchema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
     execution: dict[str, Any] | None = None
 
@@ -185,7 +185,7 @@ class CreateMCPServerRequest(BaseModel):
     name: str
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
 
 
@@ -193,7 +193,7 @@ class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
 
     @model_validator(mode="before")

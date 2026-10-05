@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
+from mlflow.entities.skill_source import SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
@@ -68,6 +69,7 @@ class Skill:
     tags: dict[str, str] = field(default_factory=dict)
     aliases: dict[str, int] = field(default_factory=dict)  # read-only
     latest_version: int | None = None  # read-only
+    source_type: SkillSourceType | None = None  # read-only, derived from latest version
     created_by: str | None = None
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
@@ -93,6 +95,9 @@ class Skill:
                 tags=data.get("tags") or {},
                 aliases=_aliases_to_dict(data.get("aliases")),
                 latest_version=data.get("latest_version"),
+                source_type=(
+                    SkillSourceType(data["source_type"]) if data.get("source_type") else None
+                ),
                 created_by=data.get("created_by"),
                 last_updated_by=data.get("last_updated_by"),
                 creation_timestamp=data.get("creation_timestamp"),

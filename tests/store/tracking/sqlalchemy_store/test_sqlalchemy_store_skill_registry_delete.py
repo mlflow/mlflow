@@ -9,7 +9,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
+    SqlSkillAlias,
+    SqlSkillTag,
     SqlSkillVersion,
+    SqlSkillVersionTag,
 )
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     new_skill_upload_path,
@@ -91,16 +94,23 @@ def test_delete_skill_removes_parent_versions_and_returns_owned_paths(store):
     store.create_skill_version(
         "reviewer", organization="acme", source_type="git", source="https://example.com/r.git"
     )
+    store.set_skill_tag("reviewer", "team", "platform", organization="acme")
+    store.set_skill_version_tag("reviewer", 1, "release", "stable", organization="acme")
+    store.set_skill_alias("reviewer", "production", 1, organization="acme")
 
     owned = store.delete_skill_and_collect_artifacts("reviewer", organization="acme")
 
     assert sorted(owned) == sorted([first, second])
     assert _version_rows(store) == 0
+    with store.ManagedSessionMaker() as session:
+        for model in (SqlSkillTag, SqlSkillVersionTag, SqlSkillAlias):
+            assert store._get_query(session, model).count() == 0
     with pytest.raises(MlflowException, match="not found"):
         store.get_skill("reviewer", organization="acme")
 
 
-def test_delete_skill_never_returns_a_referenced_package_tree(store):
+@pytest.mark.parametrize("shared", [False, True])
+def test_delete_skill_never_returns_a_referenced_package_tree(store, shared):
     # An imported member points into the plugin's tree. Deleting the skill, even as the last
     # reference to that tree, must not schedule it for cleanup.
     store.create_skill_version(
@@ -111,10 +121,24 @@ def test_delete_skill_never_returns_a_referenced_package_tree(store):
         subpath="skills/reviewer",
     )
     _, owned_path = _upload(store)
+    if shared:
+        store.create_skill_version(
+            "linter",
+            organization="acme",
+            source_type="mlflow",
+            source=_PACKAGE_TREE,
+            subpath="skills/linter",
+        )
 
     owned = store.delete_skill_and_collect_artifacts("reviewer", organization="acme")
 
     assert owned == [owned_path]
+    if shared:
+        assert (
+            store.get_skill_version("linter", 1, organization="acme").source.artifact_path
+            == _PACKAGE_TREE
+        )
+        assert store.delete_skill_and_collect_artifacts("linter", organization="acme") == []
 
 
 def test_delete_skill_returns_none_and_matches_collecting_variant(store):
