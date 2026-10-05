@@ -86,28 +86,22 @@ def test_from_numpy_with_ragged_nested_targets():
     assert eval_dataset_a.hash != eval_dataset_b.hash
 
 
-@pytest.mark.parametrize("column", ["targets", "predictions"])
-@pytest.mark.parametrize("values", [[["doc-a"]], [["doc-a", "doc-b"], []]])
-def test_list_valued_evaluation_hash_is_repeatable(column, values):
-    frame = pd.DataFrame({"query": ["question"] * len(values), "documents": values})
-    datasets = [
-        mlflow.data.from_pandas(
-            frame.copy(deep=True), **{column: "documents"}
-        ).to_evaluation_dataset()
-        for _ in range(5)
-    ]
+def _list_valued_evaluation_hash(documents, column):
+    frame = pd.DataFrame({"query": ["question"] * len(documents), "documents": documents})
+    return mlflow.data.from_pandas(frame, **{column: "documents"}).to_evaluation_dataset().hash
 
-    assert len({dataset.hash for dataset in datasets}) == 1
+
+@pytest.mark.parametrize("column", ["targets", "predictions"])
+@pytest.mark.parametrize("documents", [[["doc-a"]], [["doc-a", "doc-b"], []]])
+def test_list_valued_evaluation_hash_is_repeatable(column, documents):
+    hashes = {_list_valued_evaluation_hash(documents, column) for _ in range(5)}
+
+    assert len(hashes) == 1
 
 
 @pytest.mark.parametrize("column", ["targets", "predictions"])
 def test_list_valued_evaluation_hash_changes_with_document_ids(column):
-    datasets = [
-        mlflow.data.from_pandas(
-            pd.DataFrame({"query": ["question"], "documents": [[document]]}),
-            **{column: "documents"},
-        ).to_evaluation_dataset()
-        for document in ("doc-a", "doc-b", "doc-c")
-    ]
+    hash_a = _list_valued_evaluation_hash([["doc-a"]], column)
 
-    assert len({dataset.hash for dataset in datasets}) == len(datasets)
+    assert _list_valued_evaluation_hash([["doc-a"]], column) == hash_a
+    assert _list_valued_evaluation_hash([["doc-b"]], column) != hash_a
