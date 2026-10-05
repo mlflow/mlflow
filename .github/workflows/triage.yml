@@ -673,26 +673,34 @@ jobs:
           jq -j '.comment' "$PAYLOAD_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
         env:
+          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
           SHOULD_POST: ${{ github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false' }}
         run: |
           if [ "$SHOULD_POST" = true ]; then
-            state="Posting this triage report as an issue comment."
+            state="Posting this triage report as an issue comment and label."
           else
-            state="Comment not posted (dry run or issues event)."
+            state="Comment and label not posted (dry run or issues event)."
           fi
           {
             echo "### Triage comment preview"
             echo
             echo "$state"
             echo
+            jq -r '"Label: <code>\(.label | @html)</code>"' "$PAYLOAD_PATH"
+            echo
             jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Post triage comment
+      - name: Post triage comment and label
         if: github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
-        run: gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file "$BODY_FILE"
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file "$BODY_FILE"
+          # Unlike `gh issue edit --add-label`, this endpoint creates the label if it doesn't exist yet.
+          jq '{labels: [.label]}' "$PAYLOAD_PATH" \
+            | gh api --method POST "repos/$REPO/issues/$ISSUE_NUMBER/labels" --input - > /dev/null
