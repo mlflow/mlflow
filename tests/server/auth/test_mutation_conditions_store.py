@@ -237,11 +237,35 @@ def test_supported_resource_types_accepted(store, role, resource_type):
     assert store.add_mutation_condition(role.id, resource_type, value_condition="tag_key != 'a'")
 
 
+def test_a_keyed_value_condition_is_accepted(store, role):
+    """`tags.<key>` as a VALUE condition must survive write-time validation.
+
+    The store parses a value condition with the request namespace, so this is the same
+    authoring path as `parse_condition` -- but it is the path an admin actually uses, and
+    it used to reject this syntax outright.
+    """
+    condition = store.add_mutation_condition(
+        role.id,
+        "run",
+        value_condition="tags.a IN ('x','y','z') AND tag_key IN ('a')",
+    )
+    assert condition.value_condition == "tags.a IN ('x','y','z') AND tag_key IN ('a')"
+
+
+def test_a_keyed_value_condition_still_refuses_a_reserved_key(store, role):
+    """D4 is enforced on the KEY wherever `tags` is the identifier."""
+    with pytest.raises(MlflowException, match=r"reserved tag keys"):
+        store.add_mutation_condition(role.id, "run", value_condition="tags.mlflow.runName = 'x'")
+
+
 @pytest.mark.parametrize(
     ("value_condition", "target_condition", "expected"),
     [
         ("tag_key = 'a' OR tag_key = 'b'", None, "OR is not supported"),
-        ("tags.x = '1'", None, "resource-condition identifier"),
+        # `tags.<key>` is accepted as a value condition (keyed request clause), so the
+        # rejected resource identifier here is the alias form, which has no request
+        # reading. See test_a_keyed_value_condition_is_accepted below.
+        ("aliases.x = '1'", None, "resource-condition identifier"),
         (None, "tag_key = 'a'", "request-condition identifier"),
         ("tag_key > 'a'", None, "not supported in conditions"),
         ("tag_key = 'mlflow.runName'", None, "reserved tag keys"),

@@ -723,10 +723,12 @@ def _invalid_statement_token(token) -> bool:
 def _split_identifier(raw: str, namespace: str) -> tuple[str, str | None]:
     """Split the left-hand side into ``(identifier, key)`` and validate it.
 
-    Rejects cross-namespace identifiers explicitly: a ``tags.x`` clause in a request
-    condition and a ``tag_key`` clause in a resource condition are both silently
-    meaningless otherwise, and an admin who mixes them would believe they had
-    written a restriction that never fires.
+    ``tags.<key>`` is legal in BOTH namespaces and means a different thing in each --
+    see :func:`evaluate_request` for the request reading and the absence rule that
+    distinguishes them. Every other cross-namespace identifier is rejected explicitly:
+    a ``tag_key`` clause in a resource condition, or an ``aliases.<name>`` clause in a
+    request condition, is silently meaningless otherwise, and an admin who mixes them
+    would believe they had written a restriction that never fires.
     """
     stripped = SearchUtils._trim_backticks(raw.strip())
 
@@ -734,17 +736,27 @@ def _split_identifier(raw: str, namespace: str) -> tuple[str, str | None]:
         identifier = stripped.lower()
         if identifier in REQUEST_IDENTIFIERS:
             return identifier, None
-        if identifier.split(".", 1)[0] in RESOURCE_PREFIXES:
+        head, _, tail = stripped.partition(".")
+        prefix = head.strip().lower()
+        if prefix == RESOURCE_PREFIX_TAGS:
+            # A KEYED request clause. The key is deliberately NOT lowercased -- tag keys
+            # are case-sensitive, and only the prefix is a fixed word.
+            return prefix, _require_identifier_key(raw, tail, prefix)
+        if prefix in RESOURCE_PREFIXES:
+            # Only `tags.<key>` has a request meaning. An alias being SET arrives as a
+            # bare value with no name to key on, which the `alias` identifier already
+            # covers, so `aliases.<name>` here would never fire.
             raise MlflowException(
                 f"'{raw}' is a resource-condition identifier and cannot be used in a request "
-                f"condition. Request conditions constrain the values being set, so they use "
-                f"{sorted(REQUEST_IDENTIFIERS)}. To constrain which resources may be mutated, "
-                f"put '{raw}' in the resource condition instead.",
+                f"condition. A request condition constrains the values being set, so it uses "
+                f"{sorted(REQUEST_IDENTIFIERS)} or 'tags.<key>'. An alias being set is a bare "
+                f"value, which 'alias' already covers. To constrain which resources may be "
+                f"mutated, put '{raw}' in the resource condition instead.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         raise MlflowException(
             f"Invalid request-condition identifier '{raw}'. Valid identifiers are "
-            f"{sorted(REQUEST_IDENTIFIERS)}.",
+            f"{sorted(REQUEST_IDENTIFIERS)} and 'tags.<key>'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -765,15 +777,23 @@ def _split_identifier(raw: str, namespace: str) -> tuple[str, str | None]:
             f"'tags.<key>' and 'aliases.<name>'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    key = SearchUtils._trim_backticks(tail.strip())
-    key = SearchUtils._strip_quotes(key)
+    return prefix, _require_identifier_key(raw, tail, prefix)
+
+
+def _require_identifier_key(raw: str, tail: str, prefix: str) -> str:
+    """Extract the key half of a ``prefix.key`` identifier, rejecting an empty one.
+
+    Shared by both namespaces: a keyed request clause (``tags.<key>``) and a resource
+    clause spell the key identically, so they validate it identically.
+    """
+    key = SearchUtils._strip_quotes(SearchUtils._trim_backticks(tail.strip()))
     if not key:
         raise MlflowException(
-            f"Resource-condition identifier '{raw}' is missing a key. Use "
+            f"Condition identifier '{raw}' is missing a key. Use "
             f"'{prefix}.<name>', for example 'tags.lifecycle'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    return prefix, key
+    return key
 
 
 def _parse_value(token, comparator: str, raw_lhs: str) -> str | tuple[str, ...]:
@@ -837,8 +857,9 @@ def _parse_comparison(comparison: Comparison, namespace: str) -> Clause:
     if namespace == NAMESPACE_REQUEST and identifier == REQUEST_IDENTIFIER_TAG_KEY:
         # Request side: the reserved name is the clause's VALUE (``tag_key = 'mlflow.x'``).
         _reject_reserved_keys(value)
-    elif namespace == NAMESPACE_RESOURCE and identifier == RESOURCE_PREFIX_TAGS:
-        # Resource side: it is the clause's KEY (``tags.mlflow.x = '...'``).
+    elif identifier == RESOURCE_PREFIX_TAGS:
+        # Wherever `tags` is the identifier -- a resource clause or a KEYED request
+        # clause -- the reserved name is the clause's KEY (``tags.mlflow.x = '...'``).
         _reject_reserved_keys(key)
 
     return Clause(identifier=identifier, key=key, comparator=comparator, value=value)
@@ -1035,6 +1056,13 @@ def _request_lhs_values(clause: Clause, values: RequestValues) -> tuple[str, ...
     user_tags = tuple(
         (key, value) for key, value in values.tags if not key.startswith(RESERVED_TAG_PREFIX)
     )
+    if clause.identifier == RESOURCE_PREFIX_TAGS:
+        # A KEYED clause: project only the value written to the key it names, so the key
+        # and the value are bound. `None` (this key is not being written) is read as
+        # vacuous by the caller, which is exactly the "if present, constrain it" reading.
+        # A deletion carries the key with no value, so it is unconstrained here too --
+        # constraining what a delete removes is the resource condition's job (D12/D13).
+        return tuple(v for k, v in user_tags if k == clause.key and v is not None) or None
     if clause.identifier == REQUEST_IDENTIFIER_TAG_KEY:
         return tuple(key for key, _ in user_tags) or None
     if clause.identifier == REQUEST_IDENTIFIER_TAG_VALUE:
@@ -1066,6 +1094,22 @@ def evaluate_request(clauses: Sequence[Clause], values: RequestValues) -> bool:
 
     Note this is the **opposite** of the resource side, deliberately. See
     :func:`evaluate_resource`.
+
+    **A keyed clause** (``tags.<key>``) reads as *"if a tag with this key is being set,
+    its value must satisfy the comparator"*. Other keys stay free, which the flat
+    ``tag_key``/``tag_value`` pair cannot express: its clauses are independent and each
+    applies to every tag in the body, so naming keys and values together yields their
+    CROSS PRODUCT -- ``tag_key IN ('a','b') AND tag_value IN ('x','y','t','u')`` permits
+    ``a=u``. That is a leak rather than an over-restriction, which is the dangerous
+    direction, so the keyed form exists to bind a key to its own vocabulary. To also
+    close the set of keys that may be written at all, add a ``tag_key`` clause -- a
+    keyed clause deliberately does not.
+
+    **The trap.** ``tags.a = 'x'`` is legal in both fields and inverts on absence:
+    vacuous here (a body that does not write ``a`` is ALLOWED) and failing on the
+    resource side (a resource without an ``a`` tag is DENIED). The asymmetry is D13 vs
+    D20 and predates the keyed form; what the keyed form adds is that the two now spell
+    identically, so a clause copied between the fields changes meaning silently.
 
     Every value must satisfy the clause: setting ten tags where one is disallowed is
     denied, because the alternative is that a bulk request is a way around a
