@@ -40,8 +40,7 @@ reproduce, and here is what I tried" is a useful result.
 
 Only when the bug reproduces at the current checkout. Find the line that is wrong and why, not
 just where the error surfaces, then verify: patch the code, rerun the reproduction, and confirm the
-symptom goes away without breaking the tests that cover that code. Save the patch with
-`git diff > $out_dir/fix.patch`, then revert it; the fix goes in the comment, not the checkout.
+symptom goes away without breaking the tests that cover that code.
 
 Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
 decision (a public API, a default, or a storage schema), describe the options instead of
