@@ -1,4 +1,6 @@
 import copy
+import json
+import re
 import socket
 import time
 from unittest.mock import patch
@@ -63,6 +65,9 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "\\",
     "./",
     "/./",
+    "\n",
+    "foo\n",
+    "\n\n",
 ]
 
 GOOD_ALIAS_NAMES = [
@@ -95,6 +100,8 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
+    "\n",
+    "foo\n",
 ]
 
 
@@ -166,12 +173,8 @@ def test_validate_metric_name_good(metric_name):
 
 
 def _bad_parameter_pattern(name):
-    if name == "\\":
-        return r"Invalid value \"\\\\\" for parameter"  # Manually handle the backslash case
-    elif name == "*****":
-        return r"Invalid value \"\*\*\*\*\*\" for parameter"
-    else:
-        return f'Invalid value "{name}" for parameter'
+    # Messages use json.dumps(value); escape for pytest match regex.
+    return f"Invalid value {re.escape(json.dumps(name))} for parameter"
 
 
 @pytest.mark.parametrize("metric_name", BAD_METRIC_OR_PARAM_NAMES)
@@ -222,6 +225,27 @@ def test_validate_tag_name_bad(tag_name):
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "\n",
+        "foo\n",
+        "\n\n",
+        "a\n",
+    ],
+)
+@pytest.mark.parametrize(
+    "validator",
+    [_validate_param_name, _validate_metric_name, _validate_tag_name],
+    ids=["param", "metric", "tag"],
+)
+def test_validate_name_rejects_trailing_newline(validator, name):
+    """re.match+$ historically allowed a trailing newline; re.fullmatch must reject it."""
+    with pytest.raises(MlflowException, match=r"Invalid value") as e:
+        validator(name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.parametrize("alias_name", GOOD_ALIAS_NAMES)
 def test_validate_model_alias_name_good(alias_name):
     _validate_model_alias_name(alias_name)
@@ -260,7 +284,7 @@ def test_validate_run_id_good(run_id):
     _validate_run_id(run_id)
 
 
-@pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5])
+@pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5, "abc\n", "a" * 10 + "\n"])
 def test_validate_run_id_bad(run_id):
     with pytest.raises(MlflowException, match=_bad_parameter_pattern(run_id)) as e:
         _validate_run_id(run_id)

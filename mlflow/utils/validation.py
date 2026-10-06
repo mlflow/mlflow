@@ -322,11 +322,11 @@ def validate_param_and_metric_name(name):
     # In windows system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, and spaces.
     if is_windows():
-        return re.match(r"^[/\w.\- ]*$", name)
+        return re.fullmatch(r"^[/\w.\- ]*$", name)
 
     # For other system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, colons, and spaces.
-    return re.match(r"^[/\w.\- :]*$", name)
+    return re.fullmatch(r"^[/\w.\- :]*$", name)
 
 
 def bad_character_message():
@@ -563,13 +563,13 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
 
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
-    if _RUN_ID_REGEX.match(run_id) is None:
+    if _RUN_ID_REGEX.fullmatch(run_id) is None:
         raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
-    if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
+    if exp_id is not None and _EXPERIMENT_ID_REGEX.fullmatch(exp_id) is None:
         raise MlflowException(
             f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
@@ -725,7 +725,7 @@ def _validate_model_alias_name(model_alias_name):
         raise MlflowException(
             "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
         )
-    if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
+    if not _REGISTERED_MODEL_ALIAS_REGEX.fullmatch(model_alias_name):
         raise MlflowException(
             f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
@@ -743,7 +743,7 @@ def _validate_model_alias_name_reserved(model_alias_name):
             "'latest' alias name (case insensitive) is reserved.",
             INVALID_PARAMETER_VALUE,
         )
-    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
+    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.fullmatch(model_alias_name):
         raise MlflowException(
             f"Version alias name '{model_alias_name}' is reserved.",
             INVALID_PARAMETER_VALUE,
