@@ -606,7 +606,7 @@ describe('SkillRegistryPage', () => {
       const file = new File([content], path.split('/').pop() ?? path);
       Object.defineProperties(file, {
         webkitRelativePath: { value: path },
-        text: { value: async () => content },
+        text: { value: async () => content, writable: true, configurable: true },
       });
       return file;
     };
@@ -617,6 +617,7 @@ describe('SkillRegistryPage', () => {
     expect(await screen.findByText('Up to 64 B of files.')).toBeInTheDocument();
 
     const manifest = folderFile('demo/SKILL.md', '---\nname: demo\n---\n');
+    const readManifest = jest.spyOn(manifest, 'text');
     await userEvent.upload(screen.getByLabelText('Skill folder'), [
       manifest,
       folderFile('demo/a.md', 'a'),
@@ -624,6 +625,9 @@ describe('SkillRegistryPage', () => {
     ]);
     expect(await screen.findByText('This folder has 3 files. The server accepts up to 2.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    // An over-limit folder is refused without reading its SKILL.md, so the name stays empty.
+    expect(readManifest).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Name')).toHaveValue('');
 
     await userEvent.upload(screen.getByLabelText('Skill folder'), [
       manifest,

@@ -23,7 +23,13 @@ import { SkillTagsInput } from './SkillTagsInput';
 import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiView';
 import { SkillRegistryApi } from '../api';
 import { useRegisterSkillMutation, type RegisterSkillMutationInput } from '../hooks/useRegisterSkillMutation';
-import { findSkillManifest, packageSkillFolder, readSkillManifest } from '../localSkillFolder';
+import {
+  exceededContentLimit,
+  findSkillManifest,
+  packageSkillFolder,
+  readSkillManifest,
+  totalFileSize,
+} from '../localSkillFolder';
 import { formatFileSize, formatSizeLimit } from '../skillFiles';
 import {
   buildExternalSkillVersionRequest,
@@ -158,7 +164,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   // Content MLflow stores itself needs a server that serves artifacts; other servers can only import.
   const uploadEnabled = useArtifactServingEnabled();
   const workspace = useActiveWorkspace();
-  const contentLimits = useSkillContentLimits();
+  const { maxBytes, maxFiles } = useSkillContentLimits();
   const [mode, setMode] = useState<RegistrationMode>(
     uploadEnabled && sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer',
   );
@@ -195,23 +201,26 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const effectiveSourceType = form.sourceTypeOverride || parsed?.sourceType;
   const hasSkillManifest = useMemo(() => Boolean(findSkillManifest(folderFiles)), [folderFiles]);
   // Packaging reads every file into memory, so a folder over the server's limits is refused before that.
-  const folderBytes = useMemo(() => folderFiles.reduce((total, file) => total + file.size, 0), [folderFiles]);
+  const exceededLimit = useMemo(
+    () => exceededContentLimit(folderFiles, { maxBytes, maxFiles }),
+    [folderFiles, maxBytes, maxFiles],
+  );
   const folderLimitError =
-    contentLimits.maxFiles !== undefined && folderFiles.length > contentLimits.maxFiles
+    exceededLimit === 'files'
       ? intl.formatMessage(
           {
             defaultMessage: 'This folder has {count} files. The server accepts up to {max}.',
             description: 'Error when a skill folder has more files than the server accepts',
           },
-          { count: folderFiles.length, max: contentLimits.maxFiles },
+          { count: folderFiles.length, max: maxFiles },
         )
-      : contentLimits.maxBytes !== undefined && folderBytes > contentLimits.maxBytes
+      : exceededLimit === 'bytes' && maxBytes !== undefined
         ? intl.formatMessage(
             {
               defaultMessage: 'This folder is {size}. The server accepts up to {max} of files.',
               description: 'Error when a skill folder is larger than the server accepts',
             },
-            { size: formatFileSize(folderBytes), max: formatSizeLimit(contentLimits.maxBytes) },
+            { size: formatFileSize(totalFileSize(folderFiles)), max: formatSizeLimit(maxBytes) },
           )
         : undefined;
   const ref = form.ref.trim();
@@ -276,7 +285,8 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     setFolderFiles(files);
     setValidationError(undefined);
     const manifestFile = findSkillManifest(files);
-    if (!manifestFile || isVersion) return;
+    // A folder over the server's limits is refused, so its SKILL.md is not worth reading into memory.
+    if (!manifestFile || isVersion || exceededContentLimit(files, { maxBytes, maxFiles })) return;
     const manifest = readSkillManifest(await manifestFile.text());
     if (manifest.name && !identityTouched) {
       setForm((current) => ({ ...current, identity: manifest.name ?? current.identity }));
@@ -656,11 +666,11 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                           />
                         </Typography.Text>
                         <Typography.Text color="secondary">
-                          {contentLimits.maxBytes !== undefined ? (
+                          {maxBytes !== undefined ? (
                             <FormattedMessage
                               defaultMessage="Up to {max} of files."
                               description="Hint for the server's size limit of an uploaded skill folder"
-                              values={{ max: formatSizeLimit(contentLimits.maxBytes) }}
+                              values={{ max: formatSizeLimit(maxBytes) }}
                             />
                           ) : (
                             <FormattedMessage

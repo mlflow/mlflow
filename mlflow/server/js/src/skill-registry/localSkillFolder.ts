@@ -33,6 +33,18 @@ export const readSkillManifest = (content: string): SkillManifestFields => {
 
 const relativePath = (file: File) => file.webkitRelativePath || file.name;
 
+export const totalFileSize = (files: File[]) => files.reduce((total, file) => total + file.size, 0);
+
+/** The server limit a selected folder exceeds, judged from file sizes and count alone so nothing is read. */
+export const exceededContentLimit = (
+  files: File[],
+  { maxBytes, maxFiles }: { maxBytes?: number; maxFiles?: number },
+) => {
+  if (maxFiles !== undefined && files.length > maxFiles) return 'files' as const;
+  if (maxBytes !== undefined && totalFileSize(files) > maxBytes) return 'bytes' as const;
+  return undefined;
+};
+
 // A directory picker prefixes every path with the selected folder's name, which is not part of the skill.
 const sharesSingleRoot = (files: File[]) => {
   const paths = files.map(relativePath).filter(Boolean);
