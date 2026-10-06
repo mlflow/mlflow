@@ -1868,3 +1868,72 @@ def test_chat_stream_finish_reason(stop_reason, expected):
     result = AnthropicAdapter.model_to_chat_streaming(resp, EndpointConfig(**chat_config()))
 
     assert result.choices[0].finish_reason == expected
+
+
+def test_chat_to_model_preserves_system_blocks_and_cache_control():
+    from fastapi.encoders import jsonable_encoder
+    from mlflow.gateway.schemas import chat
+
+    payload = chat.RequestPayload(
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "system prompt",
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+            }
+        ],
+    )
+
+    encoded = jsonable_encoder(payload, exclude_none=True)
+    assert encoded["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral"}
+
+    result = AnthropicAdapter.chat_to_model(encoded, EndpointConfig(**chat_config()))
+
+    assert result["system"] == [
+        {
+            "type": "text",
+            "text": "system prompt",
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
+def test_chat_to_model_preserves_mixed_system_blocks_and_cache_control():
+    from fastapi.encoders import jsonable_encoder
+    from mlflow.gateway.schemas import chat
+
+    payload = chat.RequestPayload(
+        messages=[
+            {
+                "role": "system",
+                "content": "plain system text",
+            },
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "cached system text",
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+            },
+        ],
+    )
+
+    encoded = jsonable_encoder(payload, exclude_none=True)
+    result = AnthropicAdapter.chat_to_model(encoded, EndpointConfig(**chat_config()))
+
+    assert result["system"] == [
+        {"type": "text", "text": "plain system text"},
+        {
+            "type": "text",
+            "text": "cached system text",
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]

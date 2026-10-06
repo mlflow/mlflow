@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 
 class TextContentPart(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     type: Literal["text"]
     text: str
 

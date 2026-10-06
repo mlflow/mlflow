@@ -202,7 +202,16 @@ class AnthropicAdapter(ProviderAdapter):
         # Cohere uses `system` to set the system message
         # we concatenate all system messages from the user with a newline
         if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
-            payload["system"] = "\n".join(m["content"] for m in system_messages)
+            if any(isinstance(m["content"], list) for m in system_messages):
+                system_blocks = []
+                for m in system_messages:
+                    if isinstance(m["content"], list):
+                        system_blocks.extend(m["content"])
+                    else:
+                        system_blocks.append({"type": "text", "text": m["content"]})
+                payload["system"] = system_blocks
+            else:
+                payload["system"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
         # we want to include only user, assistant or tool messages
