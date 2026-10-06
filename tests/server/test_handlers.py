@@ -1072,19 +1072,19 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
     assert args == {
-        "filter_string": "",
+        "filter_string": "tags.`mlflow.prompt.is_prompt` != 'true'",
         "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         "order_by": [],
         "page_token": None,
     }
     assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
 
-    mock_get_request_message.return_value = SearchRegisteredModels(filter="hello")
+    mock_get_request_message.return_value = SearchRegisteredModels(filter="name = 'hello'")
     mock_model_registry_store.search_registered_models.return_value = PagedList(rmds[:1], "tok")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
     assert args == {
-        "filter_string": "hello",
+        "filter_string": "tags.`mlflow.prompt.is_prompt` != 'true' AND name = 'hello'",
         "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         "order_by": [],
         "page_token": None,
@@ -1094,24 +1094,31 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
         "next_page_token": "tok",
     }
 
-    mock_get_request_message.return_value = SearchRegisteredModels(filter="hi", max_results=5)
+    mock_get_request_message.return_value = SearchRegisteredModels(
+        filter="name = 'hi'", max_results=5
+    )
     mock_model_registry_store.search_registered_models.return_value = PagedList([rmds[0]], "tik")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {"filter_string": "hi", "max_results": 5, "order_by": [], "page_token": None}
+    assert args == {
+        "filter_string": "tags.`mlflow.prompt.is_prompt` != 'true' AND name = 'hi'",
+        "max_results": 5,
+        "order_by": [],
+        "page_token": None,
+    }
     assert json.loads(resp.get_data()) == {
         "registered_models": jsonify([rmds[0]]),
         "next_page_token": "tik",
     }
 
     mock_get_request_message.return_value = SearchRegisteredModels(
-        filter="hey", max_results=500, order_by=["a", "B desc"], page_token="prev"
+        filter="name = 'hey'", max_results=500, order_by=["a", "B desc"], page_token="prev"
     )
     mock_model_registry_store.search_registered_models.return_value = PagedList(rmds, "DONE")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
     assert args == {
-        "filter_string": "hey",
+        "filter_string": "tags.`mlflow.prompt.is_prompt` != 'true' AND name = 'hey'",
         "max_results": 500,
         "order_by": ["a", "B desc"],
         "page_token": "prev",
@@ -1718,7 +1725,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     mock_model_registry_store.search_model_versions.return_value = PagedList(mvds, None)
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="source_path = 'A/B/CD'",
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true' AND source_path = 'A/B/CD'",
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
         page_token=None,
@@ -1729,7 +1736,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     mock_model_registry_store.search_model_versions.return_value = PagedList(mvds[:1], "tok")
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="name='model_1'",
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true' AND name='model_1'",
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
         page_token=None,
@@ -1739,13 +1746,18 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
         "next_page_token": "tok",
     }
 
-    mock_get_request_message.return_value = SearchModelVersions(filter="version<=12", max_results=2)
+    mock_get_request_message.return_value = SearchModelVersions(
+        filter="version_number <= 12", max_results=2
+    )
     mock_model_registry_store.search_model_versions.return_value = PagedList(
         [mvds[0], mvds[2]], "next"
     )
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="version<=12", max_results=2, order_by=[], page_token=None
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true' AND version_number <= 12",
+        max_results=2,
+        order_by=[],
+        page_token=None,
     )
     assert json.loads(resp.get_data()) == {
         "model_versions": jsonify([mvds[0], mvds[2]]),
@@ -1753,12 +1765,15 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     }
 
     mock_get_request_message.return_value = SearchModelVersions(
-        filter="version<=12", max_results=2, order_by=["version DESC"], page_token="prev"
+        filter="version_number <= 12", max_results=2, order_by=["version DESC"], page_token="prev"
     )
     mock_model_registry_store.search_model_versions.return_value = PagedList(mvds[1:3], "next")
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="version<=12", max_results=2, order_by=["version DESC"], page_token="prev"
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true' AND version_number <= 12",
+        max_results=2,
+        order_by=["version DESC"],
+        page_token="prev",
     )
     assert json.loads(resp.get_data()) == {
         "model_versions": jsonify(mvds[1:3]),
