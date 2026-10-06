@@ -7,7 +7,10 @@ import contextlib
 import logging
 import threading
 import time
-from typing import Callable
+from typing import TYPE_CHECKING, Callable, Iterator
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers.base import Scorer
 
 _logger = logging.getLogger(__name__)
 
@@ -181,6 +184,39 @@ class RPSRateLimiter(RateLimiter):
 class NoOpRateLimiter(RateLimiter):
     def acquire(self) -> None:
         pass
+
+
+@contextlib.contextmanager
+def scorer_rate_limit_context(scorer: Scorer, rate_limiter: RateLimiter) -> Iterator[RateLimiter]:
+    """Move admission to Databricks retrieval requests when the SDK supports it."""
+    if isinstance(rate_limiter, NoOpRateLimiter):
+        yield rate_limiter
+        return
+
+    # Lazy imports avoid the evaluation -> scorers -> judges import cycle.
+    from mlflow.genai.judges.utils import get_default_model
+    from mlflow.genai.scorers.builtin_scorers import RetrievalRelevance
+
+    if (
+        not isinstance(scorer, RetrievalRelevance)
+        or (scorer.model or get_default_model()) != "databricks"
+    ):
+        yield rate_limiter
+        return
+
+    try:
+        from databricks.rag_eval.clients.managedrag.request_limiter import (
+            use_judge_request_rate_limiter,
+        )
+    except ImportError:
+        # Older SDKs still require admission at the scorer invocation.
+        yield rate_limiter
+        return
+
+    with use_judge_request_rate_limiter(rate_limiter):
+        # The SDK charges each HTTP attempt and reports throttles/successes,
+        # including independent chunk retries. Do not charge the scorer again.
+        yield NoOpRateLimiter()
 
 
 def call_with_retry(
