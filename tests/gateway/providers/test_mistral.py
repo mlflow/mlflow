@@ -463,10 +463,17 @@ async def test_chat_stream_includes_usage_from_final_chunk():
     ]
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
 
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once_with(
+        "https://api.mistral.ai/v1/chat/completions",
+        json={"model": "mistral-large-latest", "n": 1, **payload},
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
     assert chunks[0].usage is None
     assert chunks[-1].usage.prompt_tokens == 12
     assert chunks[-1].usage.completion_tokens == 34
