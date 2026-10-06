@@ -119,6 +119,18 @@ class ScorerSamplingConfig:
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 
 
+def _to_python_scalar(value: Any) -> Any:
+    """
+    Convert a NumPy scalar (e.g. ``np.bool_``, ``np.int64``), which is not a subclass of the
+    matching Python primitive, to that primitive. NumPy is looked up lazily so this module
+    stays importable without it.
+    """
+    np = sys.modules.get("numpy")
+    if np is not None and isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
 def _extract_scorer_value(result: Any) -> Any:
     """Reduce a sub-scorer's return to a single aggregatable value.
 
@@ -923,7 +935,7 @@ class Scorer(BaseModel):
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
-        result = self(**filtered)
+        result = _to_python_scalar(self(**filtered))
         if not (
             # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
             isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))

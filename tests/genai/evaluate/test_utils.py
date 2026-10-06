@@ -3,6 +3,7 @@ import sys
 from typing import Any, Literal
 from unittest.mock import MagicMock, Mock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -19,6 +20,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
     _deserialize_trace_column_if_needed,
     add_scorer_metadata,
+    standardize_scorer_value,
     validate_tags,
 )
 from mlflow.genai.scorers.base import SCORER_BACKEND_DATABRICKS
@@ -672,3 +674,18 @@ def test_validate_tags_valid(tags):
 def test_validate_tags_invalid(tags, expected_error):
     with pytest.raises(MlflowException, match=expected_error):
         validate_tags(tags)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (np.bool_(True), True),
+        (np.int64(3), 3),
+        (np.float32(0.5), 0.5),
+    ],
+)
+def test_standardize_scorer_value_numpy_scalars(value, expected):
+    [feedback] = standardize_scorer_value("my_scorer", value)
+    assert feedback.name == "my_scorer"
+    assert feedback.value == expected
+    assert type(feedback.value) is type(expected)

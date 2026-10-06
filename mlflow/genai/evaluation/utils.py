@@ -13,6 +13,7 @@ from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.base import _to_python_scalar
 from mlflow.models import EvaluationMetric
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.search import traces_to_df
@@ -366,6 +367,8 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
     # None is a valid metric value, return an empty list
     if value is None:
         return []
+
+    value = _to_python_scalar(value)
 
     # Primitives are valid metric values
     if isinstance(value, (int, float, bool, str)):

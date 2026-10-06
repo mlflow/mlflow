@@ -1,5 +1,6 @@
 from unittest import mock
 
+import numpy as np
 import pytest
 
 from mlflow.entities.assessment import Feedback
@@ -115,6 +116,10 @@ def test_compute_aggregated_metrics_with_namespace():
         # Case-insensitive
         ("Yes", 1.0),
         ("No", 0.0),
+        # NumPy scalars
+        (np.int64(5), 5.0),
+        (np.float32(0.5), 0.5),
+        (np.bool_(True), 1.0),
     ],
 )
 def test_cast_numeric_values(value, expected_float):

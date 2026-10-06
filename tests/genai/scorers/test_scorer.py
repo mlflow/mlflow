@@ -8,6 +8,7 @@ from collections import defaultdict
 from dataclasses import asdict
 from unittest.mock import call, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -310,6 +311,47 @@ def test_scorer_returns_feedback_with_error(sample_data, is_in_databricks):
 
     # Scorer should not be in result when it returns an error
     assert all("dummy_scorer" not in metric for metric in results.metrics.keys())
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (np.bool_(True), True),
+        (np.int64(3), 3),
+        (np.float32(0.5), 0.5),
+    ],
+)
+def test_scorer_run_converts_numpy_scalars(value, expected):
+    @scorer
+    def dummy_scorer(outputs):
+        return value
+
+    result = dummy_scorer.run(outputs="answer")
+    assert result == expected
+    assert type(result) is type(expected)
+
+
+def test_evaluate_with_scorers_returning_numpy_scalars(sample_data, is_in_databricks):
+    @scorer
+    def np_bool_scorer(outputs):
+        return np.bool_(True)
+
+    @scorer
+    def np_int_scorer(outputs):
+        return np.int64(2)
+
+    @scorer
+    def np_feedback_scorer(outputs):
+        return Feedback(value=np.float32(0.5))
+
+    results = mlflow.genai.evaluate(
+        data=sample_data,
+        scorers=[np_bool_scorer, np_int_scorer, np_feedback_scorer],
+    )
+
+    assert results.metrics["np_bool_scorer/mean"] == 1.0
+    assert results.metrics["np_int_scorer/mean"] == 2.0
+    assert results.metrics["np_feedback_scorer/mean"] == 0.5
 
 
 @pytest.mark.parametrize(
