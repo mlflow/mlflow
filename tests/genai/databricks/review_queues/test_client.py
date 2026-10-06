@@ -33,7 +33,7 @@ def test_call_sends_request_and_drops_none_params():
             "POST",
             "experiments/1/reviewQueues",
             json={"display_name": "q"},
-            params={"review_queue_id": None, "page_size": 10},
+            params={"page_token": None, "page_size": 10},
         )
 
     assert resp == {"ok": True}

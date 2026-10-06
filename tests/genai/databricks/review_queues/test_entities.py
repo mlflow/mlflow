@@ -103,9 +103,8 @@ def test_review_queue_from_dict():
     queue = ReviewQueue.from_dict({
         "name": "experiments/123/reviewQueues/rq1",
         "display_name": "My queue",
-        "queue_type": "DATASET",
+        "queue_type": "CUSTOM",
         "owner": "alice@example.com",
-        "dataset_id": "ds1",
         "total_item_count": "5",
         "pending_item_count": "3",
         "created_by": "alice@example.com",
@@ -117,9 +116,8 @@ def test_review_queue_from_dict():
         queue_id="rq1",
         experiment_id="123",
         display_name="My queue",
-        queue_type=ReviewQueueType.DATASET,
+        queue_type=ReviewQueueType.CUSTOM,
         owner="alice@example.com",
-        dataset_id="ds1",
         total_item_count=5,
         pending_item_count=3,
         created_by="alice@example.com",
@@ -133,7 +131,6 @@ def test_review_queue_from_dict_minimal():
     queue = ReviewQueue.from_dict({
         "name": "experiments/1/reviewQueues/rq1",
         "queue_type": "USER",
-        "dataset_id": "",
     })
     assert queue == ReviewQueue(
         queue_id="rq1", experiment_id="1", display_name="", queue_type=ReviewQueueType.USER

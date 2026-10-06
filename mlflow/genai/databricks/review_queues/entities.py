@@ -27,7 +27,6 @@ class ReviewQueueType(StrEnum):
 
     USER = "USER"
     CUSTOM = "CUSTOM"
-    DATASET = "DATASET"
 
 
 @experimental(version="3.18.0")
@@ -188,7 +187,6 @@ class ReviewQueue:
     display_name: str
     queue_type: ReviewQueueType
     owner: str | None = None
-    dataset_id: str | None = None
     total_item_count: int | None = None
     pending_item_count: int | None = None
     created_by: str | None = None
@@ -204,7 +202,6 @@ class ReviewQueue:
             display_name=d.get("display_name", ""),
             queue_type=ReviewQueueType(d["queue_type"]),
             owner=d.get("owner"),
-            dataset_id=d.get("dataset_id") or None,
             total_item_count=int(d["total_item_count"]) if "total_item_count" in d else None,
             pending_item_count=(
                 int(d["pending_item_count"]) if "pending_item_count" in d else None

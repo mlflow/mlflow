@@ -142,7 +142,7 @@ def test_delete_review_question():
 
 def test_create_review_queue():
     with mock.patch(_CALL, return_value=_QUEUE) as mock_call:
-        queue = create_review_queue("1", "My queue", question_ids=["q1", "q2"], queue_id="rq1")
+        queue = create_review_queue("1", "My queue", question_ids=["q1", "q2"])
     mock_call.assert_called_once_with(
         "POST",
         "experiments/1/reviewQueues",
@@ -154,21 +154,9 @@ def test_create_review_queue():
                 "experiments/1/reviewQuestions/q2",
             ],
         },
-        params={"review_queue_id": "rq1"},
     )
     assert queue.queue_id == "rq1"
     assert queue.queue_type == ReviewQueueType.CUSTOM
-
-
-def test_create_review_queue_dataset():
-    with mock.patch(_CALL, return_value={**_QUEUE, "queue_type": "DATASET"}) as mock_call:
-        create_review_queue("1", "ds queue", queue_type=ReviewQueueType.DATASET, dataset_id="ds1")
-    mock_call.assert_called_once_with(
-        "POST",
-        "experiments/1/reviewQueues",
-        json={"display_name": "ds queue", "queue_type": "DATASET", "dataset_id": "ds1"},
-        params={"review_queue_id": None},
-    )
 
 
 def test_get_review_queue():
