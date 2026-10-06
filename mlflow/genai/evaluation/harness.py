@@ -57,6 +57,7 @@ from mlflow.genai.evaluation.entities import (
     EvaluationResult,
     ScorerStat,
 )
+from mlflow.genai.evaluation.quality_thresholds import warn_on_unmeasured_quality_thresholds
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
@@ -767,6 +768,7 @@ def run(
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
+    warn_on_unmeasured_quality_thresholds(scorers, aggregated_metrics)
 
     try:
         emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)

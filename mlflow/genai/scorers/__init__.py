@@ -1,6 +1,12 @@
 from typing import TYPE_CHECKING
 
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, make_scorer_ensemble, scorer
+from mlflow.genai.scorers.base import (
+    QualityThreshold,
+    Scorer,
+    ScorerSamplingConfig,
+    make_scorer_ensemble,
+    scorer,
+)
 from mlflow.genai.scorers.ensemble import agg_all, agg_any, majority_vote, maximum, mean, minimum
 from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
 
@@ -136,6 +142,7 @@ __all__ = [
     "ToolCallCorrectness",
     "ToolCallEfficiency",
     "UserFrustration",
+    "QualityThreshold",
     "Scorer",
     "scorer",
     "make_scorer_ensemble",

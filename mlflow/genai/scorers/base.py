@@ -11,9 +11,9 @@ from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
 from dataclasses import asdict, dataclass, fields
 from enum import Enum
-from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
+from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, get_args, overload
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, field_validator
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -69,9 +69,8 @@ _SERIALIZATION_VERSION = 1
 # Default per-invocation timeout (seconds) for @scorer scorers that don't set an explicit timeout.
 DEFAULT_SCORER_TIMEOUT = 300
 _AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
-_AggregationType: TypeAlias = (
-    Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
-)
+_BuiltinAggregation: TypeAlias = Literal["min", "max", "mean", "median", "variance", "p90"]
+_AggregationType: TypeAlias = _BuiltinAggregation | _AggregationFunc
 
 
 class ScorerKind(Enum):
@@ -117,6 +116,73 @@ class ScorerSamplingConfig:
 
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
+
+@experimental(version="3.17.1")
+@dataclass(frozen=True)
+class QualityThreshold:
+    """
+    The bar a scorer's aggregated metric must clear for an evaluation run to count as passing.
+
+    Set it on a scorer with ``quality_threshold=``. Exactly one of ``at_least`` or ``at_most``
+    is required. Pass a bare float instead for the common case: ``quality_threshold=0.9`` is
+    the same as ``QualityThreshold(at_least=0.9)``.
+
+    Args:
+        at_least: The aggregated metric must be greater than or equal to this value.
+        at_most: The aggregated metric must be less than or equal to this value.
+        aggregation: The run-level aggregation of the scorer's per-row values that the bar
+            applies to. One of ``"min"``, ``"max"``, ``"mean"``, ``"median"``, ``"variance"``,
+            ``"p90"``. For a yes/no scorer, ``"mean"`` is the pass rate.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.genai.scorers import Correctness, QualityThreshold, scorer
+
+
+            @scorer(quality_threshold=QualityThreshold(at_most=2.0, aggregation="p90"))
+            def latency_s(trace) -> float:
+                return trace.info.execution_duration / 1000
+
+
+            mlflow.genai.evaluate(
+                data=data,
+                predict_fn=predict_fn,
+                scorers=[Correctness(quality_threshold=0.9), latency_s],
+            )
+    """
+
+    at_least: float | None = None
+    at_most: float | None = None
+    aggregation: _BuiltinAggregation = "mean"
+
+    def __post_init__(self):
+        bounds = {"at_least": self.at_least, "at_most": self.at_most}
+        given = {k: v for k, v in bounds.items() if v is not None}
+        if len(given) != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"QualityThreshold requires exactly one of `at_least` or `at_most`, got {bounds}."
+            )
+        [(bound, value)] = given.items()
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"QualityThreshold `{bound}` must be a finite number, got {value!r}."
+            )
+        if self.aggregation not in get_args(_BuiltinAggregation):
+            raise MlflowException.invalid_parameter_value(
+                f"QualityThreshold `aggregation` must be one of {get_args(_BuiltinAggregation)}, "
+                f"got {self.aggregation!r}."
+            )
+
+
+def _as_quality_threshold(value: float | QualityThreshold) -> QualityThreshold:
+    return value if isinstance(value, QualityThreshold) else QualityThreshold(at_least=value)
 
 
 def _extract_scorer_value(result: Any) -> Any:
@@ -385,6 +451,9 @@ def _serialized_scorer_is_custom_code(
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
+    # The bar the run-level metric must clear. A bare float means ``at_least``. Evaluation
+    # records it on the run; it is deliberately not part of the scorer's serialized form.
+    quality_threshold: float | QualityThreshold | None = None
     description: str | None = None
     # Per-invocation timeout (seconds) enforced by `run()`. `None` (default) uses
     # DEFAULT_SCORER_TIMEOUT; `0` disables the timeout.
@@ -402,6 +471,13 @@ class Scorer(BaseModel):
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
     _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
+
+    @field_validator("quality_threshold", mode="before")
+    @classmethod
+    def _validate_quality_threshold(cls, value: Any) -> Any:
+        if value is not None:
+            _as_quality_threshold(value)
+        return value
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -1148,6 +1224,11 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
+        if self.quality_threshold is not None:
+            _logger.warning(
+                f"`quality_threshold` on scorer '{self.name}' is not saved with the registered "
+                "scorer. It only applies when this scorer is passed to `mlflow.genai.evaluate`."
+            )
         store = _get_scorer_store()
         # Create a new scorer instance
         new_scorer = self._create_copy()
@@ -1424,6 +1505,7 @@ class Scorer(BaseModel):
                 copy.description = self.description
             if self.aggregations is not None:
                 copy.aggregations = self.aggregations
+            copy.quality_threshold = self.quality_threshold
         elif self.kind == ScorerKind.ENSEMBLE:
             # Copy each sub-scorer through its own _create_copy so kind-specific handling
             # still applies; a deepcopy of `_scorers` would recurse infinitely on a
@@ -1434,6 +1516,7 @@ class Scorer(BaseModel):
                 ensemble_fn=self._ensemble_fn_name or self._ensemble_fn,
                 description=self.description,
                 aggregations=self.aggregations,
+                quality_threshold=self.quality_threshold,
             )
         else:
             copy = self.model_copy(deep=True)
@@ -1531,6 +1614,7 @@ def scorer(
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
     timeout: int | float | None = None,
+    quality_threshold: float | QualityThreshold | None = None,
 ) -> Scorer: ...
 
 
@@ -1543,6 +1627,7 @@ def scorer(
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
     timeout: int | float | None = None,
+    quality_threshold: float | QualityThreshold | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1554,6 +1639,7 @@ def scorer(
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
     timeout: int | float | None = None,
+    quality_threshold: float | QualityThreshold | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1643,6 +1729,10 @@ def scorer(
         timeout: Maximum seconds a single scorer invocation may run during
             ``mlflow.genai.evaluate`` and monitoring before it is recorded as a
             ``SCORER_ERROR`` failure. Defaults to ``None`` (300 seconds); ``0`` disables it.
+        quality_threshold: The bar this scorer's run-level metric must clear, as a float
+            (meaning "at least", applied to the mean) or a
+            :py:class:`~mlflow.genai.scorers.QualityThreshold`. ``mlflow.genai.evaluate``
+            records it on the run.
 
     Example:
 
@@ -1743,6 +1833,7 @@ def scorer(
             aggregations=aggregations,
             pass_if=pass_if,
             timeout=timeout,
+            quality_threshold=quality_threshold,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1797,6 +1888,7 @@ def scorer(
         description=description,
         aggregations=aggregations,
         timeout=timeout,
+        quality_threshold=quality_threshold,
     )
 
 
@@ -1942,6 +2034,7 @@ def make_scorer_ensemble(
     ensemble_fn: str | Callable[..., Any],
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
+    quality_threshold: float | QualityThreshold | None = None,
 ) -> EnsembleScorer:
     """
     Create a scorer that runs several sub-scorers and aggregates their results.
@@ -1962,6 +2055,10 @@ def make_scorer_ensemble(
             across rows. Each entry is either a string
             (``"min"``, ``"max"``, ``"mean"``, ``"median"``, ``"variance"``, ``"p90"``)
             or a callable ``(list[values]) -> float``. Defaults to ``"mean"``.
+        quality_threshold: The bar the ensemble's run-level metric must clear, as a float
+            (meaning "at least", applied to the mean) or a
+            :py:class:`~mlflow.genai.scorers.QualityThreshold`. Thresholds on the
+            sub-scorers are not supported.
     """
     if not scorers:
         raise MlflowException.invalid_parameter_value(
@@ -2014,7 +2111,12 @@ def make_scorer_ensemble(
                     f"categorical scorers."
                 )
 
-    agg = EnsembleScorer(name=name, description=description, aggregations=aggregations)
+    agg = EnsembleScorer(
+        name=name,
+        description=description,
+        aggregations=aggregations,
+        quality_threshold=quality_threshold,
+    )
     object.__setattr__(agg, "_scorers", list(scorers))
     object.__setattr__(agg, "_ensemble_fn", fn)
     object.__setattr__(agg, "_ensemble_fn_name", fn_name)

@@ -19,7 +19,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
+from mlflow.genai.scorers import (
+    Correctness,
+    Guidelines,
+    QualityThreshold,
+    RetrievalGroundedness,
+    make_scorer_ensemble,
+)
 from mlflow.genai.scorers.base import (
     SerializedScorer,
     _is_tracking_server_process,
@@ -853,3 +859,90 @@ def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_da
     metrics = results.metrics.keys()
     assert any("fast_scorer" in metric for metric in metrics)
     assert all("slow_scorer" not in metric for metric in metrics)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"at_least": 0.9}, {"at_most": 2}, {"at_least": 0.5, "aggregation": "p90"}],
+)
+def test_quality_threshold_accepts_valid_bounds(kwargs):
+    assert QualityThreshold(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({}, "exactly one of `at_least` or `at_most`"),
+        ({"at_least": 0.1, "at_most": 0.9}, "exactly one of `at_least` or `at_most`"),
+        ({"at_least": True}, "must be a finite number"),
+        ({"at_least": "0.9"}, "must be a finite number"),
+        ({"at_most": float("nan")}, "must be a finite number"),
+        ({"at_least": float("inf")}, "must be a finite number"),
+        ({"at_least": 0.9, "aggregation": "sum"}, "`aggregation` must be one of"),
+    ],
+)
+def test_quality_threshold_rejects_invalid_bounds(kwargs, match):
+    with pytest.raises(MlflowException, match=match):
+        QualityThreshold(**kwargs)
+
+
+@pytest.mark.parametrize("value", [0.9, 1, QualityThreshold(at_most=2.0, aggregation="p90")])
+def test_scorer_quality_threshold_value_preserved(value):
+    @scorer(quality_threshold=value)
+    def s(outputs) -> float:
+        return 1.0
+
+    assert s.quality_threshold == value
+    assert Correctness(quality_threshold=value).quality_threshold == value
+    judge = make_judge(
+        name="tone",
+        instructions="Is {{ outputs }} polite?",
+        feedback_value_type=bool,
+        quality_threshold=value,
+    )
+    assert judge.quality_threshold == value
+
+
+def test_scorer_quality_threshold_defaults_to_none():
+    @scorer
+    def s(outputs) -> bool:
+        return True
+
+    assert s.quality_threshold is None
+    assert Correctness().quality_threshold is None
+
+
+@pytest.mark.parametrize("bad", [True, "0.9", float("nan")])
+def test_scorer_rejects_invalid_quality_threshold(bad):
+    with pytest.raises(MlflowException, match="must be a finite number"):
+
+        @scorer(quality_threshold=bad)
+        def s(outputs) -> bool:
+            return True
+
+    with pytest.raises(MlflowException, match="must be a finite number"):
+        Correctness(quality_threshold=bad)
+
+
+def test_scorer_copy_preserves_quality_threshold():
+    threshold = QualityThreshold(at_most=0.2)
+    ensemble = make_scorer_ensemble(
+        name="ensemble",
+        scorers=[Correctness()],
+        ensemble_fn="agg_all",
+        quality_threshold=threshold,
+    )
+
+    assert ensemble._create_copy().quality_threshold == threshold
+    assert Correctness(quality_threshold=0.9)._create_copy().quality_threshold == 0.9
+
+
+def test_register_warns_that_quality_threshold_is_not_saved():
+    experiment_id = mlflow.create_experiment("test_quality_threshold_register")
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        Correctness(quality_threshold=0.9).register(experiment_id=experiment_id)
+
+    mock_warning.assert_called_once()
+    assert "is not saved with the registered scorer" in mock_warning.call_args[0][0]
+    assert get_scorer(name="correctness", experiment_id=experiment_id).quality_threshold is None

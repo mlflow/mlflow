@@ -3,6 +3,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.scorers.base import QualityThreshold
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
 
@@ -121,6 +122,7 @@ def make_judge(
     extra_headers: dict[str, str] | None = None,
     include_timing_in_conversation: bool = False,
     generate_rationale_first: bool = False,
+    quality_threshold: float | QualityThreshold | None = None,
 ) -> Judge:
     """
     Create a custom MLflow judge instance.
@@ -181,6 +183,10 @@ def make_judge(
                         (the default, for backward compatibility), the result value is emitted
                         first. Setting this to True can produce more consistent results by
                         preventing the value from contradicting its own rationale.
+        quality_threshold: The bar the judge's run-level metric must clear, as a float
+                        (meaning "at least", applied to the mean) or a
+                        :py:class:`~mlflow.genai.scorers.QualityThreshold`.
+                        ``mlflow.genai.evaluate`` records it on the run.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -291,4 +297,5 @@ def make_judge(
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,
+        quality_threshold=quality_threshold,
     )

@@ -8,7 +8,7 @@ import numpy as np
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalResult
 from mlflow.genai.judges.builtin import CategoricalRating
-from mlflow.genai.scorers.base import AggregationFunc, Scorer
+from mlflow.genai.scorers.base import AggregationFunc, Scorer, _as_quality_threshold
 
 _logger = logging.getLogger(__name__)
 
@@ -49,10 +49,14 @@ def compute_aggregated_metrics(
     # List all aggregations to compute for each scorer
     scorer_aggregations = {}
     for scorer in scorers:
-        if scorer.aggregations is not None:
-            scorer_aggregations[scorer.name] = scorer.aggregations
-        else:
-            scorer_aggregations[scorer.name] = ["mean"]  # default to compute mean only
+        # Default to computing the mean only
+        aggregations = list(scorer.aggregations) if scorer.aggregations is not None else ["mean"]
+        # Always compute the aggregation a quality threshold is checked against.
+        if (threshold := getattr(scorer, "quality_threshold", None)) is not None:
+            threshold_agg = _as_quality_threshold(threshold).aggregation
+            if threshold_agg not in aggregations:
+                aggregations.append(threshold_agg)
+        scorer_aggregations[scorer.name] = aggregations
 
     # Compute aggregates
     result = {}

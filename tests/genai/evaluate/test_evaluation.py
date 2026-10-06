@@ -1,3 +1,4 @@
+import json
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -29,13 +30,16 @@ from mlflow.genai.evaluation.harness import (
     backpressure_buffer,
 )
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
-from mlflow.genai.scorers.base import scorer
+from mlflow.genai.scorers.base import QualityThreshold, scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS as QUALITY_THRESHOLDS_TAG,
+)
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -409,6 +413,62 @@ def test_evaluate_passed_respects_scorer_pass_if(server_config):
     )
     assert not failing.passed
     assert "confidence" in failing.reason
+
+
+def test_evaluate_logs_quality_thresholds_run_tag(server_config):
+    @scorer(quality_threshold=0.5)
+    def is_good(outputs) -> bool:
+        return outputs == "good"
+
+    @scorer(quality_threshold=QualityThreshold(at_most=10, aggregation="max"))
+    def length(outputs) -> int:
+        return len(outputs)
+
+    @scorer
+    def unthresholded(outputs) -> bool:
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}, {"inputs": {"q": "y"}, "outputs": "bad"}],
+        scorers=[is_good, length, unthresholded],
+    )
+
+    payload = json.loads(mlflow.get_run(result.run_id).data.tags[QUALITY_THRESHOLDS_TAG])
+    assert [(r["metricKey"], r["comparator"], r["threshold"]) for r in payload["rules"]] == [
+        ("is_good/mean", "GTE", 0.5),
+        ("length/max", "LTE", 10),
+    ]
+    assert result.metrics["is_good/mean"] == 0.5
+    assert result.metrics["length/max"] == 4
+
+
+def test_evaluate_without_quality_thresholds_logs_no_tag(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[is_good]
+    )
+
+    assert QUALITY_THRESHOLDS_TAG not in mlflow.get_run(result.run_id).data.tags
+
+
+def test_evaluate_rejects_invalid_quality_thresholds_before_starting_run():
+    @scorer(name="dup", quality_threshold=0.5)
+    def first(outputs) -> bool:
+        return True
+
+    @scorer(name="dup")
+    def second(outputs) -> bool:
+        return True
+
+    with pytest.raises(MlflowException, match="has the same name"):
+        mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[first, second]
+        )
+
+    assert mlflow.search_runs(output_format="list") == []
 
 
 def test_evaluate_numeric_value_without_pass_if_fails_loudly(server_config):
