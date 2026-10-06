@@ -1,6 +1,9 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
+import React from 'react';
+import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import {
+  MutationConditionForm,
   draftToStagedCondition,
   isMutationConditionDraftDirty,
   isMutationConditionDraftFillable,
@@ -110,5 +113,46 @@ describe('MutationConditionForm — draft translation', () => {
     expect(isMutationConditionDraftDirty(draft())).toBe(false);
     expect(isMutationConditionDraftDirty(draft({ targetCondition: 'x' }))).toBe(true);
     expect(isMutationConditionDraftDirty(draft({ resourceType: 'run' }))).toBe(true);
+  });
+});
+
+jest.mock('../hooks', () => ({
+  useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
+}));
+
+describe('MutationConditionForm — the absence rule is stated on both fields', () => {
+  // `tags.a = 'x'` is valid in BOTH fields and inverts on absence: it passes a request
+  // that does not set `a`, and refuses a resource that does not have `a`. An admin who
+  // copies a clause from one field to the other gets the opposite policy with no error,
+  // so each field has to say which way it goes. These assertions are deliberately on the
+  // DIRECTION words, not on the full sentences, so the wording can be improved without
+  // the guarantee silently disappearing.
+  const renderForm = () =>
+    renderWithDesignSystem(
+      <MutationConditionForm value={MUTATION_CONDITION_DRAFT_DEFAULT} onChange={jest.fn()} workspace="default" />,
+    );
+
+  it('says a value condition PASSES a request that omits the key', () => {
+    renderForm();
+    const hint = screen.getByTestId('admin.mutation_condition_form.value_condition_hint');
+    expect(hint.textContent).toMatch(/does not set the key passes/i);
+  });
+
+  it('says a target condition REFUSES a resource that lacks the tag', () => {
+    renderForm();
+    const hint = screen.getByTestId('admin.mutation_condition_form.target_condition_hint');
+    expect(hint.textContent).toMatch(/does not have the tag is refused/i);
+  });
+
+  it('tells the admin the keyed form exists, since it is the only way to free other keys', () => {
+    renderForm();
+    const hint = screen.getByTestId('admin.mutation_condition_form.value_condition_hint');
+    expect(hint.textContent).toContain('tags.a IN');
+  });
+
+  it('warns that the same clause differs between the two fields', () => {
+    renderForm();
+    const hint = screen.getByTestId('admin.mutation_condition_form.target_condition_hint');
+    expect(hint.textContent).toMatch(/opposite|different things/i);
   });
 });

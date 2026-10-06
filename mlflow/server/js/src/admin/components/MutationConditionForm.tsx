@@ -26,6 +26,26 @@ import {
   isConditionEmpty,
 } from '../types';
 
+/**
+ * Help text under a condition input.
+ *
+ * Exists for one reason: the two fields accept overlapping syntax and disagree on what an
+ * ABSENT tag means. `tags.a = 'x'` is valid in both, and passes a request that does not set
+ * `a` while refusing a resource that does not have `a`. An admin cannot infer that from the
+ * field labels, and a clause copied from one field to the other inverts silently, so each
+ * field states its own absence rule.
+ */
+const FieldHint = ({ children, testId }: { children: React.ReactNode; testId: string }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ marginTop: theme.spacing.xs }} data-testid={testId}>
+      <Typography.Text size="sm" color="secondary">
+        {children}
+      </Typography.Text>
+    </div>
+  );
+};
+
 export type MutationConditionScope = 'all' | 'scoped';
 
 /**
@@ -259,6 +279,13 @@ export const MutationConditionForm = ({
           placeholder="tag_value != 'prod'"
           disabled={disabled}
         />
+        <FieldHint testId="admin.mutation_condition_form.value_condition_hint">
+          Constrains the values being set. Use <code>tag_key</code> to limit which keys may be written and{' '}
+          <code>tag_value</code> to limit their values &mdash; but note each clause applies to <em>every</em> tag in the
+          request. To pin one key to its own values and leave other keys free, name the key:{' '}
+          <code>tags.a IN (&#39;x&#39;,&#39;y&#39;)</code>. <strong>A request that does not set the key passes</strong>,
+          so this never refuses a mutation that writes nothing of this kind.
+        </FieldHint>
       </div>
 
       <div>
@@ -270,6 +297,12 @@ export const MutationConditionForm = ({
           placeholder="tags.lifecycle != 'prod'"
           disabled={disabled}
         />
+        <FieldHint testId="admin.mutation_condition_form.target_condition_hint">
+          Constrains which existing resources may be mutated, by their current state. Applies to updates and deletes; a
+          resource being created has no state yet, so this never blocks a create.{' '}
+          <strong>A resource that does not have the tag is refused</strong> &mdash; the opposite of the value condition
+          above, so the same clause means different things in the two fields.
+        </FieldHint>
       </div>
 
       {showFilterRequiredError && (
