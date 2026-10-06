@@ -21,6 +21,7 @@ that one resource, and a resource that vanished in between leaves the class of r
 stated without the clause. That degrades to the old message rather than to a wrong one.
 """
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -358,3 +359,51 @@ class TestTheDetailDoesNotLeakBetweenRequests:
         """``denial_message`` keys on the denial flag, not on the detail being present."""
         auth_resources.clear_cache()
         assert auth_module.denial_message() == "Permission denied"
+
+
+class TestTheForbiddenBodyIsAParseableEnvelope:
+    """A 403 the UI can actually read.
+
+    The body carried the reason all along, but as a bare ``text/html`` string. The client's
+    ``ErrorWrapper`` does ``JSON.parse`` on it, stores ``null`` on failure, and then
+    ``getUserVisibleError()`` returns the literal string ``'INTERNAL_SERVER_ERROR'`` -- so a
+    correct authorization decision reached the user as an internal server error, and every
+    denial detail this module exists to produce was invisible outside devtools.
+
+    ``error_code`` AND ``message`` must both be present: ``renderHttpError`` checks for both
+    before using either, and falls back to the generic text if either is missing.
+    """
+
+    def _body(self):
+        with auth_module.app.test_request_context("/"):
+            return auth_module.make_forbidden_response()
+
+    def test_the_body_is_json_not_html(self):
+        res = self._body()
+        assert res.status_code == 403
+        assert res.mimetype == "application/json", (
+            "a text/html body is what makes the client fall back to INTERNAL_SERVER_ERROR"
+        )
+
+    def test_the_envelope_carries_the_code_and_the_message(self):
+        payload = json.loads(self._body().get_data(as_text=True))
+        assert payload["error_code"] == "PERMISSION_DENIED"
+        assert payload["message"] == "Permission denied"
+
+    def test_a_condition_denial_detail_reaches_the_message_field(self):
+        with auth_module.app.test_request_context("/"):
+            auth_resources.note_condition_denial("'tags.a' on run 'r1' does not satisfy it")
+            res = auth_module.make_forbidden_response()
+        payload = json.loads(res.get_data(as_text=True))
+        assert payload["error_code"] == "PERMISSION_DENIED"
+        assert "condition" in payload["message"]
+        assert "'tags.a' on run 'r1'" in payload["message"], (
+            "the detail is the whole point of the envelope: it is what the user sees instead "
+            "of a generic failure"
+        )
+
+    def test_the_status_still_reads_as_a_denial_to_a_text_matcher(self):
+        """The 60-odd existing substring assertions, and any client grepping the body, keep
+        working -- a JSON body still contains the phrase.
+        """
+        assert "Permission denied" in self._body().get_data(as_text=True)

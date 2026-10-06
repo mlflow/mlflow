@@ -71,6 +71,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
@@ -697,8 +698,27 @@ def denial_message() -> str:
 
 
 def make_forbidden_response() -> Response:
-    res = make_response(denial_message())
+    """A 403 in MLflow's JSON error envelope, so a client can read the reason.
+
+    The body used to be a bare string, which Flask serves as ``text/html``. The web client
+    runs ``JSON.parse`` over an error body and keeps ``null`` when that throws, after which
+    ``getUserVisibleError()`` yields the literal ``'INTERNAL_SERVER_ERROR'`` -- so a correct
+    denial surfaced to the user as a server fault, and the detail ``denial_message()`` works
+    to produce was unreachable outside devtools.
+
+    ``error_code`` and ``message`` are both required: the client's ``renderHttpError`` tests
+    for both before using either. ``PERMISSION_DENIED`` is the code MLflow already maps to
+    403, so the envelope matches what every other API error on the wire looks like and no
+    client needs a special case for the auth plugin.
+
+    The message is unchanged -- ``denial_message()`` stays the single definition of what a
+    denial says, and this function only decides how it is framed.
+    """
+    res = make_response(
+        MlflowException(denial_message(), error_code=PERMISSION_DENIED).serialize_as_json()
+    )
     res.status_code = 403
+    res.mimetype = "application/json"
     return res
 
 

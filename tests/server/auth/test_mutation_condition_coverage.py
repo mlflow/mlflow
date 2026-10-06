@@ -12,6 +12,7 @@
 # which is exactly the assurance that turned out to be false when the extractor registry
 # was removed.
 
+import json
 from types import SimpleNamespace
 
 import flask
@@ -933,10 +934,20 @@ def _clear_per_request_auth_state():
     auth_resources.clear_cache()
 
 
-def _denial_body():
-    # ``make_response`` needs an app context; the reason itself is request-scoped state.
+def _denial_message():
+    """The ``message`` field of the 403 envelope.
+
+    ``make_response`` needs an app context; the reason itself is request-scoped state. These
+    tests are about what a denial SAYS, so they read the message rather than the raw body --
+    the body is MLflow's JSON error envelope, which is asserted on separately in
+    ``test_condition_denial_messages.py``.
+    """
     with auth_module.app.test_request_context("/"):
-        return auth_module.make_forbidden_response().get_data(as_text=True)
+        return _message_of(auth_module.make_forbidden_response())
+
+
+def _message_of(response):
+    return json.loads(response.get_data(as_text=True))["message"]
 
 
 def test_a_condition_denial_says_so(monkeypatch):
@@ -948,7 +959,7 @@ def test_a_condition_denial_says_so(monkeypatch):
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
     assert _proxy("1/r1/artifacts/f.txt", "update") is False
     assert auth_resources.condition_denied() is True
-    assert "condition" in _denial_body()
+    assert "condition" in _denial_message()
 
 
 def test_a_grant_denial_stays_generic(monkeypatch):
@@ -956,7 +967,7 @@ def test_a_grant_denial_stays_generic(monkeypatch):
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",))
     assert _proxy("1/r1/artifacts/f.txt", "update") is True
     assert auth_resources.condition_denied() is False
-    assert _denial_body() == "Permission denied"
+    assert _denial_message() == "Permission denied"
 
 
 def test_a_condition_denial_does_not_leak_into_the_next_request(monkeypatch):
@@ -971,7 +982,7 @@ def test_a_condition_denial_does_not_leak_into_the_next_request(monkeypatch):
     auth_resources.clear_cache()  # what request completion does
 
     assert auth_resources.condition_denied() is False, "denial reason leaked past the clear"
-    assert _denial_body() == "Permission denied"
+    assert _denial_message() == "Permission denied"
 
 
 def test_the_reason_is_cleared_inside_a_flask_request_too(monkeypatch):
@@ -989,7 +1000,7 @@ def test_the_reason_is_cleared_inside_a_flask_request_too(monkeypatch):
         auth_resources.clear_cache()
 
         assert auth_resources.condition_denied() is False, "reason survived inside the request"
-        assert auth_module.make_forbidden_response().get_data(as_text=True) == "Permission denied"
+        assert _message_of(auth_module.make_forbidden_response()) == "Permission denied"
 
 
 def _proxy(path, action):
