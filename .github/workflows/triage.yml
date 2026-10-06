@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       issue_number:
-        description: "Issue to triage"
+        description: "Issue number to triage"
         required: true
         type: number
       dry_run:
