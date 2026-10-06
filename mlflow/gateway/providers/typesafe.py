@@ -1,7 +1,7 @@
 from typing import Any
 
 from mlflow.gateway.config import EndpointConfig, TypeSafeConfig
-from mlflow.gateway.constants import TYPESAFE_API_BASE_URL, TYPESAFE_SYSTEM_ONE_PATH
+from mlflow.gateway.constants import TYPESAFE_SYSTEM_ONE_PATH
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction
 from mlflow.gateway.providers.utils import send_request
@@ -24,7 +24,7 @@ class TypeSafeProvider(BaseProvider):
 
     @property
     def base_url(self) -> str:
-        return TYPESAFE_API_BASE_URL
+        return self.typesafe_config.typesafe_api_base
 
     async def _passthrough(
         self,

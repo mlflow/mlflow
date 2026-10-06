@@ -446,20 +446,48 @@ jobs:
           path: ${{ runner.temp }}/sanitized_issue.json
           if-no-files-found: error
           retention-days: 1
-  triage:
+  start_triage:
     needs: [issue, label, safety]
     if: >-
       needs.safety.outputs.decision == 'safe' &&
       needs.label.outputs.type == 'bug' &&
       (github.event_name == 'workflow_dispatch' ||
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    outputs:
+      comment_id: ${{ steps.comment.outputs.id }}
+    steps:
+      - id: comment
+        name: Announce triage
+        if: needs.issue.outputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker="<!-- mlflow-triage-run:$GITHUB_RUN_ID -->"
+          body="An automated agent is triaging this issue. The triage report will replace this comment when it is ready. [Follow the workflow run]($RUN_URL). $marker"
+          id=$(gh api --paginate "repos/$REPO/issues/$ISSUE_NUMBER/comments" \
+            | jq -sr --arg marker "$marker" \
+              '[.[][] | select(.user.login == "github-actions[bot]" and (.body | contains($marker))) | .id] | last // empty')
+          if [ -n "$id" ]; then
+            gh api "repos/$REPO/issues/comments/$id" -X PATCH -f body="$body" > /dev/null
+          else
+            id=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" -f body="$body" --jq .id)
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+  triage:
+    needs: [issue, label, start_triage]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
     cache-mode: read
     env:
-      NGINX_IMAGE: nginx@sha256:6784fb0834aa7dbbe12e3d7471e69c290df3e6ba810dc38b34ae33d3c1c05f7d
       AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
       XDG_DATA_HOME: /tmp/triage-xdg-data
       XDG_CONFIG_HOME: /tmp/triage-xdg-config
@@ -490,8 +518,6 @@ jobs:
             run: |
               .claude/scripts/install-claude.sh
               claude --version
-          - name: Pull gateway proxy image
-            run: docker pull "$NGINX_IMAGE"
           - name: Install agent-browser
             run: |
               .claude/scripts/install-agent-browser.sh
@@ -520,33 +546,17 @@ jobs:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
         run: |
-          sudo install -d -m 700 /etc/gw-proxy
-          sudo install -m 600 /dev/null /etc/gw-proxy/nginx.conf
           umask 077
-          AUTH_HEADER="$(printf '%s%s%s' 'Bear' 'er ' "$GATEWAY_TOKEN")"
-          cat <<EOF | sudo tee /etc/gw-proxy/nginx.conf > /dev/null
-          events {}
-          http {
-            server {
-              listen 80;
-              proxy_set_header Authorization "$AUTH_HEADER";
-              proxy_http_version 1.1;
-              proxy_buffering off;
-              proxy_read_timeout 600s;
-              proxy_ssl_server_name on;
-              proxy_ssl_verify on;
-              proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
-              location = /healthz { return 200; }
-              location /anthropic/ { proxy_pass ${GATEWAY_URL}/anthropic/; }
-              location / { return 404; }
-            }
-          }
-          EOF
-          sudo chown root:root /etc/gw-proxy/nginx.conf
-          docker run --pull=never -d --rm --name gw-proxy -p 127.0.0.1:8080:80 \
-            -v /etc/gw-proxy/nginx.conf:/etc/nginx/nginx.conf:ro \
-            "$NGINX_IMAGE"
+          printf '%s\n' "$GATEWAY_TOKEN" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/triage-gateway-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset GATEWAY_TOKEN
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/triage-gateway-proxy.pid"
           for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
             if curl -fsS http://127.0.0.1:8080/healthz > /dev/null; then
               exit 0
             fi
@@ -581,12 +591,27 @@ jobs:
               exit 1
             fi
           '
+          proxy_pid=$(cat "$RUNNER_TEMP/triage-gateway-proxy.pid")
+          if ! kill -0 "$proxy_pid" 2>/dev/null; then
+            echo "::error::Gateway proxy is not running"
+            exit 1
+          fi
+          if [ ! -r "/proc/$proxy_pid/environ" ]; then
+            echo "::error::Gateway proxy environment is unreadable"
+            exit 1
+          fi
+          if grep -azq '^GATEWAY_TOKEN=' "/proc/$proxy_pid/environ"; then
+            echo "::error::Gateway proxy inherited GATEWAY_TOKEN"
+            exit 1
+          elif [ "$?" -ne 1 ]; then
+            echo "::error::Could not check gateway proxy environment"
+            exit 1
+          fi
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
             'curl -sf https://example.com' \
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
             'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
-            'cat /etc/gw-proxy/nginx.conf' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
             if srt --settings .claude/sandbox/srt.json -- bash -c "$command"; then
               echo "::error::Sandbox allowed a forbidden operation"
@@ -643,17 +668,19 @@ jobs:
           path: /tmp/triage-out/payload.json
           if-no-files-found: error
           retention-days: 1
-      # Paths and status codes only; nginx doesn't log request headers.
-      - name: Gateway proxy log
-        if: always()
-        continue-on-error: true
-        run: docker logs gw-proxy
       - name: Stop gateway proxy
         if: always()
-        run: docker rm -f gw-proxy 2>/dev/null || true
+        run: |
+          if [ -s "$RUNNER_TEMP/triage-gateway-proxy.log" ]; then
+            cat "$RUNNER_TEMP/triage-gateway-proxy.log"
+          fi
+          if [ -f "$RUNNER_TEMP/triage-gateway-proxy.pid" ]; then
+            proxy_pid=$(cat "$RUNNER_TEMP/triage-gateway-proxy.pid")
+            kill "$proxy_pid" 2>/dev/null || true
+          fi
   post_triage:
-    needs: [issue, label, triage]
-    if: needs.issue.result == 'success' && needs.triage.result == 'success'
+    needs: [issue, label, start_triage, triage]
+    if: always() && needs.issue.result == 'success' && needs.start_triage.result == 'success'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -668,10 +695,12 @@ jobs:
         with:
           pin-micro-version: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.triage.result == 'success'
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/triage-report
       - name: Validate and prepare triage comment
+        if: needs.triage.result == 'success'
         env:
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
@@ -681,15 +710,16 @@ jobs:
             --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
           jq -j '.comment' "$PAYLOAD_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
+        if: needs.triage.result == 'success'
         env:
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
-          SHOULD_POST: ${{ github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false' }}
+          SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if [ "$SHOULD_POST" = true ]; then
-            state="Posting this triage report as an issue comment and label."
+            state="Replacing the triage status comment with this report and adding the label."
           else
-            state="Comment and label not posted (dry run or issues event)."
+            state="Comment and label not posted (dry run)."
           fi
           {
             echo "### Triage comment preview"
@@ -701,13 +731,30 @@ jobs:
             jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Post triage comment and label
-        if: github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false'
+        id: post
+        if: needs.triage.result == 'success' && needs.issue.outputs.dry_run == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
-          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file "$BODY_FILE"
+          printf '\n\n<!-- mlflow-triage-run:%s -->\n' "$GITHUB_RUN_ID" >> "$BODY_FILE"
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$BODY_FILE"
           gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$(jq -r .label "$PAYLOAD_PATH")"
+      - name: Update unfinished triage status
+        if: always() && needs.issue.outputs.dry_run == 'false' && steps.post.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker="<!-- mlflow-triage-run:$GITHUB_RUN_ID -->"
+          body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          if [[ "$body" == *"$marker"* ]]; then
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH \
+              -f body="Automated triage did not complete. [Follow the workflow run]($RUN_URL). $marker"
+          fi
