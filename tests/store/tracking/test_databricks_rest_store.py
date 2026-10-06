@@ -14,6 +14,7 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Feedback,
     FeedbackValue,
+    IssueReference,
 )
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -589,6 +590,54 @@ def test_search_traces_uc_schema(monkeypatch):
     assert trace_infos[0].tags == {"k": "v"}
     assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
+
+
+def test_search_traces_uc_schema_with_issue_reference(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "name": "operations/op1",
+        "done": True,
+        "response": {
+            "trace_infos": [
+                {
+                    "trace_id": "1234",
+                    "trace_location": {
+                        "type": "UC_SCHEMA",
+                        "uc_schema": {"catalog_name": "catalog", "schema_name": "schema"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "state": "OK",
+                    "assessments": [
+                        {
+                            "assessment_id": "a-123",
+                            "assessment_name": "iss-123",
+                            "trace_id": "1234",
+                            "source": {
+                                "source_type": "LLM_JUDGE",
+                                "source_id": "mlflow.issue_detection",
+                            },
+                            "create_time": "1970-01-01T00:00:00.123Z",
+                            "last_update_time": "1970-01-01T00:00:00.123Z",
+                            "issue": {"issue_name": "Tool calls repeatedly fail"},
+                        }
+                    ],
+                }
+            ]
+        },
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response):
+        trace_infos, _ = store.search_traces(locations=["catalog.schema"])
+
+    assessment = trace_infos[0].assessments[0]
+    assert isinstance(assessment, IssueReference)
+    assert assessment.issue_id == "iss-123"
+    assert assessment.issue_name == "Tool calls repeatedly fail"
 
 
 @pytest.mark.parametrize(
