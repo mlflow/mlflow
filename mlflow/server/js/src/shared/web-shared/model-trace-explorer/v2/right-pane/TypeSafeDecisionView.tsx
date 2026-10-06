@@ -562,7 +562,6 @@ const AnswerSummary = ({ answer }: { answer: Answer }) => {
 };
 
 const AnswerDetails = ({ answer }: { answer: Answer }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   if (answer.kind === 'unknown') {
     return (
@@ -627,14 +626,14 @@ const AnswerDetails = ({ answer }: { answer: Answer }) => {
 
   return (
     <>
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <div className="decision-probability-section">
         <Typography.Text size="sm" bold>
           <FormattedMessage
             defaultMessage="Probability distribution"
             description="Heading for a decision answer probability distribution"
           />
         </Typography.Text>
-        <div css={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="decision-probability-list">
           {rows.map(({ label, probability, description, accessibleLabel, emphasized }) => (
             <ProbabilityRow
               key={label}
@@ -643,7 +642,7 @@ const AnswerDetails = ({ answer }: { answer: Answer }) => {
               emphasized={emphasized}
               label={
                 answer.kind === 'score' ? (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, minWidth: 0 }}>
+                  <div className="decision-score-label">
                     <Typography.Text size="sm" bold>
                       {label}
                     </Typography.Text>
@@ -672,37 +671,12 @@ const AnswerDetails = ({ answer }: { answer: Answer }) => {
 };
 
 const AnswerRow = ({ entry }: { entry: Entry }) => {
-  const { theme } = useDesignSystemTheme();
   const answer = parseAnswer(entry);
   return (
     <div role="listitem">
       <details>
-        <summary
-          css={{
-            alignItems: 'center',
-            backgroundColor: theme.colors.backgroundPrimary,
-            color: theme.colors.textPrimary,
-            cursor: 'pointer',
-            display: 'grid',
-            gap: theme.spacing.md,
-            gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)',
-            listStyle: 'none',
-            padding: theme.spacing.md,
-            '@container (max-width: 420px)': {
-              alignItems: 'stretch',
-              gap: theme.spacing.sm,
-              gridTemplateColumns: 'minmax(0, 1fr)',
-            },
-            '&::-webkit-details-marker': { display: 'none' },
-            '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-            '&:active': { backgroundColor: theme.colors.actionDefaultBackgroundPress },
-            '&:focus-visible': {
-              outline: '2px solid ' + theme.colors.actionDefaultBorderFocus,
-              outlineOffset: -2,
-            },
-          }}
-        >
-          <span css={{ alignItems: 'baseline', display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm, minWidth: 0 }}>
+        <summary className="decision-answer-header">
+          <span className="decision-answer-name">
             <Typography.Text bold css={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               {answer.id}
             </Typography.Text>
@@ -710,54 +684,16 @@ const AnswerRow = ({ entry }: { entry: Entry }) => {
               <AnswerKind answer={answer} />
             </Typography.Text>
           </span>
-          <span
-            css={{
-              alignItems: 'center',
-              display: 'flex',
-              gap: theme.spacing.md,
-              minWidth: 0,
-              '@container (max-width: 420px)': { justifyContent: 'space-between' },
-            }}
-          >
-            <span
-              css={{
-                alignItems: 'flex-end',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.xs,
-                minWidth: 0,
-                textAlign: 'right',
-                width: '100%',
-                '@container (max-width: 420px)': { alignItems: 'flex-start', textAlign: 'left' },
-              }}
-            >
+          <span className="decision-answer-side">
+            <span className="decision-answer-value">
               <AnswerSummary answer={answer} />
             </span>
-            <span
-              css={{
-                color: theme.colors.textSecondary,
-                display: 'flex',
-                flexShrink: 0,
-                transition: 'transform 150ms ease',
-                'details[open] &': { transform: 'rotate(90deg)' },
-              }}
-              aria-hidden="true"
-            >
+            <span className="decision-chevron" aria-hidden="true">
               <ChevronRightIcon />
             </span>
           </span>
         </summary>
-        <div
-          className="decision-answer-detail"
-          css={{
-            backgroundColor: theme.colors.backgroundSecondary,
-            borderTop: '1px solid ' + theme.colors.borderDecorative,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.md,
-            padding: theme.spacing.md,
-          }}
-        >
+        <div className="decision-answer-detail decision-detail">
           <AnswerDetails answer={answer} />
         </div>
       </details>
