@@ -682,9 +682,13 @@ def denial_message() -> str:
     generous: conditions are only consulted after a grant has already passed, and every
     grant permitting a mutation also permits a read (``EDIT`` and ``MANAGE`` both carry
     ``can_read``), so a caller who reaches a condition check can already fetch the state
-    being quoted. The condition rows themselves are readable too -- ``roles/list`` and
-    the condition listing are not scoped to the caller -- so withholding the clause would
-    hide nothing while leaving a denial with no stated cause.
+    being quoted. The condition rows themselves are readable too -- ``roles/list`` and the
+    condition listing are gated on holding *any* role in the workspace, not on holding the
+    role being read (``validate_can_view_roles``, inherited unchanged from upstream) -- so
+    for a caller with a grant in that workspace, withholding the clause would hide nothing
+    while leaving a denial with no stated cause. The safety argument does not rest on that
+    listing, though: it holds from the grant alone, since conditions are consulted only
+    after a grant passes and every mutating grant carries ``can_read``.
 
     A detail is best-effort. Attribution needs one extra read, and a resource that
     vanished between the two leaves the class of refusal stated without the clause.
@@ -3466,8 +3470,21 @@ def validate_can_read_model_or_prompt_version():
 def validate_can_update_model_or_prompt_version():
     """Bodies that carry no tag: `UpdateModelVersion`, `TransitionModelVersionStage`.
 
-    The stages API stays unconditioned (D15/D16): a stage is not part of the RFC's
-    vocabulary, so there is no clause that could govern one.
+    Only the VALUE half is unconditioned. These bodies set no tag and no alias, so every
+    request clause is vacuous (D13) and a value condition can never refuse them -- which
+    is what D15/D16 decided, since a stage is not part of the RFC's vocabulary and no
+    clause could govern one.
+
+    A TARGET condition still applies, and this is easy to misread: the shared helper
+    declares a full condition context with the version's resource id, so a resource clause
+    is evaluated against the version's current tags like any other mutation. Verified
+    against a role whose only condition is `tags.lifecycle = 'dev'` on
+    `registered_model_version`: a stage transition is ALLOWED on a version tagged
+    `lifecycle=dev`, DENIED on one tagged `prod`, and DENIED on an untagged one (D20).
+
+    That is deliberate. A target condition answers "which resources may this role mutate
+    at all", and a stage transition is a mutation of the version; exempting it would make
+    the stages API a way around a restriction that holds for every other write.
     """
     return _authorize_version_action("update")
 

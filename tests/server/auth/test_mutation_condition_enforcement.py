@@ -1192,3 +1192,78 @@ def test_reads_are_never_gated_across_every_wired_type(server, auth_client, monk
         assert client.get_registered_model(name).name == name
         assert client.get_model_version(name, "1").version == "1"
         assert client.search_runs([experiment_id])
+
+
+def _version_tagged(server, monkeypatch, tags):
+    """A model with one version carrying ``tags`` ON THE VERSION.
+
+    ``_model_with_version``'s ``tags`` land on the registered model; a target condition on
+    ``registered_model_version`` reads the version's own tags (D18), so they have to be set
+    here instead.
+    """
+    name = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client = MlflowClient(server)
+        for key, value in tags.items():
+            client.set_model_version_tag(name, "1", key, value)
+    return name
+
+
+@pytest.mark.parametrize(
+    ("version_tags", "allowed"),
+    [
+        ({"lifecycle": "dev"}, True),
+        ({"lifecycle": "prod"}, False),
+        ({}, False),  # D20: absence fails on the resource side
+    ],
+)
+def test_a_target_condition_gates_a_stage_transition(
+    server, auth_client, monkeypatch, version_tags, allowed
+):
+    """The stages API is unconditioned only on the VALUE half.
+
+    `validate_can_update_model_or_prompt_version` used to be documented as unconditioned
+    outright (D15/D16), which reads as "a condition cannot block a stage transition". Only
+    half of that is true: the body sets no tag, so every request clause is vacuous and a
+    value condition can never refuse it -- but the shared helper declares a full context
+    with the version's resource id, so a TARGET condition is evaluated against the
+    version's current tags like any other mutation.
+
+    Exempting it would make the stages API a way around a restriction that holds for every
+    other write to the same version, so this test exists to keep the exemption from being
+    "tidied up" into the stage route later.
+    """
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+    )
+    name = _version_tagged(server, monkeypatch, version_tags)
+
+    def transition():
+        with User(username, password, monkeypatch):
+            MlflowClient(server).transition_model_version_stage(name, "1", "Staging")
+
+    if allowed:
+        transition()
+    else:
+        with pytest.raises(MlflowException, match=r"Permission denied"):
+            transition()
+
+
+def test_a_value_condition_cannot_refuse_a_stage_transition(server, auth_client, monkeypatch):
+    """The other half of the same split, and the part D15/D16 actually decided.
+
+    The condition would deny any tag write at all, yet the transition goes through: a stage
+    is not in the clause vocabulary, so a request carrying no tag has nothing to test (D13).
+    """
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, value_condition="tag_value = 'no-such-value'"
+    )
+    name = _version_tagged(server, monkeypatch, {"lifecycle": "dev"})
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).transition_model_version_stage(name, "1", "Staging")
+
+    # The same condition really would have refused a tag write on that version.
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_model_version_tag(name, "1", "notes", "anything")
