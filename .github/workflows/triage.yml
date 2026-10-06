@@ -719,7 +719,7 @@ jobs:
     env:
       TRIAGE_NOTICE: |-
         > [!NOTE]
-        > Automated triage; please verify the findings.
+        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
