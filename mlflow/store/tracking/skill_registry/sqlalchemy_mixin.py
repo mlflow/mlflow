@@ -394,6 +394,8 @@ class SqlAlchemySkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        allowed_identities: list[tuple[str, str]] | None = None,
+        denied_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
         token_scope = f"workspace:{self._get_active_workspace()}:{self.SKILL_SEARCH_TOKEN_SCOPE}"
@@ -426,6 +428,27 @@ class SqlAlchemySkillRegistryMixin:
                 tag_join_keys=["workspace", "organization", "name"],
                 dialect=self._get_dialect(),
             )
+            if allowed_identities is not None:
+                # Identity includes organization: the same name may exist in several orgs.
+                query = query.filter(
+                    sa.or_(
+                        sa.false(),
+                        *(
+                            sa.and_(SqlSkill.organization == org, SqlSkill.name == name)
+                            for org, name in allowed_identities
+                        ),
+                    )
+                )
+            if denied_identities:
+                query = query.filter(
+                    ~sa.or_(
+                        sa.false(),
+                        *(
+                            sa.and_(SqlSkill.organization == org, SqlSkill.name == name)
+                            for org, name in denied_identities
+                        ),
+                    )
+                )
             rows = query.order_by(*order_clauses).offset(offset).limit(max_results + 1).all()
             skills = [skill.to_mlflow_entity() for skill in rows]
             return paginate_results(

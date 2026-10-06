@@ -91,6 +91,28 @@ def test_same_skill_name_is_allowed_in_different_organizations(store):
     assert example.organization == "example"
 
 
+def test_search_skills_filters_qualified_identities_before_pagination(store):
+    store.create_skill("reviewer")
+    store.create_skill("reviewer", organization="acme")
+    store.create_skill("reviewer", organization="example")
+    store.create_skill("writer")
+
+    allowed = [("acme", "reviewer"), ("", "writer")]
+    first = store.search_skills(max_results=1, allowed_identities=allowed)
+    second = store.search_skills(
+        max_results=1, page_token=first.token, allowed_identities=allowed
+    )
+
+    assert [(skill.organization, skill.name) for skill in first] == [("", "writer")]
+    assert [(skill.organization, skill.name) for skill in second] == [("acme", "reviewer")]
+    assert second.token is None
+    assert list(store.search_skills(allowed_identities=[])) == []
+    assert [
+        (skill.organization, skill.name)
+        for skill in store.search_skills(denied_identities=[("acme", "reviewer")])
+    ] == [("", "reviewer"), ("", "writer"), ("example", "reviewer")]
+
+
 def test_get_skill_not_found_raises(store):
     with pytest.raises(MlflowException, match="not found") as exc:
         store.get_skill("reviewer", organization="acme")

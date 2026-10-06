@@ -60,6 +60,8 @@ class SkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        allowed_identities: list[tuple[str, str]] | None = None,
+        denied_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         raise NotImplementedError(self.__class__.__name__)
 

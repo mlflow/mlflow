@@ -472,6 +472,10 @@ from mlflow.server.mcp_server_api import (
 from mlflow.server.mcp_server_api import (
     update_mcp_server as _update_mcp_server_endpoint,
 )
+from mlflow.server.skill_registry_api import (
+    get_skill_registry_api_route_prefixes,
+    is_skill_registry_api_path,
+)
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     _get_workspace_store,
@@ -8280,6 +8284,110 @@ def _mcp_server_suffix(path: str) -> str:
     raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
 
 
+def _skill_registry_suffix(path: str) -> str:
+    for prefix in get_skill_registry_api_route_prefixes():
+        if path == prefix or path.startswith(f"{prefix}/"):
+            return path[len(prefix) :].strip("/")
+    raise MlflowException(f"Not a Skill Registry path: {path}", error_code=BAD_REQUEST)
+
+
+def _skill_exists_for_auth(organization: str, name: str) -> bool:
+    try:
+        _get_tracking_store().get_skill(name=name, organization=organization)
+        return True
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_register_skill(username: str, organization: str, name: str) -> bool:
+    """Check the parent before registration can write artifacts or rows."""
+    if store.get_user(username).is_admin:
+        return True
+    if _skill_exists_for_auth(organization, name):
+        return _can_update_skill(organization, name, username)
+    return validate_can_create_skill(username)
+
+
+def skill_search_permission_scope(
+    username: str,
+) -> tuple[list[tuple[str, str]] | None, list[tuple[str, str]]]:
+    """Build pre-pagination allow and deny identity filters for Skill search."""
+    user = store.get_user(username)
+    if user.is_admin:
+        return None, []
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return [], []
+
+    if workspace_name in store.list_workspace_admin_workspaces(user.id):
+        return None, []
+    fallback_read = get_permission(auth_config.default_permission).can_read and (
+        not MLFLOW_ENABLE_WORKSPACES.get()
+        or _user_inherits_default_workspace_grant(workspace_name)
+    )
+    readable = set()
+    denied = set()
+    wildcard_read = False
+    wildcard_deny = False
+    for kind, pattern, permission in store.list_typed_role_grants_for_user_in_workspace(
+        user.id, workspace_name, RESOURCE_TYPE_SKILL
+    ):
+        if kind == RESOURCE_TYPE_WORKSPACE and permission != MANAGE.name:
+            continue
+        can_read = get_permission(permission).can_read
+        if pattern == "*":
+            wildcard_read |= can_read
+            wildcard_deny |= not can_read
+        elif can_read:
+            readable.add(_skill_registry_resource_parts(pattern))
+        else:
+            denied.add(_skill_registry_resource_parts(pattern))
+    if wildcard_read:
+        return None, []
+    if wildcard_deny or not fallback_read:
+        return sorted(readable), []
+    return None, sorted(denied - readable)
+
+
+def _get_skill_registry_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    parts = _skill_registry_suffix(path).split("/")
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        if parts == [""]:
+            return request.method == "GET" or (
+                request.method == "POST" and validate_can_create_skill(username)
+            )
+        if parts[0] in ("register", "bulk-register") and len(parts) == 1:
+            # Registration bodies may be multipart. The route parses them and calls
+            # validate_can_register_skill before touching artifacts or persistence.
+            return request.method == "POST"
+
+        organization = parts[0][1:] if parts[0].startswith("@") else ""
+        name_index = 1 if organization else 0
+        if len(parts) <= name_index or not parts[name_index]:
+            return False
+        name = parts[name_index]
+        tail = parts[name_index + 1 :]
+        if request.method == "POST" and tail == ["versions"]:
+            return validate_can_register_skill(username, organization, name)
+        permission = _get_skill_permission(organization, name, username)
+        if request.method == "GET":
+            return permission.can_read
+        if request.method in ("POST", "PATCH"):
+            return permission.can_update
+        if request.method == "DELETE":
+            return permission.can_manage
+        return False
+
+    return validator
+
+
 def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
     return len(parts) == 3 and parts[2] == "versions"
 
@@ -8849,6 +8957,9 @@ def _find_fastapi_validator(
 
     if is_mcp_server_api_path(path):
         return _get_mcp_server_validator(path)
+
+    if is_skill_registry_api_path(path):
+        return _get_skill_registry_validator(path)
 
     return None
 

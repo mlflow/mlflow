@@ -2454,6 +2454,29 @@ class SqlAlchemyStore:
             )
             return [(pattern, permission) for pattern, permission in rows]
 
+    def list_typed_role_grants_for_user_in_workspace(
+        self, user_id: int, workspace: str, resource_type: str
+    ) -> list[tuple[str, str, str]]:
+        """Return resource and workspace grants with their type for search authorization."""
+        _validate_resource_type(resource_type)
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session.query(
+                    SqlRolePermission.resource_type,
+                    SqlRolePermission.resource_pattern,
+                    SqlRolePermission.permission,
+                )
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    SqlRolePermission.resource_type.in_((resource_type, RESOURCE_TYPE_WORKSPACE)),
+                )
+                .all()
+            )
+            return [(kind, pattern, permission) for kind, pattern, permission in rows]
+
     def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
         """
         Return the set of workspaces where ``user_id`` is a workspace admin. Includes

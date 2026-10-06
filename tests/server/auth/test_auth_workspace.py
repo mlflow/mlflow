@@ -488,6 +488,107 @@ def workspace_permission_setup(tmp_path, monkeypatch):
     auth_store.engine.dispose()
 
 
+def test_readable_skill_identities_keep_organization_in_auth_filter(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    auth_store = Mock()
+    auth_store.get_user.return_value = SimpleNamespace(id=7, is_admin=False)
+    auth_store.list_workspace_admin_workspaces.return_value = set()
+    auth_store.list_typed_role_grants_for_user_in_workspace.return_value = [
+        (RESOURCE_TYPE_SKILL, "@acme/reviewer", READ.name),
+        (RESOURCE_TYPE_SKILL, "@other/reviewer", NO_PERMISSIONS.name),
+        ("workspace", "*", USE.name),
+    ]
+    monkeypatch.setattr(auth_module, "store", auth_store)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=NO_PERMISSIONS.name,
+            grant_default_workspace_access=False,
+        ),
+    )
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.skill_search_permission_scope("alice") == (
+            [("acme", "reviewer")],
+            [],
+        )
+    auth_store.list_typed_role_grants_for_user_in_workspace.assert_called_once_with(
+        7, "team-a", RESOURCE_TYPE_SKILL
+    )
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+    )
+    assert auth_module.skill_search_permission_scope("alice") == (
+        None,
+        [("other", "reviewer")],
+    )
+    auth_store.list_typed_role_grants_for_user_in_workspace.return_value = [
+        (RESOURCE_TYPE_SKILL, "*", NO_PERMISSIONS.name),
+        (RESOURCE_TYPE_SKILL, "@acme/reviewer", READ.name),
+    ]
+    assert auth_module.skill_search_permission_scope("alice") == (
+        [("acme", "reviewer")],
+        [],
+    )
+
+
+@pytest.mark.parametrize(
+    ("grant", "expected"),
+    [
+        (READ, (True, False, False)),
+        (EDIT, (True, True, False)),
+        (MANAGE, (True, True, True)),
+    ],
+)
+def test_skill_rest_validator_maps_parent_and_inherited_permissions(
+    workspace_permission_setup, grant, expected
+):
+    auth_store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(auth_store, username, NO_PERMISSIONS.name)
+    role = auth_store.create_role(name=random_str(), workspace="team-a")
+    auth_store.add_role_permission(role.id, RESOURCE_TYPE_SKILL, "skill-1", grant.name)
+    auth_store.assign_role_to_user(auth_store.get_user(username).id, role.id)
+    prefix = "/api/3.0/mlflow/skills/skill-1"
+
+    for path, method, allowed in [
+        (prefix, "GET", expected[0]),
+        (f"{prefix}/versions/1", "GET", expected[0]),
+        (prefix, "PATCH", expected[1]),
+        (f"{prefix}/versions", "POST", expected[1]),
+        (f"{prefix}/tags", "POST", expected[1]),
+        (prefix, "DELETE", expected[2]),
+        (f"{prefix}/aliases/latest", "DELETE", expected[2]),
+    ]:
+        validator = auth_module._get_skill_registry_validator(path)
+        assert asyncio.run(validator(username, SimpleNamespace(method=method))) is allowed
+
+
+def test_skill_rest_create_requires_workspace_create_grant(workspace_permission_setup):
+    auth_store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(auth_store, username, NO_PERMISSIONS.name)
+
+    for path in (
+        "/api/3.0/mlflow/skills",
+        "/api/3.0/mlflow/skills/new-skill/versions",
+    ):
+        validator = auth_module._get_skill_registry_validator(path)
+        assert not asyncio.run(validator(username, SimpleNamespace(method="POST")))
+
+    from mlflow.server.skill_registry_api import _authorize_registration
+
+    with pytest.raises(MlflowException, match="Permission denied"):
+        _authorize_registration(
+            SimpleNamespace(state=SimpleNamespace(username=username)), "", "new-skill"
+        )
+
+
 def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission: str):
     """Replace the user's workspace grant on ``team-a`` with ``permission``.
 
