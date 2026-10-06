@@ -1435,6 +1435,41 @@ def test_search_registered_models(client, monkeypatch):
         assert names == [f"rm{i}" for i in readable]
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_search_registered_models_uses_prompt_grants_for_prompt_queries(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    prompt_reader, prompt_reader_password = create_user(client.tracking_uri)
+    model_reader, model_reader_password = create_user(client.tracking_uri)
+    prompt_name = f"search_prompt_{random_str()}"
+    model_name = f"search_model_{random_str()}"
+
+    with User(owner, owner_password, monkeypatch):
+        client.register_prompt(prompt_name, "Hello, {{name}}!")
+        client.create_registered_model(model_name)
+
+    grant_role_permission(client.tracking_uri, prompt_reader, "prompt", prompt_name, "READ")
+    grant_role_permission(client.tracking_uri, model_reader, "registered_model", "*", "READ")
+
+    prompt_filter = f"tags.`mlflow.prompt.is_prompt` = 'true' AND name = '{prompt_name}'"
+    model_filter = f"name = '{model_name}'"
+
+    with User(prompt_reader, prompt_reader_password, monkeypatch):
+        assert [rm.name for rm in client.search_registered_models(filter_string=prompt_filter)] == [
+            prompt_name
+        ]
+        assert client.search_registered_models(filter_string=model_filter) == []
+
+    with User(model_reader, model_reader_password, monkeypatch):
+        assert client.search_registered_models(filter_string=prompt_filter) == []
+        assert [rm.name for rm in client.search_registered_models(filter_string=model_filter)] == [
+            model_name
+        ]
+
+
 def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatch):
     """A `run_id` filter is a membership oracle that row redaction cannot close.
 
