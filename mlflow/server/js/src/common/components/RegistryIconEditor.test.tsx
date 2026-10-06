@@ -65,4 +65,21 @@ describe('RegistryIconEditor', () => {
     expect(screen.getByText('Image failed to load')).toBeInTheDocument();
     expect(document.querySelector('img')).toBeNull();
   });
+
+  it('loads a failed URL again after it is edited away and back', async () => {
+    render(<ControlledEditor initial={[DARK]} onChange={jest.fn()} />);
+    fireEvent.error(document.querySelector('img') as HTMLImageElement);
+    expect(screen.getByText('Image failed to load')).toBeInTheDocument();
+
+    const input = screen.getByRole('textbox', { name: 'Icon URL 1' });
+    await userEvent.clear(input);
+    await userEvent.type(input, 'https://example.com/other.svg');
+    await userEvent.tab();
+    await userEvent.clear(input);
+    await userEvent.type(input, DARK.src);
+    await userEvent.tab();
+
+    expect(screen.queryByText('Image failed to load')).not.toBeInTheDocument();
+    expect(document.querySelector(`img[src="${DARK.src}"]`)).not.toBeNull();
+  });
 });

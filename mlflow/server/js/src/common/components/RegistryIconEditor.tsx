@@ -293,6 +293,14 @@ export const RegistryIconEditor = <T extends RegistryIconImage>({
   };
 
   const changeSrc = (index: number, src: string) => {
+    // Forget an earlier failure of the replaced URL, so returning to it later loads it again.
+    const replaced = icons[index].src;
+    setFailedSrcs((current) => {
+      if (!current.has(replaced)) return current;
+      const next = new Set(current);
+      next.delete(replaced);
+      return next;
+    });
     onChange(icons.map((icon, current) => (current === index ? { ...icon, src } : icon)));
   };
 

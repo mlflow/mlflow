@@ -26,6 +26,27 @@ describe('UseSkillButton', () => {
     expect(screen.getByRole('button', { name: 'Use' })).toBeEnabled();
   });
 
+  it('hides Use when the skill has no version to pull', () => {
+    const skill = createMockSkill({ latest_version: null });
+    const { rerender } = render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <UseSkillButton skill={skill} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Use' })).not.toBeInTheDocument();
+
+    rerender(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <UseSkillButton skill={skill} version={3} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
+  });
+
   it('pins the selected version and changes the install destination', async () => {
     render(
       <IntlProvider locale="en">

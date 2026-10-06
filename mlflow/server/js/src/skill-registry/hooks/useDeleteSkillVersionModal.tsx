@@ -22,8 +22,10 @@ export const useDeleteSkillVersionModal = ({
   const [versionToDelete, setVersionToDelete] = useState<number | undefined>();
   const mutation = useMutation<unknown, Error, number>({
     mutationFn: (version) => SkillRegistryApi.deleteSkillVersion(name, version, organization),
-    onSuccess: (_result, version) => {
-      invalidate(name, organization);
+    onSuccess: async (_result, version) => {
+      // The page picks a default version from the skill's latest_version, so let the refetch land first;
+      // otherwise the cached latest_version reselects the version just deleted.
+      await invalidate(name, organization);
       onDeleted(version);
     },
   });

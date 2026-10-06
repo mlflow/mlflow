@@ -22,11 +22,13 @@ export const UseSkillButton = ({
   const intl = useIntl();
   const [useModalOpen, setUseModalOpen] = useState(false);
   const pinnedVersion = version ?? skill.latest_version ?? undefined;
-  const pinnedStatus = versionStatus ?? (pinnedVersion != null ? (skill.status ?? undefined) : undefined);
+  const pinnedStatus = versionStatus ?? skill.status ?? undefined;
   const label = intl.formatMessage({
     defaultMessage: 'Use',
     description: 'Button to use a skill from the Skill Registry catalog',
   });
+  // A skill whose versions were all deleted has nothing to pull.
+  if (pinnedVersion == null) return null;
   return (
     <span onClick={(e) => e.stopPropagation()} css={{ display: 'inline-flex' }}>
       <Button

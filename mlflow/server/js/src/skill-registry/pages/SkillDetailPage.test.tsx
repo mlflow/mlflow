@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
@@ -236,6 +236,42 @@ describe('SkillDetailPage', () => {
 
     expect(await screen.findByText('Invalid status transition')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit version status' })).toBeEnabled();
+  });
+
+  it('settles on the empty state after deleting the last version', async () => {
+    let deleted = false;
+    const lastVersion = { ...mockVersion1, status: SkillStatus.DEPRECATED };
+    server.use(
+      // The refetch after the delete takes a moment, as it does against a real server.
+      rest.get(/skills\/(?:@[^/]+\/)?[^/]+$/, (_req, res, ctx) =>
+        res(ctx.delay(deleted ? 200 : 0), ctx.json({ ...mockSkill, aliases: [], latest_version: deleted ? null : 1 })),
+      ),
+      rest.get(/skills\/(?:@[^/]+\/)?[^/]+\/versions$/, (_req, res, ctx) =>
+        res(
+          ctx.delay(deleted ? 200 : 0),
+          ctx.json({ skill_versions: deleted ? [] : [lastVersion], next_page_token: null }),
+        ),
+      ),
+      rest.get(/skills\/(?:@[^/]+\/)?[^/]+\/versions\/\d+$/, (_req, res, ctx) =>
+        deleted
+          ? res(ctx.status(404), ctx.json({ error_code: 'RESOURCE_DOES_NOT_EXIST' }))
+          : res(ctx.json(lastVersion)),
+      ),
+      rest.delete(/skills\/(?:@[^/]+\/)?[^/]+\/versions\/\d+$/, (_req, res, ctx) => {
+        deleted = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Viewing version 1')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete version' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Delete version' })).getByRole('button', { name: 'Delete' }),
+    );
+
+    expect(await screen.findByText('Select a version to view details.')).toBeInTheDocument();
+    expect(screen.queryByText('This version is no longer available.')).not.toBeInTheDocument();
   });
 
   it('hides delete actions from a user who can edit but not delete', async () => {
