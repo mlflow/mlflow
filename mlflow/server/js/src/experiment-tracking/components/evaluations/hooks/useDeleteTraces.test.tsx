@@ -1,7 +1,19 @@
-import { describe, it, expect } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import React from 'react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 
-import { describeTraceDeletionOutcome } from './useDeleteTraces';
+import { describeTraceDeletionOutcome, useDeleteTracesMutation } from './useDeleteTraces';
+import { MlflowService } from '../../../sdk/MlflowService';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+
+jest.mock('@databricks/web-shared/genai-traces-table', () => ({
+  ...jest.requireActual<typeof import('@databricks/web-shared/genai-traces-table')>(
+    '@databricks/web-shared/genai-traces-table',
+  ),
+  invalidateMlflowSearchTracesCache: jest.fn(),
+}));
 
 const rejection = (message: string): PromiseRejectedResult => ({
   status: 'rejected',
@@ -40,5 +52,61 @@ describe('describeTraceDeletionOutcome', () => {
       50,
     );
     expect(message.match(/Permission denied/g)).toHaveLength(1);
+  });
+});
+
+describe('useDeleteTracesMutation cache invalidation', () => {
+  // A partial deletion throws, so it lands on the mutation's error path. The invalidation
+  // used to hang off `onSuccess`, which that path never reaches -- the permitted chunk was
+  // really gone from the server while the table went on listing it, and it reappeared to
+  // the user as a delete that had silently failed.
+
+  let queryClient: QueryClient;
+
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+  const denied = () =>
+    new ErrorWrapper(JSON.stringify({ error_code: 'PERMISSION_DENIED', message: 'Permission denied' }), 403);
+
+  // 150 ids is two requests, because the hook chunks at 100. One chunk is permitted and
+  // the other refused: the shape a condition produces.
+  const ids = Array.from({ length: 150 }, (_, i) => `tr-${i}`);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  });
+
+  const runMutation = async () => {
+    const { result } = renderHook(() => useDeleteTracesMutation(), { wrapper });
+    await act(async () => {
+      result.current.mutate({ experimentId: '1', traceRequestIds: ids });
+    });
+    return result;
+  };
+
+  it('refreshes the trace list when only some chunks were deleted', async () => {
+    jest
+      .spyOn(MlflowService, 'deleteTracesV3')
+      .mockResolvedValueOnce({ traces_deleted: 100 } as any)
+      .mockRejectedValueOnce(denied());
+
+    const result = await runMutation();
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    // The deletion is reported as failed -- and the list must still refresh, because 100
+    // traces really were deleted.
+    expect(result.current.error?.message).toContain('100 traces were deleted');
+    expect(invalidateMlflowSearchTracesCache).toHaveBeenCalled();
+  });
+
+  it('still refreshes on a complete success', async () => {
+    jest.spyOn(MlflowService, 'deleteTracesV3').mockResolvedValue({ traces_deleted: 75 } as any);
+
+    const result = await runMutation();
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateMlflowSearchTracesCache).toHaveBeenCalled();
   });
 });

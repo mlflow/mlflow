@@ -49,6 +49,24 @@ export const describeTagSaveOutcome = (refused: { key: string; reason: unknown }
   return `${head}. These changes were saved: ${savedKeys.join(', ')}.`;
 };
 
+/**
+ * A tag save in which some writes landed and some were refused.
+ *
+ * Carried as its own type so the caller's refresh can run on this path: a partial save has
+ * really changed server state, so the view must be refreshed even though the save is
+ * reported as failed. Sniffing the message string would work today and break on any
+ * rewording.
+ */
+export class PartialTagSaveError extends Error {
+  readonly savedKeys: string[];
+
+  constructor(message: string, savedKeys: string[]) {
+    super(message);
+    this.name = 'PartialTagSaveError';
+    this.savedKeys = savedKeys;
+  }
+}
+
 export const useUpdateExperimentTags = ({ onSuccess }: { onSuccess?: () => void }) => {
   const updateMutation = useMutation<unknown, Error, UpdateTagsPayload>({
     mutationFn: async ({ toAdd, toDelete, experimentId }) => {
@@ -72,7 +90,10 @@ export const useUpdateExperimentTags = ({ onSuccess }: { onSuccess?: () => void 
       if (refused.length === 0) return results;
 
       const savedKeys = operations.filter((_, i) => results[i].status === 'fulfilled').map(({ key }) => key);
-      throw new Error(describeTagSaveOutcome(refused, savedKeys));
+      const message = describeTagSaveOutcome(refused, savedKeys);
+      // A partial save is distinguished by type, not by its wording, so the caller's
+      // refresh can run on the error path without parsing the message.
+      throw savedKeys.length > 0 ? new PartialTagSaveError(message, savedKeys) : new Error(message);
     },
   });
 
@@ -99,7 +120,16 @@ export const useUpdateExperimentTags = ({ onSuccess }: { onSuccess?: () => void 
               resolve();
               onSuccess?.();
             },
-            onError: reject,
+            onError: (error) => {
+              // A PARTIAL save really wrote some tags, so refresh even though the save is
+              // reported as failed -- otherwise the list keeps showing the pre-save tags
+              // while the server already has the new ones. Still reject, so the modal
+              // stays open and tells the user which keys were refused.
+              if (error instanceof PartialTagSaveError) {
+                onSuccess?.();
+              }
+              reject(error);
+            },
           },
         );
       });

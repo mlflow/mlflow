@@ -79,7 +79,12 @@ export const useDeleteTracesMutation = () => {
 
       return { traces_deleted: deleted };
     },
-    onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
+    // `onSettled`, not `onSuccess`: a PARTIAL deletion throws, so it lands on the error
+    // path, and the permitted chunks really are gone from the server. Invalidating only on
+    // success left the table listing traces that no longer existed, which read to the user
+    // as a delete that had silently failed. Refreshing after a total failure costs one
+    // search request and is never wrong, so every outcome refreshes.
+    onSettled: () => invalidateMlflowSearchTracesCache({ queryClient }),
   });
 
   return mutation;
