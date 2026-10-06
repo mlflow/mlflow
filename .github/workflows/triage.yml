@@ -702,6 +702,9 @@ jobs:
       - name: Stop gateway proxy
         if: always()
         run: |
+          if [ -s "$RUNNER_TEMP/triage-gateway-proxy.log" ]; then
+            cat "$RUNNER_TEMP/triage-gateway-proxy.log"
+          fi
           if [ -f "$RUNNER_TEMP/triage-gateway-proxy.pid" ]; then
             proxy_pid=$(cat "$RUNNER_TEMP/triage-gateway-proxy.pid")
             kill "$proxy_pid" 2>/dev/null || true
