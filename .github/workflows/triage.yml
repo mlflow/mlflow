@@ -749,7 +749,7 @@ jobs:
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if ! check_output=$(jq -j .comment "$PAYLOAD_PATH" |
-            uv run --directory .claude/skills --package skills skills embed-media \
+            uv run --quiet --directory .claude/skills --package skills skills embed-media \
               --check --dir "$MEDIA_DIR" 2>&1); then
             printf '%s\n' "$check_output" >&2
             exit 1
