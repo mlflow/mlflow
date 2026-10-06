@@ -731,12 +731,12 @@ jobs:
       - name: Write triage comment preview
         env:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
-          SHOULD_POST: ${{ github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false' }}
+          SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if [ "$SHOULD_POST" = true ]; then
-            state="Posting this triage report as an issue comment."
+            state="Replacing the triage status comment with this report."
           else
-            state="Comment not posted (dry run or issues event)."
+            state="Comment not posted (dry run)."
           fi
           {
             echo "### Triage comment preview"
@@ -746,7 +746,7 @@ jobs:
             jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Post triage comment
-        if: github.event_name == 'workflow_dispatch' && needs.issue.outputs.dry_run == 'false'
+        if: needs.issue.outputs.dry_run == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
