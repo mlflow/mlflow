@@ -4638,7 +4638,7 @@ wheels = [
 
 [[package]]
 name = "mlflow"
-version = "3.17.0"
+version = "3.16.2.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
