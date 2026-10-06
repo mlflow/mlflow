@@ -240,7 +240,6 @@ def test_validate_tag_name_bad(tag_name):
     ids=["param", "metric", "tag"],
 )
 def test_validate_name_rejects_trailing_newline(validator, name):
-    """re.match+$ historically allowed a trailing newline; re.fullmatch must reject it."""
     with pytest.raises(MlflowException, match=r"Invalid value") as e:
         validator(name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
