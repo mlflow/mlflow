@@ -19,8 +19,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.telemetry.events import McpRegistryRegisterServerFromUrlEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient

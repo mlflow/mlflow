@@ -22,7 +22,7 @@ from mlflow.genai.mcp_tool_discovery import (
     discover_mcp_tools,
     resolve_tools_for_create,
 )
-from mlflow.store.tracking import NOT_SET
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
 
 def test_tool_from_sdk_model_dump():

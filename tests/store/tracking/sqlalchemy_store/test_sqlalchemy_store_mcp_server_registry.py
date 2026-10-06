@@ -5,7 +5,7 @@ import pytest
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking import NOT_SET
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
 pytestmark = pytest.mark.notrackingurimock
 

@@ -12,7 +12,7 @@ from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPToo
 from mlflow.exceptions import MlflowException
 from mlflow.genai.mcp_tool_discovery import DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.tracking import NOT_SET
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
 
