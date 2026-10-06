@@ -110,6 +110,10 @@ the issue. It:
   `https://github.com/<repository>/blob/<sha>/<path>#L<start>-L<end>`, with `<sha>` from
   `git rev-parse HEAD`, so the link keeps pointing at the lines you saw after master moves.
 - Never @-mentions anyone.
+- When a screenshot or recording helps show the bug, save it under `$out_dir/media`
+  and cite its exact absolute path in the comment, for example
+  `![Broken UI](/tmp/triage-out/media/broken-ui.png)`. Put video citations on their own line.
+  The workflow uploads only cited files and rewrites the local paths after triage.
 
 Validate before finishing:
 
@@ -118,6 +122,13 @@ uvx check-jsonschema@0.37.4 \
   --schemafile .claude/skills/triage/$type/payload.schema.yml "$out_dir/payload.json"
 ```
 
-Fix any errors and rerun until it passes.
+Fix any errors and rerun until it passes. If you wrote media, also check its citations:
 
+```bash
+jq -j .comment "$out_dir/payload.json" |
+  uv run --directory .claude/skills --package skills skills embed-media \
+    --check --dir "$out_dir/media"
+```
+
+Fix any media check errors before finishing. Do not upload media yourself.
 Do not comment on, label, or close the issue. Stop after writing and validating the payload.
