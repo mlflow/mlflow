@@ -1219,6 +1219,14 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | N
                         " input. There was an error casting the input data to a DataFrame:"
                         f" {e}"
                     )
+        elif (
+            isinstance(pf_input, list)
+            and len(input_schema.inputs) == 1
+            and not input_schema.has_input_names()
+            and isinstance(input_schema.inputs[0].type, Array)
+        ):
+            # A single unnamed Array column: the list is the column, not a table of columns
+            pf_input = pd.DataFrame({0: pf_input})
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
         elif HAS_PYSPARK and isinstance(pf_input, SparkDataFrame):

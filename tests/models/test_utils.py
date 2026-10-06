@@ -14,7 +14,7 @@ from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 from mlflow.exceptions import MlflowException
-from mlflow.models import add_libraries_to_model
+from mlflow.models import add_libraries_to_model, infer_signature
 from mlflow.models.utils import (
     _config_context,
     _convert_llm_input_data,
@@ -655,3 +655,17 @@ def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):
         MlflowException, match=r"Input schema validation failed.*extra inputs provided"
     ):
         _enforce_schema(input_data, schema)
+
+
+@pytest.mark.parametrize(
+    ("data", "expected_schema"),
+    [
+        ([[1, 2], [3, 4], [5, 7]], Schema([ColSpec("long", 0), ColSpec("long", 1)])),
+        ([[1.0, 2.0]], Schema([ColSpec("double", 0), ColSpec("double", 1)])),
+        ([["a", "b"], ["c"]], Schema([ColSpec(Array(DataType.string))])),
+    ],
+)
+def test_enforce_schema_accepts_list_of_lists_used_for_inference(data, expected_schema):
+    schema = infer_signature(data).inputs
+    assert schema == expected_schema
+    _enforce_schema(data, schema)
