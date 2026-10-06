@@ -1774,8 +1774,11 @@ def test_register_local_skill(
                 digest=compute_tree_digest(skill_tree),
             )
     if high_level:
-        inspect.assert_called_once_with(skill_tree)
-        sdk_digest.assert_called_once_with(skill_tree)
+        sdk_digest.assert_called_once()
+        snapshot = sdk_digest.call_args.args[0]
+        assert snapshot != skill_tree
+        assert not snapshot.parent.exists()
+        assert inspect.call_args_list == [mock.call(skill_tree), mock.call(snapshot)]
     else:
         inspect.assert_not_called()
         sdk_digest.assert_not_called()
@@ -2028,6 +2031,84 @@ def test_register_multipart_preserves_transport_context(store, workspace):
         probe.assert_called_once_with()
     else:
         probe.assert_not_called()
+
+
+@pytest.mark.parametrize("edit_at", ["before-packaging", "after-hashing"])
+def test_register_local_skill_digest_matches_uploaded_snapshot(
+    registry_client, skill_tree, skill_artifacts, edit_at
+):
+    manifest_path = skill_tree / "SKILL.md"
+    original = manifest_path.read_bytes()
+    edited = original.replace(b"name: review", b"name: edited")
+    assert len(original) == len(edited)
+
+    def package(root, output):
+        if edit_at == "before-packaging":
+            manifest_path.write_bytes(edited)
+        return package_skill_tree(root, output)
+
+    def hash_snapshot(root):
+        result = compute_tree_digest(root)
+        if edit_at == "after-hashing":
+            manifest_path.write_bytes(edited)
+        return result
+
+    with (
+        mock.patch("mlflow.genai.skills.package_skill_tree", side_effect=package) as package_mock,
+        mock.patch("mlflow.genai.skills.compute_tree_digest", side_effect=hash_snapshot) as digest,
+    ):
+        version = register_skill(source=str(skill_tree))
+
+    package_mock.assert_called_once()
+    assert package_mock.call_args.args[0] == skill_tree
+    digest.assert_called_once()
+    snapshot = digest.call_args.args[0]
+    assert snapshot != skill_tree
+    assert not snapshot.parent.exists()
+    assert not Path(package_mock.call_args.args[1]).exists()
+    stored = skill_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    assert compute_tree_digest(stored) == version.digest
+    assert version.name == ("edited" if edit_at == "before-packaging" else "review")
+    assert (stored / "SKILL.md").read_bytes() == (
+        edited if edit_at == "before-packaging" else original
+    )
+    assert manifest_path.read_bytes() == edited
+    if edit_at == "after-hashing":
+        assert compute_tree_digest(skill_tree) != version.digest
+    assert registry_client[1].get_skill_version(version.name, version.version) == version
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [("oversized", "exceeds the skill content size limit"), ("manifest", "Invalid skill name")],
+)
+def test_register_revalidates_local_snapshot(
+    registry_client, store, skill_tree, monkeypatch, change, message
+):
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, "1024")
+
+    def package(root, output):
+        if change == "oversized":
+            (skill_tree / "payload.txt").write_bytes(b"x" * 1025)
+        else:
+            (skill_tree / "SKILL.md").write_text("---\nname: INVALID\n---\n")
+        return package_skill_tree(root, output)
+
+    with (
+        mock.patch("mlflow.genai.skills.package_skill_tree", side_effect=package) as package_mock,
+        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        register_skill(source=str(skill_tree))
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    package_mock.assert_called_once()
+    assert not Path(package_mock.call_args.args[1]).parent.exists()
+    digest.assert_not_called()
+    request.assert_not_called()
+    assert skill_tree.exists()
+    assert registry_client[1].search_skills() == []
 
 
 def test_register_cleans_up_after_packaging_failure(registry_client, store, skill_tree):

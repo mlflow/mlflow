@@ -6,7 +6,11 @@ from mlflow.entities.skill import Skill
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
-from mlflow.genai.skill_content.archive import get_max_decompressed_size, package_skill_tree
+from mlflow.genai.skill_content.archive import (
+    extract_skill_archive,
+    get_max_decompressed_size,
+    package_skill_tree,
+)
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.errors import invalid_content
 from mlflow.genai.skill_content.fetchers import FetchedContent, fetch_source
@@ -137,26 +141,29 @@ def register_skill(
     client = MlflowClient()
     with fetch_source(source) as fetched:
         manifest = inspect_skill_dir(fetched.root)
+        if resolved.is_local:
+            with TemporaryDirectory(prefix="mlflow-skill-register-") as tmp:
+                archive = package_skill_tree(fetched.root, os.path.join(tmp, "content.tar.gz"))
+                # Inspect and hash the archived content so edits to the original directory
+                # cannot change the uploaded tree after its metadata has been calculated.
+                snapshot = extract_skill_archive(archive, os.path.join(tmp, "snapshot"))
+                manifest = inspect_skill_dir(snapshot)
+                return client.create_skill_version(
+                    name=manifest.name if name is None else name,
+                    organization=organization,
+                    source=str(archive),
+                    digest=compute_tree_digest(snapshot),
+                    status=status,
+                )
         digest = compute_tree_digest(fetched.root)
-        root = fetched.root
 
-    if not resolved.is_local:
-        return client.create_skill_version(
-            name=manifest.name if name is None else name,
-            organization=organization,
-            source=source,
-            digest=digest,
-            status=status,
-        )
-
-    with TemporaryDirectory(prefix="mlflow-skill-register-") as tmp:
-        return client.create_skill_version(
-            name=manifest.name if name is None else name,
-            organization=organization,
-            source=str(package_skill_tree(root, os.path.join(tmp, "content.tar.gz"))),
-            digest=digest,
-            status=status,
-        )
+    return client.create_skill_version(
+        name=manifest.name if name is None else name,
+        organization=organization,
+        source=source,
+        digest=digest,
+        status=status,
+    )
 
 
 def _filter_and_validate_skill_directories(
