@@ -675,7 +675,6 @@ jobs:
     permissions:
       issues: write
     steps:
-      # A fresh checkout, so the schema is the committed one, not one the agent could have edited.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -688,21 +687,18 @@ jobs:
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/triage-report
-      - name: Validate and prepare triage comment
+      - name: Validate triage payload
         if: needs.triage.result == 'success'
         env:
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
-          BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
           uvx check-jsonschema@0.37.4 \
             --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
-          jq -j '.comment' "$PAYLOAD_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
         if: needs.triage.result == 'success'
         env:
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
-          BODY_FILE: ${{ runner.temp }}/triage-comment.md
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if [ "$SHOULD_POST" = true ]; then
@@ -717,7 +713,7 @@ jobs:
             echo
             jq -r '"Label: <code>\(.label | @html)</code>"' "$PAYLOAD_PATH"
             echo
-            jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
+            jq -r '"<pre>\(.comment | @html)</pre>"' "$PAYLOAD_PATH"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Post triage comment and label
         id: post
@@ -728,10 +724,10 @@ jobs:
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
-          BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: |
-          printf '\n\n<!-- mlflow-triage-run:%s -->\n' "$GITHUB_RUN_ID" >> "$BODY_FILE"
-          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$BODY_FILE"
+          jq --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
+            '{body: "\(.comment)\n\n\($marker)\n"}' "$PAYLOAD_PATH" \
+            | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH --input - > /dev/null
           gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$(jq -r .label "$PAYLOAD_PATH")"
       - name: Update unfinished triage status
         if: always() && needs.issue.outputs.dry_run == 'false' && steps.post.outcome != 'success'
