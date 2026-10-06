@@ -649,14 +649,54 @@ jobs:
             "/triage $ISSUE_PATH $ISSUE_TYPE /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
+      - name: Stage triage report for upload
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          import stat
+          from pathlib import Path
+
+          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-report"
+          stage.mkdir(mode=0o700)
+          flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+
+          def copy_regular(directory_fd, name, destination):
+              fd = os.open(name, flags, dir_fd=directory_fd)
+              with os.fdopen(fd, "rb") as source:
+                  if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                      raise ValueError("not a regular file")
+                  with destination.open("xb") as target:
+                      shutil.copyfileobj(source, target)
+
+          report_fd = os.open("/tmp/triage-out", flags | os.O_DIRECTORY)
+          try:
+              copy_regular(report_fd, "payload.json", stage / "payload.json")
+              try:
+                  media_fd = os.open("media", flags | os.O_DIRECTORY, dir_fd=report_fd)
+              except FileNotFoundError:
+                  pass
+              else:
+                  try:
+                      media_stage = stage / "media"
+                      media_stage.mkdir()
+                      for name in os.listdir(media_fd):
+                          try:
+                              copy_regular(media_fd, name, media_stage / name)
+                          except (OSError, ValueError) as e:
+                              print(f"Skipping media entry {name!r}: {e}")
+                  finally:
+                      os.close(media_fd)
+          finally:
+              os.close(report_fd)
+          PY
       - name: Upload triage report for posting
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            /tmp/triage-out/payload.json
-            /tmp/triage-out/media
+          path: ${{ runner.temp }}/triage-report
           if-no-files-found: error
           retention-days: 1
       - name: Stop gateway proxy
@@ -704,9 +744,12 @@ jobs:
           MEDIA_DIR: /tmp/triage-out/media
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
-          check_output=$(jq -j .comment "$PAYLOAD_PATH" |
+          if ! check_output=$(jq -j .comment "$PAYLOAD_PATH" |
             uv run --directory .claude/skills --package skills skills embed-media \
-              --check --dir "$MEDIA_DIR" 2>&1)
+              --check --dir "$MEDIA_DIR" 2>&1); then
+            printf '%s\n' "$check_output" >&2
+            exit 1
+          fi
           media_references=$(jq -r .comment "$PAYLOAD_PATH" |
             grep -oE '\]\(/tmp/triage-out/media/[^)]+\)' |
             sed -E 's/^\]\((.*)\)$/\1/' |
