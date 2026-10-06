@@ -366,6 +366,10 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
+from mlflow.store.model_registry import (
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking import (
@@ -422,6 +426,7 @@ from mlflow.utils.providers import (
     get_models,
     get_provider_config_response,
 )
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
@@ -3063,6 +3068,7 @@ def _search_registered_models():
             "page_token": [_assert_string],
         },
     )
+    _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
         filter_string=request_message.filter,
@@ -3666,7 +3672,63 @@ def _search_model_versions():
     return _wrap_response(response_message)
 
 
+def _model_registry_search_is_prompt(clauses: list[dict[str, Any]]) -> bool:
+    return any(
+        clause["type"] == "tag"
+        and clause["key"] == IS_PROMPT_TAG_KEY
+        and (
+            (clause["comparator"] == "=" and clause["value"].lower() == "true")
+            or (clause["comparator"] == "!=" and clause["value"].lower() == "false")
+        )
+        for clause in clauses
+    )
+
+
+def _prepare_model_registry_search(
+    request_message: SearchRegisteredModels | SearchModelVersions,
+) -> None:
+    search_utils = (
+        SearchModelVersionUtils
+        if isinstance(request_message, SearchModelVersions)
+        else SearchModelUtils
+    )
+    predicates = [
+        clause
+        for clause in search_utils.parse_search_filter(request_message.filter)
+        if clause["type"] == "tag" and clause["key"] == IS_PROMPT_TAG_KEY
+    ]
+    is_prompt = _model_registry_search_is_prompt(predicates)
+    comparator = "=" if is_prompt else "!="
+    # Put the resource selector first so every store and auth plugin sees the same namespace,
+    # including when the caller supplied several predicates on the prompt tag.
+    if not predicates or predicates[0] != {
+        "type": "tag",
+        "key": IS_PROMPT_TAG_KEY,
+        "comparator": comparator,
+        "value": "true",
+    }:
+        selector = f"tags.`{IS_PROMPT_TAG_KEY}` {comparator} 'true'"
+        request_message.filter = (
+            f"{selector} AND {request_message.filter}" if request_message.filter else selector
+        )
+    max_results = request_message.max_results
+    if not isinstance(max_results, int) or max_results < 1:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for max_results. It must be a positive integer, but got {max_results}"
+        )
+    threshold = (
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD
+        if isinstance(request_message, SearchRegisteredModels)
+        else SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD
+    )
+    if max_results > threshold:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for max_results. It must be at most {threshold}, but got {max_results}"
+        )
+
+
 def search_model_versions_impl(request_message):
+    _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
     model_versions = store.search_model_versions(
         filter_string=request_message.filter,

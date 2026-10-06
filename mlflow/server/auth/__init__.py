@@ -25,6 +25,7 @@ import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
+from types import SimpleNamespace
 from typing import Any, Awaitable, Callable
 
 import sqlalchemy
@@ -428,12 +429,15 @@ from mlflow.server.handlers import (
     _add_static_prefix,
     _assert_array,
     _assert_item_type_string,
+    _assert_string,
     _get_ajax_path,
     _get_model_registry_store,
     _get_normalized_request_json,
     _get_request_message,
     _get_tracking_store,
     _get_validated_flask_request_json,
+    _model_registry_search_is_prompt,
+    _prepare_model_registry_search,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -490,7 +494,7 @@ from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
@@ -967,6 +971,10 @@ class RetentionGate:
         self._default_permission = default_permission
         self._absent = absent
         self._always = always
+        self._grants_by_key: dict[GrantLoadKey, list[Any]] = {}
+        for grant in grants:
+            key = GrantLoadKey(grant.resource_type, grant.resource_pattern)
+            self._grants_by_key.setdefault(key, []).append(grant)
         self._decided: dict[tuple[str, str], bool] = {}
         self._folded: dict[GrantLoadKey, Permission | None] = {}
 
@@ -996,7 +1004,13 @@ class RetentionGate:
 
     def _fold(self, key: GrantLoadKey) -> "Permission | None":
         if key not in self._folded:
-            self._folded[key] = fold_grants_for_key(self._grants, key)
+            grants = self._grants_by_key.get(key, [])
+            if key.resource_id != "*":
+                grants = [
+                    *grants,
+                    *self._grants_by_key.get(GrantLoadKey(key.resource_type, "*"), []),
+                ]
+            self._folded[key] = fold_grants_for_key(grants, key)
         return self._folded[key]
 
 
@@ -2408,8 +2422,6 @@ def _run_tier_not_denied_in_workspace(username: str) -> bool:
 
 
 def _model_version_filter_selects_run(filter_string: str) -> bool:
-    from mlflow.utils.search_utils import SearchModelVersionUtils
-
     return _filter_selects_attribute(
         filter_string, SearchModelVersionUtils.parse_search_filter, "run_id"
     )
@@ -2439,13 +2451,20 @@ def validate_can_search_logged_models():
     return _run_tier_not_denied_in_workspace(authenticate_request().username)
 
 
+def validate_can_search_registered_models():
+    _scope_model_registry_search_request(SearchRegisteredModels)
+    return True
+
+
 def validate_can_search_model_versions():
     """The rows are filtered after the fact, so this gates only what redaction cannot hide."""
     # Read it the way the handler does: this route accepts both GET query args and a POST body.
     filter_string = _get_request_message(SearchModelVersions()).filter
-    if not _model_version_filter_selects_run(filter_string):
-        return True
-    return _run_tier_not_denied_in_workspace(authenticate_request().username)
+    if _model_version_filter_selects_run(filter_string):
+        if not _run_tier_not_denied_in_workspace(authenticate_request().username):
+            return False
+    _scope_model_registry_search_request(SearchModelVersions)
+    return True
 
 
 # The handler drops this `secret_id`, so gating it would refuse an unfiltered listing; the coverage
@@ -3349,6 +3368,123 @@ def _role_based_read_predicate(
         if not gate.retains(requirement.resource_type, requirement.resource_id):
             return lambda _resource_id: False
     return lambda resource_id: gate.retains(resource_type, resource_id)
+
+
+# Stay below even SQLite's legacy 999-bind limit, reserving room for the namespace
+# selector, workspace constraints, and pagination added by the store.
+_REGISTRY_SEARCH_FILTER_PARAMETER_BUDGET = 900
+
+
+def _registry_name_filter(gate: RetentionGate, resource_type: str) -> str | None:
+    wildcard_readable = gate.retains(resource_type, "*")
+    names = {
+        grant.resource_pattern
+        for grant in gate._grants
+        if grant.resource_type == resource_type
+        and grant.resource_pattern != "*"
+        and gate.retains(resource_type, grant.resource_pattern) != wildcard_readable
+    }
+    # Larger scopes stay in the response filter rather than exceeding parser or database limits.
+    if len(names) > _REGISTRY_SEARCH_FILTER_PARAMETER_BUDGET:
+        return None
+    if wildcard_readable and not names:
+        return ""
+    # Registry names cannot be empty. List filters use literal_eval to read quoted names.
+    values = ", ".join(repr(name) for name in sorted(names)) or "''"
+    comparator = "NOT IN" if wildcard_readable else "IN"
+    return f"name {comparator} ({values})"
+
+
+def scope_model_registry_search(
+    request_message: SearchRegisteredModels | SearchModelVersions,
+) -> None:
+    """Add a namespace-specific permission filter when existing search APIs can express it."""
+    if sender_is_admin():
+        return
+    search_utils = (
+        SearchModelVersionUtils
+        if isinstance(request_message, SearchModelVersions)
+        else SearchModelUtils
+    )
+    try:
+        clauses = search_utils.parse_search_filter(request_message.filter)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(INVALID_PARAMETER_VALUE):
+            raise
+        # Leave invalid input to handler validation, outside GraphQL's auth error suppression.
+        return
+    resource_type = (
+        RESOURCE_TYPE_PROMPT
+        if _model_registry_search_is_prompt(clauses)
+        else RESOURCE_TYPE_REGISTERED_MODEL
+    )
+    version_type = None
+    if isinstance(request_message, SearchModelVersions):
+        version_type = (
+            RESOURCE_TYPE_PROMPT_VERSION
+            if resource_type == RESOURCE_TYPE_PROMPT
+            else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+        )
+    username = authenticate_request().username
+    workspace_name = get_anchor_workspace(RESOURCE_TYPE_WORKSPACE, "*")
+    cache = (
+        g.setdefault("_model_registry_search_filter_cache", {}) if has_request_context() else None
+    )
+    key = (username, workspace_name, resource_type, version_type)
+    if cache is not None and key in cache:
+        name_filter = cache[key]
+    else:
+        requirements = [
+            Requirement(
+                resource_type,
+                "*",
+                "read",
+                fallback_if_no_grant=((RESOURCE_TYPE_WORKSPACE, "*"),),
+            )
+        ]
+        if version_type is not None:
+            requirements.append(Requirement(version_type, "*", ACTION_NOT_DENIED))
+        gate = retention_gate(username, (RESOURCE_TYPE_WORKSPACE, "*"), requirements)
+        name_filter = (
+            "name IN ('')"
+            if version_type is not None and not gate.retains(version_type, "*")
+            else _registry_name_filter(gate, resource_type)
+        )
+        if cache is not None:
+            cache[key] = name_filter
+
+    if name_filter:
+        scoped_filter = (
+            f"{request_message.filter} AND {name_filter}" if request_message.filter else name_filter
+        )
+        try:
+            clauses = search_utils.parse_search_filter(scoped_filter)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(INVALID_PARAMETER_VALUE):
+                raise
+            return
+        # Lists bind each value; tags also bind a key and potentially a workspace.
+        parameter_count = sum(
+            (len(c["value"]) if isinstance(c["value"], (list, tuple)) else 1)
+            + (2 if c["type"] == "tag" else 0)
+            for c in clauses
+        )
+        if parameter_count <= _REGISTRY_SEARCH_FILTER_PARAMETER_BUDGET:
+            request_message.filter = scoped_filter
+
+
+def _scope_model_registry_search_request(message_type):
+    message = _get_request_message(message_type(), schema={"filter": [_assert_string]})
+    scope_model_registry_search(message)
+    if request.method == "GET" and request.args:
+        args = request.args.copy()
+        args["filter"] = message.filter
+        request.args = args
+    else:
+        data = _get_normalized_request_json()
+        data["filter"] = message.filter
+        # Preserve legacy double-encoded bodies and empty requests in Flask's JSON cache.
+        request._cached_json = (data, data)
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -4825,6 +4961,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
+    SearchRegisteredModels: validate_can_search_registered_models,
     SearchModelVersions: validate_can_search_model_versions,
     ListGatewayModelDefinitions: validate_can_list_gateway_model_definitions,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
@@ -6267,6 +6404,7 @@ def filter_search_registered_models(resp: Response):
 
     # re-fetch to fill max results
     request_message = _get_request_message(SearchRegisteredModels())
+    _prepare_model_registry_search(request_message)
     while (
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
@@ -7997,6 +8135,8 @@ class GraphQLAuthorizationMiddleware:
             True if authorized, False otherwise
         """
         input_obj = args.get("input")
+        if field_name == "mlflowSearchModelVersions" and input_obj is None:
+            input_obj = args["input"] = SimpleNamespace()
         if input_obj is None:
             # No input means no specific resource to check
             return True
@@ -8038,8 +8178,13 @@ class GraphQLAuthorizationMiddleware:
             # learns the run a returned version belongs to from the query matching at all, not from
             # a field. So this refuses the request exactly as REST's
             # ``validate_can_search_model_versions`` does.
-            if _model_version_filter_selects_run(getattr(input_obj, "filter", None) or ""):
-                return _run_tier_not_denied_in_workspace(username)
+            filter_string = getattr(input_obj, "filter", None) or ""
+            if _model_version_filter_selects_run(filter_string):
+                if not _run_tier_not_denied_in_workspace(username):
+                    return False
+            message = SearchModelVersions(filter=filter_string)
+            scope_model_registry_search(message)
+            input_obj.filter = message.filter
 
         return True
 
