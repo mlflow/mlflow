@@ -913,9 +913,7 @@ anthropic:
       uv pip install --system git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.70.0"
-    # Anthropic 1.9 adds a diagnostics field not yet handled by the tracing tests.
-    # https://github.com/mlflow/mlflow/issues/26459
-    maximum: "1.1.0"
+    maximum: "1.9.0"
     requirements:
     run: pytest tests/anthropic
     # Our CI runs tests for every minor version of the library by default, which results in

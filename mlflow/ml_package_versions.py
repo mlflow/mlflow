@@ -113,7 +113,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.70.0",
-            "maximum": "1.1.0"
+            "maximum": "1.9.0"
         }
     },
     "typesafe": {
