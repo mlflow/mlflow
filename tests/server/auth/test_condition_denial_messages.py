@@ -33,7 +33,8 @@ from mlflow.server.auth.conditions import (
     ConditionScope,
     RunRequestValues,
 )
-from mlflow.store.condition_pushdown import DECLINED
+
+from tests.server.auth.condition_store_fakes import answering_store
 
 TAG_KEY = "lifecycle"
 
@@ -55,7 +56,7 @@ def gate(monkeypatch):
     detail directly, because the body a caller actually receives is the contract.
     """
 
-    def run(contexts, rows, *, store_answer=DECLINED, values=None):
+    def run(contexts, rows, *, store_answer=None, values=None, failing_child=None):
         class Store:
             def get_user(self, username):
                 return SimpleNamespace(id=1, username=username, is_admin=False)
@@ -67,19 +68,21 @@ def gate(monkeypatch):
                 return list(rows)
 
         monkeypatch.setattr(auth_module, "store", Store())
-        fake = SimpleNamespace(find_failing_resource=lambda *a, **k: store_answer)
+        supplied = values or {}
+        # The store decides the verdict. ``store_answer`` forces a specific failing id;
+        # otherwise the fake answers from ``values`` using the real evaluator, which is
+        # what the deleted Python fallback did.
+        if store_answer is not None:
+            fake = SimpleNamespace(find_failing_resource=lambda *a, **k: store_answer)
+        else:
+            fake = answering_store(supplied, failing_child=failing_child)
         monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
         monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake, raising=False)
 
-        supplied = values or {}
+        # ``attrs_for`` survives for ATTRIBUTION only -- naming the clause a failing
+        # resource broke. It no longer decides anything.
         monkeypatch.setattr(
             auth_resources, "attrs_for", lambda t, i: supplied.get((t, i)), raising=False
-        )
-        monkeypatch.setattr(
-            auth_resources,
-            "attrs_for_bulk",
-            lambda t, ids: {i: supplied.get((t, i)) for i in ids},
-            raising=False,
         )
         auth_resources.clear_cache()
         allowed = auth_module.authorize_on_conditions("alice", "w", list(contexts))
@@ -211,7 +214,6 @@ class TestACascadeNamesTheChildThatBlockedIt:
                     request=RunRequestValues(),
                     resource_ids=(),
                     parent_resource_id="exp-1",
-                    resource_id_resolver=lambda: ["child-3"],
                 )
             ],
             [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
@@ -270,10 +272,9 @@ class TestAVersionDenialIsAttributableToo:
                     scope=ConditionScope.MUTATE,
                     request=RunRequestValues(),
                     resource_ids=(),
+                    # No ids and a parent IS the cascade shape: the children are never
+                    # enumerated, so the store's answer is the only answer.
                     parent_resource_id="m-prod",
-                    # A resolver must be present for the cascade branch to be taken at all;
-                    # it is never called when the store answers, which is the point.
-                    resource_id_resolver=lambda: ["m-prod/1", "m-prod/2"],
                 )
             ],
             self.ROW,
@@ -304,7 +305,6 @@ class TestAVersionDenialIsAttributableToo:
                     request=RunRequestValues(),
                     resource_ids=(),
                     parent_resource_id="demo/gateway",
-                    resource_id_resolver=lambda: ["demo%2Fgateway/1.0.0"],
                 )
             ],
             [

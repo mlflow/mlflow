@@ -5,7 +5,7 @@ Two jobs, and the second is why this module exists:
 1. ``fetch_*`` -- load an entity, returning ``None`` rather than raising when it does
    not exist, so a missing resource denies instead of 404ing (the response must not be
    an oracle for which ids exist).
-2. ``attrs_for`` / ``attrs_for_bulk`` -- project an entity's condition-relevant state
+2. ``attrs_for`` -- project an entity's condition-relevant state
    into a :class:`~mlflow.server.auth.conditions.ResourceValues`.
 
 Both are memoized per request. The memo is what makes condition enforcement close to
@@ -29,7 +29,7 @@ a free memo hit from their base check.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from typing import Any
 from urllib.parse import quote, unquote
@@ -391,169 +391,6 @@ def fetch_mcp_server_version(name: str, version: str):
     return _memoized("mcp_server_version", version_resource_id(name, version), load)
 
 
-# A cap on enumerating a cascade's children, which is unbounded in principle: an experiment
-# can hold any number of runs. Exceeding it is reported as "cannot enumerate" rather than as
-# "no children" -- the gate then refuses, because a condition that cannot be evaluated must
-# never pass vacuously.
-#
-# This is now a FALLBACK-ONLY safeguard, and the distinction is user-visible. A store that can
-# push the predicate down answers "does this parent hold a failing child?" in one query and
-# never enumerates, so the cap is unreachable there; it binds only when a store declines, which
-# is every non-SQL backend. The single caller of these enumerators is the cascade branch of
-# `_authorize_on_conditions`, and it reaches them only after pushdown has returned ``None``.
-#
-# The consequence worth stating plainly: whether a very large experiment can be deleted while a
-# condition exists on its children now depends on the backend. On SQL -- what the MLflow server
-# actually runs -- it can. On a store that cannot filter, a parent with more than this many
-# children cannot be deleted at all while any condition exists on those types, including one
-# scoped to a different parent. That is a refusal a caller cannot act on, so it is a property to
-# document rather than discover.
-MAX_CASCADE_CHILDREN = 2000
-
-
-def _collect_ids(fetch_page, id_of, resource_type: "str | None" = None) -> "tuple[str, ...] | None":
-    """Page through a search, returning ids -- or ``None`` when there are too many.
-
-    ``None`` and ``()`` mean different things to the caller and must not be conflated: ``()``
-    is "this parent genuinely has no children", which lets the cascade proceed, while ``None``
-    is "the children could not be enumerated", which must deny.
-
-    When ``resource_type`` is given, each entity the search already returned is put in the
-    per-request entity memo. This is the difference between a cascade costing one search per
-    page and costing that PLUS one fetch per child: the pages already carry the tags a target
-    condition reads, and only ``trace`` has a bulk attribute path to soften a refetch, so a
-    2000-run experiment would otherwise pay 2000 separate ``get_run`` round trips to authorize
-    one delete.
-
-    The memo did not become redundant when pushdown landed -- it became *more* valuable in the
-    only place it still runs. A store that can filter never enumerates, so neither this function
-    nor the memo is reached; what remains is exactly the backend that has to do the work the
-    expensive way, which is where saving ~2000 round trips matters most.
-
-    ``setdefault`` rather than assignment: an entity already memoized this request was fetched
-    by a path that may know more about it than a search projection does, so the existing entry
-    wins.
-    """
-    ids: list[str] = []
-    token = None
-    while True:
-        page = fetch_page(token)
-        for entity in page:
-            resource_id = id_of(entity)
-            ids.append(resource_id)
-            if resource_type is not None:
-                _entities().setdefault(_cache_key(resource_type, resource_id), entity)
-        if len(ids) > MAX_CASCADE_CHILDREN:
-            return None
-        token = getattr(page, "token", None)
-        if not token:
-            return tuple(ids)
-
-
-def runs_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
-    from mlflow.entities import ViewType
-
-    store = _tracking_store()
-    return _collect_ids(
-        lambda token: store.search_runs(
-            [experiment_id],
-            None,
-            # ALL, not ACTIVE_ONLY: delete transitions the active children and restore
-            # transitions the deleted ones, and this one helper serves both. Judging the
-            # wider set can only deny more, never less.
-            ViewType.ALL,
-            max_results=500,
-            page_token=token,
-        ),
-        lambda run: run.info.run_id,
-        # Memoize the entities the search already returned. Verified against a real store:
-        # ``search_runs`` and ``get_run`` project identical tags, so reusing the search result
-        # cannot make a condition read different state than a fetch would have.
-        #
-        # Only ``run`` is enabled so far, because it is both the dominant cost (runs have no
-        # bulk attribute path, unlike traces) and the one whose search/fetch parity has been
-        # checked. Each remaining enumerator needs the same check before being switched on --
-        # a search that returned a partial projection would silently narrow what a condition
-        # sees.
-        "run",
-    )
-
-
-def traces_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
-    store = _tracking_store()
-    return _collect_ids(
-        lambda token: store.search_traces(
-            experiment_ids=[experiment_id], max_results=500, page_token=token
-        ),
-        lambda trace: trace.request_id,
-    )
-
-
-def logged_models_of_experiment(experiment_id: str) -> "tuple[str, ...] | None":
-    store = _tracking_store()
-    return _collect_ids(
-        lambda token: store.search_logged_models(
-            experiment_ids=[experiment_id], max_results=500, page_token=token
-        ),
-        lambda model: model.model_id,
-    )
-
-
-def versions_of_registered_model(name: str) -> "tuple[str, ...] | None":
-    """Every version of a registered model, or ``None`` when they cannot be established.
-
-    The name has to travel inside a search filter string, and a name containing a quote is the
-    dangerous case: a filter that parses but matches nothing returns no rows, which the gate
-    would read as "this model has no versions" and let the cascade through -- a silent
-    fail-OPEN driven by the resource's own name. So a name that cannot be quoted unambiguously
-    is reported as unenumerable instead, and the cascade is refused.
-
-    The quoting mirrors MLflow's own convention (see `mlflow.genai.datasets`): prefer double
-    quotes, fall back to single. The case that convention handles by doubling the quote is
-    NOT used here, because the search parser does not unescape it -- the filter would then
-    match nothing, which is exactly the fail-open above.
-
-    Results are additionally checked against the requested name, so an over-broad filter
-    cannot quietly widen the set either.
-    """
-    if '"' not in name:
-        filter_string = f'name = "{name}"'
-    elif "'" not in name:
-        filter_string = f"name = '{name}'"
-    else:
-        return None
-
-    store = _registry_store()
-
-    def page(token):
-        found = store.search_model_versions(filter_string, max_results=500, page_token=token)
-        kept = [version for version in found if version.name == name]
-        return _same_paging(found, kept)
-
-    return _collect_ids(
-        page,
-        # The composed id, so the projection can fetch the version back.
-        lambda version: version_resource_id(version.name, str(version.version)),
-    )
-
-
-def _same_paging(original, items):
-    """`items` carrying `original`'s continuation token, so filtering a page keeps paging."""
-
-    class _Filtered(list):
-        token = getattr(original, "token", None)
-
-    return _Filtered(items)
-
-
-def versions_of_mcp_server(name: str) -> "tuple[str, ...] | None":
-    store = _tracking_store()
-    return _collect_ids(
-        lambda token: store.search_mcp_server_versions(name, max_results=500, page_token=token),
-        lambda version: version_resource_id(name, str(version.version)),
-    )
-
-
 def fetch_registered_model(name: str):
     """Fetch a registry entry, whichever family it turns out to be.
 
@@ -744,63 +581,3 @@ def attrs_for(resource_type: str, resource_id: str) -> ResourceValues | None:
     values = values_for_entity(resource_type, resource_id, entity)
     cache[key] = values
     return values
-
-
-def attrs_for_bulk(
-    resource_type: str, resource_ids: Iterable[str]
-) -> dict[str, ResourceValues | None]:
-    """Attributes for many ids, filling misses with one bulk call where possible.
-
-    Traces have ``batch_get_trace_infos`` on the abstract store -- it batches
-    internally, skips spans, and returns tags -- so N ids cost one call with no new
-    store method and no cap needed. Everything else falls back to per-id fetches,
-    which are already memoized.
-    """
-    ids = list(dict.fromkeys(resource_ids))
-    resolved: dict[str, ResourceValues | None] = {}
-    missing: list[str] = []
-
-    attrs_cache = _attrs()
-    for resource_id in ids:
-        key = _cache_key(resource_type, resource_id)
-        if key in attrs_cache:
-            resolved[resource_id] = attrs_cache[key]
-        else:
-            missing.append(resource_id)
-
-    if missing and resource_type == "trace":
-        _prefetch_traces(missing)
-
-    for resource_id in missing:
-        resolved[resource_id] = attrs_for(resource_type, resource_id)
-    return resolved
-
-
-def _prefetch_traces(trace_ids: list[str]) -> None:
-    """Populate the entity cache for many traces in one store call."""
-    store = _tracking_store()
-    batch = getattr(store, "batch_get_trace_infos", None)
-    if batch is None:
-        return
-    entity_cache = _entities()
-    uncached = [t for t in trace_ids if _cache_key("trace", t) not in entity_cache]
-    if not uncached:
-        return
-    try:
-        infos = batch(uncached)
-    except MlflowException:
-        # Fall back to per-id fetches; a bulk failure must not deny the request on its
-        # own, because the per-id path reaches the same decision.
-        return
-    found = set()
-    for info in infos or []:
-        trace_id = getattr(info, "trace_id", None) or getattr(info, "request_id", None)
-        if trace_id is None:
-            continue
-        entity_cache[_cache_key("trace", trace_id)] = info
-        found.add(trace_id)
-    # A trace the batch did not return does not exist. Cache the negative so the
-    # per-id loop below does not re-query for it.
-    for trace_id in uncached:
-        if trace_id not in found:
-            entity_cache[_cache_key("trace", trace_id)] = None

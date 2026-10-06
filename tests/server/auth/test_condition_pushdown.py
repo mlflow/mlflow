@@ -31,12 +31,16 @@ from mlflow.server.auth.conditions import (
     parse_condition,
 )
 from mlflow.server.auth.resources import version_resource_id
-from mlflow.store.condition_pushdown import DECLINED
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as RegistrySqlAlchemyStore,
 )
 from mlflow.store.tracking.dbmodels.models import SqlTag
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+# Both halves of the refusal: a SQL store says "cannot express a target condition on
+# <entity>", the abstract default says "cannot answer a target condition". Matching either
+# keeps these assertions from passing on an unrelated NotImplementedError.
+_CANNOT_ANSWER = r"cannot (express|answer) a target condition"
 
 TAG_KEY = "lifecycle"
 
@@ -129,10 +133,9 @@ def test_pushdown_agrees_with_in_memory_evaluation(store_with_runs, comparator, 
     by_id = {run_id: label for label, run_id in ids.items()}
     clauses = [("tags", TAG_KEY, comparator, value)]
 
-    assert store.find_failing_resource("run", clauses, ids=list(by_id)) is not DECLINED, (
-        f"SqlAlchemyStore must push {comparator} down; DECLINED falls back to loading "
-        "every resource, which is the cost this exists to avoid"
-    )
+    # A store that cannot push this down RAISES, so returning at all is the assertion:
+    # there is no fallback that would quietly load every resource instead.
+    store.find_failing_resource("run", clauses, ids=list(by_id))
 
     assert {by_id[i] for i in _satisfying(store, "run", list(by_id), clauses)} == _in_memory(
         filter_text, ids
@@ -170,9 +173,10 @@ def test_every_clause_must_hold(store_with_runs):
 def test_neither_empty_input_can_fail(store_with_runs):
     """Nothing to judge, or nothing to judge it against, both mean nothing failed.
 
-    Neither may be confused with ``DECLINED``: "no clause can fail" and "I cannot
-    evaluate the clauses" look the same to a caller that tests truthiness, and only one
-    of them is safe to treat as a pass.
+    Neither may be confused with "I cannot evaluate the clauses", which is a raise. The
+    caller has no fallback, so anything returned means a verdict -- and ``None`` is the
+    permissive one, which is why being unable to answer must not be expressible as a
+    return value at all.
     """
     store, _, ids = store_with_runs
     assert store.find_failing_resource("run", [], ids=list(ids.values())) is None
@@ -193,7 +197,6 @@ def test_an_id_list_larger_than_the_sql_parameter_cap_still_works(store_with_run
     # returning anything, so the assertion that matters is that a verdict comes back at
     # all. An absent id fails like any other resource with no such tag, so one is found.
     assert failing is not None
-    assert failing is not DECLINED
     assert failing != ids["other"], "the dev-tagged run satisfies != 'prod' and must not fail"
 
 
@@ -267,23 +270,21 @@ class TestPushdownGoesThroughTheWorkspaceHook:
             "run", [("tags", TAG_KEY, "!=", "prod")], parent_id=experiment_id
         )
         assert failing is not None
-        assert failing is not DECLINED
 
 
-def test_an_unknown_entity_declines_rather_than_answering(store_with_runs):
-    """An unmapped entity must return ``DECLINED``, never a verdict.
+def test_an_unknown_entity_raises_rather_than_answering(store_with_runs):
+    """An unmapped entity must raise, never return a verdict.
 
     Returning an id would deny a mutation it never judged; returning ``None`` would
-    permit every one. Only ``DECLINED`` routes the caller to in-memory evaluation, and
-    it is a distinct value precisely so neither mistake is expressible.
+    permit every one. With no fallback left, the second is the dangerous direction -- so
+    being unable to answer is an exception rather than any value a caller might read as
+    a pass.
     """
     store, _, ids = store_with_runs
-    assert (
+    with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
         store.find_failing_resource(
             "not_an_entity", [("tags", TAG_KEY, "=", "prod")], ids=list(ids.values())
         )
-        is DECLINED
-    )
 
 
 def _matches_in_memory(value, comparator, operand):
@@ -388,12 +389,10 @@ class TestCascadePushdown:
 
     def test_an_unknown_entity_declines(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
-        assert (
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
             store.find_failing_resource(
                 "not_an_entity", [("tags", TAG_KEY, "=", "prod")], parent_id=experiment_id
             )
-            is DECLINED
-        )
 
     @pytest.mark.parametrize(("comparator", "value", "filter_text"), COMPARATORS)
     def test_the_answer_matches_judging_each_child_individually(
@@ -423,18 +422,16 @@ class TestCascadePushdown:
                     individually = True
                     break
             pushed = self._answer(store, experiment_id, comparator, value)
-            assert pushed is not DECLINED, f"{comparator} must push down"
             assert (pushed is not None) is individually, (runs, comparator)
 
 
 class TestTheGateConsultsPushdown:
     """The gate must prefer pushdown, not merely tolerate it.
 
-    Without these, deleting the pushdown call from the gate would fail nothing:
-    the enumeration fallback would quietly answer every case and the whole suite
-    would stay green. So the enumerator here *raises* -- reaching it is the
-    failure. The answers themselves are covered above; what is pinned here is
-    that the gate asks the store before it enumerates, and trusts the reply.
+    The store is the only evaluator now, so what is pinned here is narrower than it was
+    but no less important: the gate ASKS, and trusts the reply. Deleting the pushdown call
+    would once have been masked by the enumeration fallback answering every case; now it
+    would fail loudly, which is the point of having removed the fallback.
     """
 
     @staticmethod
@@ -470,37 +467,21 @@ class TestTheGateConsultsPushdown:
             lambda: SimpleNamespace(find_failing_resource=lambda *a, **k: pushdown_answer),
         )
 
-        def _must_not_enumerate(_experiment_id):
-            raise AssertionError(
-                "the gate enumerated children although the store answered the "
-                "predicate; pushdown exists precisely to avoid this"
-            )
-
-        monkeypatch.setattr(auth_resources, "runs_of_experiment", _must_not_enumerate)
+        # No ids and a parent IS the cascade shape; there is no resolver to supply and
+        # nothing the gate could enumerate even if it wanted to.
         context = context_for(
             "run",
             None,
             ConditionScope.MUTATE,
-            resource_id_resolver=lambda: _must_not_enumerate("e-1"),
             parent_resource_id="e-1",
         )
         return auth_module.authorize_on_conditions("alice", "w", [context])
 
-    def test_a_reported_failure_denies_without_enumerating(self, monkeypatch):
+    def test_a_reported_failure_denies(self, monkeypatch):
         assert self._gate(monkeypatch, "child-9") is False
 
-    def test_a_reported_pass_permits_without_enumerating(self, monkeypatch):
+    def test_a_reported_pass_permits(self, monkeypatch):
         assert self._gate(monkeypatch, None) is True
-
-    def test_a_decline_falls_back_to_enumeration(self, monkeypatch):
-        """And the fallback is reached, proving the decline is honoured.
-
-        ``DECLINED`` rather than ``None``: ``None`` now means "nothing failed", so if
-        the two were the same value a store that could not answer would permit every
-        cascade silently.
-        """
-        with pytest.raises(AssertionError, match="the gate enumerated children"):
-            self._gate(monkeypatch, DECLINED)
 
 
 class TestWhichClausesArePushed:
@@ -648,14 +629,12 @@ class TestTheNewlyCoveredTypes:
 
     def test_an_alias_clause_on_a_version_declines(self, mcp_store):
         """D18: a version's aliases live on its parent, so it exposes no alias table."""
-        assert (
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
             mcp_store.find_failing_resource(
                 "mcp_server_version",
                 [("aliases", "champion", "=", "1.0.0")],
                 ids=[(PROD_SERVER, "1.0.0")],
             )
-            is DECLINED
-        )
 
 
 class TestTheCascadeDeclinesWhatItCannotExpress:
@@ -674,12 +653,12 @@ class TestTheCascadeDeclinesWhatItCannotExpress:
 
     def test_an_alias_clause_declines_rather_than_being_dropped(self, store_with_runs):
         store, experiment_id, _ = store_with_runs
-        assert (
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
+            # An unexpressible clause must refuse the call, not be skipped: a skipped
+            # clause is a conjunction judged on a subset of itself.
             store.find_failing_resource(
                 "run", [("aliases", "champion", "=", "1.0.0")], parent_id=experiment_id
             )
-            is DECLINED
-        ), "an unexpressible clause must decline the call, not be skipped"
 
     def test_a_mixed_row_declines_whole_rather_than_pushing_its_tag_half(self, store_with_runs):
         """The dangerous case: the tag half alone would answer, and answer wrongly.
@@ -688,14 +667,12 @@ class TestTheCascadeDeclinesWhatItCannotExpress:
         alias clause would turn a conjunction nothing can satisfy into a pass.
         """
         store, experiment_id, _ = store_with_runs
-        assert (
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
             store.find_failing_resource(
                 "run",
                 [("tags", TAG_KEY, "!=", "nothing"), ("aliases", "champion", "=", "x")],
                 parent_id=experiment_id,
             )
-            is DECLINED
-        )
 
 
 REGISTRY_COMPARATORS = [
@@ -750,10 +727,8 @@ class TestRegistryPushdown:
     def test_every_comparator_agrees_with_in_memory(self, registry, comparator, value):
         """The parity contract, re-proved on the registry's own tables."""
         clauses = [("tags", TAG_KEY, comparator, value)]
-        assert (
-            registry.find_failing_resource("registered_model", clauses, ids=self.ALL_MODELS)
-            is not DECLINED
-        ), "the registry store must push the predicate down"
+        # The registry store must push this down; it would RAISE if it could not.
+        registry.find_failing_resource("registered_model", clauses, ids=self.ALL_MODELS)
         pushed = _satisfying(registry, "registered_model", self.ALL_MODELS, clauses)
 
         tags = {"m-prod": {TAG_KEY: "prod"}, "m-dev": {TAG_KEY: "dev"}, "m-bare": {}}
@@ -817,21 +792,17 @@ class TestRegistryPushdown:
 
     def test_an_alias_clause_on_a_version_declines(self, registry):
         """D18: a version's aliases belong to its parent, so it exposes no alias table."""
-        assert (
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
             registry.find_failing_resource(
                 "registered_model_version",
                 [("aliases", "champion", "=", "1")],
                 ids=[("m-prod", "1")],
             )
-            is DECLINED
-        )
 
     def test_an_unmapped_entity_declines(self, registry):
         """A tracking type must not be answered from registry tables."""
-        assert (
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
             registry.find_failing_resource("run", [("tags", TAG_KEY, "=", "x")], ids=["r1"])
-            is DECLINED
-        )
 
 
 class TestTheIntegerCastIsStructural:
@@ -890,14 +861,10 @@ class TestTheIntegerCastIsStructural:
 class TestTheGateConsultsPushdownForExplicitIds:
     """The batch path: the request names its ids, so the store filters them.
 
-    Same reasoning as the cascade tests -- the loader here *raises*, because
-    deleting the pushdown call would otherwise fail nothing: ``attrs_for_bulk``
-    would quietly answer every case and the suite would stay green.
-
-    ``attrs_for_bulk`` is not replaced. It remains the path for any store that
-    declines, which is every non-SQL backend, and for traces it is barely worse
-    than pushdown anyway (``batch_get_trace_infos`` is already one call for N
-    ids, so pushdown only avoids moving the tag payload).
+    Same reasoning as the cascade tests: the gate must ASK the store and trust the reply.
+    There is no longer a bulk loader to fall back to -- deleting the pushdown call would
+    now fail loudly rather than being masked by it -- so "without loading" is structural
+    rather than something these tests have to police.
     """
 
     CONDITION = f"tags.{TAG_KEY} != 'prod'"
@@ -940,13 +907,6 @@ class TestTheGateConsultsPushdownForExplicitIds:
         monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
         monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake, raising=False)
 
-        def _must_not_load(_type, _ids):
-            raise AssertionError(
-                "the gate loaded resources although the store filtered the ids; "
-                "pushdown exists precisely to avoid this"
-            )
-
-        monkeypatch.setattr(auth_resources, "attrs_for_bulk", _must_not_load)
         context = ConditionContext(
             resource_type=resource_type,
             scope=ConditionScope.MUTATE,
@@ -969,54 +929,6 @@ class TestTheGateConsultsPushdownForExplicitIds:
         """Indistinguishable by design: a 404 would reveal which ids exist."""
         allowed, _ = self._gate(monkeypatch, fails="r-1")
         assert allowed is False
-
-    def test_a_decline_falls_back_to_loading(self, monkeypatch):
-        """A declining store must still be answered, not refused."""
-        from mlflow.server import auth as auth_module
-        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
-
-        class Store:
-            def get_user(self, username):
-                return SimpleNamespace(id=1, username=username, is_admin=False)
-
-            def is_workspace_admin(self, user_id, workspace):
-                return False
-
-            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
-                return [
-                    SimpleNamespace(
-                        resource_type="run",
-                        value_condition=None,
-                        target_condition=self.__class__
-                        and TestTheGateConsultsPushdownForExplicitIds.CONDITION,
-                        resource_pattern="*",
-                    )
-                ]
-
-        monkeypatch.setattr(auth_module, "store", Store())
-        monkeypatch.setattr(
-            auth_module,
-            "_get_tracking_store",
-            lambda: SimpleNamespace(
-                find_failing_resource=lambda *a, **k: DECLINED,
-            ),
-        )
-        loaded = {}
-
-        def _bulk(resource_type, ids):
-            loaded["ids"] = list(ids)
-            return {i: SimpleNamespace(tags={TAG_KEY: "dev"}, aliases={}) for i in ids}
-
-        monkeypatch.setattr(auth_resources, "attrs_for_bulk", _bulk)
-        context = ConditionContext(
-            resource_type="run",
-            scope=ConditionScope.MUTATE,
-            request=None,
-            resource_ids=("r-1",),
-            parent_resource_id="e-1",
-        )
-        assert auth_module.authorize_on_conditions("alice", "w", [context]) is True
-        assert loaded["ids"] == ["r-1"], "a declining store must fall back to loading"
 
     def test_a_composite_id_is_pushed_as_parts(self, monkeypatch):
         """The store must never receive the auth layer's joined ``name/version``.
@@ -1106,11 +1018,6 @@ class TestTheRightStoreAnswers:
         monkeypatch.setattr(
             auth_module, "_get_model_registry_store", lambda: _store("registry"), raising=False
         )
-        monkeypatch.setattr(
-            auth_resources,
-            "attrs_for_bulk",
-            lambda *a: (_ for _ in ()).throw(AssertionError("fell back to loading")),
-        )
         context = ConditionContext(
             resource_type=resource_type,
             scope=ConditionScope.MUTATE,
@@ -1138,21 +1045,22 @@ class TestTheRightStoreAnswers:
         ]
 
 
-class TestAnUnpushableRowFallsBackWholesale:
-    """One row the converter declines must take the WHOLE context in memory.
+class TestAnUnpushableRowRefusesWholesale:
+    """One row the converter cannot push must refuse the WHOLE context.
 
-    Found by mutation: turning the row loop's ``return None`` into ``continue``
-    changed nothing, because every authored condition converts -- the parser
-    rejects an unknown identifier at authoring time, so the decline is
-    unreachable from a stored condition. The converter is therefore stubbed to
-    decline one row, which is the only way to exercise the loop's own contract.
+    Found by mutation: turning the row loop's early exit into ``continue`` changed
+    nothing, because every authored condition converts -- the parser rejects an unknown
+    identifier at authoring time, so this is unreachable from a stored condition. The
+    converter is therefore stubbed to refuse one row, which is the only way to exercise
+    the loop's own contract.
 
-    Pushing the rows it understood and loading for the rest would in fact be
-    correct, but the rows are a conjunction and a partially-pushed conjunction is
-    one refactor away from being evaluated as the whole thing.
+    It used to fall back and evaluate every row in memory. With no fallback left it must
+    raise instead -- and critically, no row may be pushed first: the rows are a
+    conjunction, and pushing the half the store understood would judge that conjunction
+    against a subset of itself, which is the fail-open direction.
     """
 
-    def test_a_declining_row_makes_the_context_load_instead(self, monkeypatch):
+    def test_an_unpushable_row_refuses_before_pushing_any(self, monkeypatch):
         from mlflow.server import auth as auth_module
         from mlflow.server.auth.conditions import ConditionContext, ConditionScope
 
@@ -1195,17 +1103,6 @@ class TestAnUnpushableRowFallsBackWholesale:
                 find_failing_resource=lambda e, c, **k: filtered.append(c),
             ),
         )
-        loaded = []
-        monkeypatch.setattr(
-            auth_resources,
-            "attrs_for_bulk",
-            lambda rt, ids: (
-                loaded.append(list(ids))
-                or {
-                    i: SimpleNamespace(tags={TAG_KEY: "dev", "team": "ml"}, aliases={}) for i in ids
-                }
-            ),
-        )
         context = ConditionContext(
             resource_type="run",
             scope=ConditionScope.MUTATE,
@@ -1213,101 +1110,9 @@ class TestAnUnpushableRowFallsBackWholesale:
             resource_ids=("r-1",),
             parent_resource_id="e-1",
         )
-        assert auth_module.authorize_on_conditions("alice", "w", [context]) is True
-        assert loaded == [["r-1"]], "an undeclinable row must send the whole context to the loader"
+        with pytest.raises(NotImplementedError, match=r"cannot be pushed down"):
+            auth_module.authorize_on_conditions("alice", "w", [context])
         assert filtered == [], "no row may be pushed once one of them cannot be"
-
-
-class TestTheCascadeCapIsFallbackOnly:
-    """``MAX_CASCADE_CHILDREN`` no longer bounds a delete on a store that can filter.
-
-    It was a global ceiling: an experiment with more children than the cap could not
-    be deleted at all while any condition existed on those types -- including one
-    scoped to a *different* experiment -- because enumeration returned ``None`` and
-    an unevaluable condition must refuse. The UI rendered that as a bare
-    "Permission denied" with nothing the caller could do (F-UI-2a).
-
-    Pushdown removes it where it matters: the store answers "does this parent hold a
-    failing child?" in one query and never enumerates. The cap still guards the
-    fallback, so the refusal is now **backend-dependent** -- behaviour that is
-    uniform everywhere else in this gate, which is exactly why it is pinned rather
-    than left implicit.
-    """
-
-    @staticmethod
-    def _delete_a_huge_experiment(monkeypatch, *, cascade_answer):
-        from mlflow.server import auth as auth_module
-        from mlflow.server.auth.conditions import ConditionContext, ConditionScope
-
-        class Store:
-            def get_user(self, username):
-                return SimpleNamespace(id=1, username=username, is_admin=False)
-
-            def is_workspace_admin(self, user_id, workspace):
-                return False
-
-            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
-                return [
-                    SimpleNamespace(
-                        resource_type="run",
-                        value_condition=None,
-                        target_condition=f"tags.{TAG_KEY} != 'prod'",
-                        resource_pattern="*",
-                    )
-                ]
-
-        monkeypatch.setattr(auth_module, "store", Store())
-        monkeypatch.setattr(
-            auth_module,
-            "_get_tracking_store",
-            lambda: SimpleNamespace(
-                find_failing_resource=(
-                    lambda e, c, *, ids=None, parent_id=None: (
-                        cascade_answer if parent_id is not None else DECLINED
-                    )
-                ),
-            ),
-        )
-        # The enumerator overflows its bound, which is what `None` means here.
-        context = ConditionContext(
-            resource_type="run",
-            scope=ConditionScope.MUTATE,
-            request=None,
-            resource_ids=(),
-            resource_id_resolver=lambda: None,
-            parent_resource_id="exp-huge",
-        )
-        return auth_module.authorize_on_conditions("alice", "w", [context])
-
-    def test_a_filtering_store_permits_a_delete_the_cap_would_have_refused(self, monkeypatch):
-        """The fix: enumeration overflowing is irrelevant once the store answered."""
-        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=None) is True
-
-    def test_a_filtering_store_still_denies_a_genuinely_failing_child(self, monkeypatch):
-        """Permissiveness must come from the cap going away, not from the gate relaxing."""
-        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer="child-3") is False
-
-    def test_a_declining_store_still_refuses_an_overflowing_enumeration(self, monkeypatch):
-        """The cap still protects the fallback, so the refusal is backend-dependent.
-
-        An unevaluable condition must never pass vacuously, so this half must not be
-        "fixed" by loosening it.
-        """
-        assert self._delete_a_huge_experiment(monkeypatch, cascade_answer=DECLINED) is False
-
-    def test_the_cap_is_documented_as_fallback_only(self):
-        """A behaviour that varies by backend has to say so where it is defined.
-
-        Asserting on a comment is unusual, but this is the one property of the gate
-        that is not uniform across backends, and the reason it is acceptable lives in
-        prose rather than in code.
-        """
-        import inspect
-
-        source = inspect.getsource(auth_resources)
-        assert "FALLBACK-ONLY" in source, (
-            "the cascade cap's backend-dependence must stay documented at its definition"
-        )
 
 
 class TestResourceScopeMatchingAndPushdown:
@@ -1357,37 +1162,45 @@ class TestResourceScopeMatchingAndPushdown:
         )
         monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
         context = context_for("run", None, ConditionScope.MUTATE, None, parent_resource_id="e-1")
-        return auth_module._target_pushdown(context, rows, parent_id="e-1"), asked
 
-    def test_an_id_scoped_row_declines_the_cascade_pushdown(self, monkeypatch):
+        def ask():
+            return auth_module._target_pushdown(context, rows, parent_id="e-1")
+
+        # `asked` is returned separately from the call so a test can still inspect it when
+        # the call raises -- an unpushable row must not reach the store at all.
+        return ask, asked
+
+    def test_an_id_scoped_row_refuses_the_cascade_pushdown(self, monkeypatch):
         """The cascade sends ONE clause set covering ALL of a parent\'s children, which a row
         naming a single resource breaks: its clauses apply to one child and must not be
-        charged against its siblings. Declining is correct and costs only speed -- the
-        fallback judges each child against the rows that govern it.
+        charged against its siblings. There is no fallback to judge each child against the
+        rows that govern it, so this must RAISE rather than quietly skip the row.
 
         Unreachable in practice: every cascade-reachable type (run, trace, logged model, and
         the three version types) is wildcard-only, so ``normalize_condition_scope`` refuses an
         id pattern for all six and such a row cannot be stored. Kept because a future tier
         with id-grain patterns would otherwise fail silently, in the fail-open direction.
         """
-        verdict, asked = self._cascade_pushdown(monkeypatch, [self._row("abc")])
-        assert verdict is DECLINED
+        ask, asked = self._cascade_pushdown(monkeypatch, [self._row("abc")])
+        with pytest.raises(NotImplementedError, match=r"scoped"):
+            ask()
         assert asked == [], "a scoped row must not be pushed at all, not pushed and ignored"
 
     def test_an_unscoped_cascade_row_is_still_pushed(self, monkeypatch):
-        """The positive control: declining must be keyed on the pattern, not on having rows.
+        """The positive control: the refusal must be keyed on the pattern, not on having rows.
 
-        Without this, returning ``DECLINED`` unconditionally would pass the test above and
-        silently cost every cascade its pushdown.
+        Without this, raising unconditionally would pass the test above while breaking
+        every cascade.
         """
-        verdict, asked = self._cascade_pushdown(monkeypatch, [self._row("*")])
-        assert verdict is None
+        ask, asked = self._cascade_pushdown(monkeypatch, [self._row("*")])
+        assert ask() is None
         assert len(asked) == 1, "an unscoped row must reach the store"
 
-    def test_one_scoped_row_among_unscoped_ones_still_declines(self, monkeypatch):
-        """Rows are conjunctive, so the context falls back as a whole."""
-        verdict, _ = self._cascade_pushdown(monkeypatch, [self._row("*"), self._row("abc")])
-        assert verdict is DECLINED
+    def test_one_scoped_row_among_unscoped_ones_still_refuses(self, monkeypatch):
+        """Rows are conjunctive, so one unpushable row refuses the whole context."""
+        ask, _ = self._cascade_pushdown(monkeypatch, [self._row("*"), self._row("abc")])
+        with pytest.raises(NotImplementedError, match=r"scoped"):
+            ask()
 
 
 class TestPushdownColumnNamesResolve:
@@ -1527,38 +1340,6 @@ class TestPushdownColumnNamesResolve:
         assert not problems, "\n".join(problems)
 
 
-class TestDeclinedIsNotAVerdict:
-    """``DECLINED`` must never be mistaken for "nothing failed".
-
-    The hazard is one-directional. ``None`` means every resource satisfied every
-    clause, and it is falsy; if a decline were also falsy, ``if failing:`` -- the
-    obvious way to write the check -- would read "I cannot evaluate this predicate" as
-    "this predicate passed" and let every mutation through unjudged. So the sentinel
-    refuses to answer the question at all.
-    """
-
-    def test_truthiness_raises_rather_than_guessing(self):
-        with pytest.raises(TypeError, match="not a verdict"):
-            bool(DECLINED)
-
-    def test_it_is_identity_comparable_and_distinct_from_none(self):
-        assert DECLINED is DECLINED
-        assert DECLINED is not None
-
-    def test_the_abstract_default_declines(self):
-        """A store that implements nothing must decline, not report a pass."""
-        from mlflow.store.model_registry.abstract_store import (
-            AbstractStore as RegistryAbstractStore,
-        )
-        from mlflow.store.tracking.abstract_store import AbstractStore as TrackingAbstractStore
-
-        for cls in (TrackingAbstractStore, RegistryAbstractStore):
-            answer = cls.find_failing_resource(
-                object(), "run", [("tags", TAG_KEY, "=", "x")], ids=["r1"]
-            )
-            assert answer is DECLINED, cls.__name__
-
-
 class TestTheSelectorContract:
     """Exactly one selector, enforced loudly.
 
@@ -1646,7 +1427,6 @@ class TestVersionCascades:
         entity names resolve to the same rows and both must be mapped.
         """
         failing = registry.find_failing_resource(entity, self.SATISFY_DEV, parent_id="m-mixed")
-        assert failing is not DECLINED, "the version cascade must be pushed down, not declined"
         assert failing == ("m-mixed", "2"), "version 2 is the prod-tagged one"
 
     def test_a_wholly_satisfying_parent_permits(self, registry):
@@ -1672,7 +1452,6 @@ class TestVersionCascades:
         failing = registry.find_failing_resource(
             "registered_model_version", self.SATISFY_DEV, parent_id="m-prod"
         )
-        assert failing is not DECLINED
         assert failing == ("m-prod", "1"), (
             "permitting here means the satisfying set leaked other models' version "
             "numbers across the parent boundary"
@@ -1698,7 +1477,6 @@ class TestVersionCascades:
             pushed = registry.find_failing_resource(
                 "registered_model_version", clauses, parent_id=parent
             )
-            assert pushed is not DECLINED, "the version cascade must be pushed down"
             any_fails = any(not _matches_in_memory(tag, comparator, value) for tag in versions)
             assert (pushed is not None) is any_fails, (
                 f"{parent}: SQL and the in-memory matcher disagree on {comparator} {value!r}"
@@ -1728,7 +1506,6 @@ class TestVersionCascades:
             "registered_model_version", self.SATISFY_DEV, parent_id="m-dev"
         )
         assert failing is not None
-        assert failing is not DECLINED
 
     def test_an_mcp_server_version_cascade_is_answered(self, monkeypatch, tmp_path):
         """The third tier, on the tracking store, whose version column is a VARCHAR."""
@@ -1740,7 +1517,6 @@ class TestVersionCascades:
         failing = store.find_failing_resource(
             "mcp_server_version", self.SATISFY_DEV, parent_id="demo/gateway"
         )
-        assert failing is not DECLINED, "the MCP version cascade must be pushed down"
         assert failing == ("demo/gateway", "1.0.0")
 
 
@@ -1786,5 +1562,88 @@ def test_the_chunk_budget_leaves_room_for_the_clause_parameters(monkeypatch):
     wide = tuple(f"v{i}" for i in range(200))
     ids = [f"absent-{i}" for i in range(2_000)]
     answer = store.find_failing_resource("run", [("tags", TAG_KEY, "IN", wide)], ids=ids)
-    assert answer is not DECLINED, "a wide IN list must still push down"
     assert answer is not None, "absent ids satisfy nothing, so one must be reported"
+
+
+class TestATargetConditionIsAnsweredByTheStoreOrNotAtAll:
+    """One stage, not three.
+
+    A target condition used to have a fallback: a store that could not express the predicate
+    returned ``DECLINED``, the gate enumerated the resources and evaluated the clauses in
+    Python. That fallback is gone. Every conditionable type has an id-selector mapping and
+    all six cascade tiers have a cascade mapping, so no SQL store can decline for anything
+    authorable -- the fallback existed only for a backend the auth plugin is not meant to be
+    paired with, and keeping it meant two evaluators of one semantic where a drift between
+    them is a difference in who may write what.
+
+    So a store that cannot answer must RAISE. The auth plugin already mandates SQL for its
+    own grants (``database_uri`` is a required config field with no default), which makes a
+    filesystem tracking backend a half-configured server rather than a supported one, and a
+    loud 500 in the log beats a silently slow path. A value condition is pure and keeps
+    working on any backend -- only the target half needs a store.
+    """
+
+    def test_the_abstract_tracking_store_raises(self):
+        from mlflow.store.tracking.abstract_store import AbstractStore
+
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
+            AbstractStore.find_failing_resource(
+                SimpleNamespace(), "run", (("tags", "a", "=", "b"),), ids=["r1"]
+            )
+
+    def test_the_abstract_registry_store_raises(self):
+        from mlflow.store.model_registry.abstract_store import AbstractStore
+
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
+            AbstractStore.find_failing_resource(
+                SimpleNamespace(), "registered_model", (("tags", "a", "=", "b"),), ids=["m1"]
+            )
+
+    def test_the_raise_names_the_store_that_could_not_answer(self):
+        """The message is for whoever reads the log, so it has to say which backend and that
+        the unsupported half is TARGET conditions -- not that a database is missing, since the
+        auth plugin always has one.
+        """
+        from mlflow.store.tracking.abstract_store import AbstractStore
+
+        with pytest.raises(NotImplementedError, match=r"target condition"):
+            AbstractStore.find_failing_resource(
+                SimpleNamespace(), "run", (("tags", "a", "=", "b"),), ids=["r1"]
+            )
+
+    @pytest.mark.parametrize("selector", ["ids", "parent"])
+    def test_an_unmapped_entity_raises_rather_than_declining(self, monkeypatch, selector):
+        """A forgotten mapping on a future eleventh conditionable type must be loud. With no
+        fallback left, declining would mean permitting.
+        """
+        store, experiment_id = _store_with(monkeypatch, [])
+        kwargs = {"ids": ["x1"]} if selector == "ids" else {"parent_id": experiment_id}
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
+            store.find_failing_resource("not_a_real_entity", (("tags", "a", "=", "b"),), **kwargs)
+
+    def test_a_namespace_the_entity_lacks_raises(self, monkeypatch):
+        """``aliases.*`` on a run: the clause is well-formed but no run table answers it.
+        Authoring rejects this, so it is unreachable -- which is exactly why it must not be
+        silent if a future type reaches it.
+        """
+        store, _ = _store_with(monkeypatch, [])
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
+            store.find_failing_resource("run", (("aliases", "prod", "=", "1"),), ids=["r1"])
+
+    def test_an_alias_clause_on_a_cascade_raises(self, monkeypatch):
+        """No cascade child owns aliases (D18) -- a version's aliases live on its parent -- so
+        there is no table to answer from. Ignoring the clause would judge a conjunction against
+        a subset of itself, which is the fail-open direction.
+        """
+        store, experiment_id = _store_with(monkeypatch, [])
+        with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
+            store.find_failing_resource(
+                "run", (("aliases", "prod", "=", "1"),), parent_id=experiment_id
+            )
+
+    def test_the_sentinel_is_gone(self):
+        """Nothing may reintroduce a third verdict: the method answers or raises."""
+        import mlflow.store.condition_pushdown as cp
+
+        assert not hasattr(cp, "DECLINED")
+        assert not hasattr(cp, "Declined")

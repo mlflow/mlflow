@@ -37,7 +37,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.store.condition_pushdown import DECLINED
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
@@ -1326,13 +1325,19 @@ class AbstractStore:
         must be given.
 
         Returns:
-            The first failing resource's id, ``None`` if every resource satisfies
-            every clause (including when there is nothing to judge), or
-            :data:`~mlflow.store.condition_pushdown.DECLINED` if this store cannot
-            push the predicate down, in which case the caller loads each resource and
-            evaluates the clauses itself. ``DECLINED`` is deliberately not ``None``:
-            see the tracking contract. Only *cost* varies by backend this way, never
-            the outcome -- an implementation that answers MUST agree with that
-            in-memory evaluation on every comparator and on absence.
+            The first failing resource's id, or ``None`` if every resource satisfies
+            every clause (including when there is nothing to judge).
+
+            There is no third verdict: a store either answers or raises
+            ``NotImplementedError``. See the tracking contract for why the decline
+            path was removed. An implementation that answers MUST agree with
+            :func:`~mlflow.server.auth.conditions.evaluate_resource` on every
+            comparator and on absence.
         """
-        return DECLINED
+        raise NotImplementedError(
+            f"{type(self).__name__} cannot answer a target condition. Target conditions are "
+            "evaluated by the store, so they need a SQL tracking/registry backend "
+            "(--backend-store-uri pointing at a database). Value conditions are unaffected "
+            "and work on any backend. Note this is NOT a missing-database problem for the "
+            "auth plugin itself, whose `database_uri` is always configured."
+        )

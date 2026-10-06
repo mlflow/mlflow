@@ -31,7 +31,8 @@ from mlflow.server.auth.conditions import (
     TraceRequestValues,
     TraceResourceValues,
 )
-from mlflow.store.condition_pushdown import DECLINED
+
+from tests.server.auth.condition_store_fakes import answering_store, permissive_store
 
 _WORKSPACE = "team-a"
 
@@ -50,15 +51,12 @@ def _pushdown_declines(monkeypatch):
     Autouse but not binding: a test that wants the pushdown consulted can
     monkeypatch the store again, and its own patch wins.
     """
-    from types import SimpleNamespace
 
     from mlflow.server import auth as auth_module
 
-    declining = SimpleNamespace(
-        find_failing_resource=lambda *a, **k: DECLINED,
-    )
-    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
-    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)
+    permissive = permissive_store()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: permissive)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: permissive, raising=False)
 
 
 class CountingStore:
@@ -91,16 +89,10 @@ class CountingResources:
     def __init__(self, values=None):
         self.values = values or {}
         self.single_reads = []
-        self.bulk_reads = []
 
     def attrs_for(self, resource_type, resource_id):
         self.single_reads.append((resource_type, resource_id))
         return self.values.get((resource_type, resource_id))
-
-    def attrs_for_bulk(self, resource_type, resource_ids):
-        ids = list(resource_ids)
-        self.bulk_reads.append((resource_type, ids))
-        return {i: self.values.get((resource_type, i)) for i in ids}
 
 
 @pytest.fixture
@@ -122,11 +114,24 @@ def gate(monkeypatch):
     ):
         store = CountingStore(rows, is_admin, is_ws_admin)
         resources = CountingResources(values)
+        # The store decides every target verdict, so `values` feeds IT and the call log is
+        # where the cost of judging resources now shows up. `attrs_for` survives for
+        # attribution only -- a read on the denial path, never on the happy path.
+        asked = []
         monkeypatch.setattr(auth_module, "store", store)
+        # A test that installed its own pushdown store (the `pushdown` fixture) keeps it:
+        # it is asserting on that store's own counters, and silently replacing it here
+        # would make those assertions vacuous rather than failing.
+        if not getattr(auth_module._get_tracking_store, "_test_pushdown", False):
+            answering = answering_store(values or {}, calls=asked)
+            monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: answering)
+            monkeypatch.setattr(
+                auth_module, "_get_model_registry_store", lambda: answering, raising=False
+            )
         monkeypatch.setattr(auth_resources, "attrs_for", resources.attrs_for)
-        monkeypatch.setattr(auth_resources, "attrs_for_bulk", resources.attrs_for_bulk)
         state["store"] = store
         state["resources"] = resources
+        state["asked"] = asked
         return auth_module.authorize_on_conditions("alice", workspace, contexts)
 
     return run, state
@@ -176,7 +181,6 @@ def test_nothing_configured_is_one_query_and_no_reads(gate):
     assert run([_mutate("run", "r1", RunRequestValues())]) is True
     assert len(state["store"].condition_loads) == 1
     assert state["resources"].single_reads == []
-    assert state["resources"].bulk_reads == []
 
 
 def test_only_the_types_in_play_are_loaded(gate):
@@ -255,7 +259,11 @@ def test_a_target_condition_reads_the_resource_once(gate):
         values={("run", "r1"): RunResourceValues("r1", tags={"stage": "prod", "team": "ml"})},
     )
     assert allowed is True
-    assert state["resources"].bulk_reads == [("run", ["r1"])]
+    assert state["asked"] == [("ids", "run", ("r1",))] * 2, (
+        "one store call per ROW -- not one per clause -- and the resource itself is never "
+        f"read on the happy path: {state['asked']}"
+    )
+    assert state["resources"].single_reads == []
 
 
 @pytest.mark.parametrize(
@@ -283,7 +291,12 @@ def test_types_not_already_loaded_read_exactly_once(
         rows=[MutationConditionSpec(resource_type, target_condition="tags.stage = 'prod'")],
         values={(resource_type, resource_id): resource_values},
     )
-    assert state["resources"].bulk_reads == [(resource_type, [resource_id])]
+    # The store is asked in ITS key shape: a version goes down decomposed as
+    # ``(name, version)``, never as the auth layer's opaque ``name/version``.
+    expected_key = auth_module._condition_pushdown_key(resource_type, resource_id)
+    assert state["asked"] == [("ids", resource_type, (expected_key,))], (
+        f"one store call for one resource, never more: {state['asked']}"
+    )
 
 
 def test_an_absent_resource_denies_without_a_second_look(gate):
@@ -297,7 +310,9 @@ def test_an_absent_resource_denies_without_a_second_look(gate):
         values={},
     )
     assert allowed is False
-    assert state["resources"].bulk_reads == [("run", ["r1"])]
+    assert state["asked"] == [("ids", "run", ("r1",))], (
+        f"one question asked, not a retry: {state['asked']}"
+    )
 
 
 # ---- The unenumerable case, whose cost changed when D21 closed the hole ------
@@ -325,7 +340,6 @@ def test_an_unenumerable_target_denies_without_reading(gate):
     )
     assert allowed is False
     assert state["resources"].single_reads == []
-    assert state["resources"].bulk_reads == []
 
 
 def test_an_unenumerable_target_costs_nothing_without_a_target_condition(gate):
@@ -407,8 +421,9 @@ def test_many_ids_cost_one_bulk_call(gate):
         },
     )
     assert allowed is True
-    assert len(state["resources"].bulk_reads) == 1
-    assert state["resources"].bulk_reads[0] == ("trace", list(trace_ids))
+    assert state["asked"] == [("ids", "trace", tuple(trace_ids))], (
+        f"N traces cost ONE store call naming all N, never one call each: {state['asked']}"
+    )
     assert state["resources"].single_reads == []
 
 
@@ -506,7 +521,6 @@ def test_a_workspace_admin_bypasses_a_failing_condition(gate):
     )
     assert allowed is True, "a workspace admin was restricted by a condition"
     resources = state["resources"]
-    assert resources.bulk_reads == [], "an admin bypass must precede every resource read"
     assert resources.single_reads == [], "an admin bypass must precede every resource read"
 
 
@@ -545,10 +559,8 @@ class CountingPushdown:
 
     ``named_fails`` and ``child_fails`` are what ``find_failing_resource`` returns for
     each selector, stated in that method's own vocabulary: ``None`` for "every resource
-    satisfies every clause", a resource id for "this one failed", and ``DECLINED`` for
-    "I cannot answer, load them yourself". The three are not interchangeable --
-    ``DECLINED`` read as ``None`` would pass every mutation unjudged -- which is why the
-    default is the harmless one.
+    satisfies every clause" and a resource id for "this one failed". There is no third
+    answer -- a store that cannot answer raises, because the caller has no fallback.
     """
 
     def __init__(self, *, named_fails=None, child_fails=None):
@@ -572,30 +584,32 @@ def pushdown(monkeypatch):
     """Install a counting pushdown store, overriding the module's declining one."""
 
     def install(store):
-        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
-        monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: store, raising=False)
+        def get():
+            return store
+
+        # Marked so the `gate` fixture leaves it alone -- the test is asserting on this
+        # store's counters.
+        get._test_pushdown = True
+        monkeypatch.setattr(auth_module, "_get_tracking_store", get)
+        monkeypatch.setattr(auth_module, "_get_model_registry_store", get, raising=False)
         return store
 
     return install
 
 
-def _cascade(resource_type, parent_id, enumerated):
-    """A cascade context: no ids, a resolver, and a parent to scope conditions by.
+def _cascade(resource_type, parent_id, enumerated=None):
+    """A cascade context: no ids, just a parent.
 
-    `enumerated` collects a marker if the resolver runs, which is the cost the
-    pushdown exists to avoid.
+    `enumerated` is accepted and ignored. There is no resolver to run any more -- the
+    children are never listed, which is the cost the pushdown exists to avoid -- so a
+    caller that still passes a collector gets an empty one, and an assertion that nothing
+    was enumerated holds by construction.
     """
-
-    def _resolve():
-        enumerated.append(parent_id)
-        return ("child-1", "child-2")
-
     return ConditionContext(
         resource_type=resource_type,
         scope=ConditionScope.MUTATE,
         request=RunRequestValues(),
         resource_ids=(),
-        resource_id_resolver=_resolve,
         parent_resource_id=parent_id,
     )
 
@@ -616,7 +630,6 @@ def test_a_cascade_costs_one_pushdown_call_and_no_enumeration(gate, pushdown):
     assert allowed is True
     assert len(store.cascade_calls) == 1
     assert enumerated == [], "the children must never be enumerated when the store answered"
-    assert state["resources"].bulk_reads == []
     assert state["resources"].single_reads == []
 
 
@@ -638,7 +651,6 @@ def test_a_denying_cascade_reads_only_the_child_it_names(gate, pushdown):
     assert allowed is False
     assert len(store.cascade_calls) == 1
     assert enumerated == [], "the children must never be enumerated when the store answered"
-    assert state["resources"].bulk_reads == []
     assert state["resources"].single_reads == [("run", "child-7")], (
         "exactly the child the store named, and only that one"
     )
@@ -661,31 +673,6 @@ def test_cost_scales_with_conditions_not_with_children(gate, pushdown):
     assert enumerated == []
 
 
-def test_a_declining_store_costs_exactly_what_it_did_before(gate, pushdown):
-    """The fallback must not get more expensive for having tried.
-
-    A non-SQL backend declines every predicate, so its cost is the old cost: one
-    enumeration and one bulk read. If a future change made the gate consult the
-    store twice, or read per child again, this is what notices.
-    """
-    run, state = gate
-    store = pushdown(CountingPushdown(child_fails=DECLINED, named_fails=DECLINED))
-    enumerated = []
-    allowed = run(
-        [_cascade("run", "exp-1", enumerated)],
-        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
-        values={
-            ("run", "child-1"): RunResourceValues("child-1", tags={"lifecycle": "dev"}),
-            ("run", "child-2"): RunResourceValues("child-2", tags={"lifecycle": "dev"}),
-        },
-    )
-    assert allowed is True
-    assert len(store.cascade_calls) == 1, "asked once, then gave up -- not retried"
-    assert enumerated == ["exp-1"], "a declining store must still be answered by enumeration"
-    assert state["resources"].bulk_reads == [("run", ["child-1", "child-2"])]
-    assert state["resources"].single_reads == [], "one bulk call, never one read per child"
-
-
 def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
     """The common case: the request names its ids, so nothing is loaded."""
     run, state = gate
@@ -704,7 +691,6 @@ def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
     assert allowed is True
     assert len(store.filter_calls) == 1, "N ids must cost one query, not N"
     assert store.filter_calls[0][1] == ["r-1", "r-2", "r-3"]
-    assert state["resources"].bulk_reads == []
     assert state["resources"].single_reads == []
 
 
@@ -726,7 +712,6 @@ def test_many_ids_are_still_one_call(gate, pushdown):
     )
     assert allowed is True
     assert len(store.filter_calls) == 1
-    assert state["resources"].bulk_reads == []
 
 
 def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
@@ -781,7 +766,7 @@ def test_a_request_denial_short_circuits_before_any_predicate(gate, pushdown):
 def _recording_pushdown_store(monkeypatch, answer=None):
     """A store that records every pushdown call and reports total satisfaction.
 
-    Overrides the autouse declining store, whose own docstring invites exactly this.
+    Overrides the autouse permissive store, whose own docstring invites exactly this.
     """
     from types import SimpleNamespace
 
@@ -798,8 +783,14 @@ def _recording_pushdown_store(monkeypatch, answer=None):
     pushing = SimpleNamespace(
         find_failing_resource=find_failing_resource,
     )
-    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: pushing)
-    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: pushing, raising=False)
+
+    def get():
+        return pushing
+
+    # Marked so `gate` keeps it: this store's call log is the assertion.
+    get._test_pushdown = True
+    monkeypatch.setattr(auth_module, "_get_tracking_store", get)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", get, raising=False)
     return calls
 
 
@@ -837,9 +828,6 @@ def test_a_resource_scoped_row_is_pushed_with_only_the_ids_it_governs(gate, monk
         },
     )
     assert allowed is True
-    assert state["resources"].bulk_reads == [], (
-        f"a scoped row must still push down, not load resources: {state['resources'].bulk_reads}"
-    )
     pushed_ids = [ids for _entity, ids, _clauses in calls]
     assert pushed_ids == [["r1"], ["r1", "r2"]], (
         f"the scoped row should carry only the id it governs and the wildcard row both; "
@@ -875,4 +863,3 @@ def test_a_row_governing_none_of_the_ids_costs_no_query(gate, monkeypatch):
     )
     assert allowed is True
     assert calls == [], f"a row governing no id in play must not reach the store: {calls}"
-    assert state["resources"].bulk_reads == []

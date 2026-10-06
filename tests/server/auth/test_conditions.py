@@ -40,7 +40,6 @@ from mlflow.server.auth.conditions import (
     resource_values_shape,
     validate_condition,
 )
-from mlflow.store.condition_pushdown import DECLINED
 
 # ---- Parsing: request namespace --------------------------------------------
 
@@ -56,18 +55,20 @@ def _pushdown_declines(monkeypatch):
     path, which is still what every non-SQL backend uses, and is therefore a path
     that needs its own coverage rather than being an accident of the stubs.
 
-    Autouse but not binding: a test that wants the pushdown consulted can
+    Autouse but not binding: a test that wants a particular store answer can
     monkeypatch the store again, and its own patch wins.
-    """
-    from types import SimpleNamespace
 
+    A target condition is answered by the store or not at all, so "no resource fails" is
+    now expressed by a store that says so. This fixture used to return ``DECLINED`` and
+    let the gate evaluate in Python; that fallback is gone.
+    """
     from mlflow.server import auth as auth_module
 
-    declining = SimpleNamespace(
-        find_failing_resource=lambda *a, **k: DECLINED,
-    )
-    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
-    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)
+    from tests.server.auth.condition_store_fakes import permissive_store
+
+    permissive = permissive_store()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: permissive)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: permissive, raising=False)
 
 
 @pytest.mark.parametrize(

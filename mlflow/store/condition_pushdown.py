@@ -33,30 +33,29 @@ import sqlalchemy
 from mlflow.utils.search_utils import SearchUtils
 
 
-class Declined:
-    """The sentinel a store returns when it cannot answer a predicate.
+def cannot_express(store, entity, reason: str) -> NotImplementedError:
+    """The error a store raises when it cannot answer a predicate.
 
-    Kept distinct from ``None`` because the two outcomes are not interchangeable and
-    confusing them is one-directional: ``None`` means every resource satisfied every
-    clause, so reading "I cannot answer" as ``None`` lets every mutation through
-    unjudged. A boolean test is how that mistake gets written -- ``if failing:`` looks
-    reasonable and would treat a decline as a pass -- so this refuses to be one.
+    Returned rather than raised so the call site reads ``raise cannot_express(...)`` and
+    the traceback points at the guard instead of at this function.
+
+    There used to be a ``DECLINED`` sentinel here, and a caller that fell back to loading
+    every resource and evaluating the clauses in Python. Every conditionable type now has
+    an id-selector mapping and every cascade tier has a cascade mapping, so no SQL store
+    can decline for anything authorable -- the fallback only ever served a non-SQL
+    backend, at the price of a second evaluator of the same semantic.
+
+    Every reachable case is therefore a wiring bug: a new conditionable type whose mapping
+    was forgotten, or a clause the authoring layer should have rejected. Both must be loud.
+    Silence here is the fail-open direction, because with no fallback left, "cannot answer"
+    read as "nothing failed" would permit the mutation.
     """
-
-    __slots__ = ()
-
-    def __repr__(self):
-        return "DECLINED"
-
-    def __bool__(self):
-        raise TypeError(
-            "DECLINED is not a verdict: compare it with `is DECLINED` rather than "
-            "testing it for truth. Treated as falsy it would read as 'nothing failed', "
-            "which is the one direction this predicate must never fail in."
-        )
-
-
-DECLINED = Declined()
+    return NotImplementedError(
+        f"{type(store).__name__} cannot express a target condition on {entity!r}: {reason}. "
+        "This is a wiring bug, not a configuration problem -- every conditionable type is "
+        "expected to have a mapping, and the authoring layer is expected to have rejected "
+        "any clause that has no table to answer from."
+    )
 
 
 def as_pushdown_key(value):
@@ -177,17 +176,23 @@ def find_failing_child(store, mapping, parent_id, clauses):
             f"{tag_id_names}-{tag_parent_name!r} must have the same width"
         )
 
+    # No cascade child owns aliases (D18) -- a version's alias list names aliases stored
+    # on its parent -- so an alias clause here has no table to answer from. Raise rather
+    # than ignore it: an ignored clause is a conjunction judged on a subset of itself,
+    # which is the fail-open direction. Unreachable today, since authoring rejects an
+    # `aliases.*` clause on a type that does not own aliases.
+    #
+    # Checked BEFORE the session opens. It is a static property of the clauses, needs no
+    # database, and a raise inside ``ManagedSessionMaker`` is wrapped into an
+    # ``MlflowException`` -- which would disguise a wiring bug as a store error.
+    for namespace, _key, _comparator, _value in clauses:
+        if namespace != "tags":
+            raise cannot_express(store, "a cascade child", f"no child table owns {namespace!r}")
+
     dialect = store._get_dialect()
     with store.ManagedSessionMaker() as session:
         fails_a_clause = []
         for namespace, key, comparator, value in clauses:
-            # No cascade child owns aliases (D18) -- a version's alias list names
-            # aliases stored on its parent -- so an alias clause here has no table to
-            # answer from. Decline rather than ignore it: an ignored clause is a
-            # conjunction judged on a subset of itself, which is the fail-open
-            # direction.
-            if namespace != "tags":
-                return DECLINED
             comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
             filters = [
                 getattr(tag_model, tag_key_name) == key,

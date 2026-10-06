@@ -27,34 +27,29 @@ from mlflow.server.auth.conditions import (
     TraceRequestValues,
     TraceResourceValues,
 )
-from mlflow.store.condition_pushdown import DECLINED
+
+from tests.server.auth.condition_store_fakes import answering_store, permissive_store
 
 _WORKSPACE = "team-a"
 
 
 @pytest.fixture(autouse=True)
-def _pushdown_declines(monkeypatch):
-    """Make the stores decline pushdown, so these tests pin the fallback path.
+def _store_permits(monkeypatch):
+    """Make the stores permit every target condition by default.
 
-    The cases in this module stub the *resource layer* -- enumerators, bulk
-    loaders, counting shims -- rather than the store, so once the gate started
-    asking the store first they reached the real default store and failed on a
-    missing database. Declining here keeps them exercising the enumerate-and-judge
-    path, which is still what every non-SQL backend uses, and is therefore a path
-    that needs its own coverage rather than being an accident of the stubs.
+    A target condition is answered by the store or not at all, so "nothing fails" is now
+    expressed by a store that says so. This fixture used to return ``DECLINED`` and let
+    the gate evaluate the clauses in Python; that fallback no longer exists.
 
-    Autouse but not binding: a test that wants the pushdown consulted can
-    monkeypatch the store again, and its own patch wins.
+    Autouse but not binding: a test that wants a particular answer patches the store
+    again, and its own patch wins.
     """
-    from types import SimpleNamespace
 
     from mlflow.server import auth as auth_module
 
-    declining = SimpleNamespace(
-        find_failing_resource=lambda *a, **k: DECLINED,
-    )
-    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
-    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)
+    permissive = permissive_store()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: permissive)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: permissive, raising=False)
 
 
 class _Recorder:
@@ -590,10 +585,19 @@ def test_the_gate_evaluates_a_target_condition_with_no_flask_context(monkeypatch
     monkeypatch.setattr(
         auth_module, "store", _conditioned_store(target_condition="tags.reviewed = 'yes'")
     )
+    # The store answers; `reviewed=no` fails `tags.reviewed = 'yes'`, so it names the id.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: answering_store({
+            ("trace", i): TraceResourceValues(i, tags={"reviewed": "no"})
+            for i in ("t1", "t2", "t3")
+        }),
+    )
     monkeypatch.setattr(
         auth_resources,
-        "attrs_for_bulk",
-        lambda rt, ids: {i: TraceResourceValues(i, tags={"reviewed": "no"}) for i in ids},
+        "attrs_for",
+        lambda rt, i: TraceResourceValues(i, tags={"reviewed": "no"}),
     )
     context = ConditionContext(
         resource_type="trace",
@@ -856,7 +860,13 @@ def test_an_issue_detection_projection_survives_a_malformed_trace_id(recorder, m
 
 
 def _child_restricted(monkeypatch, child_type, target_condition, children, failing=()):
-    """A target condition on `child_type` only, with `children` as the enumerated set."""
+    """A target condition on `child_type` only.
+
+    `children` and `failing` describe what the parent holds. The children are never
+    enumerated -- the store answers "does this parent hold a child that fails?" in one
+    query -- so `failing` becomes the store's answer directly and `children` documents
+    the population it was derived from.
+    """
 
     class Store:
         def get_user(self, username):
@@ -888,35 +898,25 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
             auth_module.authorize_on_conditions(username, _WORKSPACE, conditions)
         ),
     )
-    monkeypatch.setattr(auth_resources, "runs_of_experiment", lambda _e: children)
-    # These cases pin the ENUMERATE-and-judge path, which is what a store that cannot
-    # push a tag predicate down still uses, so pushdown is made to decline here. The
-    # pushed path is covered separately in test_condition_pushdown.py; declining is the
-    # documented contract rather than a stub convenience.
-    monkeypatch.setattr(
-        auth_module,
-        "_get_tracking_store",
-        lambda: SimpleNamespace(
-            find_failing_resource=lambda *a, **k: DECLINED,
-        ),
-    )
-    monkeypatch.setattr(auth_resources, "traces_of_experiment", lambda _e: ())
-    monkeypatch.setattr(auth_resources, "logged_models_of_experiment", lambda _e: ())
-    monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
-        lambda rt, ids: {
-            i: auth_resources.values_for_entity(
-                rt,
-                i,
-                # An explicit non-matching value, not an absent tag: on the RESOURCE side
-                # absence is not vacuous (D20), so a child with no `keep` tag would fail
-                # `tags.keep != 'y'` and the test would pass for the wrong reason.
-                SimpleNamespace(tags={"keep": "y" if i in failing else "n"}, aliases={}),
-            )
-            for i in ids
-        },
-    )
+    # The store is the only evaluator of a target condition, so the scenario is expressed
+    # as its answer: the first failing child, or None when every child satisfies.
+    # Attribution still reads the resource, so `attrs_for` supplies an explicit
+    # non-matching value rather than an absent tag -- on the RESOURCE side absence is not
+    # vacuous (D20), and a child with no `keep` tag would fail `tags.keep != 'y'` for a
+    # different reason than the test intends.
+
+    def _state(resource_type, resource_id):
+        return auth_resources.values_for_entity(
+            resource_type,
+            resource_id,
+            SimpleNamespace(tags={"keep": "y" if resource_id in failing else "n"}, aliases={}),
+        )
+
+    answering = answering_store(_state, failing_child=(failing[0] if failing else None))
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: answering)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: answering, raising=False)
+    # Attribution still reads the resource to name the clause that refused.
+    monkeypatch.setattr(auth_resources, "attrs_for", _state)
 
 
 def _delete_experiment():
@@ -1080,30 +1080,25 @@ def test_deleting_an_empty_experiment_is_permitted(monkeypatch):
     assert _delete_experiment() is True
 
 
-def test_deleting_an_experiment_denies_when_runs_cannot_be_enumerated(monkeypatch):
-    """`None` is not an empty set. Too many children to bound, or a failed search, means the
-    condition cannot be evaluated -- so refuse rather than cascade unjudged.
-    """
-    _child_restricted(monkeypatch, "run", "tags.keep != 'y'", None)
-    assert _delete_experiment() is False
-
-
 def test_deleting_an_experiment_does_not_enumerate_without_a_child_condition(monkeypatch):
     """Laziness is what makes this affordable: a condition on the EXPERIMENT tier alone must
     not list the experiment's runs.
     """
     _child_restricted(monkeypatch, "experiment", "tags.keep != 'y'", ())
+    # Nothing is enumerated now, so laziness means the store is never ASKED about a tier
+    # that has no condition -- one query not issued rather than one search page not read.
     calls = []
-    monkeypatch.setattr(auth_resources, "runs_of_experiment", lambda e: calls.append(e) or ())
     monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
-        lambda rt, ids: {
-            i: auth_resources.values_for_entity(
+        auth_module,
+        "_get_tracking_store",
+        lambda: answering_store(
+            lambda rt, i: auth_resources.values_for_entity(
                 rt, i, SimpleNamespace(tags={"keep": "n"}, aliases={})
-            )
-            for i in ids
-        },
+            ),
+            failing_child=None,
+            calls=calls,
+        ),
     )
     assert _delete_experiment() is True
-    assert calls == [], f"enumerated runs with no run condition configured; {calls}"
+    asked = [c for c in calls if c[1] != "experiment"]
+    assert asked == [], f"asked the store about a child tier with no condition on it; {asked}"

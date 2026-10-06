@@ -1893,19 +1893,21 @@ class SqlAlchemyStore(AbstractStore):
         if parent_id is not None:
             mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
             if mapping is None:
-                return condition_pushdown.DECLINED
+                raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
             return condition_pushdown.find_failing_child(self, mapping, parent_id, clauses)
 
         namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
         if namespaces is None:
-            return condition_pushdown.DECLINED
+            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
         requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
         if not requested or not clauses:
             # Nothing to judge, or nothing to judge it against. Either way nothing fails.
             return None
         resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
         if resolved is None:
-            return condition_pushdown.DECLINED
+            raise condition_pushdown.cannot_express(
+                self, entity, "a clause names a namespace this entity does not own"
+            )
 
         dialect = self._get_dialect()
         ordered = sorted(requested)

@@ -31,7 +31,7 @@ fiddly, well-tested parts -- and own the vocabulary here.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from enum import Enum, auto
 from typing import NamedTuple
 
@@ -585,12 +585,9 @@ class ConditionContext(NamedTuple):
     attributes from them, and only if a resource condition actually exists -- which
     is what keeps the common paths free of extra queries.
 
-    ``resource_id_resolver`` is for a cascade, whose children the request never names. It is
-    called ONLY when a target condition actually exists for this type, which is what keeps an
-    unconditioned cascade from paying for an enumeration it would discard. It returns the
-    child ids, or ``None`` when they could not be enumerated -- and those are different
-    answers: no children lets the cascade proceed, while "could not enumerate" must deny,
-    because a condition that cannot be evaluated must never pass vacuously.
+    A cascade names NO ids at all -- only ``parent_resource_id``. Its children are never
+    enumerated: the gate asks the store whether the parent holds a failing child, which is one
+    query over a population the request never named and the caller may not be able to bound.
 
     ``parent_resource_id`` is the target's resolved direct parent, and is what lets a
     parent-scoped condition be selected. Validators that mutate a child type already
@@ -606,7 +603,6 @@ class ConditionContext(NamedTuple):
     scope: ConditionScope
     request: RequestValues
     resource_ids: tuple[str, ...] = ()
-    resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None
     parent_resource_id: str | None = None
 
 
@@ -1233,7 +1229,6 @@ def context_for(
     resource_id: str | None,
     scope: ConditionScope,
     request: RequestValues | None = None,
-    resource_id_resolver: "Callable[[], tuple[str, ...] | None] | None" = None,
     parent_resource_id: str | None = None,
     allow_unscoped_parent: bool = False,
 ) -> ConditionContext:
@@ -1294,6 +1289,5 @@ def context_for(
         scope=scope,
         request=request,
         resource_ids=ids,
-        resource_id_resolver=resource_id_resolver,
         parent_resource_id=parent_resource_id,
     )

@@ -515,7 +515,7 @@ from mlflow.server.workspace_helpers import (
     _get_workspace_store,
     resolve_workspace_for_request_if_enabled,
 )
-from mlflow.store import condition_pushdown
+from mlflow.store import condition_pushdown as condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
@@ -1237,23 +1237,36 @@ def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None)
     everything correctly.
 
     Returns:
-        ``None`` if every resource satisfies every row, ``DECLINED`` if the predicate
-        could not be pushed and the caller must load the resources itself, or a
-        ``(row, resource_id)`` pair naming the condition that refused and the resource
-        that broke it. That pair is the whole reason this returns more than a boolean:
-        it is what lets the denial say which.
+        ``None`` if every resource satisfies every row, or a ``(row, resource_id)`` pair
+        naming the condition that refused and the resource that broke it. That pair is
+        the whole reason this returns more than a boolean: it is what lets the denial say
+        which.
+
+        There is no third answer. A store that cannot express the predicate raises, and
+        so does this function -- the fallback that used to load every resource and
+        evaluate the clauses in Python is gone.
     """
     if resource_ids is None and parent_id is None:
-        # Neither the resources nor their parent is known, so there is nothing to ask
-        # about -- a cascade whose parent did not resolve. Decline so the caller falls
-        # back rather than treating an unasked question as a pass.
-        return condition_pushdown.DECLINED
+        # A caller reaching here with neither selector is a wiring bug: the gate decides
+        # which selector applies and refuses outright (D21) when an operation cannot name
+        # what it will touch. Treating an unasked question as a pass is the one direction
+        # this must never fail in.
+        raise ValueError(
+            "_target_pushdown needs resource_ids or parent_id; a context with neither "
+            "must be refused by the caller, not asked about"
+        )
 
     pushed_rows = []
     for row in target_rows:
         clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
         if clauses is None:
-            return condition_pushdown.DECLINED
+            # Unreachable: authoring rejects a clause outside the two resource namespaces,
+            # and a stored row has been through it. Loud rather than silent, because with
+            # no fallback left, skipping the row would permit what it forbids.
+            raise NotImplementedError(
+                f"target condition {row.target_condition!r} on "
+                f"{context.resource_type!r} has a clause that cannot be pushed down"
+            )
         pushed_rows.append((row, clauses))
 
     store_ = _condition_store(context.resource_type)
@@ -1266,12 +1279,15 @@ def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None)
             # so such a row cannot be authored -- but a future tier with id-grain
             # patterns would otherwise fail silently and in the fail-open direction.
             if row.resource_pattern != WILDCARD_PATTERN:
-                return condition_pushdown.DECLINED
+                raise NotImplementedError(
+                    f"a cascade on {context.resource_type!r} cannot be judged against "
+                    f"a condition scoped to {row.resource_pattern!r}: its clauses "
+                    "apply to one child, and a query over 'any child' would charge them "
+                    "against every sibling"
+                )
             failing = store_.find_failing_resource(
                 context.resource_type, clauses, parent_id=parent_id
             )
-            if failing is condition_pushdown.DECLINED:
-                return condition_pushdown.DECLINED
             if failing is not None:
                 # The children were never enumerated, so unlike the named path below there
                 # is no id mapping to invert -- the store's key has to be converted back.
@@ -1291,8 +1307,6 @@ def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None)
         # as the tuple the tables are keyed by.
         by_key = {_condition_pushdown_key(context.resource_type, rid): rid for rid in governed}
         failing = store_.find_failing_resource(context.resource_type, clauses, ids=list(by_key))
-        if failing is condition_pushdown.DECLINED:
-            return condition_pushdown.DECLINED
         if failing is not None:
             # The id either failed a clause or does not exist. Both deny, and
             # deliberately indistinguishably -- a 404 here would reveal which ids exist
@@ -1429,40 +1443,25 @@ def _authorize_on_conditions(
         if not target_rows:
             continue
         resource_ids = context.resource_ids
-        if not resource_ids and context.resource_id_resolver is not None:
-            # Ask the store first: "does the parent hold a child that fails this?" is one
-            # query, where enumerating and judging each child is one search page per 500
-            # plus a fetch per child. Only the store can answer it, and only for a
-            # predicate it can express, so a decline falls through to enumeration below.
+        if not resource_ids and context.parent_resource_id is not None:
+            # A cascade. "Does this parent hold a child that fails the condition?" is ONE
+            # query, and the only way to answer it without enumerating a population the
+            # request never named and the caller may not be able to bound. The children's
+            # ids are never learned -- the store returns at most the first failing one.
             pushed = _target_pushdown(context, target_rows, parent_id=context.parent_resource_id)
-            if pushed is not condition_pushdown.DECLINED:
-                if pushed is not None:
-                    # Some child fails, and the store named which. Deny directly rather
-                    # than appending to `results` -- there is no per-child result for
-                    # `combine` to weigh -- but record the clause it broke first, so the
-                    # caller is told which child blocked the cascade instead of only
-                    # that one did.
-                    row, failing_id = pushed
-                    auth_resources.note_condition_denial(
-                        _target_denial_detail(context, row, failing_id)
-                    )
-                    return False
-                # Every child satisfies every pushed clause, so this context is settled
-                # without ever learning the children's ids.
-                continue
-            # A cascade: the request names the parent, and the children are enumerated HERE
-            # rather than by the validator, so an unconditioned cascade never pays for it.
-            # This is the only place that knows a target condition actually exists for the
-            # child's type.
-            resource_ids = context.resource_id_resolver()
-            if resource_ids is None:
-                # Enumeration failed or overflowed its bound. Not the same as having no
-                # children: the condition cannot be evaluated, so refuse.
+            if pushed is not None:
+                # Some child fails, and the store named which. Deny directly rather than
+                # appending to `results` -- there is no per-child result for `combine` to
+                # weigh -- but record the clause it broke first, so the caller is told
+                # which child blocked the cascade instead of only that one did.
+                row, failing_id = pushed
+                auth_resources.note_condition_denial(
+                    _target_denial_detail(context, row, failing_id)
+                )
                 return False
-            if not resource_ids:
-                # The parent genuinely holds no children of this type, so there is nothing
-                # for the condition to forbid and the cascade may proceed.
-                continue
+            # Every child satisfies every clause, including the vacuous case where the
+            # parent holds no children of this type at all.
+            continue
         if not resource_ids:
             # A target condition exists for a type this operation mutates, but the
             # operation could not name which resources it will touch -- a predicate-mode
@@ -1475,40 +1474,16 @@ def _authorize_on_conditions(
             # route at MUTATE scope does. It is the backstop for one that cannot, and for
             # a future wiring bug that forgets to.
             return False
-        # Ask the store first, exactly as the cascade does: one query per clause
-        # answers the predicate without the resources' tags ever crossing the wire.
-        # A decline falls through to the bulk load below, which is still the path for
-        # every non-SQL backend.
+        # One query per clause answers the predicate without the resources' tags ever
+        # crossing the wire. The store either answers or raises; there is no in-memory
+        # fallback, which is what keeps SQL the single evaluator of a target condition.
         pushed = _target_pushdown(context, target_rows, resource_ids=resource_ids)
-        if pushed is not condition_pushdown.DECLINED:
-            if pushed is not None:
-                # There is no per-id result for `combine` to weigh, so deny directly --
-                # after naming the clause the offending resource broke.
-                row, failing_id = pushed
-                auth_resources.note_condition_denial(
-                    _target_denial_detail(context, row, failing_id)
-                )
-                return False
-            continue
-        # One bulk call for the context's ids rather than one read each. A bulk delete
-        # naming N traces would otherwise cost N round trips to evaluate one condition
-        # (D11); for a single id the bulk path resolves to the same single fetch.
-        resolved = auth_resources.attrs_for_bulk(context.resource_type, resource_ids)
-        for resource_id in resource_ids:
-            values = resolved.get(resource_id)
-            if values is None:
-                # A condition cannot be satisfied by a resource that is not there, and
-                # denying rather than 404ing keeps the response from revealing which
-                # ids exist.
-                return False
-            for row in target_rows:
-                # Each id is judged against the rows that govern IT. Charging a row that
-                # names one resource against a sibling id would deny a mutation on a
-                # resource the admin never pointed the condition at.
-                if not _row_governs(row, resource_id):
-                    continue
-                clauses = _parsed_condition(row.target_condition, NAMESPACE_RESOURCE)
-                results.append(evaluate_resource(clauses, values))
+        if pushed is not None:
+            # There is no per-id result for `combine` to weigh, so deny directly --
+            # after naming the clause the offending resource broke.
+            row, failing_id = pushed
+            auth_resources.note_condition_denial(_target_denial_detail(context, row, failing_id))
+            return False
 
     return combine(results)
 
@@ -2664,21 +2639,6 @@ def validate_can_delete_experiment_tag():
     )
 
 
-# Which enumerator answers "what children of this parent does the cascade transition?".
-_CASCADE_CHILD_ENUMERATORS = {
-    RESOURCE_TYPE_RUN: lambda parent: auth_resources.runs_of_experiment(parent),
-    RESOURCE_TYPE_TRACE: lambda parent: auth_resources.traces_of_experiment(parent),
-    RESOURCE_TYPE_LOGGED_MODEL: lambda parent: auth_resources.logged_models_of_experiment(parent),
-    RESOURCE_TYPE_REGISTERED_MODEL_VERSION: (
-        lambda parent: auth_resources.versions_of_registered_model(parent)
-    ),
-    RESOURCE_TYPE_PROMPT_VERSION: lambda parent: auth_resources.versions_of_registered_model(
-        parent
-    ),
-    RESOURCE_TYPE_MCP_SERVER_VERSION: lambda parent: auth_resources.versions_of_mcp_server(parent),
-}
-
-
 def _parent_for(resource_type: str, parent_id: "str | None") -> "str | None":
     """The parent id to declare for ``resource_type``, or ``None`` if it has none.
 
@@ -2700,22 +2660,19 @@ def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[Condition
     own: the child transition has to succeed for the parent's to, so if any child's target
     condition fails, the parent operation fails with it.
 
-    The children are not enumerated here. Each context carries a RESOLVER that the gate calls
-    only once it knows a target condition actually exists for that tier, so a cascade on a
-    server with no conditions -- or with conditions only on unrelated types -- costs exactly
-    what it did before.
+    The children are never enumerated. Each context names only the PARENT, and the gate asks
+    the store "does this parent hold a child that fails?" -- one query, reached only once the
+    gate knows a target condition actually exists for that tier, so a cascade on a server with
+    no conditions costs exactly what it did before.
 
-    A tier with no enumerator still gets a context with no ids and no resolver, which the gate
-    refuses when a target condition exists for it. That is the right default for a tier whose
-    children cannot be listed: better to refuse than to let the cascade through unjudged.
     Tiers outside the condition vocabulary are skipped entirely, since the store rejects them
-    on write and no condition row can exist.
+    on write and no condition row can exist. Every tier that survives that filter has a cascade
+    mapping in the SQL stores; one that did not would raise rather than pass unjudged.
     """
     contexts = []
     for tier in tiers:
         if tier not in SUPPORTED_RESOURCE_TYPES:
             continue
-        enumerator = _CASCADE_CHILD_ENUMERATORS.get(tier)
         contexts.append(
             context_for(
                 tier,
@@ -2723,11 +2680,6 @@ def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[Condition
                 ConditionScope.MUTATE,
                 request_values_shape(tier)(),
                 parent_resource_id=parent_id,
-                resource_id_resolver=(
-                    (lambda enumerate_children=enumerator: enumerate_children(parent_id))
-                    if enumerator is not None
-                    else None
-                ),
             )
         )
     return contexts

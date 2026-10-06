@@ -26,32 +26,53 @@ from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import MutationConditionSpec
 from mlflow.server.auth.permissions import EDIT, MANAGE, READ
 from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes
-from mlflow.store.condition_pushdown import DECLINED
+
+from tests.server.auth.condition_store_fakes import answering_store
+
+
+def _resource_state(monkeypatch, bulk_fn):
+    """Install the resource state the gate will judge against.
+
+    ``bulk_fn(resource_type, ids) -> {id: values}`` is the shape these tests were written
+    in, when state was injected by patching ``attrs_for_bulk`` and the gate evaluated the
+    clauses in Python. The store is the only evaluator now, so the same callable feeds a
+    store fake instead -- and ``attrs_for`` keeps serving it, because attribution still
+    reads the resource to name the clause that refused.
+    """
+
+    def one(resource_type, resource_id):
+        return bulk_fn(resource_type, [resource_id]).get(resource_id)
+
+    answering = answering_store(one)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: answering)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: answering, raising=False)
+    monkeypatch.setattr(auth_resources, "attrs_for", one)
+    return answering
+
 
 _PREFIX = get_mcp_server_api_route_prefixes()[1]
 _SERVER = "acme/search"
 
 
 @pytest.fixture(autouse=True)
-def _pushdown_declines(monkeypatch):
-    """Make the stores decline pushdown, so these tests pin the fallback path.
+def _store_permits(monkeypatch):
+    """Make the stores permit every target condition by default.
 
-    The cases in this module stub the *resource layer* -- enumerators, bulk
-    loaders, counting shims -- rather than the store, so once the gate started
-    asking the store first they reached the real default store and failed on a
-    missing database. Declining here keeps them exercising the enumerate-and-judge
-    path, which is still what every non-SQL backend uses, and is therefore a path
-    that needs its own coverage rather than being an accident of the stubs.
+    The cases in this module stub the *resource layer* rather than the store, so without
+    this they would reach the real default store and fail on a missing database. The store
+    is the only evaluator of a target condition now, so "nothing fails" has to be said by
+    a store; this fixture used to say it by declining and letting the gate evaluate in
+    Python, which is no longer a path that exists.
 
-    Autouse but not binding: a test that wants the pushdown consulted can
-    monkeypatch the store again, and its own patch wins.
+    Autouse but not binding: a test that wants a particular answer patches the store
+    again, and its own patch wins -- see ``_resource_state``.
     """
     from types import SimpleNamespace
 
     from mlflow.server import auth as auth_module
 
     declining = SimpleNamespace(
-        find_failing_resource=lambda *a, **k: DECLINED,
+        find_failing_resource=lambda *a, **k: None,
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: declining)
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: declining, raising=False)
@@ -121,9 +142,8 @@ def _configure(monkeypatch, *, value_condition=None, target_condition=None, perm
 
 
 def _server_with_tags(monkeypatch, **tags):
-    monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
+    _resource_state(
+        monkeypatch,
         lambda rt, ids: {
             i: auth_resources.values_for_entity(rt, i, SimpleNamespace(tags=dict(tags), aliases={}))
             for i in ids
@@ -397,13 +417,19 @@ async def test_a_version_condition_reads_the_versions_own_state(monkeypatch):
             for i in ids
         }
 
-    monkeypatch.setattr(auth_resources, "attrs_for_bulk", attrs_for_bulk)
+    _resource_state(monkeypatch, attrs_for_bulk)
     allowed = await _run(
         f"{_PREFIX}/{_SERVER}/versions/1.2.0/tags", "POST", {"key": "notes", "value": "x"}
     )
     assert allowed is False
-    assert seen == [("mcp_server_version", ["acme%2Fsearch/1.2.0"])], (
-        f"the version's own id must be read, not the server's; got {seen}"
+    # Two consultations now: the store's (in its decomposed key shape) and attribution's
+    # (by the auth layer's opaque id). The guarantee is that BOTH name the version -- an
+    # id naming only the server would mean a version condition had been widened to it.
+    consulted = {str(i) for _rt, ids in seen for i in ids}
+    assert consulted, "the version's own state must be consulted"
+    assert all(rt == "mcp_server_version" for rt, _ in seen), seen
+    assert all("1.2.0" in c for c in consulted), (
+        f"the version's own id must be consulted, not the server's; got {seen}"
     )
 
 
@@ -444,12 +470,13 @@ async def test_updating_a_server_is_gated_by_a_target_condition(monkeypatch):
     still apply. "Do not touch prod" that still permits renaming prod is not a restriction.
     """
     _configure(monkeypatch, target_condition="tags.env != 'prod'", permission=MANAGE)
-    monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
+    _resource_state(
+        monkeypatch,
         lambda rt, ids: {
             i: auth_resources.values_for_entity(
-                rt, i, SimpleNamespace(tags={"env": "prod"}, aliases={})
+                rt,
+                i,
+                SimpleNamespace(tags={"env": "prod"}, aliases={}),
             )
             for i in ids
         },
@@ -460,12 +487,13 @@ async def test_updating_a_server_is_gated_by_a_target_condition(monkeypatch):
 @pytest.mark.asyncio
 async def test_deleting_a_server_is_gated_by_a_target_condition(monkeypatch):
     _configure(monkeypatch, target_condition="tags.env != 'prod'", permission=MANAGE)
-    monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
+    _resource_state(
+        monkeypatch,
         lambda rt, ids: {
             i: auth_resources.values_for_entity(
-                rt, i, SimpleNamespace(tags={"env": "prod"}, aliases={})
+                rt,
+                i,
+                SimpleNamespace(tags={"env": "prod"}, aliases={}),
             )
             for i in ids
         },
@@ -473,11 +501,12 @@ async def test_deleting_a_server_is_gated_by_a_target_condition(monkeypatch):
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
 
 
-def _version_restricted(monkeypatch, children, target_condition="tags.keep != 'y'"):
+def _version_restricted(monkeypatch, children, target_condition="tags.keep != 'y'", failing=None):
     """A condition on the VERSION tier only, with the server itself unrestricted.
 
-    `children` is what enumerating the server's versions returns: a tuple of ids, or None for
-    "could not enumerate".
+    `children` documents what the server holds; it is no longer enumerated. `failing` is
+    the store's answer to "does this server hold a version that fails?" -- an id for yes,
+    ``None`` for no, which also covers the childless case.
     """
 
     class Store:
@@ -500,7 +529,12 @@ def _version_restricted(monkeypatch, children, target_condition="tags.keep != 'y
     monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda n, u: MANAGE)
     monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
     monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda rt, rid: "ws")
-    monkeypatch.setattr(auth_resources, "versions_of_mcp_server", lambda name: children)
+    # The cascade is one store question about the parent; the children are never listed.
+    asked = []
+    answering = answering_store({}, failing_child=failing, calls=asked)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: answering)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: answering, raising=False)
+    return asked
 
 
 @pytest.mark.asyncio
@@ -508,78 +542,56 @@ async def test_deleting_a_server_denies_when_a_child_version_fails_its_condition
     """The cascade's children are judged individually, and the child transition has to succeed
     for the parent's to. One failing version therefore fails the whole server delete.
     """
-    _version_restricted(monkeypatch, ("acme%2Fsearch/1.0.0", "acme%2Fsearch/2.0.0"))
-    monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
-        lambda rt, ids: {
-            i: auth_resources.values_for_entity(
-                rt,
-                i,
-                # Only the second version is protected; one is enough to refuse.
-                SimpleNamespace(tags={"keep": "y"} if i.endswith("2.0.0") else {}, aliases={}),
-            )
-            for i in ids
-        },
+    # Only the second version is protected; one is enough to refuse. The store answers in
+    # ITS key shape -- a version goes down decomposed, never as the opaque `name/version`.
+    _version_restricted(
+        monkeypatch,
+        ("acme%2Fsearch/1.0.0", "acme%2Fsearch/2.0.0"),
+        failing=("acme/search", "2.0.0"),
     )
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
 
 
 @pytest.mark.asyncio
 async def test_deleting_a_server_permits_when_every_child_passes(monkeypatch):
-    """The point of enumerating rather than refusing outright: a condition on the child tier
-    must not block a cascade whose children all satisfy it.
+    """The point of asking rather than refusing outright: a condition on the child tier must
+    not block a cascade whose children all satisfy it.
     """
     _version_restricted(monkeypatch, ("acme%2Fsearch/1.0.0", "acme%2Fsearch/2.0.0"))
-    monkeypatch.setattr(
-        auth_resources,
-        "attrs_for_bulk",
-        lambda rt, ids: {
-            i: auth_resources.values_for_entity(
-                rt, i, SimpleNamespace(tags={"keep": "n"}, aliases={})
-            )
-            for i in ids
-        },
-    )
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
 
 
 @pytest.mark.asyncio
 async def test_deleting_a_childless_server_is_permitted(monkeypatch):
-    """No children means nothing for the child condition to forbid. This must be distinct from
-    "could not enumerate", which denies.
+    """No children means nothing for the child condition to forbid.
+
+    Indistinguishable from "every child passes", and deliberately so: the store answers
+    both with ``None``, and the caller never learns the children's ids either way.
     """
-    _version_restricted(monkeypatch, ())
-    reads = []
-    monkeypatch.setattr(
-        auth_resources, "attrs_for_bulk", lambda rt, ids: reads.append((rt, list(ids))) or {}
-    )
+    asked = _version_restricted(monkeypatch, ())
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
-    assert reads == [], f"nothing to read when there are no children; read {reads}"
-
-
-@pytest.mark.asyncio
-async def test_deleting_a_server_denies_when_children_cannot_be_enumerated(monkeypatch):
-    """`None` from the enumerator means the child set could not be established -- too many to
-    bound, or the search failed. The condition cannot be evaluated, so the cascade is refused
-    rather than allowed through unjudged.
-    """
-    _version_restricted(monkeypatch, None)
-    assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is False
+    assert [c for c in asked if c[0] == "ids"] == [], (
+        f"a cascade asks about the PARENT, never about enumerated children; {asked}"
+    )
 
 
 @pytest.mark.asyncio
 async def test_an_unconditioned_cascade_never_enumerates(monkeypatch):
-    """The enumeration is lazy, and that is what keeps this affordable: with no condition on the
-    child tier the server delete must not list the server's versions at all.
+    """Laziness is what keeps this affordable: with no condition on the child tier the server
+    delete must not ask the store about the server's versions at all.
+
+    One query not issued rather than one search page not read -- the saving is smaller than
+    it was, which is exactly why it is worth pinning: the cheap path must stay free.
     """
     _configure(monkeypatch, value_condition="tag_key != 'nope'", permission=MANAGE)
     calls = []
     monkeypatch.setattr(
-        auth_resources, "versions_of_mcp_server", lambda name: calls.append(name) or ()
+        auth_module,
+        "_get_tracking_store",
+        lambda: answering_store({}, failing_child=None, calls=calls),
     )
     assert (await _run(f"{_PREFIX}/{_SERVER}", "DELETE", None)) is True
-    assert calls == [], f"enumerated children with no child condition configured; {calls}"
+    assert calls == [], f"asked the store about a tier with no condition on it; {calls}"
 
 
 @pytest.mark.asyncio
@@ -610,11 +622,17 @@ def test_mutating_a_version_itself_is_gated_by_its_target_condition(monkeypatch,
                 for i in ids
             }
 
-        monkeypatch.setattr(auth_resources, "attrs_for_bulk", attrs_for_bulk)
+        _resource_state(monkeypatch, attrs_for_bulk)
         allowed = await _run(f"{_PREFIX}/{_SERVER}/versions/1.2.0", method, None)
         assert allowed is False
-        assert seen == [("mcp_server_version", ["acme%2Fsearch/1.2.0"])], (
-            f"the version's own id must be read; got {seen}"
+        # Both the store's call (decomposed key) and attribution's read (opaque id) must
+        # name the VERSION; an id naming only the server would mean the condition had been
+        # widened to its parent.
+        consulted = {str(i) for _rt, ids in seen for i in ids}
+        assert consulted, "the version's own state must be consulted"
+        assert all(rt == "mcp_server_version" for rt, _ in seen), seen
+        assert all("1.2.0" in c for c in consulted), (
+            f"the version's own id must be consulted, not the server's; got {seen}"
         )
 
     asyncio.run(go())

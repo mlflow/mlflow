@@ -28,7 +28,6 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
-from mlflow.store.condition_pushdown import DECLINED, Declined
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -2185,7 +2184,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         *,
         ids: "Sequence[str | tuple[str, ...]] | None" = None,
         parent_id: "str | None" = None,
-    ) -> "str | tuple[str, ...] | None | Declined":
+    ) -> "str | tuple[str, ...] | None":
         """Find a resource that fails a conjunctive tag/alias predicate.
 
         An optional pushdown hook for a caller that must decide whether it may mutate
@@ -2233,29 +2232,35 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         to the caller, so a store matches parts and never parses a joined id.
 
         Returns:
-            The first failing resource's id, ``None`` if every resource satisfies
-            every clause, or :data:`~mlflow.store.condition_pushdown.DECLINED` if this
-            store cannot push the predicate down.
+            The first failing resource's id, or ``None`` if every resource satisfies
+            every clause.
 
             Only ONE id is returned even when several fail. The caller needs a denial
             and a reason, not an inventory, and stopping at the first lets an
             implementation skip the rest of an unbounded population.
 
-            ``DECLINED`` is a contract, not a failure: the caller must then load each
-            resource and evaluate the clauses itself. It is deliberately **not**
-            ``None`` -- ``None`` means nothing failed, and conflating the two would
-            let an unanswerable predicate read as a pass, which is the one direction
-            this hook must never fail in. ``DECLINED`` raises on ``bool()`` so the
-            conflation cannot be written accidentally.
-
-            Only *cost* varies by backend this way, never the outcome: an
-            implementation that answers MUST agree with that in-memory evaluation on
-            every comparator and on absence.
+            There is no third verdict. A store either answers or raises
+            ``NotImplementedError`` -- the caller has no fallback, so returning
+            anything that is not an id must mean *nothing failed*. An earlier design
+            let a store decline and had the caller evaluate the clauses in Python;
+            that made two evaluators of one semantic, where any drift between them is
+            a difference in who may write what.
 
             An empty ``ids``, an empty ``clauses``, or a parent with no children all
             return ``None``: nothing can fail. For the parent selector that is
-            vacuous permission rather than a refusal, and it differs from a *failure*
-            to enumerate, which a caller must treat as a refusal -- this method says
-            ``DECLINED`` for that, never ``None``.
+            vacuous permission rather than a refusal. A *failure* to answer is the
+            raise, never ``None``.
+
+            An implementation that answers MUST agree with
+            :func:`~mlflow.server.auth.conditions.evaluate_resource` on every
+            comparator and on absence. That function survives only to name the clause
+            a denial broke, so a drift is now a wrong *explanation* rather than a
+            wrong verdict -- but it is still a bug.
         """
-        return DECLINED
+        raise NotImplementedError(
+            f"{type(self).__name__} cannot answer a target condition. Target conditions are "
+            "evaluated by the store, so they need a SQL tracking/registry backend "
+            "(--backend-store-uri pointing at a database). Value conditions are unaffected "
+            "and work on any backend. Note this is NOT a missing-database problem for the "
+            "auth plugin itself, whose `database_uri` is always configured."
+        )
