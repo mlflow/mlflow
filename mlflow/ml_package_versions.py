@@ -70,11 +70,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.14.5",
-            "maximum": "0.14.25"
+            "maximum": "0.14.16"
         },
         "autologging": {
             "minimum": "0.14.5",
-            "maximum": "0.14.25"
+            "maximum": "0.14.16"
         }
     },
     "ag2": {
