@@ -18,8 +18,8 @@ export const UploadFolderField = ({
   files: File[];
   hasSkillManifest: boolean;
   exceededLimit: ExceededContentLimit;
-  manifestName?: string | null;
-  manifestProblem?: 'missing' | 'invalid';
+  manifestName?: string;
+  manifestProblem?: 'unreadable' | 'unparsable' | 'missing' | 'invalid';
   maxBytes?: number;
   maxFiles?: number;
   onSelect: (files: File[]) => void;
@@ -42,6 +42,17 @@ export const UploadFolderField = ({
       <FormattedMessage
         defaultMessage="This folder has no SKILL.md at its top level."
         description="Error when a selected skill folder has no SKILL.md"
+      />
+    ) : manifestProblem === 'unreadable' ? (
+      <FormattedMessage
+        defaultMessage="Couldn't read SKILL.md. Select the folder again."
+        description="Error when a skill folder's SKILL.md cannot be read from disk"
+      />
+    ) : manifestProblem === 'unparsable' ? (
+      <FormattedMessage
+        defaultMessage="The frontmatter in SKILL.md couldn't be parsed. It must be a YAML mapping between {fence} lines, without aliases or merge keys."
+        description="Error when a skill folder's SKILL.md frontmatter is not a valid YAML mapping"
+        values={{ fence: <code>---</code> }}
       />
     ) : manifestProblem === 'missing' ? (
       <FormattedMessage

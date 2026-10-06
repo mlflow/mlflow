@@ -1687,6 +1687,10 @@
     "defaultMessage": "Delete question?",
     "description": "Manage review questions: delete confirmation title"
   },
+  "4eOBj2": {
+    "defaultMessage": "Copy code",
+    "description": "Aria label for copying a code block in a rendered skill markdown file"
+  },
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
@@ -3574,6 +3578,10 @@
   "Bg/LgH": {
     "defaultMessage": "Instructions",
     "description": "Label for guardrail judge instructions"
+  },
+  "BgqtzK": {
+    "defaultMessage": "The frontmatter in SKILL.md couldn't be parsed. It must be a YAML mapping between {fence} lines, without aliases or merge keys.",
+    "description": "Error when a skill folder's SKILL.md frontmatter is not a valid YAML mapping"
   },
   "Bh7AL1": {
     "defaultMessage": "Latest version",
@@ -13602,6 +13610,10 @@
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
+  },
+  "nDUe0U": {
+    "defaultMessage": "Couldn't read SKILL.md. Select the folder again.",
+    "description": "Error when a skill folder's SKILL.md cannot be read from disk"
   },
   "nDVJ/n": {
     "defaultMessage": "Pass",

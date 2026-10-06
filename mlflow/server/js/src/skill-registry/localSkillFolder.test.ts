@@ -53,7 +53,31 @@ describe('localSkillFolder', () => {
       name: 'code-review',
       description: 'Reviews pull requests',
     });
-    expect(readSkillManifest('---\nname: [unclosed\n---\n')).toEqual({});
+  });
+
+  it('refuses SKILL.md frontmatter that is not closed, not valid YAML, or not a mapping', () => {
+    expect(() => readSkillManifest('---\nname: demo\n# Demo\n')).toThrow('not closed');
+    expect(() => readSkillManifest('---\nname: [unclosed\n---\n')).toThrow();
+    expect(() => readSkillManifest('---\n- demo\n---\n')).toThrow('not a YAML mapping');
+    expect(readSkillManifest('# Demo\n')).toEqual({});
+    expect(readSkillManifest('---\n# only a comment\n---\n')).toEqual({});
+  });
+
+  it('refuses YAML aliases and merge keys in SKILL.md frontmatter, as the server does', () => {
+    expect(() => readSkillManifest('---\nbase: &b demo\nname: *b\n---\n')).toThrow('aliases and merge keys');
+    expect(() => readSkillManifest('---\nmeta: &m {self: *m}\n---\n')).toThrow('aliases and merge keys');
+    expect(() => readSkillManifest('---\n<<: {name: demo}\n---\n')).toThrow('aliases and merge keys');
+    expect(() => readSkillManifest('---\n!!merge <<: {name: demo}\n---\n')).toThrow('aliases and merge keys');
+    // Each level lists the one before nine times, so walking the last one, as JSON.stringify does, visits 9^11 items.
+    const levels = ['l0: &l0 [x]'];
+    for (let level = 1; level < 12; level += 1) {
+      const previous = Array.from({ length: 9 }, () => `*l${level - 1}`);
+      levels.push(`l${level}: &l${level} [${previous.join(', ')}]`);
+    }
+    const bomb = levels.join('\n');
+    expect(() => readSkillManifest(`---\nname: demo\n${bomb}\n---\n`)).toThrow('aliases and merge keys');
+    // An anchor with no alias, and a quoted "<<" key, are ordinary YAML.
+    expect(readSkillManifest('---\nname: &n demo\n"<<": 1\n---\n')).toEqual({ name: 'demo' });
   });
 
   it('finds SKILL.md at the root of the selected folder', () => {

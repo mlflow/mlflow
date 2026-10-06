@@ -22,7 +22,13 @@ import { SkillTagsInput } from './SkillTagsInput';
 import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiView';
 import type { RegisterSkillMutationInput } from '../hooks/useRegisterSkillMutation';
 import { findTakenSkillIdentity, useRegisterSkillSubmission } from '../hooks/useRegisterSkillSubmission';
-import { exceededContentLimit, findSkillManifest, packageSkillFolder, readSkillManifest } from '../localSkillFolder';
+import {
+  exceededContentLimit,
+  findSkillManifest,
+  packageSkillFolder,
+  readSkillManifest,
+  type SkillManifestFields,
+} from '../localSkillFolder';
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
@@ -159,8 +165,8 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const [icons, setIcons] = useState<RegistryIcon[]>([]);
   const [tags, setTags] = useState<Record<string, string>>({});
   const [folderFiles, setFolderFiles] = useState<File[]>([]);
-  // The `name` in the selected folder's SKILL.md: undefined until it is read, null when it has none.
-  const [manifestName, setManifestName] = useState<string | null>();
+  // What the selected folder's SKILL.md declares, undefined until it is read, or why it could not be read.
+  const [manifest, setManifest] = useState<SkillManifestFields | 'unreadable' | 'unparsable'>();
   // Server info can answer after the dialog opened in Upload mode; fall back once uploads turn out unsupported.
   if (!uploadEnabled && mode === 'upload') {
     setMode('pointer');
@@ -191,15 +197,18 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     [folderFiles, maxBytes, maxFiles],
   );
   // Clients take a skill's name from its SKILL.md, so a folder whose SKILL.md lacks a valid one is refused.
+  const manifestName = typeof manifest === 'object' ? manifest.name : undefined;
   const manifestProblem =
-    !hasSkillManifest || manifestName === undefined
+    !hasSkillManifest || manifest === undefined
       ? undefined
-      : manifestName === null
-        ? ('missing' as const)
-        : isValidSkillName(manifestName)
-          ? undefined
-          : ('invalid' as const);
-  const folderReady = hasSkillManifest && !exceededLimit && manifestName != null && !manifestProblem;
+      : typeof manifest === 'string'
+        ? manifest
+        : !manifestName
+          ? ('missing' as const)
+          : isValidSkillName(manifestName)
+            ? undefined
+            : ('invalid' as const);
+  const folderReady = hasSkillManifest && !exceededLimit && manifest !== undefined && !manifestProblem;
   const ref = form.ref.trim();
   const subpath = form.subpath.trim();
 
@@ -257,7 +266,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     // The folder picker remounts empty, so a folder chosen before switching away must not upload.
     setMode(nextMode);
     setFolderFiles([]);
-    setManifestName(undefined);
+    setManifest(undefined);
     setValidationError(undefined);
     if (!isVersion) resetSuggestedFields(nextMode === 'pointer' ? form.location : undefined);
   };
@@ -266,7 +275,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     folderSelectionRef.current += 1;
     const selection = folderSelectionRef.current;
     setFolderFiles(files);
-    setManifestName(undefined);
+    setManifest(undefined);
     setValidationError(undefined);
     if (!isVersion) resetSuggestedFields();
     const manifestFile = findSkillManifest(files);
@@ -275,11 +284,25 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     // The cleared fields are filled from SKILL.md only if nothing is typed into them while it is read.
     const identityBefore = identityTouched ? undefined : '';
     const descriptionBefore = descriptionTouched ? undefined : '';
-    const manifest = readSkillManifest(await manifestFile.text());
+    let text: string;
+    try {
+      text = await manifestFile.text();
+    } catch {
+      // The file can change or go offline after it is picked.
+      if (selection === folderSelectionRef.current && submission.isActive()) setManifest('unreadable');
+      return;
+    }
     if (selection !== folderSelectionRef.current || !submission.isActive()) return;
-    setManifestName(manifest.name ?? null);
+    let fields: SkillManifestFields;
+    try {
+      fields = readSkillManifest(text);
+    } catch {
+      setManifest('unparsable');
+      return;
+    }
+    setManifest(fields);
     if (isVersion) return;
-    const { name: suggestedName, description: manifestDescription } = manifest;
+    const { name: suggestedName, description: manifestDescription } = fields;
     if (suggestedName) {
       setForm((current) => (current.identity === identityBefore ? { ...current, identity: suggestedName } : current));
       setTakenIdentity(undefined);

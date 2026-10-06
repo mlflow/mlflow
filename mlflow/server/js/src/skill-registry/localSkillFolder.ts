@@ -8,9 +8,8 @@ export interface SkillManifestFields {
   description?: string;
 }
 
-const stringField = (frontmatter: unknown, key: string) => {
-  if (!frontmatter || typeof frontmatter !== 'object') return undefined;
-  const value = (frontmatter as Record<string, unknown>)[key];
+const stringField = (frontmatter: Record<string, unknown>, key: string) => {
+  const value = frontmatter[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 };
 
@@ -20,25 +19,58 @@ export const splitFrontmatter = (content: string): { frontmatter?: string; body:
   return match ? { frontmatter: match[1], body: content.slice(match[0].length) } : { body: content };
 };
 
+const MERGE_TAG = 'tag:yaml.org,2002:merge';
+
+// The parts of js-yaml's loader state the listener below relies on.
+interface LoaderState {
+  anchorMap: Record<string, unknown>;
+  tag: string | null;
+}
+
+const refuseReferences = () => {
+  throw new yaml.YAMLException('YAML aliases and merge keys are not allowed in frontmatter');
+};
+
+/**
+ * Loads frontmatter, refusing YAML aliases and merge keys as the server does: expanding nested ones can take far
+ * longer than their few bytes suggest, and frontmatter never needs them. js-yaml has no option for this, so the
+ * listener swaps in an anchor table that throws when an alias looks one up, and throws when a merge key closes.
+ */
+const loadFrontmatter = (source: string): unknown => {
+  const anchors = new Proxy<Record<string, unknown>>({}, { get: refuseReferences });
+  return yaml.safeLoad(source, {
+    listener: (event: 'open' | 'close', state: LoaderState) => {
+      state.anchorMap = anchors;
+      if (event === 'close' && state.tag === MERGE_TAG) refuseReferences();
+    },
+  });
+};
+
+const isMapping = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 /** The fields of a frontmatter block when it is a YAML mapping, for display; undefined otherwise. */
 export const readFrontmatterFields = (source: string): [string, unknown][] | undefined => {
   try {
-    const value: unknown = yaml.safeLoad(source);
-    return value && typeof value === 'object' && !Array.isArray(value) ? Object.entries(value) : undefined;
+    const value = loadFrontmatter(source);
+    return isMapping(value) ? Object.entries(value) : undefined;
   } catch {
     return undefined;
   }
 };
 
+/**
+ * The name and description in a SKILL.md's frontmatter. Throws when the frontmatter is not closed, is not valid
+ * YAML or is not a mapping, since a client would refuse such a SKILL.md rather than read past it.
+ */
 export const readSkillManifest = (content: string): SkillManifestFields => {
   const { frontmatter: source } = splitFrontmatter(content);
-  if (!source) return {};
-  let frontmatter: unknown;
-  try {
-    frontmatter = yaml.safeLoad(source);
-  } catch {
+  if (source === undefined) {
+    if (content.startsWith('---')) throw new Error('The frontmatter is not closed with ---.');
     return {};
   }
+  const frontmatter = loadFrontmatter(source) ?? {};
+  if (!isMapping(frontmatter)) throw new Error('The frontmatter is not a YAML mapping.');
   const name = stringField(frontmatter, 'name');
   const description = stringField(frontmatter, 'description');
   return {

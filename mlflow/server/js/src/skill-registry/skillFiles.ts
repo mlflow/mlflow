@@ -120,6 +120,14 @@ export const getPreviewLanguage = (path: string): CodeSnippetLanguage => {
   return PREVIEW_LANGUAGES.get(extension) ?? 'text';
 };
 
+const CODE_SNIPPET_LANGUAGES = new Set<string>(PREVIEW_LANGUAGES.values());
+
+/** The highlighting of a markdown code block, whose language may be named in full (`python`) or by extension (`py`). */
+export const getCodeBlockLanguage = (language?: string): CodeSnippetLanguage => {
+  const name = language?.toLowerCase() ?? '';
+  return PREVIEW_LANGUAGES.get(name) ?? (CODE_SNIPPET_LANGUAGES.has(name) ? (name as CodeSnippetLanguage) : 'text');
+};
+
 export const formatFileSize = (bytes?: number) => {
   if (bytes == null) return '';
   if (bytes < 1024) return `${bytes} B`;

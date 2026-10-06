@@ -2086,6 +2086,7 @@ module.exports = {
   "mlflow.skill_registry.detail.version.digest_info": "",
   "mlflow.skill_registry.detail.version.files.browse": "",
   "mlflow.skill_registry.detail.version.files.copy": "",
+  "mlflow.skill_registry.detail.version.files.copy_code": "",
   "mlflow.skill_registry.detail.version.files.error": "",
   "mlflow.skill_registry.detail.version.files.image_link": "",
   "mlflow.skill_registry.detail.version.files.preview": "",

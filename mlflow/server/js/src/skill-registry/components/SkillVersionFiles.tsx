@@ -24,6 +24,7 @@ import { readFrontmatterFields, splitFrontmatter } from '../localSkillFolder';
 import {
   buildSkillFileTree,
   formatFileSize,
+  getCodeBlockLanguage,
   getPreviewLanguage,
   getSkillArtifactPath,
   looksBinary,
@@ -161,22 +162,6 @@ const FileTree = ({
 
 const isMarkdownFile = (path: string) => /\.(md|markdown)$/i.test(path);
 
-// Images in a skill's markdown are shown as links rather than loaded, so opening a file never fetches a remote
-// URL; relative ones point into the skill and are shown as text.
-const markdownComponents = {
-  img: ({ src, alt }: { src?: string; alt?: string }) => {
-    const href = sanitizeHref(src);
-    const label = alt || src;
-    return href ? (
-      <Typography.Link componentId="mlflow.skill_registry.detail.version.files.image_link" href={href} openInNewTab>
-        {label}
-      </Typography.Link>
-    ) : (
-      <Typography.Text color="secondary">{label}</Typography.Text>
-    );
-  },
-};
-
 const PreviewFrame = ({ children }: { children: ReactNode }) => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -211,6 +196,8 @@ const TextSnippet = ({ language, children }: { language: ReturnType<typeof getPr
         borderRadius: theme.borders.borderRadiusMd,
         fontSize: theme.typography.fontSizeSm,
         lineHeight: theme.typography.lineHeightSm,
+        // Long lines wrap and the frame around the snippet scrolls, so the snippet itself never does.
+        overflow: 'visible',
       }}
     >
       {children}
@@ -218,28 +205,91 @@ const TextSnippet = ({ language, children }: { language: ReturnType<typeof getPr
   );
 };
 
-/** A file's text as is, with a copy button that stays in place while the text scrolls. */
-const RawFile = ({ path, content }: { path: string; content: string }) => {
+const WithCopyButton = ({
+  componentId,
+  label,
+  text,
+  className,
+  children,
+}: {
+  componentId: string;
+  label: string;
+  text: string;
+  className?: string;
+  children: ReactNode;
+}) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   return (
-    <div css={{ position: 'relative' }}>
+    <div css={{ position: 'relative' }} className={className}>
       <CopyButton
-        componentId="mlflow.skill_registry.detail.version.files.copy"
+        componentId={componentId}
         showLabel={false}
-        copyText={content}
+        copyText={text}
         icon={<CopyIcon />}
-        aria-label={intl.formatMessage({
-          defaultMessage: 'Copy file contents',
-          description: 'Aria label for copying a skill file preview',
-        })}
+        aria-label={label}
         css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.md, zIndex: 1 }}
       />
+      {children}
+    </div>
+  );
+};
+
+/** A file's text as is, with a copy button that stays in place while the text scrolls. */
+const RawFile = ({ path, content }: { path: string; content: string }) => {
+  const intl = useIntl();
+  return (
+    <WithCopyButton
+      componentId="mlflow.skill_registry.detail.version.files.copy"
+      label={intl.formatMessage({
+        defaultMessage: 'Copy file contents',
+        description: 'Aria label for copying a skill file preview',
+      })}
+      text={content}
+    >
       <PreviewFrame>
         <TextSnippet language={getPreviewLanguage(path)}>{content}</TextSnippet>
       </PreviewFrame>
-    </div>
+    </WithCopyButton>
   );
+};
+
+// Code blocks wrap rather than scroll, so the rendered file has a single scrollbar: the frame's.
+const MarkdownCodeBlock = ({ children, language }: { children?: ReactNode; language?: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const code = String(children).replace(/\n$/, '');
+  return (
+    <WithCopyButton
+      componentId="mlflow.skill_registry.detail.version.files.copy_code"
+      label={intl.formatMessage({
+        defaultMessage: 'Copy code',
+        description: 'Aria label for copying a code block in a rendered skill markdown file',
+      })}
+      text={code}
+      css={{ marginBottom: theme.spacing.md }}
+    >
+      <TextSnippet language={getCodeBlockLanguage(language)}>{code}</TextSnippet>
+    </WithCopyButton>
+  );
+};
+
+// Images in a skill's markdown are shown as links rather than loaded, so opening a file never fetches a remote
+// URL; relative ones point into the skill and are shown as text.
+const markdownComponents = {
+  img: ({ src, alt }: { src?: string; alt?: string }) => {
+    const href = sanitizeHref(src);
+    const label = alt || src;
+    return href ? (
+      <Typography.Link componentId="mlflow.skill_registry.detail.version.files.image_link" href={href} openInNewTab>
+        {label}
+      </Typography.Link>
+    ) : (
+      <Typography.Text color="secondary">{label}</Typography.Text>
+    );
+  },
+  codeBlock: MarkdownCodeBlock,
+  // The code block brings its own <pre>; the one markdown wraps around it would scroll on its own.
+  pre: ({ children }: { children?: ReactNode }) => <>{children}</>,
 };
 
 // Frontmatter is shown as a table of its fields, as code hosts do; text that is not a YAML mapping stays as is.

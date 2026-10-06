@@ -100,6 +100,32 @@ describe('SkillVersionFiles', () => {
     expect(within(dialog).queryByRole('button', { name: 'Copy file contents' })).not.toBeInTheDocument();
   });
 
+  it('wraps code blocks in a rendered markdown file instead of scrolling them, each with a copy button', async () => {
+    mockGetArtifactChunkedText.mockResolvedValueOnce('# Usage\n\n```py\nprint("hi")\n```\n');
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('README.md'));
+    const dialog = await screen.findByRole('dialog', { name: 'README.md' });
+    await userEvent.click(await within(dialog).findByText('Preview'));
+    const copy = await within(dialog).findByRole('button', { name: 'Copy code' });
+    expect(dialog.querySelectorAll('pre')).toHaveLength(1);
+    const block = copy.parentElement?.querySelector('pre');
+    expect(block).toHaveTextContent('print("hi")');
+    expect(block?.style.overflow).toBe('visible');
+    expect(block?.querySelector('code')?.style.whiteSpace).toBe('pre-wrap');
+  });
+
+  it('shows frontmatter that uses YAML aliases as text instead of expanding it', async () => {
+    mockGetArtifactChunkedText.mockResolvedValueOnce('---\nmeta: &m {self: *m}\n---\n# Doc\n');
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('README.md'));
+    const dialog = await screen.findByRole('dialog', { name: 'README.md' });
+    await userEvent.click(await within(dialog).findByText('Preview'));
+    expect(await within(dialog).findByRole('heading', { name: 'Doc' })).toBeInTheDocument();
+    expect(within(dialog).getByText('meta: &m {self: *m}')).toBeInTheDocument();
+  });
+
   it('shows images in markdown as links instead of loading them', async () => {
     renderFiles();
 

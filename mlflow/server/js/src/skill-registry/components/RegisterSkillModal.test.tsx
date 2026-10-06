@@ -274,6 +274,31 @@ describe('RegisterSkillModal', () => {
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
   });
 
+  it('says when SKILL.md frontmatter cannot be parsed rather than that its name is missing', async () => {
+    renderModal();
+    await chooseUpload();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('demo/SKILL.md', '---\nname: demo\ndescription: [unclosed\n---\n'),
+    ]);
+
+    expect(await screen.findByText(/The frontmatter in SKILL.md couldn't be parsed/)).toBeInTheDocument();
+    expect(screen.queryByText(/SKILL.md needs a name/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('says when SKILL.md cannot be read', async () => {
+    renderModal();
+    await chooseUpload();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('demo/SKILL.md', '', () => Promise.reject(new Error('NotReadableError'))),
+    ]);
+
+    expect(await screen.findByText("Couldn't read SKILL.md. Select the folder again.")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
   it('refuses a SKILL.md whose name is not a valid skill name', async () => {
     renderModal();
     await chooseUpload();
