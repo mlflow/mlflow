@@ -824,6 +824,9 @@ jobs:
           path: ${{ runner.temp }}/triage-session
       - if: steps.download.outcome == 'success'
         uses: ./.github/actions/setup-python
+      - name: Install MLflow dependencies
+        if: steps.download.outcome == 'success'
+        run: uv sync --locked --no-dev
       - name: Log session as MLflow trace
         if: steps.download.outcome == 'success'
         env:
@@ -835,7 +838,7 @@ jobs:
           SESSION_FILE: ${{ runner.temp }}/triage-session/triage-session.jsonl
           SESSION_ID: triage-${{ needs.issue.outputs.number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          uv run python -c '
+          uv run --no-sync python -c '
           import os, sys
           from mlflow.claude_code.tracing import process_transcript
           trace = process_transcript(os.environ["SESSION_FILE"], os.environ["SESSION_ID"])
