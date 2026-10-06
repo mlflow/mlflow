@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from mlflow.server import auth, handlers
+from mlflow.server import auth, handlers, skill_registry_api
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import add_registry_exception_handlers
@@ -57,15 +57,36 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         headers = {"x-user": reader.username}
         assert client.get(target, headers=headers).status_code == 403
         assert client.post(f"{target}/versions", json={}, headers=headers).status_code == 403
-        assert client.post(
-            f"{prefix}/register",
-            json={
-                "name": "reviewer",
-                "organization": "acme",
-                "source": "https://example.com/skill.zip",
-            },
-            headers=headers,
-        ).status_code == 403
+        assert (
+            client.post(
+                f"{prefix}/register",
+                json={
+                    "name": "reviewer",
+                    "organization": "acme",
+                    "source": "https://example.com/skill.zip",
+                },
+                headers=headers,
+            ).status_code
+            == 403
+        )
+
+        # Another creator can win after the route's preflight lookup. Recheck the
+        # existing parent inside the tracking transaction before adding a version.
+        register = skill_registry_api.register_skill_version
+
+        def create_other_parent_first(registration, **kwargs):
+            tracking_store.create_skill("race", created_by=owner.username)
+            return register(registration, **kwargs)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(skill_registry_api, "register_skill_version", create_other_parent_first)
+            raced = client.post(
+                f"{prefix}/register",
+                json={"name": "race", "source": "https://example.com/skill.zip"},
+                headers=headers,
+            )
+        assert raced.status_code == 403, raced.text
+        assert list(tracking_store.search_skill_versions(name="race")) == []
 
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", READ.name)
         assert client.get(target, headers=headers).status_code == 200
@@ -77,21 +98,20 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         ]
         assert page.json()["next_page_token"] is None
         admin_page = client.get(prefix, headers={"x-user": admin.username})
-        assert len(admin_page.json()["skills"]) == 3
+        assert len(admin_page.json()["skills"]) == 4
 
-        auth_store.grant_user_permission(
-            reader.username, "skill", "@acme/reviewer", EDIT.name
-        )
+        auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", EDIT.name)
         assert client.patch(target, json={"description": "x"}, headers=headers).status_code == 200
         assert client.delete(target, headers=headers).status_code == 403
 
-        auth_store.grant_user_permission(
-            reader.username, "skill", "@acme/reviewer", MANAGE.name
-        )
+        auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", MANAGE.name)
         assert client.delete(target, headers=headers).status_code == 200
-        assert auth_store.get_role_permission_for_resource(
-            reader.id, "skill", "@acme/reviewer", "default"
-        ) is None
+        assert (
+            auth_store.get_role_permission_for_resource(
+                reader.id, "skill", "@acme/reviewer", "default"
+            )
+            is None
+        )
     finally:
         auth_store.engine.dispose()
         tracking_store.engine.dispose()

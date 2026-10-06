@@ -15,7 +15,6 @@ import base64
 import functools
 import hmac
 import importlib
-import inspect
 import json
 import logging
 import os
@@ -1851,7 +1850,7 @@ def _get_mcp_server_permission(name: str, username: str) -> Permission:
 
 
 def _get_skill_permission(organization: str | None, name: str, username: str) -> Permission:
-    resource_key = _skill_registry_resource_key(organization, name)
+    resource_key = _format_skill_registry_resource_key(organization, name)
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -1869,7 +1868,7 @@ def _get_agent_plugin_permission(
     name: str,
     username: str,
 ) -> Permission:
-    resource_key = _skill_registry_resource_key(organization, name)
+    resource_key = _format_skill_registry_resource_key(organization, name)
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -1880,40 +1879,6 @@ def _get_agent_plugin_permission(
             workspace_label="agent plugin",
         ),
     )
-
-
-# Shared capability helpers used by Skill Registry route validators and store/import
-# preflight paths.
-def _can_read_skill(organization: str | None, name: str, username: str) -> bool:
-    return _get_skill_permission(organization, name, username).can_read
-
-
-def _can_update_skill(organization: str | None, name: str, username: str) -> bool:
-    return _get_skill_permission(organization, name, username).can_update
-
-
-def _can_delete_skill(organization: str | None, name: str, username: str) -> bool:
-    return _get_skill_permission(organization, name, username).can_delete
-
-
-def _can_manage_skill(organization: str | None, name: str, username: str) -> bool:
-    return _get_skill_permission(organization, name, username).can_manage
-
-
-def _can_read_agent_plugin(organization: str | None, name: str, username: str) -> bool:
-    return _get_agent_plugin_permission(organization, name, username).can_read
-
-
-def _can_update_agent_plugin(organization: str | None, name: str, username: str) -> bool:
-    return _get_agent_plugin_permission(organization, name, username).can_update
-
-
-def _can_delete_agent_plugin(organization: str | None, name: str, username: str) -> bool:
-    return _get_agent_plugin_permission(organization, name, username).can_delete
-
-
-def _can_manage_agent_plugin(organization: str | None, name: str, username: str) -> bool:
-    return _get_agent_plugin_permission(organization, name, username).can_manage
 
 
 def _permission_to_allowed_actions(perm: Permission) -> list[str]:
@@ -2947,43 +2912,6 @@ class _SkillRegistryAuthParent:
     workspace: str
 
 
-def _skill_registry_resource_key(organization: str | None, name: str) -> str:
-    return _format_skill_registry_resource_key(organization, name)
-
-
-def _skill_registry_resource_parts(resource_id: str) -> tuple[str, str]:
-    return _parse_skill_registry_resource_key(resource_id)
-
-
-def _get_skill_registry_parent_from_store_method(
-    getter: Callable[..., Any],
-    organization: str,
-    name: str,
-    workspace: str,
-) -> Any:
-    try:
-        signature = inspect.signature(getter)
-    except (TypeError, ValueError):
-        return getter(name=name, organization=organization)
-
-    call_patterns = (
-        ((), {"name": name, "organization": organization, "workspace": workspace}),
-        ((), {"name": name, "organization": organization}),
-        ((organization, name), {}),
-    )
-    for args, kwargs in call_patterns:
-        try:
-            signature.bind(*args, **kwargs)
-        except TypeError:
-            continue
-        return getter(*args, **kwargs)
-
-    raise MlflowException(
-        f"Could not determine Skill Registry getter calling convention for {getter!r}.",
-        INTERNAL_ERROR,
-    )
-
-
 def _skill_registry_auth_workspace(resource_type: str, resource_id: str) -> str:
     workspace_name = (
         workspace_context.get_request_workspace()
@@ -3003,7 +2931,7 @@ def _get_skill_registry_parent_for_auth(
     resource_type: str,
     resource_id: str,
 ) -> _SkillRegistryAuthParent:
-    organization, name = _skill_registry_resource_parts(resource_id)
+    organization, name = _parse_skill_registry_resource_key(resource_id)
     tracking_store = _get_tracking_store()
     workspace_name = _skill_registry_auth_workspace(resource_type, resource_id)
 
@@ -3012,45 +2940,18 @@ def _get_skill_registry_parent_for_auth(
         RESOURCE_TYPE_AGENT_PLUGIN: "get_agent_plugin",
     }[resource_type]
     getter = getattr(tracking_store, getter_name, None)
-    if getter is not None:
-        parent = _get_skill_registry_parent_from_store_method(
-            getter, organization, name, workspace_name
-        )
-        parent_workspace = getattr(parent, "workspace", None)
-        if parent_workspace != workspace_name:
-            raise MlflowException(
-                f"{resource_type} '{resource_id}' does not exist.",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        return _SkillRegistryAuthParent(workspace=parent_workspace)
-
-    session_maker = getattr(tracking_store, "ManagedSessionMaker", None)
-    if session_maker is None:
+    if getter is None:
         raise MlflowException(
-            f"Cannot resolve workspace for {resource_type} '{resource_id}'.",
+            f"Cannot load {resource_type} '{resource_id}' from the tracking store.",
             RESOURCE_DOES_NOT_EXIST,
         )
-
-    from mlflow.store.tracking.dbmodels.models import SqlAgentPlugin, SqlSkill
-
-    model = SqlSkill if resource_type == RESOURCE_TYPE_SKILL else SqlAgentPlugin
-    with session_maker() as session:
-        parent = (
-            session
-            .query(model)
-            .filter(
-                model.workspace == workspace_name,
-                model.organization == organization,
-                model.name == name,
-            )
-            .first()
+    parent = getter(name=name, organization=organization)
+    if parent.workspace != workspace_name:
+        raise MlflowException(
+            f"{resource_type} '{resource_id}' does not exist.",
+            RESOURCE_DOES_NOT_EXIST,
         )
-        if parent is None:
-            raise MlflowException(
-                f"{resource_type} '{resource_id}' does not exist.",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        return _SkillRegistryAuthParent(workspace=parent.workspace)
+    return _SkillRegistryAuthParent(workspace=parent.workspace)
 
 
 def _get_skill_for_auth(resource_id: str) -> _SkillRegistryAuthParent:
@@ -3133,8 +3034,8 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     label, fetcher_factory = spec
     if resource_type in {RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN}:
         # Validate the composite id and format it into the canonical grant key.
-        organization, name = _skill_registry_resource_parts(resource_id)
-        resource_id = _skill_registry_resource_key(organization, name)
+        organization, name = _parse_skill_registry_resource_key(resource_id)
+        resource_id = _format_skill_registry_resource_key(organization, name)
     return _ResourceDispatch(
         resource_key=resource_id,
         workspace_lookup_id=resource_id,
@@ -5711,7 +5612,7 @@ def grant_manage_for_created_skill(username: str, organization: str | None, name
     store.grant_user_permission(
         username,
         RESOURCE_TYPE_SKILL,
-        _skill_registry_resource_key(organization, name),
+        _format_skill_registry_resource_key(organization, name),
         MANAGE.name,
     )
 
@@ -5724,7 +5625,7 @@ def grant_manage_for_created_agent_plugin(
     store.grant_user_permission(
         username,
         RESOURCE_TYPE_AGENT_PLUGIN,
-        _skill_registry_resource_key(organization, name),
+        _format_skill_registry_resource_key(organization, name),
         MANAGE.name,
     )
 
@@ -5732,7 +5633,7 @@ def grant_manage_for_created_agent_plugin(
 def delete_skill_permissions(organization: str | None, name: str) -> None:
     store.delete_grants_for_resource(
         RESOURCE_TYPE_SKILL,
-        _skill_registry_resource_key(organization, name),
+        _format_skill_registry_resource_key(organization, name),
         workspace_scoped=True,
     )
 
@@ -5740,7 +5641,7 @@ def delete_skill_permissions(organization: str | None, name: str) -> None:
 def delete_agent_plugin_permissions(organization: str | None, name: str) -> None:
     store.delete_grants_for_resource(
         RESOURCE_TYPE_AGENT_PLUGIN,
-        _skill_registry_resource_key(organization, name),
+        _format_skill_registry_resource_key(organization, name),
         workspace_scoped=True,
     )
 
@@ -8301,13 +8202,31 @@ def _skill_exists_for_auth(organization: str, name: str) -> bool:
         raise
 
 
-def validate_can_register_skill(username: str, organization: str, name: str) -> bool:
+def validate_can_register_skill(
+    username: str, organization: str, name: str, *, parent_exists: bool | None = None
+) -> bool:
     """Check the parent before registration can write artifacts or rows."""
     if store.get_user(username).is_admin:
         return True
-    if _skill_exists_for_auth(organization, name):
-        return _can_update_skill(organization, name, username)
+    if parent_exists is None:
+        parent_exists = _skill_exists_for_auth(organization, name)
+    if parent_exists:
+        return _get_skill_permission(organization, name, username).can_update
     return validate_can_create_skill(username)
+
+
+def validate_can_update_existing_skill(
+    username: str, organization: str, name: str, workspace: str
+) -> bool:
+    """Recheck an existing parent inside the registration transaction."""
+    if MLFLOW_ENABLE_WORKSPACES.get() and workspace != workspace_context.get_request_workspace():
+        return False
+    if store.get_user(username).is_admin:
+        return True
+    resource_key = _format_skill_registry_resource_key(organization, name)
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(username, RESOURCE_TYPE_SKILL, resource_key, workspace)
+    ).can_update
 
 
 def skill_search_permission_scope(
@@ -8328,8 +8247,7 @@ def skill_search_permission_scope(
     if workspace_name in store.list_workspace_admin_workspaces(user.id):
         return None, []
     fallback_read = get_permission(auth_config.default_permission).can_read and (
-        not MLFLOW_ENABLE_WORKSPACES.get()
-        or _user_inherits_default_workspace_grant(workspace_name)
+        not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(workspace_name)
     )
     readable = set()
     denied = set()
@@ -8345,9 +8263,9 @@ def skill_search_permission_scope(
             wildcard_read |= can_read
             wildcard_deny |= not can_read
         elif can_read:
-            readable.add(_skill_registry_resource_parts(pattern))
+            readable.add(_parse_skill_registry_resource_key(pattern))
         else:
-            denied.add(_skill_registry_resource_parts(pattern))
+            denied.add(_parse_skill_registry_resource_key(pattern))
     if wildcard_read:
         return None, []
     if wildcard_deny or not fallback_read:
@@ -8788,6 +8706,18 @@ def _get_otel_validator(
     return validator
 
 
+def _artifact_proxy_path_suffix(path: str, include_presigned: bool = False) -> str | None:
+    operations = ("artifacts/", "mpu/create/", "mpu/complete/", "mpu/abort/")
+    if include_presigned:
+        operations += ("presigned/",)
+    for api_prefix in (_REST_API_PATH_PREFIX, _AJAX_API_PATH_PREFIX):
+        for operation in operations:
+            prefix = f"{api_prefix}/mlflow-artifacts/{operation}"
+            if path.startswith(prefix):
+                return path[len(prefix) :]
+    return None
+
+
 def _extract_experiment_id_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> str | None:
@@ -8819,21 +8749,7 @@ def _extract_experiment_id_from_artifact_proxy_path(
 def _extract_skill_identity_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> SkillArtifactIdentity | None:
-    prefixes = (
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-    )
-    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
-    if prefix is not None:
-        artifact_path = path.removeprefix(prefix)
+    if (artifact_path := _artifact_proxy_path_suffix(path, include_presigned=True)) is not None:
         if identity := _parse_skill_upload_path_for_auth(artifact_path):
             return identity
 

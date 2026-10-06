@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 import sqlalchemy as sa
 from sqlalchemy import func
@@ -59,6 +59,21 @@ from mlflow.utils.validation import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _skill_identity_predicate(identities: list[tuple[str, str]]):
+    names_by_organization: dict[str, set[str]] = {}
+    for organization, name in identities:
+        names_by_organization.setdefault(organization, set()).add(name)
+    # One branch per organization keeps common large grant sets from producing
+    # one OR branch per skill while retaining portable SQL across store dialects.
+    return sa.or_(
+        sa.false(),
+        *(
+            sa.and_(SqlSkill.organization == organization, SqlSkill.name.in_(sorted(names)))
+            for organization, names in names_by_organization.items()
+        ),
+    )
 
 
 class SqlAlchemySkillRegistryMixin:
@@ -430,25 +445,9 @@ class SqlAlchemySkillRegistryMixin:
             )
             if allowed_identities is not None:
                 # Identity includes organization: the same name may exist in several orgs.
-                query = query.filter(
-                    sa.or_(
-                        sa.false(),
-                        *(
-                            sa.and_(SqlSkill.organization == org, SqlSkill.name == name)
-                            for org, name in allowed_identities
-                        ),
-                    )
-                )
+                query = query.filter(_skill_identity_predicate(allowed_identities))
             if denied_identities:
-                query = query.filter(
-                    ~sa.or_(
-                        sa.false(),
-                        *(
-                            sa.and_(SqlSkill.organization == org, SqlSkill.name == name)
-                            for org, name in denied_identities
-                        ),
-                    )
-                )
+                query = query.filter(~_skill_identity_predicate(denied_identities))
             rows = query.order_by(*order_clauses).offset(offset).limit(max_results + 1).all()
             skills = [skill.to_mlflow_entity() for skill in rows]
             return paginate_results(
@@ -466,6 +465,7 @@ class SqlAlchemySkillRegistryMixin:
         name: str,
         organization: str,
         created_by: str | None = None,
+        authorize_existing: Callable[[str, str, str], None] | None = None,
     ) -> SqlSkill:
         skill = (
             self
@@ -474,6 +474,8 @@ class SqlAlchemySkillRegistryMixin:
             .one_or_none()
         )
         if skill is not None:
+            if authorize_existing is not None:
+                authorize_existing(organization, name, skill.workspace)
             return skill
 
         skill = self._with_workspace_field(
@@ -508,6 +510,7 @@ class SqlAlchemySkillRegistryMixin:
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
+        authorize_existing: Callable[[str, str, str], None] | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -515,7 +518,11 @@ class SqlAlchemySkillRegistryMixin:
         status = self._validate_skill_version_status(status)
 
         skill = self._get_or_create_skill_for_version(
-            session, name, organization, created_by=created_by
+            session,
+            name,
+            organization,
+            created_by=created_by,
+            authorize_existing=authorize_existing,
         )
         now = get_current_time_millis()
         skill_version = SqlSkillVersion(
@@ -555,6 +562,7 @@ class SqlAlchemySkillRegistryMixin:
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
+        authorize_existing: Callable[[str, str, str], None] | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -576,6 +584,7 @@ class SqlAlchemySkillRegistryMixin:
                     digest=digest,
                     status=status,
                     created_by=created_by,
+                    authorize_existing=authorize_existing,
                 )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -619,6 +628,7 @@ class SqlAlchemySkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
+        authorize_existing: Callable[[str, str, str], None] | None = None,
     ) -> list[SkillVersion]:
         if not isinstance(skill_definitions, list) or not skill_definitions:
             raise MlflowException.invalid_parameter_value(
@@ -669,7 +679,12 @@ class SqlAlchemySkillRegistryMixin:
         for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
             try:
                 return self._run_with_deadlock_retry(
-                    self._bulk_register_skills_once, definitions, organization, created_by, status
+                    self._bulk_register_skills_once,
+                    definitions,
+                    organization,
+                    created_by,
+                    status,
+                    authorize_existing,
                 )
             except MlflowException as e:
                 # Persistence helpers chain IntegrityError for creation/allocation collisions;
@@ -681,7 +696,9 @@ class SqlAlchemySkillRegistryMixin:
                 ):
                     raise
 
-    def _bulk_register_skills_once(self, definitions, organization, created_by, status):
+    def _bulk_register_skills_once(
+        self, definitions, organization, created_by, status, authorize_existing
+    ):
         results = {}
         with self.ManagedSessionMaker(read_only=False) as session:
             names = sorted(definitions)
@@ -704,6 +721,8 @@ class SqlAlchemySkillRegistryMixin:
                 )
                 if parent is None:
                     self._get_or_create_skill_for_version(session, name, organization, created_by)
+                elif authorize_existing is not None:
+                    authorize_existing(organization, name, parent.workspace)
 
             for name in names:
                 self._assert_name_not_a_packaged_member(session, name, organization)

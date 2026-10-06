@@ -521,6 +521,8 @@ def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
         max_results=20,
         order_by=["name ASC", "organization ASC"],
         page_token="token-1",
+        allowed_identities=None,
+        denied_identities=None,
     )
 
 

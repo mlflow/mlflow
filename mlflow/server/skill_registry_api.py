@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -372,9 +372,26 @@ def _authorize_registration(request: Request, organization: str, name: str) -> b
     if username is None:
         # Authentication is supplied by the basic-auth FastAPI middleware when enabled.
         return False
-    if not auth.validate_can_register_skill(username, organization, name):
+    parent_exists = auth._skill_exists_for_auth(organization, name)
+    if not auth.validate_can_register_skill(
+        username, organization, name, parent_exists=parent_exists
+    ):
         raise MlflowException("Permission denied", PERMISSION_DENIED)
-    return not auth._skill_exists_for_auth(organization, name)
+    return not parent_exists
+
+
+def _existing_skill_authorizer(request: Request) -> Callable[[str, str, str], None] | None:
+    username = getattr(request.state, "username", None)
+    if username is None:
+        return None
+
+    def authorize(organization: str, name: str, workspace: str) -> None:
+        from mlflow.server import auth
+
+        if not auth.validate_can_update_existing_skill(username, organization, name, workspace):
+            raise MlflowException("Permission denied", PERMISSION_DENIED)
+
+    return authorize
 
 
 def _grant_creator_if_new(request: Request, organization: str, name: str, new: bool) -> None:
@@ -405,6 +422,7 @@ async def _create_skill_version(
             registration,
             content=content,
             multipart=multipart,
+            authorize_existing=_existing_skill_authorizer(request),
         )
     _grant_creator_if_new(request, organization, name, parent_missing)
     return SkillVersionResponse.from_entity(version)
@@ -834,18 +852,19 @@ def search_skills(
 ) -> SearchSkillsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    auth_scope = {}
+    allowed_identities = None
+    denied_identities = None
     if username := getattr(request.state, "username", None):
         from mlflow.server import auth
 
-        allowed, denied = auth.skill_search_permission_scope(username)
-        auth_scope.update(allowed_identities=allowed, denied_identities=denied)
+        allowed_identities, denied_identities = auth.skill_search_permission_scope(username)
     results = _get_tracking_store().search_skills(
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
-        **auth_scope,
+        allowed_identities=allowed_identities,
+        denied_identities=denied_identities,
     )
     return SearchSkillsResponse(
         skills=[SkillResponse.from_entity(skill) for skill in results],
@@ -1065,6 +1084,7 @@ async def register_skill(request: Request) -> SkillVersionResponse:
             registration,
             content=content,
             multipart=multipart,
+            authorize_existing=_existing_skill_authorizer(request),
         )
     _grant_creator_if_new(request, registration.organization, registration.name, parent_missing)
     return SkillVersionResponse.from_entity(version)
@@ -1099,7 +1119,11 @@ async def bulk_register_skills(
             )
         )
 
-    versions = await asyncio.to_thread(bulk_register_skill_versions, registrations)
+    versions = await asyncio.to_thread(
+        bulk_register_skill_versions,
+        registrations,
+        authorize_existing=_existing_skill_authorizer(request),
+    )
     for name in new_parents:
         _grant_creator_if_new(request, body.organization, name, True)
     return BulkRegisterSkillsResponse(

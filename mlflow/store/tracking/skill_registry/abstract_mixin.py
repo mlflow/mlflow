@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
@@ -76,6 +76,7 @@ class SkillRegistryMixin:
         digest: str | None = None,
         status: str = "active",
         created_by: str | None = None,
+        authorize_existing: Callable[[str, str, str], None] | None = None,
     ) -> SkillVersion:
         raise NotImplementedError(self.__class__.__name__)
 
@@ -84,6 +85,7 @@ class SkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
+        authorize_existing: Callable[[str, str, str], None] | None = None,
     ) -> list[SkillVersion]:
         """Atomically register standalone skills from one Git repository and ref.
 

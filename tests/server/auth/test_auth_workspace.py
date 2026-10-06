@@ -21,6 +21,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_AGENT_PLUGIN,
     RESOURCE_TYPE_SKILL,
     USE,
+    _format_skill_registry_resource_key,
 )
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
@@ -587,6 +588,12 @@ def test_skill_rest_create_requires_workspace_create_grant(workspace_permission_
         _authorize_registration(
             SimpleNamespace(state=SimpleNamespace(username=username)), "", "new-skill"
         )
+
+
+def test_existing_skill_registration_recheck_uses_request_workspace(workspace_permission_setup):
+    username = workspace_permission_setup["username"]
+    assert auth_module.validate_can_update_existing_skill(username, "", "skill-1", "team-a")
+    assert not auth_module.validate_can_update_existing_skill(username, "", "skill-1", "team-b")
 
 
 def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission: str):
@@ -1205,7 +1212,7 @@ def test_skill_artifact_proxy_requires_skill_read_permission(workspace_permissio
     store.add_role_permission(
         role.id,
         RESOURCE_TYPE_SKILL,
-        auth_module._skill_registry_resource_key("", "skill-1"),
+        _format_skill_registry_resource_key("", "skill-1"),
         READ.name,
     )
     store.assign_role_to_user(store.get_user(username).id, role.id)
@@ -4301,7 +4308,7 @@ def test_role_grant_on_skill_registry_parent_gates_capabilities(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    resource_key = auth_module._skill_registry_resource_key(organization, name)
+    resource_key = _format_skill_registry_resource_key(organization, name)
 
     role = store.create_role(name=random_str(), workspace="team-a")
     store.add_role_permission(role.id, resource_type, resource_key, granted)
@@ -4312,62 +4319,6 @@ def test_role_grant_on_skill_registry_parent_gates_capabilities(
     assert perm.can_update is expected_update
     assert perm.can_delete is expected_delete
     assert perm.can_manage is expected_manage
-
-
-@pytest.mark.parametrize(
-    ("resource_type", "organization", "name", "helpers"),
-    [
-        (
-            RESOURCE_TYPE_SKILL,
-            "",
-            "skill-1",
-            (
-                auth_module._can_read_skill,
-                auth_module._can_update_skill,
-                auth_module._can_delete_skill,
-                auth_module._can_manage_skill,
-            ),
-        ),
-        (
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            "acme",
-            "plugin-2",
-            (
-                auth_module._can_read_agent_plugin,
-                auth_module._can_update_agent_plugin,
-                auth_module._can_delete_agent_plugin,
-                auth_module._can_manage_agent_plugin,
-            ),
-        ),
-    ],
-)
-@pytest.mark.parametrize(
-    ("granted", "expected"),
-    [
-        ("READ", (True, False, False, False)),
-        ("EDIT", (True, True, False, False)),
-        ("MANAGE", (True, True, True, True)),
-    ],
-)
-def test_skill_registry_can_helpers_gate_capabilities(
-    workspace_permission_setup,
-    resource_type,
-    organization,
-    name,
-    helpers,
-    granted,
-    expected,
-):
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    resource_key = auth_module._skill_registry_resource_key(organization, name)
-
-    role = store.create_role(name=random_str(), workspace="team-a")
-    store.add_role_permission(role.id, resource_type, resource_key, granted)
-    store.assign_role_to_user(store.get_user(username).id, role.id)
-
-    assert tuple(helper(organization, name, username) for helper in helpers) == expected
 
 
 @pytest.mark.parametrize(
@@ -4423,7 +4374,7 @@ def test_role_in_other_workspace_does_not_grant_skill_registry_access(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    resource_key = auth_module._skill_registry_resource_key(organization, name)
+    resource_key = _format_skill_registry_resource_key(organization, name)
 
     role = store.create_role(name=random_str(), workspace="team-b")
     store.add_role_permission(role.id, resource_type, resource_key, MANAGE.name)
@@ -4491,7 +4442,7 @@ def test_skill_registry_resource_keys_match_canonical_case(
     store.add_role_permission(
         role.id,
         resource_type,
-        auth_module._skill_registry_resource_key(lower_org, lower_name),
+        _format_skill_registry_resource_key(lower_org, lower_name),
         READ.name,
     )
     store.assign_role_to_user(store.get_user(username).id, role.id)
@@ -4520,109 +4471,15 @@ def test_skill_registry_parent_primary_getter_rejects_other_workspace(
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-@pytest.mark.parametrize(
-    ("resource_type", "model", "resource_id", "organization", "name"),
-    [
-        (RESOURCE_TYPE_SKILL, SqlSkill, "skill-from-sql", "", "skill-from-sql"),
-        (
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            SqlAgentPlugin,
-            "@acme/plugin-from-sql",
-            "acme",
-            "plugin-from-sql",
-        ),
-    ],
-)
-def test_skill_registry_parent_for_auth_uses_sql_fallback(
-    tmp_path,
-    monkeypatch,
-    resource_type,
-    model,
-    resource_id,
-    organization,
-    name,
-):
+def test_skill_registry_parent_requires_store_getter(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    tracking_store = TrackingSqlAlchemyStore(
-        f"sqlite:///{tmp_path / f'{resource_type}.db'}",
-        str(tmp_path / "artifacts"),
-    )
-    try:
-        with tracking_store.ManagedSessionMaker(read_only=False) as session:
-            session.add(model(workspace="team-a", organization=organization, name=name))
-        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", object)
 
-        with workspace_context.WorkspaceContext("team-a"):
-            parent = auth_module._get_skill_registry_parent_for_auth(resource_type, resource_id)
+    with workspace_context.WorkspaceContext("team-a"):
+        with pytest.raises(MlflowException, match="Cannot load skill") as exc:
+            auth_module._get_skill_registry_parent_for_auth(RESOURCE_TYPE_SKILL, "skill-1")
 
-        assert parent.workspace == "team-a"
-    finally:
-        tracking_store.engine.dispose()
-
-
-def test_skill_registry_parent_getter_does_not_mask_internal_type_error():
-    def getter(*, name, organization):
-        raise TypeError(f"bug while loading {organization}/{name}")
-
-    with pytest.raises(TypeError, match="bug while loading acme/skill-1"):
-        auth_module._get_skill_registry_parent_from_store_method(
-            getter, "acme", "skill-1", "team-a"
-        )
-
-
-def test_skill_registry_parent_getter_with_workspace_does_not_mask_internal_type_error():
-    def getter(*, name, organization, workspace):
-        raise TypeError(f"bug while loading {workspace}/{organization}/{name}")
-
-    with pytest.raises(TypeError, match="bug while loading team-a/acme/skill-1"):
-        auth_module._get_skill_registry_parent_from_store_method(
-            getter, "acme", "skill-1", "team-a"
-        )
-
-
-def test_skill_registry_parent_getter_rejects_unknown_calling_convention():
-    def getter(name):
-        return SimpleNamespace(workspace="team-a")
-
-    with pytest.raises(MlflowException, match="Could not determine Skill Registry getter"):
-        auth_module._get_skill_registry_parent_from_store_method(
-            getter, "acme", "skill-1", "team-a"
-        )
-
-
-def test_skill_registry_parent_getter_passes_workspace_when_supported():
-    calls = []
-
-    def getter(*, name, organization, workspace):
-        calls.append((organization, name, workspace))
-        return SimpleNamespace(workspace=workspace)
-
-    parent = auth_module._get_skill_registry_parent_from_store_method(
-        getter, "acme", "skill-1", "team-a"
-    )
-
-    assert calls == [("acme", "skill-1", "team-a")]
-    assert parent.workspace == "team-a"
-
-
-@pytest.mark.parametrize(
-    ("resource_id", "expected"),
-    [
-        ("skill-1", ("", "skill-1")),
-        ("@acme/skill-2", ("acme", "skill-2")),
-    ],
-)
-def test_skill_registry_resource_parts_parses_canonical_ids(resource_id, expected):
-    assert auth_module._skill_registry_resource_parts(resource_id) == expected
-
-
-@pytest.mark.parametrize(
-    "resource_id",
-    ["", "@", "@acme", "@acme/", "@acme/name/extra", "acme/name"],
-)
-def test_skill_registry_resource_parts_rejects_invalid_ids(resource_id):
-    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
-        auth_module._skill_registry_resource_parts(resource_id)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 # =============================================================================
@@ -6854,36 +6711,9 @@ def test_skill_registry_creator_grants_and_delete_cleanup_are_workspace_isolated
     auth_store.engine.dispose()
 
 
-@pytest.mark.parametrize(
-    ("model", "organization", "name", "resource_label", "permission_getter", "grant_func"),
-    [
-        (
-            SqlSkill,
-            "",
-            "created-after-miss-skill",
-            "skill",
-            auth_module._get_skill_permission,
-            auth_module.grant_manage_for_created_skill,
-        ),
-        (
-            SqlAgentPlugin,
-            "acme",
-            "created-after-miss-plugin",
-            "agent plugin",
-            auth_module._get_agent_plugin_permission,
-            auth_module.grant_manage_for_created_agent_plugin,
-        ),
-    ],
-)
 def test_skill_registry_creator_manage_survives_cached_missing_parent(
     tmp_path,
     monkeypatch,
-    model,
-    organization,
-    name,
-    resource_label,
-    permission_getter,
-    grant_func,
 ):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.setattr(
@@ -6905,20 +6735,22 @@ def test_skill_registry_creator_manage_survives_cached_missing_parent(
 
     try:
         username = "alice"
+        organization = ""
+        name = "created-after-miss-skill"
         auth_store.create_user(username, "supersecurepassword", is_admin=False)
         auth_store.set_workspace_permission("team-a", username, USE.name)
-        resource_key = auth_module._skill_registry_resource_key(organization, name)
-        cache_key = f"{resource_label}:team-a:{resource_key}"
+        resource_key = _format_skill_registry_resource_key(organization, name)
+        cache_key = f"skill:team-a:{resource_key}"
 
         with workspace_context.WorkspaceContext("team-a"):
-            assert permission_getter(organization, name, username) == NO_PERMISSIONS
+            assert auth_module._get_skill_permission(organization, name, username) == NO_PERMISSIONS
             assert cache_key not in auth_module._RESOURCE_WORKSPACE_CACHE
 
             with tracking_store.ManagedSessionMaker(read_only=False) as session:
-                session.add(model(workspace="team-a", organization=organization, name=name))
+                session.add(SqlSkill(workspace="team-a", organization=organization, name=name))
 
-            grant_func(username, organization, name)
-            assert permission_getter(organization, name, username) == MANAGE
+            auth_module.grant_manage_for_created_skill(username, organization, name)
+            assert auth_module._get_skill_permission(organization, name, username) == MANAGE
     finally:
         auth_module._RESOURCE_WORKSPACE_CACHE.clear()
         auth_store.engine.dispose()
