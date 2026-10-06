@@ -34,7 +34,39 @@ function forwardedHeaders(headers) {
   return result;
 }
 
+function accessTimestamp(date) {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const pad = (value) => String(value).padStart(2, "0");
+  const time = [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].map(pad).join(":");
+  return `${pad(date.getUTCDate())}/${months[date.getUTCMonth()]}/${date.getUTCFullYear()}:${time} +0000`;
+}
+
+function quotedLogField(value) {
+  return JSON.stringify(String(value ?? "-"));
+}
+
 const server = http.createServer((request, response) => {
+  let bodyBytes = 0;
+  let logged = false;
+  const logAccess = () => {
+    if (logged) return;
+    logged = true;
+    const status = response.writableFinished ? response.statusCode : 499;
+    const requestLine = `${request.method} ${request.url} HTTP/${request.httpVersion}`;
+    const address = request.socket.remoteAddress ?? "-";
+    const fields = [
+      `${address} - - [${accessTimestamp(new Date())}]`,
+      quotedLogField(requestLine),
+      status,
+      bodyBytes,
+      quotedLogField(request.headers.referer),
+      quotedLogField(request.headers["user-agent"]),
+    ];
+    process.stdout.write(`${fields.join(" ")}\n`);
+  };
+  response.on("finish", logAccess);
+  response.on("close", logAccess);
+
   let local;
   try {
     local = new URL(request.url ?? "/", "http://localhost");
@@ -60,6 +92,9 @@ const server = http.createServer((request, response) => {
 
   const outgoing = https.request(upstream, { method: request.method, headers }, (incoming) => {
     response.writeHead(incoming.statusCode ?? 502, forwardedHeaders(incoming.headers));
+    incoming.on("data", (chunk) => {
+      bodyBytes += chunk.length;
+    });
     incoming.pipe(response);
   });
   outgoing.setTimeout(600_000, () => outgoing.destroy(new Error("Gateway timeout")));
