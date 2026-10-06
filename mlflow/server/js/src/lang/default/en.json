@@ -1135,6 +1135,10 @@
     "defaultMessage": "Back",
     "description": "Back button"
   },
+  "2Xht4s": {
+    "defaultMessage": "No version is active, so the skill resolves to version {version}. Make a version active to recommend it.",
+    "description": "Tooltip for a skill whose latest version is not active"
+  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -1634,10 +1638,6 @@
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
     "description": "Count of selected nodes displayed in the node level metric charts node selector"
-  },
-  "4SBTYy": {
-    "defaultMessage": "Unavailable",
-    "description": "Label for a Skill whose derived parent status is not active"
   },
   "4TDvGX": {
     "defaultMessage": "edited {when} by {user}",
@@ -8311,6 +8311,10 @@
     "defaultMessage": "Next page",
     "description": "Aria label for the next-page button in the traces table pagination"
   },
+  "U2RJuk": {
+    "defaultMessage": "The skill was created, but its tags could not be saved: {reason}",
+    "description": "Error when saving a new skill tags fails after registration"
+  },
   "U2x2cM": {
     "defaultMessage": "Endpoint:",
     "description": "Label for endpoint selection"
@@ -9707,6 +9711,10 @@
     "defaultMessage": "Operator",
     "description": "Usage overview > filter row > operator dropdown aria label"
   },
+  "ZDX913": {
+    "defaultMessage": "Unavailable",
+    "description": "Label for a Skill that has no version to pull"
+  },
   "ZGhYvh": {
     "defaultMessage": "No traces in this queue yet",
     "description": "Review queue: empty queue title"
@@ -9842,10 +9850,6 @@
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
-  },
-  "ZmOem6": {
-    "defaultMessage": "The skill was created, but its description, icons, or tags could not be saved: {reason}",
-    "description": "Error when saving a new skill description, icons, or tags fails after registration"
   },
   "ZoBXpz": {
     "defaultMessage": "Model attributes",
@@ -15291,10 +15295,6 @@
     "defaultMessage": "Description",
     "description": "Label for the skill description editor"
   },
-  "th1s0E": {
-    "defaultMessage": "Set the skill status to active to make it available",
-    "description": "Tooltip for unavailable label on Skill detail page"
-  },
   "tiQptW": {
     "defaultMessage": "Learn more",
     "description": "Link to the documentation page for GenAI evaluation"
@@ -16022,6 +16022,10 @@
   "whhlYC": {
     "defaultMessage": "Transport URL",
     "description": "Package transport URL label"
+  },
+  "wiYzNW": {
+    "defaultMessage": "This skill has no versions to pull.",
+    "description": "Tooltip for a skill without any version"
   },
   "wj6XWT": {
     "defaultMessage": "Did the response address all explicit requests in the prompt?",

@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import Utils from '../../common/utils/Utils';
 import { setupServer } from '../../common/utils/setup-msw';
 import { SkillRegistryApi } from '../api';
-import { createMockSkillVersion } from '../test-utils';
+import { createMockSkill, createMockSkillVersion } from '../test-utils';
 import type { SkillVersion } from '../types';
 import { RegisterSkillModal } from './RegisterSkillModal';
 
@@ -81,6 +81,7 @@ describe('RegisterSkillModal', () => {
     onRegistered = jest.fn();
     onClose = jest.fn();
     jest.spyOn(SkillRegistryApi, 'getSkill').mockRejectedValue(notFound());
+    jest.spyOn(SkillRegistryApi, 'createSkill').mockImplementation(async (request) => createMockSkill(request));
   });
 
   afterEach(() => {
@@ -121,10 +122,16 @@ describe('RegisterSkillModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('says the skill exists when its description, icons, or tags fail to save', async () => {
-    jest.spyOn(SkillRegistryApi, 'registerSkill').mockResolvedValue(registered);
-    jest.spyOn(SkillRegistryApi, 'updateSkill').mockRejectedValue(new Error('Description too long'));
-    const notify = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
+  it('creates a new skill with its description before registering its first version', async () => {
+    const order: string[] = [];
+    const createSkill = jest.spyOn(SkillRegistryApi, 'createSkill').mockImplementation(async (request) => {
+      order.push('create');
+      return createMockSkill(request);
+    });
+    jest.spyOn(SkillRegistryApi, 'registerSkill').mockImplementation(async () => {
+      order.push('register');
+      return registered;
+    });
     renderModal();
 
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
@@ -133,9 +140,56 @@ describe('RegisterSkillModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(onRegistered).toHaveBeenCalledWith(registered));
-    expect(notify).toHaveBeenCalledWith(
-      'The skill was created, but its description, icons, or tags could not be saved: Description too long',
-    );
+    expect(createSkill).toHaveBeenCalledWith({ name: 'demo', organization: 'acme', description: 'Reviews code' });
+    expect(order).toEqual(['create', 'register']);
+  });
+
+  it('stops when the name was taken before the skill could be created', async () => {
+    const registerSkill = jest.spyOn(SkillRegistryApi, 'registerSkill');
+    jest.spyOn(SkillRegistryApi, 'createSkill').mockRejectedValue(new Error('Skill already exists'));
+    // Free when the dialog checked, taken by the time it creates the skill.
+    jest
+      .spyOn(SkillRegistryApi, 'getSkill')
+      .mockRejectedValueOnce(notFound())
+      .mockResolvedValue(createMockSkill({ name: 'demo', organization: 'acme' }));
+    renderModal();
+
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText('A skill named "@acme/demo" is already registered.')).toBeInTheDocument();
+    expect(registerSkill).not.toHaveBeenCalled();
+    expect(onRegistered).not.toHaveBeenCalled();
+  });
+
+  it('removes the new empty skill when registering its first version fails', async () => {
+    jest.spyOn(SkillRegistryApi, 'registerSkill').mockRejectedValue(new Error('Source unreachable'));
+    const deleteSkill = jest.spyOn(SkillRegistryApi, 'deleteSkill').mockResolvedValue({});
+    renderModal();
+
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText('Source unreachable')).toBeInTheDocument();
+    expect(deleteSkill).toHaveBeenCalledWith('demo', 'acme');
+    expect(onRegistered).not.toHaveBeenCalled();
+  });
+
+  it('says the skill exists when its tags fail to save', async () => {
+    jest.spyOn(SkillRegistryApi, 'registerSkill').mockResolvedValue(registered);
+    jest.spyOn(SkillRegistryApi, 'setSkillTag').mockRejectedValue(new Error('Tag value too long'));
+    const notify = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
+    renderModal();
+
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
+    await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    await userEvent.type(screen.getByLabelText('Key'), 'team');
+    await userEvent.type(screen.getByLabelText('Value'), 'platform');
+    await userEvent.click(screen.getByRole('button', { name: 'Add tag' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(onRegistered).toHaveBeenCalledWith(registered));
+    expect(notify).toHaveBeenCalledWith('The skill was created, but its tags could not be saved: Tag value too long');
   });
 
   it('keeps a name typed while SKILL.md is still being read', async () => {
@@ -168,6 +222,46 @@ describe('RegisterSkillModal', () => {
     });
 
     expect(screen.getByLabelText('Name')).toHaveValue('');
+  });
+
+  it("drops the previous folder's name and description when another folder or Import is chosen", async () => {
+    renderModal();
+    await chooseUpload();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('first/SKILL.md', '---\nname: first\ndescription: First skill\n---\n'),
+    ]);
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('first'));
+    await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    expect(screen.getByLabelText('Description')).toHaveValue('First skill');
+
+    // A SKILL.md without frontmatter suggests nothing, so nothing from the first folder may remain.
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [folderFile('second/SKILL.md', '# Second\n')]);
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue(''));
+    expect(screen.getByLabelText('Description')).toHaveValue('');
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('first/SKILL.md', '---\nname: first\ndescription: First skill\n---\n'),
+    ]);
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('first'));
+    await userEvent.click(screen.getByRole('radio', { name: /Import from existing source/ }));
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    expect(screen.getByLabelText('Description')).toHaveValue('');
+  });
+
+  it('keeps a typed name and description when the folder changes', async () => {
+    renderModal();
+    await chooseUpload();
+    await userEvent.type(screen.getByLabelText('Name'), '@acme/mine');
+    await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    await userEvent.type(screen.getByLabelText('Description'), 'Mine');
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('first/SKILL.md', '---\nname: first\ndescription: First skill\n---\n'),
+    ]);
+
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('@acme/mine'));
+    expect(screen.getByLabelText('Description')).toHaveValue('Mine');
   });
 
   it('explains a folder without SKILL.md', async () => {

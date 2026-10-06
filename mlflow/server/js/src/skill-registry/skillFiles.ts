@@ -35,33 +35,36 @@ export const getSkillArtifactPath = (version: Pick<SkillVersion, 'source_type' |
   return subpath ? `${base}/${subpath}` : base || undefined;
 };
 
-/** Walks the stored tree breadth first, one listing call per directory, up to the file and directory caps. */
+/**
+ * Walks the stored tree one level at a time, listing the directories of a level in parallel, up to the file and
+ * directory caps.
+ */
 export const listSkillFiles = async (rootPath: string) => {
   const files: SkillFile[] = [];
-  const pending = [''];
+  let level = [''];
   let listed = 0;
   let truncated = false;
-  while (pending.length) {
-    if (listed === MAX_LISTED_SKILL_DIRECTORIES) {
-      truncated = true;
-      break;
-    }
-    listed += 1;
-    const directory = pending.shift() as string;
-    const { files: entries = [] } = await SkillRegistryApi.listArtifacts(
-      directory ? `${rootPath}/${directory}` : rootPath,
+  while (level.length && !truncated) {
+    const batch = level.slice(0, MAX_LISTED_SKILL_DIRECTORIES - listed);
+    truncated = batch.length < level.length;
+    listed += batch.length;
+    const listings = await Promise.all(
+      batch.map((directory) => SkillRegistryApi.listArtifacts(directory ? `${rootPath}/${directory}` : rootPath)),
     );
-    for (const entry of entries) {
-      const path = directory ? `${directory}/${entry.path}` : entry.path;
-      if (entry.is_dir) {
-        pending.push(path);
-      } else if (files.length < MAX_LISTED_SKILL_FILES) {
-        files.push({ path, size: entry.file_size });
-      } else {
-        truncated = true;
+    const next: string[] = [];
+    for (const [index, directory] of batch.entries()) {
+      for (const entry of listings[index].files ?? []) {
+        const path = directory ? `${directory}/${entry.path}` : entry.path;
+        if (entry.is_dir) {
+          next.push(path);
+        } else if (files.length < MAX_LISTED_SKILL_FILES) {
+          files.push({ path, size: entry.file_size });
+        } else {
+          truncated = true;
+        }
       }
     }
-    if (truncated) break;
+    level = next;
   }
   return { files, truncated };
 };

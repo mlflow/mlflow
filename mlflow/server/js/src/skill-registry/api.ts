@@ -23,6 +23,8 @@ import type {
   UpdateSkillVersionStatusRequest,
   UpdateSkillVersionStatusResponse,
   UploadedSkillVersionRequest,
+  CreateSkillRequest,
+  Skill,
 } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/skills';
@@ -147,6 +149,14 @@ export const SkillRegistryApi = {
 
   getSkill: (name: string, organization = ''): Promise<GetSkillResponse> => {
     return fetchAPI(getAjaxUrl(skillUrl(name, organization))) as Promise<GetSkillResponse>;
+  },
+
+  /** Creates a skill without versions; fails with RESOURCE_ALREADY_EXISTS when the name is taken. */
+  createSkill: (request: CreateSkillRequest): Promise<Skill> => {
+    return fetchAPI(getAjaxUrl(BASE_URL), {
+      method: HTTPMethods.POST,
+      body: request,
+    }) as Promise<Skill>;
   },
 
   updateSkill: (name: string, request: UpdateSkillRequest, organization = ''): Promise<UpdateSkillResponse> => {

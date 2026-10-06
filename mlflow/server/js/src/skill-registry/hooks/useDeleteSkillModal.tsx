@@ -21,7 +21,11 @@ export const useDeleteSkillModal = ({
   const [visible, setVisible] = useState(false);
   const mutation = useMutation<SkillMutationResponse, Error, void>({
     mutationFn: () => SkillRegistryApi.deleteSkill(name, organization),
-    onSuccess: () => invalidate(name, organization),
+    // Not awaited: the skill is gone, so waiting on its own queries' refetch would only show "not found"
+    // before the dialog navigates away.
+    onSuccess: () => {
+      void invalidate(name, organization);
+    },
   });
 
   const DeleteSkillModal = (

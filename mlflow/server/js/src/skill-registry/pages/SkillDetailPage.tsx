@@ -29,6 +29,8 @@ import {
   isPermissionDeniedError,
   isSkillDimmed,
   parseSkillRouteParams,
+  STATUS_TAG_COLOR,
+  formatSkillStatusLabel,
 } from '../utils';
 import { headerIconStyles } from '../styles';
 import { useSkillQuery } from '../hooks/useSkillQuery';
@@ -45,7 +47,7 @@ import { useDeleteSkillModal } from '../hooks/useDeleteSkillModal';
 import { useDeleteSkillVersionModal } from '../hooks/useDeleteSkillVersionModal';
 import { useSkillMetadataEditors } from '../hooks/useSkillMetadataEditors';
 import { SkillRegistryEmptyState } from '../components/SkillRegistryEmptyState';
-import type { Skill } from '../types';
+import { SkillStatus, type Skill } from '../types';
 
 const breadcrumbs = (
   <Breadcrumb>
@@ -88,26 +90,7 @@ const SkillDetailHeader = ({
               <SkillIcon icons={skill.icons} name={skill.name} />
             </span>
             {skill.name}
-            {isDimmed && (
-              <Tooltip
-                componentId="mlflow.skill_registry.detail.unavailable_tooltip"
-                content={
-                  <FormattedMessage
-                    defaultMessage="Set the skill status to active to make it available"
-                    description="Tooltip for unavailable label on Skill detail page"
-                  />
-                }
-              >
-                <span css={{ cursor: 'default' }}>
-                  <Tag componentId="mlflow.skill_registry.detail.unavailable_tag" color="coral">
-                    <FormattedMessage
-                      defaultMessage="Unavailable"
-                      description="Label for a Skill whose derived parent status is not active"
-                    />
-                  </Tag>
-                </span>
-              </Tooltip>
-            )}
+            {isDimmed && <SkillStatusBadge skill={skill} />}
           </span>
         }
         buttons={
@@ -185,6 +168,48 @@ const SkillDetailHeader = ({
         </div>
       )}
     </>
+  );
+};
+
+// A skill without an active version still resolves to its newest non-deleted version, so its status is shown
+// as is rather than as unavailable; only a skill with no versions has nothing to pull.
+const SkillStatusBadge = ({ skill }: { skill: Skill }) => {
+  const intl = useIntl();
+  const { status, latest_version: latestVersion } = skill;
+  const resolvedStatus = status && status !== SkillStatus.DELETED && latestVersion != null ? status : undefined;
+  return (
+    <Tooltip
+      componentId="mlflow.skill_registry.detail.status_tooltip"
+      content={
+        resolvedStatus ? (
+          <FormattedMessage
+            defaultMessage="No version is active, so the skill resolves to version {version}. Make a version active to recommend it."
+            description="Tooltip for a skill whose latest version is not active"
+            values={{ version: latestVersion }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="This skill has no versions to pull."
+            description="Tooltip for a skill without any version"
+          />
+        )
+      }
+    >
+      <span css={{ cursor: 'default' }}>
+        {resolvedStatus ? (
+          <Tag componentId="mlflow.skill_registry.detail.status_tag" color={STATUS_TAG_COLOR[resolvedStatus]}>
+            {formatSkillStatusLabel(intl, resolvedStatus)}
+          </Tag>
+        ) : (
+          <Tag componentId="mlflow.skill_registry.detail.unavailable_tag" color="coral">
+            <FormattedMessage
+              defaultMessage="Unavailable"
+              description="Label for a Skill that has no version to pull"
+            />
+          </Tag>
+        )}
+      </span>
+    </Tooltip>
   );
 };
 

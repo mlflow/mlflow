@@ -274,6 +274,56 @@ describe('SkillDetailPage', () => {
     expect(screen.queryByText('This version is no longer available.')).not.toBeInTheDocument();
   });
 
+  it('returns to the catalog after deleting the skill without waiting on its own queries', async () => {
+    let deleted = false;
+    server.use(
+      rest.get(/skills\/(?:@[^/]+\/)?[^/]+$/, (_req, res, ctx) =>
+        deleted ? res(ctx.status(404), ctx.json({ error_code: 'RESOURCE_DOES_NOT_EXIST' })) : res(ctx.json(mockSkill)),
+      ),
+      // Refetching a deleted skill's versions is slow and fails; the delete must not wait for it.
+      rest.get(/skills\/(?:@[^/]+\/)?[^/]+\/versions$/, (_req, res, ctx) =>
+        deleted
+          ? res(ctx.delay(2000), ctx.status(404), ctx.json({}))
+          : res(ctx.json({ skill_versions: [mockVersion2, mockVersion1], next_page_token: null })),
+      ),
+      rest.delete(/skills\/(?:@[^/]+\/)?[^/]+$/, (_req, res, ctx) => {
+        deleted = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Viewing version 2')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Delete skill' })).getByRole('button', { name: 'Delete' }),
+    );
+
+    expect(await screen.findByTestId('skill-catalog', {}, { timeout: 1000 })).toBeInTheDocument();
+  });
+
+  it('shows a deprecated-only skill as deprecated, since it still resolves', async () => {
+    server.use(
+      ...getMockedSkillDetailHandlers({ ...mockSkill, status: SkillStatus.DEPRECATED, latest_version: 2 }, [
+        { ...mockVersion2, status: SkillStatus.DEPRECATED },
+      ]),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Viewing version 2')).toBeInTheDocument();
+    const header = screen.getByRole('heading', { level: 2 });
+    expect(within(header).getByText('Deprecated')).toBeInTheDocument();
+    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
+  });
+
+  it('shows a skill without versions as unavailable', async () => {
+    server.use(...getMockedSkillDetailHandlers({ ...mockSkill, status: null, latest_version: null }, []));
+    renderPage();
+
+    expect(await screen.findByText('Unavailable')).toBeInTheDocument();
+  });
+
   it('hides delete actions from a user who can edit but not delete', async () => {
     server.use(
       ...getMockedSkillDetailHandlers({ ...mockSkill, allowed_actions: [SkillAction.USE, SkillAction.UPDATE] }, [

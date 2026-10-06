@@ -65,4 +65,24 @@ describe('skillFiles', () => {
     expect(result).toEqual({ files: [], truncated: true });
     listArtifacts.mockRestore();
   });
+
+  it('lists the directories of a level in parallel', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const listArtifacts = jest.spyOn(SkillRegistryApi, 'listArtifacts').mockImplementation(async (path: string) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      if (path === 'root') return { files: ['a', 'b', 'c'].map((name) => ({ path: name, is_dir: true })) };
+      return { files: [{ path: 'SKILL.md', is_dir: false, file_size: 1 }] };
+    });
+
+    const result = await listSkillFiles('root');
+
+    expect(maxInFlight).toBe(3);
+    expect(result.files.map((file) => file.path).sort()).toEqual(['a/SKILL.md', 'b/SKILL.md', 'c/SKILL.md']);
+    expect(result.truncated).toBe(false);
+    listArtifacts.mockRestore();
+  });
 });

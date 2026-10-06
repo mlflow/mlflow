@@ -32,7 +32,11 @@ const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
 };
 
 describe('SkillRegistryPage', () => {
-  const server = setupServer(getMockedSearchSkillsResponse([]));
+  const server = setupServer(
+    getMockedSearchSkillsResponse([]),
+    // A new skill is created before its first version is registered.
+    rest.post(getAjaxUrl(BASE_URL), async (req, res, ctx) => res(ctx.json(createMockSkill(await req.json())))),
+  );
 
   beforeEach(() => {
     setActiveWorkspace(null);

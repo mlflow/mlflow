@@ -172,7 +172,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   // Bumped by every folder selection and source switch, so a slow SKILL.md read cannot apply to a later choice.
   const folderSelectionRef = useRef(0);
   const submitErrorRef = useRef<HTMLDivElement>(null);
-  const submission = useRegisterSkillSubmission({ onClose, onRegistered });
+  const submission = useRegisterSkillSubmission({ onClose, onRegistered, onNameTaken: setTakenIdentity });
 
   useEffect(() => {
     if (!validationError && !submission.failed) return;
@@ -224,12 +224,28 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     }));
   };
 
+  // Values filled in from one source, never typed, must not carry over to another source.
+  const resetSuggestedFields = (location = '') => {
+    if (!identityTouched) {
+      const suggestion = parseSkillLocation(location);
+      setForm((current) => ({
+        ...current,
+        identity: suggestion?.suggestedName
+          ? formatSkillIdentity(suggestion.suggestedName, suggestion.suggestedOrganization)
+          : '',
+      }));
+      setTakenIdentity(undefined);
+    }
+    if (!descriptionTouched) setDescription('');
+  };
+
   const changeMode = (nextMode: RegistrationMode) => {
     folderSelectionRef.current += 1;
     // The folder picker remounts empty, so a folder chosen before switching away must not upload.
     setMode(nextMode);
     setFolderFiles([]);
     setValidationError(undefined);
+    if (!isVersion) resetSuggestedFields(nextMode === 'pointer' ? form.location : undefined);
   };
 
   const onFolderSelected = async (files: File[]) => {
@@ -237,12 +253,14 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     const selection = folderSelectionRef.current;
     setFolderFiles(files);
     setValidationError(undefined);
+    if (isVersion) return;
+    resetSuggestedFields();
     const manifestFile = findSkillManifest(files);
     // A folder over the server's limits is refused, so its SKILL.md is not worth reading into memory.
-    if (!manifestFile || isVersion || exceededContentLimit(files, { maxBytes, maxFiles })) return;
-    // Values the fields had when the folder was chosen: anything typed while SKILL.md is read wins.
-    const identityBefore = identityTouched ? undefined : form.identity;
-    const descriptionBefore = descriptionTouched ? undefined : description;
+    if (!manifestFile || exceededContentLimit(files, { maxBytes, maxFiles })) return;
+    // The cleared fields are filled from SKILL.md only if nothing is typed into them while it is read.
+    const identityBefore = identityTouched ? undefined : '';
+    const descriptionBefore = descriptionTouched ? undefined : '';
     const manifest = readSkillManifest(await manifestFile.text());
     if (selection !== folderSelectionRef.current || !submission.isActive()) return;
     const { name: manifestName, description: manifestDescription } = manifest;
@@ -292,7 +310,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const submit = () => {
     if (view !== 'form') return;
     setValidationError(undefined);
-    void submission.submit(buildMutationInput, isVersion ? undefined : { description, icons, tags });
+    void submission.submit(buildMutationInput, { description, icons, tags });
   };
 
   const locationLabel = intl.formatMessage({
