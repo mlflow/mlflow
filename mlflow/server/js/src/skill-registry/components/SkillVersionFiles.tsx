@@ -20,7 +20,6 @@ import {
   getPreviewLanguage,
   getSkillArtifactPath,
   looksBinary,
-  MAX_LISTED_SKILL_FILES,
   SKILL_MANIFEST_FILE,
   type SkillFile,
   type SkillFileTreeNode,
@@ -276,7 +275,7 @@ const StoredSkillFiles = ({ artifactPath }: { artifactPath: string }) => {
           <FormattedMessage
             defaultMessage="Showing the first {count} files. Pull the skill to see the rest."
             description="Hint when a skill version has more files than the file list shows"
-            values={{ count: MAX_LISTED_SKILL_FILES }}
+            values={{ count: data.files.length }}
           />
         </Typography.Hint>
       )}

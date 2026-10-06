@@ -1,4 +1,6 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
+
+import { SkillRegistryApi } from './api';
 
 import {
   buildSkillFileTree,
@@ -6,6 +8,8 @@ import {
   formatSizeLimit,
   getPreviewLanguage,
   getSkillArtifactPath,
+  listSkillFiles,
+  MAX_LISTED_SKILL_DIRECTORIES,
 } from './skillFiles';
 
 describe('skillFiles', () => {
@@ -43,5 +47,22 @@ describe('skillFiles', () => {
     expect(formatSizeLimit(25 * 1024 * 1024)).toBe('25 MB');
     expect(formatSizeLimit(1.5 * 1024 * 1024)).toBe('1.5 MB');
     expect(formatSizeLimit(64)).toBe('64 B');
+  });
+
+  it('stops listing after the directory cap even when no files were found', async () => {
+    // A root with 150 empty directories.
+    const listArtifacts = jest
+      .spyOn(SkillRegistryApi, 'listArtifacts')
+      .mockImplementation(async (path: string) =>
+        path === 'root'
+          ? { files: Array.from({ length: 150 }, (_, index) => ({ path: `dir-${index}`, is_dir: true })) }
+          : {},
+      );
+
+    const result = await listSkillFiles('root');
+
+    expect(listArtifacts).toHaveBeenCalledTimes(MAX_LISTED_SKILL_DIRECTORIES);
+    expect(result).toEqual({ files: [], truncated: true });
+    listArtifacts.mockRestore();
   });
 });

@@ -7,6 +7,8 @@ const MLFLOW_ARTIFACTS_SCHEME = 'mlflow-artifacts:';
 export const SKILL_MANIFEST_FILE = 'SKILL.md';
 // Skills are small text trees (the server caps uploads at 25 MiB), so a cap only guards against odd content.
 export const MAX_LISTED_SKILL_FILES = 500;
+// Each directory costs one request, and a stored tree may hold thousands of (possibly empty) directories.
+export const MAX_LISTED_SKILL_DIRECTORIES = 100;
 export const MAX_PREVIEW_BYTES = 512 * 1024;
 
 export interface SkillFile {
@@ -33,12 +35,18 @@ export const getSkillArtifactPath = (version: Pick<SkillVersion, 'source_type' |
   return subpath ? `${base}/${subpath}` : base || undefined;
 };
 
-/** Walks the stored tree breadth first, one listing call per directory. */
+/** Walks the stored tree breadth first, one listing call per directory, up to the file and directory caps. */
 export const listSkillFiles = async (rootPath: string) => {
   const files: SkillFile[] = [];
   const pending = [''];
+  let listed = 0;
   let truncated = false;
   while (pending.length) {
+    if (listed === MAX_LISTED_SKILL_DIRECTORIES) {
+      truncated = true;
+      break;
+    }
+    listed += 1;
     const directory = pending.shift() as string;
     const { files: entries = [] } = await SkillRegistryApi.listArtifacts(
       directory ? `${rootPath}/${directory}` : rootPath,
