@@ -8,6 +8,7 @@ import {
   toRegisterSkillRequest,
 } from './sourceLocation';
 import {
+  buildRegistrationSnippets,
   formatSkillImportCli,
   formatSkillImportPython,
   formatSkillRegisterCli,
@@ -282,6 +283,35 @@ describe('local skill registration', () => {
     // Without workspaces, nothing changes.
     expect(formatSkillRegisterCli({ ...register, workspace: null })).not.toContain('MLFLOW_WORKSPACE');
     expect(formatSkillRegisterPython({ ...register, workspace: null })).not.toContain('set_workspace');
+  });
+
+  it('offers the repository import only for a new skill from Git', () => {
+    const register = {
+      sourceType: 'git' as const,
+      location: 'https://github.com/acme/skills',
+      local: false,
+      ref: 'main',
+      subpath: 'skills/demo',
+      organization: 'acme',
+      workspace: 'team-a',
+    };
+    expect(
+      buildRegistrationSnippets({ register, repositoryUrl: 'https://github.com/acme/skills' }).repositoryImport,
+    ).toEqual({
+      source: 'https://github.com/acme/skills',
+      ref: 'main',
+      subpath: 'skills/demo',
+      organization: 'acme',
+      workspace: 'team-a',
+    });
+    // A new version of an existing skill, an upload, or a non-Git source has none.
+    expect(buildRegistrationSnippets({ register }).repositoryImport).toBeUndefined();
+    expect(
+      buildRegistrationSnippets({ register: { ...register, local: true }, repositoryUrl: 'x' }).repositoryImport,
+    ).toBeUndefined();
+    expect(
+      buildRegistrationSnippets({ register: { ...register, sourceType: 'zip' }, repositoryUrl: 'x' }).repositoryImport,
+    ).toBeUndefined();
   });
 
   it('quotes the local directory placeholder', () => {

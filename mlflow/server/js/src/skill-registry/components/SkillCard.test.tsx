@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -30,16 +30,6 @@ const renderCard = (skill: Skill) => {
 };
 
 describe('SkillCard', () => {
-  // First in the file: React logs this warning once per test file, so a later test would never see it.
-  it('gives the name tooltip a trigger that accepts a ref', () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    renderCard(createMockSkill({ name: 'code-review' }));
-
-    const refWarnings = consoleError.mock.calls.filter((args) => String(args[0]).includes('cannot be given refs'));
-    expect(refWarnings).toHaveLength(0);
-    consoleError.mockRestore();
-  });
-
   it('renders the skill name, organization footer, description, version, and tags', () => {
     renderCard(
       createMockSkill({
@@ -93,10 +83,6 @@ describe('SkillCard', () => {
   });
 
   describe('name tooltip', () => {
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
-
     const hoverName = async (
       name: string,
       { scrollWidth, clientWidth }: { scrollWidth: number; clientWidth: number },

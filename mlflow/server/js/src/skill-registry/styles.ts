@@ -113,13 +113,6 @@ export const flexRowWrapStyles = (theme: ThemeType) => ({
   flexWrap: 'wrap' as const,
 });
 
-export const lineClampStyles = (lines = 1) => ({
-  display: '-webkit-box' as const,
-  WebkitLineClamp: lines,
-  WebkitBoxOrient: 'vertical' as const,
-  overflow: 'hidden' as const,
-});
-
 export const inlineCodeStyles = (theme: ThemeType) => ({
   display: 'inline-block' as const,
   width: 'fit-content',

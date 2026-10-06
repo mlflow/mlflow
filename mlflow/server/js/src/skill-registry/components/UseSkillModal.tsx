@@ -89,7 +89,7 @@ export const UseSkillModal = ({
             </Typography.Text>
             {versionStatus && (
               <Tag componentId="mlflow.skill_registry.use_modal.version_status" color={STATUS_TAG_COLOR[versionStatus]}>
-                {formatSkillStatusLabel(versionStatus)}
+                {formatSkillStatusLabel(intl, versionStatus)}
               </Tag>
             )}
           </span>

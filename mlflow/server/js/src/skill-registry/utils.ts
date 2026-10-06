@@ -1,4 +1,5 @@
 import type { TagProps } from '@databricks/design-system';
+import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl';
 import { PermissionError, NotFoundError } from '@databricks/web-shared/errors';
 import { buildSearchFilterClause } from '../common/utils/SearchUtils';
 import { sanitizeHref } from '../common/utils/registryIcons';
@@ -32,7 +33,15 @@ export const SKILL_INSTALL_TARGETS = [
 
 export type SkillInstallTargetId = (typeof SKILL_INSTALL_TARGETS)[number]['id'];
 
-export const formatSkillStatusLabel = (status: SkillStatus) => status.charAt(0).toUpperCase() + status.slice(1);
+const SKILL_STATUS_MESSAGES: Record<SkillStatus, MessageDescriptor> = defineMessages({
+  draft: { defaultMessage: 'Draft', description: 'Skill version status: draft' },
+  active: { defaultMessage: 'Active', description: 'Skill version status: active' },
+  deprecated: { defaultMessage: 'Deprecated', description: 'Skill version status: deprecated' },
+  deleted: { defaultMessage: 'Deleted', description: 'Skill version status: deleted' },
+});
+
+export const formatSkillStatusLabel = (intl: IntlShape, status: SkillStatus) =>
+  intl.formatMessage(SKILL_STATUS_MESSAGES[status]);
 
 export const STATUS_TAG_COLOR: Record<SkillStatus, TagProps['color']> = {
   [SkillStatus.DRAFT]: 'charcoal',
@@ -263,6 +272,14 @@ export const parseSkillVersionParam = (value: string | null): number | undefined
 
 export const isPermissionDeniedError = (error: Error | null | undefined) =>
   error instanceof PermissionError || error?.name === 'PermissionError';
+
+/** Waits for every write before failing, so a partial failure is reported only once the server has settled. */
+export const settleAll = async (writes: Promise<unknown>[]) => {
+  const failure = (await Promise.allSettled(writes)).find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  );
+  if (failure) throw failure.reason;
+};
 
 export const isNotFoundError = (error: Error | null | undefined) =>
   error instanceof NotFoundError || error?.name === 'NotFoundError';

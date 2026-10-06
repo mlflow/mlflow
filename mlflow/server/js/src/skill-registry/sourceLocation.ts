@@ -46,8 +46,7 @@ export type SkillRegistrationErrorCode =
   | 'ref_not_git'
   | 'source_invalid'
   | 'source_too_long'
-  | 'status'
-  | 'skill_md_required';
+  | 'status';
 
 export interface SkillRegistrationFields {
   location: string;

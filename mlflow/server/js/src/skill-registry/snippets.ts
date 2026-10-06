@@ -106,6 +106,32 @@ export interface SkillImportSnippetOptions {
   workspace?: SnippetWorkspace;
 }
 
+/**
+ * The examples behind the registration dialog. A new skill registered from Git also gets the repository import,
+ * since the UI cannot see whether a Git location is one skill or a folder of skills, and the import registers
+ * every SKILL.md beneath the path.
+ */
+export const buildRegistrationSnippets = ({
+  register,
+  repositoryUrl,
+}: {
+  register: SkillRegisterSnippetOptions;
+  /** Set only for a new skill: adding a version to an existing skill has no repository import. */
+  repositoryUrl?: string | null;
+}): { register: SkillRegisterSnippetOptions; repositoryImport?: SkillImportSnippetOptions } => ({
+  register,
+  repositoryImport:
+    repositoryUrl && !register.local && register.sourceType === 'git'
+      ? {
+          source: repositoryUrl,
+          ref: register.ref,
+          subpath: register.subpath,
+          organization: register.organization || undefined,
+          workspace: register.workspace,
+        }
+      : undefined,
+});
+
 export const formatSkillImportCli = ({ source, ref, subpath, organization, workspace }: SkillImportSnippetOptions) => {
   const lines = [`mlflow skills import --source ${quoteShellArg(source)}`];
   if (ref) lines.push(`--ref ${quoteShellArg(ref)}`);

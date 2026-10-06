@@ -22,6 +22,7 @@ import {
   skillVersionStatusTransitions,
   SKILL_CATALOG_SOURCE_TYPE_OPTIONS,
   visibleSkillVersions,
+  settleAll,
 } from './utils';
 import { formatSkillPullCli, formatSkillPullPython } from './snippets';
 import { createMockSkill, createMockSkillVersion } from './test-utils';
@@ -372,5 +373,21 @@ describe('version helpers', () => {
       'prod',
       'current',
     ]);
+  });
+});
+
+describe('settleAll', () => {
+  it('waits for every write before reporting the first failure', async () => {
+    let lateWriteDone = false;
+    const late = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        lateWriteDone = true;
+        resolve();
+      }, 20),
+    );
+
+    await expect(settleAll([Promise.reject(new Error('tag rejected')), late])).rejects.toThrow('tag rejected');
+    expect(lateWriteDone).toBe(true);
+    await expect(settleAll([Promise.resolve(), Promise.resolve()])).resolves.toBeUndefined();
   });
 });

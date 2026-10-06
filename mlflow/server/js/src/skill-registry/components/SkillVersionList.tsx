@@ -22,7 +22,7 @@ const SkillVersionSummary = ({ version }: { version: SkillVersion }) => {
           />
         </Typography.Text>
         <Tag componentId="mlflow.skill_registry.detail.version_status_tag" color={STATUS_TAG_COLOR[version.status]}>
-          {formatSkillStatusLabel(version.status)}
+          {formatSkillStatusLabel(intl, version.status)}
         </Tag>
       </div>
       {version.creation_timestamp && (

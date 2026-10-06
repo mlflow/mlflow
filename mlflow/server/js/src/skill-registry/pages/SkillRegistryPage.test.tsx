@@ -542,10 +542,11 @@ describe('SkillRegistryPage', () => {
       subpath: 'network-policy-architect',
       status: 'active',
     });
+    // The catalog, and the registered skill's own queries, once its follow-up writes are done.
     expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILLS_LIST]);
-    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL]);
-    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSIONS]);
-    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILL_VERSION]);
+    for (const key of [SKILL_QUERY_KEYS.SKILL, SKILL_QUERY_KEYS.SKILL_VERSIONS, SKILL_QUERY_KEYS.SKILL_VERSION]) {
+      expect(invalidateQueries).toHaveBeenCalledWith([key, 'network-policy-architect', 'acme']);
+    }
   });
 
   it('refuses to register a new skill under a name that is already taken', async () => {

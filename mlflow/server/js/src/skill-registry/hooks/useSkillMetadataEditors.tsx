@@ -8,7 +8,7 @@ import { diffCurrentAndNewTags } from '../../common/utils/TagUtils';
 import type { KeyValueEntity } from '../../common/types';
 import { SkillRegistryApi } from '../api';
 import type { Skill, SkillStatus, SkillVersion } from '../types';
-import { formatSkillIdentity } from '../utils';
+import { formatSkillIdentity, settleAll } from '../utils';
 import type { AliasMap } from '../../common/types';
 import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 
@@ -40,20 +40,21 @@ export const useSkillMetadataEditors = ({
   >({
     mutationFn: async ({ version, toAdd, toDelete }) => {
       if (version == null) {
-        await Promise.all([
+        await settleAll([
           ...toAdd.map(({ key, value }) => SkillRegistryApi.setSkillTag(name, { key, value }, organization)),
           ...toDelete.map(({ key }) => SkillRegistryApi.deleteSkillTag(name, key, organization)),
         ]);
         return;
       }
-      await Promise.all([
+      await settleAll([
         ...toAdd.map(({ key, value }) =>
           SkillRegistryApi.setSkillVersionTag(name, version, { key, value }, organization),
         ),
         ...toDelete.map(({ key }) => SkillRegistryApi.deleteSkillVersionTag(name, version, key, organization)),
       ]);
     },
-    onSuccess: () => invalidate(),
+    // Even a partly failed save changed the server, so the page refreshes either way.
+    onSettled: () => invalidate(),
   });
 
   const saveTags = async (version: number | undefined, currentTags: KeyValueEntity[], newTags: KeyValueEntity[]) => {
@@ -100,12 +101,12 @@ export const useSkillMetadataEditors = ({
 
   const aliasMutation = useMutation<unknown, Error, { version: number; add: string[]; remove: string[] }>({
     mutationFn: async ({ version, add, remove }) => {
-      await Promise.all([
+      await settleAll([
         ...add.map((alias) => SkillRegistryApi.setSkillAlias(name, { alias, version }, organization)),
         ...remove.map((alias) => SkillRegistryApi.deleteSkillAlias(name, alias, organization)),
       ]);
     },
-    onSuccess: invalidate,
+    onSettled: () => invalidate(),
   });
 
   const { EditAliasesModal, showEditAliasesModal } = useEditAliasesModal({

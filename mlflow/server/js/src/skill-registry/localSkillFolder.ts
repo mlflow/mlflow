@@ -35,13 +35,15 @@ const relativePath = (file: File) => file.webkitRelativePath || file.name;
 
 export const totalFileSize = (files: File[]) => files.reduce((total, file) => total + file.size, 0);
 
+export type ExceededContentLimit = 'files' | 'bytes' | undefined;
+
 /** The server limit a selected folder exceeds, judged from file sizes and count alone so nothing is read. */
 export const exceededContentLimit = (
   files: File[],
   { maxBytes, maxFiles }: { maxBytes?: number; maxFiles?: number },
-) => {
-  if (maxFiles !== undefined && files.length > maxFiles) return 'files' as const;
-  if (maxBytes !== undefined && totalFileSize(files) > maxBytes) return 'bytes' as const;
+): ExceededContentLimit => {
+  if (maxFiles !== undefined && files.length > maxFiles) return 'files';
+  if (maxBytes !== undefined && totalFileSize(files) > maxBytes) return 'bytes';
   return undefined;
 };
 

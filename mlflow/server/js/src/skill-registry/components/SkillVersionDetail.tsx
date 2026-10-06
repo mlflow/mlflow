@@ -211,7 +211,7 @@ const SkillVersionStatusEditor = ({
         <DialogComboboxTrigger
           aria-label={label}
           withInlineLabel={false}
-          renderDisplayedValue={(value) => formatSkillStatusLabel(value as SkillStatus)}
+          renderDisplayedValue={(value) => formatSkillStatusLabel(intl, value as SkillStatus)}
           allowClear={false}
           width={160}
         />
@@ -231,7 +231,7 @@ const SkillVersionStatusEditor = ({
                   if (option !== status) statusUpdate.onChange(option);
                 }}
               >
-                {formatSkillStatusLabel(option)}
+                {formatSkillStatusLabel(intl, option)}
               </DialogComboboxOptionListSelectItem>
             ))}
           </DialogComboboxOptionList>
@@ -243,7 +243,7 @@ const SkillVersionStatusEditor = ({
   return (
     <>
       <Tag componentId="mlflow.skill_registry.detail.version.status" color={STATUS_TAG_COLOR[status]}>
-        {formatSkillStatusLabel(status)}
+        {formatSkillStatusLabel(intl, status)}
       </Tag>
       {statusUpdate && transitions.length > 0 && (
         <SkillPencilButton

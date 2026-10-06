@@ -8,7 +8,6 @@ import type {
   SkillVersion,
   UploadedSkillVersionRequest,
 } from '../types';
-import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 
 export type RegisterSkillMutationInput =
   | { kind: 'register'; request: RegisterExternalSkillRequest }
@@ -16,9 +15,9 @@ export type RegisterSkillMutationInput =
   | { kind: 'version'; name: string; organization: string; request: ExternalSkillVersionRequest }
   | { kind: 'version-upload'; name: string; organization: string; request: UploadedSkillVersionRequest; content: Blob };
 
-export const useRegisterSkillMutation = () => {
-  const invalidate = useInvalidateSkillQueries();
-  return useMutation<SkillVersion, Error, RegisterSkillMutationInput>({
+// The caller refreshes the skill queries once its follow-up writes are done.
+export const useRegisterSkillMutation = () =>
+  useMutation<SkillVersion, Error, RegisterSkillMutationInput>({
     mutationFn: (input) => {
       if (input.kind === 'register') {
         return SkillRegistryApi.registerSkill(input.request);
@@ -31,6 +30,4 @@ export const useRegisterSkillMutation = () => {
       }
       return SkillRegistryApi.createSkillVersion(input.name, input.request, input.organization);
     },
-    onSuccess: () => invalidate(),
   });
-};

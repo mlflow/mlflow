@@ -455,6 +455,10 @@
     "defaultMessage": "Logged in as <strong>{username}</strong>",
     "description": "Subtitle showing the currently authenticated username"
   },
+  "/jC6yx": {
+    "defaultMessage": "Deleted",
+    "description": "Skill version status: deleted"
+  },
   "/jSBSV": {
     "defaultMessage": "Temperature",
     "description": "Label for the temperature input on the playground parameters panel"
@@ -2303,10 +2307,6 @@
     "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
     "description": "Hint text explaining API key name field"
   },
-  "7DVhDU": {
-    "defaultMessage": "The version was created, but its description, icon, or tags could not be saved.",
-    "description": "Error when skill presentation metadata fails after registration"
-  },
   "7Dhfxy": {
     "defaultMessage": "Fail",
     "description": "The label for a failing asseessment above a bar-chart in the summary stats."
@@ -3150,6 +3150,10 @@
   "A7npjN": {
     "defaultMessage": "Failed",
     "description": "Fail status pill in the regression-test detail"
+  },
+  "A9zAcE": {
+    "defaultMessage": "This folder has no SKILL.md at its top level.",
+    "description": "Error when a selected skill folder has no SKILL.md"
   },
   "AAdQxU": {
     "defaultMessage": "Messages",
@@ -5570,6 +5574,10 @@
   "Jj2kRy": {
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
+  },
+  "JjLtKC": {
+    "defaultMessage": "Deprecated",
+    "description": "Skill version status: deprecated"
   },
   "JkFprj": {
     "defaultMessage": "Use",
@@ -9835,6 +9843,10 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
   },
+  "ZmOem6": {
+    "defaultMessage": "The skill was created, but its description, icons, or tags could not be saved: {reason}",
+    "description": "Error when saving a new skill description, icons, or tags fails after registration"
+  },
   "ZoBXpz": {
     "defaultMessage": "Model attributes",
     "description": "Header title for the model attributes section of the logged model list table"
@@ -9890,10 +9902,6 @@
   "ZwyDx6": {
     "defaultMessage": "Users",
     "description": "Admin users tab"
-  },
-  "ZyA/VH": {
-    "defaultMessage": "Draft",
-    "description": "Initial skill version status draft"
   },
   "Zzuohs": {
     "defaultMessage": "Pinned version: v{version}",
@@ -10042,6 +10050,10 @@
   "aWH7UT": {
     "defaultMessage": "Default",
     "description": "Display name shown for the reserved no-auth default review user"
+  },
+  "aXUNZM": {
+    "defaultMessage": "Active",
+    "description": "Skill version status: active"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -11298,10 +11310,6 @@
   "fCT8Fj": {
     "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
     "description": "Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
-  },
-  "fDi2Nb": {
-    "defaultMessage": "Active",
-    "description": "Initial skill version status active"
   },
   "fGQf7k": {
     "defaultMessage": "Find in trace",
@@ -13006,10 +13014,6 @@
   "l119W9": {
     "defaultMessage": "No matching questions",
     "description": "Review queue: no questions match the search"
-  },
-  "l50WQ7": {
-    "defaultMessage": "Select the directory containing SKILL.md.",
-    "description": "Validation error when a skill folder upload has no SKILL.md"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
@@ -14934,6 +14938,10 @@
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
+  },
+  "sH/tur": {
+    "defaultMessage": "Draft",
+    "description": "Skill version status: draft"
   },
   "sHvLH2": {
     "defaultMessage": "Browse all providers →",
