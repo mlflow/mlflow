@@ -1083,16 +1083,14 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.10.0"
-    # Mistral 3.x no longer provides the httpx dependency used by the tracing tests.
-    # https://github.com/mlflow/mlflow/issues/26460
-    maximum: "2.9.4"
+    maximum: "3.0.0"
     requirements:
       # mistralai 2.x hard-pins opentelemetry-semantic-conventions==0.60b1, which is only
       # paired with opentelemetry-sdk 1.39.x. mlflow's `.[extras]` install pulls in the
       # newest sdk, leaving an inconsistent api/sdk/semconv trio that breaks span start
       # with `TraceFlags.RANDOM_TRACE_ID` AttributeError. Hold the sdk back so the trio
       # stays aligned with mistralai's semconv pin.
-      ">= 2.0.0": ["opentelemetry-sdk<1.40"]
+      ">= 2.0.0, < 3.0.0": ["opentelemetry-sdk<1.40"]
     run: pytest tests/mistral
     test_tracing_sdk: true
     test_every_n_versions: 10
