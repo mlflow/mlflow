@@ -2141,6 +2141,45 @@ def test_chat_to_model_string_content_unchanged():
     assert result["contents"] == [{"role": "user", "parts": [{"text": "just text"}]}]
 
 
+_TOOL_PARAMS = {"type": "object", "properties": {"city": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("function", "expected_declaration"),
+    [
+        (
+            {"name": "get_weather", "parameters": _TOOL_PARAMS},
+            {"name": "get_weather", "parametersJsonSchema": _TOOL_PARAMS},
+        ),
+        (
+            {"name": "get_time", "description": "Get the time"},
+            {"name": "get_time", "description": "Get the time"},
+        ),
+        ({"name": "get_time"}, {"name": "get_time"}),
+        (
+            {"name": "get_weather", "description": "Get weather", "parameters": _TOOL_PARAMS},
+            {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parametersJsonSchema": _TOOL_PARAMS,
+            },
+        ),
+    ],
+    ids=["no-description", "no-parameters", "name-only", "all-fields"],
+)
+def test_chat_to_model_tool_optional_fields(function, expected_declaration):
+    payload = chat.RequestPayload(
+        messages=[{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": function}],
+    )
+
+    result = GeminiAdapter.chat_to_model(
+        jsonable_encoder(payload, exclude_none=True), EndpointConfig(**chat_config())
+    )
+
+    assert result["tools"] == [{"functionDeclarations": [expected_declaration]}]
+
+
 def test_chat_to_model_unknown_content_part_passed_through():
     # A non-text, non-image_url part (e.g. input_audio) must be preserved, not coerced to
     # an empty {"text": ""} part which would silently drop its content.

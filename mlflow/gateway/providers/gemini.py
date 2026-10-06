@@ -262,11 +262,14 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append({
-                    "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "parametersJsonSchema": tool_function["parameters"],
-                })
+                # `description` and `parameters` are optional in both OpenAI tool
+                # definitions and Gemini function declarations.
+                function_declaration = {"name": tool_function["name"]}
+                if description := tool_function.get("description"):
+                    function_declaration["description"] = description
+                if parameters := tool_function.get("parameters"):
+                    function_declaration["parametersJsonSchema"] = parameters
+                function_declarations.append(function_declaration)
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
