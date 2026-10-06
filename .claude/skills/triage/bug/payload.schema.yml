@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-title: Triage Payload
-description: Payload written by the triage skill to <out_dir>/payload.json.
+title: Bug Triage Payload
+description: Bug triage result, posted to the issue as a label and a comment.
 type: object
 additionalProperties: false
 required:
