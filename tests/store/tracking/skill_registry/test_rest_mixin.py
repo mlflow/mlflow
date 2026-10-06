@@ -34,12 +34,20 @@ from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import NOT_SET
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.skill_registry.abstract_mixin import SkillRegistryMixin
 from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMixin, _skill_path
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.validation import _MAX_BULK_REGISTER_SKILLS
+from mlflow.utils.validation import (
+    _MAX_BULK_REGISTER_SKILLS,
+    MAX_MODEL_REGISTRY_TAG_KEY_LENGTH,
+    MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH,
+    MAX_REGISTERED_MODEL_ALIAS_LENGTH,
+    MAX_SKILL_VERSION,
+)
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -47,6 +55,219 @@ from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 @pytest.fixture
 def store():
     return RestStore(lambda: MlflowHostCreds("https://registry.example.com", token="test-token"))
+
+
+@pytest.fixture
+def mocked_skill_client():
+    backend = mock.Mock(spec=SkillRegistryMixin)
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=backend):
+        yield MlflowClient(tracking_uri="https://registry.example.com"), backend
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("create_skill", {}),
+        ("create_skill_version", {}),
+        ("update_skill", {}),
+        ("update_skill_version", {"version": 1}),
+        ("set_skill_tag", {"key": "team", "value": "platform"}),
+        ("set_skill_version_tag", {"version": 1, "key": "team", "value": "platform"}),
+        ("set_skill_alias", {"alias": "production", "version": 1}),
+    ],
+)
+@pytest.mark.parametrize(
+    "identity",
+    [
+        {"name": None},
+        {"name": 123},
+        {"name": ""},
+        {"name": "invalid/name"},
+        {"organization": None},
+        {"organization": 123},
+        {"organization": "invalid/org"},
+    ],
+)
+def test_skill_client_rejects_invalid_identity(mocked_skill_client, method, kwargs, identity):
+    client, backend = mocked_skill_client
+    with pytest.raises(MlflowException, match="[Ss]kill name|[Oo]rganization") as exc:
+        getattr(client, method)(**{"name": "review", **identity, **kwargs})
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    getattr(backend, method).assert_not_called()
+
+
+@pytest.mark.parametrize("method", ["set_skill_tag", "set_skill_version_tag"])
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        (None, "platform"),
+        (123, "platform"),
+        ("team", None),
+        ("team", 123),
+        ("team/../owner", "platform"),
+        ("a" * (MAX_MODEL_REGISTRY_TAG_KEY_LENGTH + 1), "platform"),
+        ("team", "a" * (MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH + 1)),
+    ],
+    ids=[
+        "null-key",
+        "numeric-key",
+        "null-value",
+        "numeric-value",
+        "path",
+        "long-key",
+        "long-value",
+    ],
+)
+def test_skill_client_rejects_invalid_tags(mocked_skill_client, method, key, value):
+    client, backend = mocked_skill_client
+    kwargs = {"version": 1} if method == "set_skill_version_tag" else {}
+    with pytest.raises(MlflowException, match="key|value") as exc:
+        getattr(client, method)(name="review", key=key, value=value, **kwargs)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    getattr(backend, method).assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [None, 123, "", "latest", "LATEST", "v1", "a/b", "a" * (MAX_REGISTERED_MODEL_ALIAS_LENGTH + 1)],
+)
+def test_skill_client_rejects_invalid_aliases(mocked_skill_client, alias):
+    client, backend = mocked_skill_client
+    with pytest.raises(MlflowException, match="alias") as exc:
+        client.set_skill_alias(name="review", alias=alias, version=1)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    backend.set_skill_alias.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("update_skill_version", {}),
+        ("set_skill_version_tag", {"key": "team", "value": "platform"}),
+        ("set_skill_alias", {"alias": "production"}),
+    ],
+)
+@pytest.mark.parametrize("version", [None, True, "1", 1.0, 0, MAX_SKILL_VERSION + 1])
+def test_skill_client_rejects_invalid_versions(mocked_skill_client, method, kwargs, version):
+    client, backend = mocked_skill_client
+    with pytest.raises(MlflowException, match="positive integer") as exc:
+        getattr(client, method)(name="review", version=version, **kwargs)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    getattr(backend, method).assert_not_called()
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+@pytest.mark.parametrize(
+    ("method", "kwargs", "defaults"),
+    [
+        ("create_skill", {}, {"description": None, "icons": None}),
+        ("update_skill", {}, {"description": NOT_SET, "icons": NOT_SET}),
+        ("update_skill", {"description": None, "icons": None}, {}),
+        ("update_skill_version", {"version": 1}, {"status": NOT_SET}),
+        ("update_skill_version", {"version": 1, "status": None}, {}),
+        ("update_skill_version", {"version": 1, "status": "backend-status"}, {}),
+        ("set_skill_tag", {"key": "team/owner", "value": ""}, {}),
+        ("set_skill_version_tag", {"version": 1, "key": "team/owner", "value": ""}, {}),
+        ("set_skill_alias", {"alias": "production", "version": MAX_SKILL_VERSION}, {}),
+    ],
+)
+def test_skill_client_delegates_valid_inputs(
+    mocked_skill_client, method, kwargs, defaults, organization
+):
+    client, backend = mocked_skill_client
+    getattr(client, method)(name="review", organization=organization, **kwargs)
+
+    getattr(backend, method).assert_called_once_with(
+        name="review", organization=organization, **kwargs, **defaults
+    )
+
+
+@pytest.mark.parametrize(
+    ("digest", "status"),
+    [(None, "active"), ("a" * 64, "draft"), ("invalid", "deleted"), (123, None)],
+)
+def test_skill_client_delegates_digest_and_status(mocked_skill_client, digest, status):
+    client, backend = mocked_skill_client
+    source = GitSource("https://example.com/repo.git", ref="main", subpath="skills/review")
+    result = client.create_skill_version(
+        name="review", organization="acme", source=source, digest=digest, status=status
+    )
+
+    backend.create_skill_version.assert_called_once_with(
+        name="review",
+        organization="acme",
+        source_type="git",
+        source=source.url,
+        ref="main",
+        subpath="skills/review",
+        digest=digest,
+        status=status,
+    )
+    assert result is backend.create_skill_version.return_value
+
+
+@pytest.mark.parametrize(
+    "definitions",
+    [None, {}, ["review"], [{}], [{"name": None}], [{"name": 123}], [{"name": "invalid/name"}]],
+)
+def test_skill_client_bulk_rejects_invalid_definitions(mocked_skill_client, definitions):
+    client, backend = mocked_skill_client
+    with pytest.raises(MlflowException, match="[Ss]kill") as exc:
+        client.bulk_register_skills(skill_definitions=definitions)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    backend.bulk_register_skills.assert_not_called()
+
+
+def test_skill_client_bulk_validates_all_names_before_delegating(mocked_skill_client):
+    client, backend = mocked_skill_client
+    definitions = [{"name": "review"}, {"name": "invalid/name"}]
+    with pytest.raises(MlflowException, match="Invalid skill name") as exc:
+        client.bulk_register_skills(skill_definitions=definitions)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    backend.bulk_register_skills.assert_not_called()
+
+
+@pytest.mark.parametrize("organization", [None, 123, "invalid/org"])
+def test_skill_client_bulk_rejects_invalid_organization(mocked_skill_client, organization):
+    client, backend = mocked_skill_client
+    with pytest.raises(MlflowException, match="Invalid organization") as exc:
+        client.bulk_register_skills(
+            skill_definitions=[{"name": "review"}], organization=organization
+        )
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    backend.bulk_register_skills.assert_not_called()
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_client_bulk_delegates_definitions_unchanged(mocked_skill_client, organization):
+    client, backend = mocked_skill_client
+    definitions = [
+        {
+            "name": name,
+            "source_type": "git",
+            "source": "https://example.com/repo.git",
+            "ref": "main",
+            "subpath": f"skills/{name}",
+            "digest": "backend-digest",
+            "status": "backend-status",
+        }
+        for name in ("review", "docs")
+    ]
+    original = deepcopy(definitions)
+    result = client.bulk_register_skills(skill_definitions=definitions, organization=organization)
+
+    backend.bulk_register_skills.assert_called_once_with(
+        skill_definitions=original, organization=organization
+    )
+    assert definitions == original
+    assert result is backend.bulk_register_skills.return_value
 
 
 def test_rest_store_resolves_skill_methods_to_rest_mixin():

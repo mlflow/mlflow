@@ -160,6 +160,11 @@ from mlflow.utils.validation import (
     _validate_model_name,
     _validate_model_version,
     _validate_model_version_or_stage_exists,
+    _validate_organization_name,
+    _validate_skill_alias,
+    _validate_skill_name,
+    _validate_skill_tag,
+    _validate_skill_version,
 )
 
 if TYPE_CHECKING:
@@ -184,6 +189,14 @@ def _model_not_found(name: str) -> MlflowException:
         f"Registered Model with name={name!r} not found.",
         RESOURCE_DOES_NOT_EXIST,
     )
+
+
+def _validate_skill_string_parameters(**parameters: str) -> None:
+    for name, value in parameters.items():
+        if not isinstance(value, str):
+            raise MlflowException.invalid_parameter_value(
+                f"Skill {name} must be a string, got {type(value).__name__}."
+            )
 
 
 def _validate_model_id_specified(model_id: str) -> None:
@@ -7057,6 +7070,9 @@ class MlflowClient:
         description: str | None = None,
         icons: list[RegistryIcon] | None = None,
     ) -> Skill:
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
         return self._tracking_client.store.create_skill(
             name=name, organization=organization, description=description, icons=icons
         )
@@ -7087,6 +7103,9 @@ class MlflowClient:
         description: str | None = NOT_SET,
         icons: list[RegistryIcon] | None = NOT_SET,
     ) -> Skill:
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
         return self._tracking_client.store.update_skill(
             name=name, organization=organization, description=description, icons=icons
         )
@@ -7117,6 +7136,9 @@ class MlflowClient:
         # mlflow.genai imports MlflowClient, so source resolution must be imported lazily.
         from mlflow.genai.skill_content.sources import resolve_source_type
 
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
         resolved = resolve_source_type(source) if source is not None else None
         if resolved is not None and resolved.is_local:
             return self._register_local_skill(
@@ -7182,6 +7204,20 @@ class MlflowClient:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
     ) -> list[SkillVersion]:
+
+        _validate_organization_name(organization)
+        if not isinstance(skill_definitions, list):
+            raise MlflowException.invalid_parameter_value("Skill definitions must be a list.")
+
+        for definition in skill_definitions:
+            if not isinstance(definition, dict):
+                raise MlflowException.invalid_parameter_value(
+                    "Each skill definition must be a dictionary."
+                )
+            name = definition.get("name")
+            _validate_skill_string_parameters(name=name)
+            _validate_skill_name(name)
+
         return self._tracking_client.store.bulk_register_skills(
             skill_definitions=skill_definitions, organization=organization
         )
@@ -7225,6 +7261,10 @@ class MlflowClient:
     def update_skill_version(
         self, *, name: str, version: int, organization: str = "", status: str | None = NOT_SET
     ) -> SkillVersion:
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_version(version)
         return self._tracking_client.store.update_skill_version(
             name=name, version=version, organization=organization, status=status
         )
@@ -7235,6 +7275,10 @@ class MlflowClient:
         )
 
     def set_skill_tag(self, *, name: str, key: str, value: str, organization: str = "") -> None:
+        _validate_skill_string_parameters(name=name, key=key, value=value)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_tag(key, value)
         self._tracking_client.store.set_skill_tag(
             name=name, key=key, value=value, organization=organization
         )
@@ -7245,6 +7289,11 @@ class MlflowClient:
     def set_skill_version_tag(
         self, *, name: str, version: int, key: str, value: str, organization: str = ""
     ) -> None:
+        _validate_skill_string_parameters(name=name, key=key, value=value)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_version(version)
+        _validate_skill_tag(key, value)
         self._tracking_client.store.set_skill_version_tag(
             name=name, version=version, key=key, value=value, organization=organization
         )
@@ -7259,6 +7308,11 @@ class MlflowClient:
     def set_skill_alias(
         self, *, name: str, alias: str, version: int, organization: str = ""
     ) -> None:
+        _validate_skill_string_parameters(name=name, alias=alias)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_alias(alias)
+        _validate_skill_version(version)
         self._tracking_client.store.set_skill_alias(
             name=name, alias=alias, version=version, organization=organization
         )
