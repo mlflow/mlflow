@@ -446,12 +446,34 @@ jobs:
           path: ${{ runner.temp }}/sanitized_issue.json
           if-no-files-found: error
           retention-days: 1
-  triage:
+  start_triage:
     needs: [issue, safety]
     if: >-
       needs.safety.outputs.decision == 'safe' &&
       (github.event_name == 'workflow_dispatch' ||
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    outputs:
+      comment_id: ${{ steps.comment.outputs.id }}
+    steps:
+      - id: comment
+        name: Announce triage
+        if: needs.issue.outputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          id=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" \
+            -f body="An automated agent is triaging this issue. The triage report will replace this comment when it is ready. [Follow the workflow run]($RUN_URL)." \
+            --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+  triage:
+    needs: [issue, start_triage]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -683,7 +705,7 @@ jobs:
         if: always()
         run: docker rm -f gw-proxy 2>/dev/null || true
   post_triage:
-    needs: [issue, triage]
+    needs: [issue, start_triage, triage]
     if: needs.issue.result == 'success' && needs.triage.result == 'success'
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -728,6 +750,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
-        run: gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body-file "$BODY_FILE"
+        run: gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$BODY_FILE"
