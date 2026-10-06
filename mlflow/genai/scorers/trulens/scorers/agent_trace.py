@@ -23,7 +23,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import QualityThreshold, Scorer
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import format_rationale
@@ -52,9 +52,10 @@ class TruLensAgentScorer(Scorer):
     def __init__(
         self,
         model: str | None = None,
+        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
-        super().__init__(name=self.metric_name)
+        super().__init__(name=self.metric_name, quality_threshold=quality_threshold)
         model = model or get_default_model()
         self._model = model
         self._provider = create_trulens_provider(model, **kwargs)

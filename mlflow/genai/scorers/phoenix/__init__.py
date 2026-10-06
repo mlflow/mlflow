@@ -27,7 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.base import QualityThreshold, Scorer, ScorerKind
 from mlflow.genai.scorers.phoenix.models import create_phoenix_model
 from mlflow.genai.scorers.phoenix.registry import get_evaluator_class
 from mlflow.genai.scorers.phoenix.utils import map_scorer_inputs_to_phoenix_record
@@ -56,11 +56,12 @@ class PhoenixScorer(Scorer):
         self,
         metric_name: str | None = None,
         model: str | None = None,
+        quality_threshold: float | QualityThreshold | None = None,
         **evaluator_kwargs: Any,
     ):
         if metric_name is None:
             metric_name = self.metric_name
-        super().__init__(name=metric_name)
+        super().__init__(name=metric_name, quality_threshold=quality_threshold)
         model = model or get_default_model()
         self._model = model
         self._metric_name = metric_name

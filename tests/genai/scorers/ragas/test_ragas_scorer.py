@@ -528,3 +528,11 @@ def test_high_level_scorer_call_chain():
     assert feedback.value == CategoricalRating.YES
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
+
+
+def test_quality_threshold_is_kept_off_the_ragas_metric():
+    scorer = ExactMatch(quality_threshold=0.9)
+
+    assert scorer.quality_threshold == 0.9
+    assert "quality_threshold" not in scorer._metric_kwargs
+    assert scorer._create_copy().quality_threshold == 0.9

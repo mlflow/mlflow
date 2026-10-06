@@ -41,7 +41,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.base import QualityThreshold, Scorer, ScorerKind
 from mlflow.genai.scorers.google_adk.utils import (
     _run_async,
     check_adk_installed,
@@ -146,10 +146,11 @@ class ToolTrajectory(GoogleADKScorer):
         self,
         match_type: Literal["EXACT", "IN_ORDER", "ANY_ORDER"] = "EXACT",
         threshold: float = _DEFAULT_THRESHOLD,
+        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
         check_adk_installed()
-        super().__init__(name=self.metric_name)
+        super().__init__(name=self.metric_name, quality_threshold=quality_threshold)
         self._threshold = threshold
         self._evaluator = _create_trajectory_evaluator(threshold, match_type)
 
@@ -237,10 +238,11 @@ class ResponseMatch(GoogleADKScorer):
     def __init__(
         self,
         threshold: float = _DEFAULT_THRESHOLD,
+        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
         check_adk_installed()
-        super().__init__(name=self.metric_name)
+        super().__init__(name=self.metric_name, quality_threshold=quality_threshold)
         self._threshold = threshold
         self._evaluator = _create_rouge_evaluator(threshold)
 
@@ -351,12 +353,13 @@ class ResponseEvaluation(GoogleADKScorer):
         model: str = _DEFAULT_JUDGE_MODEL,
         threshold: float = _DEFAULT_THRESHOLD,
         num_samples: int = _DEFAULT_JUDGE_SAMPLES,
+        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
         check_adk_installed()
         from google.adk.evaluation.final_response_match_v2 import FinalResponseMatchV2Evaluator
 
-        super().__init__(name=self.metric_name)
+        super().__init__(name=self.metric_name, quality_threshold=quality_threshold)
         self._threshold = threshold
         self._model = model
         self._evaluator = _create_judge_evaluator(
@@ -423,6 +426,7 @@ class Safety(GoogleADKScorer):
     def __init__(
         self,
         threshold: float = _DEFAULT_THRESHOLD,
+        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
         # Surface the misuse early: ADK's underlying evaluator ignores these,
@@ -438,7 +442,7 @@ class Safety(GoogleADKScorer):
         check_adk_installed()
         from google.adk.evaluation.safety_evaluator import SafetyEvaluatorV1
 
-        super().__init__(name=self.metric_name)
+        super().__init__(name=self.metric_name, quality_threshold=quality_threshold)
         self._threshold = threshold
         self._evaluator = _create_judge_evaluator(
             SafetyEvaluatorV1, "safety_evaluator_v1", threshold
@@ -499,12 +503,13 @@ class Hallucination(GoogleADKScorer):
         model: str = _DEFAULT_JUDGE_MODEL,
         threshold: float = _DEFAULT_THRESHOLD,
         num_samples: int = _DEFAULT_JUDGE_SAMPLES,
+        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
         check_adk_installed()
         from google.adk.evaluation.hallucinations_v1 import HallucinationsV1Evaluator
 
-        super().__init__(name=self.metric_name)
+        super().__init__(name=self.metric_name, quality_threshold=quality_threshold)
         self._threshold = threshold
         self._model = model
         self._evaluator = _create_judge_evaluator(

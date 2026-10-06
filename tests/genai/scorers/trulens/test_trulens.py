@@ -288,3 +288,15 @@ def test_trulens_scorer_tracking_class_name(mock_provider, scorer_class, expecte
         scorer = scorer_class(model="openai:/gpt-4")
 
     assert _get_scorer_class_name_for_tracking(scorer) == expected_class
+
+
+def test_quality_threshold_is_kept_off_the_trulens_provider(mock_provider):
+    with patch(
+        "mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider
+    ) as mock_create:
+        scorer = Groundedness(model="openai:/gpt-4", threshold=0.3, quality_threshold=0.9)
+
+    assert scorer.quality_threshold == 0.9
+    assert scorer._threshold == 0.3
+    assert scorer._metric_kwargs == {"threshold": 0.3}
+    mock_create.assert_called_once_with("openai:/gpt-4")

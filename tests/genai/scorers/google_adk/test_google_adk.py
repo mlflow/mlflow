@@ -926,3 +926,18 @@ def test_llm_judge_default_model_and_samples():
             judge_model="gemini-2.5-flash",
             num_samples=5,
         )
+
+
+@pytest.mark.parametrize(
+    "scorer_cls", [ToolTrajectory, ResponseMatch, ResponseEvaluation, Safety, Hallucination]
+)
+def test_quality_threshold_is_set_on_adk_scorer(scorer_cls):
+    with (
+        patch(f"{_PATCH_PREFIX}._create_trajectory_evaluator"),
+        patch(f"{_PATCH_PREFIX}._create_rouge_evaluator"),
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator"),
+    ):
+        scorer = scorer_cls(threshold=0.3, quality_threshold=0.9)
+
+    assert scorer.quality_threshold == 0.9
+    assert scorer._threshold == 0.3
