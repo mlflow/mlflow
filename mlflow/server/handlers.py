@@ -103,6 +103,7 @@ from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     custom_scorer_execution_blocked,
 )
+from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -413,6 +414,8 @@ from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -7512,6 +7515,10 @@ def _get_server_info():
         # server stores itself, such as uploaded skills, requires. Unlike the multipart flags, it
         # doesn't depend on the artifact repository's capabilities.
         SERVER_INFO_ARTIFACT_SERVING_ENABLED: _is_serving_proxied_artifacts(),
+        # The limits a skill upload is checked against, so a client can refuse an oversized
+        # folder before packaging it.
+        SERVER_INFO_SKILL_CONTENT_MAX_SIZE: get_max_decompressed_size(),
+        SERVER_INFO_SKILL_CONTENT_MAX_FILES: MAX_ARCHIVE_ENTRIES,
         # These advertise request-contract support; repository support is checked per resource.
         SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
         SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,

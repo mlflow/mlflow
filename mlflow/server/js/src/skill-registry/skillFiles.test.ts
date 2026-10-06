@@ -1,6 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { buildSkillFileTree, formatFileSize, getPreviewLanguage, getSkillArtifactPath } from './skillFiles';
+import {
+  buildSkillFileTree,
+  formatFileSize,
+  formatSizeLimit,
+  getPreviewLanguage,
+  getSkillArtifactPath,
+} from './skillFiles';
 
 describe('skillFiles', () => {
   it('resolves the artifact path only for content MLflow stores', () => {
@@ -34,5 +40,8 @@ describe('skillFiles', () => {
     expect(getPreviewLanguage('SKILL.md')).toBe('text');
     expect(formatFileSize(900)).toBe('900 B');
     expect(formatFileSize(1536)).toBe('1.5 KB');
+    expect(formatSizeLimit(25 * 1024 * 1024)).toBe('25 MB');
+    expect(formatSizeLimit(1.5 * 1024 * 1024)).toBe('1.5 MB');
+    expect(formatSizeLimit(64)).toBe('64 B');
   });
 });

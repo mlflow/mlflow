@@ -6827,6 +6827,10 @@
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
   },
+  "OOEQID": {
+    "defaultMessage": "This folder is {size}. The server accepts up to {max} of files.",
+    "description": "Error when a skill folder is larger than the server accepts"
+  },
   "OQOckC": {
     "defaultMessage": "Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started.",
     "description": "Review queue: empty state description when no queues exist"
@@ -8679,6 +8683,10 @@
     "defaultMessage": "Automatic evaluation is not available for judges that use expectations.",
     "description": "Hint text explaining why automatic evaluation is disabled for judges with expectations"
   },
+  "VTQzhu": {
+    "defaultMessage": "Up to {max} of files.",
+    "description": "Hint for the server's size limit of an uploaded skill folder"
+  },
   "VTT91L": {
     "defaultMessage": "No versions",
     "description": "Empty state when MCP server has no versions"
@@ -10174,6 +10182,10 @@
   "b1WkXf": {
     "defaultMessage": "A cleared answer can't be saved. Enter a value for each question, or keep the previous answer.",
     "description": "Review focused view: shown when a previously-answered question is cleared, which can't be saved"
+  },
+  "b1smv4": {
+    "defaultMessage": "This folder has {count} files. The server accepts up to {max}.",
+    "description": "Error when a skill folder has more files than the server accepts"
   },
   "b1yfI9": {
     "defaultMessage": "Run details",

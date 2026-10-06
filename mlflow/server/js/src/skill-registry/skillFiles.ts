@@ -116,5 +116,9 @@ export const formatFileSize = (bytes?: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+/** A size limit, without a trailing ".0" (25 MB rather than 25.0 MB). */
+export const formatSizeLimit = (bytes: number) =>
+  bytes < 1024 * 1024 ? formatFileSize(bytes) : `${Number((bytes / (1024 * 1024)).toFixed(1))} MB`;
+
 // Text with NUL characters is almost certainly binary, which the preview cannot render.
 export const looksBinary = (text: string) => text.includes('\u0000');

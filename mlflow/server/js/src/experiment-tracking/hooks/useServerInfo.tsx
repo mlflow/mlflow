@@ -14,6 +14,9 @@ interface ServerInfoResponse {
   multipart_downloads_enabled: boolean;
   /** Absent on servers that predate it. */
   artifact_serving_enabled?: boolean;
+  /** Skill upload limits: total file bytes and file count. Absent on servers that predate them. */
+  skill_content_max_size?: number;
+  skill_content_max_files?: number;
   features_enabled?: Record<FeatureKey, boolean>;
 }
 
@@ -124,6 +127,12 @@ export function useMultipartDownloadsEnabled(): boolean {
 export function useArtifactServingEnabled(): boolean {
   const { data } = useServerInfo();
   return data?.artifact_serving_enabled !== false;
+}
+
+/** The limits the server checks a skill upload against, or undefined for a server that does not report them. */
+export function useSkillContentLimits(): { maxBytes?: number; maxFiles?: number } {
+  const { data } = useServerInfo();
+  return { maxBytes: data?.skill_content_max_size, maxFiles: data?.skill_content_max_files };
 }
 
 interface ServerInfoProviderProps {

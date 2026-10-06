@@ -16,7 +16,7 @@ import {
 import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 
 import Utils from '../../common/utils/Utils';
-import { useArtifactServingEnabled } from '../../experiment-tracking/hooks/useServerInfo';
+import { useArtifactServingEnabled, useSkillContentLimits } from '../../experiment-tracking/hooks/useServerInfo';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { SkillIconEditor } from './SkillIconEditor';
 import { SkillTagsInput } from './SkillTagsInput';
@@ -24,6 +24,7 @@ import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiVi
 import { SkillRegistryApi } from '../api';
 import { useRegisterSkillMutation, type RegisterSkillMutationInput } from '../hooks/useRegisterSkillMutation';
 import { findSkillManifest, packageSkillFolder, readSkillManifest } from '../localSkillFolder';
+import { formatFileSize, formatSizeLimit } from '../skillFiles';
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
@@ -157,6 +158,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   // Content MLflow stores itself needs a server that serves artifacts; other servers can only import.
   const uploadEnabled = useArtifactServingEnabled();
   const workspace = useActiveWorkspace();
+  const contentLimits = useSkillContentLimits();
   const [mode, setMode] = useState<RegistrationMode>(
     uploadEnabled && sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer',
   );
@@ -192,6 +194,26 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const parsed = parseSkillLocation(form.location);
   const effectiveSourceType = form.sourceTypeOverride || parsed?.sourceType;
   const hasSkillManifest = useMemo(() => Boolean(findSkillManifest(folderFiles)), [folderFiles]);
+  // Packaging reads every file into memory, so a folder over the server's limits is refused before that.
+  const folderBytes = useMemo(() => folderFiles.reduce((total, file) => total + file.size, 0), [folderFiles]);
+  const folderLimitError =
+    contentLimits.maxFiles !== undefined && folderFiles.length > contentLimits.maxFiles
+      ? intl.formatMessage(
+          {
+            defaultMessage: 'This folder has {count} files. The server accepts up to {max}.',
+            description: 'Error when a skill folder has more files than the server accepts',
+          },
+          { count: folderFiles.length, max: contentLimits.maxFiles },
+        )
+      : contentLimits.maxBytes !== undefined && folderBytes > contentLimits.maxBytes
+        ? intl.formatMessage(
+            {
+              defaultMessage: 'This folder is {size}. The server accepts up to {max} of files.',
+              description: 'Error when a skill folder is larger than the server accepts',
+            },
+            { size: formatFileSize(folderBytes), max: formatSizeLimit(contentLimits.maxBytes) },
+          )
+        : undefined;
   const ref = form.ref.trim();
   const subpath = form.subpath.trim();
 
@@ -316,6 +338,10 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       return undefined;
     }
     if (!skill && (await rejectTakenIdentity())) return undefined;
+    if (folderLimitError) {
+      setBuildError(folderLimitError);
+      return undefined;
+    }
     const content = await packageSkillFolder(folderFiles);
     return skill
       ? { kind: 'version-upload', name: skill.name, organization: skill.organization, request: built.request, content }
@@ -462,7 +488,12 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
             componentId="mlflow.skill_registry.register_modal.submit"
             type="primary"
             loading={submitting}
-            disabled={view === 'api' || submitting || nameTaken || (mode === 'upload' && !hasSkillManifest)}
+            disabled={
+              view === 'api' ||
+              submitting ||
+              nameTaken ||
+              (mode === 'upload' && (!hasSkillManifest || Boolean(folderLimitError)))
+            }
             onClick={() => void submit()}
           >
             <FormattedMessage defaultMessage="Create" description="Submit button for skill registration" />
@@ -625,11 +656,20 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                           />
                         </Typography.Text>
                         <Typography.Text color="secondary">
-                          <FormattedMessage
-                            defaultMessage="Up to 25 MB of files, unless your server sets a different limit."
-                            description="Hint for the default size limit of an uploaded skill folder"
-                          />
+                          {contentLimits.maxBytes !== undefined ? (
+                            <FormattedMessage
+                              defaultMessage="Up to {max} of files."
+                              description="Hint for the server's size limit of an uploaded skill folder"
+                              values={{ max: formatSizeLimit(contentLimits.maxBytes) }}
+                            />
+                          ) : (
+                            <FormattedMessage
+                              defaultMessage="Up to 25 MB of files, unless your server sets a different limit."
+                              description="Hint for the default size limit of an uploaded skill folder"
+                            />
+                          )}
                         </Typography.Text>
+                        {folderLimitError && <FormUI.Message type="error" message={folderLimitError} />}
                       </>
                     )}
                   </div>

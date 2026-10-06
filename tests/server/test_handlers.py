@@ -305,6 +305,8 @@ from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -599,6 +601,17 @@ def test_server_info_artifact_serving_does_not_depend_on_multipart_support(monke
         data = response.get_json()
         assert data[SERVER_INFO_ARTIFACT_SERVING_ENABLED] is True
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
+
+
+def test_server_info_reports_skill_content_limits(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", str(5 * 1024 * 1024))
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data[SERVER_INFO_SKILL_CONTENT_MAX_SIZE] == 5 * 1024 * 1024
+        assert data[SERVER_INFO_SKILL_CONTENT_MAX_FILES] == 10_000
 
 
 def test_server_info_multipart_capabilities_handles_repo_error(monkeypatch):

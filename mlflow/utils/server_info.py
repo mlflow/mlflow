@@ -14,6 +14,8 @@ SERVER_FEATURES_ENDPOINT = "/api/3.0/mlflow/server-features"
 
 SERVER_INFO_STORE_TYPE = "store_type"
 SERVER_INFO_ARTIFACT_SERVING_ENABLED = "artifact_serving_enabled"
+SERVER_INFO_SKILL_CONTENT_MAX_SIZE = "skill_content_max_size"
+SERVER_INFO_SKILL_CONTENT_MAX_FILES = "skill_content_max_files"
 SERVER_INFO_WORKSPACES_ENABLED = "workspaces_enabled"
 SERVER_INFO_TRACE_ARCHIVAL_ENABLED = "trace_archival_enabled"
 SERVER_INFO_MULTIPART_UPLOADS_ENABLED = "multipart_uploads_enabled"

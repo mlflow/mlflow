@@ -596,6 +596,43 @@ describe('SkillRegistryPage', () => {
     expect(screen.getByRole('radio', { name: /Import from existing source/ })).toBeChecked();
   });
 
+  it('refuses a folder over the server limits before packaging it', async () => {
+    server.use(
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', skill_content_max_size: 64, skill_content_max_files: 2 })),
+      ),
+    );
+    const folderFile = (path: string, content: string) => {
+      const file = new File([content], path.split('/').pop() ?? path);
+      Object.defineProperties(file, {
+        webkitRelativePath: { value: path },
+        text: { value: async () => content },
+      });
+      return file;
+    };
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    expect(await screen.findByText('Up to 64 B of files.')).toBeInTheDocument();
+
+    const manifest = folderFile('demo/SKILL.md', '---\nname: demo\n---\n');
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      manifest,
+      folderFile('demo/a.md', 'a'),
+      folderFile('demo/b.md', 'b'),
+    ]);
+    expect(await screen.findByText('This folder has 3 files. The server accepts up to 2.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      manifest,
+      folderFile('demo/big.md', 'x'.repeat(100)),
+    ]);
+    expect(await screen.findByText(/This folder is .* The server accepts up to 64 B of files\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
   it('forgets a selected folder when switching away from Upload', async () => {
     renderPage();
 
