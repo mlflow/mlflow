@@ -614,6 +614,18 @@ def test_server_info_reports_skill_content_limits(monkeypatch):
         assert data[SERVER_INFO_SKILL_CONTENT_MAX_FILES] == 10_000
 
 
+def test_server_info_omits_skill_content_limits_when_misconfigured(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", "25MB")
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert SERVER_INFO_SKILL_CONTENT_MAX_SIZE not in data
+        assert SERVER_INFO_SKILL_CONTENT_MAX_FILES not in data
+        assert data[SERVER_INFO_STORE_TYPE] == "SqlStore"
+
+
 def test_server_info_multipart_capabilities_handles_repo_error(monkeypatch):
     monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
     monkeypatch.setattr(
