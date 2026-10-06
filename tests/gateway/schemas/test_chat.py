@@ -274,3 +274,12 @@ def test_chat_stream_response():
         ],
     })
     assert response_no_usage.usage is None
+
+def test_text_content_part_preserves_extra_fields():
+    from mlflow.types.chat import TextContentPart
+    part = TextContentPart(
+        type="text",
+        text="system prompt",
+        cache_control={"type": "ephemeral"},
+    )
+    assert part.model_dump(exclude_none=True).get("cache_control") == {"type": "ephemeral"}
