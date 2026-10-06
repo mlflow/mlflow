@@ -14,7 +14,11 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
-from mlflow.genai.evaluation.quality_thresholds import build_quality_thresholds_tag
+from mlflow.genai.evaluation.quality_thresholds import (
+    build_quality_threshold_rules,
+    build_quality_thresholds_tag,
+    warn_on_unmeasured_quality_thresholds,
+)
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -319,7 +323,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
     scorers = validate_scorers(scorers)
     # Validate before the run starts so a bad threshold doesn't leave an empty run behind.
-    quality_thresholds = build_quality_thresholds_tag(scorers)
+    quality_threshold_rules = build_quality_threshold_rules(scorers)
+    quality_thresholds = build_quality_thresholds_tag(quality_threshold_rules)
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -433,6 +438,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        # NB: Record the thresholds before the harness runs, so a run that fails partway still
+        # shows the bar it was evaluated against (its thresholds read as incomplete).
         if quality_thresholds is not None:
             MlflowClient().set_tag(
                 run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS, quality_thresholds
@@ -445,6 +452,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             run_id=run_id,
             dataset=mlflow_dataset if is_managed_dataset else None,
         )
+        warn_on_unmeasured_quality_thresholds(quality_threshold_rules, result.metrics)
 
     try:
         display_evaluation_output(run_id)

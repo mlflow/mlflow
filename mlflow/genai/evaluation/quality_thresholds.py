@@ -25,7 +25,10 @@ def _sub_scorers(scorer: Scorer) -> Iterator[Scorer]:
             yield from _sub_scorers(sub_scorer)
 
 
-def _build_rules(scorers: list[Scorer]) -> list[dict[str, Any]]:
+def build_quality_threshold_rules(scorers: list[Scorer]) -> list[dict[str, Any]]:
+    """
+    Validate the thresholds declared on ``scorers`` and build one rule per thresholded scorer.
+    """
     name_counts = Counter(scorer.name for scorer in scorers)
     rules = []
     for scorer in scorers:
@@ -56,14 +59,14 @@ def _build_rules(scorers: list[Scorer]) -> list[dict[str, Any]]:
     return rules
 
 
-def build_quality_thresholds_tag(scorers: list[Scorer]) -> str | None:
+def build_quality_thresholds_tag(rules: list[dict[str, Any]]) -> str | None:
     """
-    Validate the thresholds declared on ``scorers`` and serialize them for the run tag.
+    Serialize the rules from ``build_quality_threshold_rules`` for the run tag.
 
     Returns:
-        The tag value, or None when no scorer declares a threshold.
+        The tag value, or None when there are no rules.
     """
-    if not (rules := _build_rules(scorers)):
+    if not rules:
         return None
 
     value = json.dumps(
@@ -86,7 +89,7 @@ def build_quality_thresholds_tag(scorers: list[Scorer]) -> str | None:
 
 
 def warn_on_unmeasured_quality_thresholds(
-    scorers: list[Scorer], aggregated_metrics: dict[str, float]
+    rules: list[dict[str, Any]], aggregated_metrics: dict[str, float]
 ) -> None:
     """
     Warn for each threshold whose metric the run did not produce.
@@ -94,7 +97,7 @@ def warn_on_unmeasured_quality_thresholds(
     The UI shows such a run as incomplete rather than passing. This happens when a scorer
     returns non-numeric values or emits Feedback under a different name than its own.
     """
-    for rule in _build_rules(scorers):
+    for rule in rules:
         if rule["metricKey"] not in aggregated_metrics:
             _logger.warning(
                 f"The quality threshold on scorer '{rule['scorerName']}' can't be checked: the "

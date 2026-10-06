@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.quality_thresholds import (
+    build_quality_threshold_rules,
     build_quality_thresholds_tag,
     warn_on_unmeasured_quality_thresholds,
 )
@@ -20,9 +21,13 @@ def _make_scorer(name, quality_threshold=None):
     return _scorer
 
 
+def _build_tag(scorers):
+    return build_quality_thresholds_tag(build_quality_threshold_rules(scorers))
+
+
 def test_build_tag_returns_none_without_thresholds():
-    assert build_quality_thresholds_tag([]) is None
-    assert build_quality_thresholds_tag([_make_scorer("a"), _make_scorer("b")]) is None
+    assert _build_tag([]) is None
+    assert _build_tag([_make_scorer("a"), _make_scorer("b")]) is None
 
 
 def test_build_tag_serializes_rules_in_ui_criteria_shape():
@@ -32,7 +37,7 @@ def test_build_tag_serializes_rules_in_ui_criteria_shape():
         _make_scorer("no_threshold"),
     ]
 
-    payload = json.loads(build_quality_thresholds_tag(scorers))
+    payload = json.loads(_build_tag(scorers))
 
     assert payload == {
         "schemaVersion": 1,
@@ -60,19 +65,19 @@ def test_build_tag_serializes_rules_in_ui_criteria_shape():
 
 def test_build_tag_uses_fresh_revision_per_call():
     scorers = [_make_scorer("a", 0.5)]
-    first = json.loads(build_quality_thresholds_tag(scorers))
-    second = json.loads(build_quality_thresholds_tag(scorers))
+    first = json.loads(_build_tag(scorers))
+    second = json.loads(_build_tag(scorers))
     assert first["revision"] != second["revision"]
 
 
 def test_build_tag_rejects_duplicate_scorer_name_with_threshold():
     scorers = [_make_scorer("a", 0.5), _make_scorer("a")]
     with pytest.raises(MlflowException, match="another scorer passed to `evaluate` has the same"):
-        build_quality_thresholds_tag(scorers)
+        _build_tag(scorers)
 
 
 def test_build_tag_allows_duplicate_names_without_thresholds():
-    assert build_quality_thresholds_tag([_make_scorer("a"), _make_scorer("a")]) is None
+    assert _build_tag([_make_scorer("a"), _make_scorer("a")]) is None
 
 
 def test_build_tag_rejects_threshold_on_ensemble_sub_scorer():
@@ -82,7 +87,7 @@ def test_build_tag_rejects_threshold_on_ensemble_sub_scorer():
         ensemble_fn="mean",
     )
     with pytest.raises(MlflowException, match="'sub', a sub-scorer of the ensemble 'ensemble'"):
-        build_quality_thresholds_tag([ensemble])
+        _build_tag([ensemble])
 
 
 def test_build_tag_accepts_threshold_on_ensemble():
@@ -92,7 +97,7 @@ def test_build_tag_accepts_threshold_on_ensemble():
         ensemble_fn="mean",
         quality_threshold=0.7,
     )
-    [rule] = json.loads(build_quality_thresholds_tag([ensemble]))["rules"]
+    [rule] = json.loads(_build_tag([ensemble]))["rules"]
     assert rule["metricKey"] == "ensemble/mean"
 
 
@@ -101,8 +106,8 @@ def test_build_tag_skips_scorers_without_kind():
     class LegacyMetric:
         name = "legacy"
 
-    assert build_quality_thresholds_tag([LegacyMetric()]) is None
-    payload = build_quality_thresholds_tag([LegacyMetric(), _make_scorer("a", 0.5)])
+    assert _build_tag([LegacyMetric()]) is None
+    payload = _build_tag([LegacyMetric(), _make_scorer("a", 0.5)])
     [rule] = json.loads(payload)["rules"]
     assert rule["scorerName"] == "a"
 
@@ -110,7 +115,7 @@ def test_build_tag_skips_scorers_without_kind():
 def test_build_tag_rejects_oversized_payload():
     scorers = [_make_scorer("s" * 200 + str(i), 0.5) for i in range(40)]
     with pytest.raises(MlflowException, match=f"over the {MAX_TAG_VAL_LENGTH} character limit"):
-        build_quality_thresholds_tag(scorers)
+        _build_tag(scorers)
 
 
 def test_warn_on_unmeasured_quality_thresholds(caplog):
@@ -121,7 +126,7 @@ def test_warn_on_unmeasured_quality_thresholds(caplog):
 
     with caplog.at_level(logging.WARNING, logger="mlflow.genai.evaluation.quality_thresholds"):
         warn_on_unmeasured_quality_thresholds(
-            scorers, {"measured/mean": 0.7, "unmeasured/mean": 0.7}
+            build_quality_threshold_rules(scorers), {"measured/mean": 0.7, "unmeasured/mean": 0.7}
         )
 
     [record] = caplog.records

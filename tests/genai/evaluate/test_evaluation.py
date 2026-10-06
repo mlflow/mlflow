@@ -442,6 +442,18 @@ def test_evaluate_logs_quality_thresholds_run_tag(server_config):
     assert result.metrics["length/max"] == 4
 
 
+def test_evaluate_warns_when_quality_threshold_metric_is_missing():
+    @scorer(quality_threshold=0.5)
+    def label(outputs) -> str:
+        return "great"
+
+    with mock.patch("mlflow.genai.evaluation.quality_thresholds._logger.warning") as mock_warning:
+        mlflow.genai.evaluate(data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[label])
+
+    mock_warning.assert_called_once()
+    assert "the run has no 'label/mean' metric" in mock_warning.call_args[0][0]
+
+
 def test_evaluate_without_quality_thresholds_logs_no_tag(server_config):
     @scorer
     def is_good(outputs) -> bool:
