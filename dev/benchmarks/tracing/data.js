@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791297677610,
+  "lastUpdate": 1791324668995,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "krishtyagi0109@gmail.com",
-            "name": "krishtyagi0109-pixel",
-            "username": "krishtyagi0109-pixel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "28f780b8105e540d0304e87254f463642852765a",
-          "message": "Fix Python 3.14 compatibility in skill_installer by using pathlib.Path (#24103)\n\nSigned-off-by: Krish Tyagi <krishtyagi0109@gmail.com>\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
-          "timestamp": "2026-06-22T06:17:13Z",
-          "tree_id": "85086790db981b2bf3c02adfea8decd6d4641a73",
-          "url": "https://github.com/mlflow/mlflow/commit/28f780b8105e540d0304e87254f463642852765a"
-        },
-        "date": 1782109250456,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.770131900000365,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.798843028569244,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.54778356451963,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.933559912280344,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.94762164815038,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.357113600005505,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.874878799996623,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "james.fletcher@databricks.com",
+            "name": "James Fletcher",
+            "username": "james-fletcher-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4cd21efcdbe7c63b72cc4df11d60e25c6d27897",
+          "message": "Fix multipart response extraction in `parse_outputs_to_str` (#26451)\n\nSigned-off-by: James Fletcher <james.fletcher@databricks.com>",
+          "timestamp": "2026-10-06T22:06:58Z",
+          "tree_id": "c1438d67eb8dbcd4967d339bac900d38ef8c7ee2",
+          "url": "https://github.com/mlflow/mlflow/commit/a4cd21efcdbe7c63b72cc4df11d60e25c6d27897"
+        },
+        "date": 1791324665927,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.259255999996185,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 10.74235829629694,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.471960341461982,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.484622088708093,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.95292976106319,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 21.53771839999763,
             "unit": "ms"
           }
         ]
