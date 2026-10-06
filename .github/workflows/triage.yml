@@ -468,9 +468,16 @@ jobs:
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          id=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" \
-            -f body="An automated agent is triaging this issue. The triage report will replace this comment when it is ready. [Follow the workflow run]($RUN_URL)." \
-            --jq .id)
+          marker="<!-- mlflow-triage-run:$GITHUB_RUN_ID -->"
+          body="An automated agent is triaging this issue. The triage report will replace this comment when it is ready. [Follow the workflow run]($RUN_URL). $marker"
+          id=$(gh api --paginate "repos/$REPO/issues/$ISSUE_NUMBER/comments" \
+            | jq -sr --arg marker "$marker" \
+              '[.[][] | select(.user.login == "github-actions[bot]" and (.body | contains($marker))) | .id] | last // empty')
+          if [ -n "$id" ]; then
+            gh api "repos/$REPO/issues/comments/$id" -X PATCH -f body="$body" > /dev/null
+          else
+            id=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" -f body="$body" --jq .id)
+          fi
           echo "id=$id" >> "$GITHUB_OUTPUT"
   triage:
     needs: [issue, start_triage]
@@ -706,17 +713,19 @@ jobs:
         run: docker rm -f gw-proxy 2>/dev/null || true
   post_triage:
     needs: [issue, start_triage, triage]
-    if: needs.issue.result == 'success' && needs.triage.result == 'success'
+    if: always() && needs.issue.result == 'success' && needs.start_triage.result == 'success'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       issues: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.triage.result == 'success'
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/triage-report
       - name: Validate and prepare triage comment
+        if: needs.triage.result == 'success'
         env:
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           REPORT_PATH: ${{ runner.temp }}/triage-report/report.json
@@ -729,6 +738,7 @@ jobs:
           ' "$REPORT_PATH" > /dev/null
           jq -j '.body' "$REPORT_PATH" > "$BODY_FILE"
       - name: Write triage comment preview
+        if: needs.triage.result == 'success'
         env:
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
@@ -746,10 +756,23 @@ jobs:
             jq -Rsr '"<pre>\( . | @html)</pre>"' "$BODY_FILE"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Post triage comment
-        if: needs.issue.outputs.dry_run == 'false'
+        id: post
+        if: needs.triage.result == 'success' && needs.issue.outputs.dry_run == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
         run: gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$BODY_FILE"
+      - name: Remove unfinished triage status
+        if: always() && needs.issue.outputs.dry_run == 'false' && steps.post.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
+        run: |
+          marker="<!-- mlflow-triage-run:$GITHUB_RUN_ID -->"
+          body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          if [[ "$body" == *"$marker"* ]]; then
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X DELETE
+          fi
