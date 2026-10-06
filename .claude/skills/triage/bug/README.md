@@ -53,38 +53,7 @@ payload's `label` to that exact enum value.
 
 ## 5. Comment
 
-Fill in this template: replace each `<...>` placeholder, and drop a line or section that has
-nothing to say, except the verdict.
-
-```markdown
-### Summary
-
-**<verdict>**: <one or two sentences on what happens and on which versions>.
-
-- Expected: <what should happen>
-- Actual: <what happens, in one line, e.g. the exception and its message>
-- Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
-- Missing information: <what the reporter should add>
-
-### How to reproduce
-
-Tested on MLflow <version and commit>, Python <version from `python --version`>, <OS>.
-
-<whatever a reader needs to see the bug themselves: the commands, scripts, or UI steps to
-run and the output or observed behavior that shows the bug. Shape it to fit the bug, putting anything
-to run in code blocks.>
-
-### Suggested fix
-
-<the root cause in a sentence or two, with permalinks>
-
-<the fix: for a short change, the patch in a `diff` code block; for a longer or multi-file
-change, what changes in each file and why, with permalinks>
-
-### What I tried
-
-<for any verdict other than Reproduced: the attempts and why each did not reproduce it>
-```
+Write the comment using the template in `comment.description` of `payload.schema.yml`.
 
 Prefer code to prose: give commands and code a reader can paste and run, not steps
 to follow by hand. Keep the comment tight.
