@@ -763,7 +763,9 @@ jobs:
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           BODY_FILE: ${{ runner.temp }}/triage-comment.md
-        run: gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$BODY_FILE"
+        run: |
+          printf '\n\n<!-- mlflow-triage-run:%s -->\n' "$GITHUB_RUN_ID" >> "$BODY_FILE"
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$BODY_FILE"
       - name: Update unfinished triage status
         if: always() && needs.issue.outputs.dry_run == 'false' && steps.post.outcome != 'success'
         env:
