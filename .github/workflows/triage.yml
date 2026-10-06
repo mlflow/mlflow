@@ -688,6 +688,7 @@ jobs:
           echo "::$token::"
       - name: Copy Claude session
         if: always()
+        continue-on-error: true
         env:
           SESSION_ID: ${{ steps.session.outputs.id }}
         run: |
@@ -699,6 +700,7 @@ jobs:
           fi
       - name: Upload Claude session
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: triage-session-${{ github.run_id }}-${{ github.run_attempt }}
