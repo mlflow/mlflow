@@ -9,19 +9,19 @@ on:
         description: "Issue number to triage"
         required: true
         type: number
+      model:
+        description: "AI Gateway Claude model for the triage agent"
+        required: false
+        type: choice
+        default: databricks-claude-opus-5-5
+        options:
+          - databricks-claude-opus-5-5
+          - databricks-claude-sonnet-5-5
       dry_run:
         description: "Preview triage without issue mutations"
         required: false
         type: boolean
         default: true
-      model:
-        description: "AI Gateway Claude model for the triage agent"
-        required: false
-        type: choice
-        default: databricks-claude-sonnet-5-5
-        options:
-          - databricks-claude-sonnet-5-5
-          - databricks-claude-opus-5-5
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
@@ -628,7 +628,7 @@ jobs:
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
-          MODEL: ${{ inputs.model || 'databricks-claude-sonnet-5-5' }}
+          MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
         run: |
