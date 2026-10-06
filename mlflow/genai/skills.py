@@ -1,15 +1,16 @@
 import os
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 
 from mlflow.entities.skill import Skill
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
-from mlflow.genai.skill_content.archive import package_skill_tree
+from mlflow.genai.skill_content.archive import get_max_decompressed_size, package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
+from mlflow.genai.skill_content.errors import invalid_content
 from mlflow.genai.skill_content.fetchers import FetchedContent, fetch_source
-from mlflow.genai.skill_content.paths import normalize_subpath
+from mlflow.genai.skill_content.paths import normalize_subpath, tree_size
 from mlflow.genai.skill_content.skill_md import (
     SKILL_MANIFEST_FILE,
     SkillManifest,
@@ -90,6 +91,10 @@ def register_skill(
             directories are uploaded atomically through an HTTP tracking server serving
             artifacts; the server chooses their artifact location. ``MlflowSource`` and
             existing MLflow artifact URIs are response-side values and cannot be registered.
+            Local directories with a ``.git`` file or directory at the skill root are
+            rejected. Use ``GitSource`` to register committed content by reference, which
+            requires repository access when pulling, or copy the skill files to a directory
+            without Git metadata to upload a snapshot, including uncommitted changes.
         name: Registry name. If omitted, use the name declared in ``SKILL.md``.
         organization: Registry organization, or the empty string for an unscoped skill.
         status: Initial version status, either ``active`` (default) or ``draft``.
@@ -119,6 +124,14 @@ def register_skill(
         raise MlflowException.invalid_parameter_value(
             "Register a local directory to upload content; MLflow artifact locations are "
             "chosen by the server and cannot be supplied as a source."
+        )
+
+    if resolved.is_local and (Path(resolved.source) / ".git").exists():
+        raise MlflowException.invalid_parameter_value(
+            "Local skill uploads cannot contain a '.git' entry at the skill root. "
+            "Register the repository using GitSource(url=..., ref=..., subpath=...) "
+            "to reference its committed content, or copy the skill files to a directory "
+            "without Git metadata to upload a snapshot."
         )
 
     client = MlflowClient()
@@ -197,6 +210,13 @@ def import_skills(
     would select only one of them. Directories named ``SKILL.md`` are also rejected.
     All selected content is validated and digested before submitting a single batch.
 
+    Each selected skill is limited by ``MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE``
+    (default 25 MiB). The discovery budget is that limit multiplied by the maximum number
+    of skills allowed in a bulk import, regardless of how many skills are selected.
+    It includes all materialized content beneath the discovery root, including unselected
+    skills and unrelated files. It does not cap Git network traffic. Use a source subpath
+    to narrow discovery.
+
     Args:
         source: Git source or an unambiguous Git URL. Use ``GitSource`` to specify a
             ref and a discovery subpath. Without a subpath, search the repository root.
@@ -206,7 +226,7 @@ def import_skills(
             An invalid manifest causes import to fail even if its skill is not selected.
             An empty list or discovery with no skills is rejected. Selection preserves
             discovery order (sorted manifest paths), regardless of this list's order.
-            A batch may contain at most 500 selected skills.
+            The maximum bulk-import batch size applies to selected skills.
         status: Initial status for all newly created versions, either ``active`` (default)
             or ``draft``. Existing matching versions are reused with their status unchanged.
 
@@ -258,7 +278,10 @@ def import_skills(
     if resolved.subpath is not None:
         resolved_subpath = resolved.subpath
 
-    with fetch_source(source) as fetched:
+    max_skill_size_bytes = get_max_decompressed_size()
+    max_discovery_budget = max_skill_size_bytes * _MAX_BULK_REGISTER_SKILLS
+
+    with fetch_source(source, max_bytes=max_discovery_budget) as fetched:
         manifests = _filter_and_validate_skill_directories(fetched, requested_skills)
         definitions = []
         for manifest in manifests:
@@ -271,6 +294,12 @@ def import_skills(
                 raise MlflowException.invalid_parameter_value(
                     f"Discovered skill subpath {subpath!r} "
                     "would change during source normalization."
+                )
+
+            if (size := tree_size(manifest.path)) > max_skill_size_bytes:
+                raise invalid_content(
+                    f"Skill {manifest.name!r} content is {size} bytes, which exceeds "
+                    f"the size limit of {max_skill_size_bytes} bytes."
                 )
 
             definitions.append({

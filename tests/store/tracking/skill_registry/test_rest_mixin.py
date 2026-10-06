@@ -26,6 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import import_skills, register_skill, search_skills
 from mlflow.genai.skill_content.archive import package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
+from mlflow.genai.skill_content.paths import tree_size
 from mlflow.genai.skill_content.skill_md import inspect_skill_dir
 from mlflow.genai.skill_content.sources import resolve_source_type
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
@@ -1183,6 +1184,100 @@ def test_import_batch_size_limit(skill_repository, remote_repository, count, ski
     assert all(not root.exists() for root in roots)
 
 
+@pytest.mark.parametrize("skill_size", [600, 1000, 1001])
+def test_import_enforces_individual_skill_size_limit(
+    registry_client, store, skill_repository, remote_repository, monkeypatch, skill_size
+):
+    _, db_store = registry_client
+    limit = 1000
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, str(limit))
+    for path, size in [("skills/a-review", 600), ("skills/nested/z-docs", skill_size)]:
+        root = skill_repository / path
+        (root / "payload.txt").write_bytes(b"x" * (size - tree_size(root)))
+    assert tree_size(skill_repository) > limit
+    fetch, roots = remote_repository
+
+    with mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request:
+        if skill_size > limit:
+            with pytest.raises(MlflowException, match=f"size limit of {limit} bytes") as exc:
+                import_skills(source="https://example.com/skills.git")
+            assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+            assert f"Skill 'docs' content is {skill_size} bytes" in exc.value.message
+            request.assert_not_called()
+            assert db_store.search_skills() == []
+        else:
+            versions = import_skills(source="https://example.com/skills.git")
+            request.assert_called_once()
+            assert [version.name for version in versions] == ["review", "docs"]
+            assert versions == [
+                db_store.get_skill_version(name=version.name, version=version.version)
+                for version in versions
+            ]
+
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("oversized_path", ["skills/nested/z-docs/payload.txt", "unrelated.txt"])
+def test_import_applies_skill_size_limit_only_to_selected_content(
+    registry_client, store, skill_repository, remote_repository, monkeypatch, oversized_path
+):
+    _, db_store = registry_client
+    limit = 1000
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, str(limit))
+    (skill_repository / oversized_path).write_bytes(b"x" * (limit + 1))
+    fetch, roots = remote_repository
+
+    with (
+        mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
+        mock.patch("mlflow.genai.skills.compute_tree_digest", wraps=compute_tree_digest) as digest,
+    ):
+        versions = import_skills(source="https://example.com/skills.git", skill_names=["review"])
+
+    request.assert_called_once()
+    digest.assert_called_once_with(roots[0] / "skills/a-review")
+    assert versions == [db_store.get_skill_version(name="review", version=1)]
+    assert [skill.name for skill in db_store.search_skills()] == ["review"]
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize("extra_bytes", [0, 1])
+def test_import_enforces_discovery_size_limit(
+    registry_client, store, skill_repository, remote_repository, monkeypatch, extra_bytes
+):
+    _, db_store = registry_client
+    limit = 1000
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, str(limit))
+    budget = limit * _MAX_BULK_REGISTER_SKILLS
+    (skill_repository / "unrelated.txt").write_bytes(
+        b"x" * (budget + extra_bytes - tree_size(skill_repository))
+    )
+    fetch, roots = remote_repository
+
+    with (
+        mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
+        mock.patch("mlflow.genai.skills.compute_tree_digest", wraps=compute_tree_digest) as digest,
+    ):
+        if extra_bytes:
+            with pytest.raises(MlflowException, match=f"size limit of {budget} bytes") as exc:
+                import_skills(source="https://example.com/skills.git", skill_names=["review"])
+            assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+            request.assert_not_called()
+            digest.assert_not_called()
+            assert db_store.search_skills() == []
+        else:
+            versions = import_skills(
+                source="https://example.com/skills.git", skill_names=["review"]
+            )
+            request.assert_called_once()
+            digest.assert_called_once_with(roots[0] / "skills/a-review")
+            assert versions == [db_store.get_skill_version(name="review", version=1)]
+
+    fetch.assert_called_once()
+    assert all(not root.exists() for root in roots)
+
+
 def test_import_fetches_requested_git_ref(registry_client, skill_repository):
     for args in [
         ["init", "-q", "-b", "main"],
@@ -1526,6 +1621,28 @@ def test_register_rejects_invalid_source_before_fetch(source):
         register_skill(source=source)
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
     fetch.assert_not_called()
+
+
+@pytest.mark.parametrize("git_entry", ["directory", "file"])
+def test_register_rejects_local_git_metadata(skill_tree, git_entry):
+    metadata = skill_tree / ".git"
+    if git_entry == "directory":
+        metadata.mkdir()
+        (metadata / "config").write_text("[core]\nrepositoryformatversion = 0\n")
+    else:
+        metadata.write_text("gitdir: /repository/.git/worktrees/review\n")
+
+    with (
+        mock.patch("mlflow.genai.skills.MlflowClient") as client_factory,
+        mock.patch("mlflow.genai.skills.fetch_source") as fetch,
+        pytest.raises(MlflowException, match="GitSource") as exc,
+    ):
+        register_skill(source=str(skill_tree))
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    client_factory.assert_not_called()
+    fetch.assert_not_called()
+    assert metadata.exists()
 
 
 def test_register_skill_source_is_required():
