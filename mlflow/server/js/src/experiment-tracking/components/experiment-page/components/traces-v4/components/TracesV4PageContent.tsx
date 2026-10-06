@@ -363,7 +363,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     ? 'error'
     : !page.isFetching && flags.isEmptyPageBeyondFirst
       ? 'no-more-results'
-      : !page.isFetching && flags.hasNoTracesAtAll
+      : !page.isFetching && flags.hasNoTracesInRange
         ? 'empty'
         : !page.isFetching && flags.hasNoSearchResults
           ? 'no-results'
@@ -485,10 +485,16 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             getErrorDescription={getErrorDescription}
             customEmptyState={
               // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-              // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
+              // resolved `empty` state, not `hasNoTracesInRange` alone, so error / no-results /
               // no-more-results still flow through the switch — a trace-id-search miss lands on
               // `no-results`, and a first-load error on `error`, not the quickstart.
-              viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
+              viewState === 'empty' ? (
+                <TracesV4EmptyState
+                  kind={controller.emptyStateKind}
+                  timeLabel={controller.timeLabel}
+                  onViewAll={() => controller.setTimeRange({ timeLabel: 'ALL' })}
+                />
+              ) : undefined
             }
           />
 

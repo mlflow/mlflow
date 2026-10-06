@@ -2184,6 +2184,7 @@ module.exports = {
   "mlflow.traces-v4.date-selector.start-date-picker": "",
   "mlflow.traces-v4.date-selector.trigger": "",
   "mlflow.traces-v4.detect-issues-button": "",
+  "mlflow.traces-v4.empty.view-all": "",
   "mlflow.traces-v4.group-by-session": "",
   "mlflow.traces-v4.group-by-session.tooltip": "",
   "mlflow.traces-v4.notifications.close": "",
