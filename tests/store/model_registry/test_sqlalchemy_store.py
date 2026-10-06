@@ -2103,6 +2103,30 @@ def test_search_prompts(store):
     assert rms[0].name == "prompt_2"
 
 
+def test_search_prompt_marker_is_case_insensitive(store):
+    store.create_registered_model("model")
+    store.create_model_version("model", "1", "dummy_source")
+    for value in ("True", "TRUE"):
+        name = f"prompt_{value}"
+        store.create_registered_model(
+            name, tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value=value)]
+        )
+        store.create_model_version(
+            name, "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value=value)]
+        )
+        assert store.get_registered_model(name)._is_prompt()
+        assert store.get_model_version(name, 1)._is_prompt()
+
+    model_filter = f"tags.`{IS_PROMPT_TAG_KEY}` != 'true'"
+    prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+    for search in (store.search_registered_models, store.search_model_versions):
+        assert [row.name for row in search(filter_string=model_filter, max_results=10)] == ["model"]
+        assert {row.name for row in search(filter_string=prompt_filter, max_results=10)} == {
+            "prompt_True",
+            "prompt_TRUE",
+        }
+
+
 def test_search_prompts_versions(store):
     # A Model
     store.create_registered_model("model")
