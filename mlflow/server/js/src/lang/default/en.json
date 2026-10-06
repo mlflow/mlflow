@@ -1135,10 +1135,6 @@
     "defaultMessage": "Back",
     "description": "Back button"
   },
-  "2Xht4s": {
-    "defaultMessage": "No version is active, so the skill resolves to version {version}. Make a version active to recommend it.",
-    "description": "Tooltip for a skill whose latest version is not active"
-  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -5047,6 +5043,10 @@
     "defaultMessage": "Error",
     "description": "Failed trace status in the trace drawer header"
   },
+  "Hia8kG": {
+    "defaultMessage": "There is no version to resolve.",
+    "description": "Tooltip for a registry entity without any version"
+  },
   "Hj7ob9": {
     "defaultMessage": "Rebuild this invalid view with the assistant and save it to enable renaming.",
     "description": "Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable"
@@ -5967,6 +5967,10 @@
     "defaultMessage": "Continue",
     "description": "Confirm button of the inline assistant API key prompt"
   },
+  "LI9WuK": {
+    "defaultMessage": "Preview",
+    "description": "Show a markdown file rendered"
+  },
   "LIgbTd": {
     "defaultMessage": "Retrieval Relevance",
     "description": "LLM template option"
@@ -6226,6 +6230,10 @@
   "ML7TiJ": {
     "defaultMessage": "Could not save your review: {error}",
     "description": "Review focused view: error toast when saving a review fails"
+  },
+  "MMlQUq": {
+    "defaultMessage": "The name in SKILL.md, \"{name}\", is not a valid skill name. Use lowercase letters, digits, and single hyphens.",
+    "description": "Error when a skill folder's SKILL.md declares an invalid name"
   },
   "MN6Mz+": {
     "defaultMessage": "Icon URL",
@@ -9271,10 +9279,6 @@
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
   },
-  "XN0pQz": {
-    "defaultMessage": "Unavailable",
-    "description": "Label for MCP server that is not active"
-  },
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
@@ -9346,6 +9350,10 @@
   "Xn0LxG": {
     "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
     "description": "Anthropic passthrough description"
+  },
+  "XnqmX2": {
+    "defaultMessage": "Raw",
+    "description": "Show a markdown file as raw text"
   },
   "Xo3L6r": {
     "defaultMessage": "Analyze evaluation run with Assistant",
@@ -9710,10 +9718,6 @@
   "ZBaNWk": {
     "defaultMessage": "Operator",
     "description": "Usage overview > filter row > operator dropdown aria label"
-  },
-  "ZDX913": {
-    "defaultMessage": "Unavailable",
-    "description": "Label for a Skill that has no version to pull"
   },
   "ZGhYvh": {
     "defaultMessage": "No traces in this queue yet",
@@ -10130,10 +10134,6 @@
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
-  },
-  "alHtT0": {
-    "defaultMessage": "Set the server status to active to make it available",
-    "description": "Tooltip for unavailable label on MCP server detail page"
   },
   "an4yfn": {
     "defaultMessage": "Your changes will be lost if you leave this panel without saving.",
@@ -10574,6 +10574,10 @@
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"
+  },
+  "cOVXpA": {
+    "defaultMessage": "No version is active, so this resolves to version {version}. Make a version active to recommend it.",
+    "description": "Tooltip for a registry entity whose latest version is not active"
   },
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
@@ -12451,6 +12455,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
   },
+  "iz9koK": {
+    "defaultMessage": "Copy file contents",
+    "description": "Aria label for copying a skill file preview"
+  },
   "izKjfs": {
     "defaultMessage": "No resource permissions to show.",
     "description": "Empty-state description for the permissions table"
@@ -13615,6 +13623,10 @@
     "defaultMessage": "create through API →",
     "description": "Link from skill registration to the API example"
   },
+  "nH4XMO": {
+    "defaultMessage": "File view",
+    "description": "Aria label for switching a markdown file between rendered and raw text"
+  },
   "nH5645": {
     "defaultMessage": "Package arguments",
     "description": "Package arguments label"
@@ -14498,6 +14510,10 @@
   "qhgn2K": {
     "defaultMessage": ".mcp.json",
     "description": "mcp.json install format label"
+  },
+  "qi3D8L": {
+    "defaultMessage": "SKILL.md needs a name in its frontmatter, as in {example}.",
+    "description": "Error when a skill folder's SKILL.md has no name in its frontmatter"
   },
   "qj+LhB": {
     "defaultMessage": "Name",
@@ -15395,6 +15411,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "uDwMEr": {
+    "defaultMessage": "Unavailable",
+    "description": "Label for a registry entity without any version"
+  },
   "uFM4rv": {
     "defaultMessage": "Digest",
     "description": "Label for the digest field in the V2 evaluation dataset metadata modal"
@@ -16022,10 +16042,6 @@
   "whhlYC": {
     "defaultMessage": "Transport URL",
     "description": "Package transport URL label"
-  },
-  "wiYzNW": {
-    "defaultMessage": "This skill has no versions to pull.",
-    "description": "Tooltip for a skill without any version"
   },
   "wj6XWT": {
     "defaultMessage": "Did the response address all explicit requests in the prompt?",

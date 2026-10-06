@@ -17,6 +17,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { RegistryStatusBadge } from '../../common/components/RegistryStatusBadge';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { Link, useNavigate, useParams } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
@@ -90,7 +91,20 @@ const SkillDetailHeader = ({
               <SkillIcon icons={skill.icons} name={skill.name} />
             </span>
             {skill.name}
-            {isDimmed && <SkillStatusBadge skill={skill} />}
+            {isDimmed && (
+              <RegistryStatusBadge
+                componentId="mlflow.skill_registry.detail.status"
+                status={
+                  skill.status && skill.status !== SkillStatus.DELETED && skill.latest_version != null
+                    ? {
+                        label: formatSkillStatusLabel(intl, skill.status),
+                        color: STATUS_TAG_COLOR[skill.status],
+                        version: skill.latest_version,
+                      }
+                    : undefined
+                }
+              />
+            )}
           </span>
         }
         buttons={
@@ -168,48 +182,6 @@ const SkillDetailHeader = ({
         </div>
       )}
     </>
-  );
-};
-
-// A skill without an active version still resolves to its newest non-deleted version, so its status is shown
-// as is rather than as unavailable; only a skill with no versions has nothing to pull.
-const SkillStatusBadge = ({ skill }: { skill: Skill }) => {
-  const intl = useIntl();
-  const { status, latest_version: latestVersion } = skill;
-  const resolvedStatus = status && status !== SkillStatus.DELETED && latestVersion != null ? status : undefined;
-  return (
-    <Tooltip
-      componentId="mlflow.skill_registry.detail.status_tooltip"
-      content={
-        resolvedStatus ? (
-          <FormattedMessage
-            defaultMessage="No version is active, so the skill resolves to version {version}. Make a version active to recommend it."
-            description="Tooltip for a skill whose latest version is not active"
-            values={{ version: latestVersion }}
-          />
-        ) : (
-          <FormattedMessage
-            defaultMessage="This skill has no versions to pull."
-            description="Tooltip for a skill without any version"
-          />
-        )
-      }
-    >
-      <span css={{ cursor: 'default' }}>
-        {resolvedStatus ? (
-          <Tag componentId="mlflow.skill_registry.detail.status_tag" color={STATUS_TAG_COLOR[resolvedStatus]}>
-            {formatSkillStatusLabel(intl, resolvedStatus)}
-          </Tag>
-        ) : (
-          <Tag componentId="mlflow.skill_registry.detail.unavailable_tag" color="coral">
-            <FormattedMessage
-              defaultMessage="Unavailable"
-              description="Label for a Skill that has no version to pull"
-            />
-          </Tag>
-        )}
-      </span>
-    </Tooltip>
   );
 };
 

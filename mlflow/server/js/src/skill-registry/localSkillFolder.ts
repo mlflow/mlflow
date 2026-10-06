@@ -14,12 +14,28 @@ const stringField = (frontmatter: unknown, key: string) => {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 };
 
+/** Splits a markdown file's leading `---` frontmatter block from its body. */
+export const splitFrontmatter = (content: string): { frontmatter?: string; body: string } => {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  return match ? { frontmatter: match[1], body: content.slice(match[0].length) } : { body: content };
+};
+
+/** The fields of a frontmatter block when it is a YAML mapping, for display; undefined otherwise. */
+export const readFrontmatterFields = (source: string): [string, unknown][] | undefined => {
+  try {
+    const value: unknown = yaml.safeLoad(source);
+    return value && typeof value === 'object' && !Array.isArray(value) ? Object.entries(value) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const readSkillManifest = (content: string): SkillManifestFields => {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match?.[1]) return {};
+  const { frontmatter: source } = splitFrontmatter(content);
+  if (!source) return {};
   let frontmatter: unknown;
   try {
-    frontmatter = yaml.safeLoad(match[1]);
+    frontmatter = yaml.safeLoad(source);
   } catch {
     return {};
   }

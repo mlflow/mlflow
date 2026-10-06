@@ -9,6 +9,8 @@ export const UploadFolderField = ({
   files,
   hasSkillManifest,
   exceededLimit,
+  manifestName,
+  manifestProblem,
   maxBytes,
   maxFiles,
   onSelect,
@@ -16,6 +18,8 @@ export const UploadFolderField = ({
   files: File[];
   hasSkillManifest: boolean;
   exceededLimit: ExceededContentLimit;
+  manifestName?: string | null;
+  manifestProblem?: 'missing' | 'invalid';
   maxBytes?: number;
   maxFiles?: number;
   onSelect: (files: File[]) => void;
@@ -38,6 +42,18 @@ export const UploadFolderField = ({
       <FormattedMessage
         defaultMessage="This folder has no SKILL.md at its top level."
         description="Error when a selected skill folder has no SKILL.md"
+      />
+    ) : manifestProblem === 'missing' ? (
+      <FormattedMessage
+        defaultMessage="SKILL.md needs a name in its frontmatter, as in {example}."
+        description="Error when a skill folder's SKILL.md has no name in its frontmatter"
+        values={{ example: <code>name: my-skill</code> }}
+      />
+    ) : manifestProblem === 'invalid' ? (
+      <FormattedMessage
+        defaultMessage='The name in SKILL.md, "{name}", is not a valid skill name. Use lowercase letters, digits, and single hyphens.'
+        description="Error when a skill folder's SKILL.md declares an invalid name"
+        values={{ name: manifestName }}
       />
     ) : undefined;
 

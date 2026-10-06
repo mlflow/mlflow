@@ -1,19 +1,26 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   Alert,
   ChevronDownIcon,
+  CopyIcon,
   ChevronRightIcon,
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
   Modal,
+  SegmentedControlButton,
+  SegmentedControlGroup,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { CopyButton } from '../../shared/building_blocks/CopyButton';
+import { GenAIMarkdownRenderer } from '../../shared/web-shared/genai-markdown-renderer';
+import { sanitizeHref } from '../../common/utils/registryIcons';
 import { useSkillFileContentQuery, useSkillVersionFilesQuery } from '../hooks/useSkillVersionFiles';
+import { readFrontmatterFields, splitFrontmatter } from '../localSkillFolder';
 import {
   buildSkillFileTree,
   formatFileSize,
@@ -152,8 +159,156 @@ const FileTree = ({
   return <>{renderNodes(nodes, 0)}</>;
 };
 
-const FilePreview = ({ artifactPath, file }: { artifactPath: string; file: SkillFile }) => {
+const isMarkdownFile = (path: string) => /\.(md|markdown)$/i.test(path);
+
+// Images in a skill's markdown are shown as links rather than loaded, so opening a file never fetches a remote
+// URL; relative ones point into the skill and are shown as text.
+const markdownComponents = {
+  img: ({ src, alt }: { src?: string; alt?: string }) => {
+    const href = sanitizeHref(src);
+    const label = alt || src;
+    return href ? (
+      <Typography.Link componentId="mlflow.skill_registry.detail.version.files.image_link" href={href} openInNewTab>
+        {label}
+      </Typography.Link>
+    ) : (
+      <Typography.Text color="secondary">{label}</Typography.Text>
+    );
+  },
+};
+
+const PreviewFrame = ({ children }: { children: ReactNode }) => {
   const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        maxHeight: '60vh',
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing.md,
+        // The frame scrolls; its children keep their full height instead of shrinking to fit it.
+        '& > *': { flexShrink: 0 },
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+const TextSnippet = ({ language, children }: { language: ReturnType<typeof getPreviewLanguage>; children: string }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <CodeSnippet
+      language={language}
+      theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+      showLineNumbers
+      wrapLongLines
+      style={{
+        padding: theme.spacing.sm,
+        paddingRight: theme.spacing.xl + theme.spacing.sm,
+        backgroundColor: theme.colors.backgroundSecondary,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        lineHeight: theme.typography.lineHeightSm,
+      }}
+    >
+      {children}
+    </CodeSnippet>
+  );
+};
+
+/** A file's text as is, with a copy button that stays in place while the text scrolls. */
+const RawFile = ({ path, content }: { path: string; content: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  return (
+    <div css={{ position: 'relative' }}>
+      <CopyButton
+        componentId="mlflow.skill_registry.detail.version.files.copy"
+        showLabel={false}
+        copyText={content}
+        icon={<CopyIcon />}
+        aria-label={intl.formatMessage({
+          defaultMessage: 'Copy file contents',
+          description: 'Aria label for copying a skill file preview',
+        })}
+        css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.md, zIndex: 1 }}
+      />
+      <PreviewFrame>
+        <TextSnippet language={getPreviewLanguage(path)}>{content}</TextSnippet>
+      </PreviewFrame>
+    </div>
+  );
+};
+
+// Frontmatter is shown as a table of its fields, as code hosts do; text that is not a YAML mapping stays as is.
+const Frontmatter = ({ source }: { source: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const fields = readFrontmatterFields(source);
+  if (!fields) return <TextSnippet language="text">{source}</TextSnippet>;
+  return (
+    <div
+      css={{
+        display: 'grid',
+        gridTemplateColumns: 'max-content 1fr',
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        '& > *': { padding: `${theme.spacing.xs}px ${theme.spacing.sm}px` },
+        '& > :nth-of-type(n + 3)': { borderTop: `1px solid ${theme.colors.border}` },
+      }}
+    >
+      {fields.map(([key, value]) => [
+        <Typography.Text key={`key:${key}`} bold>
+          {key}
+        </Typography.Text>,
+        <Typography.Text key={`value:${key}`} css={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          {typeof value === 'string' ? value : JSON.stringify(value)}
+        </Typography.Text>,
+      ])}
+    </div>
+  );
+};
+
+/** A markdown file, such as SKILL.md: raw text by default, or rendered with its frontmatter as a table above it. */
+const MarkdownFile = ({ path, content }: { path: string; content: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const [view, setView] = useState<'preview' | 'raw'>('raw');
+  const { frontmatter, body } = splitFrontmatter(content);
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <SegmentedControlGroup
+        name="mlflow.skill_registry.detail.version.files.view"
+        componentId="mlflow.skill_registry.detail.version.files.view"
+        value={view}
+        onChange={(event) => setView(event.target.value as 'preview' | 'raw')}
+        aria-label={intl.formatMessage({
+          defaultMessage: 'File view',
+          description: 'Aria label for switching a markdown file between rendered and raw text',
+        })}
+        css={{ alignSelf: 'flex-start' }}
+      >
+        <SegmentedControlButton value="raw">
+          <FormattedMessage defaultMessage="Raw" description="Show a markdown file as raw text" />
+        </SegmentedControlButton>
+        <SegmentedControlButton value="preview">
+          <FormattedMessage defaultMessage="Preview" description="Show a markdown file rendered" />
+        </SegmentedControlButton>
+      </SegmentedControlGroup>
+      {view === 'raw' ? (
+        <RawFile path={path} content={content} />
+      ) : (
+        <PreviewFrame>
+          {frontmatter && <Frontmatter source={frontmatter} />}
+          <GenAIMarkdownRenderer components={markdownComponents}>{body}</GenAIMarkdownRenderer>
+        </PreviewFrame>
+      )}
+    </div>
+  );
+};
+
+const FilePreview = ({ artifactPath, file }: { artifactPath: string; file: SkillFile }) => {
   const { data: content, isLoading, error, tooLarge } = useSkillFileContentQuery(artifactPath, file);
   if (tooLarge) {
     return (
@@ -195,24 +350,10 @@ const FilePreview = ({ artifactPath, file }: { artifactPath: string; file: Skill
       </Typography.Text>
     );
   }
-  return (
-    <CodeSnippet
-      language={getPreviewLanguage(file.path)}
-      theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-      showLineNumbers
-      wrapLongLines
-      style={{
-        padding: theme.spacing.sm,
-        backgroundColor: theme.colors.backgroundSecondary,
-        borderRadius: theme.borders.borderRadiusMd,
-        maxHeight: '60vh',
-        overflow: 'auto',
-        fontSize: theme.typography.fontSizeSm,
-        lineHeight: theme.typography.lineHeightSm,
-      }}
-    >
-      {content}
-    </CodeSnippet>
+  return isMarkdownFile(file.path) ? (
+    <MarkdownFile path={file.path} content={content} />
+  ) : (
+    <RawFile path={file.path} content={content} />
   );
 };
 

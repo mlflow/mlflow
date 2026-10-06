@@ -224,6 +224,9 @@ export const parseSkillLocation = (location: string): ParsedSkillLocation | unde
   return undefined;
 };
 
+/** Skill names follow the Agent Skills rule: lowercase letters, digits and single hyphens, at most 64 characters. */
+export const isValidSkillName = (name: string) => SKILL_NAME_PATTERN.test(name) && name.length <= MAX_NAME_LENGTH;
+
 export const parseSkillIdentityInput = (
   identity: string,
 ): { name: string; organization: string } | { error: 'name_required' | 'name_invalid' | 'organization_invalid' } => {
@@ -239,7 +242,7 @@ export const parseSkillIdentityInput = (
     organization = trimmed.slice(1, slash);
     name = trimmed.slice(slash + 1);
   }
-  if (!SKILL_NAME_PATTERN.test(name) || name.length > MAX_NAME_LENGTH) return { error: 'name_invalid' };
+  if (!isValidSkillName(name)) return { error: 'name_invalid' };
   if (organization && (!ORGANIZATION_NAME_PATTERN.test(organization) || organization.length > MAX_NAME_LENGTH)) {
     return { error: 'organization_invalid' };
   }

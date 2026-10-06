@@ -20,6 +20,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { RegistryStatusBadge } from '../../common/components/RegistryStatusBadge';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { Link, useNavigate, useParams } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
@@ -41,10 +42,10 @@ import { MCPServerVersionList } from '../components/MCPServerVersionList';
 import { MCPServerVersionDetail } from '../components/MCPServerVersionDetail';
 import { MCPServerVersionCompare } from '../components/MCPServerVersionCompare';
 import { MCPServerTagsBox } from '../components/MCPServerTagsBox';
-import { MCPServerDetailViewMode } from '../types';
+import { MCPServerDetailViewMode, MCPStatus } from '../types';
 import { useMCPServerDetailViewState } from '../hooks/useMCPServerDetailViewState';
 import { useSelectedMCPServerVersion } from '../hooks/useSelectedMCPServerVersion';
-import { LATEST_ALIAS, resolveDisplayName } from '../utils';
+import { formatStatusLabel, LATEST_ALIAS, resolveDisplayName, STATUS_TAG_COLOR } from '../utils';
 import { lineClampStyles } from '../styles';
 import { useServerState } from '../hooks/useServerState';
 import { MCPServerIcon } from '../components/MCPServerIcon';
@@ -238,25 +239,19 @@ const MCPServerDetailPage = () => {
               css={{ width: 24, height: 24 }}
             />
             {displayName}
-            {isDimmed && (
-              <Tooltip
-                componentId="mlflow.mcp_registry.detail.unavailable_tooltip"
-                content={
-                  <FormattedMessage
-                    defaultMessage="Set the server status to active to make it available"
-                    description="Tooltip for unavailable label on MCP server detail page"
-                  />
+            {isDimmed && server && (
+              <RegistryStatusBadge
+                componentId="mlflow.mcp_registry.detail.status"
+                status={
+                  server.status && server.status !== MCPStatus.DELETED && server.latest_version
+                    ? {
+                        label: formatStatusLabel(server.status),
+                        color: STATUS_TAG_COLOR[server.status],
+                        version: server.latest_version,
+                      }
+                    : undefined
                 }
-              >
-                <span css={{ cursor: 'default' }}>
-                  <Tag componentId="mlflow.mcp_registry.detail.unavailable_tag" color="coral">
-                    <FormattedMessage
-                      defaultMessage="Unavailable"
-                      description="Label for MCP server that is not active"
-                    />
-                  </Tag>
-                </span>
-              </Tooltip>
+              />
             )}
           </span>
         }

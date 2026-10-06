@@ -518,6 +518,23 @@ describe('MCPServerDetailPage', () => {
     });
   });
 
+  it('shows a deprecated-only server as deprecated, since it still resolves', async () => {
+    server.use(
+      getMockedGetMCPServerResponse(
+        createMockMCPServer({
+          name: 'dev.mainline/mcp',
+          display_name: 'Mainline',
+          status: MCPStatus.DEPRECATED,
+          latest_version: '1',
+        }),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Deprecated')).toBeInTheDocument();
+    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
+  });
+
   it('switches to compare view when Compare button is clicked', async () => {
     const version2 = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',

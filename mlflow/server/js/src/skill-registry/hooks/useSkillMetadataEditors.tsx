@@ -8,7 +8,8 @@ import { diffCurrentAndNewTags } from '../../common/utils/TagUtils';
 import type { KeyValueEntity } from '../../common/types';
 import { SkillRegistryApi } from '../api';
 import type { Skill, SkillStatus, SkillVersion } from '../types';
-import { formatSkillIdentity, settleAll } from '../utils';
+import { ignoreNotFound, settleAll } from '../../common/utils/registryWrites';
+import { formatSkillIdentity } from '../utils';
 import type { AliasMap } from '../../common/types';
 import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 
@@ -42,7 +43,7 @@ export const useSkillMetadataEditors = ({
       if (version == null) {
         await settleAll([
           ...toAdd.map(({ key, value }) => SkillRegistryApi.setSkillTag(name, { key, value }, organization)),
-          ...toDelete.map(({ key }) => SkillRegistryApi.deleteSkillTag(name, key, organization)),
+          ...toDelete.map(({ key }) => ignoreNotFound(SkillRegistryApi.deleteSkillTag(name, key, organization))),
         ]);
         return;
       }
@@ -50,7 +51,9 @@ export const useSkillMetadataEditors = ({
         ...toAdd.map(({ key, value }) =>
           SkillRegistryApi.setSkillVersionTag(name, version, { key, value }, organization),
         ),
-        ...toDelete.map(({ key }) => SkillRegistryApi.deleteSkillVersionTag(name, version, key, organization)),
+        ...toDelete.map(({ key }) =>
+          ignoreNotFound(SkillRegistryApi.deleteSkillVersionTag(name, version, key, organization)),
+        ),
       ]);
     },
     // Even a partly failed save changed the server, so the page refreshes either way.
@@ -103,7 +106,7 @@ export const useSkillMetadataEditors = ({
     mutationFn: async ({ version, add, remove }) => {
       await settleAll([
         ...add.map((alias) => SkillRegistryApi.setSkillAlias(name, { alias, version }, organization)),
-        ...remove.map((alias) => SkillRegistryApi.deleteSkillAlias(name, alias, organization)),
+        ...remove.map((alias) => ignoreNotFound(SkillRegistryApi.deleteSkillAlias(name, alias, organization))),
       ]);
     },
     onSettled: () => invalidate(),

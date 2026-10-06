@@ -26,6 +26,7 @@ import { exceededContentLimit, findSkillManifest, packageSkillFolder, readSkillM
 import {
   buildExternalSkillVersionRequest,
   buildUploadedSkillVersionRequest,
+  isValidSkillName,
   parseSkillIdentityInput,
   parseSkillLocation,
   toRegisterSkillRequest,
@@ -158,6 +159,8 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const [icons, setIcons] = useState<RegistryIcon[]>([]);
   const [tags, setTags] = useState<Record<string, string>>({});
   const [folderFiles, setFolderFiles] = useState<File[]>([]);
+  // The `name` in the selected folder's SKILL.md: undefined until it is read, null when it has none.
+  const [manifestName, setManifestName] = useState<string | null>();
   // Server info can answer after the dialog opened in Upload mode; fall back once uploads turn out unsupported.
   if (!uploadEnabled && mode === 'upload') {
     setMode('pointer');
@@ -187,6 +190,16 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     () => exceededContentLimit(folderFiles, { maxBytes, maxFiles }),
     [folderFiles, maxBytes, maxFiles],
   );
+  // Clients take a skill's name from its SKILL.md, so a folder whose SKILL.md lacks a valid one is refused.
+  const manifestProblem =
+    !hasSkillManifest || manifestName === undefined
+      ? undefined
+      : manifestName === null
+        ? ('missing' as const)
+        : isValidSkillName(manifestName)
+          ? undefined
+          : ('invalid' as const);
+  const folderReady = hasSkillManifest && !exceededLimit && manifestName != null && !manifestProblem;
   const ref = form.ref.trim();
   const subpath = form.subpath.trim();
 
@@ -244,6 +257,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     // The folder picker remounts empty, so a folder chosen before switching away must not upload.
     setMode(nextMode);
     setFolderFiles([]);
+    setManifestName(undefined);
     setValidationError(undefined);
     if (!isVersion) resetSuggestedFields(nextMode === 'pointer' ? form.location : undefined);
   };
@@ -252,9 +266,9 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     folderSelectionRef.current += 1;
     const selection = folderSelectionRef.current;
     setFolderFiles(files);
+    setManifestName(undefined);
     setValidationError(undefined);
-    if (isVersion) return;
-    resetSuggestedFields();
+    if (!isVersion) resetSuggestedFields();
     const manifestFile = findSkillManifest(files);
     // A folder over the server's limits is refused, so its SKILL.md is not worth reading into memory.
     if (!manifestFile || exceededContentLimit(files, { maxBytes, maxFiles })) return;
@@ -263,9 +277,11 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     const descriptionBefore = descriptionTouched ? undefined : '';
     const manifest = readSkillManifest(await manifestFile.text());
     if (selection !== folderSelectionRef.current || !submission.isActive()) return;
-    const { name: manifestName, description: manifestDescription } = manifest;
-    if (manifestName) {
-      setForm((current) => (current.identity === identityBefore ? { ...current, identity: manifestName } : current));
+    setManifestName(manifest.name ?? null);
+    if (isVersion) return;
+    const { name: suggestedName, description: manifestDescription } = manifest;
+    if (suggestedName) {
+      setForm((current) => (current.identity === identityBefore ? { ...current, identity: suggestedName } : current));
       setTakenIdentity(undefined);
     }
     if (manifestDescription) {
@@ -293,8 +309,8 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       if (await rejectTakenIdentity()) return undefined;
       return { kind: 'register', request: toRegisterSkillRequest(built.request, built.identity) };
     }
-    // The folder field explains both; Create is disabled meanwhile.
-    if (!hasSkillManifest || exceededLimit) return undefined;
+    // The folder field explains what is wrong; Create is disabled meanwhile.
+    if (!folderReady) return undefined;
     const built = buildUploadedSkillVersionRequest(fields);
     if (!built.ok) {
       setValidationError(built.error);
@@ -397,12 +413,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
             componentId="mlflow.skill_registry.register_modal.submit"
             type="primary"
             loading={submission.submitting}
-            disabled={
-              view === 'api' ||
-              submission.submitting ||
-              nameTaken ||
-              (mode === 'upload' && (!hasSkillManifest || Boolean(exceededLimit)))
-            }
+            disabled={view === 'api' || submission.submitting || nameTaken || (mode === 'upload' && !folderReady)}
             onClick={submit}
           >
             <FormattedMessage defaultMessage="Create" description="Submit button for skill registration" />
@@ -543,6 +554,8 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                         files={folderFiles}
                         hasSkillManifest={hasSkillManifest}
                         exceededLimit={exceededLimit}
+                        manifestName={manifestName}
+                        manifestProblem={manifestProblem}
                         maxBytes={maxBytes}
                         maxFiles={maxFiles}
                         onSelect={(files) => void onFolderSelected(files)}

@@ -88,12 +88,12 @@ describe('RegisterSkillModal', () => {
     jest.restoreAllMocks();
   });
 
-  const renderModal = () =>
+  const renderModal = (skill?: { name: string; organization: string }) =>
     render(
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <QueryClientProvider client={new QueryClient()}>
-            <RegisterSkillModal visible onClose={onClose} onRegistered={onRegistered} />
+            <RegisterSkillModal visible skill={skill} onClose={onClose} onRegistered={onRegistered} />
           </QueryClientProvider>
         </DesignSystemProvider>
       </IntlProvider>,
@@ -262,6 +262,42 @@ describe('RegisterSkillModal', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('@acme/mine'));
     expect(screen.getByLabelText('Description')).toHaveValue('Mine');
+  });
+
+  it('requires a name in the frontmatter of SKILL.md', async () => {
+    renderModal();
+    await chooseUpload();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [folderFile('demo/SKILL.md', '# Demo\n')]);
+
+    expect(await screen.findByText(/SKILL.md needs a name in its frontmatter/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('refuses a SKILL.md whose name is not a valid skill name', async () => {
+    renderModal();
+    await chooseUpload();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('demo/SKILL.md', '---\nname: My_Skill\n---\n'),
+    ]);
+
+    expect(await screen.findByText(/"My_Skill", is not a valid skill name/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('requires a SKILL.md name for a new version too', async () => {
+    renderModal({ name: 'demo', organization: 'acme' });
+    await chooseUpload();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [folderFile('demo/SKILL.md', '# Demo\n')]);
+    expect(await screen.findByText(/SKILL.md needs a name in its frontmatter/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      folderFile('demo/SKILL.md', '---\nname: demo\n---\n'),
+    ]);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled());
   });
 
   it('explains a folder without SKILL.md', async () => {

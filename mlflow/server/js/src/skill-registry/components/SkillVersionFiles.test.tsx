@@ -27,6 +27,7 @@ const LISTINGS: Partial<Record<string, { path: string; is_dir?: boolean; file_si
 const CONTENTS: Partial<Record<string, string>> = {
   [`${ROOT}/SKILL.md`]: '---\nname: code-review\n---\n# Code review\n',
   [`${ROOT}/scripts/run.py`]: 'print("hi")\n',
+  [`${ROOT}/README.md`]: 'See the ![diagram](https://example.com/diagram.png).\n',
 };
 
 // jsdom's fetch has no streaming body, so serve file content directly as other artifact tests do.
@@ -82,6 +83,43 @@ describe('SkillVersionFiles', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'scripts' }));
     expect(screen.queryByText('run.py')).not.toBeInTheDocument();
+  });
+
+  it('shows a markdown file raw first and renders it on request, frontmatter as a table', async () => {
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('SKILL.md'));
+    const dialog = await screen.findByRole('dialog', { name: 'SKILL.md' });
+    expect(await within(dialog).findByText(/# Code review/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Copy file contents' })).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByText('Preview'));
+    expect(await within(dialog).findByRole('heading', { name: 'Code review' })).toBeInTheDocument();
+    expect(within(dialog).getByText('name')).toBeInTheDocument();
+    expect(within(dialog).getByText('code-review')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Copy file contents' })).not.toBeInTheDocument();
+  });
+
+  it('shows images in markdown as links instead of loading them', async () => {
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('README.md'));
+    const dialog = await screen.findByRole('dialog', { name: 'README.md' });
+    await userEvent.click(await within(dialog).findByText('Preview'));
+    expect(await within(dialog).findByRole('link', { name: 'diagram' })).toHaveAttribute(
+      'href',
+      'https://example.com/diagram.png',
+    );
+    expect(dialog.querySelector('img')).toBeNull();
+  });
+
+  it('shows other files raw, without the view switch', async () => {
+    renderFiles();
+
+    await userEvent.click(await screen.findByText('run.py'));
+    const dialog = await screen.findByRole('dialog', { name: 'scripts/run.py' });
+    expect(await within(dialog).findByRole('button', { name: 'Copy file contents' })).toBeInTheDocument();
+    expect(within(dialog).queryByText('Preview')).not.toBeInTheDocument();
   });
 
   it('previews a stored file with line numbers', async () => {

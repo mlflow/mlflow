@@ -5,7 +5,8 @@ import Utils from '../../common/utils/Utils';
 import { SkillRegistryApi } from '../api';
 import { parseSkillIdentityInput } from '../sourceLocation';
 import type { RegistryIcon, SkillVersion } from '../types';
-import { formatSkillIdentity, isNotFoundError, isPermissionDeniedError, settleAll } from '../utils';
+import { settleAll } from '../../common/utils/registryWrites';
+import { formatSkillIdentity, isNotFoundError, isPermissionDeniedError } from '../utils';
 import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 import { useRegisterSkillMutation, type RegisterSkillMutationInput } from './useRegisterSkillMutation';
 

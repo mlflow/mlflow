@@ -273,14 +273,6 @@ export const parseSkillVersionParam = (value: string | null): number | undefined
 export const isPermissionDeniedError = (error: Error | null | undefined) =>
   error instanceof PermissionError || error?.name === 'PermissionError';
 
-/** Waits for every write before failing, so a partial failure is reported only once the server has settled. */
-export const settleAll = async (writes: Promise<unknown>[]) => {
-  const failure = (await Promise.allSettled(writes)).find(
-    (result): result is PromiseRejectedResult => result.status === 'rejected',
-  );
-  if (failure) throw failure.reason;
-};
-
 export const isNotFoundError = (error: Error | null | undefined) =>
   error instanceof NotFoundError || error?.name === 'NotFoundError';
 
