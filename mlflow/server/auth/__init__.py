@@ -701,6 +701,19 @@ def denial_message() -> str:
     return f"{_CONDITION_DENIAL_MESSAGE} The condition that refused: {detail}."
 
 
+def _forbidden_envelope() -> str:
+    """The 403 body, as JSON, shared by the Flask and FastAPI funnels.
+
+    One definition because the two funnels deny for the same reasons and a client should not
+    have to know which one served it. ``denial_message()`` stays the single definition of what
+    a denial *says*; this is the single definition of how it is *framed*.
+
+    Call it where the reason is still set -- both funnels clear the refusing-condition detail
+    in a ``finally``, so building the body later degrades the message to the generic one.
+    """
+    return MlflowException(denial_message(), error_code=PERMISSION_DENIED).serialize_as_json()
+
+
 def make_forbidden_response() -> Response:
     """A 403 in MLflow's JSON error envelope, so a client can read the reason.
 
@@ -718,9 +731,7 @@ def make_forbidden_response() -> Response:
     The message is unchanged -- ``denial_message()`` stays the single definition of what a
     denial says, and this function only decides how it is framed.
     """
-    res = make_response(
-        MlflowException(denial_message(), error_code=PERMISSION_DENIED).serialize_as_json()
-    )
+    res = make_response(_forbidden_envelope())
     res.status_code = 403
     res.mimetype = "application/json"
     return res
@@ -2788,17 +2799,25 @@ def _run_requirement(
     ]
 
 
-def _authorize_run_id(
+def _authorize_run_id_as(
+    username: str,
     run_id: str,
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
 ) -> bool:
+    # Takes the username explicitly for the FastAPI validators, which are handed one rather
+    # than running inside a Flask request context. Same split, and same reason, as
+    # ``_authorize_create_in_experiment_as``.
+    #
+    # Anchoring on the run's OWN experiment is the point: a run reached from a FastAPI route
+    # need not live in the experiment that route names, so the anchor has to come from the
+    # run itself. ``_run_requirement`` resolves it.
     resolved = _run_requirement(run_id, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
     return authorize(
-        authenticate_request().username,
+        username,
         anchor,
         requirements,
         conditions=_mutation_contexts(
@@ -2812,6 +2831,14 @@ def _authorize_run_id(
             ),
         ),
     )
+
+
+def _authorize_run_id(
+    run_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
+    return _authorize_run_id_as(authenticate_request().username, run_id, action, tags)
 
 
 def _authorize_run(
@@ -10219,7 +10246,26 @@ def _get_otel_validator(
             )
         # The handler persists the submitted spans, so this is a trace create and carries the
         # same veto as StartTrace / StartTraceV3.
-        return _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE)
+        if not _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE):
+            return False
+        # ``X-Mlflow-Run-Id`` makes the handler associate the ingested traces with that run
+        # through the SAME store call the explicit ``LinkTracesToRun`` route makes, so it
+        # carries the same run requirement -- the grant, and with it the run's conditions,
+        # which ``_authorize_run_id_as`` declares.
+        #
+        # The experiment header cannot stand in for this. The run need not live in the
+        # experiment receiving the spans, and before this check a caller holding experiment
+        # EDIT on their own experiment could write an association onto a run in an experiment
+        # they could not read.
+        #
+        # An unresolvable run denies, matching ``_run_requirement``. That is stricter than the
+        # handler, which logs and swallows a failed link -- so a stale run id now costs the
+        # whole ingest rather than just the association. Fail-open here would make this
+        # route's status code an existence oracle for run ids while the explicit route denies,
+        # which is the property ``_run_requirement`` exists to preserve.
+        if run_id := request.headers.get("x-mlflow-run-id"):
+            return _authorize_run_id_as(username, run_id, "update")
+        return True
 
     return validator
 
@@ -10557,7 +10603,17 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 and _scope_matches_native_route(native_routes, request.scope)
                 and not any(marker in path for marker in _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
             ):
-                return PlainTextResponse("Permission denied", status_code=HTTPStatus.FORBIDDEN)
+                # Its own message, not ``denial_message()``: nothing was evaluated here, so
+                # claiming a condition refused would be a lie. The envelope is shared with
+                # every other 403 so a client never has to guess the content type.
+                return JSONResponse(
+                    json.loads(
+                        MlflowException(
+                            "Permission denied", error_code=PERMISSION_DENIED
+                        ).serialize_as_json()
+                    ),
+                    status_code=HTTPStatus.FORBIDDEN,
+                )
             return await call_next(request)
 
         # Authenticate using either the custom authorization_function (via Flask
@@ -10628,14 +10684,25 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                     # Built before the ``finally`` clears the reason: a return expression is
                     # evaluated first. Were this moved after the clear, the message would
                     # degrade to the generic one rather than become wrong.
-                    return PlainTextResponse(
-                        denial_message(),
+                    #
+                    # Same JSON envelope as the Flask funnel's ``make_forbidden_response``.
+                    # This used to be a bare ``PlainTextResponse``, which left every denial
+                    # on a native FastAPI route (the artifact proxy, gateway, jobs, MCP, OTLP
+                    # ingest) unreadable to the web client -- it ``JSON.parse``s an error body
+                    # and reports ``INTERNAL_SERVER_ERROR`` when that throws, so a correct
+                    # condition denial surfaced as a server fault.
+                    return JSONResponse(
+                        json.loads(_forbidden_envelope()),
                         status_code=HTTPStatus.FORBIDDEN,
                     )
             except MlflowException as e:
-                return PlainTextResponse(
-                    e.message,
+                # Matches the other ``MlflowException`` handlers in this funnel, which
+                # already serialize the envelope. A validator raises for a malformed request
+                # (a missing ``X-Mlflow-Experiment-Id``, say), and that reason deserves to be
+                # as readable as a denial.
+                return JSONResponse(
                     status_code=e.get_http_status_code(),
+                    content=json.loads(e.serialize_as_json()),
                 )
             finally:
                 workspace_context.clear_server_request_workspace()

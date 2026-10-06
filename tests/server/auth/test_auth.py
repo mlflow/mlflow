@@ -5615,6 +5615,186 @@ def test_otel_experiment_permission(fastapi_client, monkeypatch):
     assert response.status_code != 403
 
 
+def test_otel_run_association_requires_the_run_grant(fastapi_client, monkeypatch):
+    # `X-Mlflow-Run-Id` makes the handler call `store.link_traces_to_run` -- the SAME store
+    # method the explicit `POST /traces/link-to-run` route reaches. That route requires run
+    # `update`; this one used to require nothing about the run at all, because the validator
+    # read only `x-mlflow-experiment-id` and the run arrived as a header authorization never
+    # looked at. A caller holding experiment EDIT on their OWN experiment could therefore
+    # write an association onto a run in an experiment they cannot even read.
+    #
+    # The cross-experiment case is the one that matters: when the run lives in the SAME
+    # experiment, the run requirement passes via the experiment grant fallback, so a
+    # same-experiment test would pass whether or not the check exists.
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(user1, password1, monkeypatch):
+        mine = fastapi_client.create_experiment(f"otel_assoc_mine_{random_str()}")
+        theirs = fastapi_client.create_experiment(f"otel_assoc_theirs_{random_str()}")
+        victim_run = fastapi_client.create_run(theirs).info.run_id
+        my_run = fastapi_client.create_run(mine).info.run_id
+
+    # EDIT on `mine` only. Nothing at all on `theirs`.
+    grant_role_permission(fastapi_client.tracking_uri, user2, "experiment", mine, EDIT.name)
+
+    def post_spans(run_id):
+        # An empty body is enough: authorization runs before the handler parses the payload,
+        # so a 403 here is the gate's verdict and not a protobuf complaint.
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": mine,
+                "X-Mlflow-Run-Id": run_id,
+            },
+            data=b"",
+            auth=(user2, password2),
+        )
+
+    # The run the caller cannot touch is refused...
+    assert post_spans(victim_run).status_code == 403
+    # ...and the explicit route agrees, which is the behaviour being matched.
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+            json={"run_id": victim_run, "trace_ids": ["tr-0"]},
+            auth=(user2, password2),
+        ).status_code
+        == 403
+    )
+    # A run inside the experiment the caller may edit still passes, so the check narrows
+    # nothing that used to work.
+    assert post_spans(my_run).status_code != 403
+    # And omitting the header keeps the pre-existing trace-create-only behaviour.
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": mine,
+            },
+            data=b"",
+            auth=(user2, password2),
+        ).status_code
+        != 403
+    )
+
+
+def test_otel_run_association_requires_update_not_read(fastapi_client, monkeypatch):
+    # Pins the ACTION, which the cross-experiment test above cannot: there the caller holds
+    # nothing on the victim's experiment, so a `read` requirement would deny too and the
+    # test would pass even if the check asked for the wrong action. Associating traces with
+    # a run writes to that run, so READ on its experiment must not be enough.
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(user1, password1, monkeypatch):
+        mine = fastapi_client.create_experiment(f"otel_action_mine_{random_str()}")
+        theirs = fastapi_client.create_experiment(f"otel_action_theirs_{random_str()}")
+        victim_run = fastapi_client.create_run(theirs).info.run_id
+
+    grant_role_permission(fastapi_client.tracking_uri, user2, "experiment", mine, EDIT.name)
+    grant_role_permission(fastapi_client.tracking_uri, user2, "experiment", theirs, READ.name)
+
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": mine,
+                "X-Mlflow-Run-Id": victim_run,
+            },
+            data=b"",
+            auth=(user2, password2),
+        ).status_code
+        == 403
+    )
+
+
+def test_otel_run_association_applies_the_run_target_condition(fastapi_client, monkeypatch):
+    # The grant is only half the decision the explicit route takes. `_authorize_run_id_as`
+    # declares a run MUTATE context, so a target condition must refuse an association onto a
+    # run whose state does not satisfy it -- otherwise OTLP stays a way around a restriction
+    # that holds for every other write to the same run.
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otel_cond_{random_str()}")
+        open_run = fastapi_client.create_run(experiment_id, tags={"gate": "open"}).info.run_id
+        shut_run = fastapi_client.create_run(experiment_id).info.run_id
+        role = auth_client.create_role("default", f"otel-cond-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_role_permission(role.id, "run", "*", EDIT.name)
+        auth_client.add_mutation_condition(role.id, "run", target_condition="tags.gate = 'open'")
+        auth_client.assign_role(user2, role.id)
+
+    def post_spans(run_id):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+                "X-Mlflow-Run-Id": run_id,
+            },
+            data=b"",
+            auth=(user2, password2),
+        )
+
+    # The run the condition permits is not refused by the gate...
+    assert post_spans(open_run).status_code != 403
+    # ...and the one it does not is.
+    refused = post_spans(shut_run)
+    assert refused.status_code == 403
+    # The denial names the clause that refused, in the JSON envelope a client can read.
+    assert refused.json()["error_code"] == "PERMISSION_DENIED"
+    assert "tags.gate" in refused.json()["message"]
+
+
+def test_a_fastapi_denial_is_readable_json(fastapi_client, monkeypatch):
+    # The Flask funnel got this envelope first; the FastAPI funnel kept returning a bare
+    # ``PlainTextResponse``, so every denial on a native route (artifact proxy, gateway,
+    # jobs, MCP, OTLP ingest) was unreadable to the web client -- it ``JSON.parse``s an
+    # error body and reports ``INTERNAL_SERVER_ERROR`` when that throws, turning a correct
+    # denial into an apparent server fault. Both funnels now frame it identically.
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(user1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otel_envelope_{random_str()}")
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/v1/traces",
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": experiment_id,
+        },
+        data=b"",
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+    assert response.headers["content-type"].startswith("application/json")
+    # Both fields: the client's `renderHttpError` tests for each before using either.
+    assert response.json()["error_code"] == "PERMISSION_DENIED"
+    assert response.json()["message"]
+
+
+def test_a_fastapi_validator_error_is_readable_json(fastapi_client, monkeypatch):
+    # A validator raises for a malformed request rather than denying -- the OTLP route does
+    # it for a missing experiment header. That reason went out as plain text too, while every
+    # other ``MlflowException`` in the same funnel was already serialized.
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/v1/traces",
+        headers={"Content-Type": "application/x-protobuf"},
+        data=b"",
+        auth=(user1, password1),
+    )
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/json")
+    assert "X-Mlflow-Experiment-Id" in response.json()["message"]
+
+
 def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch):
     # The OTLP handler persists the submitted spans, so `POST /v1/traces` is a trace create and
     # must refuse a `(trace, *, DENY)` holder exactly as StartTrace and StartTraceV3 do. Before
