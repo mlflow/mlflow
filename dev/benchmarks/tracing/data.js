@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791255030976,
+  "lastUpdate": 1791255216916,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "haoji.tang@databricks.com",
-            "name": "Haoji Tang",
-            "username": "tanghaoji"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0ac89f57622efb17f0dd23d30b99e12d652f340e",
-          "message": "Support numeric assessment trace filters (#23948)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-06-17T02:37:56Z",
-          "tree_id": "a29fbd57178d62e0f23198fca84d8eb21bde0e2f",
-          "url": "https://github.com/mlflow/mlflow/commit/0ac89f57622efb17f0dd23d30b99e12d652f340e"
-        },
-        "date": 1781664121805,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 41.10107334999924,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 17.887965558140138,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 19.008991300000844,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 17.341406436619998,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 19.83093038961208,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 5.5738004000033925,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 25.771171799988224,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "274285725+mavericksea-ai@users.noreply.github.com",
+            "name": "Maverick",
+            "username": "mavericksea-ai"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "edaaf644c1cff198eb620fa4a31d10605ea87323",
+          "message": "Use the baseline's magnitude in min_relative_change checks (#26252)\n\nSigned-off-by: mavericksea-ai <274285725+mavericksea-ai@users.noreply.github.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>",
+          "timestamp": "2026-10-06T02:50:27Z",
+          "tree_id": "3ce041431f960746f1c0513ca6e7e53ade5ff56c",
+          "url": "https://github.com/mlflow/mlflow/commit/edaaf644c1cff198eb620fa4a31d10605ea87323"
+        },
+        "date": 1791255214086,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 33.21136250000052,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.148670486114895,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.553421789473918,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.320955090363496,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.93927691823561,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 16.371128714281117,
             "unit": "ms"
           }
         ]
