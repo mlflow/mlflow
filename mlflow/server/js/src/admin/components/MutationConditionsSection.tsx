@@ -48,8 +48,14 @@ export interface MutationConditionsSectionProps {
   onUnsavedDraftChange?: (hasUnsavedDraft: boolean) => void;
 }
 
-/** Stable identity for dedup: the whole tuple, since any field changing makes a new condition. */
-const conditionKey = (c: StagedMutationCondition) =>
+/**
+ * Stable identity for dedup: the whole tuple, since any field changing makes a new condition.
+ *
+ * Exported and shared, because the two edit modals each kept their own copy and both had
+ * drifted -- they omitted `resourcePattern`, so two conditions differing only in scope
+ * collided and a removal of either was silently dropped from the diff.
+ */
+export const conditionKey = (c: StagedMutationCondition) =>
   [
     c.resourceType,
     c.resourcePattern,

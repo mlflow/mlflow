@@ -30,6 +30,7 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import { formatResourcePattern, parseResourcePattern } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
 import {
+  conditionKey,
   formatStagedCondition,
   MutationConditionsSection,
   type StagedMutationCondition,
@@ -47,15 +48,6 @@ const permTripleKey = (p: { resourceType: string; resourcePattern: string; permi
 
 // Conditions have no natural subset of identifying fields -- changing any one of them
 // makes a different condition -- so the whole tuple is the key.
-const conditionKey = (c: StagedMutationCondition) =>
-  [
-    c.resourceType,
-    c.containerResourceType ?? '',
-    c.containerResourcePattern ?? '',
-    c.valueCondition ?? '',
-    c.targetCondition ?? '',
-  ].join('::');
-
 interface RoleDiff {
   nameChange: string | null;
   descriptionChange: string | null;
@@ -345,6 +337,10 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         await addCondition.mutateAsync({
           role_id: roleId,
           resource_type: c.resourceType,
+          // The scope travels explicitly: an absent `resource_pattern` is normalised
+          // server-side to the wildcard, which silently widened a condition the admin
+          // had scoped to one resource into one covering the whole workspace.
+          resource_pattern: c.resourcePattern,
           container_resource_type: c.containerResourceType,
           container_resource_pattern: c.containerResourcePattern,
           value_condition: c.valueCondition,

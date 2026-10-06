@@ -14,13 +14,16 @@ const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockRevokePermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 const mockUseActiveWorkspace = jest.fn<() => string | null>();
+const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockRemoveConditionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockUseRoleMutationConditionsQuery = jest.fn<() => any>();
 
 jest.mock('../hooks', () => ({
   // Conditions now share these modals; stub them so the cases below keep testing
   // what they were written for.
-  useRoleMutationConditionsQuery: () => ({ data: { mutation_conditions: [] }, isLoading: false, error: null }),
-  useAddUserMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
-  useRemoveMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
+  useRoleMutationConditionsQuery: () => mockUseRoleMutationConditionsQuery(),
+  useAddUserMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
+  useRemoveMutationCondition: () => ({ mutateAsync: mockRemoveConditionMutateAsync, isLoading: false }),
   AdminQueryKeys: {
     users: ['admin_users'],
     roles: ['admin_roles'],
@@ -62,6 +65,15 @@ beforeEach(() => {
   // ``null`` is what ``useActiveWorkspace`` actually returns on a
   // single-tenant server.
   mockUseActiveWorkspace.mockReturnValue(null);
+  mockUseRoleMutationConditionsQuery.mockReturnValue({
+    data: { mutation_conditions: [] },
+    isLoading: false,
+    error: null,
+  });
+  mockAddConditionMutateAsync.mockReset();
+  mockAddConditionMutateAsync.mockResolvedValue({});
+  mockRemoveConditionMutateAsync.mockReset();
+  mockRemoveConditionMutateAsync.mockResolvedValue({});
 });
 
 // Direct grants surface through the synthetic ``__user_<id>__`` role
@@ -202,5 +214,86 @@ describe('EditAccessModal — workspace targeting on direct grants and revokes',
     expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
     expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
     expect(mockRevokePermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
+  });
+});
+
+describe('EditAccessModal — condition scope on the wire', () => {
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+  });
+
+  // An existing condition, as the server returns it: narrowed to ONE experiment.
+  const scopedCondition = {
+    id: 11,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '7',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.lifecycle != 'prod'",
+  };
+  // Same type, same clauses, different scope: the whole workspace. These two differ ONLY
+  // in `resource_pattern`, which is exactly what the modal's own key used to drop.
+  const workspaceCondition = { ...scopedCondition, id: 12, resource_pattern: '*' };
+
+  it('sends the staged scope rather than letting the server default it', async () => {
+    // `resource_pattern` was omitted entirely, and the server normalises an absent scope
+    // to the wildcard -- so a condition the admin scoped to one experiment was persisted
+    // as one covering every experiment in the workspace. `objectContaining` fails on an
+    // ABSENT key, which is what makes this catch the omission even at the default scope.
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          username: 'alice',
+          resource_type: 'experiment',
+          target_condition: "tags.env = 'dev'",
+          resource_pattern: '*',
+          container_resource_type: 'workspace',
+          container_resource_pattern: '*',
+        }),
+      }),
+    );
+  });
+
+  it('removes the one condition the admin removed, not whichever shared its other fields', async () => {
+    // Two conditions differing only in scope. The modal's key omitted the scope, so both
+    // produced the same key: removing the scoped one left its key in the desired set (the
+    // workspace-wide one still carried it), the removal was dropped from the diff, and the
+    // restriction the admin had just lifted stayed in force.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [scopedCondition, workspaceCondition] },
+      isLoading: false,
+      error: null,
+    });
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    // Both rows are listed; remove the FIRST (the one scoped to experiment 7). Both are
+    // `experiment` conditions, so they share one aria-label and are told apart by order.
+    const removeButtons = await waitFor(() => {
+      const found = screen.getAllByRole('button', { name: /Remove Experiment mutation condition/ });
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    fireEvent.click(removeButtons[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mockRemoveConditionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockRemoveConditionMutateAsync).toHaveBeenCalledWith(scopedCondition.id);
   });
 });

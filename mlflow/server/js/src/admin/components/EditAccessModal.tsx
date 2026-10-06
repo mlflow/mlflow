@@ -39,6 +39,7 @@ import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue }
 import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
 import {
+  conditionKey,
   formatStagedCondition,
   MutationConditionsSection,
   type StagedMutationCondition,
@@ -69,15 +70,8 @@ interface AccessDiff {
   conditionIdsToRemove: number[];
 }
 
-// Any field changing makes a different condition, so the whole tuple is the key.
-const conditionKey = (c: StagedMutationCondition) =>
-  [
-    c.resourceType,
-    c.containerResourceType ?? '',
-    c.containerResourcePattern ?? '',
-    c.valueCondition ?? '',
-    c.targetCondition ?? '',
-  ].join('::');
+// Any field changing makes a different condition, so the whole tuple is the key --
+// including `resourcePattern`, which this modal's own copy used to omit.
 
 /**
  * Edit-style modal for managing one user's access. Pre-fills role
@@ -407,6 +401,10 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           request: {
             username,
             resource_type: c.resourceType,
+            // The scope travels explicitly: an absent `resource_pattern` is normalised
+            // server-side to the wildcard, which silently widened a condition the admin
+            // had scoped to one resource into one covering the whole workspace.
+            resource_pattern: c.resourcePattern,
             container_resource_type: c.containerResourceType,
             container_resource_pattern: c.containerResourcePattern,
             value_condition: c.valueCondition,

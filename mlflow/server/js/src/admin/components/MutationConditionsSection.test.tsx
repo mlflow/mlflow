@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import {
+  conditionKey,
   formatStagedCondition,
   MutationConditionsSection,
   type StagedMutationCondition,
@@ -112,5 +113,47 @@ describe('MutationConditionsSection', () => {
     // parent-only scope its conditions could only ever cover the whole workspace.
     renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
     expect(screen.getByText('Only one experiment')).toBeInTheDocument();
+  });
+});
+
+describe('conditionKey', () => {
+  // Shared by both edit modals, which each used to keep their own copy. Both copies had
+  // dropped `resourcePattern`, so two conditions on the same type differing only in scope
+  // produced the same key: the diff could not tell them apart and a removal of either was
+  // silently dropped, leaving the admin unable to lift a restriction.
+
+  const base: StagedMutationCondition = {
+    resourceType: 'experiment',
+    resourcePattern: '*',
+    containerResourceType: 'workspace',
+    containerResourcePattern: '*',
+    valueCondition: null,
+    targetCondition: "tags.lifecycle != 'prod'",
+  };
+
+  it('distinguishes two conditions differing only in resource scope', () => {
+    expect(conditionKey({ ...base, resourcePattern: '7' })).not.toBe(conditionKey(base));
+  });
+
+  it('distinguishes two conditions differing only in container scope', () => {
+    const inWorkspace: StagedMutationCondition = { ...base, resourceType: 'run' };
+    const inOneExperiment: StagedMutationCondition = {
+      ...inWorkspace,
+      containerResourceType: 'experiment',
+      containerResourcePattern: '42',
+    };
+    expect(conditionKey(inOneExperiment)).not.toBe(conditionKey(inWorkspace));
+  });
+
+  it('is stable for the same condition and ignores the row id', () => {
+    // The id is server-assigned and absent on a staged row, so it must not take part --
+    // otherwise a prefilled row never matches the staged row it came from.
+    expect(conditionKey({ ...base, id: 9 })).toBe(conditionKey(base));
+  });
+
+  it('distinguishes the two filter kinds', () => {
+    const asValue: StagedMutationCondition = { ...base, valueCondition: "tag_key != 'pii'", targetCondition: null };
+    const asTarget: StagedMutationCondition = { ...base, valueCondition: null, targetCondition: "tag_key != 'pii'" };
+    expect(conditionKey(asValue)).not.toBe(conditionKey(asTarget));
   });
 });
