@@ -10284,6 +10284,101 @@ def _get_job_route_validator(
     return validator
 
 
+def _otlp_try_parse_json_string(value):
+    """Mirror of the store's private ``_try_parse_json_string``.
+
+    Re-implemented rather than imported: the store's copy is a leading-underscore name in
+    ``sqlalchemy_store``, and reaching across that boundary for a private symbol breaks
+    silently when the store is refactored. The behaviour must match exactly, including the
+    last line -- a value that parses to something other than a string falls back to the RAW
+    string, so a numeric attribute is stored as its original text.
+    """
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+    return parsed if isinstance(parsed, str) else value
+
+
+def _otlp_trace_projections(
+    raw_body: bytes,
+    content_type: "str | None",
+    content_encoding: "str | None",
+) -> "list[tuple[str, tuple[tuple[str, str | None], ...]]]":
+    """``(trace_id, tags)`` for every ROOT span in an OTLP payload.
+
+    This is the request-side projection for OTel ingest, and it has to agree with what the
+    store actually persists or a condition judges a string that was never written. The
+    parse reuses the handler's own helpers, and the tag derivation mirrors
+    ``_log_spans_once``: user tags come ONLY from a root span's ``mlflow.traceTag.*``
+    attributes, each unwrapped once, then validated.
+
+    Only a root span is projected because only a root span carries those attributes and
+    only a root span completes a trace -- the same predicate (``parent_id is None``) the
+    handler keys ``completed_trace_ids`` on.
+
+    An invalid tag is SKIPPED, exactly as the store skips it. Rejecting here would deny a
+    write the handler would have accepted, which is the failure mode of a projection that
+    is stricter than its target rather than equal to it. Reserved ``mlflow.*`` keys need no
+    filtering: the evaluator already drops them from every request-side projection.
+    """
+    # Imported here rather than at module scope: ``otel_api`` imports from
+    # ``mlflow.server.handlers``, and the auth plugin is loaded during app construction.
+    from google.protobuf.json_format import Parse as ParseJsonProto
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+    from mlflow.entities.span import Span as SpanEntity
+    from mlflow.server.otel_api import _convert_otlp_json_ids_to_base64
+    from mlflow.store.tracking.utils.trace_analytics import validate_trace_name
+    from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+    from mlflow.tracing.otel.translation import translate_span_when_storing
+    from mlflow.tracing.utils.otlp import decompress_otlp_body
+    from mlflow.utils.validation import _validate_trace_tag
+
+    media_type = content_type.split(";")[0].strip() if content_type else None
+    body = raw_body
+    if content_encoding:
+        body = decompress_otlp_body(body, content_encoding.lower())
+    parsed_request = ExportTraceServiceRequest()
+    if media_type == "application/json":
+        ParseJsonProto(
+            _convert_otlp_json_ids_to_base64(body), parsed_request, ignore_unknown_fields=True
+        )
+    else:
+        parsed_request.ParseFromString(body)
+
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    projections: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
+    for resource_span in parsed_request.resource_spans:
+        resource = resource_span.resource
+        for scope_span in resource_span.scope_spans:
+            for proto_span in scope_span.spans:
+                try:
+                    span = SpanEntity.from_otel_proto(proto_span, resource=resource)
+                except Exception:
+                    # The handler skips a span it cannot convert, so it writes nothing for
+                    # it and there is nothing to judge.
+                    continue
+                if span.parent_id is not None:
+                    continue
+                attributes = translate_span_when_storing(span).get("attributes") or {}
+                tags: "list[tuple[str, str | None]]" = []
+                for attr_key, attr_value in attributes.items():
+                    if not attr_key.startswith(prefix):
+                        continue
+                    tag_key = attr_key[len(prefix) :]
+                    tag_value = str(_otlp_try_parse_json_string(attr_value))
+                    try:
+                        tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
+                    except Exception:
+                        continue
+                    if tag_key == TraceTagKey.TRACE_NAME:
+                        tag_value = validate_trace_name(tag_value)
+                    tags.append((tag_key, tag_value))
+                projections.append((span.trace_id, tuple(tags)))
+    return projections
+
+
 def _get_otel_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -10297,10 +10392,63 @@ def _get_otel_validator(
             raise MlflowException(
                 "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
             )
-        # The handler persists the submitted spans, so this is a trace create and carries the
-        # same veto as StartTrace / StartTraceV3.
-        if not _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE):
+
+        # Reading the body here is safe: Starlette caches it, so the route handler's own
+        # ``await request.body()`` still sees the payload. Verified against a running
+        # server -- a tagged span ingested after this read still persisted its tag.
+        raw_body = await request.body()
+        try:
+            projections = _otlp_trace_projections(
+                raw_body,
+                request.headers.get("content-type"),
+                request.headers.get("content-encoding"),
+            )
+        except Exception:
+            # Fail CLOSED on a payload this cannot parse. The handler would reject it too, so
+            # no legitimate traffic is lost, and the alternative is worse: if the two parsers
+            # ever disagree, failing open would let the payload the gate could not read
+            # through unjudged. An EMPTY body is not this case -- it parses to zero spans,
+            # declares nothing, and stays permitted.
             return False
+
+        # A trace the payload creates is judged on the VALUES it sets; one that already
+        # exists is judged on its STATE. The same batch can carry both.
+        created_tags: "list[tuple[str, str | None]]" = []
+        existing: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
+        for trace_id, tags in projections:
+            if auth_resources.fetch_trace_info(trace_id) is None:
+                created_tags.extend(tags)
+            else:
+                existing.append((trace_id, tags))
+
+        # The handler persists the submitted spans, so this is a trace create and carries the
+        # same veto as StartTrace / StartTraceV3. The projected tags ride on its CREATE
+        # context, which is what makes a value condition apply here at all.
+        if not _authorize_create_in_experiment_as(
+            username, experiment_id, RESOURCE_TYPE_TRACE, tags=tuple(created_tags)
+        ):
+            return False
+
+        if existing:
+            workspace = get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            if workspace is None:
+                return False
+            if not authorize_on_conditions(
+                username,
+                workspace,
+                [
+                    context_for(
+                        RESOURCE_TYPE_TRACE,
+                        trace_id,
+                        ConditionScope.MUTATE,
+                        request_values_shape(RESOURCE_TYPE_TRACE)(tags=tags),
+                        parent_resource_id=experiment_id,
+                    )
+                    for trace_id, tags in existing
+                ],
+            ):
+                return False
+
         # ``X-Mlflow-Run-Id`` makes the handler associate the ingested traces with that run
         # through the SAME store call the explicit ``LinkTracesToRun`` route makes, so it
         # carries the same run requirement -- the grant, and with it the run's conditions,

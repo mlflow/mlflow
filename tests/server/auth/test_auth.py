@@ -5751,6 +5751,248 @@ def test_otel_run_association_applies_the_run_target_condition(fastapi_client, m
     assert "tags.gate" in refused.json()["message"]
 
 
+def _otlp_payload(
+    tags=None, trace_id=None, parent_span_id=b"", extra_attributes=None, child_tags=None
+):
+    """A one-root-span OTLP protobuf batch, optionally carrying ``mlflow.traceTag.*`` attrs.
+
+    ``child_tags`` adds a SECOND span parented to the root, carrying its own trace-tag
+    attributes. The store reads trace tags off the ROOT span only, so those must never be
+    projected -- which is what makes a payload with a child the test for that rule.
+
+    A tag value is JSON-encoded exactly as ``OtelSpanProcessor`` emits it, so a value that is
+    not a JSON string (a number, an object) round-trips through the same unwrap the store
+    applies.
+    """
+    import json as _json
+    import os as _os
+    import time as _time
+
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+    from opentelemetry.proto.common.v1.common_pb2 import AnyValue, KeyValue
+    from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
+    from opentelemetry.proto.trace.v1.trace_pb2 import Span as ProtoSpan
+
+    from mlflow.tracing.constant import SpanAttributeKey
+
+    def tag_attrs(mapping):
+        return [
+            KeyValue(
+                key=f"{SpanAttributeKey.TRACE_TAG_PREFIX}{key}",
+                value=AnyValue(string_value=_json.dumps(value)),
+            )
+            for key, value in (mapping or {}).items()
+        ]
+
+    attributes = tag_attrs(tags)
+    for key, value in (extra_attributes or {}).items():
+        attributes.append(KeyValue(key=key, value=AnyValue(string_value=value)))
+    now = int(_time.time() * 1e9)
+    resolved_trace_id = trace_id or _os.urandom(16)
+    root_span_id = _os.urandom(8)
+    spans = [
+        ProtoSpan(
+            trace_id=resolved_trace_id,
+            span_id=root_span_id,
+            parent_span_id=parent_span_id,
+            name="root",
+            attributes=attributes,
+            start_time_unix_nano=now,
+            end_time_unix_nano=now + 1000,
+        )
+    ]
+    if child_tags:
+        spans.append(
+            ProtoSpan(
+                trace_id=resolved_trace_id,
+                span_id=_os.urandom(8),
+                parent_span_id=root_span_id,
+                name="child",
+                attributes=tag_attrs(child_tags),
+                start_time_unix_nano=now,
+                end_time_unix_nano=now + 500,
+            )
+        )
+    request = ExportTraceServiceRequest(
+        resource_spans=[ResourceSpans(scope_spans=[ScopeSpans(spans=spans)])]
+    )
+    return request.SerializeToString(), resolved_trace_id
+
+
+def test_the_otlp_projection_matches_the_tags_the_store_persists(fastapi_client, monkeypatch):
+    """The equivalence pin for F-0007's accepted coupling.
+
+    A value condition judges what ``_otlp_trace_projections`` derives, while the user sees
+    what the store wrote. If the two drift, a condition permits a value it meant to refuse
+    (or refuses one it meant to permit) and nothing in either half looks wrong on its own.
+    So this asserts the projection against REALITY -- the same payload is ingested and the
+    persisted tags are read back -- rather than against a hardcoded expectation, which would
+    drift in lockstep with the code it is meant to guard.
+
+    The awkward values are the point, and each pins one transform the store applies:
+    a value that is not a JSON string (``42``), a value that parses to an OBJECT (where
+    returning the parse instead of the raw text would yield Python's ``repr`` and judge
+    single quotes against stored double quotes), a tag the store SKIPS as invalid (an empty
+    key), and a tag on a CHILD span, which the store never reads.
+    """
+    from mlflow.server.auth import _otlp_trace_projections
+
+    tags = {
+        "lifecycle": "dev",
+        "pii": "yes",
+        "n": 42,
+        "Mixed.Case": "Kept",
+        "obj": {"a": 1},
+        "": "invalid-empty-key",
+    }
+    body, _ = _otlp_payload(tags=tags, child_tags={"child_only": "must-not-be-projected"})
+
+    projected = _otlp_trace_projections(body, "application/x-protobuf", None)
+    # One projection per ROOT span -- a child span neither carries trace tags nor completes
+    # a trace, so projecting it would both invent tags and double-count the trace.
+    assert len(projected) == 1
+    projected_trace_id, projected_tags = projected[0]
+    assert "child_only" not in dict(projected_tags)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-equiv-{random_str()}")
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/v1/traces",
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": experiment_id,
+        },
+        data=body,
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        trace = fastapi_client.get_trace(projected_trace_id)
+    # The id the projection derived is the id the store used -- no lookup, just the mapping.
+    persisted = {
+        key: value
+        for key, value in trace.info.tags.items()
+        if not key.startswith("mlflow.")  # managed tags are added by the store, not the payload
+    }
+    assert dict(projected_tags) == persisted, (
+        f"projection {dict(projected_tags)} disagrees with persisted {persisted}"
+    )
+    # Guard the guard: a payload that produced no tags at all would make the comparison
+    # vacuously true and hide any drift.
+    assert persisted, "the payload must actually persist tags for this to prove anything"
+
+
+def test_an_otlp_value_condition_refuses_a_restricted_trace_tag(fastapi_client, monkeypatch):
+    # The headline bypass: a trace value condition held for `SetTraceTag` but not for the
+    # same tag arriving over OTLP, because the validator declared a CREATE context with no
+    # tags at all.
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-value-{random_str()}")
+        role = auth_client.create_role("default", f"otlp-value-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_mutation_condition(role.id, "trace", value_condition="tag_key != 'pii'")
+        auth_client.assign_role(user, role.id)
+
+    def ingest(tags):
+        body, _ = _otlp_payload(tags=tags)
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=body,
+            auth=(user, password),
+        )
+
+    # A tag the condition allows still ingests.
+    assert ingest({"lifecycle": "dev"}).status_code == 200
+    # The reserved one is refused -- this returned 200 before the fix.
+    refused = ingest({"pii": "yes"})
+    assert refused.status_code == 403
+    assert refused.json()["error_code"] == "PERMISSION_DENIED"
+    assert "tag_key" in refused.json()["message"]
+    # A span carrying no trace tag declares nothing, so the clause is vacuous (D13).
+    assert ingest({}).status_code == 200
+
+
+def test_an_otlp_target_condition_gates_an_existing_trace(fastapi_client, monkeypatch):
+    # The target half: a second batch for a trace that already exists is judged on that
+    # trace's state, which is what `fetch_trace_info` classifies and the store answers.
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-target-{random_str()}")
+
+    def ingest(body, auth):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=body,
+            auth=auth,
+        )
+
+    # Admin creates two traces, one satisfying the condition and one not.
+    open_body, open_id = _otlp_payload(tags={"gate": "open"})
+    shut_body, shut_id = _otlp_payload(tags={"gate": "shut"})
+    assert ingest(open_body, (ADMIN_USERNAME, ADMIN_PASSWORD)).status_code == 200
+    assert ingest(shut_body, (ADMIN_USERNAME, ADMIN_PASSWORD)).status_code == 200
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"otlp-target-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.assign_role(user, role.id)
+
+    # A further batch for the permitted trace passes...
+    more_open, _ = _otlp_payload(trace_id=open_id)
+    assert ingest(more_open, (user, password)).status_code == 200
+    # ...and for the refused one it does not.
+    more_shut, _ = _otlp_payload(trace_id=shut_id)
+    refused = ingest(more_shut, (user, password))
+    assert refused.status_code == 403
+    assert "tags.gate" in refused.json()["message"]
+
+
+def test_an_unparsable_otlp_payload_denies(fastapi_client, monkeypatch):
+    # Fail closed: a payload the gate cannot read cannot be judged, and if the gate's parser
+    # ever disagrees with the handler's, failing open would let exactly the unreadable
+    # payload through unjudged. An EMPTY body is not this case -- it parses to zero spans.
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-garbage-{random_str()}")
+    grant_role_permission(fastapi_client.tracking_uri, user, "experiment", experiment_id, EDIT.name)
+
+    def ingest(data, encoding=None):
+        headers = {
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": experiment_id,
+        }
+        if encoding:
+            headers["Content-Encoding"] = encoding
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers=headers,
+            data=data,
+            auth=(user, password),
+        )
+
+    # Claiming gzip and sending plain bytes cannot be decompressed, so it cannot be judged.
+    assert ingest(b"not actually gzipped", encoding="gzip").status_code == 403
+    # An empty body still reaches the handler, which rejects it on its own terms.
+    assert ingest(b"").status_code != 403
+
+
 def test_a_fastapi_denial_is_readable_json(fastapi_client, monkeypatch):
     # The Flask funnel got this envelope first; the FastAPI funnel kept returning a bare
     # ``PlainTextResponse``, so every denial on a native route (artifact proxy, gateway,
