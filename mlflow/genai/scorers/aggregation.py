@@ -64,11 +64,12 @@ def compute_aggregated_metrics(
         if not values:
             continue
 
-        # Get the function name from the returned assessment name.
-        scorer_function_name = name.split("/", 1)[-1]
+        # Match the scorer by its exact name first, since scorer names may contain "/";
+        # otherwise strip the namespace prefix from the returned assessment name.
+        scorer_name = name if name in scorer_aggregations else name.split("/", 1)[-1]
 
         # Compute aggregations for the scorer, defaulting to just ["mean"]
-        aggregations_to_compute = scorer_aggregations.get(scorer_function_name, ["mean"])
+        aggregations_to_compute = scorer_aggregations.get(scorer_name, ["mean"])
         aggregation_results = _compute_aggregations(values, aggregations_to_compute)
 
         # Each aggregation should be logged as a separate metric

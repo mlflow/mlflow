@@ -18,7 +18,8 @@ _COMPARATORS = {"at_least": "GTE", "at_most": "LTE"}
 
 
 def _sub_scorers(scorer: Scorer) -> Iterator[Scorer]:
-    if scorer.kind == ScorerKind.ENSEMBLE:
+    # Legacy Databricks `Metric`s are accepted as scorers but have no `kind`.
+    if getattr(scorer, "kind", None) == ScorerKind.ENSEMBLE:
         for sub_scorer in scorer._scorers:
             yield sub_scorer
             yield from _sub_scorers(sub_scorer)
@@ -35,7 +36,6 @@ def _build_rules(scorers: list[Scorer]) -> list[dict[str, Any]]:
                     f"ensemble '{scorer.name}'. Set it on the ensemble scorer instead."
                 )
 
-        # Legacy Databricks `Metric`s are accepted as scorers but have no threshold.
         if (value := getattr(scorer, "quality_threshold", None)) is None:
             continue
         if name_counts[scorer.name] > 1:

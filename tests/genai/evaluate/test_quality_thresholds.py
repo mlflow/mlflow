@@ -96,6 +96,17 @@ def test_build_tag_accepts_threshold_on_ensemble():
     assert rule["metricKey"] == "ensemble/mean"
 
 
+def test_build_tag_skips_scorers_without_kind():
+    # Legacy Databricks `Metric`s are accepted by `validate_scorers` but have no `kind`.
+    class LegacyMetric:
+        name = "legacy"
+
+    assert build_quality_thresholds_tag([LegacyMetric()]) is None
+    payload = build_quality_thresholds_tag([LegacyMetric(), _make_scorer("a", 0.5)])
+    [rule] = json.loads(payload)["rules"]
+    assert rule["scorerName"] == "a"
+
+
 def test_build_tag_rejects_oversized_payload():
     scorers = [_make_scorer("s" * 200 + str(i), 0.5) for i in range(40)]
     with pytest.raises(MlflowException, match=f"over the {MAX_TAG_VAL_LENGTH} character limit"):

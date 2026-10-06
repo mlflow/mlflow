@@ -100,6 +100,18 @@ def test_quality_threshold_is_not_serialized():
     assert Scorer.model_validate(builtin.model_dump()).quality_threshold is None
 
 
+@pytest.mark.parametrize("exclude", [{"required_columns"}, {"required_columns": True}])
+def test_builtin_scorer_model_dump_merges_caller_exclude(exclude):
+    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+
+    pydantic_data = RelevanceToQuery(quality_threshold=0.9).model_dump(exclude=exclude)[
+        "builtin_scorer_pydantic_data"
+    ]
+
+    assert "required_columns" not in pydantic_data
+    assert "quality_threshold" not in pydantic_data
+
+
 # ============================================================================
 # ROUND-TRIP FUNCTIONALITY TESTS (Comprehensive - test complete cycles)
 # ============================================================================

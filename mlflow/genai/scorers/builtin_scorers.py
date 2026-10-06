@@ -338,8 +338,13 @@ class BuiltInScorer(Judge):
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
         # `quality_threshold` is applied by `evaluate`, not persisted with the scorer.
+        exclude = kwargs.pop("exclude", None)
+        if isinstance(exclude, dict):
+            exclude = {**exclude, "quality_threshold": True}
+        else:
+            exclude = {*(exclude or ()), "quality_threshold"}
         pydantic_model_data = pydantic.BaseModel.model_dump(
-            self, mode="json", exclude={"quality_threshold"}, **kwargs
+            self, mode="json", exclude=exclude, **kwargs
         )
         pydantic_model_data["instructions"] = self.instructions
 

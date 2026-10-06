@@ -929,15 +929,29 @@ def test_llm_judge_default_model_and_samples():
 
 
 @pytest.mark.parametrize(
-    "scorer_cls", [ToolTrajectory, ResponseMatch, ResponseEvaluation, Safety, Hallucination]
+    ("scorer_cls", "factory"),
+    [
+        (ToolTrajectory, "trajectory"),
+        (ResponseMatch, "rouge"),
+        (ResponseEvaluation, "judge"),
+        (Safety, "judge"),
+        (Hallucination, "judge"),
+    ],
 )
-def test_quality_threshold_is_set_on_adk_scorer(scorer_cls):
+def test_quality_threshold_is_kept_off_the_adk_evaluator(scorer_cls, factory):
     with (
-        patch(f"{_PATCH_PREFIX}._create_trajectory_evaluator"),
-        patch(f"{_PATCH_PREFIX}._create_rouge_evaluator"),
-        patch(f"{_PATCH_PREFIX}._create_judge_evaluator"),
+        patch(f"{_PATCH_PREFIX}._create_trajectory_evaluator") as trajectory,
+        patch(f"{_PATCH_PREFIX}._create_rouge_evaluator") as rouge,
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator") as judge,
     ):
         scorer = scorer_cls(threshold=0.3, quality_threshold=0.9)
 
     assert scorer.quality_threshold == 0.9
     assert scorer._threshold == 0.3
+    factories = {"trajectory": trajectory, "rouge": rouge, "judge": judge}
+    assert {name: mock.call_count for name, mock in factories.items()} == {
+        name: int(name == factory) for name in factories
+    }
+    call = factories[factory].call_args
+    assert 0.3 in call.args
+    assert 0.9 not in [*call.args, *call.kwargs.values()]
