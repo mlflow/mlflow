@@ -722,7 +722,9 @@ def test_violates_pep_440():
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.5.1", True),
         ("pyspark.ml", "3.0.0", False),
-        ("llama_index", "0.13.5", True),
+        ("llama_index", "0.14.5", True),
+        ("llama_index", "0.14.16", True),
+        ("llama_index", "0.14.17", False),
         ("llama_index", "0.1.2", False),
     ],
 )
@@ -774,7 +776,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
             and log_info_fn_args[0][1] == "sklearn"
         )
 
-    with mock.patch("sklearn.__version__", "1.5.2"):
+    with mock.patch("sklearn.__version__", "1.6.0"):
         AUTOLOGGING_INTEGRATIONS.clear()
         with (
             mock.patch(log_warn_fn_name) as log_warn_fn,
