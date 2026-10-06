@@ -159,9 +159,9 @@ jobs:
         uses: ./.github/actions/setup-gateway
         with:
           task: issue-triage-classifier
-          host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
-          client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
-          client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - id: classify
         if: steps.detect.outputs.type == 'unknown' && steps.gateway.outcome == 'success'
         continue-on-error: true
@@ -350,9 +350,9 @@ jobs:
         uses: ./.github/actions/setup-gateway
         with:
           task: issue-triage-safety
-          host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
-          client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
-          client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - id: assess
         name: Assess issue safety
         env:
@@ -538,9 +538,9 @@ jobs:
         uses: ./.github/actions/setup-gateway
         with:
           task: issue-triage
-          host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
-          client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
-          client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start gateway proxy
         env:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
