@@ -8989,6 +8989,70 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
 
 
 @pytest.mark.parametrize(
+    "fastapi_client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        }
+    ],
+    indirect=True,
+)
+def test_an_experiment_level_artifact_write_applies_the_experiment_condition(
+    fastapi_client, monkeypatch
+):
+    """An artifact written straight under the experiment root is conditioned too.
+
+    The child tiers were already gated, but a path naming no child tier took a different
+    branch: a bare ``experiment_permission()`` check that never reached ``authorize()``, so
+    there was no ``conditions=`` argument and a target condition on the experiment was
+    skipped. The grant half was enforced throughout -- only conditions were missed.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    writer, writer_pw = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        open_exp = fastapi_client.create_experiment(f"art-open-{random_str()}")
+        shut_exp = fastapi_client.create_experiment(f"art-shut-{random_str()}")
+        fastapi_client.set_experiment_tag(open_exp, "gate", "open")
+        role = auth_client.create_role("default", f"art-cond-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", "MANAGE")
+        auth_client.add_mutation_condition(
+            role.id, "experiment", target_condition="tags.gate = 'open'"
+        )
+        auth_client.assign_role(writer, role.id)
+
+    base = fastapi_client.tracking_uri
+
+    def put_at_experiment_root(experiment_id):
+        return requests.put(
+            url=f"{base}/api/2.0/mlflow-artifacts/artifacts/{experiment_id}/probe.txt",
+            data=b"payload",
+            auth=(writer, writer_pw),
+        )
+
+    # The experiment the condition permits still accepts the write.
+    assert put_at_experiment_root(open_exp).status_code == 200
+    # The one it does not is refused -- this returned 200 before the fix.
+    refused = put_at_experiment_root(shut_exp)
+    assert refused.status_code == 403
+    assert refused.json()["error_code"] == "PERMISSION_DENIED"
+    assert "tags.gate" in refused.json()["message"]
+
+    # A read of the same path declares no condition, as every read does, so the condition
+    # must not turn into a read restriction.
+    assert (
+        requests.get(
+            url=f"{base}/api/2.0/mlflow-artifacts/artifacts",
+            params={"path": shut_exp},
+            auth=(writer, writer_pw),
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,

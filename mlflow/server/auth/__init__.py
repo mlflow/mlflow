@@ -1832,10 +1832,16 @@ _ARTIFACT_PROXY_RECURSIVE_ACTIONS = frozenset({"manage"})
 def _artifact_proxy_child(artifact_path: "str | None", action: str):
     """Resolve an artifact proxy path to the sub-resources the request is judged against.
 
-    Returns ``(child_types, experiment_key, child_ids)``, ``None`` when no child tier applies
-    -- either the path names no experiment, or it is an experiment-level artifact, and the
-    caller falls through to the experiment -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path
-    cannot be canonicalized, which must deny rather than fall through.
+    Returns ``(child_types, experiment_key, child_ids)``, ``None`` when the path names no
+    experiment at all -- the destination root, or an unrecognised first segment, neither of
+    which has a resource to judge -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot be
+    canonicalized, which must deny rather than fall through.
+
+    ``child_types`` is EMPTY for an artifact written directly under the experiment root: there
+    is no tier to carry the action, but the experiment itself is the target. That case used to
+    return ``None`` too, which discarded the experiment id the pattern had just matched and
+    with it any chance of conditioning the write -- the caller fell through to a bare
+    permission check that never reached ``authorize()``.
 
     ``action`` is needed because a recursive delete reaches tiers a point read does not.
     """
@@ -1847,14 +1853,15 @@ def _artifact_proxy_child(artifact_path: "str | None", action: str):
     match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
     if match is None:
         return None
+    experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
     child_types = _artifact_proxy_child_types(
         canonical, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
     )
     if not child_types:
-        return None
+        return ((), experiment, {})
     return (
         child_types,
-        (RESOURCE_TYPE_EXPERIMENT, match.group(1)),
+        experiment,
         _artifact_proxy_child_ids(canonical, child_types),
     )
 
@@ -1868,14 +1875,32 @@ def _authorize_artifact_proxy_resolved(
     gated like any other run mutation: the experiment carries the READ baseline and the run
     tier carries the action, which lets a positive run grant decide exactly as it does on
     ``UpdateRun``. A recursive delete of an ancestor directory carries the action on every tier
-    it reaches, so the broad path is never the softer one. A path naming no child tier keeps the
-    experiment at the action level, since there is no tier to carry it.
+    it reaches, so the broad path is never the softer one.
+
+    A path naming no child tier keeps the experiment at the action level, since there is no
+    tier to carry it -- and the experiment is then the resource a condition judges. The grant
+    half stays the bare ``experiment_permission()`` check it has always been; conditions are
+    evaluated after it, in the same order and with the same meaning as ``authorize()`` gives
+    them, so a grant that already fails never loads one.
     """
     if child is _ARTIFACT_PROXY_UNPARSABLE:
         return False
     if child is None:
+        # No experiment either -- the destination root, or an unrecognised first segment.
+        # There is no resource to judge, so there is nothing to condition.
         return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
     child_types, experiment, child_ids = child
+    if not child_types:
+        if not getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action]):
+            return False
+        workspace = get_anchor_workspace(*experiment)
+        if workspace is None:
+            return False
+        return authorize_on_conditions(
+            username,
+            workspace,
+            _artifact_proxy_experiment_contexts(experiment[1], action),
+        )
     return authorize(
         username,
         experiment,
@@ -1892,6 +1917,30 @@ def _authorize_artifact_proxy_resolved(
 
 # The proxy's write surface. A read declares no condition, as every read does.
 _ARTIFACT_PROXY_MUTATING_ACTIONS = frozenset({"update", "manage"})
+
+
+def _artifact_proxy_experiment_contexts(
+    experiment_id: str,
+    action: str,
+) -> "list[ConditionContext]":
+    """A MUTATE context for an artifact written directly under the experiment root.
+
+    The experiment is both the target and its own container here, so the context carries no
+    parent -- matching ``UpdateExperiment`` and ``DeleteExperiment``, which declare the same
+    shape. Request values are empty: an artifact upload sets no tag, so only a target
+    condition can bite, and a value condition is vacuous by construction rather than by
+    special case.
+    """
+    if action not in _ARTIFACT_PROXY_MUTATING_ACTIONS:
+        return []
+    return [
+        context_for(
+            RESOURCE_TYPE_EXPERIMENT,
+            experiment_id,
+            ConditionScope.MUTATE,
+            ExperimentRequestValues(),
+        )
+    ]
 
 
 def _artifact_proxy_contexts(
@@ -8443,7 +8492,11 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
         return
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
     if _authorize_artifact_proxy_resolved(
-        ((RESOURCE_TYPE_RUN,), (RESOURCE_TYPE_EXPERIMENT, experiment_id)),
+        # Hand-built because the tier is known without parsing: an experiment-root listing
+        # is judged against the run tier. The empty ``child_ids`` is required -- the resolver
+        # unpacks three elements, and a two-element tuple raised ``ValueError`` out of the
+        # after-request hook, turning every non-admin root listing into a 500.
+        ((RESOURCE_TYPE_RUN,), (RESOURCE_TYPE_EXPERIMENT, experiment_id), {}),
         username,
         "read",
         _get_permission_from_experiment_id_artifact_proxy,
@@ -10362,10 +10415,26 @@ def _get_fastapi_proxy_artifact_validator(
         if action is None:
             return False
         query_path = request.query_params.get("path")
+
+        def authorize_and_capture() -> "tuple[bool, bool, str | None]":
+            # ``to_thread`` runs this in a COPY of the context, so a ``ContextVar`` written
+            # here is invisible to the caller. The decision itself returns fine, but the
+            # condition-denial reason would not -- and the middleware builds the 403 body in
+            # the original context, so every condition denial on an artifact route degraded
+            # to the generic grant message. That is worse than terse: it names the wrong one
+            # of the two causes, and a grant and a condition are fixed in different places.
+            allowed = _authorize_fastapi_artifact_proxy(path, username, query_path, action)
+            return (
+                allowed,
+                auth_resources.condition_denied(),
+                auth_resources.condition_denial_detail(),
+            )
+
         # Same gate as the Flask validators, so neither dispatch path is the softer one.
-        return await asyncio.to_thread(
-            _authorize_fastapi_artifact_proxy, path, username, query_path, action
-        )
+        allowed, condition_denied, detail = await asyncio.to_thread(authorize_and_capture)
+        if condition_denied:
+            auth_resources.note_condition_denial(detail)
+        return allowed
 
     return validator
 
