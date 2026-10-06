@@ -237,6 +237,7 @@ const DecisionList = ({ children, testId }: { children: React.ReactNode; testId:
           flexWrap: 'wrap',
           gap: theme.spacing.sm,
           minWidth: 0,
+          '& > *': { minWidth: 0, overflowWrap: 'anywhere' },
         },
         '& .decision-answer-side': {
           alignItems: 'center',
@@ -677,10 +678,8 @@ const AnswerRow = ({ entry }: { entry: Entry }) => {
       <details>
         <summary className="decision-answer-header">
           <span className="decision-answer-name">
-            <Typography.Text bold css={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-              {answer.id}
-            </Typography.Text>
-            <Typography.Text size="sm" color="secondary" css={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+            <Typography.Text bold>{answer.id}</Typography.Text>
+            <Typography.Text size="sm" color="secondary">
               <AnswerKind answer={answer} />
             </Typography.Text>
           </span>
