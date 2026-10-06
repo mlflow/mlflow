@@ -21,6 +21,7 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
+    TYPESAFE_API_BASE_URL,
 )
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
@@ -83,6 +84,7 @@ class TogetherAIConfig(ConfigModel):
 
 class TypeSafeConfig(ConfigModel):
     typesafe_api_key: str
+    typesafe_api_base: str = TYPESAFE_API_BASE_URL
 
     @field_validator("typesafe_api_key", mode="before")
     def validate_typesafe_api_key(cls, value):
