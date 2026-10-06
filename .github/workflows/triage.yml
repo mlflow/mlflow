@@ -634,7 +634,6 @@ jobs:
         run: |
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
           mkdir -p "${TMPDIR:-/tmp}"
-          TRANSCRIPT="$RUNNER_TEMP/triage-transcript.jsonl"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           timeout 30m srt --settings .claude/sandbox/srt.json -- \
@@ -648,18 +647,8 @@ jobs:
             --verbose \
             --output-format stream-json \
             "/triage $ISSUE_PATH $ISSUE_TYPE /tmp/triage-out" \
-            | .claude/scripts/stream.sh "$TRANSCRIPT" || { echo "::$token::"; exit 1; }
+            | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
-      - name: Upload triage output
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: triage-output-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            /tmp/triage-out
-            ${{ runner.temp }}/triage-transcript.jsonl
-          if-no-files-found: ignore
-          retention-days: 7
       - name: Upload triage report for posting
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
