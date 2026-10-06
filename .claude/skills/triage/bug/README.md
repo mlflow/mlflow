@@ -48,8 +48,8 @@ picking one.
 
 ## 4. Decide the verdict
 
-Pick exactly one verdict using the when-to-use comments in `payload.schema.yml`, and set the
-payload's `label` to that exact enum value.
+Pick exactly one verdict using the label descriptions in `payload.schema.yml`, and set the
+payload's `label` to that exact `const` value.
 
 ## 5. Comment
 

@@ -10,17 +10,17 @@ properties:
   label:
     description: Bug triage outcome label.
     type: string
-    enum:
-      # The bug exists at the current checkout.
-      - "triage: reproduced"
-      # The reported version reproduces it, but the current checkout does not.
-      - "triage: already-fixed"
-      # Neither version reproduces it with the information given.
-      - "triage: not-reproduced"
-      # The issue is too incomplete to attempt a reproduction.
-      - "triage: needs-info"
-      # Reproduction needs resources the sandbox lacks.
-      - "triage: skipped"
+    oneOf:
+      - const: "triage: reproduced"
+        description: The bug exists at the current checkout.
+      - const: "triage: already-fixed"
+        description: The reported version reproduces it, but the current checkout does not.
+      - const: "triage: not-reproduced"
+        description: Neither version reproduces it with the information given.
+      - const: "triage: needs-info"
+        description: The issue is too incomplete to attempt a reproduction.
+      - const: "triage: skipped"
+        description: Reproduction needs resources the sandbox lacks.
   comment:
     description: |
       Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
