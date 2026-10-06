@@ -1155,6 +1155,7 @@ class Assessment(_message.Message):
     LAST_UPDATE_TIME_FIELD_NUMBER: _builtins.int
     FEEDBACK_FIELD_NUMBER: _builtins.int
     EXPECTATION_FIELD_NUMBER: _builtins.int
+    ISSUE_FIELD_NUMBER: _builtins.int
     RATIONALE_FIELD_NUMBER: _builtins.int
     METADATA_FIELD_NUMBER: _builtins.int
     OVERRIDES_FIELD_NUMBER: _builtins.int
@@ -1204,6 +1205,10 @@ class Assessment(_message.Message):
         """A representation of the guidelines and/or expected response from the agent."""
 
     @_builtins.property
+    def issue(self) -> _assessments_pb2.IssueReference:
+        """A reference to an issue associated with this trace."""
+
+    @_builtins.property
     def metadata(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
         """Additional metadata describing the assessment and store additional information,
         such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
@@ -1222,16 +1227,17 @@ class Assessment(_message.Message):
         last_update_time: _timestamp_pb2.Timestamp | None = ...,
         feedback: _assessments_pb2.Feedback | None = ...,
         expectation: _assessments_pb2.Expectation | None = ...,
+        issue: _assessments_pb2.IssueReference | None = ...,
         rationale: _builtins.str | None = ...,
         metadata: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
         overrides: _builtins.str | None = ...,
         valid: _builtins.bool | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["assessment_id", b"assessment_id", "assessment_name", b"assessment_name", "create_time", b"create_time", "expectation", b"expectation", "feedback", b"feedback", "last_update_time", b"last_update_time", "overrides", b"overrides", "rationale", b"rationale", "source", b"source", "span_id", b"span_id", "trace_id", b"trace_id", "trace_location", b"trace_location", "valid", b"valid", "value", b"value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["assessment_id", b"assessment_id", "assessment_name", b"assessment_name", "create_time", b"create_time", "expectation", b"expectation", "feedback", b"feedback", "issue", b"issue", "last_update_time", b"last_update_time", "overrides", b"overrides", "rationale", b"rationale", "source", b"source", "span_id", b"span_id", "trace_id", b"trace_id", "trace_location", b"trace_location", "valid", b"valid", "value", b"value"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["assessment_id", b"assessment_id", "assessment_name", b"assessment_name", "create_time", b"create_time", "expectation", b"expectation", "feedback", b"feedback", "last_update_time", b"last_update_time", "metadata", b"metadata", "overrides", b"overrides", "rationale", b"rationale", "source", b"source", "span_id", b"span_id", "trace_id", b"trace_id", "trace_location", b"trace_location", "valid", b"valid", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["assessment_id", b"assessment_id", "assessment_name", b"assessment_name", "create_time", b"create_time", "expectation", b"expectation", "feedback", b"feedback", "issue", b"issue", "last_update_time", b"last_update_time", "metadata", b"metadata", "overrides", b"overrides", "rationale", b"rationale", "source", b"source", "span_id", b"span_id", "trace_id", b"trace_id", "trace_location", b"trace_location", "valid", b"valid", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_value: _TypeAlias = _typing.Literal["feedback", "expectation"]  # noqa: Y015
+    _WhichOneofReturnType_value: _TypeAlias = _typing.Literal["feedback", "expectation", "issue"]  # noqa: Y015
     _WhichOneofArgType_value: _TypeAlias = _typing.Literal["value", b"value"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_value) -> _WhichOneofReturnType_value | None: ...
 
