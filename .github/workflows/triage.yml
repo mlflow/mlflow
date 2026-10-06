@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       issue_number:
-        description: "Issue to triage"
+        description: "Issue number to triage"
         required: true
         type: number
       dry_run:
@@ -716,6 +716,10 @@ jobs:
     timeout-minutes: 5
     permissions:
       issues: write
+    env:
+      TRIAGE_NOTICE: |-
+        > [!NOTE]
+        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -745,7 +749,7 @@ jobs:
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if ! check_output=$(jq -j .comment "$PAYLOAD_PATH" |
-            uv run --directory .claude/skills --package skills skills embed-media \
+            uv run --quiet --directory .claude/skills --package skills skills embed-media \
               --check --dir "$MEDIA_DIR" 2>&1); then
             printf '%s\n' "$check_output" >&2
             exit 1
@@ -792,12 +796,20 @@ jobs:
           mv "$RUNNER_TEMP/triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
             --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
-      - name: Write triage comment preview
+      - name: Preview and post triage comment and label
+        id: post
         if: needs.triage.result == 'success'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           PAYLOAD_PATH: /tmp/triage-out/payload.json
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
+          comment=$(jq -r --arg notice "$TRIAGE_NOTICE" \
+            --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
+            '"\($marker)\n\n\($notice)\n\n\(.comment)"' "$PAYLOAD_PATH")
           if [ "$SHOULD_POST" = true ]; then
             state="Replacing the triage status comment with this report and adding the label."
           else
@@ -810,21 +822,12 @@ jobs:
             echo
             jq -r '"Label: <code>\(.label | @html)</code>"' "$PAYLOAD_PATH"
             echo
-            jq -r '"<pre>\(.comment | @html)</pre>"' "$PAYLOAD_PATH"
+            jq -nr --arg comment "$comment" '"<pre>\($comment | @html)</pre>"'
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Post triage comment and label
-        id: post
-        if: needs.triage.result == 'success' && needs.issue.outputs.dry_run == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
-          COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
-          PAYLOAD_PATH: /tmp/triage-out/payload.json
-        run: |
-          jq --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
-            '{body: "\(.comment)\n\n\($marker)\n"}' "$PAYLOAD_PATH" \
-            | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH --input - > /dev/null
+          if [ "$SHOULD_POST" != true ]; then
+            exit 0
+          fi
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$comment" > /dev/null
           gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$(jq -r .label "$PAYLOAD_PATH")"
       - name: Update unfinished triage status
         if: always() && needs.issue.outputs.dry_run == 'false' && steps.post.outcome != 'success'
