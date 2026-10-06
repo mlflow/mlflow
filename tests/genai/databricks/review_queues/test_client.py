@@ -56,6 +56,7 @@ def test_call_omits_json_and_empty_params():
         resp = _client.call("DELETE", "experiments/1/reviewQueues/q1", params={"x": None})
 
     assert resp == {}
+    mock_creds.assert_called_once_with("databricks")
     mock_request.assert_called_once_with(
         host_creds=mock_creds.return_value,
         endpoint="/api/2.0/managed-evals/experiments/1/reviewQueues/q1",
