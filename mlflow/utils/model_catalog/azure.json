@@ -4705,6 +4705,13 @@
         "output_per_million_tokens": 10.0,
         "cache_read_per_million_tokens": 0.2,
         "cache_write_per_million_tokens": 2.5,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 20.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 272000,
@@ -4730,7 +4737,7 @@
         "response_schema": true
       },
       "deprecation_date": "2028-03-11",
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-06"
     },
     "gpt-6-sol-2026-09-22": {
       "mode": "chat",
@@ -4744,6 +4751,13 @@
         "output_per_million_tokens": 10.0,
         "cache_read_per_million_tokens": 0.2,
         "cache_write_per_million_tokens": 2.5,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 20.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 272000,
@@ -4769,7 +4783,7 @@
         "response_schema": true
       },
       "deprecation_date": "2028-03-11",
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-06"
     },
     "gpt-6.1-sol": {
       "mode": "chat",
@@ -7662,6 +7676,13 @@
         "output_per_million_tokens": 11.0,
         "cache_read_per_million_tokens": 0.22,
         "cache_write_per_million_tokens": 2.75,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 4.4,
+            "output_per_million_tokens": 22.0,
+            "cache_read_per_million_tokens": 0.44
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 272000,
@@ -7687,7 +7708,7 @@
         "response_schema": true
       },
       "deprecation_date": "2028-03-11",
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-06"
     },
     "us/gpt-chat-latest": {
       "mode": "chat",
