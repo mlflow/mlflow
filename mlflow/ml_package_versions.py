@@ -113,7 +113,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.70.0",
-            "maximum": "1.9.0"
+            "maximum": "1.1.0"
         }
     },
     "typesafe": {
@@ -183,7 +183,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.10.0",
-            "maximum": "3.0.0"
+            "maximum": "2.9.4"
         }
     },
     "groq": {

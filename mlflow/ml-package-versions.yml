@@ -814,12 +814,11 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          "llama-index-vector-stores-qdrant",
+          # TODO: qdrant-client 1.16 is currently broken with llama-index until
+          # https://github.com/run-llama/llama_index/issues/20271 is resolved
+          "qdrant-client<1.16.0",
         ]
-      # llama-index-vector-stores-qdrant 0.7+ requires qdrant-client>=1.13 which
-      # conflicts with llama-index 0.12.x dependency resolution.
-      # TODO: qdrant-client 1.16 is currently broken with llama-index until
-      # https://github.com/run-llama/llama_index/issues/20271 is resolved
-      ">= 0.13.0": ["llama-index-vector-stores-qdrant", "qdrant-client<1.16.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.14.5"
@@ -912,7 +911,9 @@ anthropic:
       uv pip install --system git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.70.0"
-    maximum: "1.9.0"
+    # Anthropic 1.9 adds a diagnostics field not yet handled by the tracing tests.
+    # https://github.com/mlflow/mlflow/issues/26459
+    maximum: "1.1.0"
     requirements:
     run: pytest tests/anthropic
     # Our CI runs tests for every minor version of the library by default, which results in
@@ -1080,7 +1081,9 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.10.0"
-    maximum: "3.0.0"
+    # Mistral 3.x no longer provides the httpx dependency used by the tracing tests.
+    # https://github.com/mlflow/mlflow/issues/26460
+    maximum: "2.9.4"
     requirements:
       # mistralai 2.x hard-pins opentelemetry-semantic-conventions==0.60b1, which is only
       # paired with opentelemetry-sdk 1.39.x. mlflow's `.[extras]` install pulls in the
