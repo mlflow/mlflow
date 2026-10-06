@@ -649,12 +649,54 @@ jobs:
             "/triage $ISSUE_PATH $ISSUE_TYPE /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
+      - name: Stage triage report for upload
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          import stat
+          from pathlib import Path
+
+          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-report"
+          stage.mkdir(mode=0o700)
+          flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+
+          def copy_regular(directory_fd, name, destination):
+              fd = os.open(name, flags, dir_fd=directory_fd)
+              with os.fdopen(fd, "rb") as source:
+                  if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                      raise ValueError("not a regular file")
+                  with destination.open("xb") as target:
+                      shutil.copyfileobj(source, target)
+
+          report_fd = os.open("/tmp/triage-out", flags | os.O_DIRECTORY)
+          try:
+              copy_regular(report_fd, "payload.json", stage / "payload.json")
+              try:
+                  media_fd = os.open("media", flags | os.O_DIRECTORY, dir_fd=report_fd)
+              except FileNotFoundError:
+                  pass
+              else:
+                  try:
+                      media_stage = stage / "media"
+                      media_stage.mkdir()
+                      for name in os.listdir(media_fd):
+                          try:
+                              copy_regular(media_fd, name, media_stage / name)
+                          except (OSError, ValueError) as e:
+                              print(f"Skipping media entry {name!r}: {e}")
+                  finally:
+                      os.close(media_fd)
+          finally:
+              os.close(report_fd)
+          PY
       - name: Upload triage report for posting
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: /tmp/triage-out/payload.json
+          path: ${{ runner.temp }}/triage-report
           if-no-files-found: error
           retention-days: 1
       - name: Stop gateway proxy
@@ -686,25 +728,80 @@ jobs:
         if: needs.triage.result == 'success'
         with:
           name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/triage-report
+          path: /tmp/triage-out
       - name: Validate triage payload
         if: needs.triage.result == 'success'
         env:
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
-          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
+          uvx check-jsonschema@0.37.4 \
+            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
+      - name: Validate triage media
+        if: needs.triage.result == 'success'
+        env:
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+          MEDIA_DIR: /tmp/triage-out/media
+          SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
+        run: |
+          if ! check_output=$(jq -j .comment "$PAYLOAD_PATH" |
+            uv run --directory .claude/skills --package skills skills embed-media \
+              --check --dir "$MEDIA_DIR" 2>&1); then
+            printf '%s\n' "$check_output" >&2
+            exit 1
+          fi
+          media_references=$(jq -r .comment "$PAYLOAD_PATH" |
+            grep -oE '\]\(/tmp/triage-out/media/[^)]+\)' |
+            sed -E 's/^\]\((.*)\)$/\1/' |
+            sort -u || true)
+          {
+            echo "### Triage media validation"
+            if [ "$SHOULD_POST" = true ]; then
+              echo "Cited media passed validation; the live-run upload follows."
+            else
+              echo "Cited media passed validation and was not published (dry run). Paths below are local files, not working GitHub links."
+            fi
+            if [ -n "$media_references" ]; then
+              echo
+              echo "Validated media references:"
+              while IFS= read -r reference; do
+                echo "- \`$reference\`"
+              done <<< "$media_references"
+            else
+              echo
+              echo "No media references."
+            fi
+            echo
+            printf '%s\n' "$check_output"
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$check_output"
+      - name: Embed triage media
+        if: needs.triage.result == 'success' && needs.issue.outputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+          ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+          MEDIA_DIR: /tmp/triage-out/media
+        run: |
+          jq -j .comment "$PAYLOAD_PATH" |
+            uv run --directory .claude/skills --package skills skills embed-media \
+              --dir "$MEDIA_DIR" --repository-id "$REPOSITORY_ID" > "$RUNNER_TEMP/triage-comment.md"
+          jq --rawfile comment "$RUNNER_TEMP/triage-comment.md" '.comment = $comment' \
+            "$PAYLOAD_PATH" > "$RUNNER_TEMP/triage-payload.json"
+          mv "$RUNNER_TEMP/triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
             --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
       - name: Write triage comment preview
         if: needs.triage.result == 'success'
         env:
-          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if [ "$SHOULD_POST" = true ]; then
             state="Replacing the triage status comment with this report and adding the label."
           else
-            state="Comment and label not posted (dry run)."
+            state="Comment and label not posted (dry run). Media was not uploaded; local media paths below are not working GitHub links."
           fi
           {
             echo "### Triage comment preview"
@@ -723,7 +820,7 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
-          PAYLOAD_PATH: ${{ runner.temp }}/triage-report/payload.json
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           jq --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
             '{body: "\(.comment)\n\n\($marker)\n"}' "$PAYLOAD_PATH" \

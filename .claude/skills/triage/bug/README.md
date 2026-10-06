@@ -21,7 +21,9 @@ Trigger the bug in whatever form fits it: a CLI command, a short Python snippet,
 local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite
 store, tiny models and datasets, no external services. Put scratch files under
 `$out_dir/work`. For UI bugs, seed the data the page needs through the Python client, then
-follow "Running the UI" in `SKILL.md` and record the observed behavior.
+follow "Running the UI" in `SKILL.md` and record the observed behavior. Capture
+an image or short recording under `$out_dir/media` only when it helps a reader see
+the symptom; cite the exact path in the comment as described in `SKILL.md`.
 
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
