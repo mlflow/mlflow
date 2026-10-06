@@ -167,7 +167,6 @@ def test_review_queue_item_from_dict_trace():
         kind=ItemKind.V4_TRACE,
         status=ReviewStatus.COMPLETE,
         trace_id="tr-1",
-        uc_location="catalog.schema",
         completed_by="alice@example.com",
         complete_time_ms=_TIME_MS,
         added_by="bob@example.com",

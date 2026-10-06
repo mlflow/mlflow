@@ -399,11 +399,11 @@ def list_review_queue_members(
 
 
 def _trace_item(trace_id: str) -> dict[str, Any]:
-    location, tid = parse_trace_id_v4(trace_id)
-    address = {"trace_id": tid}
-    if location is not None:
-        address["uc_location"] = location
-    return {"kind": ItemKind.V4_TRACE.value, "v4_trace": address}
+    # Send only the bare trace ID: the server resolves the trace location from the
+    # experiment, and including it would make the item distinct from the same trace
+    # attached without one (e.g. from the UI).
+    _, tid = parse_trace_id_v4(trace_id)
+    return {"kind": ItemKind.V4_TRACE.value, "v4_trace": {"trace_id": tid}}
 
 
 @experimental(version="3.18.0")
@@ -423,8 +423,8 @@ def add_review_queue_items(
     Args:
         experiment_id: The experiment that owns the queue.
         queue_id: The queue to attach to.
-        trace_ids: Trace IDs to attach. Traces stored in Unity Catalog use the
-            ``trace:/<location>/<id>`` form.
+        trace_ids: Trace IDs to attach, either ``tr-<id>`` or, for traces stored in
+            Unity Catalog, ``trace:/<location>/<id>``.
         dataset_id: Unity Catalog table ID of the dataset that owns ``dataset_record_ids``.
         dataset_record_ids: Dataset record IDs to attach. Requires ``dataset_id``.
 

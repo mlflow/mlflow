@@ -262,7 +262,7 @@ def test_add_review_queue_items():
                     "parent": parent,
                     "review_queue_item": {
                         "kind": "V4_TRACE",
-                        "v4_trace": {"trace_id": "tr-2", "uc_location": "catalog.schema"},
+                        "v4_trace": {"trace_id": "tr-2"},
                     },
                 },
                 {

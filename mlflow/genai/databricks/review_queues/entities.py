@@ -236,9 +236,9 @@ class ReviewQueueMember:
 class ReviewQueueItem:
     """One item attached to a queue, plus its review status.
 
-    Exactly one address is populated, depending on ``kind``: ``trace_id`` (and
-    ``uc_location`` for traces stored in Unity Catalog) for ``V4_TRACE`` items, or
-    ``dataset_id`` + ``dataset_record_id`` for ``DATASET_RECORD`` items.
+    Exactly one address is populated, depending on ``kind``: ``trace_id`` for
+    ``V4_TRACE`` items, or ``dataset_id`` + ``dataset_record_id`` for
+    ``DATASET_RECORD`` items.
     """
 
     item_id: str
@@ -247,7 +247,6 @@ class ReviewQueueItem:
     kind: ItemKind
     status: ReviewStatus
     trace_id: str | None = None
-    uc_location: str | None = None
     dataset_id: str | None = None
     dataset_record_id: str | None = None
     completed_by: str | None = None
@@ -269,7 +268,6 @@ class ReviewQueueItem:
             kind=ItemKind(d["kind"]),
             status=ReviewStatus(d["status"]),
             trace_id=trace.get("trace_id"),
-            uc_location=trace.get("uc_location") or None,
             dataset_id=record.get("dataset_id"),
             dataset_record_id=record.get("dataset_record_id"),
             # The server sends empty values while an item is PENDING.
