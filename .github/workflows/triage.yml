@@ -807,6 +807,19 @@ jobs:
           mv "$RUNNER_TEMP/triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
             --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
+      - name: Sanitize triage comment
+        if: needs.triage.result == 'success'
+        env:
+          ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+        run: |
+          jq -j .comment "$PAYLOAD_PATH" |
+            node .github/workflows/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
+          jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
+            "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
+          mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
+          uvx check-jsonschema@0.37.4 \
+            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
       - name: Preview and post triage comment and label
         id: post
         if: needs.triage.result == 'success'
