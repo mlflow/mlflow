@@ -467,7 +467,13 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     // 4. Condition removals, last. A restriction is only lifted once the capability it
     // was covering is actually gone -- if a revoke above failed, dropping the condition
     // would leave that grant live and unrestricted.
-    if (!capabilityRemovalFailed) {
+    //
+    // `restrictionsFailed` is the second half of that: editing a condition is an ADD plus
+    // a REMOVE, so without it a failed add still dropped the old restriction and left the
+    // grant less restricted than before the edit. This also blocks a plain removal when an
+    // unrelated add failed -- the fail-closed direction, where the restriction stays in
+    // force and the admin retries.
+    if (!capabilityRemovalFailed && !restrictionsFailed) {
       // A stored condition implies the role exists, so removal stays id-addressed.
       for (const id of diff.conditionIdsToRemove) {
         try {

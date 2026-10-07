@@ -366,7 +366,15 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     // 5. Conditions remove, last. A restriction is only lifted once the capability it was
     // covering is actually gone -- if a removal above failed, dropping the condition would
     // leave that permission live and unrestricted for everyone holding this role.
-    if (!capabilityRemovalFailed) {
+    // Both halves must be safe. `capabilityRemovalFailed` covers the capability this
+    // condition was narrowing; `restrictionsFailed` covers its intended REPLACEMENT --
+    // editing a condition is an add plus a remove, so a failed add would otherwise
+    // still drop the old restriction, leaving the role LESS restricted than before
+    // the edit.
+    //
+    // This also blocks a plain removal when an unrelated add failed, which is the
+    // fail-closed direction: the restriction stays and the admin retries.
+    if (!capabilityRemovalFailed && !restrictionsFailed) {
       for (const id of diff.conditionIdsToRemove) {
         try {
           await removeCondition.mutateAsync(id);
@@ -420,7 +428,12 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
               // go back and click Add, or knowingly drop the draft and
               // proceed to the review step.
               onClick={() => {
-                if (hasUnsavedDraft) {
+                // BOTH drafts gate the transition. `hasUnsavedConditionDraft` was reported
+                // by `MutationConditionsSection` and then never read, so a half-filled
+                // condition was dropped silently and the submit went on to ADD the
+                // permissions it was meant to narrow -- the one fail-open direction this
+                // dialog exists to prevent.
+                if (hasUnsavedDraft || hasUnsavedConditionDraft) {
                   setShowDiscardConfirm(true);
                   return;
                 }

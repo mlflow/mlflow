@@ -132,6 +132,28 @@ describe('EditRoleModal — restrictions land before capability', () => {
     expect(order).toEqual(['condition', 'permission']);
   });
 
+  it('confirms before discarding a half-filled condition draft', async () => {
+    // F-0036. `hasUnsavedConditionDraft` was reported by MutationConditionsSection and
+    // then never read -- only `hasUnsavedDraft` gated the transition -- so a condition
+    // typed but not Added was dropped silently and the submit went on to grant the
+    // permission it was meant to narrow. The dialog's own copy already names both drafts.
+    renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
+    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+
+    // Type a condition but deliberately do NOT click "Add mutation condition".
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    // Stage a permission, so Review is enabled by a real change rather than the draft.
+    fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+
+    // The discard dialog must intervene instead of the review step appearing.
+    expect(await screen.findByText('Discard unsaved entry?')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Apply changes$/ })).not.toBeInTheDocument();
+  });
+
   it('does not add the permission when the condition could not be created', async () => {
     mockAddConditionMutateAsync.mockRejectedValue(new Error('slot exhausted'));
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);

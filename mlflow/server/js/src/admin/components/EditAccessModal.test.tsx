@@ -493,6 +493,32 @@ describe('EditAccessModal — restrictions land before capability', () => {
     expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
   });
 
+  it('keeps the old condition when its replacement could not be created', async () => {
+    // F-0039. Editing a condition is an ADD plus a REMOVE. The removal gate only tested
+    // whether a CAPABILITY removal had failed, so a failed add still dropped the old
+    // restriction -- leaving the grant less restricted than before the admin touched it.
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [existingCondition] },
+      isLoading: false,
+      error: null,
+    });
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('slot exhausted'));
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    // Drop the prefilled condition and stage a new one in its place -- a replacement.
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    stageConditionAndGrant();
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    // The replacement failed, so the original must survive.
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+  });
+
   it('removes the condition once the revoke actually succeeds', async () => {
     mockUseUserRolesQuery.mockReturnValue({
       data: { roles: [syntheticUserRole('default')] },
