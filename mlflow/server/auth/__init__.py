@@ -3140,6 +3140,54 @@ def _get_readable_resource_ids(username: str, resource_type: str) -> set[str] | 
     return readable
 
 
+@dataclass(frozen=True)
+class _ResourceReadScope:
+    resource_ids: set[str]
+    comparator: Literal["IN", "NOT IN"] | None
+
+
+def _get_resource_read_scope(username: str, resource_type: str) -> _ResourceReadScope:
+    """Build a store-side scope that preserves named DENY grants under wildcard access."""
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return _ResourceReadScope({""}, "IN")
+
+    user = store.get_user(username)
+    named_ids = {
+        resource_id
+        for resource_id, _permission in store.list_role_grants_for_user_in_workspace(
+            user.id, workspace_name, resource_type
+        )
+        if resource_id != "*"
+    }
+    can_read = _role_based_read_predicate(username, resource_type)
+    if can_read("*"):
+        denied_ids = {resource_id for resource_id in named_ids if not can_read(resource_id)}
+        return _ResourceReadScope(denied_ids, "NOT IN" if denied_ids else None)
+
+    readable_ids = {resource_id for resource_id in named_ids if can_read(resource_id)}
+    return _ResourceReadScope(readable_ids or {""}, "IN")
+
+
+def _get_resource_read_scope_for_user(username: str, resource_type: str) -> _ResourceReadScope:
+    readable_ids = get_readable_resource_ids_for_user(username, resource_type)
+    if readable_ids is not None:
+        return _ResourceReadScope(readable_ids or {""}, "IN")
+    if not is_auth_enabled():
+        return _ResourceReadScope(set(), None)
+    if store.get_user(username).is_admin:
+        return _ResourceReadScope(set(), None)
+    try:
+        return _get_resource_read_scope(username, resource_type)
+    except (RuntimeError, AttributeError, MlflowException):
+        _logger.exception("Failed to resolve request authorization scope; denying access")
+        return _ResourceReadScope({""}, "IN")
+
+
 def get_readable_resource_ids(resource_type: str) -> set[str] | None:
     """Return readable IDs for request-side scoping."""
     if not is_auth_enabled():
@@ -3173,12 +3221,17 @@ def _quote_filter_values(values: set[str]) -> str:
 
 
 def _append_request_filter(
-    request_json: dict[str, Any], scope_key: str, scope_values: set[str]
+    request_json: dict[str, Any],
+    scope_key: str,
+    scope_values: set[str],
+    scope_comparator: Literal["IN", "NOT IN"] = "IN",
 ) -> None:
     filter_string = request_json.get("filter")
     if filter_string is not None and not isinstance(filter_string, str):
         raise MlflowException.invalid_parameter_value("'filter' must be a string.")
-    request_json["filter"] = SearchFilterWithScope(filter_string or "", scope_key, scope_values)
+    request_json["filter"] = SearchFilterWithScope(
+        filter_string or "", scope_key, scope_values, scope_comparator
+    )
 
 
 def _request_field(request_json: dict[str, Any], name: str) -> tuple[str, Any] | None:
@@ -3209,11 +3262,36 @@ def _get_readable_experiment_ids_for_user(username: str) -> set[str] | None:
 
 
 def _scope_experiment_ids(request_json: dict[str, Any], username: str) -> None:
-    readable_ids = _get_readable_experiment_ids_for_user(username)
-    if readable_ids is None:
+    scope = _get_resource_read_scope_for_user(username, "experiment")
+    if scope.comparator is None:
         return
 
     field = _request_field(request_json, "experiment_ids")
+    if scope.comparator == "NOT IN":
+        if field is None:
+            # These endpoints accept only a positive experiment-id list. Expanding a NOT IN
+            # scope here would change the endpoint's view semantics and breaks backends that do
+            # not support experiment_ids. Their response filters enforce named denies instead.
+            return
+        name, requested_ids = field
+        if not isinstance(requested_ids, list) or not all(
+            isinstance(experiment_id, str) for experiment_id in requested_ids
+        ):
+            raise MlflowException.invalid_parameter_value(f"'{name}' must be a list of strings.")
+        request_json[name] = [
+            experiment_id
+            for experiment_id in requested_ids
+            if experiment_id not in scope.resource_ids
+        ]
+        return
+
+    readable_ids = set()
+    for experiment_id in scope.resource_ids:
+        try:
+            _parse_experiment_id(experiment_id)
+        except MlflowException:
+            continue
+        readable_ids.add(experiment_id)
     if field is None:
         request_json["experiment_ids"] = sorted(readable_ids)
     else:
@@ -3228,23 +3306,28 @@ def _scope_experiment_ids(request_json: dict[str, Any], username: str) -> None:
 
 
 def _scope_search_experiments(request_json: dict[str, Any], username: str) -> None:
-    readable_ids = _get_readable_experiment_ids_for_user(username)
-    if readable_ids is None:
+    scope = _get_resource_read_scope_for_user(username, "experiment")
+    if scope.comparator is None:
         return
     # MLflow-generated experiment IDs are non-negative. An empty finite scope must still produce
     # a valid request filter so the generic handler can execute without auth-specific branches.
-    values = readable_ids or {"-1"}
-    _append_request_filter(request_json, "experiment_id", values)
+    values = scope.resource_ids or {"-1"}
+    _append_request_filter(request_json, "experiment_id", values, scope.comparator)
 
 
 def _scope_model_search(request_json: dict[str, Any], username: str) -> None:
-    model_ids = get_readable_resource_ids_for_user(username, "registered_model")
-    prompt_ids = get_readable_resource_ids_for_user(username, "prompt")
-    if model_ids is None or prompt_ids is None:
+    model_scope = _get_resource_read_scope_for_user(username, "registered_model")
+    prompt_scope = _get_resource_read_scope_for_user(username, "prompt")
+    if model_scope.comparator is None or prompt_scope.comparator is None:
         return
-    readable_ids = model_ids | prompt_ids
-    values = readable_ids or {""}
-    _append_request_filter(request_json, "name", values)
+    if model_scope.comparator != prompt_scope.comparator:
+        # Registered models and prompts share a name namespace. A single IN/NOT IN
+        # predicate cannot represent one finite scope combined with one wildcard
+        # scope, so the response filter remains the enforcement layer for this
+        # mixed shape.
+        return
+    values = model_scope.resource_ids | prompt_scope.resource_ids
+    _append_request_filter(request_json, "name", values or {""}, model_scope.comparator)
 
 
 def _scope_list_scorers(request_json: dict[str, Any], username: str) -> None:
@@ -3292,25 +3375,8 @@ def _scope_request(request_scoper: Callable[[dict[str, Any], str], None], userna
 def _get_mcp_server_wildcard_search_scope(
     username: str,
 ) -> tuple[set[str], Literal["IN", "NOT IN"]]:
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
-    )
-    if workspace_name is None:
-        return {""}, "IN"
-    user = store.get_user(username)
-    names_with_grants = {
-        name
-        for name, _permission in store.list_role_grants_for_user_in_workspace(
-            user.id, workspace_name, "mcp_server"
-        )
-        if name != "*"
-    }
-    can_read = _role_based_read_predicate(username, "mcp_server")
-    if can_read("*"):
-        return {name for name in names_with_grants if not can_read(name)}, "NOT IN"
-    return {name for name in names_with_grants if can_read(name)} or {""}, "IN"
+    scope = _get_resource_read_scope_for_user(username, "mcp_server")
+    return scope.resource_ids, scope.comparator or "NOT IN"
 
 
 def _scope_mcp_server_search_query(
@@ -5993,13 +6059,61 @@ def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
 
 
 def filter_search_logged_models(resp: Response) -> None:
-    """Redact denied run references from logged models already scoped by the request."""
+    """Filter unreadable models and redact denied run references."""
     if sender_is_admin():
         return
 
     response_proto = SearchLoggedModels.Response()
     parse_dict(resp.json, response_proto)
     username = authenticate_request().username
+    can_read_experiment = _role_based_read_predicate(username, "experiment")
+    for model in list(response_proto.models):
+        if not can_read_experiment(model.info.experiment_id):
+            response_proto.models.remove(model)
+
+    request_message = _get_request_message(SearchLoggedModels())
+    while (
+        len(response_proto.models) < request_message.max_results
+        and response_proto.next_page_token != ""
+    ):
+        remaining = request_message.max_results - len(response_proto.models)
+        refetched = _get_tracking_store().search_logged_models(
+            experiment_ids=list(request_message.experiment_ids),
+            filter_string=request_message.filter or None,
+            datasets=(
+                [
+                    {
+                        "dataset_name": dataset.dataset_name,
+                        "dataset_digest": dataset.dataset_digest or None,
+                    }
+                    for dataset in request_message.datasets
+                ]
+                if request_message.datasets
+                else None
+            ),
+            max_results=remaining,
+            order_by=(
+                [
+                    {
+                        "field_name": order.field_name,
+                        "ascending": order.ascending,
+                        "dataset_name": order.dataset_name or None,
+                        "dataset_digest": order.dataset_digest or None,
+                    }
+                    for order in request_message.order_by
+                ]
+                if request_message.order_by
+                else None
+            ),
+            page_token=response_proto.next_page_token,
+        )
+        if not refetched:
+            response_proto.next_page_token = ""
+            break
+        response_proto.models.extend(
+            model.to_proto() for model in refetched if can_read_experiment(model.experiment_id)
+        )
+        response_proto.next_page_token = refetched.token or ""
     _withhold_denied_metric_references(
         [metric for model in response_proto.models for metric in model.data.metrics],
         username,
@@ -6112,6 +6226,26 @@ def filter_search_model_versions(resp: Response):
     for mv in list(response_message.model_versions):
         if not can_read(mv):
             response_message.model_versions.remove(mv)
+
+    request_message = _get_request_message(SearchModelVersions())
+    while (
+        len(response_message.model_versions) < request_message.max_results
+        and response_message.next_page_token != ""
+    ):
+        remaining = request_message.max_results - len(response_message.model_versions)
+        refetched = _get_model_registry_store().search_model_versions(
+            filter_string=_get_search_filter(request_message.filter),
+            max_results=remaining,
+            order_by=request_message.order_by,
+            page_token=response_message.next_page_token,
+        )
+        if not refetched:
+            response_message.next_page_token = ""
+            break
+        response_message.model_versions.extend(
+            version.to_proto() for version in refetched if can_read(version)
+        )
+        response_message.next_page_token = refetched.token or ""
 
     # A version the caller may read can still carry a denied run's or model's content.
     _withhold_denied_version_siblings(
@@ -6841,8 +6975,14 @@ def redact_batch_trace_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraces.Response()
     parse_dict(resp.json, response_message)
+    can_read_experiment = _role_based_read_predicate(authenticate_request().username, "experiment")
+    withheld = False
+    for trace in list(response_message.traces):
+        if not can_read_experiment(trace.trace_info.trace_location.mlflow_experiment.experiment_id):
+            response_message.traces.remove(trace)
+            withheld = True
     trace_infos = [t.trace_info for t in response_message.traces]
-    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_assessments(trace_infos)
     withheld |= _withhold_denied_trace_metadata_siblings(
         [info.trace_metadata for info in trace_infos], authenticate_request().username
     )
@@ -6855,7 +6995,13 @@ def redact_batch_trace_info_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraceInfos.Response()
     parse_dict(resp.json, response_message)
-    withheld = _withhold_denied_assessments(response_message.trace_infos)
+    can_read_experiment = _role_based_read_predicate(authenticate_request().username, "experiment")
+    withheld = False
+    for trace_info in list(response_message.trace_infos):
+        if not can_read_experiment(trace_info.trace_location.mlflow_experiment.experiment_id):
+            response_message.trace_infos.remove(trace_info)
+            withheld = True
+    withheld |= _withhold_denied_assessments(response_message.trace_infos)
     withheld |= _withhold_denied_trace_metadata_siblings(
         [info.trace_metadata for info in response_message.trace_infos],
         authenticate_request().username,

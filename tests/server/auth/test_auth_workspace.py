@@ -282,6 +282,73 @@ def test_search_experiments_request_scope_uses_current_grants_for_each_page(monk
     ]
 
 
+def test_search_experiments_scope_preserves_named_deny_under_wildcard_read(
+    workspace_permission_setup,
+    monkeypatch,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), ("experiment", "42", DENY.name)],
+    )
+    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
+
+    request_json = {"filter": "name LIKE 'prod%'"}
+    auth_module._scope_search_experiments(request_json, username)
+
+    assert request_json["filter"] == "name LIKE 'prod%' AND experiment_id NOT IN ('42')"
+
+
+def test_experiment_id_scope_keeps_an_unfiltered_request_for_wildcard_read_with_named_deny(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        auth_module,
+        "_get_resource_read_scope_for_user",
+        lambda *_: auth_module._ResourceReadScope({"2"}, "NOT IN"),
+    )
+
+    request_json = {}
+    auth_module._scope_experiment_ids(request_json, "user")
+
+    assert request_json == {}
+
+
+def test_experiment_id_scope_removes_named_denies_from_client_selector(monkeypatch):
+    monkeypatch.setattr(
+        auth_module,
+        "_get_resource_read_scope_for_user",
+        lambda *_: auth_module._ResourceReadScope({"2"}, "NOT IN"),
+    )
+
+    request_json = {"experiment_ids": ["1", "2", "3"]}
+    auth_module._scope_experiment_ids(request_json, "user")
+
+    assert request_json == {"experiment_ids": ["1", "3"]}
+
+
+def test_model_search_scope_preserves_named_denies_under_wildcard_read(monkeypatch):
+    def scope(_username, resource_type):
+        resource_ids = {
+            "registered_model": {"private-model"},
+            "prompt": {"private-prompt"},
+        }
+        return auth_module._ResourceReadScope(resource_ids[resource_type], "NOT IN")
+
+    monkeypatch.setattr(auth_module, "_get_resource_read_scope_for_user", scope)
+
+    request_json = {"filter": "name LIKE 'prod%'"}
+    auth_module._scope_model_search(request_json, "user")
+
+    assert request_json["filter"] == (
+        "name LIKE 'prod%' AND name NOT IN ('private-model', 'private-prompt')"
+    )
+
+
 def test_cleanup_workspace_permissions_handler(monkeypatch):
     mock_delete_workspace_perms = Mock()
     mock_delete_roles = Mock()
@@ -2197,6 +2264,103 @@ def test_filter_search_registered_models_classifies_refetched_rows(
     # The refetched prompt row is kept (prompt grant satisfies it); the
     # plain registered_model row is filtered out.
     assert names == ["refetched-prompt"]
+
+
+def test_search_logged_models_backfill_preserves_opaque_backend_page_tokens(
+    workspace_permission_setup, monkeypatch
+):
+    from mlflow.entities.logged_model import LoggedModel
+    from mlflow.store.entities import PagedList
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda *_args, **_kwargs: lambda resource_id: resource_id != "denied",
+    )
+    search = Mock(
+        return_value=PagedList(
+            [
+                LoggedModel(
+                    experiment_id="exp-1",
+                    model_id="model-1",
+                    name="model",
+                    artifact_location="",
+                    creation_timestamp=1,
+                    last_updated_timestamp=1,
+                )
+            ],
+            "opaque-next-token",
+        )
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(search_logged_models=search),
+    )
+    flask_resp = Response(
+        json.dumps({
+            "models": [{"info": {"model_id": "denied", "experiment_id": "denied"}}],
+            "next_page_token": "opaque-start-token",
+        }),
+        mimetype="application/json",
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/logged-models/search",
+        method="POST",
+        json={"experiment_ids": [], "max_results": 1},
+    ):
+        auth_module.filter_search_logged_models(flask_resp)
+
+    assert search.call_args.kwargs["page_token"] == "opaque-start-token"
+    response = json.loads(flask_resp.get_data(as_text=True))
+    assert response["next_page_token"] == "opaque-next-token"
+    assert [model["info"]["model_id"] for model in response["models"]] == ["model-1"]
+
+
+def test_search_model_versions_backfill_preserves_opaque_backend_page_tokens(
+    workspace_permission_setup, monkeypatch
+):
+    from mlflow.entities.model_registry import ModelVersion
+    from mlflow.store.entities import PagedList
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_read_predicate",
+        lambda *_args, **_kwargs: lambda resource_id: resource_id != "denied",
+    )
+    search = Mock(
+        return_value=PagedList(
+            [ModelVersion(name="model", version="1", creation_timestamp=1)],
+            "opaque-next-token",
+        )
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: SimpleNamespace(search_model_versions=search),
+    )
+    flask_resp = Response(
+        json.dumps({
+            "model_versions": [{"name": "denied", "version": "1"}],
+            "next_page_token": "opaque-start-token",
+        }),
+        mimetype="application/json",
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/search",
+        method="GET",
+        query_string={"max_results": "1"},
+    ):
+        auth_module.filter_search_model_versions(flask_resp)
+
+    assert search.call_args.kwargs["page_token"] == "opaque-start-token"
+    response = json.loads(flask_resp.get_data(as_text=True))
+    assert response["next_page_token"] == "opaque-next-token"
+    assert [version["name"] for version in response["model_versions"]] == ["model"]
 
 
 def test_delete_can_manage_registered_model_permission_rejects_missing_name(
@@ -7297,6 +7461,46 @@ def test_batch_get_traces_redaction_reaches_nested_trace_info(workspace_permissi
     assert len(out.traces[0].trace_info.assessments) == 0
 
 
+@pytest.mark.parametrize(
+    ("proto_name", "handler_name", "payload"),
+    [
+        (
+            "BatchGetTraces",
+            "redact_batch_trace_assessments",
+            {
+                "traces": [
+                    {"trace_info": _info_row("exp-1", "t1", [])},
+                    {"trace_info": _info_row("exp-2", "t2", [])},
+                ]
+            },
+        ),
+        (
+            "BatchGetTraceInfos",
+            "redact_batch_trace_info_assessments",
+            {"trace_infos": [_info_row("exp-1", "t1", []), _info_row("exp-2", "t2", [])]},
+        ),
+    ],
+)
+def test_batch_trace_responses_filter_an_experiment_denied_under_wildcard_read(
+    workspace_permission_setup, monkeypatch, proto_name, handler_name, payload
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), ("experiment", "exp-2", DENY.name)],
+    )
+
+    out = _run_multi_trace_redaction(proto_name, handler_name, payload)
+    rows = out.traces if proto_name == "BatchGetTraces" else out.trace_infos
+    trace_infos = [row.trace_info for row in rows] if proto_name == "BatchGetTraces" else rows
+    assert [info.trace_id for info in trace_infos] == ["t1"]
+
+
 def _run_submit_optimization(source_prompt_uri):
     with auth_module.app.test_request_context(
         "/api/3.0/mlflow/prompt-optimization-jobs/create",
@@ -8709,6 +8913,36 @@ def test_search_logged_models_withholds_a_denied_source_run(
 
     assert [m["info"]["model_id"] for m in models] == ["m-1"]
     assert "source_run_id" not in models[0]["info"]
+
+
+def test_search_logged_models_filters_an_experiment_denied_under_wildcard_read(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", READ.name), ("experiment", "exp-2", DENY.name)],
+    )
+    payload = {
+        "models": [
+            {"info": {"model_id": "m-1", "experiment_id": "exp-1"}},
+            {"info": {"model_id": "m-2", "experiment_id": "exp-2"}},
+        ]
+    }
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/logged-models/search", method="POST", json={}
+    ):
+        auth_module.filter_search_logged_models(flask_resp)
+
+    models = json.loads(flask_resp.get_data(as_text=True))["models"]
+    assert [model["info"]["model_id"] for model in models] == ["m-1"]
 
 
 def _metric_row(model_id="m-1", run_id="run-1"):
