@@ -3898,7 +3898,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def _start_trace_once(self, trace_info: "TraceInfo") -> TraceInfo:
         trace_name = validate_trace_name(trace_info.tags.get(TraceTagKey.TRACE_NAME))
         with self.ManagedSessionMaker(read_only=False) as session:
-            experiment = self.get_experiment(trace_info.experiment_id)
+            experiment = self._get_experiment(session, trace_info.experiment_id, ViewType.ALL)
             self._check_experiment_is_active(experiment)
 
             # Use the provided trace_id
@@ -5942,7 +5942,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # their batch-local aggregates are authoritative (no recompute needed later).
             created_trace_ids: set[str] = set()
             if any(tid not in existing_traces for tid in all_trace_ids):
-                experiment = self.get_experiment(location)
+                experiment = self._get_experiment(session, location, ViewType.ALL)
                 for _attempt in range(_LOG_SPANS_MAX_TRACE_CREATE_RETRIES):
                     pending = [tid for tid in all_trace_ids if tid not in existing_traces]
                     if not pending:

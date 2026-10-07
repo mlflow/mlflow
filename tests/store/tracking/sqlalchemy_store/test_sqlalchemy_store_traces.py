@@ -11760,3 +11760,35 @@ def test_log_spans_retries_on_deadlock(store: SqlAlchemyStore):
 
     assert calls["n"] == 2
     assert store.get_trace_info(trace_id).trace_id == trace_id
+
+
+def test_start_trace_reuses_session(store: SqlAlchemyStore):
+    # #26489: Prove the public get_experiment is not called from start_trace, avoiding pool deadlock.
+    experiment_id = store.create_experiment("start-trace-session-reuse")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+    )
+    with mock.patch.object(SqlAlchemyStore, "get_experiment") as mock_get:
+        result = store.start_trace(trace_info)
+
+    mock_get.assert_not_called()
+    assert result.trace_id == trace_id
+
+def test_log_spans_reuses_session(store: SqlAlchemyStore):
+    # #26489: Prove the public get_experiment is not called from log_spans, avoiding pool deadlock.
+    experiment_id = store.create_experiment("log-spans-session-reuse")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id, name="llm_call", span_id=111, span_type="LLM")
+
+    with mock.patch.object(SqlAlchemyStore, "get_experiment") as mock_get:
+        store.log_spans(experiment_id, [span])
+
+    mock_get.assert_not_called()
+    assert store.get_trace_info(trace_id).trace_id == trace_id
