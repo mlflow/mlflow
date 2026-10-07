@@ -109,6 +109,7 @@ export const RESOURCE_TYPES = [
   'gateway_endpoint',
   'mcp_server',
   'mcp_server_version',
+  'skill',
   'workspace',
 ] as const;
 
@@ -159,6 +160,7 @@ export const RESOURCE_TYPE_LABELS = {
   gateway_endpoint: 'LLM endpoint',
   mcp_server: 'MCP server',
   mcp_server_version: 'MCP server version',
+  skill: 'Skill',
   workspace: 'Workspace',
 } satisfies Record<(typeof RESOURCE_TYPES)[number], string>;
 
@@ -175,7 +177,7 @@ export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY'] as const;
  * Permission levels the picker should expose per resource type, mirroring
  * the backend's ``_validate_permission_for_resource_type``:
  * ``workspace`` is ``USE`` / ``MANAGE`` only; gateway types expose ``USE``;
- * other types hide ``USE`` (no-op over ``READ``).
+ * ``skill`` rejects ``USE``; other types hide ``USE`` (no-op over ``READ``).
  *
  * ``DENY`` comes last on every non-workspace type. It is not a weaker level than
  * the ones above it — it is a veto that beats any positive grant on the same key
@@ -204,6 +206,7 @@ export const PERMISSIONS_FOR_RESOURCE_TYPE = {
   gateway_endpoint: ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY'],
   mcp_server: ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY'],
   mcp_server_version: ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY'],
+  skill: ['READ', 'EDIT', 'MANAGE', 'DENY'],
   workspace: ['USE', 'MANAGE'],
 } satisfies Record<(typeof RESOURCE_TYPES)[number], readonly string[]>;
 
