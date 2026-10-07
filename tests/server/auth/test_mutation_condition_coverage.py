@@ -23,6 +23,7 @@ from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     PARENT_RESOURCE_TYPES,
     PARENTLESS_RESOURCE_TYPES,
+    SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
     MutationConditionSpec,
@@ -482,6 +483,108 @@ def test_every_sub_resource_context_declares_its_parent(
         f"so a {PARENT_RESOURCE_TYPES[resource_type]}-scoped condition on {resource_type} "
         f"would never be loaded and the mutation would run unconditioned; "
         f"got resource_ids={[c.resource_ids for c in unanchored]}"
+    )
+
+
+# Routes that condition a type OTHER than the one they modify, with the reason. The only
+# admissible reason is that the modified type owns no condition vocabulary, so no condition
+# row can ever name it -- the test below asserts exactly that, which is what keeps this map
+# from becoming a place to excuse a container check.
+_CONTAINER_CONDITION_EXCEPTIONS = {
+    "validate_can_create_assessment": ("assessment", "trace"),
+    "validate_can_update_assessment": ("assessment", "trace"),
+    "validate_can_delete_assessment": ("assessment", "trace"),
+}
+
+
+def _ancestors_of(resource_type):
+    """The container chain above a type, per ``PARENT_RESOURCE_TYPES``."""
+    chain = []
+    current = PARENT_RESOURCE_TYPES.get(resource_type)
+    while current is not None:
+        chain.append(current)
+        current = PARENT_RESOURCE_TYPES.get(current)
+    return chain
+
+
+@pytest.mark.parametrize(
+    ("validator", "path", "method", "body", "resource_type", "scope"), _WIRED_MUTATIONS
+)
+def test_no_mutation_conditions_its_container(
+    recorder, monkeypatch, validator, path, method, body, resource_type, scope
+):
+    """A container is a row SELECTOR, not a thing to condition.
+
+    Conditions govern the resource being MODIFIED. A container -- the experiment a run or
+    trace lives in, the registered model a version belongs to -- is conditioned only when it
+    is itself the subject of the request. When it merely receives a child, it appears as the
+    child context's ``parent_resource_id``, which is what loads container-scoped conditions
+    on the CHILD; the container gets no context of its own.
+
+    This matters because the RFC puts inheritance out of scope. Container scope was the
+    compromise that replaced it: a condition attached to an experiment governs that
+    experiment's traces, rather than being inherited by them as an experiment condition.
+    Declaring a context for the container as well would collapse the distinction and charge
+    a mutation twice -- once against the container's own conditions and again against the
+    container-scoped conditions on the child -- so an admin restricting one experiment's
+    traces would find they had also restricted the experiment.
+
+    Descendants are a different matter and are allowed: a cascade that transitions an
+    experiment's runs declares a context per run, because those runs really are being
+    modified.
+    """
+    if validator in ("validate_can_set_experiment_tag", "validate_can_delete_experiment_tag"):
+        # Same stub the sibling guards use: the legacy experiment surface resolves its grant
+        # through `_get_permission_from_experiment_id` rather than delegating.
+        monkeypatch.setattr(
+            auth_module,
+            "_get_permission_from_experiment_id",
+            lambda: SimpleNamespace(can_update=True),
+        )
+    if validator.endswith("_alias"):
+        monkeypatch.setattr(auth_module, "_alias_version_requirement_met", lambda: True)
+
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        getattr(auth_module, validator)()
+
+    declared = {c.resource_type for c in recorder.contexts}
+    ancestors = set(_ancestors_of(resource_type))
+    offending = declared & ancestors
+    if validator in _CONTAINER_CONDITION_EXCEPTIONS:
+        pytest.skip(f"{validator} conditions an ancestor by documented exception")
+    assert not offending, (
+        f"{validator} declared a condition context for {sorted(offending)}, which "
+        f"CONTAINS the {resource_type} it modifies rather than being it. A container "
+        f"belongs in parent_resource_id, where it selects which {resource_type} conditions "
+        f"load; conditioning it as well charges the mutation against the container's own "
+        f"conditions too, which is the inheritance the RFC put out of scope."
+    )
+
+
+@pytest.mark.parametrize(
+    ("validator", "modified", "conditioned"),
+    [(v, m, c) for v, (m, c) in _CONTAINER_CONDITION_EXCEPTIONS.items()],
+)
+def test_a_container_exception_is_forced_by_a_missing_vocabulary(validator, modified, conditioned):
+    """The only admissible reason to condition something other than the modified resource.
+
+    The RFC authorizes assessment create, update and delete against the owning TRACE, and
+    its own worked example is refusing an assessment on a trace tagged ``finalized=true``.
+    That is only coherent because ``assessment`` owns no tag or alias vocabulary: it is
+    absent from ``SUPPORTED_RESOURCE_TYPES``, so no condition row can name it and the trace
+    is the only thing an admin could restrict.
+
+    If that ever changes -- if assessments become conditionable -- this test fails, and the
+    right response is to condition the assessment directly and drop the exception, not to
+    extend the entry. That is the whole point of asserting the absence rather than just
+    listing the route.
+    """
+    assert modified not in SUPPORTED_RESOURCE_TYPES, (
+        f"{modified} is now a conditionable type, so {validator} should condition it "
+        f"directly instead of its {conditioned} container -- remove this exception."
+    )
+    assert conditioned in SUPPORTED_RESOURCE_TYPES, (
+        f"{validator} conditions {conditioned}, which is not a conditionable type"
     )
 
 
