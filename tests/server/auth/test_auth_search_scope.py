@@ -271,6 +271,12 @@ def test_authenticated_queries_tolerate_legacy_nonnumeric_experiment_grants(
     params = {"trace_ids": traces} if response_key in {"traces", "trace_infos"} else {}
     if response_key in {"experiments", "models"}:
         params["max_results"] = 10
+    if response_key == "models":
+        params["experiment_ids"] = [
+            readable_experiment,
+            unreadable_experiment,
+            outside_experiment,
+        ]
     kwargs = {"query_string": params} if method == "GET" else {"json": params}
     headers = {
         "Authorization": Authorization(

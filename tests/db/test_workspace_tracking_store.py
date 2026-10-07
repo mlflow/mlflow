@@ -230,14 +230,12 @@ def test_search_model_versions_version_number_filter_binds_integers(psycopg3_reg
         assert [mv.version for mv in results] == [version.version]
 
 
-def test_search_experiments_filter_respects_workspace_boundary(tmp_path, monkeypatch):
+def test_search_experiments_filter_respects_workspace_boundary(tmp_path, monkeypatch, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = WorkspaceAwareSqlAlchemyStore(
-        f"sqlite:///{tmp_path / 'test.db'}", artifact_dir.as_uri()
-    )
+    store = WorkspaceAwareSqlAlchemyStore(db_uri, artifact_dir.as_uri())
 
     with WorkspaceContext("team-a"):
         exp_a1 = store.create_experiment("exp-a1")

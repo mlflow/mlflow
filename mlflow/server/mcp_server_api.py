@@ -339,7 +339,9 @@ class MCPServerResponse(BaseModel):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
-    allowed_actions: list[str] = Field(default_factory=list)
+    allowed_actions: list[str] = Field(
+        default_factory=lambda: ["USE", "UPDATE", "DELETE", "MANAGE"]
+    )
 
     @classmethod
     def from_entity(cls, entity: MCPServer) -> MCPServerResponse:
@@ -593,7 +595,7 @@ def create_mcp_server(body: CreateMCPServerRequest, request: Request) -> MCPServ
         icons=_icon_payloads_to_entities(body.icons),
         created_by=username,
     )
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.get("", response_model=SearchMCPServersResponse)
@@ -903,7 +905,7 @@ def update_mcp_server(
     server = _get_tracking_store().update_mcp_server(
         **_update_mcp_server_kwargs(name, body), last_updated_by=username
     )
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.delete("/{name:path}")
