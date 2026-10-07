@@ -2255,11 +2255,35 @@ def _authorize_logged_model_id(
     model_id: str,
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    mutates: bool = False,
 ) -> bool:
+    """Authorize an action on a logged model, with its condition context.
+
+    ``mutates`` attaches the MUTATE condition context even when the grant tier is READ.
+    That combination looks odd and is deliberate: a lineage write (the auto-generated
+    ``mlflow.modelVersions`` back-reference a model-version create leaves on its source
+    model) is contracted at READ on the source -- raising it to UPDATE would deny an
+    ordinary cross-user create. But it is still a mutation of that logged model, and a
+    target condition answers "which logged models may this role mutate at all", so it has
+    to be evaluated. Grants and conditions are separate axes; this is the one place their
+    tiers intentionally differ.
+    """
     model = auth_resources.fetch_logged_model(model_id)
     if model is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+    context = context_for(
+        RESOURCE_TYPE_LOGGED_MODEL,
+        model_id,
+        ConditionScope.MUTATE,
+        LoggedModelRequestValues(tags=tags),
+        parent_resource_id=model.experiment_id,
+    )
+    # A read declares NO context (see _mutation_contexts): declaring one would make a
+    # target condition deny the read. `mutates` is the narrow exception described above --
+    # the grant stays at READ while the condition is still evaluated.
+    conditions = [context] if (mutates or action != READ_ACTION) else []
     # Experiment READ baseline -- see _run_requirement.
     return authorize(
         authenticate_request().username,
@@ -2270,16 +2294,7 @@ def _authorize_logged_model_id(
                 RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,)
             ),
         ],
-        conditions=_mutation_contexts(
-            action,
-            context_for(
-                RESOURCE_TYPE_LOGGED_MODEL,
-                model_id,
-                ConditionScope.MUTATE,
-                LoggedModelRequestValues(tags=tags),
-                parent_resource_id=model.experiment_id,
-            ),
-        ),
+        conditions=conditions,
     )
 
 
@@ -3944,11 +3959,26 @@ def validate_can_create_model_version():
         [Requirement(asserted_type, "*", ACTION_NOT_DENIED)],
     ):
         return False
+    # Mirrors the handler's ``_is_prompt_request``: the marker in the REQUEST tags, last
+    # value winning, absent meaning false. A prompt create skips the lineage resolution
+    # entirely, so it writes to no logged model and must not be made to prove it may.
+    creates_prompt = _prompt_marker_in_tags(msg.tags) is True
+
     if is_models_uri(msg.source):
         parsed_source = _parse_model_uri(msg.source)
         if parsed_source.name is not None:
             # A registered model is itself the artifact access boundary. The copied version's
-            # lineage IDs are metadata and do not require separate run/logged-model access.
+            # lineage IDs are metadata and do not require separate run access.
+            # A registered model is itself the artifact access boundary. The copied
+            # version's lineage IDs are metadata and do not require separate
+            # run/logged-model access.
+            #
+            # No logged-model mutation can reach this branch, so it needs no condition.
+            # The handler's lineage resolution either adopts the source version's
+            # ``model_id`` -- not persisted by the SQLAlchemy registry store, so always
+            # None and nothing is written -- or, with an explicit ``model_id``, REFUSES the
+            # request outright because the two must match. Adding a check here would be a
+            # second, unexercised implementation of that rule.
             return _can_read_model_version_source(
                 _get_registered_model_or_prompt_permission, parsed_source.name
             )
@@ -3957,10 +3987,21 @@ def validate_can_create_model_version():
     # denied here rather than being allowed to slip past the guard as if it were absent.
     if msg.HasField("run_id") and not (msg.run_id and _authorize_run_id(msg.run_id, "read")):
         return False
+    # Unless the create is a prompt, the handler writes an ``mlflow.modelVersions`` tag
+    # ONTO this logged model (``set_model_versions_tags``), which is a mutation of a
+    # resource in its own experiment. The grant stays at READ -- that is the contracted
+    # authority for a lineage write, and demanding UPDATE denies an ordinary cross-user
+    # create -- while ``mutates`` attaches the logged-model MUTATE context so a target
+    # condition still governs which models may be written at all. A prompt create resolves
+    # no lineage and writes nothing, so it only reads.
     if msg.HasField("model_id") and not (
-        msg.model_id and _authorize_logged_model_id(msg.model_id, "read")
+        msg.model_id
+        and _authorize_logged_model_id(msg.model_id, "read", mutates=not creates_prompt)
     ):
         return False
+    # READ, deliberately: for a ``models:/<model-id>`` source the lineage resolver returns
+    # the request's own ``model_id`` unchanged, so the embedded id is read as lineage and
+    # never receives the tag write.
     source_model_id = _model_id_from_source_uri(msg.source)
     if source_model_id and not _authorize_logged_model_id(source_model_id, "read"):
         return False

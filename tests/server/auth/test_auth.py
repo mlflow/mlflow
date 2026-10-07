@@ -6442,6 +6442,96 @@ def test_otlp_authorizes_a_trace_reached_by_child_spans_alone(fastapi_client, mo
     assert ingest(child_only, mine, (user, password)).status_code == 403
 
 
+def _logged_model_condition_role(auth_client, user, pattern, experiment_id=None):
+    role = auth_client.create_role("default", f"lm-cond-{random_str()}", "test")
+    auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+    auth_client.add_role_permission(role.id, "registered_model", "*", EDIT.name)
+    kwargs = {}
+    if experiment_id is not None:
+        kwargs = {
+            "container_resource_type": "experiment",
+            "container_resource_pattern": experiment_id,
+        }
+    auth_client.add_mutation_condition(role.id, "logged_model", target_condition=pattern, **kwargs)
+    auth_client.assign_role(user, role.id)
+    return role
+
+
+def test_create_model_version_applies_the_source_logged_model_condition(client, monkeypatch):
+    """F-0041. ``set_model_versions_tags`` writes an ``mlflow.modelVersions`` tag onto the
+    SOURCE logged model, so a model-version create mutates a resource in another
+    experiment and a logged-model target condition has to govern it.
+
+    The grant tier stays READ -- that is the contracted authority for a lineage write, and
+    raising it would deny an ordinary cross-user create. The condition is what is missing.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(client.tracking_uri)
+    user, password = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        exp_id = client.create_experiment(f"f41-src-{random_str()}")
+        model = client.create_logged_model(experiment_id=exp_id)
+        client.set_logged_model_tags(model.model_id, {"lifecycle": "prod"})
+        rm = client.create_registered_model(f"f41-model-{random_str()}")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        _logged_model_condition_role(auth_client, user, "tags.lifecycle = 'dev'")
+
+    # The source model is tagged prod, so a condition admitting only dev must refuse the
+    # create -- the write lands on that model.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={
+            "name": rm.name,
+            "source": model.artifact_location,
+            "model_id": model.model_id,
+        },
+        auth=(user, password),
+    )
+    assert response.status_code == 403
+    assert "tags.lifecycle" in response.text
+
+
+def test_create_model_version_logged_model_condition_is_scoped_to_its_experiment(
+    client, monkeypatch
+):
+    """A condition scoped to a DIFFERENT experiment must not govern this source model.
+
+    The F-0022 property, inside the new path: the container axis is matched per context, so
+    a restriction written for one experiment's logged models cannot refuse a create whose
+    source lives in another.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(client.tracking_uri)
+    user, password = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        exp_id = client.create_experiment(f"f41-scope-{random_str()}")
+        elsewhere = client.create_experiment(f"f41-other-{random_str()}")
+        model = client.create_logged_model(experiment_id=exp_id)
+        client.set_logged_model_tags(model.model_id, {"lifecycle": "prod"})
+        rm = client.create_registered_model(f"f41-scope-model-{random_str()}")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        _logged_model_condition_role(
+            auth_client, user, "tags.lifecycle = 'dev'", experiment_id=elsewhere
+        )
+
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={
+            "name": rm.name,
+            "source": model.artifact_location,
+            "model_id": model.model_id,
+        },
+        auth=(user, password),
+    )
+    assert response.status_code == 200
+
+
 def test_an_unparsable_otlp_payload_denies(fastapi_client, monkeypatch):
     # Fail closed: a payload the gate cannot read cannot be judged, and if the gate's parser
     # ever disagrees with the handler's, failing open would let exactly the unreadable
