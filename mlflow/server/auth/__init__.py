@@ -5941,13 +5941,28 @@ def validate_can_start_trace_v3():
             # The assessment veto is retained: `store.start_trace` persists
             # `trace_info.assessments` on this path too.
             username = authenticate_request().username
+            source_experiment_id = str(existing.experiment_id)
             if extra and not authorize(
-                username, (RESOURCE_TYPE_EXPERIMENT, str(existing.experiment_id)), list(extra)
+                username, (RESOURCE_TYPE_EXPERIMENT, source_experiment_id), list(extra)
             ):
                 return False
-            return _authorize_existing_traces_as(
-                username, {trace_id: (str(existing.experiment_id), tags)}, "update"
-            )
+            if not _authorize_existing_traces_as(
+                username, {trace_id: (source_experiment_id, tags)}, "update"
+            ):
+                return False
+            # The store assigns `trace_info.experiment_id` from THIS body and re-parents
+            # the trace's spans and assessments to it, so a body naming a different
+            # experiment MOVES the trace. That is a write into the destination, and
+            # authority over the source does not grant it -- otherwise a caller could lift
+            # a trace into an experiment they cannot write to, or out of one they are
+            # audited in. Routing an existing id off the create path removed the
+            # destination check that used to run, so it is restored explicitly here: a
+            # relocation needs BOTH ends.
+            if source_experiment_id != str(experiment_id):
+                return _authorize_create_in_experiment(
+                    experiment_id, RESOURCE_TYPE_TRACE, extra=extra, tags=tags
+                )
+            return True
 
     return _authorize_create_in_experiment(
         experiment_id,
@@ -10685,12 +10700,18 @@ def _otlp_try_parse_json_string(value):
     return parsed if isinstance(parsed, str) else value
 
 
-def _otlp_trace_projections(
+def _otlp_scan(
     raw_body: bytes,
     content_type: "str | None",
     content_encoding: "str | None",
-) -> "list[tuple[str, tuple[tuple[str, str | None], ...]]]":
-    """``(trace_id, tags)`` for every ROOT span in an OTLP payload.
+) -> "tuple[list[tuple[str, tuple[tuple[str, str | None], ...]]], list[str]]":
+    """One parse of an OTLP payload, yielding both sets the gate needs.
+
+    Returns ``(projections, all_trace_ids)``: the root-span tag projections, and every
+    distinct trace id the payload writes to. Both come from a single parse so the two can
+    never disagree about what the payload contains, and an unparsable payload fails once.
+
+    ``projections`` is ``(trace_id, tags)`` for every ROOT span in the payload.
 
     This is the request-side projection for OTel ingest, and it has to agree with what the
     store actually persists or a condition judges a string that was never written. The
@@ -10701,6 +10722,12 @@ def _otlp_trace_projections(
     Only a root span is projected because only a root span carries those attributes and
     only a root span completes a trace -- the same predicate (``parent_id is None``) the
     handler keys ``completed_trace_ids`` on.
+
+    That makes this the wrong set to AUTHORIZE on. ``_log_spans_once`` groups the payload by
+    ``trace_id`` and writes every group, root present or not, so a batch of child spans
+    alone still appends to a trace and recomputes its aggregates while projecting nothing
+    here. Use :func:`_otlp_submitted_trace_ids` for the set of traces a payload WRITES, and
+    this for the tags it SETS.
 
     An invalid tag is SKIPPED, exactly as the store skips it. Rejecting here would deny a
     write the handler would have accepted, which is the failure mode of a projection that
@@ -10732,6 +10759,7 @@ def _otlp_trace_projections(
     else:
         parsed_request.ParseFromString(body)
 
+    all_trace_ids: "list[str]" = []
     prefix = SpanAttributeKey.TRACE_TAG_PREFIX
     projections: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
     for resource_span in parsed_request.resource_spans:
@@ -10744,6 +10772,10 @@ def _otlp_trace_projections(
                     # The handler skips a span it cannot convert, so it writes nothing for
                     # it and there is nothing to judge.
                     continue
+                # Recorded BEFORE the root filter: this is a trace the payload writes to,
+                # which is what has to be authorized, regardless of whether this batch
+                # happens to carry its root.
+                all_trace_ids.append(str(span.trace_id))
                 if span.parent_id is not None:
                     continue
                 attributes = translate_span_when_storing(span).get("attributes") or {}
@@ -10761,7 +10793,16 @@ def _otlp_trace_projections(
                         tag_value = validate_trace_name(tag_value)
                     tags.append((tag_key, tag_value))
                 projections.append((span.trace_id, tuple(tags)))
-    return projections
+    return projections, list(dict.fromkeys(all_trace_ids))
+
+
+def _otlp_trace_projections(
+    raw_body: bytes,
+    content_type: "str | None",
+    content_encoding: "str | None",
+) -> "list[tuple[str, tuple[tuple[str, str | None], ...]]]":
+    """The root-span tag projections for an OTLP payload. See :func:`_otlp_scan`."""
+    return _otlp_scan(raw_body, content_type, content_encoding)[0]
 
 
 def _get_otel_validator(
@@ -10783,7 +10824,7 @@ def _get_otel_validator(
         # server -- a tagged span ingested after this read still persisted its tag.
         raw_body = await request.body()
         try:
-            projections = _otlp_trace_projections(
+            projections, submitted_ids = _otlp_scan(
                 raw_body,
                 request.headers.get("content-type"),
                 request.headers.get("content-encoding"),
@@ -10803,10 +10844,16 @@ def _get_otel_validator(
         # One batched resolution, so classifying fifty submitted traces is one query
         # rather than fifty. It also seeds the per-request memo, which is what keeps the
         # per-trace helpers below free.
-        auth_resources.prefetch_trace_infos([trace_id for trace_id, _tags in projections])
+        auth_resources.prefetch_trace_infos(submitted_ids)
+        # Tags are keyed off the ROOT projections, which is where they live; the ids
+        # being classified are every id the payload WRITES to, which is a superset. A
+        # trace reached by child spans alone is therefore still authorized, with no tags
+        # to judge because the batch sets none for it.
+        tags_by_trace = dict(projections)
         created_tags: "list[tuple[str, str | None]]" = []
         existing: "dict[str, tuple[str, tuple[tuple[str, str | None], ...]]]" = {}
-        for trace_id, tags in projections:
+        for trace_id in submitted_ids:
+            tags = tags_by_trace.get(trace_id, ())
             trace = auth_resources.fetch_trace_info(trace_id)
             if trace is None:
                 created_tags.extend(tags)
@@ -10829,7 +10876,7 @@ def _get_otel_validator(
         #
         # Every other shape still carries it, including an empty payload, so a caller with
         # no rights in the header experiment is refused exactly as before.
-        appends_only = bool(projections) and len(existing) == len(projections)
+        appends_only = bool(submitted_ids) and len(existing) == len(submitted_ids)
         if not appends_only and not _authorize_create_in_experiment_as(
             username, experiment_id, RESOURCE_TYPE_TRACE, tags=tuple(created_tags)
         ):
