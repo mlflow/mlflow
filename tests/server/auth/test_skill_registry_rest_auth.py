@@ -9,6 +9,7 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 
 def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monkeypatch):
@@ -158,6 +159,22 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         with pytest.raises(MlflowException, match="not found"):
             tracking_store.get_skill_version_by_alias("reviewer", "stable", organization="acme")
 
+        tracking_store.create_skill_version(
+            name="reviewer",
+            organization="acme",
+            source_type="zip",
+            source="https://example.com/second.zip",
+            status="draft",
+        )
+        assert (
+            client.patch(
+                f"{target}/versions/2",
+                json={"status": "deleted"},
+                headers={"x-user": admin.username},
+            ).status_code
+            == 200
+        )
+
         # If the owner deletes an existing parent after registration preflight,
         # the transaction must not recreate it using the stale EDIT decision.
         for endpoint in ("register", "versions", "bulk-register"):
@@ -220,6 +237,72 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
             )
             is None
         )
+    finally:
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
+@pytest.mark.parametrize("endpoint", ["register", "versions", "bulk-register"])
+def test_platform_admin_can_register_without_workspace_grant(tmp_path, monkeypatch, endpoint):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
+    auth_store = AuthStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
+    tracking_store = TrackingStore(
+        f"sqlite:///{tmp_path / 'tracking.db'}", str(tmp_path / "artifacts")
+    )
+    auth_store.create_user("admin2", "strong-password", is_admin=True)
+    monkeypatch.setattr(auth, "store", auth_store)
+    monkeypatch.setattr(auth, "_get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr(
+        auth,
+        "auth_config",
+        auth.auth_config._replace(
+            default_permission=NO_PERMISSIONS.name, grant_default_workspace_access=False
+        ),
+    )
+    monkeypatch.setattr(auth, "_auth_initialized", True)
+    monkeypatch.setattr(
+        auth,
+        "_authenticate_fastapi_request",
+        lambda request: auth_store.get_user(request.headers["x-user"]),
+    )
+    app = FastAPI()
+    app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")
+    add_registry_exception_handlers(app)
+    auth.add_fastapi_permission_middleware(app)
+    client = TestClient(app)
+    prefix = "/api/3.0/mlflow/skills"
+    headers = {"x-user": "admin2"}
+    try:
+        with ServerWorkspaceContext("default"):
+            assert not auth.validate_can_create_skill("admin2")
+            if endpoint == "bulk-register":
+                response = client.post(
+                    f"{prefix}/bulk-register",
+                    json={
+                        "skills": [
+                            {
+                                "name": "private",
+                                "source": "https://example.com/repo.git",
+                                "ref": "main",
+                                "digest": "a" * 64,
+                            }
+                        ]
+                    },
+                    headers=headers,
+                )
+            else:
+                url = (
+                    f"{prefix}/private/versions" if endpoint == "versions" else f"{prefix}/register"
+                )
+                body = {"source": "https://example.com/skill.zip"}
+                if endpoint == "register":
+                    body["name"] = "private"
+                response = client.post(url, json=body, headers=headers)
+            assert response.status_code == 200, response.text
+            assert tracking_store.get_skill("private").created_by == "admin2"
     finally:
         auth_store.engine.dispose()
         tracking_store.engine.dispose()

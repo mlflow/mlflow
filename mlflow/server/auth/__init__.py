@@ -1319,13 +1319,22 @@ def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdenti
     # separators and encoded dot segments to the same private file.
     try:
         decoded = _decode(artifact_path).strip("/")
-    except ValueError:
-        decoded = artifact_path.strip("/")
-    parts = decoded.split("/", 3)
-    if len(parts) >= 3 and parts[0] == "workspaces":
-        decoded = decoded.split("/", 2)[2]
-    if decoded.split("/", 1)[0] == "skills" and decoded not in ("skills",):
-        if not (decoded.startswith("skills/@") and decoded.count("/") == 1):
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value("Invalid artifact path encoding.") from e
+    # Local artifact storage resolves leading dot and empty segments before opening
+    # a file. Recognize the resulting Skill namespace even when the supplied path
+    # did not start with "skills" (or with its workspace prefix).
+    segments = [segment for segment in decoded.split("/") if segment not in ("", ".")]
+    relative_path = decoded
+    if len(segments) >= 3 and segments[0] == "workspaces":
+        relative_path = decoded.split("/", 2)[2] if decoded.startswith("workspaces/") else ""
+        segments = segments[2:]
+    if segments and segments[0] == "skills" and len(segments) > 1:
+        if not (
+            len(segments) == 2
+            and segments[1].startswith("@")
+            and relative_path == f"skills/{segments[1]}"
+        ):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid Skill artifact path {artifact_path!r}."
             )

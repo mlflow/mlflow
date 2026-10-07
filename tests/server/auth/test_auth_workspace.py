@@ -607,7 +607,12 @@ def test_concrete_artifact_path_cannot_be_replaced_by_query_identity(prefix, met
 
 
 @pytest.mark.parametrize(
-    "suffix", ["skills//private/token/SKILL.md", "skills/%2e/private/token/SKILL.md"]
+    "suffix",
+    [
+        "skills//private/token/SKILL.md",
+        "skills/%2e/private/token/SKILL.md",
+        "%2e/skills/private/token/SKILL.md",
+    ],
 )
 @pytest.mark.parametrize("prefix", ["", "workspaces/team-a/"])
 def test_noncanonical_skill_artifact_path_cannot_use_default_permission(

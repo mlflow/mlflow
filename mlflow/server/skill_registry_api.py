@@ -413,7 +413,9 @@ def _missing_skill_authorizer(
                 f"Skill '{name}' disappeared after registration authorization; retry the request",
                 RESOURCE_CONFLICT,
             )
-        if not auth.validate_can_create_skill(username):
+        if not auth.store.get_user(username).is_admin and not auth.validate_can_create_skill(
+            username
+        ):
             raise MlflowException("Permission denied", PERMISSION_DENIED)
 
     return authorize
@@ -659,7 +661,10 @@ def _update_skill_version(
     if username is not None and status == SkillStatus.DELETED.value:
         from mlflow.server import auth
 
-        if not auth._get_skill_permission(organization, name, username).can_manage:
+        if (
+            not auth.store.get_user(username).is_admin
+            and not auth._get_skill_permission(organization, name, username).can_manage
+        ):
             raise MlflowException("Permission denied", PERMISSION_DENIED)
     return SkillVersionResponse.from_entity(
         _get_tracking_store().update_skill_version(
