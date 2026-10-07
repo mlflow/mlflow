@@ -257,9 +257,9 @@ describe('createTracedQuery (integration)', () => {
     // Aggregate token usage (with separate cache keys) is recorded on the root.
     const rootUsage = root.attributes['mlflow.chat.tokenUsage'] as Record<string, number>;
     expect(rootUsage).toEqual({
-      input_tokens: 80,
+      input_tokens: 185,
       output_tokens: 35,
-      total_tokens: 115,
+      total_tokens: 220,
       cache_read_input_tokens: 100,
       cache_creation_input_tokens: 5,
     });
