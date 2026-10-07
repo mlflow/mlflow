@@ -275,6 +275,23 @@ configuration), the UI falls back to downloading the artifact through the Tracki
 MLflow supports presigned URL downloads for the following storage:
 
 - Amazon S3
+- Google Cloud Storage
+- Azure Blob Storage
+
+Presigned URLs are signed by the Tracking Server using the credentials it uses to access the storage, so those
+credentials must be able to sign:
+
+- **Google Cloud Storage**: the credentials must include a private key, for example a service account key file
+  (`GOOGLE_APPLICATION_CREDENTIALS`). Credentials without a private key, such as user credentials from
+  `gcloud auth application-default login` or the Compute Engine/GKE metadata server, cannot sign URLs.
+- **Azure Blob Storage**: use an account key (`AZURE_STORAGE_ACCESS_KEY` or `AZURE_STORAGE_CONNECTION_STRING` with an
+  account key), or Microsoft Entra ID credentials (such as `DefaultAzureCredential`) for an identity allowed to
+  request a user delegation key, for example one with the
+  [Storage Blob Delegator](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-delegator)
+  role in addition to read access to the blobs. SAS token and anonymous credentials cannot sign.
+
+If the credentials cannot sign, the Tracking Server responds with HTTP 501 (`NOT_IMPLEMENTED`) and the UI and the
+Python client fall back to downloading the artifact through the Tracking Server.
 
 You can configure the following environment variable:
 
